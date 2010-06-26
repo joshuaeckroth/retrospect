@@ -25,6 +25,22 @@
 
 (defstruct entity :symbol :posx :posy)
 
+(defn new-entity [state]
+  (loop [symbol (char (+ 33 (rand-int 94)))
+         posx (rand-int (:width (:grid state)))
+         posy (rand-int (:height (:grid state)))]
+    (if (or (symbol-used symbol state) (pos-occupied posx posy state))
+      (recur (char (+ 33 (rand-int 94)))
+             (rand-int (:width (:grid state)))
+             (rand-int (:height (:grid state))))
+      (struct-map entity :symbol symbol :posx posx :posy posy))))
+
+(defn symbol-used [symbol state]
+  (some identity (map (fn [e] (= (:symbol e) symbol)) (:entities state))))
+
+(defn pos-occupied [posx posy state]
+  (some identity (map (fn [e] (and (= (:posx e) posx) (= (:posy e) posy))) (:entities state))))
+
 (defn walk1 [e grid]
   (let [dir (nth ["left" "right" "down" "up"] (rand-int 4))
         newpos (can-move? dir (:posx e) (:posy e) grid)]
@@ -59,23 +75,32 @@
         (if (pos-free posx (dec posy) grid)
           {:posx posx :posy (dec posy)} nil)))
 
-(defn run [steps entities]
-  (loop [i 0
-         s (struct-map state :grid (new-grid 10 10) :entities entities)]
-    (do
-      (draw-grid-ascii (:grid s))
-      (if (< i steps)
-        (recur (inc i)
-               (loop [es (:entities s)
-                      n 0
-                      grid (:grid s)]
-                 (if (< n (count es))
-                   (let [olde (nth es n)
-                         newe (walk1 olde grid)
-                         newes (assoc es n newe)
-                         newgrid (update-grid olde newe grid)]
-                     (recur newes (inc n) newgrid))
-                   (assoc s :grid grid :entities es))))
-        s))))
+;; simulation functions
+
+(defn run [steps numes]
+  ; build up "numes" number of entities
+  (let [state (loop [i 0
+                     s (struct-map state :grid (new-grid 10 10) :entities [])]
+                (if (< i numes)
+                  (recur (inc i) (assoc s :entities (conj (:entities s) (new-entity s))))
+                  s))]
+    ; loop through steps
+    (loop [i 0
+           s state]
+      (do
+        (draw-grid-ascii (:grid s))
+        (if (< i steps)
+          (recur (inc i)
+                 (loop [es (:entities s)
+                        n 0
+                        grid (:grid s)]
+                   (if (< n (count es))
+                     (let [olde (nth es n)
+                           newe (walk1 olde grid)
+                           newes (assoc es n newe)
+                           newgrid (update-grid olde newe grid)]
+                       (recur newes (inc n) newgrid))
+                     (assoc s :grid grid :entities es))))
+          s)))))
 
 
