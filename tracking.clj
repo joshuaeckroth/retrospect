@@ -1,3 +1,6 @@
+(ns org.artifice.thesis.simulation
+  (:use clojure.test))
+
 ;; state functions
 
 (defstruct state :grid :entities)
@@ -16,14 +19,21 @@
        (>= posy 0) (< posy (:height grid))
        (= \space (nth (nth (:grid grid) posx) posy))))
 
-(defn draw-grid-ascii [grid]
-  (println
-   (for [row (:grid grid)]
-     (println-str row))))
+(deftest blank-grid-all-free
+  (let [width 100 height 100
+        grid (new-grid width height)]
+    (is (every? (fn [[x y]] (pos-free x y grid))
+                (for [x (range 100) y (range 100)] [x y])))))
 
 ;; entity functions
 
 (defstruct entity :symbol :posx :posy :new?)
+
+(defn symbol-used [symbol state]
+  (some identity (map (fn [e] (= (:symbol e) symbol)) (:entities state))))
+
+(defn pos-occupied [posx posy state]
+  (some identity (map (fn [e] (and (= (:posx e) posx) (= (:posy e) posy))) (:entities state))))
 
 (defn new-entity [state]
   (loop [symbol (char (+ 33 (rand-int 94)))
@@ -39,11 +49,19 @@
   (first (filter (fn [e] (and (= (:posx e) (:posx entity)) (= (:posy e) (:posy entity))))
                  (:entities state))))
 
-(defn symbol-used [symbol state]
-  (some identity (map (fn [e] (= (:symbol e) symbol)) (:entities state))))
-
-(defn pos-occupied [posx posy state]
-  (some identity (map (fn [e] (and (= (:posx e) posx) (= (:posy e) posy))) (:entities state))))
+(defn can-move? [dir posx posy grid]
+  (cond (= dir "left")
+        (if (pos-free (dec posx) posy grid)
+          {:posx (dec posx) :posy posy} nil)
+        (= dir "right")
+        (if (pos-free (inc posx) posy grid)
+          {:posx (inc posx) :posy posy} nil)
+        (= dir "down")
+        (if (pos-free posx (inc posy) grid)
+          {:posx posx :posy (inc posy)} nil)
+        (= dir "up")
+        (if (pos-free posx (dec posy) grid)
+          {:posx posx :posy (dec posy)} nil)))
 
 (defn walk1 [e grid]
   (let [dir (nth ["left" "right" "down" "up"] (rand-int 4))
@@ -65,20 +83,6 @@
     newgrid2))
                          
 
-(defn can-move? [dir posx posy grid]
-  (cond (= dir "left")
-        (if (pos-free (dec posx) posy grid)
-          {:posx (dec posx) :posy posy} nil)
-        (= dir "right")
-        (if (pos-free (inc posx) posy grid)
-          {:posx (inc posx) :posy posy} nil)
-        (= dir "down")
-        (if (pos-free posx (inc posy) grid)
-          {:posx posx :posy (inc posy)} nil)
-        (= dir "up")
-        (if (pos-free posx (dec posy) grid)
-          {:posx posx :posy (dec posy)} nil)))
-
 ;; sensor functions
 
 (defstruct sensor :id :left :right :bottom :top :spotted)
@@ -94,20 +98,17 @@
                             posy (range (:bottom s) (inc (:top s)))]
                         {:posx posx :posy posy :symbol (nth (nth (:grid (:grid state)) posy) posx)})))))
 
-;; strategy functions
-
-(defn new-strat-state [strategy]
-  (cond (= strategy "guess") (new-strat-state-guess)))
-
-(defn explain [strategy sensors strat-state state]
-  (cond (= strategy "guess") (explain-guess sensors strat-state state)))
 
 ;; guess strategy functions
 
 (defstruct strat-state-guess :entities)
 
-(defn new-strat-state-guess []
-  (struct-map strat-state-guess :entities []))
+(defn explain-new-entity [e strat-state state]
+  (let [strat-s (assoc strat-state :entities (conj (:entities strat-state) {:posx (:posx e) :posy (:posy e)}))]
+    (if (:new? (find-entity e state)) [1 1 strat-s] [1 0 strat-s])))
+
+(defn explain-existing-entity [e n strat-state state]
+  [1 0 strat-state])
 
 (defn explain-guess [sensors strat-state state]
   (loop [entities (reduce concat (map :spotted sensors))
@@ -122,14 +123,17 @@
                 (explain-new-entity e strat-state state)
                 (explain-existing-entity e n strat-state state))]
           (recur (rest entities) (+ d decisions) (+ c correct) strat-s)))))
-           
-(defn explain-new-entity [e strat-state state]
-  (let [strat-s (assoc strat-state :entities (conj (:entities strat-state) {:posx (:posx e) :posy (:posy e)}))]
-    (if (:new? (find-entity e state)) [1 1 strat-s] [1 0 strat-s])))
-
-(defn explain-existing-entity [e n strat-state state]
-  [1 0 strat-state])
   
+;; strategy functions
+
+(defn new-strat-state-guess []
+  (struct-map strat-state-guess :entities []))
+
+(defn new-strat-state [strategy]
+  (cond (= strategy "guess") (new-strat-state-guess)))
+
+(defn explain [strategy sensors strat-state state]
+  (cond (= strategy "guess") (explain-guess sensors strat-state state)))
 
 ;; simulation functions
 
