@@ -89,8 +89,18 @@
 		      ; only switch ":new?" to false if current step is 2 or more
 		      ; steps after this entity was new
 		      :new?
-		      (if (>= (:created e) (- step 2)) true false))
-        (assoc e :oposx (:posx e) :oposy (:posy e)))))
+		      (if (>= (:created e) (- step 4)) true false))
+        (assoc e :oposx (:posx e) :oposy (:posy e)
+	       :new? (if (>= (:created e) (- step 4)) true false)))))
+
+(defn walkn
+  "Move an entity n steps in a random walk."
+  [n e grid step]
+  (loop [i 0
+	 ee e]
+    (if (< i n)
+      (recur (inc i) (walk1 ee grid step))
+      ee)))
 
 (defn update-grid
   "Redraw symbols on grid. Only affected row(s) and column(s)
@@ -153,9 +163,10 @@
         strat-s (assoc strat-state
 		  :entities (conj (remove #(= olde %) (:entities strat-state)) newe))
 	reale (find-entity newe entities)]
-    (if (and (= (:posx olde) (:oposx reale)) (= (:posy olde) (:oposy reale)))
-      [1 1 strat-s]
-      [1 0 strat-s])))
+    (do (println "real: " reale) (println "old: " olde) (println "new: " newe)
+	(if (and (= (:posx olde) (:oposx reale)) (= (:posy olde) (:oposy reale)))
+	  [1 1 strat-s]
+	  [1 0 strat-s]))))
 
 (defn filter-old-entities
   "Filter only those entities that have a step less than the current step."
@@ -166,6 +177,13 @@
 
 (defn new-strat-state-guess []
   (struct-map strat-state-guess :step 0 :entities []))
+
+
+; TODO: explain-guess and explain-nearest should return their explanation:
+; explain as new or explain as existing; this is used by the (run) function to
+; call another function that applies the explanation and checks its truth;
+; thus, explain-guess and explain-nearest are not provided 'entities' or any
+; other information about truth
 
 (defn explain-guess
   "Provide a 'guessed' explanation. Returns [decisions correct new-strat-state]."
@@ -195,13 +213,16 @@
   "Find entity nearest to e, and return [nearest-entity-index distance]."
   [e entities]
   (first (sort-by (fn [[ee dist]] dist)
-                  (for [n (range (count entities))]
-                    (let [ee (nth entities n)]
-                      [ee (+ (math/abs (- (:posx e) (:posx ee)))
-			     (math/abs (- (:posy e) (:posy ee))))])))))
+                  (for [ee entities]
+		    [ee (+ (math/abs (- (:posx e) (:posx ee)))
+			   (math/abs (- (:posy e) (:posy ee))))]))))
+
+; TODO: look at whole collection of sensor reports, and explain first the
+; reports with lowest ambiguity (with 'unique nearest'); then remove the olde
+; from the candidates and explain the next least ambiguous, etc.
 
 (defn explain-nearest
-  "Provide a 'nearest' explanation. If an existing entity is within 5 units
+  "Provide a 'nearest' explanation. If an existing entity is within 10 units
    of observed entity, then the existing entity (or a nearer one) is
    offered as the explanation. Returns [decisions correct new-strat-state]."
   [sensors strat-state entities]
@@ -216,7 +237,7 @@
               (if (= 0 (count oldes))
                 (explain-new-entity e entities strat-s)
                 (let [[ee dist] (find-nearest e oldes)]
-                  (if (> dist 10)
+                  (if (> dist 3)
 		    (explain-new-entity e entities strat-s)
 		    (explain-existing-entity e ee entities strat-s))))]
           (recur (rest es) (+ d decisions) (+ c correct) new-strat-s)))))
@@ -236,19 +257,19 @@
   :numsens :senscoverage :sensoverlap
   :strategy :decisions :correct :percent)
 
-(defn run [steps numes width height strategy sensors]
-  (let [[decisions correct]
-                                        ; build up "numes" number of entities
-        (let [state (loop [i 0
-                           s (struct-map state :grid (new-grid width height)
-					 :entities [])]
-                      (if (< i numes)
-                        (recur (inc i) (assoc s :entities (conj (:entities s)
-								(new-entity s 0))))
-                        s))
-              strat-state (new-strat-state strategy)]          
-                                        ; loop through steps
-          (loop [i 0
+(defn run [steps numes walk width height strategy sensors]
+  (let [[decisions correct] ; build up "numes" number of entities
+        (let [state
+	      (loop [i 0
+		     s (struct-map state :grid (new-grid width height)
+				   :entities [])]
+		(if (< i numes)
+		  (recur (inc i) (assoc s
+				   :entities (conj (:entities s)
+						   (new-entity s 0))))
+		  s))
+              strat-state (new-strat-state strategy)]
+          (loop [i 0 ; loop through steps
                  sens (map (fn [sen] (update-spotted sen (:grid state))) sensors)
                  decisions 0
                  correct 0
@@ -261,7 +282,7 @@
 				     n 0
 				     grid (:grid s)]
 				(if (< n (count es))
-				  (let [newe (walk1 (nth es n) grid i)
+				  (let [newe (walkn walk (nth es n) grid i)
 					newes (assoc es n newe)
 					newgrid (update-grid newe grid)]
 				    (recur newes (inc n) newgrid))
@@ -283,24 +304,61 @@
 ;; charting functions
 
 (defn chart1 []
-  (let [stepstart 500
-	stepend 510
-	width 100
-	height 100
+  (let [stepstart 490
+	stepend 500
+	width 10
+	height 10
 	numes 5
-	sensors [(new-sensor "1" 0 98 0 30)
-		 (new-sensor "2" 15 45 5 80)
-		 (new-sensor "3" 0 55 30 40)
-		 (new-sensor "4" 60 99 60 99)]
+	walk 2
+	sensors [(new-sensor "1" 0 9 0 9)]
 	xs (range stepstart stepend)
 	guess (doall (apply pcalls (for [steps xs]
 				     #(:percent
-				       (run steps numes width height
+				       (run steps numes walk width height
 					    "guess" sensors)))))
 	nearest (doall (apply pcalls (for [steps xs]
 				       #(:percent
-					 (run steps numes width height
+					 (run steps numes walk width height
 					      "nearest" sensors)))))]
     (view (add-lines (xy-plot xs guess :series-label "Guesses"
 			      :x-label "Steps" :y-label "% correct" :legend true)
 		     xs nearest :series-label "Nearest"))))
+
+(defn chart2 []
+  (let [stepstart 20
+	stepend 22
+	width 10
+	height 10
+	numes [80]
+	walks [1]
+	sensors [(new-sensor "1" 0 9 0 9)]
+	xs (range stepstart stepend)
+	labels (for [n numes walk walks]
+		 (format "Nearest es %d, walk %d" n walk))
+	data (dataset
+	      (conj labels "steps")
+	      (for [steps xs]
+		(conj (doall
+;		       (apply pcalls 
+			      (for [n numes walk walks]
+				(do 
+				  (println "steps: " steps ", numes: " n
+					   ", walk: " walk)
+				  (time (:percent (run steps n walk
+						       width height
+						       "nearest" sensors))))))
+		      steps)))]
+    (with-data data
+      (view (reduce (fn [plot label] (add-lines plot ($ "steps") ($ label)
+						:series-label label))
+		    (xy-plot "steps" (first labels)
+			     :series-label (first labels)
+			     :x-label "Steps" :y-label "% correct" :legend true)
+		    (rest labels))))))
+
+
+; TODO: sentences: create a world state, then provide it to the sentence generator;
+; the sentence generator reads the world state and chooses particular paths in the
+; generator (following through a grammar) to correctly represent the state;
+; generator chooses between 'it' and a specific reference every time it refers
+; to an existing entity; sensor density is equivalent to saying more about the state
