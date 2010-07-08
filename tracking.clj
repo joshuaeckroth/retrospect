@@ -1,8 +1,12 @@
+;; Change defstruct to defrecord
+
+
 (ns org.artifice.thesis.simulation
   (:use clojure.test)
   (:require [clojure.contrib.math :as math])
   (:use incanter.core)
-  (:use incanter.charts))
+  (:use incanter.charts)
+  (:require [swank.core]))
 
 ;; state functions
 
@@ -17,7 +21,7 @@
 (defn new-grid
   "Generate a width-by-height grid full of blanks."
   [width height]
-  (struct grid width height (vec (repeat height (vec (repeat width \space))))))
+  (struct grid width height (swank.core/break) (vec (repeat height (vec (repeat width \space))))))
 
 (defn pos-free?
   "Check if a position in the grid is free (not occupied by an entity)."
@@ -186,23 +190,28 @@
 ; other information about truth
 
 (defn explain-guess
-  "Provide a 'guessed' explanation. Returns [decisions correct new-strat-state]."
-  [sensors strat-state entities]
+  "Find a 'guessed' explanation. Returns new strategy state."
+  [sensors strat-state]
   (loop [es (set (reduce concat (map :spotted sensors)))
-         decisions 0
-         correct 0
-         strat-s (assoc strat-state :step (inc (:step strat-state)))]
-    (if (empty? es) [decisions correct strat-s]
-        (let [e (first es)
+	 strat-s strat-state]
+    (if (empty? es) strat-s
+	(let [e (first es)
 	      oldes (filter-old-entities strat-s)
-              n (rand-int (count oldes))
-              [d c new-strat-s]
-              (if (= 0 (count oldes))
-                (explain-new-entity e entities strat-s)
-                (if (= (inc n) (count oldes))
-                  (explain-new-entity e entities strat-s)
-                  (explain-existing-entity e (nth oldes n) entities strat-s)))]
-          (recur (rest es) (+ d decisions) (+ c correct) new-strat-s)))))
+	      n (rand-int (count oldes))
+	      new-strat-s
+	      (if (= 0 (count oldes))
+		(explain-new-entity e strat-s)
+		(if (= (inc n) (count oldes))
+		  (explain-new-entity e strat-s)
+		  (explain-existing-entity e (nth oldes n) strat-s)))]
+	  (recur (rest es) new-strat-s)))))
+
+(defn evaluate-explanation-guess
+  "Compare an old guess strategy state and a new guess strategy state; determine if
+   the strategy correctly explained the entities."
+  [old-strat-state new-strat-state]
+)
+
 
 (defstruct strat-state-nearest :step :entities)
 
@@ -362,3 +371,20 @@
 ; generator (following through a grammar) to correctly represent the state;
 ; generator chooses between 'it' and a specific reference every time it refers
 ; to an existing entity; sensor density is equivalent to saying more about the state
+
+
+(defstruct lights :light1 :light2 :light3)
+
+(defn describe-light
+  [on id]
+  (let [it? (= 1 (rand-int 2))]
+    (if it?
+      (if on "It is on." "It is off.")
+      (if on (format "%s is on." id) (format "%s is off." id)))))
+
+(defn describe-all-lights
+  [lights]
+  (format "%s %s %s"
+	  (describe-light (:light1 lights) "Light 1")
+	  (describe-light (:light2 lights) "Light 2")
+	  (describe-light (:light3 lights) "Light 3")))
