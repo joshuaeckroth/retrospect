@@ -1,22 +1,26 @@
 (ns simulator.tracking
-  (:require [clojure.contrib.math :as math])
-  (:use artifice.org.clojure.utils))
+  (:require [clojure.contrib.math :as math]))
 
-(defprotocol EntityContainer
-  (updateEntity [this entity]))
+(defn get-grid-pos
+  [grid posx posy]
+  (+ (* posy (:width grid)) posx))
 
 (defn replace-entity
   "Replace an entity in the grid (which may be nil) with a new one."
   [grid entity]
-  (assoc grid :gridvec
-	 (replace [(+ (* (:posy (first (:events entity))) (:width grid))
-		      (:posx (first (:events entity)))) entity]
-		  (:gridvec grid))))
+  (let [snapshot (first (:snapshots entity))]
+    (assoc grid :gridvec
+	   (replace [(get-grid-pos grid (:posx snapshot) (:posy snapshot)) entity]
+		    (:gridvec grid)))))
+
+(defprotocol EntityContainer
+  (updateGridEntity [this entity]))
 
 (defrecord GridState [grid time]
   EntityContainer
-  (updateEntity [this entity]
-		(assoc this :grid (replace-entity (:grid this) entity))))
+  (updateGridEntity
+   [this entity]
+   (assoc this :grid (replace-entity (:grid this) entity))))
 
 ;; grid functions
 
@@ -33,7 +37,7 @@
 (defn entity-at
   "Get the entity at a posx, posy."
   [grid posx posy]
-  (nth (:gridvec grid) (+ (* posy (:width grid)) posx)))
+  (nth (:gridvec grid) (get-grid-pos grid posx posy)))
 
 (defn pos-free?
   "Check if a position in the grid is free (not occupied by an entity)."
@@ -45,13 +49,15 @@
 ;; entity functions
 
 (defprotocol EntityMethods
-  (addEvent [this event]))
+  (addSnapshot [this snapshot]))
 
-(defrecord EntityEvent [posx posy])
+(defrecord EntitySnapshot [posx posy])
 
-(defrecord Entity [symbol events]
+(defrecord Entity [symbol snapshots]
   EntityMethods
-  (addEvent [this event] (assoc this :events (conj (:events this) event))))
+  (addSnapshot
+   [this snapshot]
+   (assoc this :snapshots (conj (:snapshots this) snapshot))))
 
 (defn symbol-used?
   "Check if a symbol has already been used by an existing entity."
@@ -76,12 +82,12 @@
   "Create a new entity with a random symbol and random (free) location."
   [grid]
   (let [[symbol posx posy] (rand-symbol-and-pos grid)]
-    (Entity. symbol [(EntityEvent. posx posy)])))
+    (Entity. symbol [(EntitySnapshot. posx posy)])))
 
 (defn attempt-move
   "Try to move one step in a given direction; return new position."
   [dir posx posy grid]
-  (switch dir
+  (case dir
 	  "left" (if (pos-free? (dec posx) posy grid)
 		   [(dec posx) posy] [posx posy])
 	  "right" (if (pos-free? (inc posx) posy grid)
@@ -97,7 +103,7 @@
   [entity grid]
   (let [dir (nth ["left" "right" "down" "up"] (rand-int 4))
 	[posx posy] (attempt-move dir (:posx entity) (:posy entity) grid)]
-    (addEvent entity (EntityEvent. posx posy))))
+    (addSnapshot entity (EntitySnapshot. posx posy))))
 
 (defn walkn
   "Move an entity n steps in a random walk."
@@ -129,14 +135,83 @@
 			    posy (range (:bottom sensor) (inc (:top sensor)))]
 			(entity-at (:grid gridstate) posx posy))))))
 
-;; strategy functions
+
+;; generic strategy functions
+
+(defrecord EventNew [time posx posy])
+
+(defrecord EventMove [time oposx oposy posx posy])
+
+(defprotocol StratStateMethods
+  (addEntity [this entity])
+  (updateEntity [this index posx posy])
+  (addEventNew [this time posx posy])
+  (addEventMove [this time oposx oposy posx posy])
+  (addEvent [this event]))
+
+(defrecord GuessStratState [events entities]
+  StratStateMethods
+  (addEntity
+   [this entity]
+   (assoc this :entities
+	  (conj (:entities this)
+		(Entity. \X (EntitySnapshot. (:posx entity) (:posy entity))))))
+  (updateEntity
+   [this index posx posy]
+   (assoc this :entities
+	  (replace [index (addSnapshot (nth (:entities this) index)
+				       (EntitySnapshot. posx posy))]
+		   (:entities this))))
+  (addEventNew
+   [this time posx posy]
+   (addEvent this (EventNew. time posx posy)))
+  (addEventMove
+   [this time oposx oposy posx posy]
+   (addEvent this (EventMove. time oposx oposy posx posy)))
+  (addEvent
+   [this event]
+   (assoc this :events (conj (:events this) event))))
 
 (defn init-strat-state
-  [strategy])
+  [strategy]
+  (case strategy
+	"guess" (GuessStratState. [] [])))
+
+(defn explain-new-entity
+  [spotted time strat-state]
+  (-> strat-state
+      (addEntity spotted)
+      (addEventNew time (:posx spotted) (:posy spotted))))
+
+(defn explain-existing-entity
+  [spotted index time strat-state]
+  (let [entity (nth (:entities strat-state) index)]
+    (-> strat-state
+	(updateEntity index (:posx spotted) (:posy spotted))
+	(addEventMove time (:posx entity) (:posy entity)
+		      (:posx spotted) (:posy spotted)))))
+
+(defn explain-guess
+  [sensors strat-state gridstate]
+  (let [time (:time gridstate)
+	unique-spotted (set (concat (map :spotted sensors)))]
+    (loop [spotted unique-spotted
+	   state strat-state]
+      (let [es (:entities strat-state)
+	    numes (count es)
+	    choice (rand-int (inc numes))]
+	(cond (empty? spotted) state
+	      (= choice numes)
+	      (recur (rest spotted)
+		     (explain-new-entity (first spotted) time strat-state))
+	      :else
+	      (recur (rest spotted)
+		     (explain-existing-entity (first spotted) choice time strat-state)))))))
 
 (defn explain
   [strategy sensors strat-state gridstate]
-  strat-state)
+  (case strategy
+	"guess" (explain-guess sensors strat-state gridstate)))
 
 ;; evaluation functions
 
@@ -155,19 +230,19 @@
   (loop [i 0
 	 gridstate (GridState. (new-grid width height) 0)]
     (if (< i numes)
-      (recur (inc i)
-	     (updateEntity gridstate (new-entity (:grid gridstate))))
+      (recur (inc i) (updateGridEntity gridstate (new-entity (:grid gridstate))))
       gridstate)))
 
 (defn random-walks
   [walk gridstate]
-  (reduce gridstate #(updateEntity gridstate (walkn walk % (:grid gridstate)))
+  (reduce (fn [gs e] (updateGridEntity gs (walkn walk e (:grid gs))))
+	  gridstate
 	  (filter #(not (nil? %)) (:gridvec (:grid gridstate)))))
 
 (defn single-step
   [decisions correct [walk strategy sensors strat-state gridstate]]
   (let [gs (random-walks walk gridstate)
-	sens (map #(update-spotted % (:grid gs)) sensors)
+	sens (map #(update-spotted % gs) sensors)
 	strat-s (explain strategy sens strat-state gs)
 	[dec cor] (evaluate-explanation strat-state strat-s)]
     [(+ decisions dec) (+ correct cor) [walk strategy sens strat-s gs]]))
