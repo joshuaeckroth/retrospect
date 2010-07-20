@@ -1,5 +1,6 @@
 (ns simulator.tracking
-  (:require [clojure.contrib.math :as math]))
+  (:require [clojure.contrib.math :as math])
+  (:require [clojure.set :as set]))
 
 (defn get-grid-pos
   [grid posx posy]
@@ -49,7 +50,9 @@
 ;; entity functions
 
 (defprotocol EntityMethods
-  (addSnapshot [this snapshot]))
+  (addSnapshot [this snapshot])
+  (lastPosX [this])
+  (lastPosY [this]))
 
 (defrecord EntitySnapshot [posx posy])
 
@@ -57,7 +60,9 @@
   EntityMethods
   (addSnapshot
    [this snapshot]
-   (assoc this :snapshots (conj (:snapshots this) snapshot))))
+   (assoc this :snapshots (conj (:snapshots this) snapshot)))
+  (lastPosX [this] (:posx (first (:snapshots this))))
+  (lastPosY [this] (:posy (first (:snapshots this)))))
 
 (defn symbol-used?
   "Check if a symbol has already been used by an existing entity."
@@ -102,7 +107,7 @@
    and add that movement to the entity's history"
   [entity grid]
   (let [dir (nth ["left" "right" "down" "up"] (rand-int 4))
-	[posx posy] (attempt-move dir (:posx entity) (:posy entity) grid)]
+	[posx posy] (attempt-move dir (lastPosX entity) (lastPosY entity) grid)]
     (addSnapshot entity (EntitySnapshot. posx posy))))
 
 (defn walkn
@@ -216,23 +221,21 @@
 
 ;; evaluation functions
 
-(defn evaluate-explanation
-  [old-strat-state new-strat-state]
-  [1 0])
+(defn evaluate
+  [truestate strat-state]
+  (count (set/intersection (set (:events truestate)) (set (:events strat-state)))))
 
 ;; simulation functions
-
-(defrecord Result [steps width height numes numsens
-		   senscoverage sensoverlap strategy
-		   decisions correct percent])
 
 (defn init-grid-state
   [width height numes]
   (loop [i 0
-	 gridstate (GridState. (new-grid width height) 0)]
+	 gridstate (GridState. (new-grid width height) 0)
+	 entities []]
     (if (< i numes)
-      (recur (inc i) (updateGridEntity gridstate (new-entity (:grid gridstate))))
-      gridstate)))
+      (let [entity (new-entity (:grid gridstate))]
+	(recur (inc i) (updateGridEntity gridstate entity) (conj entities entity)))
+      [gridstate entities])))
 
 (defn random-walks
   [walk truestate gridstate]
@@ -240,7 +243,7 @@
 	 ts truestate
 	 gs gridstate]
     (if (< index (count (:entities ts)))
-      (let [entity (nth (:entities ts))
+      (let [entity (nth (:entities ts) index)
 	    newentity (walkn walk entity (:grid gs))]
 	(recur (inc index)
 	 (-> ts
@@ -251,24 +254,28 @@
       [ts gs])))
 
 (defn single-step
-  [decisions correct [walk strategy sensors truestate strat-state gridstate]]
+  [walk strategy sensors [truestate strat-state gridstate]]
   (let [[ts gs] (random-walks walk truestate gridstate)
 	sens (map #(update-spotted % gs) sensors)
-	strat-s (explain strategy sens strat-state gs)
-	[dec cor] (evaluate-explanation strat-state strat-s)]
-    [(+ decisions dec) (+ correct cor) [walk strategy sens ts strat-s gs]]))
+	strat-s (explain strategy sens strat-state gs)]
+    [ts strat-s gs]))
+
+(defrecord Result [correct incorrect total])
+
+(defn generate-results
+  [truestate strat-state gridstate]
+  (let [correct (evaluate truestate strat-state)
+	incorrect (- (count (:events strat-state)) correct)
+	total (count (:events truestate))]
+    (Result. correct incorrect total)))
 
 (defn run
   [steps numes walk width height strategy sensors]
-  (let [[decisions correct]
-	(loop [i 0
-	       [decisions correct combined-states]
-	       (single-step 0 0 [walk strategy sensors
-				 (StratState. [] [])
-				 (init-strat-state strategy)
-				 (init-grid-state width height numes)])]
-	  (if (< i steps)
-	    (recur (inc i) (single-step decisions correct combined-states))
-	    [decisions correct]))]
-    (Result. steps width height numes (count sensors) 0 0
-	     strategy decisions correct (float (/ correct decisions)))))
+  (let [[gridstate entities] (init-grid-state width height numes)]
+    (loop [i 0
+	   combined-states [(StratState. [] entities)
+			    (init-strat-state strategy)
+			    gridstate]]
+      (if (< i steps)
+	(recur (inc i) (single-step walk strategy sensors combined-states))
+	(apply generate-results combined-states)))))
