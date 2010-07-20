@@ -149,7 +149,7 @@
   (addEventMove [this time oposx oposy posx posy])
   (addEvent [this event]))
 
-(defrecord GuessStratState [events entities]
+(defrecord StratState [events entities]
   StratStateMethods
   (addEntity
    [this entity]
@@ -175,7 +175,7 @@
 (defn init-strat-state
   [strategy]
   (case strategy
-	"guess" (GuessStratState. [] [])))
+	"guess" (StratState. [] [])))
 
 (defn explain-new-entity
   [spotted time strat-state]
@@ -206,7 +206,8 @@
 		     (explain-new-entity (first spotted) time strat-state))
 	      :else
 	      (recur (rest spotted)
-		     (explain-existing-entity (first spotted) choice time strat-state)))))))
+		     (explain-existing-entity (first spotted)
+					      choice time strat-state)))))))
 
 (defn explain
   [strategy sensors strat-state gridstate]
@@ -234,18 +235,28 @@
       gridstate)))
 
 (defn random-walks
-  [walk gridstate]
-  (reduce (fn [gs e] (updateGridEntity gs (walkn walk e (:grid gs))))
-	  gridstate
-	  (filter #(not (nil? %)) (:gridvec (:grid gridstate)))))
+  [walk truestate gridstate]
+  (loop [index 0
+	 ts truestate
+	 gs gridstate]
+    (if (< index (count (:entities ts)))
+      (let [entity (nth (:entities ts))
+	    newentity (walkn walk entity (:grid gs))]
+	(recur (inc index)
+	 (-> ts
+	     (updateEntity index (:posx newentity) (:posy newentity))
+	     (addEventMove (:time gs) (:posx entity) (:posy entity)
+			   (:posx newentity) (:posy newentity)))
+	 (updateGridEntity gs newentity)))
+      [ts gs])))
 
 (defn single-step
-  [decisions correct [walk strategy sensors strat-state gridstate]]
-  (let [gs (random-walks walk gridstate)
+  [decisions correct [walk strategy sensors truestate strat-state gridstate]]
+  (let [[ts gs] (random-walks walk truestate gridstate)
 	sens (map #(update-spotted % gs) sensors)
 	strat-s (explain strategy sens strat-state gs)
 	[dec cor] (evaluate-explanation strat-state strat-s)]
-    [(+ decisions dec) (+ correct cor) [walk strategy sens strat-s gs]]))
+    [(+ decisions dec) (+ correct cor) [walk strategy sens ts strat-s gs]]))
 
 (defn run
   [steps numes walk width height strategy sensors]
@@ -253,6 +264,7 @@
 	(loop [i 0
 	       [decisions correct combined-states]
 	       (single-step 0 0 [walk strategy sensors
+				 (StratState. [] [])
 				 (init-strat-state strategy)
 				 (init-grid-state width height numes)])]
 	  (if (< i steps)
