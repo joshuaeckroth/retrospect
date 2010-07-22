@@ -312,25 +312,37 @@
 	  (StratState. [] entities) entities))
 
 (defn random-walks
-  [[truestate gridstate]]
-  (loop [entities (:entities truestate)
-	 ts truestate
+  [entities gridstate]
+  (loop [es entities
+	 newes []
 	 gs gridstate]
-    (if (empty? entities) [ts gs]
-	(let [entity (first entities)
-	      newentity (walk1 entity (:grid gs))]
-	  (recur (rest entities)
-		 (-> ts
-		     (updateEntity entity (lastPosX newentity) (lastPosY newentity))
-		     (addEventMove (:time gs) (lastPosX entity) (lastPosY entity)
-				   (lastPosX newentity) (lastPosY newentity)))
-		 (updateGridEntity gs entity newentity))))))
+    (if (empty? es) [newes gs]
+	(let [newe (walk1 (first es) (:grid gs))]
+	  (recur (rest es) (conj newes newe)
+		 (updateGridEntity gs (first es) newe))))))
+
+(defn update-truestate
+  [truestate entities newes time]
+  (loop [i 0
+	 ts truestate]
+    (if (< i (count entities))
+      (let [olde (nth entities i)
+	    newe (nth newes i)]
+	(recur (inc i) (-> ts
+			   (updateEntity olde (lastPosX newe) (lastPosY newe))
+			   (addEventMove time (lastPosX olde) (lastPosY olde)
+					 (lastPosX newe) (lastPosY newe)))))
+      ts)))
 
 (defn random-walks-n
   [walk truestate gridstate]
-  (loop [i 0
-	 states [truestate gridstate]]
-    (if (< i walk) (recur (inc i) (random-walks states)) states)))
+  (let [entities (shuffle (:entities truestate))]
+    (loop [i 0
+	   es entities
+	   gs gridstate]
+      (let [[newes newgs] (random-walks es gs)]
+	(if (= i walk) [(update-truestate truestate entities newes (:time newgs)) newgs]
+	    (recur (inc i) newes newgs))))))
 
 (defn single-step
   [walk strategy sensors [truestate strat-state gridstate]]
