@@ -8,20 +8,35 @@
 
 (defn replace-entity
   "Replace an entity in the grid (which may be nil) with a new one."
-  [grid entity]
-  (let [snapshot (first (:snapshots entity))]
-    (assoc grid :gridvec
-	   (replace [(get-grid-pos grid (:posx snapshot) (:posy snapshot)) entity]
-		    (:gridvec grid)))))
+  [grid oldentity newentity]
+  (let [snapshot (last (:snapshots newentity))
+	newgrid (assoc grid :gridvec
+		       (assoc (:gridvec grid)
+			 (get-grid-pos grid (:posx snapshot) (:posy snapshot)) newentity))]
+    (if (nil? oldentity) newgrid
+	(let [prior-snapshot (last (:snapshots oldentity))]
+	  (if (or (not= (:posx prior-snapshot) (:posx snapshot))
+		  (not= (:posy prior-snapshot) (:posy snapshot)))
+	    (assoc newgrid :gridvec (assoc (:gridvec newgrid)
+				      (get-grid-pos newgrid (:posx prior-snapshot)
+						    (:posy prior-snapshot)) nil))
+	    newgrid)))))
 
 (defprotocol EntityContainer
-  (updateGridEntity [this entity]))
+  (updateGridEntity [this oldentity newentity]))
+
+(defprotocol Temporal
+  (forwardTime [this amount]))
 
 (defrecord GridState [grid time]
   EntityContainer
   (updateGridEntity
-   [this entity]
-   (assoc this :grid (replace-entity (:grid this) entity))))
+   [this oldentity newentity]
+   (assoc this :grid (replace-entity (:grid this) oldentity newentity)))
+  Temporal
+  (forwardTime
+   [this amount]
+   (assoc this :time (+ amount (:time this)))))
 
 ;; grid functions
 
@@ -50,20 +65,31 @@
 ;; entity functions
 
 (defprotocol EntityMethods
-  (addSnapshot [this snapshot])
   (lastPosX [this])
-  (lastPosY [this]))
+  (lastPosY [this])
+  (toStr [this]))
+
+(defn print-entities
+  [entities]
+  (dorun (map #(println (toStr %)) entities)))
+
+(defprotocol SnapshotMethods
+  (addSnapshot [this snapshot]))
 
 (defrecord EntitySnapshot [posx posy])
 
 (defrecord Entity [symbol snapshots]
-  EntityMethods
+  SnapshotMethods
   (addSnapshot
    [this snapshot]
    (assoc this :snapshots (conj (:snapshots this) snapshot)))
-  (lastPosX [this] (:posx (first (:snapshots this))))
-  (lastPosY [this] (:posy (first (:snapshots this)))))
-
+  EntityMethods
+  (lastPosX [this] (:posx (last (:snapshots this))))
+  (lastPosY [this] (:posy (last (:snapshots this))))
+  (toStr [this] (format "Entity %c %s" (:symbol this)
+			(apply str (interpose "->" (map #(format "(%d,%d)" (:posx %) (:posy %))
+							(:snapshots this)))))))
+  
 (defn symbol-used?
   "Check if a symbol has already been used by an existing entity."
   [symbol grid]
@@ -110,18 +136,14 @@
 	[posx posy] (attempt-move dir (lastPosX entity) (lastPosY entity) grid)]
     (addSnapshot entity (EntitySnapshot. posx posy))))
 
-(defn walkn
-  "Move an entity n steps in a random walk."
-  [n entity grid]
-  (loop [i 0
-	 e entity]
-    (if (< i n) (recur (inc i) (walk1 entity grid))
-	e)))
-
 
 ;; sensor functions
 
-(defrecord SensorEntity [time posx posy])
+(defrecord SensorEntity [time posx posy]
+  EntityMethods
+  (lastPosX [this] (:posx this))
+  (lastPosY [this] (:posy this))
+  (toStr [this] (format "SensorEntity (%d,%d)@%d" (:posx this) (:posy this) (:time this))))
 
 (defrecord Sensor [id left right bottom top spotted])
 
@@ -134,7 +156,7 @@
   "Create 'spotted' vector based on grid."
   [sensor gridstate]
   (assoc sensor :spotted
-	 (map #(SensorEntity. (:time gridstate) (:posx %) (:posy %))
+	 (map #(SensorEntity. (:time gridstate) (lastPosX %) (lastPosY %))
 	      (filter #(not (nil? %))
 		      (for [posx (range (:left sensor) (inc (:right sensor)))
 			    posy (range (:bottom sensor) (inc (:top sensor)))]
@@ -149,7 +171,7 @@
 
 (defprotocol StratStateMethods
   (addEntity [this entity])
-  (updateEntity [this index posx posy])
+  (updateEntity [this entity posx posy])
   (addEventNew [this time posx posy])
   (addEventMove [this time oposx oposy posx posy])
   (addEvent [this event]))
@@ -160,13 +182,15 @@
    [this entity]
    (assoc this :entities
 	  (conj (:entities this)
-		(Entity. \X (EntitySnapshot. (:posx entity) (:posy entity))))))
+		(Entity. \X [(EntitySnapshot. (lastPosX entity) (lastPosY entity))]))))
   (updateEntity
-   [this index posx posy]
+					;possibly use a reverse-lookup map in the future, to get entity keys
+					;eg: (let [m {:a :b :c :d}] (zipmap (vals m) (keys m)))
+   [this entity posx posy]
    (assoc this :entities
-	  (replace [index (addSnapshot (nth (:entities this) index)
-				       (EntitySnapshot. posx posy))]
-		   (:entities this))))
+	  (map #(if (= % entity)
+		  (addSnapshot % (EntitySnapshot. posx posy))
+		  %) (:entities this))))
   (addEventNew
    [this time posx posy]
    (addEvent this (EventNew. time posx posy)))
@@ -180,44 +204,89 @@
 (defn init-strat-state
   [strategy]
   (case strategy
-	"guess" (StratState. [] [])))
+	"guess" (StratState. [] [])
+	"nearest" (StratState. [] [])))
 
 (defn explain-new-entity
   [spotted time strat-state]
   (-> strat-state
       (addEntity spotted)
-      (addEventNew time (:posx spotted) (:posy spotted))))
+      (addEventNew time (lastPosX spotted) (lastPosY spotted))))
 
 (defn explain-existing-entity
-  [spotted index time strat-state]
-  (let [entity (nth (:entities strat-state) index)]
-    (-> strat-state
-	(updateEntity index (:posx spotted) (:posy spotted))
-	(addEventMove time (:posx entity) (:posy entity)
-		      (:posx spotted) (:posy spotted)))))
+  [spotted entity time strat-state]
+  (-> strat-state
+      (updateEntity entity (lastPosX spotted) (lastPosY spotted))
+      (addEventMove time (lastPosX entity) (lastPosY entity)
+		    (lastPosX spotted) (lastPosY spotted))))
 
 (defn explain-guess
   [sensors strat-state gridstate]
   (let [time (:time gridstate)
-	unique-spotted (set (concat (map :spotted sensors)))]
+	unique-spotted (set (apply concat (map :spotted sensors)))
+	es (:entities strat-state)
+	numes (count es)]
     (loop [spotted unique-spotted
 	   state strat-state]
-      (let [es (:entities strat-state)
-	    numes (count es)
-	    choice (rand-int (inc numes))]
+      (let [choice (rand-int (inc numes))]
 	(cond (empty? spotted) state
 	      (= choice numes)
 	      (recur (rest spotted)
-		     (explain-new-entity (first spotted) time strat-state))
+		     (explain-new-entity
+		      (first spotted) time state))
 	      :else
 	      (recur (rest spotted)
-		     (explain-existing-entity (first spotted)
-					      choice time strat-state)))))))
+		     (explain-existing-entity
+		      (first spotted) (nth es choice) time state)))))))
+
+(defn manhattan-distance
+  [e1 e2]
+  (+ (math/abs (- (lastPosX e1) (lastPosX e2)))
+     (math/abs (- (lastPosY e1) (lastPosY e2)))))
+
+(defn pair-nearest
+  "This is an instance of the closest pairs problem. Note that, at the moment,
+   the brute-force algorithm is used, which has complexity O(n^2)."
+  [spotted entities]
+  (let [pairs
+	(sort-by :dist 
+		 (apply concat
+			(for [s spotted]
+			  (for [e entities]
+			    {:spotted s :entity e :dist (manhattan-distance s e)}))))]
+    (for [s spotted]
+      (first (filter #(= (:spotted %) s) pairs)))))
+
+					; 'new-entities' are always incorrect?
+(defn explain-nearest
+  "The idea behind 'explain-nearest' is all spotted & existing entities will be
+   paired according to k-closest pair (where k = number of spotted entities),
+   and given these pairings, each spotted entity whose pairing has a distance
+   less than some constant will be explained as having moved from its paired
+   existing entity; all pairings with too great a distance will have 'new-entity'
+   explanations."
+  [sensors strat-state gridstate]
+  (let [time (:time gridstate)
+	unique-spotted (set (apply concat (map :spotted sensors)))]
+    (if (empty? (:entities strat-state))
+      (reduce (fn [state spotted] (explain-new-entity spotted time state))
+	      strat-state unique-spotted)
+      (loop [pairs (pair-nearest unique-spotted (:entities strat-state))
+	     state strat-state]
+	(cond (empty? pairs) state
+	      (> (:dist (first pairs)) 5)
+	      (recur (rest pairs) (explain-new-entity (:spotted (first pairs)) time state))
+	      :else
+	      (recur (rest pairs) (explain-existing-entity
+				   (:spotted (first pairs))
+				   (:entity (first pairs))
+				   time state)))))))
 
 (defn explain
   [strategy sensors strat-state gridstate]
   (case strategy
-	"guess" (explain-guess sensors strat-state gridstate)))
+	"guess" (explain-guess sensors strat-state gridstate)
+	"nearest" (explain-nearest sensors strat-state gridstate)))
 
 ;; evaluation functions
 
@@ -234,31 +303,45 @@
 	 entities []]
     (if (< i numes)
       (let [entity (new-entity (:grid gridstate))]
-	(recur (inc i) (updateGridEntity gridstate entity) (conj entities entity)))
+	(recur (inc i) (updateGridEntity gridstate nil entity) (conj entities entity)))
       [gridstate entities])))
 
+(defn init-true-state
+  [entities]
+  (reduce (fn [ts entity] (addEventNew ts 0 (lastPosX entity) (lastPosY entity)))
+	  (StratState. [] entities) entities))
+
 (defn random-walks
-  [walk truestate gridstate]
-  (loop [index 0
+  [[truestate gridstate]]
+  (loop [entities (:entities truestate)
 	 ts truestate
 	 gs gridstate]
-    (if (< index (count (:entities ts)))
-      (let [entity (nth (:entities ts) index)
-	    newentity (walkn walk entity (:grid gs))]
-	(recur (inc index)
-	 (-> ts
-	     (updateEntity index (:posx newentity) (:posy newentity))
-	     (addEventMove (:time gs) (:posx entity) (:posy entity)
-			   (:posx newentity) (:posy newentity)))
-	 (updateGridEntity gs newentity)))
-      [ts gs])))
+    (if (empty? entities) [ts gs]
+	(let [entity (first entities)
+	      newentity (walk1 entity (:grid gs))]
+	  (recur (rest entities)
+		 (-> ts
+		     (updateEntity entity (lastPosX newentity) (lastPosY newentity))
+		     (addEventMove (:time gs) (lastPosX entity) (lastPosY entity)
+				   (lastPosX newentity) (lastPosY newentity)))
+		 (updateGridEntity gs entity newentity))))))
+
+(defn random-walks-n
+  [walk truestate gridstate]
+  (loop [i 0
+	 states [truestate gridstate]]
+    (if (< i walk) (recur (inc i) (random-walks states)) states)))
 
 (defn single-step
   [walk strategy sensors [truestate strat-state gridstate]]
-  (let [[ts gs] (random-walks walk truestate gridstate)
-	sens (map #(update-spotted % gs) sensors)
-	strat-s (explain strategy sens strat-state gs)]
+  (let [sens (map #(update-spotted % gridstate) sensors)
+	strat-s (explain strategy sens strat-state gridstate)
+	[ts gs] (random-walks-n walk truestate (forwardTime gridstate 1))]
     [ts strat-s gs]))
+
+(defn last-explanation
+  [strategy sensors [truestate strat-state gridstate]]
+  [truestate (explain strategy (map #(update-spotted % gridstate) sensors) strat-state gridstate) gridstate])
 
 (defrecord Result [correct incorrect total])
 
@@ -273,9 +356,9 @@
   [steps numes walk width height strategy sensors]
   (let [[gridstate entities] (init-grid-state width height numes)]
     (loop [i 0
-	   combined-states [(StratState. [] entities)
+	   combined-states [(init-true-state entities)
 			    (init-strat-state strategy)
 			    gridstate]]
       (if (< i steps)
 	(recur (inc i) (single-step walk strategy sensors combined-states))
-	(apply generate-results combined-states)))))
+	(apply generate-results (last-explanation strategy sensors combined-states))))))
