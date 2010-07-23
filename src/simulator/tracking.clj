@@ -371,26 +371,28 @@
 	(recur (inc i)))))
      
 (defn generate-results
-  [steps numes walk width height strategy sensors truestate strat-state gridstate]
+  [msecs steps numes walk width height strategy sensor-coverage truestate strat-state gridstate]
   (let [correct (evaluate truestate strat-state)
 	incorrect (- (count (:events strat-state)) correct)
 	total (count (:events truestate))
 	percent (* 100 (/ correct total))
-	sensors-count (count sensors)
 	strategy-index (get-strategy-index strategy)]
-    [steps numes walk width height strategy-index sensors-count
+    [msecs steps numes walk width height strategy-index sensor-coverage
      correct incorrect total percent]))
 
 (defn run
-  [steps numes walk width height strategy sensors]
-  (let [[gridstate entities] (init-grid-state width height numes)]
+  [steps numes walk width height strategy sensor-coverage sensors]
+  (let [[gridstate entities] (init-grid-state width height numes)
+	startTime (. System (nanoTime))]
     (loop [i 0
 	   combined-states [(init-true-state entities)
 			    (init-strat-state strategy)
 			    gridstate]]
       (if (< i steps)
 	(recur (inc i) (single-step walk strategy sensors combined-states))
-	(apply generate-results steps numes walk width height strategy sensors
+	(apply generate-results
+	       (/ (double (- (. System (nanoTime)) startTime)) 1000000.0)
+	       steps numes walk width height strategy sensor-coverage
 	       (last-explanation strategy sensors combined-states))))))
 
 (defprotocol ResultsMatrixOperations
@@ -404,39 +406,43 @@
    (assoc this :m (conj (:m this) result)))
   (getMatrix [this] (matrix (:m this))))
 
-(defn generate-sensors
-  [width height max]
-  (for [n (range 1 max)]
-    (for [i (range n)]
-      (let [left (rand-int width)
-	    right (+ left (rand-int (- width left)))
-	    bottom (rand-int height)
-	    top (+ bottom (rand-int (- height bottom)))]
-	(new-sensor "X" left right bottom top)))))
+(defn generate-sensors-with-coverage
+  [width height coverage]
+  (let [area (* width height)
+	to-cover (int (* (/ coverage 101) area)) ; use 101 in denom to ensure top < height
+	left 0
+	right (dec (if (< to-cover width) to-cover width))
+	bottom 0
+	top (int (/ to-cover width))]
+    [(new-sensor "X" left right bottom top)]))
 
 (defn parallel-runs
   [params]
   (apply concat (pmap (fn [partition]
 			(time (doall (map #(apply run %) partition))))
-		      (partition-all 500 params))))
+		      (partition-all (/ (count params) 16) (shuffle params)))))
+
+(defn generate-run-params []
+  (for [steps [1 10]
+	numes [1 10]
+	walk [1 3 5]
+	width [5 10 20]
+	height [5 10 20]
+	strategy ["guess" "nearest"]
+	sensor-coverage [10 50 100]
+	sensors [(generate-sensors-with-coverage width height sensor-coverage)]]
+    [steps numes walk width height strategy sensor-coverage sensors]))
 
 (defn multiple-runs []
-  (let [params (for [steps (range 5 100 5)
-		     numes (range 1 10)
-		     walk (range 1 10)
-		     width (range 20 21)
-		     height (range 20 21)
-		     strategy ["guess" "nearest"]
-		     sensors [[(new-sensor "X" 0 19 0 19)]]] ; (generate-sensors width height 2)
-		 [steps numes walk width height strategy sensors])
+  (let [params (generate-run-params)
 	results (parallel-runs params)]
     (reduce (fn [m r] (addResult m r)) (ResultsMatrix. []) results)))
 
 (defn save-results
   [matrix]
-  (save (getMatrix matrix) "results.csv" :header ["Steps" "Number-entities" "Walk-size"
+  (save (getMatrix matrix) "results.csv" :header ["Milliseconds" "Steps" "Number-entities" "Walk-size"
 						  "Grid-width" "Grid-height" "Strategy-index"
-						  "Sensors-count" "Correct" "Incorrect" "Total"
+						  "Sensor-coverage" "Correct" "Incorrect" "Total"
 						  "Percent-correct"]))
 
 (defn read-results []
@@ -451,5 +457,14 @@
   (with-data (read-results)
     (view (scatter-plot :Steps :Percent-correct :group-by :Strategy-index :legend true)))
   (with-data (read-results)
-    (view (box-plot :Percent-correct :group-by :Strategy-index :legend true))))
+    (view (box-plot :Percent-correct :group-by :Strategy-index :legend true)))
+  (with-data (read-results)
+    (let [plot (scatter-plot :Steps :Milliseconds)]
+      (view plot)
+      (add-lines plot (sel (read-results) :cols 1)
+		 (:fitted (stats/linear-model
+			   (sel (read-results) :cols 0)
+			   (sel (read-results) :cols 1))))))
+  (with-data (sel (read-results) :filter #(= 50.0 (nth % 7)))
+    (view (scatter-plot :Walk-size :Percent-correct :group-by :Strategy-index :legend true))))
 
