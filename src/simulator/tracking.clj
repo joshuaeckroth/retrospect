@@ -1,6 +1,10 @@
 (ns simulator.tracking
   (:require [clojure.contrib.math :as math])
-  (:require [clojure.set :as set]))
+  (:require [clojure.set :as set])
+  (:use incanter.core)
+  (:use incanter.charts)
+  (:use incanter.io)
+  (:require [incanter.stats :as stats]))
 
 (defn get-grid-pos
   [grid posx posy]
@@ -353,16 +357,29 @@
 
 (defn last-explanation
   [strategy sensors [truestate strat-state gridstate]]
-  [truestate (explain strategy (map #(update-spotted % gridstate) sensors) strat-state gridstate) gridstate])
+  [truestate (explain strategy
+		      (map #(update-spotted % gridstate) sensors)
+		      strat-state gridstate)
+   gridstate])
 
-(defrecord Result [correct incorrect total])
+(def *strategies* ["guess" "nearest"])
 
+(defn get-strategy-index
+  [strategy]
+  (loop [i 0]
+    (if (= strategy (nth *strategies* i)) i
+	(recur (inc i)))))
+     
 (defn generate-results
-  [truestate strat-state gridstate]
+  [steps numes walk width height strategy sensors truestate strat-state gridstate]
   (let [correct (evaluate truestate strat-state)
 	incorrect (- (count (:events strat-state)) correct)
-	total (count (:events truestate))]
-    (Result. correct incorrect total)))
+	total (count (:events truestate))
+	percent (* 100 (/ correct total))
+	sensors-count (count sensors)
+	strategy-index (get-strategy-index strategy)]
+    [steps numes walk width height strategy-index sensors-count
+     correct incorrect total percent]))
 
 (defn run
   [steps numes walk width height strategy sensors]
@@ -373,4 +390,66 @@
 			    gridstate]]
       (if (< i steps)
 	(recur (inc i) (single-step walk strategy sensors combined-states))
-	(apply generate-results (last-explanation strategy sensors combined-states))))))
+	(apply generate-results steps numes walk width height strategy sensors
+	       (last-explanation strategy sensors combined-states))))))
+
+(defprotocol ResultsMatrixOperations
+  (addResult [this result])
+  (getMatrix [this]))
+
+(defrecord ResultsMatrix [m]
+  ResultsMatrixOperations
+  (addResult
+   [this result]
+   (assoc this :m (conj (:m this) result)))
+  (getMatrix [this] (matrix (:m this))))
+
+(defn generate-sensors
+  [width height max]
+  (for [n (range 1 max)]
+    (for [i (range n)]
+      (let [left (rand-int width)
+	    right (+ left (rand-int (- width left)))
+	    bottom (rand-int height)
+	    top (+ bottom (rand-int (- height bottom)))]
+	(new-sensor "X" left right bottom top)))))
+
+(defn parallel-runs
+  [params]
+  (apply concat (pmap (fn [partition]
+			(time (doall (map #(apply run %) partition))))
+		      (partition-all 500 params))))
+
+(defn multiple-runs []
+  (let [params (for [steps (range 5 100 5)
+		     numes (range 1 10)
+		     walk (range 1 10)
+		     width (range 20 21)
+		     height (range 20 21)
+		     strategy ["guess" "nearest"]
+		     sensors [[(new-sensor "X" 0 19 0 19)]]] ; (generate-sensors width height 2)
+		 [steps numes walk width height strategy sensors])
+	results (parallel-runs params)]
+    (reduce (fn [m r] (addResult m r)) (ResultsMatrix. []) results)))
+
+(defn save-results
+  [matrix]
+  (save (getMatrix matrix) "results.csv" :header ["Steps" "Number-entities" "Walk-size"
+						  "Grid-width" "Grid-height" "Strategy-index"
+						  "Sensors-count" "Correct" "Incorrect" "Total"
+						  "Percent-correct"]))
+
+(defn read-results []
+  (read-dataset "results.csv" :header true))
+
+(comment
+  (save-results (multiple-runs))
+  (with-data (read-results)
+    (view (scatter-plot :Walk-size :Percent-correct :group-by :Strategy-index :legend true)))
+  (with-data (read-results)
+    (view (scatter-plot :Number-entities :Percent-correct :group-by :Strategy-index :legend true)))
+  (with-data (read-results)
+    (view (scatter-plot :Steps :Percent-correct :group-by :Strategy-index :legend true)))
+  (with-data (read-results)
+    (view (box-plot :Percent-correct :group-by :Strategy-index :legend true))))
+
