@@ -301,7 +301,6 @@
 
 (defn add-new-entities
   [truestate gridstate numes]
-  (println "add" numes)
   (loop [i 0
 	 ts truestate
 	 gs gridstate]
@@ -383,7 +382,7 @@
 	(recur (inc i)))))
      
 (defn generate-results
-  [msecs steps numes walk width height strategy sensor-coverage truestate strat-state gridstate]
+  [msecs steps numes walk width height strategy sensor-coverage truestate gridstate strat-state]
   (let [correct (evaluate truestate strat-state)
 	incorrect (- (count (:events strat-state)) correct)
 	total (count (:events truestate))
@@ -429,17 +428,17 @@
 
 (defn parallel-runs
   [params]
-  (apply concat (map (fn [partition] (do (println "here") (map #(apply run %) partition)))
-		     (partition-all 100 (shuffle params)))))
+  (apply concat (pmap (fn [partition] (map #(apply run %) partition))
+		      (partition-all 100 (shuffle params)))))
 
 (defn generate-run-params []
-  (for [steps [10]
-	numes [5]
-	walk [1 3]
-	width [5]
-	height [5]
+  (for [steps [50]
+	numes [1 2 5 10]
+	walk [1 2 3 5 10]
+	width [10 20]
+	height [10 20]
 	strategy ["guess" "nearest"]
-	sensor-coverage [10 50]
+	sensor-coverage [10 50 100]
 	sensors [(generate-sensors-with-coverage width height sensor-coverage)]]
     [steps numes walk width height strategy sensor-coverage sensors]))
 
