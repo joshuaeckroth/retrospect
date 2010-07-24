@@ -123,20 +123,21 @@
   "Try to move one step in a given direction; return new position."
   [dir posx posy grid]
   (case dir
-	  "left" (if (pos-free? (dec posx) posy grid)
-		   [(dec posx) posy] [posx posy])
-	  "right" (if (pos-free? (inc posx) posy grid)
-		    [(inc posx) posy] [posx posy])
-	  "down" (if (pos-free? posx (inc posy) grid)
-		   [posx (inc posy)] [posx posy])
-	  "up" (if (pos-free? posx (dec posy) grid)
-		 [posx (dec posy)] [posx posy])))
+	"fixed" [posx posy]
+	"left" (if (pos-free? (dec posx) posy grid)
+		 [(dec posx) posy] [posx posy])
+	"right" (if (pos-free? (inc posx) posy grid)
+		  [(inc posx) posy] [posx posy])
+	"down" (if (pos-free? posx (inc posy) grid)
+		 [posx (inc posy)] [posx posy])
+	"up" (if (pos-free? posx (dec posy) grid)
+	       [posx (dec posy)] [posx posy])))
 
 (defn walk1
   "Move an entity one step in a random (free) direction,
    and add that movement to the entity's history"
   [entity grid]
-  (let [dir (nth ["left" "right" "down" "up"] (rand-int 4))
+  (let [dir (nth ["left" "right" "down" "up" "fixed"] (rand-int 4))
 	[posx posy] (attempt-move dir (lastPosX entity) (lastPosY entity) grid)]
     (addSnapshot entity (EntitySnapshot. posx posy))))
 
@@ -225,9 +226,8 @@
 		    (lastPosX spotted) (lastPosY spotted))))
 
 (defn explain-guess
-  [sensors strat-state gridstate]
-  (let [time (:time gridstate)
-	unique-spotted (set (apply concat (map :spotted sensors)))
+  [sensors strat-state time]
+  (let [unique-spotted (set (apply concat (map :spotted sensors)))
 	es (:entities strat-state)
 	numes (count es)]
     (loop [spotted unique-spotted
@@ -269,9 +269,8 @@
    less than some constant will be explained as having moved from its paired
    existing entity; all pairings with too great a distance will have 'new-entity'
    explanations."
-  [sensors strat-state gridstate]
-  (let [time (:time gridstate)
-	unique-spotted (set (apply concat (map :spotted sensors)))]
+  [sensors strat-state time]
+  (let [unique-spotted (set (apply concat (map :spotted sensors)))]
     (if (empty? (:entities strat-state))
       (reduce (fn [state spotted] (explain-new-entity spotted time state))
 	      strat-state unique-spotted)
@@ -287,10 +286,10 @@
 				   time state)))))))
 
 (defn explain
-  [strategy sensors strat-state gridstate]
+  [strategy sensors strat-state time]
   (case strategy
-	"guess" (explain-guess sensors strat-state gridstate)
-	"nearest" (explain-nearest sensors strat-state gridstate)))
+	"guess" (explain-guess sensors strat-state time)
+	"nearest" (explain-nearest sensors strat-state time)))
 
 ;; evaluation functions
 
@@ -300,20 +299,28 @@
 
 ;; simulation functions
 
-(defn init-grid-state
-  [width height numes]
+(defn add-new-entities
+  [truestate gridstate numes]
+  (println "add" numes)
   (loop [i 0
-	 gridstate (GridState. (new-grid width height) 0)
-	 entities []]
-    (if (< i numes)
-      (let [entity (new-entity (:grid gridstate))]
-	(recur (inc i) (updateGridEntity gridstate nil entity) (conj entities entity)))
-      [gridstate entities])))
+	 ts truestate
+	 gs gridstate]
+    (if (or (= i numes) ; stop if reached numes or if there's no more space in grid
+	    (= (* (:width (:grid gs)) (:height (:grid gs)))
+	       (count (:entities ts))))
+      [ts gs]
+      (let [entity (new-entity (:grid gs))]
+	(recur (inc i)
+	       (-> ts
+		   (addEntity entity)
+		   (addEventNew 0 (lastPosX entity) (lastPosY entity)))
+	       (updateGridEntity gs nil entity))))))
 
-(defn init-true-state
-  [entities]
-  (reduce (fn [ts entity] (addEventNew ts 0 (lastPosX entity) (lastPosY entity)))
-	  (StratState. [] entities) entities))
+(defn init-states
+  [width height numes]
+  (let [truestate (StratState. [] [])
+	gridstate (GridState. (new-grid width height) 0)]
+    (add-new-entities truestate gridstate numes)))
 
 (defn random-walks
   [entities gridstate]
@@ -329,14 +336,14 @@
   [truestate entities newes time]
   (loop [i 0
 	 ts truestate]
-    (if (< i (count entities))
-      (let [olde (nth entities i)
-	    newe (nth newes i)]
-	(recur (inc i) (-> ts
-			   (updateEntity olde (lastPosX newe) (lastPosY newe))
-			   (addEventMove time (lastPosX olde) (lastPosY olde)
-					 (lastPosX newe) (lastPosY newe)))))
-      ts)))
+    (if (= i (count entities)) ts
+	(let [olde (nth entities i)
+	      newe (nth newes i)]
+	  (recur (inc i)
+		 (-> ts
+		     (updateEntity olde (lastPosX newe) (lastPosY newe))
+		     (addEventMove time (lastPosX olde) (lastPosY olde)
+				   (lastPosX newe) (lastPosY newe))))))))
 
 (defn random-walks-n
   [walk truestate gridstate]
@@ -348,19 +355,24 @@
 	(if (= i walk) [(update-truestate truestate entities newes (:time newgs)) newgs]
 	    (recur (inc i) newes newgs))))))
 
+(defn possibly-add-new-entities
+  [truestate gridstate]
+  (if (> 0.95 (rand)) [truestate gridstate] ; skip adding new entities 95% of the time
+      (add-new-entities truestate gridstate (inc (rand-int 2)))))
+
 (defn single-step
-  [walk strategy sensors [truestate strat-state gridstate]]
+  [walk strategy sensors [truestate gridstate strat-state]]
   (let [sens (map #(update-spotted % gridstate) sensors)
-	strat-s (explain strategy sens strat-state gridstate)
-	[ts gs] (random-walks-n walk truestate (forwardTime gridstate 1))]
-    [ts strat-s gs]))
+	strat-s (explain strategy sens strat-state (:time gridstate))
+	[ts gs] (random-walks-n walk truestate (forwardTime gridstate 1))
+	[newts newgs] (possibly-add-new-entities ts gs)]
+    [newts newgs strat-s]))
 
 (defn last-explanation
-  [strategy sensors [truestate strat-state gridstate]]
-  [truestate (explain strategy
-		      (map #(update-spotted % gridstate) sensors)
-		      strat-state gridstate)
-   gridstate])
+  [strategy sensors [truestate gridstate strat-state]]
+  [truestate gridstate
+   (explain strategy (map #(update-spotted % gridstate) sensors)
+	    strat-state (:time gridstate))])
 
 (def *strategies* ["guess" "nearest"])
 
@@ -382,12 +394,11 @@
 
 (defn run
   [steps numes walk width height strategy sensor-coverage sensors]
-  (let [[gridstate entities] (init-grid-state width height numes)
+  (let [[truestate gridstate] (init-states width height numes)
+	strat-state (init-strat-state strategy)
 	startTime (. System (nanoTime))]
     (loop [i 0
-	   combined-states [(init-true-state entities)
-			    (init-strat-state strategy)
-			    gridstate]]
+	   combined-states [truestate gridstate strat-state]]
       (if (< i steps)
 	(recur (inc i) (single-step walk strategy sensors combined-states))
 	(apply generate-results
@@ -418,18 +429,17 @@
 
 (defn parallel-runs
   [params]
-  (apply concat (pmap (fn [partition]
-			(time (doall (map #(apply run %) partition))))
-		      (partition-all (/ (count params) 16) (shuffle params)))))
+  (apply concat (map (fn [partition] (do (println "here") (map #(apply run %) partition)))
+		     (partition-all 100 (shuffle params)))))
 
 (defn generate-run-params []
-  (for [steps [1 10]
-	numes [1 10]
-	walk [1 3 5]
-	width [5 10 20]
-	height [5 10 20]
+  (for [steps [10]
+	numes [5]
+	walk [1 3]
+	width [5]
+	height [5]
 	strategy ["guess" "nearest"]
-	sensor-coverage [10 50 100]
+	sensor-coverage [10 50]
 	sensors [(generate-sensors-with-coverage width height sensor-coverage)]]
     [steps numes walk width height strategy sensor-coverage sensors]))
 
