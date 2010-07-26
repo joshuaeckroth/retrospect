@@ -437,7 +437,7 @@
 	walk [1 2 3 5 10]
 	width [10 20]
 	height [10 20]
-	strategy ["guess" "nearest"]
+	strategy *strategies*
 	sensor-coverage [10 50 100]
 	sensors [(generate-sensors-with-coverage width height sensor-coverage)]]
     [steps numes walk width height strategy sensor-coverage sensors]))
@@ -447,11 +447,33 @@
 	results (parallel-runs params)]
     (reduce (fn [m r] (addResult m r)) (ResultsMatrix. []) results)))
 
+(def *headers*
+     {:Milliseconds "Milliseconds"
+      :Steps "Steps"
+      :Number-entities "Number-entities"
+      :Walk-size "Walk-size"
+      :Grid-width "Grid-width"
+      :Grid-height "Grid height"
+      :Strategy-index "Strategy-index"
+      :Sensor-coverage "Sensor-coverage"
+      :Correct "Correct"
+      :Incorrect "Incorrect"
+      :Total "Total"
+      :Percent-correct "Percent-correct"})
+
 (defn save-results
   [matrix]
-  (save (getMatrix matrix) "results.csv" :header ["Milliseconds" "Steps" "Number-entities" "Walk-size"
-						  "Grid-width" "Grid-height" "Strategy-index"
-						  "Sensor-coverage" "Correct" "Incorrect" "Total"
+  (save (getMatrix matrix) "results.csv" :header ["Milliseconds"
+						  "Steps"
+						  "Number-entities"
+						  "Walk-size"
+						  "Grid-width"
+						  "Grid height"
+						  "Strategy-index"
+						  "Sensor-coverage"
+						  "Correct"
+						  "Incorrect"
+						  "Total"
 						  "Percent-correct"]))
 
 (defn read-results []
@@ -477,3 +499,20 @@
   (with-data (sel (read-results) :filter #(= 50.0 (nth % 7)))
     (view (scatter-plot :Walk-size :Percent-correct :group-by :Strategy-index :legend true))))
 
+(defn plot
+  [data x y sensor-coverage]
+  (with-data data
+    (let [plot (doto
+		   (scatter-plot x y :x-label (*headers* x) :y-label (*headers* y) :legend true
+				 :data ($where {:Strategy-index 0 :Sensor-coverage sensor-coverage})
+				 :series-label "guess"
+				 :title (format "Sensor coverage: %.0f%%" sensor-coverage))
+		 (set-y-range 0.0 100.0)
+		 (clear-background))]
+      (if (nil? (rest *strategies*)) (view plot)
+	  (view (reduce (fn [plot strategy]
+			  (add-points plot x y
+				      :data ($where {:Strategy-index (get-strategy-index strategy)
+						     :Sensor-coverage sensor-coverage})
+				      :series-label strategy))
+			plot (rest *strategies*)))))))
