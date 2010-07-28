@@ -6,9 +6,21 @@
   (:use incanter.io)
   (:require [incanter.stats :as stats]))
 
+(defprotocol PositionMethods
+  (equal [this other])
+  (manhattan-distance [this other]))
+
+(defrecord Position [x y]
+  PositionMethods
+  (equal [this other] (and (= (:x this) (:x other)) (= (:y this) (:y other))))
+  (manhattan-distance
+   [this other]
+   (+ (math/abs (- (:x this) (:x other)))
+      (math/abs (- (:y this) (:y other))))))
+
 (defn get-grid-pos
-  [grid posx posy]
-  (+ (* posy (:width grid)) posx))
+  [grid pos]
+  (+ (* (:y pos) (:width grid)) (:x pos)))
 
 (defn replace-entity
   "Replace an entity in the grid (which may be nil) with a new one."
@@ -16,15 +28,14 @@
   (let [snapshot (last (:snapshots newentity))
 	newgrid (assoc grid :gridvec
 		       (assoc (:gridvec grid)
-			 (get-grid-pos grid (:posx snapshot) (:posy snapshot)) newentity))]
+			 (get-grid-pos grid (:pos snapshot)) newentity))]
     (if (nil? oldentity) newgrid
 	(let [prior-snapshot (last (:snapshots oldentity))]
-	  (if (or (not= (:posx prior-snapshot) (:posx snapshot))
-		  (not= (:posy prior-snapshot) (:posy snapshot)))
-	    (assoc newgrid :gridvec (assoc (:gridvec newgrid)
-				      (get-grid-pos newgrid (:posx prior-snapshot)
-						    (:posy prior-snapshot)) nil))
-	    newgrid)))))
+	  (if (equal (:pos prior-snapshot) (:pos snapshot)) newgrid
+	      (assoc newgrid :gridvec
+		     (assoc (:gridvec newgrid)
+		       (get-grid-pos newgrid (:pos prior-snapshot))
+		       nil)))))))
 
 (defprotocol EntityContainer
   (updateGridEntity [this oldentity newentity]))
@@ -56,21 +67,21 @@
 
 (defn entity-at
   "Get the entity at a posx, posy."
-  [grid posx posy]
-  (nth (:gridvec grid) (get-grid-pos grid posx posy)))
+  [grid pos]
+  (nth (:gridvec grid) (get-grid-pos grid pos)))
 
 (defn pos-free?
   "Check if a position in the grid is free (not occupied by an entity)."
-  [posx posy grid]
-  (and (>= posx 0) (< posx (:width grid))
-       (>= posy 0) (< posy (:height grid))
-       (nil? (entity-at grid posx posy))))
+  [pos grid]
+  (let [[x y] [(:x pos) (:y pos)]]
+    (and (>= x 0) (< x (:width grid))
+	 (>= y 0) (< y (:height grid))
+	 (nil? (entity-at grid pos)))))
 
 ;; entity functions
 
 (defprotocol EntityMethods
-  (lastPosX [this])
-  (lastPosY [this])
+  (pos [this])
   (toStr [this]))
 
 (defn print-entities
@@ -80,7 +91,7 @@
 (defprotocol SnapshotMethods
   (addSnapshot [this snapshot]))
 
-(defrecord EntitySnapshot [posx posy])
+(defrecord EntitySnapshot [pos])
 
 (defrecord Entity [symbol snapshots]
   SnapshotMethods
@@ -88,10 +99,9 @@
    [this snapshot]
    (assoc this :snapshots (conj (:snapshots this) snapshot)))
   EntityMethods
-  (lastPosX [this] (:posx (last (:snapshots this))))
-  (lastPosY [this] (:posy (last (:snapshots this))))
+  (pos [this] (:pos (last (:snapshots this))))
   (toStr [this] (format "Entity %c %s" (:symbol this)
-			(apply str (interpose "->" (map #(format "(%d,%d)" (:posx %) (:posy %))
+			(apply str (interpose "->" (map #(format "(%d,%d)" (:x (:pos %)) (:y (:pos %)))
 							(:snapshots this)))))))
   
 (defn symbol-used?
@@ -109,46 +119,45 @@
 	   posx (rand-posx)
 	   posy (rand-posy)]
       (if (or (symbol-used? symbol grid)
-	      (not (pos-free? posx posy grid)))
+	      (not (pos-free? (Position. posx posy) grid)))
 	(recur (rand-symbol) (rand-posx) (rand-posy))
-	[symbol posx posy]))))
+	[symbol (Position. posx posy)]))))
   
 (defn new-entity
   "Create a new entity with a random symbol and random (free) location."
   [grid]
-  (let [[symbol posx posy] (rand-symbol-and-pos grid)]
-    (Entity. symbol [(EntitySnapshot. posx posy)])))
+  (let [[symbol pos] (rand-symbol-and-pos grid)]
+    (Entity. symbol [(EntitySnapshot. pos)])))
 
 (defn attempt-move
   "Try to move one step in a given direction; return new position."
-  [dir posx posy grid]
-  (case dir
-	"fixed" [posx posy]
-	"left" (if (pos-free? (dec posx) posy grid)
-		 [(dec posx) posy] [posx posy])
-	"right" (if (pos-free? (inc posx) posy grid)
-		  [(inc posx) posy] [posx posy])
-	"down" (if (pos-free? posx (inc posy) grid)
-		 [posx (inc posy)] [posx posy])
-	"up" (if (pos-free? posx (dec posy) grid)
-	       [posx (dec posy)] [posx posy])))
+  [dir pos grid]
+  (let [left (Position. (dec (:x pos)) (:y pos))
+	right (Position. (inc (:x pos)) (:y pos))
+	down (Position. (:x pos) (inc (:y pos)))
+	up (Position. (:x pos) (dec (:y pos)))]
+    (case dir
+	  "fixed" pos
+	  "left" (if (pos-free? left grid) left pos)
+	  "right" (if (pos-free? right grid) right pos)
+	  "down" (if (pos-free? down grid) down pos)
+	  "up" (if (pos-free? up grid) up pos))))
 
 (defn walk1
   "Move an entity one step in a random (free) direction,
    and add that movement to the entity's history"
   [entity grid]
   (let [dir (nth ["left" "right" "down" "up" "fixed"] (rand-int 4))
-	[posx posy] (attempt-move dir (lastPosX entity) (lastPosY entity) grid)]
-    (addSnapshot entity (EntitySnapshot. posx posy))))
+	pos (attempt-move dir (pos entity) grid)]
+    (addSnapshot entity (EntitySnapshot. pos))))
 
 
 ;; sensor functions
 
-(defrecord SensorEntity [time posx posy]
+(defrecord SensorEntity [time pos]
   EntityMethods
-  (lastPosX [this] (:posx this))
-  (lastPosY [this] (:posy this))
-  (toStr [this] (format "SensorEntity (%d,%d)@%d" (:posx this) (:posy this) (:time this))))
+  (pos [this] (:pos this))
+  (toStr [this] (format "SensorEntity (%d,%d)@%d" (:x (:pos this)) (:y (:pos this)) (:time this))))
 
 (defrecord Sensor [id left right bottom top spotted])
 
@@ -161,24 +170,24 @@
   "Create 'spotted' vector based on grid."
   [sensor gridstate]
   (assoc sensor :spotted
-	 (map #(SensorEntity. (:time gridstate) (lastPosX %) (lastPosY %))
+	 (map #(SensorEntity. (:time gridstate) (pos %))
 	      (filter #(not (nil? %))
-		      (for [posx (range (:left sensor) (inc (:right sensor)))
-			    posy (range (:bottom sensor) (inc (:top sensor)))]
-			(entity-at (:grid gridstate) posx posy))))))
+		      (for [x (range (:left sensor) (inc (:right sensor)))
+			    y (range (:bottom sensor) (inc (:top sensor)))]
+			(entity-at (:grid gridstate) (Position. x y)))))))
 
 
 ;; generic strategy functions
 
-(defrecord EventNew [time posx posy])
+(defrecord EventNew [time pos])
 
-(defrecord EventMove [time oposx oposy posx posy])
+(defrecord EventMove [time oldpos newpos])
 
 (defprotocol StratStateMethods
   (addEntity [this entity])
-  (updateEntity [this entity posx posy])
-  (addEventNew [this time posx posy])
-  (addEventMove [this time oposx oposy posx posy])
+  (updateEntity [this entity pos])
+  (addEventNew [this time pos])
+  (addEventMove [this time oldpos newpos])
   (addEvent [this event]))
 
 (defrecord StratState [events entities]
@@ -187,21 +196,21 @@
    [this entity]
    (assoc this :entities
 	  (conj (:entities this)
-		(Entity. \X [(EntitySnapshot. (lastPosX entity) (lastPosY entity))]))))
+		(Entity. \X [(EntitySnapshot. (pos entity))]))))
   (updateEntity
 					;possibly use a reverse-lookup map in the future, to get entity keys
 					;eg: (let [m {:a :b :c :d}] (zipmap (vals m) (keys m)))
-   [this entity posx posy]
+   [this entity pos]
    (assoc this :entities
-	  (map #(if (= % entity)
-		  (addSnapshot % (EntitySnapshot. posx posy))
-		  %) (:entities this))))
+	  (map #(if (not= % entity) %
+		    (addSnapshot % (EntitySnapshot. pos)))
+	       (:entities this))))
   (addEventNew
-   [this time posx posy]
-   (addEvent this (EventNew. time posx posy)))
+   [this time pos]
+   (addEvent this (EventNew. time pos)))
   (addEventMove
-   [this time oposx oposy posx posy]
-   (addEvent this (EventMove. time oposx oposy posx posy)))
+   [this time oldpos newpos]
+   (addEvent this (EventMove. time oldpos newpos)))
   (addEvent
    [this event]
    (assoc this :events (conj (:events this) event))))
@@ -216,14 +225,13 @@
   [spotted time strat-state]
   (-> strat-state
       (addEntity spotted)
-      (addEventNew time (lastPosX spotted) (lastPosY spotted))))
+      (addEventNew time (pos spotted))))
 
 (defn explain-existing-entity
   [spotted entity time strat-state]
   (-> strat-state
-      (updateEntity entity (lastPosX spotted) (lastPosY spotted))
-      (addEventMove time (lastPosX entity) (lastPosY entity)
-		    (lastPosX spotted) (lastPosY spotted))))
+      (updateEntity entity (pos spotted))
+      (addEventMove time (pos entity) (pos spotted))))
 
 (defn explain-guess
   [sensors strat-state time]
@@ -243,23 +251,15 @@
 		     (explain-existing-entity
 		      (first spotted) (nth es choice) time state)))))))
 
-(defn manhattan-distance
-  [e1 e2]
-  (+ (math/abs (- (lastPosX e1) (lastPosX e2)))
-     (math/abs (- (lastPosY e1) (lastPosY e2)))))
-
 (defn pair-nearest
   "This is an instance of the closest pairs problem. Note that, at the moment,
    the brute-force algorithm is used, which has complexity O(n^2)."
   [spotted entities]
-  (let [pairs
-	(sort-by :dist 
-		 (apply concat
-			(for [s spotted]
-			  (for [e entities]
-			    {:spotted s :entity e :dist (manhattan-distance s e)}))))]
-    (for [s spotted]
-      (first (filter #(= (:spotted %) s) pairs)))))
+  (let [pairs-of-pairs (for [s spotted]
+			 (for [e entities]
+			   {:spotted s :entity e :dist (manhattan-distance (pos s) (pos e))}))
+	sorted-pairs (sort-by :dist (apply concat pairs-of-pairs))]
+    (for [s spotted] (first (filter #(= (:spotted %) s) sorted-pairs)))))
 
 					; 'new-entities' are always incorrect?
 (defn explain-nearest
@@ -280,10 +280,9 @@
 	      (> (:dist (first pairs)) 5)
 	      (recur (rest pairs) (explain-new-entity (:spotted (first pairs)) time state))
 	      :else
-	      (recur (rest pairs) (explain-existing-entity
-				   (:spotted (first pairs))
-				   (:entity (first pairs))
-				   time state)))))))
+	      (recur (rest pairs)
+		     (explain-existing-entity (:spotted (first pairs))
+					      (:entity (first pairs)) time state)))))))
 
 (defn explain
   [strategy sensors strat-state time]
@@ -312,7 +311,7 @@
 	(recur (inc i)
 	       (-> ts
 		   (addEntity entity)
-		   (addEventNew 0 (lastPosX entity) (lastPosY entity)))
+		   (addEventNew 0 (pos entity)))
 	       (updateGridEntity gs nil entity))))))
 
 (defn init-states
@@ -340,9 +339,8 @@
 	      newe (nth newes i)]
 	  (recur (inc i)
 		 (-> ts
-		     (updateEntity olde (lastPosX newe) (lastPosY newe))
-		     (addEventMove time (lastPosX olde) (lastPosY olde)
-				   (lastPosX newe) (lastPosY newe))))))))
+		     (updateEntity olde (pos newe))
+		     (addEventMove time (pos olde) (pos newe))))))))
 
 (defn random-walks-n
   [walk truestate gridstate]
@@ -433,12 +431,12 @@
 
 (defn generate-run-params []
   (for [steps [50]
-	numes [1 2 5 10]
-	walk [1 2 3 5 10]
-	width [10 20]
-	height [10 20]
+	numes [1 2 5 10 20 30]
+	walk [1 2 3 5 7]
+	width [10]
+	height [10]
 	strategy *strategies*
-	sensor-coverage [10 50 100]
+	sensor-coverage [10 50 75 100]
 	sensors [(generate-sensors-with-coverage width height sensor-coverage)]]
     [steps numes walk width height strategy sensor-coverage sensors]))
 
@@ -468,7 +466,7 @@
 						  "Number-entities"
 						  "Walk-size"
 						  "Grid-width"
-						  "Grid height"
+						  "Grid-height"
 						  "Strategy-index"
 						  "Sensor-coverage"
 						  "Correct"
@@ -504,7 +502,8 @@
   (with-data data
     (let [plot (doto
 		   (scatter-plot x y :x-label (*headers* x) :y-label (*headers* y) :legend true
-				 :data ($where {:Strategy-index 0 :Sensor-coverage sensor-coverage})
+				 :data ($where {:Strategy-index 0
+						:Sensor-coverage sensor-coverage})
 				 :series-label "guess"
 				 :title (format "Sensor coverage: %.0f%%" sensor-coverage))
 		 (set-y-range 0.0 100.0)
