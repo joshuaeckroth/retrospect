@@ -184,15 +184,15 @@
 
 (defrecord EventMove [time oldpos newpos])
 
-(defprotocol StratStateMethods
+(defprotocol StateMethods
   (addEntity [this entity])
   (updateEntity [this entity pos])
   (addEventNew [this time pos])
   (addEventMove [this time oldpos newpos])
   (addEvent [this event]))
 
-(defrecord StratState [events entities]
-  StratStateMethods
+(defrecord State [events entities]
+  StateMethods
   (addEntity
    [this entity]
    (update-in this [:entities] conj (Entity. (:symbol entity) [(EntitySnapshot. (pos entity))])))
@@ -217,8 +217,8 @@
 (defn init-strat-state
   [strategy]
   (case strategy
-	"guess" (StratState. [] [])
-	"nearest" (StratState. [] [])))
+	"guess" (State. [] [])
+	"nearest" (State. [] [])))
 
 (defn explain-new-entity
   [spotted time strat-state]
@@ -315,7 +315,7 @@
 
 (defn init-states
   [width height numes]
-  (let [truestate (StratState. [] [])
+  (let [truestate (State. [] [])
 	gridstate (GridState. (new-grid width height) 0)]
     (add-new-entities truestate gridstate numes)))
 
