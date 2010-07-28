@@ -48,11 +48,11 @@
   EntityContainer
   (updateGridEntity
    [this oldentity newentity]
-   (assoc this :grid (replace-entity (:grid this) oldentity newentity)))
+   (update-in this [:grid] replace-entity oldentity newentity))
   Temporal
   (forwardTime
    [this amount]
-   (assoc this :time (+ amount (:time this)))))
+   (update-in this [:time] + amount)))
 
 ;; grid functions
 
@@ -98,7 +98,7 @@
   SnapshotMethods
   (addSnapshot
    [this snapshot]
-   (assoc this :snapshots (conj (:snapshots this) snapshot)))
+   (update-in this [:snapshots] conj snapshot))
   EntityMethods
   (pos [this] (:pos (last (:snapshots this))))
   (toStr [this] (format "Entity %c %s" (:symbol this)
@@ -195,9 +195,7 @@
   StratStateMethods
   (addEntity
    [this entity]
-   (assoc this :entities
-	  (conj (:entities this)
-		(Entity. \X [(EntitySnapshot. (pos entity))]))))
+   (update-in this [:entities] conj (Entity. \X [(EntitySnapshot. (pos entity))])))
   (updateEntity
 					;possibly use a reverse-lookup map in the future, to get entity keys
 					;eg: (let [m {:a :b :c :d}] (zipmap (vals m) (keys m)))
@@ -214,7 +212,7 @@
    (addEvent this (EventMove. time oldpos newpos)))
   (addEvent
    [this event]
-   (assoc this :events (conj (:events this) event))))
+   (update-in this [:events] conj event)))
 
 (defn init-strat-state
   [strategy]
@@ -403,9 +401,7 @@
 
 (defrecord Results [r]
   ResultsOperations
-  (addResult
-   [this result]
-   (assoc this :r (conj (:r this) result)))
+  (addResult [this result] (update-in this [:r] conj result))
   (getResults [this] (:r this)))
 
 (defn generate-sensors-with-coverage
