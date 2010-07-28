@@ -283,21 +283,32 @@
    less than some constant will be explained as having moved from its paired
    existing entity; all pairings with too great a distance will have 'new-entity'
    explanations."
-  [sensors strat-state time]
+  [sensors state time]
   (let [unique-spotted (set (apply concat (map :spotted sensors)))]
-    (if (empty? (:entities strat-state))
-      (reduce (fn [state spotted] (explain-new-entity state spotted time))
-	      strat-state unique-spotted)
-      (loop [pairs (pair-nearest unique-spotted (:entities strat-state))
-	     state strat-state]
-	(cond (empty? pairs) state
+    (if (empty? (:entities state))
+      (reduce (fn [s spotted]
+		(-> s
+		    (addLog time (str "Explaining " (toStr spotted) " as new."))
+		    (explain-new-entity spotted time)))
+	      state unique-spotted)
+      (loop [pairs (pair-nearest unique-spotted (:entities state))
+	     s state]
+	(cond (empty? pairs) s
 	      (> (:dist (first pairs)) 5)
-	      (recur (rest pairs) (explain-new-entity state (:spotted (first pairs)) time))
+	      (recur (rest pairs)
+		     (-> s
+			 (addLog time (str "Explaining " (toStr (:spotted (first pairs)))
+					   " as new since its distance to next-nearest is > 5"))
+			 (explain-new-entity (:spotted (first pairs)) time)))
 	      :else
 	      (recur (rest pairs)
-		     (explain-existing-entity state
-					      (:spotted (first pairs))
-					      (:entity (first pairs)) time)))))))
+		     (-> s
+			 (addLog time (str "Explaining " (toStr (:spotted (first pairs)))
+					   " as continuation of next-nearest "
+					   (toStr (:entity (first pairs)))))
+			 (explain-existing-entity
+			  (:spotted (first pairs))
+			  (:entity (first pairs)) time))))))))
 
 (defn explain
   [strategy sensors strat-state time]
