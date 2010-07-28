@@ -4,7 +4,8 @@
   (:use incanter.core)
   (:use incanter.charts)
   (:use incanter.io)
-  (:require [incanter.stats :as stats]))
+  (:require [incanter.stats :as stats])
+  (:import (java.io BufferedWriter FileWriter)))
 
 (defprotocol PositionMethods
   (equal [this other])
@@ -372,21 +373,14 @@
 	    strat-state (:time gridstate))])
 
 (def *strategies* ["guess" "nearest"])
-
-(defn get-strategy-index
-  [strategy]
-  (loop [i 0]
-    (if (= strategy (nth *strategies* i)) i
-	(recur (inc i)))))
      
 (defn generate-results
   [msecs steps numes walk width height strategy sensor-coverage truestate gridstate strat-state]
   (let [correct (evaluate truestate strat-state)
 	incorrect (- (count (:events strat-state)) correct)
 	total (count (:events truestate))
-	percent (* 100 (/ correct total))
-	strategy-index (get-strategy-index strategy)]
-    [msecs steps numes walk width height strategy-index sensor-coverage
+	percent (double (* 100 (/ correct total)))]
+    [msecs steps numes walk width height strategy sensor-coverage
      correct incorrect total percent]))
 
 (defn run
@@ -403,16 +397,16 @@
 	       steps numes walk width height strategy sensor-coverage
 	       (last-explanation strategy sensors combined-states))))))
 
-(defprotocol ResultsMatrixOperations
+(defprotocol ResultsOperations
   (addResult [this result])
-  (getMatrix [this]))
+  (getResults [this]))
 
-(defrecord ResultsMatrix [m]
-  ResultsMatrixOperations
+(defrecord Results [r]
+  ResultsOperations
   (addResult
    [this result]
-   (assoc this :m (conj (:m this) result)))
-  (getMatrix [this] (matrix (:m this))))
+   (assoc this :r (conj (:r this) result)))
+  (getResults [this] (:r this)))
 
 (defn generate-sensors-with-coverage
   [width height coverage]
@@ -443,36 +437,21 @@
 (defn multiple-runs []
   (let [params (generate-run-params)
 	results (parallel-runs params)]
-    (reduce (fn [m r] (addResult m r)) (ResultsMatrix. []) results)))
+    (reduce (fn [m r] (addResult m r)) (Results. []) results)))
 
 (def *headers*
-     {:Milliseconds "Milliseconds"
-      :Steps "Steps"
-      :Number-entities "Number-entities"
-      :Walk-size "Walk-size"
-      :Grid-width "Grid-width"
-      :Grid-height "Grid height"
-      :Strategy-index "Strategy-index"
-      :Sensor-coverage "Sensor-coverage"
-      :Correct "Correct"
-      :Incorrect "Incorrect"
-      :Total "Total"
-      :Percent-correct "Percent-correct"})
+     ["Milliseconds" "Steps" "NumberEntities" "WalkSize"
+      "GridWidth" "GridHeight" "Strategy" "SensorCoverage"
+      "Correct" "Incorrect" "Total" "PercentCorrect"])
+
+(defn write-csv
+  [filename data]
+  (with-open [writer (BufferedWriter. (FileWriter. filename))]
+    (doseq [row data] (.write writer (apply str (concat (interpose "," row) [\newline]))))))
 
 (defn save-results
-  [matrix]
-  (save (getMatrix matrix) "results.csv" :header ["Milliseconds"
-						  "Steps"
-						  "Number-entities"
-						  "Walk-size"
-						  "Grid-width"
-						  "Grid-height"
-						  "Strategy-index"
-						  "Sensor-coverage"
-						  "Correct"
-						  "Incorrect"
-						  "Total"
-						  "Percent-correct"]))
+  [results]
+  (write-csv "results.csv" (concat [*headers*] (getResults results))))
 
 (defn read-results []
   (read-dataset "results.csv" :header true))
@@ -501,9 +480,9 @@
   [data x y sensor-coverage]
   (with-data data
     (let [plot (doto
-		   (scatter-plot x y :x-label (*headers* x) :y-label (*headers* y) :legend true
-				 :data ($where {:Strategy-index 0
-						:Sensor-coverage sensor-coverage})
+		   (scatter-plot x y :x-label (name x) :y-label (name y) :legend true
+				 :data ($where {:Strategy "guess"
+						:SensorCoverage sensor-coverage})
 				 :series-label "guess"
 				 :title (format "Sensor coverage: %.0f%%" sensor-coverage))
 		 (set-y-range 0.0 100.0)
@@ -511,7 +490,7 @@
       (if (nil? (rest *strategies*)) (view plot)
 	  (view (reduce (fn [plot strategy]
 			  (add-points plot x y
-				      :data ($where {:Strategy-index (get-strategy-index strategy)
-						     :Sensor-coverage sensor-coverage})
+				      :data ($where {:Strategy strategy
+						     :SensorCoverage sensor-coverage})
 				      :series-label strategy))
 			plot (rest *strategies*)))))))
