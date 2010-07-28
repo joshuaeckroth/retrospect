@@ -184,21 +184,27 @@
 
 (defrecord EventMove [time oldpos newpos])
 
+(defrecord LogEntry [time msg])
+
 (defprotocol StateMethods
   (addEntity [this entity])
   (updateEntity [this entity pos])
   (addEventNew [this time pos])
   (addEventMove [this time oldpos newpos])
-  (addEvent [this event]))
+  (addEvent [this event])
+  (addLog [this time msg])
+  (formatLogs [this]))
 
-(defrecord State [events entities]
+(defrecord State [events entities logs]
   StateMethods
   (addEntity
    [this entity]
-   (update-in this [:entities] conj (Entity. (:symbol entity) [(EntitySnapshot. (pos entity))])))
+   (update-in this [:entities] conj
+	      (Entity. (if (:symbol entity) (:symbol entity) \X)
+		       [(EntitySnapshot. (pos entity))])))
   (updateEntity
-					;possibly use a reverse-lookup map in the future, to get entity keys
-					;eg: (let [m {:a :b :c :d}] (zipmap (vals m) (keys m)))
+   ;;possibly use a reverse-lookup map in the future, to get entity keys
+   ;;eg: (let [m {:a :b :c :d}] (zipmap (vals m) (keys m)))
    [this entity pos]
    (assoc this :entities
 	  (map #(if (not= % entity) %
@@ -212,22 +218,28 @@
    (addEvent this (EventMove. time oldpos newpos)))
   (addEvent
    [this event]
-   (update-in this [:events] conj event)))
+   (update-in this [:events] conj event))
+  (addLog
+   [this time msg]
+   (update-in this [:logs] conj (LogEntry. time msg)))
+  (formatLogs
+   [this]
+   (apply str (map #(format "Time: %d, msg: %s\n" (:time %) (:msg %)) (:logs this)))))
 
 (defn init-strat-state
   [strategy]
   (case strategy
-	"guess" (State. [] [])
-	"nearest" (State. [] [])))
+	"guess" (State. [] [] [])
+	"nearest" (State. [] [] [])))
 
 (defn explain-new-entity
-  [spotted time strat-state]
+  [strat-state spotted time]
   (-> strat-state
       (addEntity spotted)
       (addEventNew time (pos spotted))))
 
 (defn explain-existing-entity
-  [spotted entity time strat-state]
+  [strat-state spotted entity time]
   (-> strat-state
       (updateEntity entity (pos spotted))
       (addEventMove time (pos entity) (pos spotted))))
@@ -243,12 +255,15 @@
 	(cond (empty? spotted) state
 	      (= choice numes)
 	      (recur (rest spotted)
-		     (explain-new-entity
-		      (first spotted) time state))
+		     (-> state
+			 (addLog time (str "Guessing spotted " (toStr (first spotted)) " is new entity"))
+			 (explain-new-entity (first spotted) time)))
 	      :else
 	      (recur (rest spotted)
-		     (explain-existing-entity
-		      (first spotted) (nth es choice) time state)))))))
+		     (-> state
+			 (addLog time (str "Guessing spotted " (toStr (first spotted))
+					   " is continuation of " (toStr (nth es choice))))
+			 (explain-existing-entity (first spotted) (nth es choice) time))))))))
 
 (defn pair-nearest
   "This is an instance of the closest pairs problem. Note that, at the moment,
@@ -271,17 +286,18 @@
   [sensors strat-state time]
   (let [unique-spotted (set (apply concat (map :spotted sensors)))]
     (if (empty? (:entities strat-state))
-      (reduce (fn [state spotted] (explain-new-entity spotted time state))
+      (reduce (fn [state spotted] (explain-new-entity state spotted time))
 	      strat-state unique-spotted)
       (loop [pairs (pair-nearest unique-spotted (:entities strat-state))
 	     state strat-state]
 	(cond (empty? pairs) state
 	      (> (:dist (first pairs)) 5)
-	      (recur (rest pairs) (explain-new-entity (:spotted (first pairs)) time state))
+	      (recur (rest pairs) (explain-new-entity state (:spotted (first pairs)) time))
 	      :else
 	      (recur (rest pairs)
-		     (explain-existing-entity (:spotted (first pairs))
-					      (:entity (first pairs)) time state)))))))
+		     (explain-existing-entity state
+					      (:spotted (first pairs))
+					      (:entity (first pairs)) time)))))))
 
 (defn explain
   [strategy sensors strat-state time]
@@ -315,7 +331,7 @@
 
 (defn init-states
   [width height numes]
-  (let [truestate (State. [] [])
+  (let [truestate (State. [] [] [])
 	gridstate (GridState. (new-grid width height) 0)]
     (add-new-entities truestate gridstate numes)))
 
@@ -363,6 +379,7 @@
      
 (defn generate-results
   [msecs steps numes walk width height strategy sensor-coverage truestate gridstate strat-state]
+  (print (formatLogs strat-state))
   (let [correct (evaluate truestate strat-state)
 	incorrect (- (count (:events strat-state)) correct)
 	total (count (:events truestate))
@@ -409,13 +426,13 @@
 		      (partition-all 100 (shuffle params)))))
 
 (defn generate-run-params []
-  (for [steps [50]
-	numes [1 2 5 10 20 30]
-	walk [1 2 3 5 7]
+  (for [steps [5]
+	numes [1]
+	walk [1]
 	width [10]
 	height [10]
 	strategy *strategies*
-	sensor-coverage [10 50 75 100]
+	sensor-coverage [100]
 	sensors [(generate-sensors-with-coverage width height sensor-coverage)]]
     [steps numes walk width height strategy sensor-coverage sensors]))
 
