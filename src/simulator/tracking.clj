@@ -195,7 +195,7 @@
   StratStateMethods
   (addEntity
    [this entity]
-   (update-in this [:entities] conj (Entity. \X [(EntitySnapshot. (pos entity))])))
+   (update-in this [:entities] conj (Entity. (:symbol entity) [(EntitySnapshot. (pos entity))])))
   (updateEntity
 					;possibly use a reverse-lookup map in the future, to get entity keys
 					;eg: (let [m {:a :b :c :d}] (zipmap (vals m) (keys m)))
@@ -320,36 +320,25 @@
     (add-new-entities truestate gridstate numes)))
 
 (defn random-walks
-  [entities gridstate]
-  (loop [es entities
-	 newes []
-	 gs gridstate]
-    (if (empty? es) [newes gs]
-	(let [newe (walk1 (first es) (:grid gs))]
-	  (recur (rest es) (conj newes newe)
-		 (updateGridEntity gs (first es) newe))))))
-
-(defn update-truestate
-  [truestate entities newes time]
-  (loop [i 0
-	 ts truestate]
-    (if (= i (count entities)) ts
-	(let [olde (nth entities i)
-	      newe (nth newes i)]
-	  (recur (inc i)
-		 (-> ts
-		     (updateEntity olde (pos newe))
-		     (addEventMove time (pos olde) (pos newe))))))))
-
-(defn random-walks-n
   [walk truestate gridstate]
-  (let [entities (shuffle (:entities truestate))]
-    (loop [i 0
-	   es entities
-	   gs gridstate]
-      (let [[newes newgs] (random-walks es gs)]
-	(if (= i walk) [(update-truestate truestate entities newes (:time newgs)) newgs]
-	    (recur (inc i) newes newgs))))))
+  (let [time (:time gridstate) ;;; TODO: should time change for every move?
+	entities (:entities truestate)
+	entities-map (apply assoc {} (interleave entities entities))
+	entity-walks (shuffle (apply concat (map #(repeat (rand-int (inc walk)) %) entities)))]
+    (loop [em entities-map
+	   ts truestate
+	   gs gridstate
+	   ew entity-walks]
+      (if (empty? ew) [ts gs]
+	  (let [e (first ew)
+		olde (get em e)
+		newe (walk1 olde (:grid gs))]
+	    (recur (assoc em e newe)
+		   (-> ts
+		       (updateEntity olde (pos newe))
+		       (addEventMove time (pos olde) (pos newe)))
+		   (updateGridEntity gs olde newe)
+		   (rest ew)))))))
 
 (defn possibly-add-new-entities
   [truestate gridstate]
@@ -360,7 +349,7 @@
   [walk strategy sensors [truestate gridstate strat-state]]
   (let [sens (map #(update-spotted % gridstate) sensors)
 	strat-s (explain strategy sens strat-state (:time gridstate))
-	[ts gs] (random-walks-n walk truestate (forwardTime gridstate 1))
+	[ts gs] (random-walks walk truestate (forwardTime gridstate 1))
 	[newts newgs] (possibly-add-new-entities ts gs)]
     [newts newgs strat-s]))
 
