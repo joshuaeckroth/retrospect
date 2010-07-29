@@ -5,7 +5,10 @@
   (:use incanter.charts)
   (:use incanter.io)
   (:require [incanter.stats :as stats])
-  (:import (java.io BufferedWriter FileWriter)))
+  (:import (java.io BufferedWriter FileWriter))
+  (:import (java.awt Color Graphics Dimension))
+  (:import (java.awt.image BufferedImage))
+  (:import (javax.swing JPanel JFrame)))
 
 (defprotocol PositionMethods
   (equal [this other])
@@ -275,7 +278,7 @@
 	sorted-pairs (sort-by :dist (apply concat pairs-of-pairs))]
     (for [s spotted] (first (filter #(= (:spotted %) s) sorted-pairs)))))
 
-					; 'new-entities' are always incorrect?
+;; 'new-entities' are always incorrect?
 (defn explain-nearest
   "The idea behind 'explain-nearest' is all spotted & existing entities will be
    paired according to k-closest pair (where k = number of spotted entities),
@@ -387,10 +390,15 @@
 	    strat-state (:time gridstate))])
 
 (def *strategies* ["guess" "nearest"])
+
+(def *truestate* nil)
+(def *gridstate* nil)
      
 (defn generate-results
   [msecs steps numes walk width height strategy sensor-coverage truestate gridstate strat-state]
   (print (formatLogs strat-state))
+  (def *truestate* truestate)
+  (def *gridstate* gridstate)
   (let [correct (evaluate truestate strat-state)
 	incorrect (- (count (:events strat-state)) correct)
 	total (count (:events truestate))
@@ -437,8 +445,8 @@
 		      (partition-all 100 (shuffle params)))))
 
 (defn generate-run-params []
-  (for [steps [5]
-	numes [1]
+  (for [steps [50]
+	numes [3]
 	walk [1]
 	width [10]
 	height [10]
@@ -507,3 +515,67 @@
 						     :SensorCoverage sensor-coverage})
 				      :series-label strategy))
 			plot (rest *strategies*)))))))
+
+(def *width* 10)
+(def *height* 10)
+(def *grid-cell-size* 50)
+(def *animation-sleep-ms* 500)
+(def *running* true)
+(def *time* 0)
+(def *event-log*
+     (let [_ (apply run (first (generate-run-params)))]
+       (:events *truestate*)))
+
+(defn fill-cell [#^Graphics g x y c]
+  (doto g
+    (.setColor c)
+    (.fillRect (* x *grid-cell-size*) (* y *grid-cell-size*) *grid-cell-size* *grid-cell-size*)))
+
+(defn render-event [g e]
+  (when (= (type e) simulator.tracking.EventNew)
+    (fill-cell g (:x (:pos e)) (:y (:pos e)) (new Color 0 200 0 100)))
+  (when (= (type e) simulator.tracking.EventMove)
+    (fill-cell g (:x (:oldpos e)) (:y (:oldpos e)) (new Color 0 255 0 100))
+    (fill-cell g (:x (:newpos e)) (:y (:newpos e)) (new Color 0 200 0 100))))
+
+(defn render [g event-log cell-size width height time]
+  (let [img (new BufferedImage
+		 (* cell-size width)
+		 (* cell-size height)
+		 (. BufferedImage TYPE_INT_ARGB))
+	bg (. img (getGraphics))]
+    (doto bg
+      (.setColor (. Color white))
+      (.fillRect 0 0 (. img (getWidth)) (. img (getHeight))))
+    (dorun
+     (for [e (filter #(= (:time %) time) event-log)]
+       (render-event bg e)))
+    (. g (drawImage img 0 0 nil))
+    (. bg (dispose))))
+
+(defn make-panel
+  [event-log cell-size width height time]
+     (doto (proxy [JPanel] []
+	     (paint [g] (render g event-og cell-size width height time)))
+       (.setPreferredSize
+	(new Dimension
+	     (* cell-size width)
+	     (* cell-size height)))))
+
+(defn make-frame
+  [event-log cell-size width height time]
+  (doto (new JFrame) (.add (make-pannel event-log cell-size width height time)) .pack .show))
+
+(def animator (agent nil))
+
+(defn animation [_]
+  (when *running*
+    (send-off *agent* #'animation))
+  (. panel* (repaint))
+  (. Thread (sleep *animation-sleep-ms*))
+  (def *time* (inc *time*))
+  (if (> *time* 50) (def *running* false))
+  nil)
+
+(comment
+  (senf-off animator animation))
