@@ -10,6 +10,9 @@
   (:import (java.awt.image BufferedImage))
   (:import (javax.swing JPanel JFrame)))
 
+(defprotocol Printable
+  (toStr [this]))
+
 (defprotocol PositionMethods
   (equal [this other])
   (manhattan-distance [this other]))
@@ -85,8 +88,7 @@
 ;; entity functions
 
 (defprotocol EntityMethods
-  (pos [this])
-  (toStr [this]))
+  (pos [this]))
 
 (defn print-entities
   [entities]
@@ -104,7 +106,8 @@
    (update-in this [:snapshots] conj snapshot))
   EntityMethods
   (pos [this] (:pos (last (:snapshots this))))
-  (toStr [this] (format "Entity %c %s" (:symbol this)
+  Printable
+  (toStr [this] (format "Entity %c %s\n" (:symbol this)
 			(apply str (interpose "->" (map #(format "(%d,%d)" (:x (:pos %)) (:y (:pos %)))
 							(:snapshots this)))))))
   
@@ -161,6 +164,7 @@
 (defrecord SensorEntity [time pos]
   EntityMethods
   (pos [this] (:pos this))
+  Printable
   (toStr [this] (format "SensorEntity (%d,%d)@%d" (:x (:pos this)) (:y (:pos this)) (:time this))))
 
 (defrecord Sensor [id left right bottom top spotted])
@@ -183,9 +187,16 @@
 
 ;; generic strategy functions
 
-(defrecord EventNew [time pos])
+(defrecord EventNew [time pos]
+  Printable
+  (toStr [this] (format "EventNew: (%d,%d)@%d\n" (:x (:pos this)) (:y (:pos this)) (:time this))))
 
-(defrecord EventMove [time oldpos newpos])
+(defrecord EventMove [time oldpos newpos]
+  Printable
+  (toStr [this] (format "EventMove: (%d,%d)->(%d,%d)@%d\n"
+			(:x (:oldpos this)) (:y (:oldpos this))
+			(:x (:newpos this)) (:y (:newpos this))
+			(:time this))))
 
 (defrecord LogEntry [time msg])
 
@@ -356,23 +367,24 @@
 	entities-map (apply assoc {} (interleave entities entities))
 	entity-walks (shuffle (apply concat (map #(repeat (rand-int (inc walk)) %) entities)))]
     (loop [em entities-map
-	   ts truestate
 	   gs gridstate
 	   ew entity-walks]
-      (if (empty? ew) [ts gs]
-	  (let [e (first ew)
-		olde (get em e)
-		newe (walk1 olde (:grid gs))]
-	    (recur (assoc em e newe)
-		   (-> ts
-		       (updateEntity olde (pos newe))
-		       (addEventMove time (pos olde) (pos newe)))
-		   (updateGridEntity gs olde newe)
-		   (rest ew)))))))
+      (if (empty? ew)
+	[(reduce (fn [ts olde] (-> ts
+				 (updateEntity olde (pos (get em olde)))
+				 (addEventMove time (pos olde) (pos (get em olde)))))
+		 truestate (keys em))
+	 gs]
+	(let [e (first ew)
+	      olde (get em e)
+	      newe (walk1 olde (:grid gs))]
+	  (recur (assoc em e newe)
+		 (updateGridEntity gs olde newe)
+		 (rest ew)))))))
 
 (defn possibly-add-new-entities
   [truestate gridstate]
-  (if (> 0.95 (rand)) [truestate gridstate] ; skip adding new entities 95% of the time
+  (if (> 2.0 (rand)) [truestate gridstate] ; skip adding new entities 95% of the time
       (add-new-entities truestate gridstate (inc (rand-int 2)))))
 
 (defn single-step
@@ -393,10 +405,13 @@
 
 (def *truestate* nil)
 (def *gridstate* nil)
-     
+
 (defn generate-results
   [msecs steps numes walk width height strategy sensor-coverage truestate gridstate strat-state]
-  (print (formatLogs strat-state))
+  (if (and (= strategy "nearest") (= walk 50) (= numes 1) (= sensor-coverage 100.0))
+    (println (formatLogs strat-state) "\nStrategy events:\n" (map toStr (:events strat-state)) "\nTrue events:\n" (map toStr (:events truestate))
+	     "\nTrue entities:\n" (map toStr (:entities truestate))
+	     "\nCorrect: " (evaluate truestate strat-state) ", total: " (count (:events truestate))))
   (def *truestate* truestate)
   (def *gridstate* gridstate)
   (let [correct (evaluate truestate strat-state)
@@ -446,12 +461,12 @@
 
 (defn generate-run-params []
   (for [steps [50]
-	numes [3]
-	walk [1]
+	numes [1 2 3 4 5 6 7 8 9 10 15 20 30 50 70 80 90]
+	walk [1 2 3 4 5 6 7 8 9 10 15 20 30 50]
 	width [10]
 	height [10]
 	strategy *strategies*
-	sensor-coverage [100]
+	sensor-coverage [10 50 70 100]
 	sensors [(generate-sensors-with-coverage width height sensor-coverage)]]
     [steps numes walk width height strategy sensor-coverage sensors]))
 
@@ -602,5 +617,10 @@
   (if (> *time* 50) (def *running* false))
   nil)
 
+;;; add sensor coverage overlays in visual grid
+
 (comment
   (send-off animator animation))
+
+
+;;; consider: no-go spaces (edges, walls, etc.); maybe randomly add them
