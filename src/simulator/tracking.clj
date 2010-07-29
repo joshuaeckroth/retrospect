@@ -525,57 +525,82 @@
 (def *event-log*
      (let [_ (apply run (first (generate-run-params)))]
        (:events *truestate*)))
+(def *grid* (vec (repeat (* *width* *height*) nil)))
+
+(defn grid-at [x y]
+  (nth *grid* (+ (* y *width*) x)))
 
 (defn fill-cell [#^Graphics g x y c]
   (doto g
     (.setColor c)
     (.fillRect (* x *grid-cell-size*) (* y *grid-cell-size*) *grid-cell-size* *grid-cell-size*)))
 
-(defn render-event [g e]
-  (when (= (type e) simulator.tracking.EventNew)
-    (fill-cell g (:x (:pos e)) (:y (:pos e)) (new Color 0 200 0 100)))
-  (when (= (type e) simulator.tracking.EventMove)
-    (fill-cell g (:x (:oldpos e)) (:y (:oldpos e)) (new Color 0 255 0 100))
-    (fill-cell g (:x (:newpos e)) (:y (:newpos e)) (new Color 0 200 0 100))))
+(defn draw-move [#^Graphics g oldx oldy newx newy c]
+  (doto g
+    (.setColor c)
+    (.drawLine (+ (* oldx *grid-cell-size*) (/ *grid-cell-size* 2))
+	       (+ (* oldy *grid-cell-size*) (/ *grid-cell-size* 2))
+	       (+ (* newx *grid-cell-size*) (/ *grid-cell-size* 2))
+	       (+ (* newy *grid-cell-size*) (/ *grid-cell-size* 2)))))
 
-(defn render [g event-log cell-size width height time]
+(defn draw-grid [g]
+  (dorun
+   (for [x (range *width*) y (range *height*)]
+     (cond (nil? (grid-at x y))
+	   (fill-cell g x y (new Color 255 255 255 100))
+	   (= (type (grid-at x y)) simulator.tracking.EventNew)
+	   (fill-cell g x y (new Color 255 0 0 100))
+	   (= (type (grid-at x y)) simulator.tracking.EventMove)
+	   (do
+	     (fill-cell g x y (new Color 0 255 0 100))
+	     (fill-cell g (:x (:oldpos (grid-at x y))) (:y (:oldpos (grid-at x y)))
+			(new Color 0 100 0 100))
+	     (draw-move g (:x (:oldpos (grid-at x y))) (:y (:oldpos (grid-at x y))) x y
+			(new Color 0 0 0 100)))))))
+
+(defn update-grid []
+  (dorun (for [e (filter #(= (:time %) *time*) *event-log*)]
+	   (let [{x :x y :y} (if (= (type e) simulator.tracking.EventMove) (:newpos e) (:pos e))]
+	     (def *grid* (assoc *grid* (+ (* y *width*) x) e)))))
+  (dorun (for [x (range *width*) y (range *height*)]
+	   (if (and (not (nil? (grid-at x y))) (< (:time (grid-at x y)) (- *time* 3)))
+	     (def *grid* (assoc *grid* (+ (* y *width*) x) nil))))))
+
+(defn render [g]
   (let [img (new BufferedImage
-		 (* cell-size width)
-		 (* cell-size height)
+		 (* *grid-cell-size* *width*)
+		 (* *grid-cell-size* *height*)
 		 (. BufferedImage TYPE_INT_ARGB))
 	bg (. img (getGraphics))]
     (doto bg
       (.setColor (. Color white))
       (.fillRect 0 0 (. img (getWidth)) (. img (getHeight))))
-    (dorun
-     (for [e (filter #(= (:time %) time) event-log)]
-       (render-event bg e)))
+    (update-grid)
+    (draw-grid bg)
     (. g (drawImage img 0 0 nil))
     (. bg (dispose))))
 
-(defn make-panel
-  [event-log cell-size width height time]
-     (doto (proxy [JPanel] []
-	     (paint [g] (render g event-og cell-size width height time)))
-       (.setPreferredSize
-	(new Dimension
-	     (* cell-size width)
-	     (* cell-size height)))))
+(def *panel*
+  (doto (proxy [JPanel] []
+	  (paint [g] (render g)))
+    (.setPreferredSize
+     (new Dimension
+	  (* *grid-cell-size* *width*)
+	  (* *grid-cell-size* *height*)))))
 
-(defn make-frame
-  [event-log cell-size width height time]
-  (doto (new JFrame) (.add (make-pannel event-log cell-size width height time)) .pack .show))
+(def *frame*
+  (doto (new JFrame) (.add *panel*) .pack .show))
 
 (def animator (agent nil))
 
 (defn animation [_]
   (when *running*
     (send-off *agent* #'animation))
-  (. panel* (repaint))
+  (. *panel* (repaint))
   (. Thread (sleep *animation-sleep-ms*))
   (def *time* (inc *time*))
   (if (> *time* 50) (def *running* false))
   nil)
 
 (comment
-  (senf-off animator animation))
+  (send-off animator animation))
