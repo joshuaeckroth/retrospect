@@ -7,8 +7,17 @@
 (defn -main [& args]
   (with-command-line args
     "Simulator"
-    [[problem "Problem" "tracking"]]
-    (if (= problem "tracking")
-      (save-results (multiple-runs (tracking/generate-run-params) tracking/run)))))
+    [[action "Action (run/plot/playback)"]
+     [problem "Problem" "tracking"]
+     [recordsdir "Records directory" "."]]
+    (case action
+	  "run"
+	  (if (= problem "tracking")
+	    (save-results (multiple-runs (tracking/generate-run-params) tracking/run)))
+	  "plot"
+	  (println "Plot...")
+	  "playback"
+	  (println "Playback...")
+	  (println "No action given."))))
 
 
