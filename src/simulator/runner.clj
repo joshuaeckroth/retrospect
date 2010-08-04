@@ -14,19 +14,14 @@
   (let [results (parallel-runs params runner)]
     (reduce (fn [m r] (addResult m r)) (Results. []) results)))
 
-(def *headers*
-     ["Milliseconds" "Steps" "NumberEntities" "WalkSize"
-      "GridWidth" "GridHeight" "Strategy" "SensorCoverage"
-      "Correct" "Incorrect" "Total" "PercentCorrect"])
-
 (defn write-csv
   [filename data]
   (with-open [writer (BufferedWriter. (FileWriter. filename))]
     (doseq [row data] (.write writer (apply str (concat (interpose "," row) [\newline]))))))
 
 (defn save-results
-  [results]
-  (write-csv "results.csv" (concat [*headers*] (getResults results))))
+  [filename headers results]
+  (write-csv filename (concat headers (getResults results))))
 
-(defn read-results []
-  (read-dataset "results.csv" :header true))
+(defn read-results [filename]
+  (read-dataset filename :header true))

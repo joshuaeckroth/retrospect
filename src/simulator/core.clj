@@ -2,7 +2,8 @@
   (:gen-class)
   (:use [clojure.contrib.command-line :only (with-command-line)])
   (:use [simulator.runner :only (multiple-runs save-results)])
-  (:use [simulator.tracking :as tracking :only (generate-run-params run)]))
+  (:use [simulator.tracking :as tracking :only (generate-params run)])
+  (:use [simulator.records :only (run-with-new-record)]))
 
 (defn -main [& args]
   (with-command-line args
@@ -13,7 +14,8 @@
     (case action
 	  "run"
 	  (if (= problem "tracking")
-	    (save-results (multiple-runs (tracking/generate-run-params) tracking/run)))
+	    (run-with-new-record "c:/users/josh/documents/research/simulator/records"
+	      (tracking/generate-params) tracking/run))
 	  "plot"
 	  (println "Plot...")
 	  "playback"

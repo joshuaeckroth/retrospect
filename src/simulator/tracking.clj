@@ -6,6 +6,7 @@
   (:import [simulator.types.states State])
   (:import [simulator.tracking.grid GridState])
   (:use [simulator.types.generic :only (toStr forwardTime)])
+  (:use [simulator.types.parameters :only (ParameterMethods)])
   (:use [simulator.types.entities :only (addSnapshot pos)])
   (:use [simulator.types.states :only (addEntity addEventNew addEventMove updateEntity)])
   (:use [simulator.strategies :only (init-strat-state)])
@@ -14,6 +15,40 @@
   (:use [simulator.tracking.grid :only (updateGridEntity new-grid get-grid-pos attempt-move
 							 rand-symbol-and-pos)])
   (:use [simulator.tracking.sensors :only (update-spotted generate-sensors-with-coverage)]))
+
+(defrecord TrackingParameters
+  [headers steps numes walk width height strategy sensor-coverage]
+  ParameterMethods
+  (getHeaders [this] headers)
+  (getParams
+   [this]
+   (for [_steps steps
+	 _numes numes
+	 _walk walk
+	 _width width
+	 _height height
+	 _strategy strategy
+	 _sensor-coverage sensor-coverage
+	 _sensors [(generate-sensors-with-coverage _width _height _sensor-coverage)]]
+     [_steps _numes _walk _width _height _strategy _sensor-coverage _sensors]))
+  (toXml [this]
+	 [:params
+	  [:steps (str steps)]
+	  [:numes (str numes)]
+	  [:walk (str walk)]
+	  [:width (str width)]
+	  [:height (str height)]
+	  [:strategy (str strategy)]
+	  [:sensor-coverage (str sensor-coverage)]]))
+
+(defn generate-params []
+  (TrackingParameters.
+   ["Milliseconds" "Steps" "NumberEntities" "WalkSize"
+    "GridWidth" "GridHeight" "Strategy" "SensorCoverage"
+    "Correct" "Incorrect" "Total" "PercentCorrect"]
+   [50] [1 2 3 4 5 6 7 8 9 10 15 20 30 50 70 80 90]
+   [1 2 3 4 5 6 7 8 9 10 15 20 30 50] [10] [10]
+   ["guess" "nearest"] [10 50 70 100]))
 
 (defn new-entity
   "Create a new entity with a random symbol and random (free) location."
@@ -98,17 +133,6 @@
    (explain strategy (map #(update-spotted % gridstate) sensors)
 	    strat-state (:time gridstate))])
 
-(defn generate-run-params []
-  (for [steps [50]
-	numes [1 2 3 4 5 6 7 8 9 10 15 20 30 50 70 80 90]
-	walk [1 2 3 4 5 6 7 8 9 10 15 20 30 50]
-	width [10]
-	height [10]
-	strategy ["guess" "nearest"]
-	sensor-coverage [10 50 70 100]
-	sensors [(generate-sensors-with-coverage width height sensor-coverage)]]
-    [steps numes walk width height strategy sensor-coverage sensors]))
-
 (defn evaluate
   [truestate strat-state]
   (count (set/intersection (set (:events truestate)) (set (:events strat-state)))))
@@ -123,7 +147,7 @@
      correct incorrect total percent]))
 
 (defn run
-  [steps numes walk width height strategy sensor-coverage sensors       ]
+  [steps numes walk width height strategy sensor-coverage sensors]
   (let [[truestate gridstate] (init-states width height numes)
 	strat-state (init-strat-state strategy)
 	startTime (. System (nanoTime))]
