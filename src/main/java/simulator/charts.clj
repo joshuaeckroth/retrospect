@@ -1,5 +1,26 @@
 (ns simulator.charts
-  (:use incanter core charts io))
+  (:use [incanter.core])
+  (:use [incanter.charts]))
+
+(defn plot
+  [data x y strategies sensor-coverage]
+  (with-data data
+    (let [plot (doto
+		   (scatter-plot x y :x-label (name x) :y-label (name y) :legend true
+				 :data ($where {:Strategy "guess"
+						:SensorCoverage sensor-coverage})
+				 :series-label "guess"
+				 :title (format "Sensor coverage: %.0f%%" sensor-coverage))
+		 (set-y-range 0.0 100.0)
+		 (clear-background))]
+      (if (nil? (rest strategies)) (view plot)
+	  (view (reduce (fn [plot strategy]
+			  (add-points plot x y
+				      :data ($where {:Strategy strategy
+						     :SensorCoverage sensor-coverage})
+				      :series-label strategy))
+			plot (rest strategies)))))))
+
 
 (comment
   (save-results (multiple-runs))
@@ -21,21 +42,3 @@
   (with-data (sel (read-results) :filter #(= 50.0 (nth % 7)))
     (view (scatter-plot :Walk-size :Percent-correct :group-by :Strategy-index :legend true))))
 
-(defn plot
-  [data x y sensor-coverage]
-  (with-data data
-    (let [plot (doto
-		   (scatter-plot x y :x-label (name x) :y-label (name y) :legend true
-				 :data ($where {:Strategy "guess"
-						:SensorCoverage sensor-coverage})
-				 :series-label "guess"
-				 :title (format "Sensor coverage: %.0f%%" sensor-coverage))
-		 (set-y-range 0.0 100.0)
-		 (clear-background))]
-      (if (nil? (rest *strategies*)) (view plot)
-	  (view (reduce (fn [plot strategy]
-			  (add-points plot x y
-				      :data ($where {:Strategy strategy
-						     :SensorCoverage sensor-coverage})
-				      :series-label strategy))
-			plot (rest *strategies*)))))))
