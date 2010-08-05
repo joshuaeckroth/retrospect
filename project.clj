@@ -4,4 +4,9 @@
                  [org.clojure/clojure-contrib "1.2.0-SNAPSHOT"]
 		 [incanter "1.2.3-SNAPSHOT"]]
   :dev-dependencies [[swank-clojure "1.2.1"]]
-  :main simulator.core)
+  :main simulator.core
+  :source-path "src/main/java"
+  :test-path "src/test/java"
+  :library-path "target/dependency"
+  :resources-path "resources"
+  :jar-dir "target")
