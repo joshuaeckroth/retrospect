@@ -1,4 +1,4 @@
-(ns simulator.player
+(ns simulator.tracking.player
   (:import (java.io BufferedWriter FileWriter))
   (:import (java.awt Color Graphics Dimension))
   (:import (java.awt.image BufferedImage))
@@ -11,9 +11,7 @@
 (def *animation-sleep-ms* 500)
 (def *running* true)
 (def *time* 0)
-(def *event-log*
-     (let [_ (apply run (first (generate-run-params)))]
-       (:events *truestate*)))
+(def *event-log* nil)
 (def *grid* (vec (repeat (* *width* *height*) nil)))
 
 (defn grid-at [x y]
@@ -37,9 +35,9 @@
    (for [x (range *width*) y (range *height*)]
      (cond (nil? (grid-at x y))
 	   (fill-cell g x y (new Color 255 255 255 100))
-	   (= (type (grid-at x y)) simulator.tracking.EventNew)
+	   (= (type (grid-at x y)) simulator.types.events.EventNew)
 	   (fill-cell g x y (new Color 255 0 0 100))
-	   (= (type (grid-at x y)) simulator.tracking.EventMove)
+	   (= (type (grid-at x y)) simulator.types.events.EventMove)
 	   (do
 	     (fill-cell g x y (new Color 0 255 0 100))
 	     (fill-cell g (:x (:oldpos (grid-at x y))) (:y (:oldpos (grid-at x y)))
@@ -49,7 +47,7 @@
 
 (defn update-grid []
   (dorun (for [e (filter #(= (:time %) *time*) *event-log*)]
-	   (let [{x :x y :y} (if (= (type e) simulator.tracking.EventMove) (:newpos e) (:pos e))]
+	   (let [{x :x y :y} (if (= (type e) simulator.types.events.EventMove) (:newpos e) (:pos e))]
 	     (def *grid* (assoc *grid* (+ (* y *width*) x) e)))))
   (dorun (for [x (range *width*) y (range *height*)]
 	   (if (and (not (nil? (grid-at x y))) (< (:time (grid-at x y)) (- *time* 3)))
@@ -69,6 +67,7 @@
     (. g (drawImage img 0 0 nil))
     (. bg (dispose))))
 
+(comment
 (def *panel*
   (doto (proxy [JPanel] []
 	  (paint [g] (render g)))
@@ -90,6 +89,7 @@
   (def *time* (inc *time*))
   (if (> *time* 50) (def *running* false))
   nil)
+)
 
 ;;; add sensor coverage overlays in visual grid
 
