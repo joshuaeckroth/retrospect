@@ -9,7 +9,7 @@
   [runner p n]
   (let [runs (for [i (range n)] (apply runner p))
 	avg (fn [field rs] (/ (reduce + (map field rs)) 10.0))]
-    (Result. (avg :time runs) (avg :percent runs) p)))
+    (Result. (avg :time runs) (avg :percent runs) nil nil p)))
 
 (defn run-partition
   [runner partition]

@@ -142,7 +142,8 @@
 	incorrect (- (count (:events strat-state)) correct)
 	total (count (:events truestate))
 	percent (double (* 100 (/ correct total)))]
-    (Result. msecs percent [steps numes walk width height strategy sensor-coverage])))
+    (Result. msecs percent truestate strat-state
+	     [steps numes walk width height strategy sensor-coverage])))
 
 (defn run
   [steps numes walk width height strategy sensor-coverage sensors]

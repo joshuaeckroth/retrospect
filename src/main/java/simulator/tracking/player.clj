@@ -2,7 +2,10 @@
   (:import (java.io BufferedWriter FileWriter))
   (:import (java.awt Color Graphics Dimension GridBagLayout Insets))
   (:import (java.awt.image BufferedImage))
-  (:import (javax.swing JPanel JFrame JButton JTextField JLabel)))
+  (:import (javax.swing JPanel JFrame JButton JTextField JLabel))
+  (:use [simulator.types.results :only (getTrueLog getTrueEvents getStratLog getStratEvents)])
+  (:use [simulator.tracking.sensors :only (generate-sensors-with-coverage)])
+  (:use [simulator.tracking :as tracking :only (run)]))
 
 (def *width* 10)
 (def *height* 10)
@@ -10,8 +13,58 @@
 (def *animation-sleep-ms* 500)
 (def *running* true)
 (def *time* 0)
-(def *event-log* nil)
+(def *true-log* nil)
+(def *true-events* nil)
+(def *strat-log* nil)
+(def *strate-events* nil)
 (def *grid* (vec (repeat (* *width* *height*) nil)))
+
+(def *param-textfields*
+     {:steps (JTextField. 5)
+      :numes (JTextField. 5)
+      :walk (JTextField. 5)
+      :width (JTextField. 5)
+      :height (JTextField. 5)
+      :strategy (JTextField. 5)
+      :sensor-coverage (JTextField. 5)})
+
+(defn get-parameters []
+  (let [getInteger (fn [field] (Integer/parseInt (. (field *param-textfields*) getText)))
+	getString (fn [field] (. (field *param-textfields*) getText))]
+    [(getInteger :steps) (getInteger :numes) (getInteger :walk)
+     (getInteger :width) (getInteger :height) (getString :strategy)
+     (getInteger :sensor-coverage)
+     (generate-sensors-with-coverage (getInteger :width) (getInteger :height)
+       (getInteger :sensor-coverage))]))
+
+(defn run-simulation []
+  (let [result (apply tracking/run (get-parameters))]
+    (def *true-log* (getTrueLog result))
+    (def *true-events* (getTrueEvents result))
+    (def *strat-log* (getStratLog result))
+    (def *strat-events* (getStratEvents result)))
+  (println *true-log*)
+  (println *true-events*)
+  (println *strat-log*)
+  (println *strat-events*))
+
+;; from http://stuartsierra.com/2010/01/08/agents-of-swing
+
+(defmacro with-action [component event & body]
+  `(. ~component addActionListener
+      (proxy [java.awt.event.ActionListener] []
+        (actionPerformed [~event] ~@body))))
+
+(def *newbutton*
+     (let [b (JButton. "New")]
+       (with-action b e (run-simulation))
+       b))
+
+(def *stepbutton*
+     (let [b (JButton. "Step")]
+       (with-action b e
+	 (println "Step..."))
+       b))
 
 (def animator (agent nil))
 
@@ -47,7 +100,7 @@
 			(new Color 0 0 0 100)))))))
 
 (defn update-grid []
-  (dorun (for [e (filter #(= (:time %) *time*) *event-log*)]
+  (dorun (for [e (filter #(= (:time %) *time*) *true-log*)]
            (let [{x :x y :y} (if (= (type e) simulator.types.events.EventMove) (:newpos e) (:pos e))]
              (def *grid* (assoc *grid* (+ (* y *width*) x) e)))))
   (dorun (for [x (range *width*) y (range *height*)]
@@ -109,45 +162,50 @@
      (doto (JPanel. (GridBagLayout.))
        (grid-bag-layout
 	:fill :BOTH, :insets (Insets. 5 5 5 5)
-	:gridx 0, :gridy 0, :gridheight 8
+	:gridx 0, :gridy 0, :gridheight 9
 	*gridpanel*
 
 	:gridx 1, :gridy 0, :gridheight 1
 	(JLabel. "Steps:")
 	:gridx 2, :gridy 0
-	(JTextField. 5)
+	(:steps *param-textfields*)
 
 	:gridx 1, :gridy 1
 	(JLabel. "NumberEntities:")
 	:gridx 2, :gridy 1
-	(JTextField. 5)
+	(:numes *param-textfields*)
 
 	:gridx 1, :gridy 2
 	(JLabel. "WalkSize:")
 	:gridx 2, :gridy 2
-	(JTextField. 5)
+	(:walk *param-textfields*)
 
 	:gridx 1, :gridy 3
 	(JLabel. "GridWidth:")
 	:gridx 2, :gridy 3
-	(JTextField. 5)
+	(:width *param-textfields*)
 
 	:gridx 1, :gridy 4
 	(JLabel. "GridHeight:")
 	:gridx 2, :gridy 4
-	(JTextField. 5)
+	(:height *param-textfields*)
 
 	:gridx 1, :gridy 5
 	(JLabel. "Strategy:")
 	:gridx 2, :gridy 5
-	(JTextField. 5)
+	(:strategy *param-textfields*)
 
 	:gridx 1, :gridy 6
 	(JLabel. "SensorCoverage:")
 	:gridx 2, :gridy 6
-	(JTextField. 5)
+	(:sensor-coverage *param-textfields*)
 
-	:gridy 7, :gridwidth 2, :gridheight :REMAINDER
+	:gridx 1, :gridy 7
+	*newbutton*
+	:gridx 2, :gridy 7
+	*stepbutton*
+
+	:gridy 8, :gridwidth 2, :gridheight :REMAINDER
 	(JPanel.))))
 
 (defn start-player []

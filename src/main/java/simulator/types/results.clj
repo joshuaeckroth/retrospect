@@ -9,5 +9,16 @@
   (addResult [this result] (update-in this [:r] conj result))
   (getData [this] (map #(concat [(:time %) (:percent %)] (:params %)) (:r this))))
 
-(defrecord Result [time percent params])
+(defprotocol SingleResultOperations
+  (getTrueLog [this])
+  (getTrueEvents [this])
+  (getStratLog [this])
+  (getStratEvents [this]))
+
+(defrecord Result [time percent truestate strat-state params]
+  SingleResultOperations
+  (getTrueLog [this] (:logs truestate))
+  (getTrueEvents [this] (:events truestate))
+  (getStratLog [this] (:logs strat-state))
+  (getStratEvents [this] (:events strat-state)))
 
