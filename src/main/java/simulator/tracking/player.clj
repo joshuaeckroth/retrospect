@@ -19,6 +19,8 @@
 (def *strate-events* nil)
 (def *grid* (vec (repeat (* *width* *height*) nil)))
 
+(def *steplabel* (JLabel. "Step: "))
+
 (def *param-textfields*
      {:steps (JTextField. 5)
       :numes (JTextField. 5)
@@ -42,11 +44,26 @@
     (def *true-log* (getTrueLog result))
     (def *true-events* (getTrueEvents result))
     (def *strat-log* (getStratLog result))
-    (def *strat-events* (getStratEvents result)))
+    (def *strat-events* (getStratEvents result))
+    (def *time* 0)
+    (. *gridpanel* (repaint))
+    (. *steplabel* (setText (str "Step: " *time*))))
   (println *true-log*)
   (println *true-events*)
   (println *strat-log*)
   (println *strat-events*))
+
+(defn next-step []
+  (when (< *time* (Integer/parseInt (. (:steps *param-textfields*) getText)))
+    (def *time* (inc *time*)))
+  (. *gridpanel* (repaint))
+  (. *steplabel* (setText (str "Step: " *time*))))
+
+(defn prev-step []
+  (when (> *time* 0)
+    (def *time* (dec *time*)))
+  (. *gridpanel* (repaint))
+  (. *steplabel* (setText (str "Step: " *time*))))
 
 ;; from http://stuartsierra.com/2010/01/08/agents-of-swing
 
@@ -60,10 +77,16 @@
        (with-action b e (run-simulation))
        b))
 
-(def *stepbutton*
-     (let [b (JButton. "Step")]
+(def *prevbutton*
+     (let [b (JButton. "Prev")]
        (with-action b e
-	 (println "Step..."))
+	 (prev-step))
+       b))
+
+(def *nextbutton*
+     (let [b (JButton. "Next")]
+       (with-action b e
+	 (next-step))
        b))
 
 (def animator (agent nil))
@@ -100,7 +123,8 @@
 			(new Color 0 0 0 100)))))))
 
 (defn update-grid []
-  (dorun (for [e (filter #(= (:time %) *time*) *true-log*)]
+  (def *grid* (vec (repeat (* *width* *height*) nil)))
+  (dorun (for [e (filter #(= (:time %) *time*) *true-events*)]
            (let [{x :x y :y} (if (= (type e) simulator.types.events.EventMove) (:newpos e) (:pos e))]
              (def *grid* (assoc *grid* (+ (* y *width*) x) e)))))
   (dorun (for [x (range *width*) y (range *height*)]
@@ -162,7 +186,7 @@
      (doto (JPanel. (GridBagLayout.))
        (grid-bag-layout
 	:fill :BOTH, :insets (Insets. 5 5 5 5)
-	:gridx 0, :gridy 0, :gridheight 9
+	:gridx 0, :gridy 0, :gridheight 10
 	*gridpanel*
 
 	:gridx 1, :gridy 0, :gridheight 1
@@ -203,9 +227,14 @@
 	:gridx 1, :gridy 7
 	*newbutton*
 	:gridx 2, :gridy 7
-	*stepbutton*
+	*steplabel*
 
-	:gridy 8, :gridwidth 2, :gridheight :REMAINDER
+	:gridx 1, :gridy 8
+	*prevbutton*
+	:gridx 2, :gridy 8
+	*nextbutton*
+
+	:gridy 9, :gridwidth 2, :gridheight :REMAINDER
 	(JPanel.))))
 
 (defn start-player []
