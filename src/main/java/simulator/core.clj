@@ -10,12 +10,11 @@
     "Simulator"
     [[action "Action (run/plot/playback)"]
      [problem "Problem" "tracking"]
-     [recordsdir "Records directory" "."]]
+     [recordsdir "Records directory" "c:/users/josh/documents/research/simulator/records"]]
     (case action
 	  "run"
 	  (if (= problem "tracking")
-	    (run-with-new-record "c:/users/josh/documents/research/simulator/records"
-	      (tracking/generate-params) tracking/run))
+	    (run-with-new-record recordsdir (tracking/generate-params) tracking/run))
 	  "plot"
 	  (println "Plot...")
 	  "playback"

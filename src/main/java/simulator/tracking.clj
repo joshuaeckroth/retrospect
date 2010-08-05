@@ -1,9 +1,10 @@
 (ns simulator.tracking
   (:require [clojure.set :as set :only (intersection)])
-  (:require [simulator.types entities states])
+  (:require [simulator.types entities states results])
   (:require [simulator.tracking grid])
   (:import [simulator.types.entities Entity EntitySnapshot])
   (:import [simulator.types.states State])
+  (:import [simulator.types.results Result])
   (:import [simulator.tracking.grid GridState])
   (:use [simulator.types.generic :only (toStr forwardTime)])
   (:use [simulator.types.parameters :only (ParameterMethods)])
@@ -43,9 +44,7 @@
 
 (defn generate-params []
   (TrackingParameters.
-   ["Milliseconds" "Steps" "NumberEntities" "WalkSize"
-    "GridWidth" "GridHeight" "Strategy" "SensorCoverage"
-    "Correct" "Incorrect" "Total" "PercentCorrect"]
+   ["Steps" "NumberEntities" "WalkSize" "GridWidth" "GridHeight" "Strategy" "SensorCoverage"]
    [50] [1 2 3 4 5 6 7 8 9 10 15 20 30 50 70 80 90]
    [1 2 3 4 5 6 7 8 9 10 15 20 30 50] [10] [10]
    ["guess" "nearest"] [10 50 70 100]))
@@ -143,8 +142,7 @@
 	incorrect (- (count (:events strat-state)) correct)
 	total (count (:events truestate))
 	percent (double (* 100 (/ correct total)))]
-    [msecs steps numes walk width height strategy sensor-coverage
-     correct incorrect total percent]))
+    (Result. msecs percent [steps numes walk width height strategy sensor-coverage])))
 
 (defn run
   [steps numes walk width height strategy sensor-coverage sensors]
