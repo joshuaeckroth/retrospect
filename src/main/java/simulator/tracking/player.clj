@@ -2,24 +2,32 @@
   (:import (java.io BufferedWriter FileWriter))
   (:import (java.awt Color Graphics Dimension GridBagLayout Insets))
   (:import (java.awt.image BufferedImage))
-  (:import (javax.swing JPanel JFrame JButton JTextField JLabel))
+  (:import (javax.swing JPanel JFrame JButton JTextField JTextArea JLabel))
   (:use [simulator.types.results :only (getTrueLog getTrueEvents getStratLog getStratEvents)])
+  (:use [simulator.types.generic :only (toStr)])
   (:use [simulator.tracking.sensors :only (generate-sensors-with-coverage)])
   (:use [simulator.tracking :as tracking :only (run)]))
 
+(def *gridpanel-width* 500)
+(def *gridpanel-height* 500)
 (def *width* 10)
 (def *height* 10)
-(def *grid-cell-size* 50)
+(def *grid-cell-width* 50)
+(def *grid-cell-height* 50)
 (def *animation-sleep-ms* 500)
 (def *running* true)
 (def *time* 0)
 (def *true-log* nil)
 (def *true-events* nil)
 (def *strat-log* nil)
-(def *strate-events* nil)
+(def *strat-events* nil)
 (def *grid* (vec (repeat (* *width* *height*) nil)))
 
 (def *steplabel* (JLabel. "Step: "))
+(def *true-events-box* (JTextArea. 15 40))
+(def *true-log-box* (JTextArea. 15 40))
+(def *strat-events-box* (JTextArea. 15 40))
+(def *strat-log-box* (JTextArea. 15 40))
 
 (def *param-textfields*
      {:steps (JTextField. 5)
@@ -39,32 +47,6 @@
      (generate-sensors-with-coverage (getInteger :width) (getInteger :height)
        (getInteger :sensor-coverage))]))
 
-(defn run-simulation []
-  (let [result (apply tracking/run (get-parameters))]
-    (def *true-log* (getTrueLog result))
-    (def *true-events* (getTrueEvents result))
-    (def *strat-log* (getStratLog result))
-    (def *strat-events* (getStratEvents result))
-    (def *time* 0)
-    (. *gridpanel* (repaint))
-    (. *steplabel* (setText (str "Step: " *time*))))
-  (println *true-log*)
-  (println *true-events*)
-  (println *strat-log*)
-  (println *strat-events*))
-
-(defn next-step []
-  (when (< *time* (Integer/parseInt (. (:steps *param-textfields*) getText)))
-    (def *time* (inc *time*)))
-  (. *gridpanel* (repaint))
-  (. *steplabel* (setText (str "Step: " *time*))))
-
-(defn prev-step []
-  (when (> *time* 0)
-    (def *time* (dec *time*)))
-  (. *gridpanel* (repaint))
-  (. *steplabel* (setText (str "Step: " *time*))))
-
 ;; from http://stuartsierra.com/2010/01/08/agents-of-swing
 
 (defmacro with-action [component event & body]
@@ -72,40 +54,21 @@
       (proxy [java.awt.event.ActionListener] []
         (actionPerformed [~event] ~@body))))
 
-(def *newbutton*
-     (let [b (JButton. "New")]
-       (with-action b e (run-simulation))
-       b))
-
-(def *prevbutton*
-     (let [b (JButton. "Prev")]
-       (with-action b e
-	 (prev-step))
-       b))
-
-(def *nextbutton*
-     (let [b (JButton. "Next")]
-       (with-action b e
-	 (next-step))
-       b))
-
-(def animator (agent nil))
-
 (defn grid-at [x y]
   (nth *grid* (+ (* y *width*) x)))
 
 (defn fill-cell [#^Graphics g x y c]
   (doto g
     (.setColor c)
-    (.fillRect (* x *grid-cell-size*) (* y *grid-cell-size*) *grid-cell-size* *grid-cell-size*)))
+    (.fillRect (* x *grid-cell-width*) (* y *grid-cell-height*) *grid-cell-width* *grid-cell-height*)))
 
 (defn draw-move [#^Graphics g oldx oldy newx newy c]
   (doto g
     (.setColor c)
-    (.drawLine (+ (* oldx *grid-cell-size*) (/ *grid-cell-size* 2))
-	       (+ (* oldy *grid-cell-size*) (/ *grid-cell-size* 2))
-	       (+ (* newx *grid-cell-size*) (/ *grid-cell-size* 2))
-	       (+ (* newy *grid-cell-size*) (/ *grid-cell-size* 2)))))
+    (.drawLine (+ (* oldx *grid-cell-width*) (/ *grid-cell-width* 2))
+	       (+ (* oldy *grid-cell-height*) (/ *grid-cell-height* 2))
+	       (+ (* newx *grid-cell-width*) (/ *grid-cell-width* 2))
+	       (+ (* newy *grid-cell-height*) (/ *grid-cell-height* 2)))))
 
 (defn draw-grid [g]
   (dorun
@@ -124,22 +87,21 @@
 
 (defn update-grid []
   (def *grid* (vec (repeat (* *width* *height*) nil)))
-  (dorun (for [e (filter #(= (:time %) *time*) *true-events*)]
-           (let [{x :x y :y} (if (= (type e) simulator.types.events.EventMove) (:newpos e) (:pos e))]
-             (def *grid* (assoc *grid* (+ (* y *width*) x) e)))))
+  (when *true-events*
+    (dorun (for [e (filter #(= (:time %) *time*) *true-events*)]
+	     (let [{x :x y :y} (if (= (type e) simulator.types.events.EventMove) (:newpos e) (:pos e))]
+	       (def *grid* (assoc *grid* (+ (* y *width*) x) e))))))
   (dorun (for [x (range *width*) y (range *height*)]
            (if (and (not (nil? (grid-at x y))) (< (:time (grid-at x y)) (- *time* 3)))
              (def *grid* (assoc *grid* (+ (* y *width*) x) nil))))))
 
 (defn render [g]
-  (let [img (new BufferedImage
-		 (* *grid-cell-size* *width*)
-		 (* *grid-cell-size* *height*)
+  (let [img (new BufferedImage *gridpanel-width* *gridpanel-height*
 		 (. BufferedImage TYPE_INT_ARGB))
         bg (. img (getGraphics))]
     (doto bg
       (.setColor (. Color white))
-      (.fillRect 0 0 (. img (getWidth)) (. img (getHeight))))
+      (.fillRect 0 0 *gridpanel-width* *gridpanel-height*))
     (update-grid)
     (draw-grid bg)
     (. g (drawImage img 0 0 nil))
@@ -178,11 +140,61 @@
      (doto (proxy [JPanel] []
 	     (paint [g] (render g)))
        (.setPreferredSize
-	(new Dimension
-	     (* *grid-cell-size* *width*)
-	     (* *grid-cell-size* *height*)))))
+	(new Dimension *gridpanel-width* *gridpanel-height*))))
 
-(def *panel*
+(defn updateLogsPanel []
+  (. *true-events-box* setText (apply str (map toStr (filter #(<= (:time %) *time*) *true-events*))))
+  (. *true-log-box* setText (apply str (map toStr (filter #(<= (:time %) *time*) *true-log*))))
+  (. *strat-events-box* setText (apply str (map toStr (filter #(<= (:time %) *time*) *strat-events*))))
+  (. *strat-log-box* setText (apply str (map toStr (filter #(<= (:time %) *time*) *strat-log*)))))
+
+(defn next-step []
+  (when (< *time* (Integer/parseInt (. (:steps *param-textfields*) getText)))
+    (def *time* (inc *time*)))
+  (updateLogsPanel)
+  (. *gridpanel* (repaint))
+  (. *steplabel* (setText (str "Step: " *time*))))
+
+(defn prev-step []
+  (when (> *time* 0)
+    (def *time* (dec *time*)))
+  (updateLogsPanel)
+  (. *gridpanel* (repaint))
+  (. *steplabel* (setText (str "Step: " *time*))))
+
+(defn run-simulation []
+  (let [result (apply tracking/run (get-parameters))]
+    (def *true-log* (getTrueLog result))
+    (def *true-events* (getTrueEvents result))
+    (def *strat-log* (getStratLog result))
+    (def *strat-events* (getStratEvents result))
+    (def *time* 0)
+    (def *width* (Integer/parseInt (. (:width *param-textfields*) getText)))
+    (def *height* (Integer/parseInt (. (:height *param-textfields*) getText)))
+    (def *grid-cell-width* (/ *gridpanel-width* *width*))
+    (def *grid-cell-height* (/ *gridpanel-height* *height*))
+    (updateLogsPanel)
+    (. *gridpanel* (repaint))
+    (. *steplabel* (setText (str "Step: " *time*)))))
+
+(def *newbutton*
+     (let [b (JButton. "New")]
+       (with-action b e (run-simulation))
+       b))
+
+(def *prevbutton*
+     (let [b (JButton. "Prev")]
+       (with-action b e
+	 (prev-step))
+       b))
+
+(def *nextbutton*
+     (let [b (JButton. "Next")]
+       (with-action b e
+	 (next-step))
+       b))
+
+(def *mainpanel*
      (doto (JPanel. (GridBagLayout.))
        (grid-bag-layout
 	:fill :BOTH, :insets (Insets. 5 5 5 5)
@@ -237,25 +249,42 @@
 	:gridy 9, :gridwidth 2, :gridheight :REMAINDER
 	(JPanel.))))
 
+(def *logspanel*
+     (doto (JPanel. (GridBagLayout.))
+       (grid-bag-layout
+	:fill :BOTH, :insets (Insets. 5 5 5 5)
+	
+	:gridx 0, :gridy 0
+	(JLabel. "True events")
+	:gridx 1, :gridy 0
+	(JLabel. "True log")
+	
+	:gridx 0, :gridy 1
+	*true-events-box*
+	:gridx 1, :gridy 1
+	*true-log-box*
+
+	:gridx 0, :gridy 2
+	(JLabel. "Strategy events")
+	:gridx 1, :gridy 2
+	(JLabel. "Strategy log")
+
+	:gridx 0, :gridy 3
+	*strat-events-box*
+	:gridx 1, :gridy 3
+	*strat-log-box*)))
+
 (defn start-player []
   (doto (JFrame. "Tracking player")
-    (.setContentPane *panel*)
+    (.setContentPane *mainpanel*)
     ;;(.setDefaultCloseOperation JFrame/EXIT_ON_CLOSE)
+    (.pack)
+    (.show))
+  (doto (JFrame. "Logs")
+    (.setContentPane *logspanel*)
     (.pack)
     (.show)))
 
-(defn animation [_]
-  (when *running*
-    (send-off *agent* #'animation))
-  (. *panel* (repaint))
-  (. Thread (sleep *animation-sleep-ms*))
-  (def *time* (inc *time*))
-  (if (> *time* 50) (def *running* false))
-  nil)
-
 ;;; add sensor coverage overlays in visual grid
-
-(comment
-  (send-off animator animation))
 
 

@@ -3,11 +3,9 @@
 
 (defrecord EventNew [time pos]
   Printable
-  (toStr [this] (format "EventNew: (%d,%d)@%d\n" (:x (:pos this)) (:y (:pos this)) (:time this))))
+  (toStr [this] (format "At %d, EventNew: (%d,%d)\n" time (:x pos) (:y pos))))
 
 (defrecord EventMove [time oldpos newpos]
   Printable
-  (toStr [this] (format "EventMove: (%d,%d)->(%d,%d)@%d\n"
-			(:x (:oldpos this)) (:y (:oldpos this))
-			(:x (:newpos this)) (:y (:newpos this))
-			(:time this))))
+  (toStr [this] (format "At %d, EventMove: (%d,%d)->(%d,%d)\n"
+			time (:x oldpos) (:y oldpos) (:x newpos) (:y newpos))))
