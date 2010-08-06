@@ -1,4 +1,5 @@
-(ns simulator.evaluator)
+(ns simulator.evaluator
+  (:require [clojure.set :as set :only (intersection)]))
 
 (defn evaluate
   [truestate strat-state]
