@@ -10,5 +10,10 @@
   Printable
   (toStr [this] (format "SensorEntity (%d,%d)@%d" (:x (:pos this)) (:y (:pos this)) (:time this))))
 
-(defrecord Sensor [id left right bottom top spotted])
+(defprotocol SensorMethods
+  (sees [this x y]))
+
+(defrecord Sensor [id left right bottom top spotted]
+  SensorMethods
+  (sees [this x y] (and (>= x left) (<= x right) (>= y bottom) (<= y top))))
 

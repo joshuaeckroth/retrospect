@@ -5,6 +5,7 @@
   (:import (javax.swing JPanel JFrame JButton JTextField JTextArea JLabel JScrollPane))
   (:use [simulator.types.results :only (getTrueLog getTrueEvents getStratLog getStratEvents)])
   (:use [simulator.types.generic :only (toStr)])
+  (:use [simulator.types.sensors :only (sees)])
   (:use [simulator.tracking.sensors :only (generate-sensors-with-coverage)])
   (:use [simulator.tracking :as tracking :only (run)]))
 
@@ -12,6 +13,7 @@
 (def *gridpanel-height* 500)
 (def *width* 10)
 (def *height* 10)
+(def *sensors* nil)
 (def *grid-cell-width* 50)
 (def *grid-cell-height* 50)
 (def *animation-sleep-ms* 500)
@@ -44,8 +46,12 @@
     [(getInteger :steps) (getInteger :numes) (getInteger :walk)
      (getInteger :width) (getInteger :height) (getString :strategy)
      (getInteger :sensor-coverage)
-     (generate-sensors-with-coverage (getInteger :width) (getInteger :height)
+     (generate-sensors-with-coverage
+       (getInteger :width) (getInteger :height)
        (getInteger :sensor-coverage))]))
+
+(defn sensors-see [x y]
+  (some #(sees % x y) *sensors*))
 
 ;; from http://stuartsierra.com/2010/01/08/agents-of-swing
 
@@ -80,10 +86,14 @@
      (fill-cell g x y (new Color 255 255 255))))
   (dorun
    (for [x (range *width*) y (range *height*)]
+     (when (sensors-see x y)
+       (fill-cell g x y (new Color 255 180 180 150)))))
+  (dorun
+   (for [x (range *width*) y (range *height*)]
      (let [event (grid-at x y)]
        (when (not (nil? event))
 	 (cond (= (type event) simulator.types.events.EventNew)
-	       (fill-cell g x y (new Color 30 30 255 150))
+	       (fill-cell g x y (new Color 180 180 255 150))
 	       (= (type event) simulator.types.events.EventMove)
 	       (do
 		 (fill-cell g (:x (:oldpos event)) (:y (:oldpos event))
@@ -171,7 +181,8 @@
   (. *steplabel* (setText (str "Step: " *time*))))
 
 (defn run-simulation []
-  (let [result (apply tracking/run (get-parameters))]
+  (let [params (get-parameters)
+	result (apply tracking/run params)]
     (def *true-log* (getTrueLog result))
     (def *true-events* (getTrueEvents result))
     (def *strat-log* (getStratLog result))
@@ -181,6 +192,7 @@
     (def *height* (Integer/parseInt (. (:height *param-textfields*) getText)))
     (def *grid-cell-width* (/ *gridpanel-width* *width*))
     (def *grid-cell-height* (/ *gridpanel-height* *height*))
+    (def *sensors* (last params))
     (updateLogsPanel)
     (. *gridpanel* (repaint))
     (. *steplabel* (setText (str "Step: " *time*)))))
