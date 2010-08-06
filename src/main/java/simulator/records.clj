@@ -1,6 +1,10 @@
 (ns simulator.records
   (:import [java.io File BufferedWriter FileWriter])
+  (:import [java.util Date])
   (:use [clojure.contrib.prxml :only (prxml)])
+  (:use [clojure.xml :as xml :only (parse)])
+  (:use [clojure.zip :as zip :only (xml-zip node children)])
+  (:use [clojure.contrib.zip-filter.xml :as zf :only (xml-> text)])
   (:use [clojure.contrib.shell :only (sh)])
   (:use [clojure.string :only (split)])
   (:use [simulator.types.parameters :only (getHeaders getParams toXml)])
@@ -28,3 +32,28 @@
     (xml (str dir "/meta.xml") params)
     (println (format "Running %d simulations..." (count ps)))
     (save-results (str dir "/results.csv") (getHeaders params) (multiple-runs ps runner))))
+
+(defn record-str
+  [id date commit params]
+  (str
+   (format "%s (%s)\n" id date)
+   (format "  Commit: %s\n" (apply str commit))
+   "  Params:\n"
+   (apply str (for [p params] (format "    %s\n" p)))
+   "\n"))
+
+(defn params-str
+  [xml]
+  (zf/xml-> xml zip/children #(format "%s: %s" (name (:tag %)) (str (first (:content %))))))
+
+(defn list-records
+  [recordsdir]
+  (apply println
+   (let [records (filter #(. % isDirectory) (.listFiles (File. recordsdir)))]
+     (for [r (sort-by #(. % toString) records)]
+       (let [meta (zip/xml-zip (xml/parse (File. r "meta.xml")))
+	     id (. r getName)
+	     date (.toString (Date. (Long/parseLong id)))
+	     commit (zf/xml-> meta :git-commit zf/text)
+	     params (zf/xml-> meta :params params-str)]
+	 (record-str id date commit params))))))
