@@ -10,6 +10,7 @@
   (:use [simulator.types.parameters :only (ParameterMethods)])
   (:use [simulator.types.entities :only (addSnapshot pos)])
   (:use [simulator.types.states :only (addEntity addEventNew addEventMove updateEntity)])
+  (:use [simulator.evaluator :only (evaluate)])
   (:use [simulator.strategies :only (init-strat-state)])
   (:use [simulator.strategies.guess :only (explain-guess)])
   (:use [simulator.strategies.nearest :only (explain-nearest)])
@@ -131,10 +132,6 @@
   [truestate gridstate
    (explain strategy (map #(update-spotted % gridstate) sensors)
 	    strat-state (:time gridstate))])
-
-(defn evaluate
-  [truestate strat-state]
-  (count (set/intersection (set (:events truestate)) (set (:events strat-state)))))
 
 (defn generate-results
   [msecs steps numes walk width height strategy sensor-coverage truestate gridstate strat-state]

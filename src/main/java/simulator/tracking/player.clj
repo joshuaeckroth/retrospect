@@ -178,10 +178,18 @@
 			     (let [[x y] (get-grid-from-xy (. e getX) (. e getY))]
 			       (format "Grid %d, %d" x y))))))))
 
+(defn format-event
+  [event true-events]
+  (if (some #(= event %) true-events)
+    (toStr event)
+    (str "!" (toStr event))))
+
 (defn updateLogsPanel []
   (. *true-events-box* setText (apply str (map toStr (filter #(<= (:time %) *time*) *true-events*))))
   (. *true-log-box* setText (apply str (map toStr (filter #(<= (:time %) *time*) *true-log*))))
-  (. *strat-events-box* setText (apply str (map toStr (filter #(<= (:time %) *time*) *strat-events*))))
+  (. *strat-events-box* setText
+     (apply str (map (fn [event] (format-event event (filter #(<= (:time %) *time*) *true-events*)))
+		     (filter #(<= (:time %) *time*) *strat-events*))))
   (. *strat-log-box* setText (apply str (map toStr (filter #(<= (:time %) *time*) *strat-log*)))))
 
 (defn next-step []
