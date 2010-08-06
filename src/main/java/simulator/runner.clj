@@ -8,14 +8,16 @@
 (defn average-runs
   [runner p n]
   (let [runs (for [i (range n)] (apply runner p))
-	avg (fn [field rs] (/ (reduce + (map field rs)) 10.0))]
-    (Result. (avg :time runs) (avg :percent runs) nil nil p)))
+	avg (fn [field rs] (double (/ (reduce + (map field rs)) n)))]
+    (Result. (avg :time runs) (avg :percent runs) (avg :sensor-coverage runs) nil nil (take 6 p))))
 
 (defn run-partition
   [runner partition]
-  (println (format "Running %d configurations (averaging 10 runs per configuration)..." (count partition)))
-  (doall (map #(average-runs runner % 10) partition))
-  (println "Thread done."))
+  (println (format "Running %d configurations (averaging 10 runs per configuration)..."
+		   (count partition)))
+  (let [results (doall (map #(average-runs runner % 10) partition))]
+    (println "Thread done.")
+    results))
 
 (defn parallel-runs
   [params runner]
@@ -32,7 +34,6 @@
 
 (defn save-results
   [filename headers results]
-  (write-csv filename (concat (concat ["Milliseconds" "PercentCorrect"] headers) (getData results))))
+  (write-csv filename (concat [(concat ["Milliseconds" "PercentCorrect" "SensorCoverage"] headers)]
+			      (getData results))))
 
-(defn read-results [filename]
-  (read-dataset filename :header true))

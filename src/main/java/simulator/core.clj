@@ -9,17 +9,15 @@
 (defn -main [& args]
   (with-command-line args
     "Simulator"
-    [[action "Action (run/list/plot/player)"]
+    [[action "Action (run/list/player)"]
      [problem "Problem" "tracking"]
-     [recordsdir "Records directory" "c:/users/josh/documents/research/simulator/records"]]
+     [recordsdir "Records directory" "c:/users/josh/documents/research/simulator-records"]]
     (case action
 	  "run"
 	  (if (= problem "tracking")
 	    (run-with-new-record recordsdir (tracking/generate-params) tracking/run))
 	  "list"
 	  (list-records recordsdir)
-	  "plot"
-	  (println "Plot...")
 	  "player"
 	  (if (= problem "tracking") (start-player)
         (println "Player only available for 'tracking' problem."))

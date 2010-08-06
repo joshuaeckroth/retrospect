@@ -8,12 +8,13 @@
   (:use [clojure.contrib.shell :only (sh)])
   (:use [clojure.string :only (split)])
   (:use [simulator.types.parameters :only (getHeaders getParams toXml)])
-  (:use [simulator.runner :only (save-results multiple-runs)]))
+  (:use [simulator.runner :only (save-results multiple-runs)])
+  (:use [simulator.charts :only (save-plots)]))
 
 (defn get-gitcommit []
   (first (split (sh "c:/progra~1/git/bin/git.exe" "rev-list" "HEAD") #"\n")))
 
-(defn xml [filename params]
+(defn write-xml [filename params]
   (with-open [writer (BufferedWriter. (FileWriter. filename))]
     (.write writer
 	    (with-out-str
@@ -29,9 +30,11 @@
     (println (format "Making new directory %s" dir))
     (.mkdir (File. dir))
     (println "Writing meta.xml")
-    (xml (str dir "/meta.xml") params)
+    (write-xml (str dir "/meta.xml") params)
     (println (format "Running %d simulations..." (count ps)))
-    (save-results (str dir "/results.csv") (getHeaders params) (multiple-runs ps runner))))
+    (save-results (str dir "/results.csv") (getHeaders params) (multiple-runs ps runner))
+    (println "Saving charts...")
+    (save-plots dir)))
 
 (defn record-str
   [id date commit params]

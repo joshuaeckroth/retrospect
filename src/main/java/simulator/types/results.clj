@@ -7,7 +7,7 @@
 (defrecord Results [r]
   ResultsOperations
   (addResult [this result] (update-in this [:r] conj result))
-  (getData [this] (map #(concat [(:time %) (:percent %)] (:params %)) (:r this))))
+  (getData [this] (map #(concat [(:time %) (:percent %) (:sensor-coverage %)] (:params %)) r)))
 
 (defprotocol SingleResultOperations
   (getTrueLog [this])
@@ -15,7 +15,7 @@
   (getStratLog [this])
   (getStratEvents [this]))
 
-(defrecord Result [time percent truestate strat-state params]
+(defrecord Result [time percent sensor-coverage truestate strat-state params]
   SingleResultOperations
   (getTrueLog [this] (:logs truestate))
   (getTrueEvents [this] (:events truestate))

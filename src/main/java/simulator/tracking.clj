@@ -15,7 +15,8 @@
   (:use [simulator.strategies.nearest :only (explain-nearest)])
   (:use [simulator.tracking.grid :only (updateGridEntity new-grid get-grid-pos attempt-move
 							 rand-symbol-and-pos)])
-  (:use [simulator.tracking.sensors :only (update-spotted generate-sensors-with-coverage)]))
+  (:use [simulator.tracking.sensors
+	 :only (update-spotted generate-sensors-with-coverage measure-sensor-coverage)]))
 
 (defrecord TrackingParameters
   [headers steps numes walk width height strategy sensor-coverage]
@@ -44,10 +45,10 @@
 
 (defn generate-params []
   (TrackingParameters.
-   ["Steps" "NumberEntities" "WalkSize" "GridWidth" "GridHeight" "Strategy" "SensorCoverage"]
-   [50] [1 2 3 4 5 6 7 8 9 10 15 20 30 50 70 80 90]
-   [1 2 3 4 5 6 7 8 9 10 15 20 30 50] [10] [10]
-   ["guess" "nearest"] [10 50 70 100]))
+   ["Steps" "NumberEntities" "WalkSize" "GridWidth" "GridHeight" "Strategy"]
+   [50] [1 2 3 4 5 6]
+   [1 2 3 4 5] [10] [10]
+   ["guess" "nearest"] [20 50 100]))
 
 (defn new-entity
   "Create a new entity with a random symbol and random (free) location."
@@ -133,13 +134,13 @@
 	    strat-state (:time gridstate))])
 
 (defn generate-results
-  [msecs steps numes walk width height strategy sensor-coverage truestate gridstate strat-state]
+  [msecs steps numes walk width height strategy sensors truestate gridstate strat-state]
   (let [correct (evaluate truestate strat-state)
 	incorrect (- (count (:events strat-state)) correct)
 	total (count (:events truestate))
 	percent (double (* 100 (/ correct total)))]
-    (Result. msecs percent truestate strat-state
-	     [steps numes walk width height strategy sensor-coverage])))
+    (Result. msecs percent (measure-sensor-coverage width height sensors) truestate strat-state
+	     [steps numes walk width height strategy])))
 
 (defn run
   [steps numes walk width height strategy sensor-coverage sensors]
@@ -152,5 +153,5 @@
 	(recur (inc i) (single-step walk strategy sensors combined-states))
 	(apply generate-results
 	       (/ (double (- (. System (nanoTime)) startTime)) 1000000.0)
-	       steps numes walk width height strategy sensor-coverage
+	       steps numes walk width height strategy sensors
 	       (last-explanation strategy sensors combined-states))))))

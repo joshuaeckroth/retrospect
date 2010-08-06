@@ -1,6 +1,7 @@
 (ns simulator.charts
   (:use [incanter.core])
-  (:use [incanter.charts]))
+  (:use [incanter.charts])
+  (:use [incanter.io]))
 
 (defn plot
   [data x y strategies sensor-coverage]
@@ -13,13 +14,22 @@
 				 :title (format "Sensor coverage: %.0f%%" sensor-coverage))
 		 (set-y-range 0.0 100.0)
 		 (clear-background))]
-      (if (nil? (rest strategies)) (view plot)
-	  (view (reduce (fn [plot strategy]
-			  (add-points plot x y
-				      :data ($where {:Strategy strategy
-						     :SensorCoverage sensor-coverage})
-				      :series-label strategy))
-			plot (rest strategies)))))))
+      (if (nil? (rest strategies)) plot
+	  (reduce (fn [p strategy]
+		    (add-points p x y
+				:data ($where {:Strategy strategy
+					       :SensorCoverage sensor-coverage})
+				:series-label strategy))
+		  plot (rest strategies))))))
+
+(defn read-results [filename]
+  (read-dataset filename :header true))
+
+(defn save-plots
+  [recordsdir]
+  (let [results (read-results (str recordsdir "/results.csv"))]
+    (save (plot results :NumberEntities :PercentCorrect ["guess" "nearest"] 100.0)
+	  (str recordsdir "/numes-correct-100.png"))))
 
 
 (comment
