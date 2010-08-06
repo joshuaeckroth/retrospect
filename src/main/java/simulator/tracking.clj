@@ -1,5 +1,4 @@
 (ns simulator.tracking
-  (:require [clojure.set :as set :only (intersection)])
   (:require [simulator.types entities states results])
   (:require [simulator.tracking grid])
   (:import [simulator.types.entities Entity EntitySnapshot])
