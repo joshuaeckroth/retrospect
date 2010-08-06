@@ -3,6 +3,7 @@
   (:import (java.awt Color Graphics2D Dimension GridBagLayout Insets RenderingHints))
   (:import (java.awt.image BufferedImage))
   (:import (javax.swing JPanel JFrame JButton JTextField JTextArea JLabel JScrollPane))
+  (:use [clojure.contrib.math :as math])
   (:use [simulator.types.results :only (getTrueLog getTrueEvents getStratLog getStratEvents)])
   (:use [simulator.types.generic :only (toStr)])
   (:use [simulator.types.sensors :only (sees)])
@@ -31,6 +32,8 @@
 (def *strat-events-box* (JTextArea. 10 40))
 (def *strat-log-box* (JTextArea. 10 40))
 
+(def *mouse-xy* (JLabel.))
+
 (def *param-textfields*
      {:steps (JTextField. 5)
       :numes (JTextField. 5)
@@ -52,6 +55,9 @@
 
 (defn sensors-see [x y]
   (some #(sees % x y) *sensors*))
+
+(defn get-grid-from-xy [x y]
+  [(floor (/ x *grid-cell-width*)) (floor (/ y *grid-cell-height*))])
 
 ;; from http://stuartsierra.com/2010/01/08/agents-of-swing
 
@@ -158,7 +164,19 @@
      (doto (proxy [JPanel] []
 	     (paint [g] (render g)))
        (.setPreferredSize
-	(new Dimension *gridpanel-width* *gridpanel-height*))))
+	(new Dimension *gridpanel-width* *gridpanel-height*))
+       (.addMouseListener
+	(proxy [java.awt.event.MouseListener] []
+	  (mouseClicked [e])
+	  (mouseEntered [e])
+	  (mouseExited [e] (. *mouse-xy* setText ""))
+	  (mousePressed [e])
+	  (mouseReleased [e])))
+       (.addMouseMotionListener
+	(proxy [java.awt.event.MouseMotionListener] []
+	  (mouseMoved [e] (. *mouse-xy* setText
+			     (let [[x y] (get-grid-from-xy (. e getX) (. e getY))]
+			       (format "Grid %d, %d" x y))))))))
 
 (defn updateLogsPanel []
   (. *true-events-box* setText (apply str (map toStr (filter #(<= (:time %) *time*) *true-events*))))
@@ -218,7 +236,7 @@
      (doto (JPanel. (GridBagLayout.))
        (grid-bag-layout
 	:fill :BOTH, :insets (Insets. 5 5 5 5)
-	:gridx 0, :gridy 0, :gridheight 10
+	:gridx 0, :gridy 0, :gridheight 11
 	*gridpanel*
 
 	:gridx 1, :gridy 0, :gridheight 1
@@ -266,7 +284,10 @@
 	:gridx 2, :gridy 8
 	*nextbutton*
 
-	:gridy 9, :gridwidth 2, :gridheight :REMAINDER
+	:gridx 1, :gridy 9, :gridwidth 2
+	*mouse-xy*
+
+	:gridy 10, :gridwidth 2, :gridheight :REMAINDER
 	(JPanel.))))
 
 (def *logspanel*
