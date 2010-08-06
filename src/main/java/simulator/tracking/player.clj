@@ -1,6 +1,6 @@
 (ns simulator.tracking.player
   (:import (java.io BufferedWriter FileWriter))
-  (:import (java.awt Color Graphics Dimension GridBagLayout Insets))
+  (:import (java.awt Color Graphics2D Dimension GridBagLayout Insets RenderingHints))
   (:import (java.awt.image BufferedImage))
   (:import (javax.swing JPanel JFrame JButton JTextField JTextArea JLabel JScrollPane))
   (:use [simulator.types.results :only (getTrueLog getTrueEvents getStratLog getStratEvents)])
@@ -57,33 +57,40 @@
 (defn grid-at [x y]
   (nth *grid* (+ (* y *width*) x)))
 
-(defn fill-cell [#^Graphics g x y c]
+(defn fill-cell [#^Graphics2D g x y c]
   (doto g
     (.setColor c)
     (.fillRect (* x *grid-cell-width*) (* y *grid-cell-height*) *grid-cell-width* *grid-cell-height*)))
 
-(defn draw-move [#^Graphics g oldx oldy newx newy c]
-  (doto g
-    (.setColor c)
-    (.drawLine (+ (* oldx *grid-cell-width*) (/ *grid-cell-width* 2))
-	       (+ (* oldy *grid-cell-height*) (/ *grid-cell-height* 2))
-	       (+ (* newx *grid-cell-width*) (/ *grid-cell-width* 2))
-	       (+ (* newy *grid-cell-height*) (/ *grid-cell-height* 2)))))
+(defn draw-move [#^Graphics2D g oldx oldy newx newy c]
+  (let [oldpx (+ (* oldx *grid-cell-width*) (/ *grid-cell-width* 2))
+	oldpy (+ (* oldy *grid-cell-height*) (/ *grid-cell-height* 2))
+	newpx (+ (* newx *grid-cell-width*) (/ *grid-cell-width* 2))
+	newpy (+ (* newy *grid-cell-height*) (/ *grid-cell-height* 2))]
+    (doto g
+      (.setColor c)
+      (.drawLine oldpx oldpy newpx newpy)
+      (.fillArc (- newpx (/ *grid-cell-width* 10))
+		(- newpy (/ *grid-cell-height* 10))
+		(/ *grid-cell-width* 5) (/ *grid-cell-height* 5) 0 360))))
 
 (defn draw-grid [g]
   (dorun
    (for [x (range *width*) y (range *height*)]
-     (cond (nil? (grid-at x y))
-	   (fill-cell g x y (new Color 255 255 255 100))
-	   (= (type (grid-at x y)) simulator.types.events.EventNew)
-	   (fill-cell g x y (new Color 255 0 0 100))
-	   (= (type (grid-at x y)) simulator.types.events.EventMove)
-	   (do
-	     (fill-cell g x y (new Color 0 255 0 100))
-	     (fill-cell g (:x (:oldpos (grid-at x y))) (:y (:oldpos (grid-at x y)))
-			(new Color 0 100 0 100))
-	     (draw-move g (:x (:oldpos (grid-at x y))) (:y (:oldpos (grid-at x y))) x y
-			(new Color 0 0 0 100)))))))
+     (fill-cell g x y (new Color 255 255 255))))
+  (dorun
+   (for [x (range *width*) y (range *height*)]
+     (let [event (grid-at x y)]
+       (when (not (nil? event))
+	 (cond (= (type event) simulator.types.events.EventNew)
+	       (fill-cell g x y (new Color 30 30 255 150))
+	       (= (type event) simulator.types.events.EventMove)
+	       (do
+		 (fill-cell g (:x (:oldpos event)) (:y (:oldpos event))
+			    (new Color 150 150 150 150))
+		 (fill-cell g x y (new Color 100 100 100 150))
+		 (draw-move g (:x (:oldpos event)) (:y (:oldpos event)) x y
+			    (new Color 0 0 0)))))))))
 
 (defn update-grid []
   (def *grid* (vec (repeat (* *width* *height*) nil)))
@@ -92,7 +99,7 @@
 	     (let [{x :x y :y} (if (= (type e) simulator.types.events.EventMove) (:newpos e) (:pos e))]
 	       (def *grid* (assoc *grid* (+ (* y *width*) x) e))))))
   (dorun (for [x (range *width*) y (range *height*)]
-           (if (and (not (nil? (grid-at x y))) (< (:time (grid-at x y)) (- *time* 3)))
+           (if (and (not (nil? (grid-at x y))) (< (:time (grid-at x y)) (- *time* 1)))
              (def *grid* (assoc *grid* (+ (* y *width*) x) nil))))))
 
 (defn render [g]
@@ -100,6 +107,7 @@
 		 (. BufferedImage TYPE_INT_ARGB))
         bg (. img (getGraphics))]
     (doto bg
+      (.setRenderingHint (. RenderingHints KEY_ANTIALIASING) (. RenderingHints VALUE_ANTIALIAS_ON))
       (.setColor (. Color white))
       (.fillRect 0 0 *gridpanel-width* *gridpanel-height*))
     (update-grid)
@@ -277,11 +285,13 @@
 (defn start-player []
   (doto (JFrame. "Tracking player")
     (.setContentPane *mainpanel*)
+    (.setResizable false)
     ;;(.setDefaultCloseOperation JFrame/EXIT_ON_CLOSE)
     (.pack)
     (.show))
   (doto (JFrame. "Logs")
     (.setContentPane *logspanel*)
+    (.setResizable false)
     (.pack)
     (.show)))
 

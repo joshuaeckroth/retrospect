@@ -17,7 +17,7 @@
   EntityMethods
   (pos [this] (:pos (last (:snapshots this))))
   Printable
-  (toStr [this] (format "Entity %c %s\n" (:symbol this)
+  (toStr [this] (format "Entity %c %s" (:symbol this)
 			(apply str (interpose "->" (map #(format "(%d,%d)" (:x (:pos %)) (:y (:pos %)))
 							(:snapshots this)))))))
 
