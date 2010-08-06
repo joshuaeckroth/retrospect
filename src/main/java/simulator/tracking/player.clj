@@ -2,7 +2,7 @@
   (:import (java.io BufferedWriter FileWriter))
   (:import (java.awt Color Graphics Dimension GridBagLayout Insets))
   (:import (java.awt.image BufferedImage))
-  (:import (javax.swing JPanel JFrame JButton JTextField JTextArea JLabel))
+  (:import (javax.swing JPanel JFrame JButton JTextField JTextArea JLabel JScrollPane))
   (:use [simulator.types.results :only (getTrueLog getTrueEvents getStratLog getStratEvents)])
   (:use [simulator.types.generic :only (toStr)])
   (:use [simulator.tracking.sensors :only (generate-sensors-with-coverage)])
@@ -24,10 +24,10 @@
 (def *grid* (vec (repeat (* *width* *height*) nil)))
 
 (def *steplabel* (JLabel. "Step: "))
-(def *true-events-box* (JTextArea. 15 40))
-(def *true-log-box* (JTextArea. 15 40))
-(def *strat-events-box* (JTextArea. 15 40))
-(def *strat-log-box* (JTextArea. 15 40))
+(def *true-events-box* (JTextArea. 10 40))
+(def *true-log-box* (JTextArea. 10 40))
+(def *strat-events-box* (JTextArea. 10 40))
+(def *strat-log-box* (JTextArea. 10 40))
 
 (def *param-textfields*
      {:steps (JTextField. 5)
@@ -260,9 +260,9 @@
 	(JLabel. "True log")
 	
 	:gridx 0, :gridy 1
-	*true-events-box*
+	(JScrollPane. *true-events-box*)
 	:gridx 1, :gridy 1
-	*true-log-box*
+	(JScrollPane. *true-log-box*)
 
 	:gridx 0, :gridy 2
 	(JLabel. "Strategy events")
@@ -270,9 +270,9 @@
 	(JLabel. "Strategy log")
 
 	:gridx 0, :gridy 3
-	*strat-events-box*
+	(JScrollPane. *strat-events-box*)
 	:gridx 1, :gridy 3
-	*strat-log-box*)))
+	(JScrollPane. *strat-log-box*))))
 
 (defn start-player []
   (doto (JFrame. "Tracking player")
