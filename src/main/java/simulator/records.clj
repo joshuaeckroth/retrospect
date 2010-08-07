@@ -24,7 +24,7 @@
 		      (to-xml params)])))))
 
 (defn run-with-new-record
-  [recordsdir params runner]
+  [recordsdir params runner nthreads]
   (let [dir (str recordsdir "/" (. System (currentTimeMillis)))
 	ps (get-params params)]
     (println (format "Making new directory %s" dir))
@@ -32,7 +32,7 @@
     (println "Writing meta.xml")
     (write-xml (str dir "/meta.xml") params)
     (println (format "Running %d simulations..." (count ps)))
-    (save-results (str dir "/results.csv") (get-headers params) (multiple-runs ps runner))
+    (save-results (str dir "/results.csv") (get-headers params) (multiple-runs ps runner nthreads))
     (println "Saving charts...")
     (save-plots dir)))
 

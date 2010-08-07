@@ -46,10 +46,10 @@
 (defn generate-params []
   (TrackingParameters.
    ["Steps" "NumberEntities" "WalkSize" "GridWidth" "GridHeight" "Strategy"]
-   [50] [1 2 3 4 5 6]
-   [1 2 3 4 5] [10] [10]
+   [50] [1 2 3 4 5 6 7 8 9 10]
+   [1 2 3 4] [10] [10]
    ["guess" "nearest"]
-   [20 50 100]))
+   [0 10 20 30 40 50]))
 
 (defn new-entity
   "Create a new entity with a random symbol and random (free) location."

@@ -11,11 +11,12 @@
     "Simulator"
     [[action "Action (run/list/player)"]
      [problem "Problem" "tracking"]
-     [recordsdir "Records directory" "c:/users/josh/documents/research/simulator-records"]]
+     [recordsdir "Records directory" "c:/users/josh/documents/research/simulator-records"]
+     [nthreads "Number of threads" 4]]
     (case action
 	  "run"
 	  (if (= problem "tracking")
-	    (run-with-new-record recordsdir (tracking/generate-params) tracking/run))
+	    (run-with-new-record recordsdir (tracking/generate-params) tracking/run nthreads))
 	  "list"
 	  (list-records recordsdir)
 	  "player"

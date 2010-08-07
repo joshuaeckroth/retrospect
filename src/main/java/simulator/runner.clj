@@ -3,28 +3,64 @@
   (:import [simulator.types.results Results Result])
   (:use [simulator.types.results :only (ResultsOperations add-result get-data)])
   (:use [incanter.io :only (read-dataset)])
-  (:import (java.io BufferedWriter FileWriter)))
+  (:import (java.io BufferedWriter FileWriter))
+  (:import (java.util Date)))
+
+(defn format-time
+  [seconds]
+  (let [hours (/ seconds 3600.0)
+	mins (/ (rem seconds 3600) 60.0)
+	secs (rem seconds 60)]
+    (format "%02.0fh %02.0fm %02.0fs" hours mins secs)))
+
+(defn print-progress
+  [time milliseconds finished total]
+  (let [remaining (- total finished)
+	avgtime (/ time finished)
+	expected (* remaining avgtime)
+	wallexpected (.toString (Date. (long (+ expected (.getTime (Date.))))))]
+    (println (format "Done %d/%d; Elapsed: %s; Remaining: %s, ending %s"
+		     finished
+		     total
+		     (format-time (/ time 1000.0))
+		     (format-time (/ expected 1000.0))
+		     wallexpected))))
 
 (defn average-runs
   [runner p n]
   (let [runs (for [i (range n)] (apply runner p))
 	avg (fn [field rs] (double (/ (reduce + (map field rs)) n)))]
-    (Result. (avg :time runs) (avg :percent runs) (avg :sensor-coverage runs) nil nil (take 6 p))))
+    (Result. (avg :time runs) (avg :percent runs) (avg :sensor-coverage runs)
+	     nil nil (take 6 p))))
 
 (defn run-partition
   [runner partition]
-  (println (format "Running %d configurations (averaging 10 runs per configuration)..."
-		   (count partition)))
-  (let [results (doall (map #(average-runs runner % 10) partition))]
-    (println "Thread done.")
-    results))
+  (doall (map #(average-runs runner % 10) partition)))
 
 (defn parallel-runs
-  [params runner]
-  (apply concat (pmap #(run-partition runner %) (partition-all 100 (shuffle params)))))
+  [params runner nthreads]
+  "Each thread will have 10 configurations (and average 10 over runs per configuration)."
+  (let [partitions (partition-all 10 (shuffle params))
+	total (* 10 (count partitions))]
+    (loop [pofps (partition-all nthreads partitions)
+	   finished 0
+	   time 0.0
+	   results []]
+      (if pofps
+	(do
+	  (let [ps (first pofps)
+		starttime (. System (nanoTime))
+		rs (doall (pmap #(run-partition runner %) ps))
+		endtime (. System (nanoTime))
+		milliseconds (/ (- endtime starttime) 1000000.0)
+		newtime (+ time milliseconds)
+		newfinished (+ (* 10 (count ps)) finished)]
+	    (print-progress newtime milliseconds newfinished total)
+	    (recur (next pofps) newfinished newtime (concat rs results))))
+	results))))
 
-(defn multiple-runs [params runner]
-  (let [results (parallel-runs params runner)]
+(defn multiple-runs [params runner nthreads]
+  (let [results (parallel-runs params runner nthreads)]
     (reduce (fn [m r] (add-result m r)) (Results. []) results)))
 
 (defn write-csv
