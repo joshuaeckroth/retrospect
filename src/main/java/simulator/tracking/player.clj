@@ -4,8 +4,8 @@
   (:import (java.awt.image BufferedImage))
   (:import (javax.swing JPanel JFrame JButton JTextField JTextArea JLabel JScrollPane))
   (:use [clojure.contrib.math :as math])
-  (:use [simulator.types.results :only (getTrueLog getTrueEvents getStratLog getStratEvents)])
-  (:use [simulator.types.generic :only (toStr)])
+  (:use [simulator.types.results :only (get-true-log get-true-events get-strat-log get-strat-events)])
+  (:use [simulator.types.generic :only (to-str)])
   (:use [simulator.types.sensors :only (sees)])
   (:use [simulator.tracking.sensors :only (generate-sensors-with-coverage)])
   (:use [simulator.tracking :as tracking :only (run)]))
@@ -44,14 +44,15 @@
       :sensor-coverage (JTextField. 5)})
 
 (defn get-parameters []
-  (let [getInteger (fn [field] (Integer/parseInt (. (field *param-textfields*) getText)))
-	getString (fn [field] (. (field *param-textfields*) getText))]
-    [(getInteger :steps) (getInteger :numes) (getInteger :walk)
-     (getInteger :width) (getInteger :height) (getString :strategy)
-     (getInteger :sensor-coverage)
+  (let [get-integer (fn [field] (Integer/parseInt (. (field *param-textfields*) getText)))
+	get-string (fn [field] (. (field *param-textfields*) getText))]
+    [(get-integer :steps) (get-integer :numes) (get-integer :walk)
+     (get-integer :width) (get-integer :height) (get-string :strategy)
+     (get-integer :sensor-coverage)
      (generate-sensors-with-coverage
-       (getInteger :width) (getInteger :height)
-       (getInteger :sensor-coverage))]))
+       (get-integer :width)
+       (get-integer :height)
+       (get-integer :sensor-coverage))]))
 
 (defn sensors-see [x y]
   (some #(sees % x y) *sensors*))
@@ -181,45 +182,45 @@
 (defn format-event
   [event true-events]
   (if (some #(= event %) true-events)
-    (toStr event)
-    (str "!" (toStr event))))
+    (to-str event)
+    (str "!" (to-str event))))
 
-(defn updateLogsPanel []
-  (. *true-events-box* setText (apply str (map toStr (filter #(<= (:time %) *time*) *true-events*))))
-  (. *true-log-box* setText (apply str (map toStr (filter #(<= (:time %) *time*) *true-log*))))
+(defn update-logs-panel []
+  (. *true-events-box* setText (apply str (map to-str (filter #(<= (:time %) *time*) *true-events*))))
+  (. *true-log-box* setText (apply str (map to-str (filter #(<= (:time %) *time*) *true-log*))))
   (. *strat-events-box* setText
      (apply str (map (fn [event] (format-event event (filter #(<= (:time %) *time*) *true-events*)))
 		     (filter #(<= (:time %) *time*) *strat-events*))))
-  (. *strat-log-box* setText (apply str (map toStr (filter #(<= (:time %) *time*) *strat-log*)))))
+  (. *strat-log-box* setText (apply str (map to-str (filter #(<= (:time %) *time*) *strat-log*)))))
 
 (defn next-step []
   (when (< *time* (Integer/parseInt (. (:steps *param-textfields*) getText)))
     (def *time* (inc *time*)))
-  (updateLogsPanel)
+  (update-logs-panel)
   (. *gridpanel* (repaint))
   (. *steplabel* (setText (str "Step: " *time*))))
 
 (defn prev-step []
   (when (> *time* 0)
     (def *time* (dec *time*)))
-  (updateLogsPanel)
+  (update-logs-panel)
   (. *gridpanel* (repaint))
   (. *steplabel* (setText (str "Step: " *time*))))
 
 (defn run-simulation []
   (let [params (get-parameters)
 	result (apply tracking/run params)]
-    (def *true-log* (getTrueLog result))
-    (def *true-events* (getTrueEvents result))
-    (def *strat-log* (getStratLog result))
-    (def *strat-events* (getStratEvents result))
+    (def *true-log* (get-true-log result))
+    (def *true-events* (get-true-events result))
+    (def *strat-log* (get-strat-log result))
+    (def *strat-events* (get-strat-events result))
     (def *time* 0)
     (def *width* (Integer/parseInt (. (:width *param-textfields*) getText)))
     (def *height* (Integer/parseInt (. (:height *param-textfields*) getText)))
     (def *grid-cell-width* (/ *gridpanel-width* *width*))
     (def *grid-cell-height* (/ *gridpanel-height* *height*))
     (def *sensors* (last params))
-    (updateLogsPanel)
+    (update-logs-panel)
     (. *gridpanel* (repaint))
     (. *steplabel* (setText (str "Step: " *time*)))))
 

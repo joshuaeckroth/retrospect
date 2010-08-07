@@ -1,7 +1,7 @@
 (ns simulator.runner
   (:require [simulator.types results])
   (:import [simulator.types.results Results Result])
-  (:use [simulator.types.results :only (ResultsOperations addResult getData)])
+  (:use [simulator.types.results :only (ResultsOperations add-result get-data)])
   (:use [incanter.io :only (read-dataset)])
   (:import (java.io BufferedWriter FileWriter)))
 
@@ -25,7 +25,7 @@
 
 (defn multiple-runs [params runner]
   (let [results (parallel-runs params runner)]
-    (reduce (fn [m r] (addResult m r)) (Results. []) results)))
+    (reduce (fn [m r] (add-result m r)) (Results. []) results)))
 
 (defn write-csv
   [filename data]
@@ -35,5 +35,5 @@
 (defn save-results
   [filename headers results]
   (write-csv filename (concat [(concat ["Milliseconds" "PercentCorrect" "SensorCoverage"] headers)]
-			      (getData results))))
+			      (get-data results))))
 

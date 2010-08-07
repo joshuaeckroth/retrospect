@@ -24,15 +24,15 @@
 		       nil)))))))
 
 (defprotocol EntityContainer
-  (updateGridEntity [this oldentity newentity]))
+  (update-grid-entity [this oldentity newentity]))
 
 (defrecord GridState [grid time]
   EntityContainer
-  (updateGridEntity
+  (update-grid-entity
    [this oldentity newentity]
    (update-in this [:grid] replace-entity oldentity newentity))
   Temporal
-  (forwardTime
+  (forward-time
    [this amount]
    (update-in this [:time] + amount)))
 

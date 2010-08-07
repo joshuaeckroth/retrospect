@@ -1,7 +1,7 @@
 (ns simulator.types.parameters)
 
 (defprotocol ParameterMethods
-  (getHeaders [this])
-  (getParams [this])
-  (toXml [this]))
+  (get-headers [this])
+  (get-params [this])
+  (to-xml [this]))
  

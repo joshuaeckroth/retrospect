@@ -7,7 +7,7 @@
   (:use [clojure.contrib.zip-filter.xml :as zf :only (xml-> text)])
   (:use [clojure.contrib.shell :only (sh)])
   (:use [clojure.string :only (split)])
-  (:use [simulator.types.parameters :only (getHeaders getParams toXml)])
+  (:use [simulator.types.parameters :only (get-headers get-params to-xml)])
   (:use [simulator.runner :only (save-results multiple-runs)])
   (:use [simulator.charts :only (save-plots)]))
 
@@ -21,18 +21,18 @@
 	      (prxml [:decl! {:version "1.0"}]
 		     [:record
 		      [:git-commit (get-gitcommit)]
-		      (toXml params)])))))
+		      (to-xml params)])))))
 
 (defn run-with-new-record
   [recordsdir params runner]
   (let [dir (str recordsdir "/" (. System (currentTimeMillis)))
-	ps (getParams params)]
+	ps (get-params params)]
     (println (format "Making new directory %s" dir))
     (.mkdir (File. dir))
     (println "Writing meta.xml")
     (write-xml (str dir "/meta.xml") params)
     (println (format "Running %d simulations..." (count ps)))
-    (save-results (str dir "/results.csv") (getHeaders params) (multiple-runs ps runner))
+    (save-results (str dir "/results.csv") (get-headers params) (multiple-runs ps runner))
     (println "Saving charts...")
     (save-plots dir)))
 
@@ -52,10 +52,10 @@
 (defn list-records
   [recordsdir]
   (apply println
-   (let [records (filter #(. % isDirectory) (.listFiles (File. recordsdir)))]
-     (for [r (sort-by #(. % toString) records)]
+   (let [records (filter #(.isDirectory %) (.listFiles (File. recordsdir)))]
+     (for [r (sort-by #(.toString %) records)]
        (let [meta (zip/xml-zip (xml/parse (File. r "meta.xml")))
-	     id (. r getName)
+	     id (.getName r)
 	     date (.toString (Date. (Long/parseLong id)))
 	     commit (zf/xml-> meta :git-commit zf/text)
 	     params (zf/xml-> meta :params params-str)]

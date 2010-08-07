@@ -1,9 +1,9 @@
 (ns simulator.strategies.nearest
   (:use [simulator.types.positions :only (manhattan-distance)])
-  (:use [simulator.types.states :only (addLog)])
+  (:use [simulator.types.states :only (get-entities)])
+  (:use [simulator.strategies :only (add-log explain-new-entity explain-existing-entity)])
   (:use [simulator.types.entities :only (pos)])
-  (:use [simulator.types.generic :only (toStr)])
-  (:use [simulator.explain :only (explain-new-entity explain-existing-entity)]))
+  (:use [simulator.types.generic :only (to-str)]))
 
 (defn pair-nearest
   "This is an instance of the closest pairs problem. Note that, at the moment,
@@ -23,29 +23,29 @@
    less than some constant will be explained as having moved from its paired
    existing entity; all pairings with too great a distance will have 'new-entity'
    explanations."
-  [sensors state time]
+  [strat-state sensors time]
   (let [unique-spotted (set (apply concat (map :spotted sensors)))]
-    (if (empty? (:entities state))
+    (if (empty? (get-entities strat-state))
       (reduce (fn [s spotted]
 		(-> s
-		    (addLog time (str "Explaining " (toStr spotted) " as new."))
+		    (add-log time (str "Explaining " (to-str spotted) " as new."))
 		    (explain-new-entity spotted time)))
-	      state unique-spotted)
-      (loop [pairs (pair-nearest unique-spotted (:entities state))
-	     s state]
+	      strat-state unique-spotted)
+      (loop [pairs (pair-nearest unique-spotted (get-entities strat-state))
+	     s strat-state]
 	(cond (empty? pairs) s
 	      (> (:dist (first pairs)) 5)
 	      (recur (rest pairs)
 		     (-> s
-			 (addLog time (str "Explaining " (toStr (:spotted (first pairs)))
+			 (add-log time (str "Explaining " (to-str (:spotted (first pairs)))
 					   " as new since its distance to next-nearest is > 5"))
 			 (explain-new-entity (:spotted (first pairs)) time)))
 	      :else
 	      (recur (rest pairs)
 		     (-> s
-			 (addLog time (str "Explaining " (toStr (:spotted (first pairs)))
+			 (add-log time (str "Explaining " (to-str (:spotted (first pairs)))
 					   " as continuation of next-nearest "
-					   (toStr (:entity (first pairs)))))
+					   (to-str (:entity (first pairs)))))
 			 (explain-existing-entity
 			  (:spotted (first pairs))
 			  (:entity (first pairs)) time))))))))

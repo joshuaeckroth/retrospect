@@ -1,24 +1,27 @@
-(ns simulator.types.results)
+(ns simulator.types.results
+  (:use [simulator.types.states :only (get-events)]))
+
+(defmulti result-headers :Problem)
 
 (defprotocol ResultsOperations
-  (addResult [this result])
-  (getData [this]))
+  (add-result [this result])
+  (get-data [this]))
 
 (defrecord Results [r]
   ResultsOperations
-  (addResult [this result] (update-in this [:r] conj result))
-  (getData [this] (map #(concat [(:time %) (:percent %) (:sensor-coverage %)] (:params %)) r)))
+  (add-result [this result] (update-in this [:r] conj result))
+  (get-data [this] (map #(concat [(:time %) (:percent %) (:sensor-coverage %)] (:params %)) r)))
 
 (defprotocol SingleResultOperations
-  (getTrueLog [this])
-  (getTrueEvents [this])
-  (getStratLog [this])
-  (getStratEvents [this]))
+  (get-true-log [this])
+  (get-true-events [this])
+  (get-strat-log [this])
+  (get-strat-events [this]))
 
 (defrecord Result [time percent sensor-coverage truestate strat-state params]
   SingleResultOperations
-  (getTrueLog [this] (:logs truestate))
-  (getTrueEvents [this] (:events truestate))
-  (getStratLog [this] (:logs strat-state))
-  (getStratEvents [this] (:events strat-state)))
+  (get-true-log [this] (:logs truestate))
+  (get-true-events [this] (get-events truestate))
+  (get-strat-log [this] (:logs strat-state))
+  (get-strat-events [this] (get-events strat-state)))
 

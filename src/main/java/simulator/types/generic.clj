@@ -1,10 +1,10 @@
 (ns simulator.types.generic)
 
 (defprotocol Printable
-  (toStr [this]))
+  (to-str [this]))
 
 (defprotocol Temporal
-  (forwardTime [this amount]))
+  (forward-time [this amount]))
 
 
 

@@ -9,7 +9,8 @@
     (let [plot (doto
 		   (scatter-plot x y :x-label (name x) :y-label (name y) :legend true
 				 :data ($where {:Strategy "guess"
-						:SensorCoverage sensor-coverage})
+						:SensorCoverage {:$gt (- sensor-coverage 5.0)
+								 :$lt (+ sensor-coverage 5.0)}})
 				 :series-label "guess"
 				 :title (format "Sensor coverage: %.0f%%" sensor-coverage))
 		 (set-y-range 0.0 100.0)
@@ -18,7 +19,8 @@
 	  (reduce (fn [p strategy]
 		    (add-points p x y
 				:data ($where {:Strategy strategy
-					       :SensorCoverage sensor-coverage})
+					       :SensorCoverage {:$gt (- sensor-coverage 5.0)
+								:$lt (+ sensor-coverage 5.0)}})
 				:series-label strategy))
 		  plot (rest strategies))))))
 
