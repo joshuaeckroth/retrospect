@@ -16,7 +16,8 @@
     (case action
 	  "run"
 	  (if (= problem "tracking")
-	    (run-with-new-record recordsdir (tracking/generate-params) tracking/run nthreads))
+	    (run-with-new-record recordsdir (tracking/generate-params) tracking/run
+	      (Integer/parseInt nthreads)))
 	  "list"
 	  (list-records recordsdir)
 	  "player"

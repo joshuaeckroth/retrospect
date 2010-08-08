@@ -8,10 +8,10 @@
 
 (defn format-time
   [seconds]
-  (let [hours (/ seconds 3600.0)
-	mins (/ (rem seconds 3600) 60.0)
+  (let [hours (int (/ seconds 3600.0))
+	mins (int (/ (rem seconds 3600) 60.0))
 	secs (rem seconds 60)]
-    (format "%02.0fh %02.0fm %02.0fs" hours mins secs)))
+    (format "%dh %dm %ds" hours mins secs)))
 
 (defn print-progress
   [time milliseconds finished total]
@@ -22,8 +22,8 @@
     (println (format "Done %d/%d; Elapsed: %s; Remaining: %s, ending %s"
 		     finished
 		     total
-		     (format-time (/ time 1000.0))
-		     (format-time (/ expected 1000.0))
+		     (format-time (int (/ time 1000.0)))
+		     (format-time (int (/ expected 1000.0)))
 		     wallexpected))))
 
 (defn average-runs
@@ -56,7 +56,7 @@
 		newtime (+ time milliseconds)
 		newfinished (+ (* 10 (count ps)) finished)]
 	    (print-progress newtime milliseconds newfinished total)
-	    (recur (next pofps) newfinished newtime (concat rs results))))
+	    (recur (next pofps) newfinished newtime (reduce concat results rs))))
 	results))))
 
 (defn multiple-runs [params runner nthreads]
