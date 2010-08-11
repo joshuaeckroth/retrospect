@@ -1,38 +1,73 @@
 (ns simulator.records
-  (:import [java.io File BufferedWriter FileWriter])
+  (:import [java.io File])
   (:import [java.util Date])
   (:use [clojure.contrib.prxml :only (prxml)])
-  (:use [clojure.xml :as xml :only (parse)])
+  (:use [clojure.xml :as xml :only (parse tag attrs)])
   (:use [clojure.zip :as zip :only (xml-zip node children)])
-  (:use [clojure.contrib.zip-filter.xml :as zf :only (xml-> text)])
+  (:use [clojure.contrib.zip-filter.xml :as zf :only (xml-> text attr=)])
   (:use [clojure.contrib.shell :only (sh)])
+  (:use [clojure.java.io :as io :only (writer copy)])
   (:use [clojure.string :only (split)])
-  (:use [simulator.types.parameters :only (get-headers get-params to-xml)])
-  (:use [simulator.runner :only (save-results multiple-runs)])
+  (:use [simulator.runners.local :only (run-local)])
+  (:use [simulator.runners.hadoop :only (run-hadoop)])
   (:use [simulator.charts :only (save-plots)]))
 
 (defn get-gitcommit []
   (first (split (sh "c:/progra~1/git/bin/git.exe" "rev-list" "HEAD") #"\n")))
 
-(defn write-xml [filename params]
-  (with-open [writer (BufferedWriter. (FileWriter. filename))]
+(defn copy-params-file [destfile paramsfile] (io/copy (File. paramsfile) (File. destfile)))
+
+(defn read-params
+  [problem paramsfile]
+  "Reads parameters from params XML file for a certain problem. Result
+  is a map like {:SensorCoverage [0 10 20], :BeliefNoise [0 10 20]}"
+  (let [xmltree (zip/xml-zip (xml/parse (File. paramsfile)))
+	paramstree (zf/xml-> xmltree :problem (attr= :name (:name problem)) :params children)
+	paramsmaps (apply merge (map (fn [p] {(first (zf/xml-> p tag))
+					      (first (xml-> p attrs))}) paramstree))
+	paramtags (keys paramsmaps)
+	get-value (fn [pm p k] (Integer/parseInt (k (p pm))))
+	update-with-range (fn [pm paramtag]
+			    (assoc pm paramtag
+				   (range (get-value paramsmaps paramtag :start)
+					  (get-value paramsmaps paramtag :end)
+					  (get-value paramsmaps paramtag :step))))]
+    (reduce update-with-range {} paramtags)))
+
+(defn explode-params
+  [params]
+  {:pre [(not (empty? params))]}
+  "Want, e.g. {:Xyz [1 2 3], :Abc [3 4]} to become [{:Xyz 1, :Abc 3}, {:Xyz 2, :Abc 4}, ...]"
+  (if (= 1 (count params))
+    (for [v (second (first params))] {(first (first params)) v})
+    (let [p (first params)
+	  deeper (explode-params (rest params))]
+      (flatten (map (fn [v] (map #(assoc % (first p) v) deeper)) (second p))))))
+
+(defn write-xml [filename]
+  (with-open [writer (io/writer filename)]
     (.write writer
 	    (with-out-str
 	      (prxml [:decl! {:version "1.0"}]
 		     [:record
-		      [:git-commit (get-gitcommit)]
-		      (to-xml params)])))))
+		      [:git-commit (get-gitcommit)]])))))
 
 (defn run-with-new-record
-  [recordsdir params runner nthreads]
+  [hadoop problem paramsfile recordsdir nthreads]
+  "Create a new folder for storing run data and execute the run. Then,
+  depending on whether hadoop is true or false, execute a hadoop job
+  control process or a local (this machine) runner."
   (let [dir (str recordsdir "/" (. System (currentTimeMillis)))
-	ps (get-params params)]
-    (println (format "Making new directory %s" dir))
+	params (explode-params (read-params problem paramsfile))]
+    (println (format "Making new directory %s..." dir))
     (.mkdir (File. dir))
-    (println "Writing meta.xml")
-    (write-xml (str dir "/meta.xml") params)
-    (println (format "Running %d simulations..." (count ps)))
-    (save-results (str dir "/results.csv") (get-headers params) (multiple-runs ps runner nthreads))
+    (println "Writing meta.xml...")
+    (write-xml (str dir "/meta.xml"))
+    (println "Copying params file...")
+    (copy-params-file (str dir "/params.xml") paramsfile)
+    (if hadoop
+      (run-hadoop problem params dir nthreads)
+      (run-local problem params dir nthreads))
     (println "Saving charts...")
     (save-plots dir)))
 
@@ -60,3 +95,4 @@
 	     commit (zf/xml-> meta :git-commit zf/text)
 	     params (zf/xml-> meta :params params-str)]
 	 (record-str id date commit params))))))
+

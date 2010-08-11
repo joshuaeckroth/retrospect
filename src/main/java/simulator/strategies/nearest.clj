@@ -1,7 +1,7 @@
 (ns simulator.strategies.nearest
   (:use [simulator.types.positions :only (manhattan-distance)])
   (:use [simulator.types.states :only (get-entities)])
-  (:use [simulator.strategies :only (add-log explain-new-entity explain-existing-entity)])
+  (:use [simulator.strategies.core :only (add-log explain-new-entity explain-existing-entity)])
   (:use [simulator.types.entities :only (pos)])
   (:use [simulator.types.generic :only (to-str)]))
 

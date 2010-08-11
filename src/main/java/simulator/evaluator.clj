@@ -4,8 +4,7 @@
 
 (defn evaluate
   [truestate strat-state]
-  (count (set/intersection (set (get-events truestate)) (set (get-events strat-state)))))
-
-(defn correct?
-  [truestate event]
-  (some #(= event %) (get-events truestate)))
+  (let [correct (count (set/intersection (set (get-events truestate))
+					 (set (get-events strat-state))))
+	total (count (get-events truestate))]
+    (double (* 100 (/ correct total)))))

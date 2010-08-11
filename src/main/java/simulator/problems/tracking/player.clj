@@ -1,4 +1,4 @@
-(ns simulator.tracking.player
+(ns simulator.problems.tracking.player
   (:import (java.io BufferedWriter FileWriter))
   (:import (java.awt Color Graphics2D Dimension GridBagLayout Insets RenderingHints))
   (:import (java.awt.image BufferedImage))
@@ -7,8 +7,8 @@
   (:use [simulator.types.results :only (get-true-log get-true-events get-strat-log get-strat-events)])
   (:use [simulator.types.generic :only (to-str)])
   (:use [simulator.types.sensors :only (sees)])
-  (:use [simulator.tracking.sensors :only (generate-sensors-with-coverage)])
-  (:use [simulator.tracking :as tracking :only (run)]))
+  (:use [simulator.problems.tracking.sensors :only (generate-sensors-with-coverage)])
+  (:use [simulator.problems.tracking.core :as tracking :only (run)]))
 
 (def *gridpanel-width* 500)
 (def *gridpanel-height* 500)

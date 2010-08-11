@@ -1,4 +1,4 @@
-(ns simulator.strategies
+(ns simulator.strategies.core
   (:require [simulator.types states logs])
   (:import [simulator.types.states State])
   (:import [simulator.types.logs LogEntry])
@@ -69,3 +69,5 @@
   (-> strat-state
       (update-entity entity (pos spotted))
       (add-event-move time (pos entity) (pos spotted))))
+
+(def strategies ["guess" "nearest"])

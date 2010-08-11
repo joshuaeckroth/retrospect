@@ -1,6 +1,8 @@
-(ns simulator.tracking.grid
-  (:require [simulator.types positions])
+(ns simulator.problems.tracking.grid
+  (:require [simulator.types positions entities])
   (:import [simulator.types.positions Position])
+  (:import [simulator.types.entities Entity EntitySnapshot])
+  (:use [simulator.types.entities :only (pos add-snapshot)])
   (:use [simulator.types.positions :only (equal)])
   (:use [simulator.types.generic :only (Temporal)]))
 
@@ -23,14 +25,11 @@
 		       (get-grid-pos newgrid (:pos prior-snapshot))
 		       nil)))))))
 
-(defprotocol EntityContainer
-  (update-grid-entity [this oldentity newentity]))
+(defn update-grid-entity
+  [gridstate oldentity newentity]
+  (update-in gridstate [:grid] replace-entity oldentity newentity))
 
 (defrecord GridState [grid time]
-  EntityContainer
-  (update-grid-entity
-   [this oldentity newentity]
-   (update-in this [:grid] replace-entity oldentity newentity))
   Temporal
   (forward-time
    [this amount]
@@ -77,6 +76,12 @@
 	      (not (pos-free? (Position. posx posy) grid)))
 	(recur (rand-symbol) (rand-posx) (rand-posy))
 	[symbol (Position. posx posy)]))))
+
+(defn new-entity
+  "Create a new entity with a random symbol and random (free) location."
+  [grid]
+  (let [[symbol pos] (rand-symbol-and-pos grid)]
+    (Entity. symbol [(EntitySnapshot. pos)])))
   
 (defn attempt-move
   "Try to move one step in a given direction; return new position."
@@ -91,3 +96,12 @@
 	  "right" (if (pos-free? right grid) right pos)
 	  "down" (if (pos-free? down grid) down pos)
 	  "up" (if (pos-free? up grid) up pos))))
+
+(defn walk1
+  "Move an entity one step in a random (free) direction,
+   and add that movement to the entity's history"
+  [entity grid]
+  (let [dir (nth ["left" "right" "down" "up" "fixed"] (rand-int 4))
+	pos (attempt-move dir (pos entity) grid)]
+    (add-snapshot entity (EntitySnapshot. pos))))
+

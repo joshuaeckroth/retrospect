@@ -1,6 +1,6 @@
 (ns simulator.strategies.guess
   (:use [simulator.types.states :only (get-entities)])
-  (:use [simulator.strategies :only (add-log explain-new-entity explain-existing-entity)])
+  (:use [simulator.strategies.core :only (add-log explain-new-entity explain-existing-entity)])
   (:use [simulator.types.generic :only (to-str)]))
 
 (defn explain-guess
