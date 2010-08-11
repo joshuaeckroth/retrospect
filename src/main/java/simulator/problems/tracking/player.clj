@@ -2,12 +2,13 @@
   (:import (java.io BufferedWriter FileWriter))
   (:import (java.awt Color Graphics2D Dimension GridBagLayout Insets RenderingHints))
   (:import (java.awt.image BufferedImage))
-  (:import (javax.swing JPanel JFrame JButton JTextField JTextArea JLabel JScrollPane))
+  (:import (javax.swing JPanel JFrame JButton JTextField JTextArea
+			JLabel JScrollPane JSpinner SpinnerNumberModel JComboBox))
   (:use [clojure.contrib.math :as math])
-  (:use [simulator.types.results :only (get-true-log get-true-events get-strat-log get-strat-events)])
   (:use [simulator.types.generic :only (to-str)])
   (:use [simulator.types.sensors :only (sees)])
-  (:use [simulator.problems.tracking.sensors :only (generate-sensors-with-coverage)])
+  (:use [simulator.types.states :only (get-events)])
+  (:use [simulator.strategies.core :only (strategies init-strat-state)])
   (:use [simulator.problems.tracking.core :as tracking :only (run)]))
 
 (def *gridpanel-width* 500)
@@ -17,8 +18,6 @@
 (def *sensors* nil)
 (def *grid-cell-width* 50)
 (def *grid-cell-height* 50)
-(def *animation-sleep-ms* 500)
-(def *running* true)
 (def *time* 0)
 (def *true-log* nil)
 (def *true-events* nil)
@@ -34,25 +33,27 @@
 
 (def *mouse-xy* (JLabel.))
 
-(def *param-textfields*
-     {:steps (JTextField. 5)
-      :numes (JTextField. 5)
-      :walk (JTextField. 5)
-      :width (JTextField. 5)
-      :height (JTextField. 5)
-      :strategy (JTextField. 5)
-      :sensor-coverage (JTextField. 5)})
+(def *param-spinners*
+     {:Steps (JSpinner. (SpinnerNumberModel. 50 1 1000 1))
+      :NumberEntities (JSpinner. (SpinnerNumberModel. 1 1 100 1))
+      :MaxWalk (JSpinner. (SpinnerNumberModel. 1 1 100 1))
+      :ProbNewEntities (JSpinner. (SpinnerNumberModel. 0 0 100 10))
+      :SensorReportNoise (JSpinner. (SpinnerNumberModel. 0 0 100 10))
+      :BeliefNoise (JSpinner. (SpinnerNumberModel. 0 0 100 10))
+      :GridWidth (JSpinner. (SpinnerNumberModel. 10 1 100 1))
+      :GridHeight (JSpinner. (SpinnerNumberModel. 10 1 100 1))
+      :SensorCoverage (JSpinner. (SpinnerNumberModel. 100 0 100 10))})
+
+(def *params* (apply hash-map (flatten (for [k (keys *param-spinners*)] [k 0]))))
+
+(def *param-other*
+     {:Strategy (JComboBox. (to-array strategies))})
 
 (defn get-parameters []
-  (let [get-integer (fn [field] (Integer/parseInt (. (field *param-textfields*) getText)))
-	get-string (fn [field] (. (field *param-textfields*) getText))]
-    [(get-integer :steps) (get-integer :numes) (get-integer :walk)
-     (get-integer :width) (get-integer :height) (get-string :strategy)
-     (get-integer :sensor-coverage)
-     (generate-sensors-with-coverage
-       (get-integer :width)
-       (get-integer :height)
-       (get-integer :sensor-coverage))]))
+  (apply hash-map (flatten (for [k (keys *param-spinners*)]
+			     [k (->> (k *param-spinners*) .getModel .getNumber .intValue)]))))
+
+(defn get-strategy [] (nth strategies (.getSelectedIndex (:Strategy *param-other*))))
 
 (defn sensors-see [x y]
   (some #(sees % x y) *sensors*))
@@ -194,7 +195,7 @@
   (. *strat-log-box* setText (apply str (map to-str (filter #(<= (:time %) *time*) *strat-log*)))))
 
 (defn next-step []
-  (when (< *time* (Integer/parseInt (. (:steps *param-textfields*) getText)))
+  (when (< *time* (:Steps *params*))
     (def *time* (inc *time*)))
   (update-logs-panel)
   (. *gridpanel* (repaint))
@@ -209,17 +210,20 @@
 
 (defn run-simulation []
   (let [params (get-parameters)
-	result (apply tracking/run params)]
-    (def *true-log* (get-true-log result))
-    (def *true-events* (get-true-events result))
-    (def *strat-log* (get-strat-log result))
-    (def *strat-events* (get-strat-events result))
+	strategy (get-strategy)
+	{ts :truestate ss :stratstate sensors :sensors results :results}
+	(tracking/run params (init-strat-state strategy))]
+    (def *params* params)
+    (def *true-log* nil)
+    (def *true-events* (get-events ts))
+    (def *strat-log* (:logs ss))
+    (def *strat-events* (get-events ss))
     (def *time* 0)
-    (def *width* (Integer/parseInt (. (:width *param-textfields*) getText)))
-    (def *height* (Integer/parseInt (. (:height *param-textfields*) getText)))
+    (def *width* (:GridWidth results))
+    (def *height* (:GridHeight results))
     (def *grid-cell-width* (/ *gridpanel-width* *width*))
     (def *grid-cell-height* (/ *gridpanel-height* *height*))
-    (def *sensors* (last params))
+    (def *sensors* sensors)
     (update-logs-panel)
     (. *gridpanel* (repaint))
     (. *steplabel* (setText (str "Step: " *time*)))))
@@ -245,90 +249,105 @@
      (doto (JPanel. (GridBagLayout.))
        (grid-bag-layout
 	:fill :BOTH, :insets (Insets. 5 5 5 5)
-	:gridx 0, :gridy 0, :gridheight 11
+	:gridx 0, :gridy 0, :gridheight 14
 	*gridpanel*
 
 	:gridx 1, :gridy 0, :gridheight 1
 	(JLabel. "Steps:")
 	:gridx 2, :gridy 0
-	(:steps *param-textfields*)
+	(:Steps *param-spinners*)
 
 	:gridx 1, :gridy 1
 	(JLabel. "NumberEntities:")
 	:gridx 2, :gridy 1
-	(:numes *param-textfields*)
+	(:NumberEntities *param-spinners*)
 
 	:gridx 1, :gridy 2
-	(JLabel. "WalkSize:")
+	(JLabel. "MaxWalk:")
 	:gridx 2, :gridy 2
-	(:walk *param-textfields*)
+	(:MaxWalk *param-spinners*)
 
 	:gridx 1, :gridy 3
-	(JLabel. "GridWidth:")
+	(JLabel. "ProbNewEntities:")
 	:gridx 2, :gridy 3
-	(:width *param-textfields*)
+	(:ProbNewEntities *param-spinners*)
 
 	:gridx 1, :gridy 4
-	(JLabel. "GridHeight:")
+	(JLabel. "SensorReportNoise:")
 	:gridx 2, :gridy 4
-	(:height *param-textfields*)
+	(:SensorReportNoise *param-spinners*)
 
 	:gridx 1, :gridy 5
-	(JLabel. "Strategy:")
+	(JLabel. "BeliefNoise:")
 	:gridx 2, :gridy 5
-	(:strategy *param-textfields*)
+	(:BeliefNoise *param-spinners*)
 
 	:gridx 1, :gridy 6
-	(JLabel. "SensorCoverage:")
+	(JLabel. "GridWidth:")
 	:gridx 2, :gridy 6
-	(:sensor-coverage *param-textfields*)
+	(:GridWidth *param-spinners*)
 
 	:gridx 1, :gridy 7
-	*newbutton*
+	(JLabel. "GridHeight:")
 	:gridx 2, :gridy 7
-	*steplabel*
+	(:GridHeight *param-spinners*)
 
 	:gridx 1, :gridy 8
-	*prevbutton*
+	(JLabel. "SensorCoverage:")
 	:gridx 2, :gridy 8
+	(:SensorCoverage *param-spinners*)
+
+	:gridx 1, :gridy 9
+	(JLabel. "Strategy:")
+	:gridx 2, :gridy 9
+	(:Strategy *param-other*)
+
+	:gridx 1, :gridy 10
+	*newbutton*
+	:gridx 2, :gridy 10
+	*steplabel*
+
+	:gridx 1, :gridy 11
+	*prevbutton*
+	:gridx 2, :gridy 11
 	*nextbutton*
 
-	:gridx 1, :gridy 9, :gridwidth 2
+	:gridx 1, :gridy 12, :gridwidth 2
 	*mouse-xy*
 
-	:gridy 10, :gridwidth 2, :gridheight :REMAINDER
+	:gridy 13, :gridwidth 2, :gridheight :REMAINDER
 	(JPanel.))))
 
 (def *logspanel*
      (doto (JPanel. (GridBagLayout.))
        (grid-bag-layout
 	:fill :BOTH, :insets (Insets. 5 5 5 5)
-	
-	:gridx 0, :gridy 0
-	(JLabel. "True events")
-	:gridx 1, :gridy 0
-	(JLabel. "True log")
-	
-	:gridx 0, :gridy 1
-	(JScrollPane. *true-events-box*)
-	:gridx 1, :gridy 1
-	(JScrollPane. *true-log-box*)
 
-	:gridx 0, :gridy 2
-	(JLabel. "Strategy events")
-	:gridx 1, :gridy 2
+	:gridx 0, :gridy 0
+	(JLabel. "True log")
+	:gridx 1, :gridy 0
 	(JLabel. "Strategy log")
 
+	:gridx 0, :gridy 1
+	(JScrollPane. *true-log-box*)
+	:gridx 1, :gridy 1
+	(JScrollPane. *strat-log-box*)
+	
+	:gridx 0, :gridy 2
+	(JLabel. "True events")
+	:gridx 1, :gridy 2
+	(JLabel. "Strategy events")
+	
 	:gridx 0, :gridy 3
-	(JScrollPane. *strat-events-box*)
+	(JScrollPane. *true-events-box*)
 	:gridx 1, :gridy 3
-	(JScrollPane. *strat-log-box*))))
+	(JScrollPane. *strat-events-box*))))
 
 (defn start-player []
   (doto (JFrame. "Tracking player")
     (.setContentPane *mainpanel*)
     (.setResizable false)
-    ;;(.setDefaultCloseOperation JFrame/EXIT_ON_CLOSE)
+    (.setDefaultCloseOperation JFrame/EXIT_ON_CLOSE)
     (.pack)
     (.show))
   (doto (JFrame. "Logs")
@@ -337,6 +356,5 @@
     (.pack)
     (.show)))
 
-;;; add sensor coverage overlays in visual grid
 
 

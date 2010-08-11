@@ -6,7 +6,7 @@
 (defn average-single-run
   [problem strategy params n]
   (let [runs (for [i (range n)] ((:runner-fn problem) params (init-strat-state strategy)))
-	result (first runs) ;; choose any result; its 'avg-fields' will be updated
+	result (:results (first runs)) ;; choose any result; its 'avg-fields' will be updated
 	avg (fn [field rs] (double (/ (reduce + (map field rs)) n)))]
     (apply assoc result (zipmap (:avg-fields problem) (map #(avg % runs) (:avg-fields problem))))))
 

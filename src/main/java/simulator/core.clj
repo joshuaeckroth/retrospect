@@ -2,6 +2,7 @@
   (:gen-class)
   (:use [clojure.contrib.command-line :only (with-command-line)])
   (:use [simulator.problems.tracking.core :only (tracking-problem)])
+  (:use [simulator.problems.tracking.player :as tracking-player :only (start-player)])
   (:use [simulator.records :only (run-with-new-record list-records)]))
 
 (defn -main [& args]
@@ -22,7 +23,7 @@
 	    "list"
 	    (list-records recordsdir)
 	    "player"
-	    (if (= problem "tracking") nil ;;(start-player tracking-problem)
+	    (if (= problem "tracking") (tracking-player/start-player)
 		(println "Player only available for 'tracking' problem."))
 	    (println "No action given.")))))
 

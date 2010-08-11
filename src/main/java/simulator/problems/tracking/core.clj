@@ -100,16 +100,17 @@
       (if (< i (:Steps params))
 	(recur (inc i) (single-step params sensors combined-states))
 	(let [[ts ss] (last-explanation sensors combined-states)]
-	  (assoc params
-	    :Milliseconds (/ (double (- (. System (nanoTime)) startTime)) 1000000.0)
-	    :PercentCorrect (evaluate ts ss)
-	    :Strategy (:strategy ss)
-	    :StrategyCompute 0
-	    :StrategyMilliseconds 0
-	    :StrategyMemory 0
-	    :AvgWalk 0
-	    :SensorCoverage (measure-sensor-coverage (:GridWidth params) (:GridHeight params) sensors)
-	    :SensorOverlap 0))))))
+	  {:truestate ts :stratstate ss :sensors sensors :results
+	   (assoc params
+	     :Milliseconds (/ (double (- (. System (nanoTime)) startTime)) 1000000.0)
+	     :PercentCorrect (evaluate ts ss)
+	     :Strategy (:strategy ss)
+	     :StrategyCompute 0
+	     :StrategyMilliseconds 0
+	     :StrategyMemory 0
+	     :AvgWalk 0
+	     :SensorCoverage (measure-sensor-coverage (:GridWidth params) (:GridHeight params) sensors)
+	     :SensorOverlap 0)})))))
 
 (def tracking-problem
      (Problem. "tracking" run headers avg-fields non-avg-fields))
