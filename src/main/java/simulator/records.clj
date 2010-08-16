@@ -6,11 +6,12 @@
   (:use [clojure.zip :as zip :only (xml-zip node children)])
   (:use [clojure.contrib.zip-filter.xml :as zf :only (xml-> text attr=)])
   (:use [clojure.contrib.shell :only (sh)])
-  (:use [clojure.java.io :as io :only (writer copy)])
+  (:use [clojure.java.io :as io :only (writer reader copy)])
   (:use [clojure.string :only (split)])
   (:use [simulator.runners.local :only (run-local)])
-  (:use [simulator.runners.hadoop :only (run-hadoop)])
-  (:use [simulator.charts :only (save-plots)]))
+  (:use [simulator.runners.hadoop :only (run-hadoop2)])
+  (:use [simulator.charts :only (save-plots)])
+  (:use [simulator.types.problem :only (get-headers)]))
 
 (defn get-gitcommit []
   (first (split (sh "c:/progra~1/git/bin/git.exe" "rev-list" "HEAD") #"\n")))
@@ -66,10 +67,21 @@
     (println "Copying params file...")
     (copy-params-file (str dir "/params.xml") paramsfile)
     (if hadoop
-      (run-hadoop problem params dir nthreads)
-      (run-local problem params dir nthreads))
-    (println "Saving charts...")
-    (save-plots dir)))
+      (run-hadoop2 problem params dir)
+      (do
+	(run-local problem params dir nthreads)
+	(println "Saving charts...")
+	(save-plots dir)))))
+
+(defn cleanup-hadoop-results
+  [problem dir file1 file2]
+  (with-open [reader (io/reader file1)
+	      writer (io/writer file2)]
+    (.write writer (apply str (concat (interpose "," (map name (get-headers problem))))))
+    (doseq [line (line-seq reader)]
+      (.write writer (str (clojure.string/replace line #"^\d+\s+" "") \newline))))
+  (println "Saving charts...")
+  (save-plots dir))
 
 (defn record-str
   [id date commit params]

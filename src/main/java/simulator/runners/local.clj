@@ -60,8 +60,5 @@
 
 (defn run-local
   [problem params dir nthreads]
-  "Runs simulations in some threads; collects results, strips off keys
-  of result-map in the results collection, and writes headers and
-  stripped results to CSV file."
   (let [results (parallel-runs problem params nthreads)]
     (write-csv (str dir "/results.csv") (get-headers problem) results)))

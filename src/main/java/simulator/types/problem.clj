@@ -7,8 +7,10 @@
   [problem strategy params n]
   (let [runs (for [i (range n)] ((:runner-fn problem) params (init-strat-state strategy)))
 	result (:results (first runs)) ;; choose any result; its 'avg-fields' will be updated
-	avg (fn [field rs] (double (/ (reduce + (map field rs)) n)))]
-    (apply assoc result (zipmap (:avg-fields problem) (map #(avg % runs) (:avg-fields problem))))))
+	avg (fn [field] (double (/ (reduce + (map (comp field :results) runs)) n)))
+	newfields (interleave (:avg-fields problem)
+			      (map #(avg %) (:avg-fields problem)))]
+    (apply assoc result newfields)))
 
 (defn average-some-runs
   [problem params n]
