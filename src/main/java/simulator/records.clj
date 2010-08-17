@@ -9,7 +9,7 @@
   (:use [clojure.java.io :as io :only (writer reader copy)])
   (:use [clojure.string :only (split)])
   (:use [simulator.runners.local :only (run-local)])
-  (:use [simulator.runners.hadoop :only (run-hadoop2)])
+  (:use [simulator.runners.hadoop :only (run-hadoop)])
   (:use [simulator.charts :only (save-plots)])
   (:use [simulator.types.problem :only (get-headers)]))
 
@@ -67,7 +67,7 @@
     (println "Copying params file...")
     (copy-params-file (str dir "/params.xml") paramsfile)
     (if hadoop
-      (run-hadoop2 problem params dir)
+      (run-hadoop problem params dir)
       (do
 	(run-local problem params dir nthreads)
 	(println "Saving charts...")
