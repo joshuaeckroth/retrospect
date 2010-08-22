@@ -2,7 +2,6 @@
   (:require [clojure-hadoop.gen :as gen])
   (:require [clojure-hadoop.imports :as imp])
   (:import (org.apache.hadoop.util Tool))
-  (:use [clojure.java.io :as io :only (writer)])
   (:use [simulator.types.problem :only (average-some-runs get-headers)])
   (:use [simulator.problems.tracking.core :only (tracking-problem)]))
 
@@ -16,20 +15,14 @@
 (def *output*)
 (def *problem*)
 
-(defn write-input
-  [params input]
-  "This function only writes the input file."
-  (with-open [writer (io/writer input)]
-    (doseq [p params] (.write writer (str (print-str p) \newline)))))
-
 (defn to-csv
   [row]
   (apply str (concat (interpose "," (map (fn [h] (h row))
-					 (get-headers *problem*)))
+					 (get-headers tracking-problem)))
 		     [\newline])))
 
 (defn mapper-map [this wkey wvalue #^OutputCollector output reporter]
-  (doseq [result (average-some-runs *problem* [(read-string (.toString wvalue))] 10)]
+  (doseq [result (average-some-runs tracking-problem [(read-string (.toString wvalue))] 10)]
     (.collect output (Text.) (Text. (to-csv result)))))
 
 (defn reducer-reduce [this wkey wvalues #^OutputCollector output reporter]
@@ -51,14 +44,13 @@
     (JobClient/runJob))
   0)
 
-(defn run-hadoop
-  [problem params dir & args]
-  (def *input* (str dir "/input.txt"))
-  (def *output* (str dir "/hadoop-out"))
+(defn run-hadoop [problem input output args]
+  (def *input* input)
+  (def *output* output)
   (def *problem* problem)
-  (write-input params *input*)
   (System/exit
    (org.apache.hadoop.util.ToolRunner/run
     (new org.apache.hadoop.conf.Configuration)
     (. (Class/forName "simulator.runners.hadoop") newInstance)
     (into-array String args))))
+

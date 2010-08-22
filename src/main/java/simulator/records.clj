@@ -9,7 +9,6 @@
   (:use [clojure.java.io :as io :only (writer reader copy)])
   (:use [clojure.string :only (split)])
   (:use [simulator.runners.local :only (run-local)])
-  (:use [simulator.runners.hadoop :only (run-hadoop)])
   (:use [simulator.charts :only (save-plots)])
   (:use [simulator.types.problem :only (get-headers)]))
 
@@ -54,7 +53,7 @@
 		      [:git-commit (get-gitcommit)]])))))
 
 (defn run-with-new-record
-  [hadoop problem paramsfile recordsdir nthreads]
+  [problem paramsfile recordsdir nthreads]
   "Create a new folder for storing run data and execute the run. Then,
   depending on whether hadoop is true or false, execute a hadoop job
   control process or a local (this machine) runner."
@@ -66,12 +65,18 @@
     (write-xml (str dir "/meta.xml"))
     (println "Copying params file...")
     (copy-params-file (str dir "/params.xml") paramsfile)
-    (if hadoop
-      (run-hadoop problem params dir)
-      (do
-	(run-local problem params dir nthreads)
-	(println "Saving charts...")
-	(save-plots dir)))))
+    (run-local problem params dir nthreads)
+    (println "Saving charts...")
+    (save-plots dir)))
+
+(defn write-input
+  [params input]
+  "This function only writes the input file."
+  (with-open [writer (io/writer input)]
+    (doseq [p params] (.write writer (str (print-str p) \newline)))))
+
+(defn prepare-hadoop [problem paramsfile recordsdir]
+  (write-input (explode-params (read-params problem paramsfile)) (str recordsdir "/input.txt")))
 
 (defn cleanup-hadoop-results
   [problem dir file1 file2]

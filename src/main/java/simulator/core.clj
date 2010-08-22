@@ -3,28 +3,32 @@
   (:use [clojure.contrib.command-line :only (with-command-line)])
   (:use [simulator.problems.tracking.core :only (tracking-problem)])
   (:use [simulator.problems.tracking.player :as tracking-player :only (start-player)])
-  (:use [simulator.records :only (run-with-new-record list-records cleanup-hadoop-results)]))
+  (:use [simulator.records :only (run-with-new-record list-records prepare-hadoop cleanup-hadoop-results)])
+  (:use [simulator.runners.hadoop :only (run-hadoop)]))
 
 (defn -main [& args]
   (with-command-line args
     "Simulator"
-    [[action "Action (run/list/player/clean-hadoop)"]
-     [hadoop "Use Hadoop? (0/1)" "0"]
+    [[action "Action (run/list/player/prepare-hadoop/hadoop/clean-hadoop)"]
      [problem "Problem" "tracking"]
      [paramsfile "Parameters XML file" "params.xml"]
      [recordsdir "Records directory" "c:/users/josh/documents/research/simulator-records"]
-     [nthreads "Number of threads" "4"]]
-    (let [hadoop (= 1 (Integer/parseInt hadoop))
-	  nthreads (Integer/parseInt nthreads)]
+     [nthreads "Number of threads" "4"]
+     [input "Hadoop input" ""]
+     [output "Hadoop output" ""]]
+    (let [nthreads (Integer/parseInt nthreads)
+	  prob tracking-problem]
       (case action
 	    "run"
-	    (if (= problem "tracking")
-	      (run-with-new-record hadoop tracking-problem paramsfile recordsdir nthreads))
+	    (run-with-new-record prob paramsfile recordsdir nthreads)
+	    "prepare-hadoop"
+	    (prepare-hadoop prob paramsfile recordsdir)
+	    "hadoop"
+	    (run-hadoop prob input output args)
 	    "clean-hadoop"
-	    (if (= problem "tracking")
-	      (cleanup-hadoop-results tracking-problem recordsdir
-				      (str recordsdir "/results-hadoop.csv")
-				      (str recordsdir "/results.csv")))
+	    (cleanup-hadoop-results prob recordsdir
+				    (str recordsdir "/results-hadoop.csv")
+				    (str recordsdir "/results.csv"))
 	    "list"
 	    (list-records recordsdir)
 	    "player"
