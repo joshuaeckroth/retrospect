@@ -5,12 +5,11 @@
   (:import [simulator.types.problem Problem])
   (:import [simulator.problems.tracking.grid GridState])
   (:use [simulator.evaluator :only (evaluate)])
-  (:use [simulator.types.generic :only (forward-time)])
   (:use [simulator.types.entities :only (pos)])
   (:use [simulator.types.states :only
 	 (add-entity add-event-new add-event-move update-entity get-entities)])
   (:use [simulator.problems.tracking.grid :only
-	 (new-grid new-entity update-grid-entity walk1)])
+	 (new-grid new-entity update-grid-entity walk1 forward-time)])
   (:use [simulator.problems.tracking.sensors :only
 	 (update-spotted generate-sensors-with-coverage measure-sensor-coverage)])
   (:use [simulator.strategies.core :only (init-strat-state)])

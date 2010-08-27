@@ -2,7 +2,6 @@
   (:require [simulator.types sensors positions])
   (:import [simulator.types.sensors SensorEntity Sensor])
   (:import [simulator.types.positions Position])
-  (:use [simulator.types.generic :only (to-str)])
   (:use [simulator.types.sensors :only (sees)])
   (:use [simulator.types.entities :only (pos)])
   (:use [simulator.problems.tracking.grid :only (entity-at)]))

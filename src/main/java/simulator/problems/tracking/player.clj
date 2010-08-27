@@ -5,7 +5,6 @@
   (:import (javax.swing JPanel JFrame JButton JTextField JTextArea
 			JLabel JScrollPane JSpinner SpinnerNumberModel JComboBox))
   (:use [clojure.contrib.math :as math])
-  (:use [simulator.types.generic :only (to-str)])
   (:use [simulator.types.sensors :only (sees)])
   (:use [simulator.types.states :only (get-events)])
   (:use [simulator.strategies.core :only (strategies init-strat-state)])
@@ -183,16 +182,16 @@
 (defn format-event
   [event true-events]
   (if (some #(= event %) true-events)
-    (to-str event)
-    (str "!" (to-str event))))
+    (str event)
+    (str "!" event)))
 
 (defn update-logs-panel []
-  (. *true-events-box* setText (apply str (map to-str (filter #(<= (:time %) *time*) *true-events*))))
-  (. *true-log-box* setText (apply str (map to-str (filter #(<= (:time %) *time*) *true-log*))))
+  (. *true-events-box* setText (apply str (map str (filter #(<= (:time %) *time*) *true-events*))))
+  (. *true-log-box* setText (apply str (map str (filter #(<= (:time %) *time*) *true-log*))))
   (. *strat-events-box* setText
      (apply str (map (fn [event] (format-event event (filter #(<= (:time %) *time*) *true-events*)))
 		     (filter #(<= (:time %) *time*) *strat-events*))))
-  (. *strat-log-box* setText (apply str (map to-str (filter #(<= (:time %) *time*) *strat-log*)))))
+  (. *strat-log-box* setText (apply str (map str (filter #(<= (:time %) *time*) *strat-log*)))))
 
 (defn next-step []
   (when (< *time* (:Steps *params*))

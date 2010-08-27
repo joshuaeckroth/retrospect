@@ -1,14 +1,13 @@
 (ns simulator.types.positions
-  (:require [clojure.contrib.math :as math])
-  (:use [simulator.types.generic :only (Printable)]))
+  (:require [clojure.contrib.math :as math]))
 
 (defprotocol PositionMethods
   (equal [this other])
   (manhattan-distance [this other]))
 
 (defrecord Position [x y]
-  Printable
-  (to-str [this] (format "(%d,%d)" x y))
+  Object
+  (toString [_] (format "(%d,%d)" x y))
   PositionMethods
   (equal [this other] (and (= x (:x other)) (= y (:y other))))
   (manhattan-distance

@@ -13,7 +13,7 @@
   (:use [simulator.types.problem :only (get-headers)]))
 
 (defn get-gitcommit []
-  (first (split (sh "c:/progra~1/git/bin/git.exe" "rev-list" "HEAD") #"\n")))
+  (first (split (sh "git" "rev-list" "HEAD") #"\n")))
 
 (defn copy-params-file [destfile paramsfile] (io/copy (File. paramsfile) (File. destfile)))
 

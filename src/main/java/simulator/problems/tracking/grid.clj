@@ -3,8 +3,7 @@
   (:import [simulator.types.positions Position])
   (:import [simulator.types.entities Entity EntitySnapshot])
   (:use [simulator.types.entities :only (pos add-snapshot)])
-  (:use [simulator.types.positions :only (equal)])
-  (:use [simulator.types.generic :only (Temporal)]))
+  (:use [simulator.types.positions :only (equal)]))
 
 (defn get-grid-pos
   [grid pos]
@@ -29,11 +28,11 @@
   [gridstate oldentity newentity]
   (update-in gridstate [:grid] replace-entity oldentity newentity))
 
-(defrecord GridState [grid time]
-  Temporal
-  (forward-time
-   [this amount]
-   (update-in this [:time] + amount)))
+(defn forward-time
+  [gridstate amount]
+  (update-in gridstate [:time] + amount))
+
+(defrecord GridState [grid time])
 
 ;; top-left is (0, 0); bottom-right is (width-1, height-1)
 

@@ -2,8 +2,7 @@
   (:use [simulator.types.positions :only (manhattan-distance)])
   (:use [simulator.types.states :only (get-entities)])
   (:use [simulator.strategies.core :only (add-log explain-new-entity explain-existing-entity)])
-  (:use [simulator.types.entities :only (pos)])
-  (:use [simulator.types.generic :only (to-str)]))
+  (:use [simulator.types.entities :only (pos)]))
 
 (defn pair-nearest
   "This is an instance of the closest pairs problem. Note that, at the moment,
@@ -28,7 +27,7 @@
     (if (empty? (get-entities strat-state))
       (reduce (fn [s spotted]
 		(-> s
-		    (add-log time (str "Explaining " (to-str spotted) " as new."))
+		    (add-log time (str "Explaining " spotted " as new."))
 		    (explain-new-entity spotted time)))
 	      strat-state unique-spotted)
       (loop [pairs (pair-nearest unique-spotted (get-entities strat-state))
@@ -37,15 +36,15 @@
 	      (> (:dist (first pairs)) 5)
 	      (recur (rest pairs)
 		     (-> s
-			 (add-log time (str "Explaining " (to-str (:spotted (first pairs)))
+			 (add-log time (str "Explaining " (:spotted (first pairs))
 					   " as new since its distance to next-nearest is > 5"))
 			 (explain-new-entity (:spotted (first pairs)) time)))
 	      :else
 	      (recur (rest pairs)
 		     (-> s
-			 (add-log time (str "Explaining " (to-str (:spotted (first pairs)))
+			 (add-log time (str "Explaining " (:spotted (first pairs))
 					   " as continuation of next-nearest "
-					   (to-str (:entity (first pairs)))))
+					   (:entity (first pairs))))
 			 (explain-existing-entity
 			  (:spotted (first pairs))
 			  (:entity (first pairs)) time))))))))

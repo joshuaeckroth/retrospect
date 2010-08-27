@@ -1,5 +1,4 @@
-(ns simulator.types.entities
-  (:use [simulator.types.generic :only (Printable to-str)]))
+(ns simulator.types.entities)
 
 (defprotocol EntityMethods
   (pos [this]))
@@ -8,8 +7,8 @@
   (add-snapshot [this snapshot]))
 
 (defrecord EntitySnapshot [pos]
-  Printable
-  (to-str [this] (to-str pos)))
+  Object
+  (toString [_] (str pos)))
 
 (defrecord Entity [symbol snapshots]
   SnapshotMethods
@@ -17,13 +16,13 @@
    [this snapshot]
    (update-in this [:snapshots] conj snapshot))
   EntityMethods
-  (pos [this] (:pos (last (:snapshots this))))
-  Printable
-  (to-str [this] (format "Entity %c %s" (:symbol this)
-			 (apply str (interpose "->" (map to-str (:snapshots this)))))))
+  (pos [_] (:pos (last snapshots)))
+  Object
+  (toString [_] (format "Entity %c %s" symbol
+			(apply str (interpose "->" (map str snapshots))))))
 
 (defn print-entities
   [entities]
-  (dorun (map #(println (to-str %)) entities)))
+  (dorun (map #(println (str %)) entities)))
 
 

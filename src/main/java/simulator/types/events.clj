@@ -1,11 +1,10 @@
-(ns simulator.types.events
-  (:use [simulator.types.generic :only (Printable)]))
+(ns simulator.types.events)
 
 (defrecord EventNew [time pos]
-  Printable
-  (to-str [this] (format "At %d, EventNew: (%d,%d)\n" time (:x pos) (:y pos))))
+  Object
+  (toString [_] (format "At %d, EventNew: (%d,%d)\n" time (:x pos) (:y pos))))
 
 (defrecord EventMove [time oldpos newpos]
-  Printable
-  (to-str [this] (format "At %d, EventMove: (%d,%d)->(%d,%d)\n"
-			 time (:x oldpos) (:y oldpos) (:x newpos) (:y newpos))))
+  Object
+  (toString [_] (format "At %d, EventMove: (%d,%d)->(%d,%d)\n"
+			time (:x oldpos) (:y oldpos) (:x newpos) (:y newpos))))
