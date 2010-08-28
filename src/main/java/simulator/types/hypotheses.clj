@@ -42,9 +42,7 @@
 ;; does not work for composite essentials
 (defn find-essentials
   [hypspace hyps]
-  (apply union (filter #(= 1 (count %))
-		       (map get-explainers hypspace
-			    (find-unexplained hypspace hyps)))))
+  (apply union (filter #(= 1 (count %)) (map #(get-explainers hypspace %) hyps))))
 
 (defn find-conflicts
   [hypspace hyps]
