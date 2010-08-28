@@ -1,4 +1,4 @@
-(ns simulator.types.events)
+(ns simulator.problems.tracking.events)
 
 (defrecord EventNew [time pos]
   Object

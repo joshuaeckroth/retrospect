@@ -1,9 +1,9 @@
 (ns simulator.problems.tracking.grid
-  (:require [simulator.types positions entities])
-  (:import [simulator.types.positions Position])
-  (:import [simulator.types.entities Entity EntitySnapshot])
-  (:use [simulator.types.entities :only (pos add-snapshot)])
-  (:use [simulator.types.positions :only (equal)]))
+  (:require [simulator.problems.tracking positions entities])
+  (:import [simulator.problems.tracking.positions Position])
+  (:import [simulator.problems.tracking.entities Entity EntitySnapshot])
+  (:use [simulator.problems.tracking.entities :only (pos add-snapshot)])
+  (:use [simulator.problems.tracking.positions :only (equal)]))
 
 (defn get-grid-pos
   [grid pos]

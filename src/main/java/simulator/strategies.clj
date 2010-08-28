@@ -1,7 +1,6 @@
-(ns simulator.strategies.guess
-  (:use clojure.set)
-  (:use [simulator.problems.tracking.states :only (get-entities)])
-  (:use [simulator.strategies.core :only (add-log explain-new-entity explain-existing-entity)]))
+(ns simulator.strategies
+  (:use simulator.types.hypotheses)
+  (:use clojure.set))
 
 (defn explain-guess
   [strat-state]
@@ -20,7 +19,7 @@
 
      ;; choose an unexplained hyp and add a random explainer (if any exist)
      (not-empty unexplained)
-     (let [hyp (rand-nth unexplained)
+     (let [hyp (rand-nth (vec unexplained))
 	   explainers (get-explainers (:hypspace strat-state) hyp)]
        (if (empty? explainers)
 
@@ -29,11 +28,13 @@
 		    (update-in [:accepted] conj hyp)))
 
 	 ;; some explainers, add a random one and the hyp
-	 (let [expl (rand-nth explainers)]
+	 (let [expl (rand-nth (vec explainers))]
 	   (recur (-> strat-state
 		      ;; TODO: does not support composite explainers
 		      (update-in [:accepted] union #{hyp expl})
-		      (update-in [:considering] difference #{hyp expl})))))))))
+		      (update-in [:considering] difference #{hyp expl}))))))
+     
+     "default" strat-state)))
 
 (defn explain-essentials-guess
   [strat-state]
@@ -55,27 +56,6 @@
 		(update-in [:considering] difference essentials)))
 
      ;; no more essentials, so refer to explain-guess for the rest
-     (explain-guess strat-state))))
+     "default" (explain-guess strat-state))))
 
-(defn explain-guess
-  [strat-state sensors time]
-  (let [unique-spotted (set (apply concat (map :spotted sensors)))
-	es (get-entities strat-state)
-	numes (count es)]
-    (loop [spotted unique-spotted
-	   s strat-state]
-      (let [choice (rand-int (inc numes))]
-	(cond (empty? spotted) s
-	      (= choice numes)
-	      (recur (rest spotted)
-		     (-> s
-			 (add-log time (str "Guessing spotted " (first spotted)
-					    " is new entity"))
-			 (explain-new-entity (first spotted) time)))
-	      :else
-	      (recur (rest spotted)
-		     (-> s
-			 (add-log time (str "Guessing spotted " (first spotted)
-					    " is continuation of " (nth es choice)))
-			 (explain-existing-entity (first spotted) (nth es choice) time))))))))
 

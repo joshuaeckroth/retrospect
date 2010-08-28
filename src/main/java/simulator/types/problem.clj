@@ -5,8 +5,10 @@
 
 (defn average-single-run
   [problem strategy params n]
-  (let [runs (for [i (range n)] ((:runner-fn problem) params (init-strat-state strategy)))
-	result (:results (first runs)) ;; choose any result; its 'avg-fields' will be updated
+  (let [runs (for [i (range n)]
+	       ((:runner-fn problem) params
+		(init-strat-state strategy (:problem-data problem))))
+	result (:results (first runs)) ;; choose any result; 'avg-fields' will be updated
 	avg (fn [field] (double (/ (reduce + (map (comp field :results) runs)) n)))
 	newfields (interleave (:avg-fields problem)
 			      (map #(avg %) (:avg-fields problem)))]
@@ -20,4 +22,4 @@
 (defn get-headers [problem] (:headers problem))
 
 (defrecord Problem
-  [name runner-fn headers avg-fields non-avg-fields])
+  [name runner-fn headers avg-fields non-avg-fields problem-data])

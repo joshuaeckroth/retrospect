@@ -1,4 +1,4 @@
-(ns simulator.types.positions
+(ns simulator.problems.tracking.positions
   (:require [clojure.contrib.math :as math]))
 
 (defprotocol PositionMethods

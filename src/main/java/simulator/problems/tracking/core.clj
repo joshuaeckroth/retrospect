@@ -1,12 +1,12 @@
 (ns simulator.problems.tracking.core
-  (:require [simulator.types states problem])
-  (:require [simulator.problems.tracking grid])
-  (:import [simulator.types.states State])
+  (:require [simulator.types problem])
+  (:require [simulator.problems.tracking eventlog grid])
+  (:import [simulator.problems.tracking.eventlog EventLog])
   (:import [simulator.types.problem Problem])
   (:import [simulator.problems.tracking.grid GridState])
   (:use [simulator.evaluator :only (evaluate)])
-  (:use [simulator.types.entities :only (pos)])
-  (:use [simulator.types.states :only
+  (:use [simulator.problems.tracking.entities :only (pos)])
+  (:use [simulator.problems.tracking.eventlog :only
 	 (add-entity add-event-new add-event-move update-entity get-entities)])
   (:use [simulator.problems.tracking.grid :only
 	 (new-grid new-entity update-grid-entity walk1 forward-time)])
@@ -26,41 +26,42 @@
 (def headers (concat avg-fields non-avg-fields))
 
 (defn add-new-entities
-  [truestate gridstate numes]
+  [trueevents gridstate numes]
   (loop [i 0
-	 ts truestate
+	 te trueevents
 	 gs gridstate]
     (if (or (= i numes) ; stop if reached numes or if there's no more space in grid
 	    (= (* (:width (:grid gs)) (:height (:grid gs)))
-	       (count (get-entities ts))))
-      [ts gs]
+	       (count (get-entities te))))
+      [te gs]
       (let [entity (new-entity (:grid gs))]
 	(recur (inc i)
-	       (-> ts
+	       (-> te
 		   (add-entity entity)
 		   (add-event-new 0 (pos entity)))
 	       (update-grid-entity gs nil entity))))))
 
 (defn init-states
   [width height numes]
-  (let [truestate (State. [] [])
+  (let [trueevents (EventLog. [] [])
 	gridstate (GridState. (new-grid width height) 0)]
-    (add-new-entities truestate gridstate numes)))
+    (add-new-entities trueevents gridstate numes)))
 
 (defn random-walks
-  [walk truestate gridstate]
+  [walk trueevents gridstate]
   (let [time (:time gridstate) ;;; TODO: should time change for every move?
-	entities (get-entities truestate)
+	entities (get-entities trueevents)
 	entities-map (apply assoc {} (interleave entities entities))
-	entity-walks (shuffle (apply concat (map #(repeat (rand-int (inc walk)) %) entities)))]
+	entity-walks (shuffle (apply concat (map #(repeat (rand-int (inc walk)) %)
+						 entities)))]
     (loop [em entities-map
 	   gs gridstate
 	   ew entity-walks]
       (if (empty? ew)
-	[(reduce (fn [ts olde] (-> ts
+	[(reduce (fn [te olde] (-> te
 				 (update-entity olde (pos (get em olde)))
 				 (add-event-move time (pos olde) (pos (get em olde)))))
-		 truestate (keys em))
+		 trueevents (keys em))
 	 gs]
 	(let [e (first ew)
 	      olde (get em e)
@@ -70,47 +71,49 @@
 		 (rest ew)))))))
 
 (defn possibly-add-new-entities
-  [truestate gridstate]
-  (if (> 2.0 (rand)) [truestate gridstate] ; skip adding new entities 95% of the time
-      (add-new-entities truestate gridstate (inc (rand-int 2)))))
+  [trueevents gridstate]
+  (if (> 2.0 (rand)) [trueevents gridstate] ; skip adding new entities 95% of the time
+      (add-new-entities trueevents gridstate (inc (rand-int 2)))))
 
 (defn single-step
-  [params sensors [truestate gridstate strat-state]]
+  [params sensors [trueevents gridstate strat-state]]
   (let [sens (map #(update-spotted % gridstate) sensors)
 	strat-s (explain strat-state sens (:time gridstate))
-	[ts gs] (random-walks (:MaxWalk params) truestate (forward-time gridstate 1))
-	[newts newgs] (possibly-add-new-entities ts gs)]
-    [newts newgs strat-s]))
+	[te gs] (random-walks (:MaxWalk params) trueevents (forward-time gridstate 1))
+	[newte newgs] (possibly-add-new-entities ts gs)]
+    [newte newgs strat-s]))
 
 (defn last-explanation
-  [sensors [truestate gridstate strat-state]]
-  [truestate (explain strat-state (map #(update-spotted % gridstate) sensors)
-		      (:time gridstate))])
+  [sensors [trueevents gridstate strat-state]]
+  [trueevents (explain strat-state (map #(update-spotted % gridstate) sensors)
+		       (:time gridstate))])
 
 (defn run
   [params strat-state]
   (let [sensors (generate-sensors-with-coverage
 		  (:GridWidth params) (:GridHeight params) (:SensorCoverage params))
-	[truestate gridstate] (init-states
-			       (:GridWidth params) (:GridHeight params) (:NumberEntities params))
+	[trueevents gridstate] (init-states
+				(:GridWidth params) (:GridHeight params)
+				(:NumberEntities params))
 	startTime (. System (nanoTime))]
     (loop [i 0
-	   combined-states [truestate gridstate strat-state]]
+	   combined-states [trueevents gridstate strat-state]]
       (if (< i (:Steps params))
 	(recur (inc i) (single-step params sensors combined-states))
-	(let [[ts ss] (last-explanation sensors combined-states)]
-	  {:truestate ts :stratstate ss :sensors sensors :results
+	(let [[te ss] (last-explanation sensors combined-states)]
+	  {:trueevents te :stratstate ss :sensors sensors :results
 	   (assoc params
 	     :Milliseconds (/ (double (- (. System (nanoTime)) startTime)) 1000000.0)
-	     :PercentCorrect (evaluate ts ss)
+	     :PercentCorrect (evaluate te ss)
 	     :Strategy (:strategy ss)
 	     :StrategyCompute 0
 	     :StrategyMilliseconds 0
 	     :StrategyMemory 0
 	     :AvgWalk 0
-	     :SensorCoverage (measure-sensor-coverage (:GridWidth params) (:GridHeight params) sensors)
+	     :SensorCoverage (measure-sensor-coverage
+			      (:GridWidth params) (:GridHeight params) sensors)
 	     :SensorOverlap 0)})))))
 
 (def tracking-problem
-     (Problem. "tracking" run headers avg-fields non-avg-fields))
+     (Problem. "tracking" run headers avg-fields non-avg-fields (EventLog. [] [])))
 

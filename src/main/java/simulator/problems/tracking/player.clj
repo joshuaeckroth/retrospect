@@ -5,8 +5,8 @@
   (:import (javax.swing JPanel JFrame JButton JTextField JTextArea
 			JLabel JScrollPane JSpinner SpinnerNumberModel JComboBox))
   (:use [clojure.contrib.math :as math])
-  (:use [simulator.types.sensors :only (sees)])
-  (:use [simulator.types.states :only (get-events)])
+  (:use [simulator.problems.tracking.sensors :only (sees)])
+  (:use [simulator.problems.tracking.eventlog :only (get-events)])
   (:use [simulator.strategies.core :only (strategies init-strat-state)])
   (:use [simulator.problems.tracking.core :as tracking :only (run)]))
 
@@ -99,9 +99,9 @@
    (for [x (range *width*) y (range *height*)]
      (let [event (grid-at x y)]
        (when (not (nil? event))
-	 (cond (= (type event) simulator.types.events.EventNew)
+	 (cond (= (type event) simulator.problems.tracking.events.EventNew)
 	       (fill-cell g x y (new Color 180 180 255 150))
-	       (= (type event) simulator.types.events.EventMove)
+	       (= (type event) simulator.problems.tracking.events.EventMove)
 	       (do
 		 (fill-cell g (:x (:oldpos event)) (:y (:oldpos event))
 			    (new Color 150 150 150 150))
@@ -113,7 +113,7 @@
   (def *grid* (vec (repeat (* *width* *height*) nil)))
   (when *true-events*
     (dorun (for [e (filter #(= (:time %) *time*) *true-events*)]
-	     (let [{x :x y :y} (if (= (type e) simulator.types.events.EventMove) (:newpos e) (:pos e))]
+	     (let [{x :x y :y} (if (= (type e) simulator.problems.tracking.events.EventMove) (:newpos e) (:pos e))]
 	       (def *grid* (assoc *grid* (+ (* y *width*) x) e))))))
   (dorun (for [x (range *width*) y (range *height*)]
            (if (and (not (nil? (grid-at x y))) (< (:time (grid-at x y)) (- *time* 1)))
@@ -210,11 +210,11 @@
 (defn run-simulation []
   (let [params (get-parameters)
 	strategy (get-strategy)
-	{ts :truestate ss :stratstate sensors :sensors results :results}
+	{te :trueevents ss :stratstate sensors :sensors results :results}
 	(tracking/run params (init-strat-state strategy))]
     (def *params* params)
     (def *true-log* nil)
-    (def *true-events* (get-events ts))
+    (def *true-events* (get-events te))
     (def *strat-log* (:logs ss))
     (def *strat-events* (get-events ss))
     (def *time* 0)

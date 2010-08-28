@@ -1,6 +1,6 @@
 (ns simulator.evaluator
   (:require [clojure.set :as set :only (intersection)])
-  (:use [simulator.types.states :only (get-events)]))
+  (:use [simulator.problems.tracking.states :only (get-events)]))
 
 (defn evaluate
   [truestate strat-state]

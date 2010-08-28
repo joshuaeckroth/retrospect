@@ -1,8 +1,8 @@
 (ns simulator.strategies.nearest
-  (:use [simulator.types.positions :only (manhattan-distance)])
-  (:use [simulator.types.states :only (get-entities)])
+  (:use [simulator.problems.tracking.positions :only (manhattan-distance)])
+  (:use [simulator.problems.tracking.states :only (get-entities)])
   (:use [simulator.strategies.core :only (add-log explain-new-entity explain-existing-entity)])
-  (:use [simulator.types.entities :only (pos)]))
+  (:use [simulator.problems.tracking.entities :only (pos)]))
 
 (defn pair-nearest
   "This is an instance of the closest pairs problem. Note that, at the moment,

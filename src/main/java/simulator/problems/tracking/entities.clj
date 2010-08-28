@@ -1,4 +1,4 @@
-(ns simulator.types.entities)
+(ns simulator.problems.tracking.entities)
 
 (defprotocol EntityMethods
   (pos [this]))

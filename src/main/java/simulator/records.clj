@@ -22,7 +22,8 @@
   "Reads parameters from params XML file for a certain problem. Result
   is a map like {:SensorCoverage [0 10 20], :BeliefNoise [0 10 20]}"
   (let [xmltree (zip/xml-zip (xml/parse (File. paramsfile)))
-	paramstree (zf/xml-> xmltree :problem (attr= :name (:name problem)) :params children)
+	paramstree (zf/xml-> xmltree :problem (attr= :name (:name problem))
+			     :params children)
 	paramsmaps (apply merge (map (fn [p] {(first (zf/xml-> p tag))
 					      (first (xml-> p attrs))}) paramstree))
 	paramtags (keys paramsmaps)
@@ -37,7 +38,7 @@
 (defn explode-params
   [params]
   {:pre [(not (empty? params))]}
-  "Want, e.g. {:Xyz [1 2 3], :Abc [3 4]} to become [{:Xyz 1, :Abc 3}, {:Xyz 2, :Abc 4}, ...]"
+  "Want {:Xyz [1 2 3], :Abc [3 4]} to become [{:Xyz 1, :Abc 3}, {:Xyz 2, :Abc 4}, ...]"
   (if (= 1 (count params))
     (for [v (second (first params))] {(first (first params)) v})
     (let [p (first params)
@@ -76,7 +77,8 @@
     (doseq [p params] (.write writer (str (print-str p) \newline)))))
 
 (defn prepare-hadoop [problem paramsfile recordsdir]
-  (write-input (explode-params (read-params problem paramsfile)) (str recordsdir "/input.txt")))
+  (write-input (explode-params (read-params problem paramsfile))
+	       (str recordsdir "/input.txt")))
 
 (defn cleanup-hadoop-results
   [problem dir file1 file2]
@@ -99,7 +101,8 @@
 
 (defn params-str
   [xml]
-  (zf/xml-> xml zip/children #(format "%s: %s" (name (:tag %)) (str (first (:content %))))))
+  (zf/xml-> xml zip/children #(format "%s: %s" (name (:tag %))
+				      (str (first (:content %))))))
 
 (defn list-records
   [recordsdir]

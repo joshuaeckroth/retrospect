@@ -1,10 +1,21 @@
 (ns simulator.problems.tracking.sensors
-  (:require [simulator.types sensors positions])
-  (:import [simulator.types.sensors SensorEntity Sensor])
-  (:import [simulator.types.positions Position])
-  (:use [simulator.types.sensors :only (sees)])
-  (:use [simulator.types.entities :only (pos)])
+  (:require [simulator.problems.tracking positions])
+  (:import [simulator.problems.tracking.positions Position])
+  (:use [simulator.problems.tracking.entities :only (EntityMethods pos)])
   (:use [simulator.problems.tracking.grid :only (entity-at)]))
+
+(defrecord SensorEntity [time pos]
+  EntityMethods
+  (pos [this] (:pos this))
+  Object
+  (toString [_] (format "SensorEntity %s@%d" (str pos) time)))
+
+(defprotocol SensorMethods
+  (sees [this x y]))
+
+(defrecord Sensor [id left right bottom top spotted]
+  SensorMethods
+  (sees [this x y] (and (>= x left) (<= x right) (>= y bottom) (<= y top))))
 
 (defn new-sensor
   "Generate a new sensor with provided values and an empty 'spotted' vector."
