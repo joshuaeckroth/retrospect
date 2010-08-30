@@ -10,7 +10,8 @@
   (:use [simulator.problems.tracking.sensors :only (sees)])
   (:use [simulator.problems.tracking.eventlog :only (get-events)])
   (:use [simulator.strategies :only (strategies init-strat-state)])
-  (:use [simulator.problems.tracking.core :as tracking :only (run)]))
+  (:use [simulator.problems.tracking.core :as tracking :only (run)])
+  (:use [simulator.evaluator :only (evaluate)]))
 
 (def *gridpanel-width* 500)
 (def *gridpanel-height* 500)
@@ -27,6 +28,7 @@
 (def *grid* (vec (repeat (* *width* *height*) nil)))
 
 (def *steplabel* (JLabel. "Step: "))
+(def *resultslabel* (JLabel. "Correct: "))
 (def *true-events-box* (JTextArea. 10 40))
 (def *true-log-box* (JTextArea. 10 40))
 (def *strat-events-box* (JTextArea. 10 40))
@@ -227,7 +229,8 @@
     (def *sensors* sensors)
     (update-logs-panel)
     (. *gridpanel* (repaint))
-    (. *steplabel* (setText (str "Step: " *time*)))))
+    (. *steplabel* (setText (str "Step: " *time*)))
+    (. *resultslabel* (setText (format "Correct: %.2f%%" (evaluate te ss))))))
 
 (def *newbutton*
      (let [b (JButton. "New")]
@@ -313,7 +316,10 @@
 	:gridx 2, :gridy 11
 	*nextbutton*
 
-	:gridx 1, :gridy 12, :gridwidth 2
+	:gridx 1, :gridy 12
+	*resultslabel*
+
+	:gridx 2, :gridy 12
 	*mouse-xy*
 
 	:gridy 13, :gridwidth 2, :gridheight :REMAINDER

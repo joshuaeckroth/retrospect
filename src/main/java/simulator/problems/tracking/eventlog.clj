@@ -35,5 +35,5 @@
 
 (defn get-entities [eventlog] (:entities eventlog))
 
-(defn get-events [eventlog] (:events eventlog))
+(defn get-events [eventlog] (sort-by :time (:events eventlog)))
 
