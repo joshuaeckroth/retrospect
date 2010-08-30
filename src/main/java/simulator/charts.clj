@@ -30,7 +30,7 @@
 (defn save-plots
   [recordsdir]
   (let [results (read-results (str recordsdir "/results.csv"))]
-    (save (plot results :NumberEntities :PercentCorrect ["guess" "nearest"] 100.0)
+    (save (plot results :NumberEntities :PercentCorrect ["guess" "essentials-guess"] 100.0)
 	  (str recordsdir "/numes-correct-100.png"))))
 
 

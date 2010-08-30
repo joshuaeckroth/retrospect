@@ -1,5 +1,5 @@
 (ns simulator.types.problem
-  (:use [simulator.strategies.core :only (init-strat-state strategies)]))
+  (:use [simulator.strategies :only (init-strat-state strategies)]))
 
 ;;(defn start-player [problem] ((:player-fn problem)))
 

@@ -1,19 +1,23 @@
 (ns simulator.problems.tracking.core
   (:require [simulator.types problem])
-  (:require [simulator.problems.tracking eventlog grid])
+  (:require [simulator.problems.tracking events eventlog grid entities])
   (:import [simulator.problems.tracking.eventlog EventLog])
+  (:import [simulator.problems.tracking.events EventNew EventMove])
+  (:import [simulator.problems.tracking.entities Entity EntitySnapshot])
   (:import [simulator.types.problem Problem])
   (:import [simulator.problems.tracking.grid GridState])
+  (:use clojure.set)
   (:use [simulator.evaluator :only (evaluate)])
+  (:use [simulator.problems.tracking.positions :only (manhattan-distance)])
   (:use [simulator.problems.tracking.entities :only (pos)])
   (:use [simulator.problems.tracking.eventlog :only
-	 (add-entity add-event-new add-event-move update-entity get-entities)])
+	 (add-entity add-event add-event-new add-event-move update-entity get-entities)])
   (:use [simulator.problems.tracking.grid :only
 	 (new-grid new-entity update-grid-entity walk1 forward-time)])
   (:use [simulator.problems.tracking.sensors :only
 	 (update-spotted generate-sensors-with-coverage measure-sensor-coverage)])
-  (:use [simulator.strategies.core :only (init-strat-state)])
-  (:use [simulator.strategies.explain :only (explain)]))
+  (:use [simulator.strategies :only (init-strat-state explain)])
+  (:use [simulator.types.hypotheses :only (set-explainers)]))
 
 (def avg-fields [:Milliseconds :PercentCorrect
 		 :StrategyCompute :StrategyMilliseconds :StrategyMemory
@@ -75,18 +79,112 @@
   (if (> 2.0 (rand)) [trueevents gridstate] ; skip adding new entities 95% of the time
       (add-new-entities trueevents gridstate (inc (rand-int 2)))))
 
+(defn pair-nearest
+  "This is an instance of the closest pairs problem. Note that, at the moment,
+   the brute-force algorithm is used, which has complexity O(n^2)."
+  [spotted entities]
+  (let [pairs-of-pairs (for [s spotted]
+			 (for [e entities]
+			   {:spotted s :entity e
+			    :dist (manhattan-distance (pos s) (pos e))}))
+	sorted-pairs (sort-by :dist (apply concat pairs-of-pairs))]
+    (for [s spotted] (first (filter #(= (:spotted %) s) sorted-pairs)))))
+
+(defn add-hyp
+  [strat-state hyp spotted]
+  (let [hypspace (-> (:hypspace strat-state)
+		     (update-in [:hyps] conj spotted)
+		     (update-in [:hyps] conj hyp)
+		     (set-explainers spotted #{hyp}))
+	ss (-> strat-state
+	       (update-in [:accepted] conj spotted)
+	       (update-in [:considering] conj hyp)
+	       (assoc :hypspace hypspace))]
+    ss))
+
+(defn add-hyp-new
+  [strat-state spotted time]
+  (let [entity (Entity. \X [(EntitySnapshot. (pos spotted))])]
+    (add-hyp strat-state
+	     {:type "new" :time time :spotted spotted :entity entity}
+	     spotted)))
+
+(defn add-hyp-move
+  [strat-state spotted time prev]
+  (let [event (EventMove. time (pos prev) (pos spotted))]
+    (add-hyp strat-state
+	     {:type "move" :time time :prev prev :spotted spotted}
+	     spotted)))
+
+(defn update-problem-data
+  [strat-state]
+  (loop [accepted (:accepted strat-state)
+	 eventlog (:eventlog strat-state)]
+    (if	(empty? accepted) (assoc strat-state :problem-data eventlog)
+	(let [hyp (first accepted)]
+	  (if (= (type hyp) simulator.problems.tracking.sensors.SensorEntity)
+	    (recur (rest accepted) eventlog)
+	    (case (:type hyp)
+		  "new"
+		  (let [event (EventNew. (:time hyp) (pos (:spotted hyp)))
+			entity (Entity. \X [(EntitySnapshot. (pos (:spotted hyp)))])
+			el (-> eventlog (add-event event) (add-entity entity))]
+		    (recur (rest accepted) el))
+		  "move"
+		  (let [event (EventMove. (:time hyp) (pos (:prev hyp))
+					  (pos (:spotted hyp)))
+			el (-> eventlog (add-event event)
+			       (update-entity (:prev hyp) (pos (:spotted hyp))))]
+		    (recur (rest accepted) el))))))))
+
+(defn gen-nearest-hypotheses
+  [strat-state sensors time]
+  "The idea behind 'nearest' hypotheses is all spotted & existing entities will be
+   paired according to k-closest pair (where k = number of spotted entities),
+   and given these pairings, each spotted entity whose pairing has a distance
+   less than some constant will be explained as having moved from its paired
+   existing entity; all pairings with too great a distance will have 'new-entity'
+   explanations."
+  (let [unique-spotted (set (apply concat (map :spotted sensors)))]
+    
+    (if (empty? (get-entities (:problem-data strat-state)))
+
+      ;; no previously-known entities, hypothesize all as new
+      (reduce (fn [ss spotted] (add-hyp-new ss spotted time))
+	      strat-state unique-spotted)
+
+      ;; got some previously-known entities, so pair them up with spotted
+      (loop [pairs (pair-nearest unique-spotted
+				 (get-entities (:problem-data strat-state)))
+	     ss strat-state]
+	
+	(cond (empty? pairs) ss
+	      
+	      (> (:dist (first pairs)) 5)
+	      (recur (rest pairs)
+		     (add-hyp-new ss (:spotted (first pairs)) time))
+	      
+	      :else
+	      (recur (rest pairs)
+		     (-> ss
+			 (add-hyp-move (:spotted (first pairs)) time
+				       (:entity (first pairs))))))))))
+
 (defn single-step
   [params sensors [trueevents gridstate strat-state]]
   (let [sens (map #(update-spotted % gridstate) sensors)
-	strat-s (explain strat-state sens (:time gridstate))
+	ss (gen-nearest-hypotheses strat-state sens (:time gridstate))
+	ss2 (update-problem-data (explain ss))
 	[te gs] (random-walks (:MaxWalk params) trueevents (forward-time gridstate 1))
-	[newte newgs] (possibly-add-new-entities ts gs)]
-    [newte newgs strat-s]))
+	[newte newgs] (possibly-add-new-entities te gs)]
+    [newte newgs ss2]))
 
 (defn last-explanation
   [sensors [trueevents gridstate strat-state]]
-  [trueevents (explain strat-state (map #(update-spotted % gridstate) sensors)
-		       (:time gridstate))])
+  (let [sens (map #(update-spotted % gridstate) sensors)
+	ss (gen-nearest-hypotheses strat-state sens (:time gridstate))
+	ss2 (update-problem-data (explain ss))]
+    [trueevents ss2]))
 
 (defn run
   [params strat-state]
@@ -115,5 +213,5 @@
 	     :SensorOverlap 0)})))))
 
 (def tracking-problem
-     (Problem. "tracking" run headers avg-fields non-avg-fields (EventLog. [] [])))
+     (Problem. "tracking" run headers avg-fields non-avg-fields (EventLog. #{} #{})))
 

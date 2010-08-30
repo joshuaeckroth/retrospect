@@ -1,10 +1,10 @@
 (ns simulator.evaluator
   (:require [clojure.set :as set :only (intersection)])
-  (:use [simulator.problems.tracking.states :only (get-events)]))
+  (:use [simulator.problems.tracking.eventlog :only (get-events)]))
 
 (defn evaluate
-  [truestate strat-state]
-  (let [correct (count (set/intersection (set (get-events truestate))
-					 (set (get-events strat-state))))
-	total (count (get-events truestate))]
+  [trueevents strat-state]
+  (let [correct (count (set/intersection (set (get-events trueevents))
+					 (set (get-events (:problem-data strat-state)))))
+	total (count (get-events trueevents))]
     (double (* 100 (/ correct total)))))

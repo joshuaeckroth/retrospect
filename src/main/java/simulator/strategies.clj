@@ -1,4 +1,7 @@
 (ns simulator.strategies
+  (:require [simulator.types logs hypotheses])
+  (:import [simulator.types.logs LogEntry])
+  (:import [simulator.types.hypotheses HypothesisSpace])
   (:use simulator.types.hypotheses)
   (:use clojure.set))
 
@@ -63,4 +66,30 @@
      ;; no more essentials, so refer to explain-guess for the rest
      :else (explain-guess strat-state))))
 
+(defrecord StrategyState
+    [strategy hypspace accepted considering rejected
+     log resources problem-data])
+
+(defn init-strat-state
+  [strategy pdata]
+  (StrategyState. strategy
+		  (HypothesisSpace. {} {} {}) ;; these are maps
+		  #{} #{} #{} ;; these are sets
+		  [] {} pdata))
+
+(defn add-log-msg
+  [strat-state time msg]
+  (update-in strat-state [:log] conj (LogEntry. time msg)))
+
+(defn format-logs
+  [strat-state]
+  (apply str (map str (:log strat-state))))
+
+(defn explain
+  [strat-state]
+  (case (:strategy strat-state)
+	"guess" (explain-guess strat-state)
+	"essentials-guess" (explain-essentials-guess strat-state)))
+
+(def strategies ["guess" "essentials-guess"])
 

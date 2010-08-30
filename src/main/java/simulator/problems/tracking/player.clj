@@ -4,10 +4,12 @@
   (:import (java.awt.image BufferedImage))
   (:import (javax.swing JPanel JFrame JButton JTextField JTextArea
 			JLabel JScrollPane JSpinner SpinnerNumberModel JComboBox))
+  (:require [simulator.problems.tracking eventlog])
+  (:import [simulator.problems.tracking.eventlog EventLog])
   (:use [clojure.contrib.math :as math])
   (:use [simulator.problems.tracking.sensors :only (sees)])
   (:use [simulator.problems.tracking.eventlog :only (get-events)])
-  (:use [simulator.strategies.core :only (strategies init-strat-state)])
+  (:use [simulator.strategies :only (strategies init-strat-state)])
   (:use [simulator.problems.tracking.core :as tracking :only (run)]))
 
 (def *gridpanel-width* 500)
@@ -211,12 +213,12 @@
   (let [params (get-parameters)
 	strategy (get-strategy)
 	{te :trueevents ss :stratstate sensors :sensors results :results}
-	(tracking/run params (init-strat-state strategy))]
+	(tracking/run params (init-strat-state strategy (EventLog. #{} #{})))]
     (def *params* params)
     (def *true-log* nil)
     (def *true-events* (get-events te))
     (def *strat-log* (:logs ss))
-    (def *strat-events* (get-events ss))
+    (def *strat-events* (get-events (:problem-data ss)))
     (def *time* 0)
     (def *width* (:GridWidth results))
     (def *height* (:GridHeight results))

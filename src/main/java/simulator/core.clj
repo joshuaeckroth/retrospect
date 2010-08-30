@@ -3,7 +3,8 @@
   (:use [clojure.contrib.command-line :only (with-command-line)])
   (:use [simulator.problems.tracking.core :only (tracking-problem)])
   (:use [simulator.problems.tracking.player :as tracking-player :only (start-player)])
-  (:use [simulator.records :only (run-with-new-record list-records prepare-hadoop cleanup-hadoop-results)])
+  (:use [simulator.records
+	 :only (run-with-new-record list-records prepare-hadoop cleanup-hadoop-results)])
   (:use [simulator.runners.hadoop :only (run-hadoop)]))
 
 (defn -main [& args]
