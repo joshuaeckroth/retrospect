@@ -16,7 +16,7 @@
 	 (new-grid new-entity update-grid-entity walk1 forward-time)])
   (:use [simulator.problems.tracking.sensors :only
 	 (update-spotted generate-sensors-with-coverage measure-sensor-coverage)])
-  (:use [simulator.strategies :only (init-strat-state explain)])
+  (:use [simulator.strategies :only (init-strat-state explain add-log-msg)])
   (:use [simulator.types.hypotheses :only (set-explainers)]))
 
 (def avg-fields [:Milliseconds :PercentCorrect
@@ -89,28 +89,33 @@
 	       (map (partial distfn s) entities))})))
 
 (defn add-hyp
-  [strat-state hyp spotted]
+  [strat-state time hyp spotted]
   (let [hypspace (-> (:hypspace strat-state)
 		     (update-in [:hyps] conj spotted)
 		     (update-in [:hyps] conj hyp)
-		     (set-explainers spotted #{hyp}))
-	ss (-> strat-state
-	       (update-in [:accepted] conj spotted)
-	       (update-in [:considering] conj hyp)
-	       (assoc :hypspace hypspace))]
-    ss))
+		     (set-explainers spotted #{hyp}))]
+    (-> strat-state
+	(update-in [:accepted] conj spotted)
+	(update-in [:considering] conj hyp)
+	(assoc :hypspace hypspace)
+	(add-log-msg time
+		     (if (= (:type hyp) "new")
+		       (str "Hypothesizing that " spotted
+			    " is new: " (:entity hyp))
+		       (str "Hypothesizing that " spotted
+			    " is the movement of " (:prev hyp)))))))
 
 (defn add-hyp-new
   [strat-state spotted time]
-  (let [entity (Entity. \X [(EntitySnapshot. time (pos spotted))])]
-    (add-hyp strat-state
+  (let [entity (Entity. [(EntitySnapshot. time (pos spotted))])]
+    (add-hyp strat-state time
 	     {:type "new" :time time :spotted spotted :entity entity}
 	     spotted)))
 
 (defn add-hyp-move
   [strat-state spotted time prev]
   (let [event (EventMove. time (pos prev) (pos spotted))]
-    (add-hyp strat-state
+    (add-hyp strat-state time
 	     {:type "move" :time time :prev prev :spotted spotted}
 	     spotted)))
 
@@ -125,8 +130,8 @@
 	    (case (:type hyp)
 		  "new"
 		  (let [event (EventNew. (:time hyp) (pos (:spotted hyp)))
-			entity (Entity. \X [(EntitySnapshot. (:time hyp)
-							     (pos (:spotted hyp)))])
+			entity (Entity. [(EntitySnapshot. (:time hyp)
+							  (pos (:spotted hyp)))])
 			el (-> eventlog (add-event event) (add-entity entity))]
 		    (recur (rest accepted) el))
 		  "move"

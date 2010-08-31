@@ -57,30 +57,22 @@
 	 (>= y 0) (< y (:height grid))
 	 (nil? (entity-at grid pos)))))
 
-(defn symbol-used?
-  "Check if a symbol has already been used by an existing entity."
-  [symbol grid]
-  (some #(= (:symbol %) symbol)	(:gridvec grid)))
-
-(defn rand-symbol-and-pos
-  "Generate a random symbol and position for a new entity."
+(defn rand-pos
+  "Generate a random position for a new entity."
   [grid]
-  (let [rand-symbol #(char (+ 33 (rand-int 94)))
-	rand-posx #(rand-int (:width grid))
+  (let [rand-posx #(rand-int (:width grid))
 	rand-posy #(rand-int (:height grid))]
-    (loop [symbol (rand-symbol)
-	   posx (rand-posx)
+    (loop [posx (rand-posx)
 	   posy (rand-posy)]
-      (if (or (symbol-used? symbol grid)
-	      (not (pos-free? (Position. posx posy) grid)))
-	(recur (rand-symbol) (rand-posx) (rand-posy))
-	[symbol (Position. posx posy)]))))
+      (if (not (pos-free? (Position. posx posy) grid))
+	(recur (rand-posx) (rand-posy))
+	(Position. posx posy)))))
 
 (defn new-entity
-  "Create a new entity with a random symbol and random (free) location."
+  "Create a new entity with a random (free) location."
   [grid time]
-  (let [[symbol pos] (rand-symbol-and-pos grid)]
-    (Entity. symbol [(EntitySnapshot. time pos)])))
+  (let [pos (rand-pos grid)]
+    (Entity. [(EntitySnapshot. time pos)])))
   
 (defn attempt-move
   "Try to move one step in a given direction; return new position."

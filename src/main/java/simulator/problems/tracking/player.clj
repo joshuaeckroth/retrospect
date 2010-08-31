@@ -54,7 +54,8 @@
 
 (defn get-parameters []
   (apply hash-map (flatten (for [k (keys *param-spinners*)]
-			     [k (->> (k *param-spinners*) .getModel .getNumber .intValue)]))))
+			     [k (->> (k *param-spinners*)
+				     .getModel .getNumber .intValue)]))))
 
 (defn get-strategy [] (nth strategies (.getSelectedIndex (:Strategy *param-other*))))
 
@@ -77,7 +78,8 @@
 (defn fill-cell [#^Graphics2D g x y c]
   (doto g
     (.setColor c)
-    (.fillRect (* x *grid-cell-width*) (* y *grid-cell-height*) *grid-cell-width* *grid-cell-height*)))
+    (.fillRect (* x *grid-cell-width*) (* y *grid-cell-height*)
+	       *grid-cell-width* *grid-cell-height*)))
 
 (defn draw-move [#^Graphics2D g oldx oldy newx newy c]
   (let [oldpx (+ (* oldx *grid-cell-width*) (/ *grid-cell-width* 2))
@@ -117,7 +119,9 @@
   (def *grid* (vec (repeat (* *width* *height*) nil)))
   (when *true-events*
     (dorun (for [e (filter #(= (:time %) *time*) *true-events*)]
-	     (let [{x :x y :y} (if (= (type e) simulator.problems.tracking.events.EventMove) (:newpos e) (:pos e))]
+	     (let [{x :x y :y}
+		   (if (= (type e) simulator.problems.tracking.events.EventMove)
+		     (:newpos e) (:pos e))]
 	       (def *grid* (assoc *grid* (+ (* y *width*) x) e))))))
   (dorun (for [x (range *width*) y (range *height*)]
            (if (and (not (nil? (grid-at x y))) (< (:time (grid-at x y)) (- *time* 1)))
@@ -128,7 +132,8 @@
 		 (. BufferedImage TYPE_INT_ARGB))
         bg (. img (getGraphics))]
     (doto bg
-      (.setRenderingHint (. RenderingHints KEY_ANTIALIASING) (. RenderingHints VALUE_ANTIALIAS_ON))
+      (.setRenderingHint (. RenderingHints KEY_ANTIALIASING)
+			 (. RenderingHints VALUE_ANTIALIAS_ON))
       (.setColor (. Color white))
       (.fillRect 0 0 *gridpanel-width* *gridpanel-height*))
     (update-grid)
@@ -190,12 +195,17 @@
     (str "!" event)))
 
 (defn update-logs-panel []
-  (. *true-events-box* setText (apply str (map str (filter #(<= (:time %) *time*) *true-events*))))
-  (. *true-log-box* setText (apply str (map str (filter #(<= (:time %) *time*) *true-log*))))
-  (. *strat-events-box* setText
-     (apply str (map (fn [event] (format-event event (filter #(<= (:time %) *time*) *true-events*)))
+  (. *true-events-box* setText
+     (apply str (map str (filter #(<= (:time %) *time*) *true-events*))))
+  (. *true-log-box* setText
+     (apply str (map str (filter #(<= (:time %) *time*) *true-log*))))
+  (. *strat-events-box*
+     setText (apply str (map (fn [event]
+			       (format-event event (filter #(<= (:time %) *time*)
+							     *true-events*)))
 		     (filter #(<= (:time %) *time*) *strat-events*))))
-  (. *strat-log-box* setText (apply str (map str (filter #(<= (:time %) *time*) *strat-log*)))))
+  (. *strat-log-box*
+     setText (apply str (map str (filter #(<= (:time %) *time*) *strat-log*)))))
 
 (defn next-step []
   (when (< *time* (:Steps *params*))
@@ -219,7 +229,7 @@
     (def *params* params)
     (def *true-log* nil)
     (def *true-events* (get-events te))
-    (def *strat-log* (:logs ss))
+    (def *strat-log* (:log ss))
     (def *strat-events* (get-events (:problem-data ss)))
     (def *time* 0)
     (def *width* (:GridWidth results))

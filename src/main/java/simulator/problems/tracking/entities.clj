@@ -10,7 +10,7 @@
   Object
   (toString [_] (str pos)))
 
-(defrecord Entity [symbol snapshots]
+(defrecord Entity [snapshots]
   SnapshotMethods
   (add-snapshot
    [this snapshot]
@@ -18,7 +18,7 @@
   EntityMethods
   (pos [_] (:pos (last snapshots)))
   Object
-  (toString [_] (format "Entity %c %s" symbol
+  (toString [_] (format "Entity %s"
 			(apply str (interpose "->" (map str snapshots))))))
 
 (defn print-entities
