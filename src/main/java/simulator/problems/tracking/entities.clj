@@ -6,7 +6,7 @@
 (defprotocol SnapshotMethods
   (add-snapshot [this snapshot]))
 
-(defrecord EntitySnapshot [pos]
+(defrecord EntitySnapshot [time pos]
   Object
   (toString [_] (str pos)))
 

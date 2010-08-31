@@ -38,7 +38,7 @@
 	    (= (* (:width (:grid gs)) (:height (:grid gs)))
 	       (count (get-entities te))))
       [te gs]
-      (let [entity (new-entity (:grid gs))]
+      (let [entity (new-entity (:grid gs) (:time gridstate))]
 	(recur (inc i)
 	       (-> te
 		   (add-entity entity)
@@ -63,13 +63,13 @@
 	   ew entity-walks]
       (if (empty? ew)
 	[(reduce (fn [te olde] (-> te
-				 (update-entity olde (pos (get em olde)))
+				 (update-entity time olde (pos (get em olde)))
 				 (add-event-move time (pos olde) (pos (get em olde)))))
 		 trueevents (keys em))
 	 gs]
 	(let [e (first ew)
 	      olde (get em e)
-	      newe (walk1 olde (:grid gs))]
+	      newe (walk1 olde (:grid gs) time)]
 	  (recur (assoc em e newe)
 		 (update-grid-entity gs olde newe)
 		 (rest ew)))))))
@@ -79,16 +79,14 @@
   (if (> 2.0 (rand)) [trueevents gridstate] ; skip adding new entities 95% of the time
       (add-new-entities trueevents gridstate (inc (rand-int 2)))))
 
-(defn pair-nearest
-  "This is an instance of the closest pairs problem. Note that, at the moment,
-   the brute-force algorithm is used, which has complexity O(n^2)."
-  [spotted entities]
-  (let [pairs-of-pairs (for [s spotted]
-			 (for [e entities]
-			   {:spotted s :entity e
-			    :dist (manhattan-distance (pos s) (pos e))}))
-	sorted-pairs (sort-by :dist (apply concat pairs-of-pairs))]
-    (for [s spotted] (first (filter #(= (:spotted %) s) sorted-pairs)))))
+(defn pair-near
+  "For each spotted, find entities within walk distance."
+  [spotted entities walk]
+  (let [distfn (fn [s e] {:entity e :dist (manhattan-distance (pos s) (pos e))})]
+    (for [s spotted]
+      {:spotted s :entities
+       (filter #(>= walk (:dist %))
+	       (map (partial distfn s) entities))})))
 
 (defn add-hyp
   [strat-state hyp spotted]
@@ -104,7 +102,7 @@
 
 (defn add-hyp-new
   [strat-state spotted time]
-  (let [entity (Entity. \X [(EntitySnapshot. (pos spotted))])]
+  (let [entity (Entity. \X [(EntitySnapshot. time (pos spotted))])]
     (add-hyp strat-state
 	     {:type "new" :time time :spotted spotted :entity entity}
 	     spotted)))
@@ -127,15 +125,21 @@
 	    (case (:type hyp)
 		  "new"
 		  (let [event (EventNew. (:time hyp) (pos (:spotted hyp)))
-			entity (Entity. \X [(EntitySnapshot. (pos (:spotted hyp)))])
+			entity (Entity. \X [(EntitySnapshot. (:time hyp)
+							     (pos (:spotted hyp)))])
 			el (-> eventlog (add-event event) (add-entity entity))]
 		    (recur (rest accepted) el))
 		  "move"
 		  (let [event (EventMove. (:time hyp) (pos (:prev hyp))
 					  (pos (:spotted hyp)))
 			el (-> eventlog (add-event event)
-			       (update-entity (:prev hyp) (pos (:spotted hyp))))]
+			       (update-entity (:time hyp) (:prev hyp)
+					      (pos (:spotted hyp))))]
 		    (recur (rest accepted) el))))))))
+
+(defn filter-candidate-entities
+  [time entities]
+  (filter #(>= 2 (- time (:time (last (:snapshots %))))) entities))
 
 (defn gen-nearest-hypotheses
   [strat-state sensors time]
@@ -145,30 +149,34 @@
    less than some constant will be explained as having moved from its paired
    existing entity; all pairings with too great a distance will have 'new-entity'
    explanations."
-  (let [unique-spotted (set (apply concat (map :spotted sensors)))]
+  (let [unique-spotted (set (apply concat (map :spotted sensors)))
+	candidate-entities (filter-candidate-entities time
+			    (get-entities (:problem-data strat-state)))]
     
-    (if (empty? (get-entities (:problem-data strat-state)))
+    (if (empty? candidate-entities)
 
       ;; no previously-known entities, hypothesize all as new
       (reduce (fn [ss spotted] (add-hyp-new ss spotted time))
 	      strat-state unique-spotted)
 
-      ;; got some previously-known entities, so pair them up with spotted
-      (loop [pairs (pair-nearest unique-spotted
-				 (get-entities (:problem-data strat-state)))
+      ;; got some previously-known entities, so associate them with spotted
+      (loop [pairs (pair-near unique-spotted candidate-entities 10)
 	     ss strat-state]
 	
 	(cond (empty? pairs) ss
-	      
-	      (> (:dist (first pairs)) 5)
+
+	      ;; all entities too far; hypothesize new entity
+	      (empty? (:entities (first pairs)))
 	      (recur (rest pairs)
 		     (add-hyp-new ss (:spotted (first pairs)) time))
-	      
+
+	      ;; some entities in range; hypothesize them all
 	      :else
 	      (recur (rest pairs)
-		     (-> ss
-			 (add-hyp-move (:spotted (first pairs)) time
-				       (:entity (first pairs))))))))))
+		     (reduce (fn [tempss e]
+			       (add-hyp-move tempss (:spotted (first pairs)) time
+					     (:entity e)))
+			     ss (:entities (first pairs)))))))))
 
 (defn single-step
   [params sensors [trueevents gridstate strat-state]]

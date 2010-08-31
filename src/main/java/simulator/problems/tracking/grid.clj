@@ -78,9 +78,9 @@
 
 (defn new-entity
   "Create a new entity with a random symbol and random (free) location."
-  [grid]
+  [grid time]
   (let [[symbol pos] (rand-symbol-and-pos grid)]
-    (Entity. symbol [(EntitySnapshot. pos)])))
+    (Entity. symbol [(EntitySnapshot. time pos)])))
   
 (defn attempt-move
   "Try to move one step in a given direction; return new position."
@@ -99,8 +99,8 @@
 (defn walk1
   "Move an entity one step in a random (free) direction,
    and add that movement to the entity's history"
-  [entity grid]
+  [entity grid time]
   (let [dir (nth ["left" "right" "down" "up" "fixed"] (rand-int 4))
 	pos (attempt-move dir (pos entity) grid)]
-    (add-snapshot entity (EntitySnapshot. pos))))
+    (add-snapshot entity (EntitySnapshot. time pos))))
 

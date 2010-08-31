@@ -8,17 +8,15 @@
 
 (defn add-entity
  [eventlog entity]
- (update-in eventlog [:entities] conj
-	    (Entity. (if (:symbol entity) (:symbol entity) \X)
-		     [(EntitySnapshot. (pos entity))])))
+ (update-in eventlog [:entities] conj entity))
 
 (defn update-entity
  ;;possibly use a reverse-lookup map in the future, to get entity keys
  ;;eg: (let [m {:a :b :c :d}] (zipmap (vals m) (keys m)))
- [eventlog entity pos]
+ [eventlog time entity pos]
  (assoc eventlog :entities
 	(map #(if (not= % entity) %
-		  (add-snapshot % (EntitySnapshot. pos)))
+		  (add-snapshot % (EntitySnapshot. time pos)))
 	     (:entities eventlog))))
 
 (defn add-event
