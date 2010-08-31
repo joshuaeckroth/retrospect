@@ -1,7 +1,7 @@
 (ns simulator.types.problem
   (:use [simulator.strategies :only (init-strat-state strategies)]))
 
-;;(defn start-player [problem] ((:player-fn problem)))
+(defn start-player [problem] ((:player-fn problem)))
 
 (defn average-single-run
   [problem strategy params n]
@@ -22,4 +22,4 @@
 (defn get-headers [problem] (:headers problem))
 
 (defrecord Problem
-  [name runner-fn headers avg-fields non-avg-fields problem-data])
+  [name runner-fn player-fn headers avg-fields non-avg-fields problem-data])

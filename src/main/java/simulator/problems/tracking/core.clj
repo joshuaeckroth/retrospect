@@ -1,10 +1,8 @@
 (ns simulator.problems.tracking.core
-  (:require [simulator.types problem])
   (:require [simulator.problems.tracking events eventlog grid entities])
-  (:import [simulator.problems.tracking.eventlog EventLog])
   (:import [simulator.problems.tracking.events EventNew EventMove])
   (:import [simulator.problems.tracking.entities Entity EntitySnapshot])
-  (:import [simulator.types.problem Problem])
+  (:import [simulator.problems.tracking.eventlog EventLog])
   (:import [simulator.problems.tracking.grid GridState])
   (:use clojure.set)
   (:use [simulator.evaluator :only (evaluate)])
@@ -18,16 +16,6 @@
   (:use [simulator.problems.tracking.hypotheses :only
 	 (generate-hypotheses update-problem-data)])
   (:use [simulator.strategies :only (init-strat-state explain)]))
-
-(def avg-fields [:Milliseconds :PercentCorrect
-		 :StrategyCompute :StrategyMilliseconds :StrategyMemory
-		 :Steps :NumberEntities :MaxWalk :AvgWalk
-		 :ProbNewEntities :SensorReportNoise :BeliefNoise
-		 :GridWidth :GridHeight :SensorCoverage :SensorOverlap])
-
-(def non-avg-fields [:Strategy])
-
-(def headers (concat avg-fields non-avg-fields))
 
 (defn add-new-entities
   [trueevents gridstate numes]
@@ -121,6 +109,4 @@
 			      (:GridWidth params) (:GridHeight params) sensors)
 	     :SensorOverlap 0)})))))
 
-(def tracking-problem
-     (Problem. "tracking" run headers avg-fields non-avg-fields (EventLog. #{} #{})))
 

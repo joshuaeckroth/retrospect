@@ -3,7 +3,7 @@
   (:require [clojure-hadoop.imports :as imp])
   (:import (org.apache.hadoop.util Tool))
   (:use [simulator.types.problem :only (average-some-runs get-headers)])
-  (:use [simulator.problems.tracking.core :only (tracking-problem)]))
+  (:use [simulator.problems.tracking.problem :only (tracking-problem)]))
 
 (imp/import-io)
 (imp/import-fs)

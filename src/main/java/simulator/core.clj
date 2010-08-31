@@ -1,11 +1,11 @@
 (ns simulator.core
   (:gen-class)
   (:use [clojure.contrib.command-line :only (with-command-line)])
-  (:use [simulator.problems.tracking.core :only (tracking-problem)])
-  (:use [simulator.problems.tracking.player :as tracking-player :only (start-player)])
+  (:use [simulator.problems.tracking.problem :only (tracking-problem)])
   (:use [simulator.records
 	 :only (run-with-new-record list-records prepare-hadoop cleanup-hadoop-results)])
   (:use [simulator.runners.hadoop :only (run-hadoop)])
+  (:use [simulator.types.problem :only (start-player)])
   (:use [clj-stacktrace.repl :only (pst+)]))
 
 (defn -main [& args]
@@ -15,8 +15,8 @@
       [[action "Action (run/list/player/prepare-hadoop/hadoop/clean-hadoop)"]
        [problem "Problem" "tracking"]
        [paramsfile "Parameters XML file" "params.xml"]
-       [recordsdir "Records directory" "c:/users/josh/documents/research/simulator-records"]
-       [nthreads "Number of threads" "4"]
+       [recordsdir "Records directory" "records"]
+       [nthreads "Number of threads" "8"]
        [input "Hadoop input" ""]
        [output "Hadoop output" ""]]
       (let [nthreads (Integer/parseInt nthreads)
@@ -35,8 +35,8 @@
 	      "list"
 	      (list-records recordsdir)
 	      "player"
-	      (if (= problem "tracking") (tracking-player/start-player)
-		  (println "Player only available for 'tracking' problem."))
+	      (start-player prob)
+
 	      (println "No action given."))))
     (catch Exception e (pst+ e))))
 
