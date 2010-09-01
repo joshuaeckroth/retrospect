@@ -11,9 +11,11 @@
   [hypspace hyp]
   (get (:explainers hypspace) hyp))
 
-(defn set-explainers
+(defn add-explainers
   [hypspace hyp es]
-  (let [newexplainers (assoc (:explainers hypspace) hyp es)]
+  (let [origexplainers (get-explainers hypspace hyp)
+	newexplainers (assoc (:explainers hypspace) hyp
+			     (if origexplainers (union origexplainers es) es))]
     (assoc hypspace :explainers newexplainers)))
 
 (defn get-conflicts

@@ -5,6 +5,29 @@
   (:use simulator.types.hypotheses)
   (:use clojure.set))
 
+(defrecord StrategyState
+    [strategy hypspace accepted considering rejected
+     log abducer-log resources problem-data])
+
+(defn init-strat-state
+  [strategy pdata]
+  (StrategyState. strategy
+		  (init-hypspace)
+		  #{} #{} #{} ;; these are sets
+		  [] [] {} pdata))
+
+(defn add-log-msg
+  [strat-state time msg]
+  (update-in strat-state [:log] conj (LogEntry. time msg)))
+
+(defn add-abducer-log-msg
+  [strat-state msg]
+  (update-in strat-state [:abducer-log] conj msg))
+
+(defn format-logs
+  [strat-state]
+  (apply str (map str (:log strat-state))))
+
 (defn conflicts-helper
   [strat-state]
   (difference (find-conflicts (:hypspace strat-state) (:accepted strat-state))
@@ -26,13 +49,15 @@
   [strat-state conflicts]
   (-> strat-state
       (update-in [:rejected] union conflicts)
-      (update-in [:considering] difference conflicts)))
+      (update-in [:considering] difference conflicts)
+      (add-abducer-log-msg (str "Rejecting conflicts: " (apply str conflicts)))))
 
 (defn accept-essentials-helper
   [strat-state essentials]
   (-> strat-state
       (update-in [:accepted] union essentials)
-      (update-in [:considering] difference essentials)))
+      (update-in [:considering] difference essentials)
+      (add-abducer-log-msg (str "Accepting essentials: " (apply str essentials)))))
 
 (defn accept-clearbest-helper
   [strat-state clearbest]
@@ -41,7 +66,8 @@
 	    explainer (:explainer (first clearbest))]
 	(recur (-> strat-state
 		   (update-in [:accepted] conj explainer)
-		   (update-in [:considering] disj explainer))
+		   (update-in [:considering] disj explainer)
+		   (add-abducer-log-msg (str "Accepting clearbest " explainer)))
 	       (rest clearbest)))))
 
 (defn explain-guess
@@ -117,25 +143,6 @@
 
      ;; no more clearbest, so refer to explain-guess for the rest
      :else (explain-guess strat-state))))
-
-(defrecord StrategyState
-    [strategy hypspace accepted considering rejected
-     log resources problem-data])
-
-(defn init-strat-state
-  [strategy pdata]
-  (StrategyState. strategy
-		  (init-hypspace)
-		  #{} #{} #{} ;; these are sets
-		  [] {} pdata))
-
-(defn add-log-msg
-  [strat-state time msg]
-  (update-in strat-state [:log] conj (LogEntry. time msg)))
-
-(defn format-logs
-  [strat-state]
-  (apply str (map str (:log strat-state))))
 
 (defn explain
   [strat-state]

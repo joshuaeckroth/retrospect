@@ -21,7 +21,7 @@
 (def *grid-cell-width* 50)
 (def *grid-cell-height* 50)
 (def *time* 0)
-(def *true-log* nil)
+(def *abducer-log* nil)
 (def *true-events* nil)
 (def *strat-log* nil)
 (def *strat-events* nil)
@@ -30,7 +30,7 @@
 (def *steplabel* (JLabel. "Step: "))
 (def *resultslabel* (JLabel. "Correct: "))
 (def *true-events-box* (JTextArea. 10 40))
-(def *true-log-box* (JTextArea. 10 40))
+(def *abducer-log-box* (JTextArea. 10 40))
 (def *strat-events-box* (JTextArea. 10 40))
 (def *strat-log-box* (JTextArea. 10 40))
 
@@ -197,8 +197,7 @@
 (defn update-logs-panel []
   (. *true-events-box* setText
      (apply str (map str (filter #(<= (:time %) *time*) *true-events*))))
-  (. *true-log-box* setText
-     (apply str (map str (filter #(<= (:time %) *time*) *true-log*))))
+  (. *abducer-log-box* setText (apply str (map #(format "%s\n" %) *abducer-log*)))
   (. *strat-events-box*
      setText (apply str (map (fn [event]
 			       (format-event event (filter #(<= (:time %) *time*)
@@ -227,7 +226,7 @@
 	{te :trueevents ss :stratstate sensors :sensors results :results}
 	(tracking/run params (init-strat-state strategy (EventLog. #{} #{})))]
     (def *params* params)
-    (def *true-log* nil)
+    (def *abducer-log* (:abducer-log ss))
     (def *true-events* (get-events te))
     (def *strat-log* (:log ss))
     (def *strat-events* (get-events (:problem-data ss)))
@@ -346,7 +345,7 @@
 	(JLabel. "Strategy log")
 
 	:gridx 0, :gridy 1
-	(JScrollPane. *true-log-box*)
+	(JScrollPane. *abducer-log-box*)
 	:gridx 1, :gridy 1
 	(JScrollPane. *strat-log-box*)
 	
