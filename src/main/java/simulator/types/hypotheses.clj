@@ -63,3 +63,26 @@
   [hypspace hyps]
   (reduce union (map #(get-conflicts hypspace %) hyps)))
 
+(defn find-clearbest
+  [hypspace hyps]
+  (filter identity
+	  (for [h hyps]
+	    (let [explainers (get-explainers hypspace h)
+		  expapriori (map (fn [e] {:explainer e
+					   :apriori (get-apriori hypspace e)})
+				  explainers)
+		  expsorted (sort-by :apriori expapriori)]
+	      
+	      (cond (empty? expsorted) nil
+
+		    ;; single explainer or difference in apriori above a threshold?
+		    (and
+		     (< 0.0 (:apriori (first expsorted)))
+		     (or
+		      (= 1 (count expsorted))
+		      (< 0.5 (- (:apriori (first expsorted))
+				(:apriori (second expsorted))))))
+		    {:hyp h :clearbest (:explainer (first expsorted))
+		     :apriori (:apriori (first expsorted))}
+
+		    :else nil)))))
