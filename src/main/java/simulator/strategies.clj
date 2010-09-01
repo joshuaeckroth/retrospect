@@ -73,7 +73,7 @@
 (defn init-strat-state
   [strategy pdata]
   (StrategyState. strategy
-		  (HypothesisSpace. {} {} {}) ;; these are maps
+		  (init-hypspace)
 		  #{} #{} #{} ;; these are sets
 		  [] {} pdata))
 

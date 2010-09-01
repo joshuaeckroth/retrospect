@@ -6,7 +6,7 @@
   (:use [simulator.problems.tracking.entities :only (pos)])
   (:use [simulator.problems.tracking.eventlog :only
 	 (get-entities add-entity add-event update-entity)])
-  (:use [simulator.types.hypotheses :only (set-explainers)])
+  (:use [simulator.types.hypotheses :only (set-explainers set-apriori)])
   (:use [simulator.strategies :only (add-log-msg)]))
 
 (defn pair-near
@@ -19,35 +19,37 @@
 	       (map (partial distfn s) entities))})))
 
 (defn add-hyp
-  [strat-state time hyp spotted]
+  [strat-state time hyp spotted apriori]
   (let [hypspace (-> (:hypspace strat-state)
 		     (update-in [:hyps] conj spotted)
 		     (update-in [:hyps] conj hyp)
-		     (set-explainers spotted #{hyp}))]
+		     (set-explainers spotted #{hyp})
+		     (set-apriori spotted 1.0)
+		     (set-apriori hyp apriori))]
     (-> strat-state
 	(update-in [:accepted] conj spotted)
 	(update-in [:considering] conj hyp)
 	(assoc :hypspace hypspace)
 	(add-log-msg time
 		     (if (= (:type hyp) "new")
-		       (str "Hypothesizing that " spotted
+		       (str "Hypothesizing (apriori=" apriori ") that " spotted
 			    " is new: " (:entity hyp))
-		       (str "Hypothesizing that " spotted
+		       (str "Hypothesizing (apriori=" apriori ") that " spotted
 			    " is the movement of " (:prev hyp)))))))
 
 (defn add-hyp-new
-  [strat-state spotted time]
+  [strat-state spotted time apriori]
   (let [entity (Entity. [(EntitySnapshot. time (pos spotted))])]
     (add-hyp strat-state time
 	     {:type "new" :time time :spotted spotted :entity entity}
-	     spotted)))
+	     spotted apriori)))
 
 (defn add-hyp-move
-  [strat-state spotted time prev]
+  [strat-state spotted time prev apriori]
   (let [event (EventMove. time (pos prev) (pos spotted))]
     (add-hyp strat-state time
 	     {:type "move" :time time :prev prev :spotted spotted}
-	     spotted)))
+	     spotted apriori)))
 
 (defn filter-candidate-entities
   [time entities]
@@ -68,27 +70,28 @@
     (if (empty? candidate-entities)
 
       ;; no previously-known entities, hypothesize all as new
-      (reduce (fn [ss spotted] (add-hyp-new ss spotted time))
+      (reduce (fn [ss spotted] (add-hyp-new ss spotted time 0.2)) ;; TODO: real prob of new
 	      strat-state unique-spotted)
 
       ;; got some previously-known entities, so associate them with spotted
-      (loop [pairs (pair-near unique-spotted candidate-entities 10)
+      (loop [pairs (pair-near unique-spotted candidate-entities 10) ;; TODO: real walk size
 	     ss strat-state]
-	
 	(cond (empty? pairs) ss
 
-	      ;; all entities too far; hypothesize new entity
+	      ;; all entities too far for this spotted; hypothesize new entity
 	      (empty? (:entities (first pairs)))
 	      (recur (rest pairs)
-		     (add-hyp-new ss (:spotted (first pairs)) time))
+		     (add-hyp-new ss (:spotted (first pairs)) time 0.2)) ;; TODO: see above
 
-	      ;; some entities in range; hypothesize them all
+	      ;; some entities in range; hypothesize them all, plus a new-entity hyp
 	      :else
 	      (recur (rest pairs)
 		     (reduce (fn [tempss e]
 			       (add-hyp-move tempss (:spotted (first pairs)) time
-					     (:entity e)))
-			     ss (:entities (first pairs)))))))))
+					     (:entity e) (- 1.0 (/ (:dist e) 10)))) ;; TODO
+			     ;; add "new-entity" hyp before hypothesizing the movements
+			     (add-hyp-new ss (:spotted (first pairs)) time 0.2)
+			     (:entities (first pairs)))))))))
 
 (defn update-problem-data
   [strat-state]
