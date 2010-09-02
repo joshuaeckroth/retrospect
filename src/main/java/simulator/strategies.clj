@@ -45,6 +45,10 @@
   [strat-state unexplained]
   (find-clearbest (:hypspace strat-state) unexplained))
 
+(defn weakbest-helper
+  [strat-state unexplained]
+  (find-weakbest (:hypspace strat-state) unexplained))
+
 (defn reject-conflicts-helper
   [strat-state conflicts]
   (-> strat-state
@@ -69,6 +73,17 @@
 		   (update-in [:considering] disj explainer)
 		   (add-abducer-log-msg (str "Accepting clearbest " explainer)))
 	       (rest clearbest)))))
+
+(defn accept-weakbest-helper
+  [strat-state weakbest]
+  (if (empty? weakbest) strat-state
+      (let [hyp (:hyp (first weakbest))
+	    explainer (:explainer (first weakbest))]
+	(recur (-> strat-state
+		   (update-in [:accepted] conj explainer)
+		   (update-in [:considering] disj explainer)
+		   (add-abducer-log-msg (str "Accepting weakbest " explainer)))
+	       (rest weakbest)))))
 
 (defn explain-guess
   [strat-state]
@@ -144,12 +159,43 @@
      ;; no more clearbest, so refer to explain-guess for the rest
      :else (explain-guess strat-state))))
 
+(defn explain-essentials-clearbest-weakbest-guess
+  [strat-state]
+  (let [conflicts (conflicts-helper strat-state)
+	unexplained (unexplained-helper strat-state)
+	essentials (essentials-helper strat-state unexplained)
+	clearbest (clearbest-helper strat-state unexplained)
+	weakbest (weakbest-helper strat-state unexplained)]
+    (cond
+
+     ;; reject any conflicts
+     (not-empty conflicts)
+     (recur (reject-conflicts-helper strat-state conflicts))
+
+     ;; accept essentials
+     (not-empty essentials)
+     (recur (accept-essentials-helper strat-state essentials))
+
+     ;; accept clearbest
+     (not-empty clearbest)
+     (recur (accept-clearbest-helper strat-state clearbest))
+
+     ;; accept weakbest
+     (not-empty weakbest)
+     (recur (accept-weakbest-helper strat-state weakbest))
+
+     ;; no more weakbest, so refer to explain-guess for the rest
+     :else (explain-guess strat-state))))
+
 (defn explain
   [strat-state]
   (case (:strategy strat-state)
 	"guess" (explain-guess strat-state)
 	"essentials-guess" (explain-essentials-guess strat-state)
-	"essentials-clearbest-guess" (explain-essentials-clearbest-guess strat-state)))
+	"essentials-clearbest-guess" (explain-essentials-clearbest-guess strat-state)
+	"essentials-clearbest-weakbest-guess"
+	(explain-essentials-clearbest-weakbest-guess strat-state)))
 
-(def strategies ["guess" "essentials-guess" "essentials-clearbest-guess"])
+(def strategies ["guess" "essentials-guess" "essentials-clearbest-guess"
+		 "essentials-clearbest-weakbest-guess"])
 
