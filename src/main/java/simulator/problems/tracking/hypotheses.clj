@@ -6,8 +6,10 @@
   (:use [simulator.problems.tracking.entities :only (pos)])
   (:use [simulator.problems.tracking.eventlog :only
 	 (get-entities add-entity add-event update-entity)])
-  (:use [simulator.types.hypotheses :only (add-explainers set-apriori)])
-  (:use [simulator.strategies :only (add-log-msg)]))
+  (:use [simulator.types.hypotheses :only
+	 (add-explainers get-explainers add-conflicts set-apriori)])
+  (:use [simulator.strategies :only (add-log-msg)])
+  (:use [clojure.set]))
 
 (defrecord TrackingHyp [type time spotted entity prev]
   Object
@@ -57,6 +59,12 @@
 	     (TrackingHyp. "move" time spotted nil prev)
 	     spotted apriori)))
 
+(defn add-mutual-conflicts
+  [strat-state hyps]
+  (reduce (fn [ss hyp] (update-in ss [:hypspace] add-conflicts hyp
+				  (difference hyps #{hyp})))
+	  strat-state hyps))
+
 (defn filter-candidate-entities
   [time entities]
   "Restrict candidate entities to those just hypothesized (for new)
@@ -94,13 +102,17 @@
 	      ;; some entities in range; hypothesize them all, plus a new-entity hyp
 	      ;; then make them all mutually conflicting (TODO)
 	      :else
-	      (recur (rest pairs)
-		     (reduce (fn [tempss e]
-			       (add-hyp-move tempss (:spotted (first pairs)) time
-					     (:entity e) (- 1.0 (/ (:dist e) 10)))) ;; TODO
-			     ;; add "new-entity" hyp before hypothesizing the movements
-			     (add-hyp-new ss (:spotted (first pairs)) time 0.2)
-			     (:entities (first pairs)))))))))
+	      (let [spotted (:spotted (first pairs))
+		    es (:entities (first pairs))
+		    ss2 (reduce
+			 (fn [tempss e]
+			   (add-hyp-move tempss spotted time (:entity e)
+					 (- 1.0 (/ (:dist e) 10)))) ;; TODO
+			 ss es)
+		    ss3 (add-hyp-new ss2 spotted time 0.2)
+		    ssconflicts
+		    (add-mutual-conflicts ss3 (get-explainers (:hypspace ss3) spotted))]
+		(recur (rest pairs) ssconflicts)))))))
 
 (defn update-problem-data
   [strat-state]

@@ -22,9 +22,11 @@
   [hypspace hyp]
   (get (:conflicts hypspace) hyp))
 
-(defn set-conflicts
+(defn add-conflicts
   [hypspace hyp cs]
-  (let [newconflicts (assoc (:conflicts hypspace) hyp cs)]
+  (let [origconflicts (get-conflicts hypspace hyp)
+	newconflicts (assoc (:conflicts hypspace) hyp
+			    (if origconflicts (union origconflicts cs) cs))]
     (assoc hypspace :conflicts newconflicts)))
 
 (defn get-apriori

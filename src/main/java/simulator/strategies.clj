@@ -45,7 +45,7 @@
   [strat-state unexplained]
   (find-clearbest (:hypspace strat-state) unexplained))
 
-(defn remove-conflicts-helper
+(defn reject-conflicts-helper
   [strat-state conflicts]
   (-> strat-state
       (update-in [:rejected] union conflicts)
@@ -76,9 +76,9 @@
 	unexplained (unexplained-helper strat-state)]
     (cond
      
-     ;; remove any conflicts
+     ;; reject any conflicts
      (not-empty conflicts)
-     (recur (remove-conflicts-helper strat-state conflicts))
+     (recur (reject-conflicts-helper strat-state conflicts))
      
      ;; don't continue 10% of the time
      (< (rand) 0.1) strat-state
@@ -110,9 +110,9 @@
 	essentials (essentials-helper strat-state unexplained)]
     (cond
      
-     ;; remove any conflicts
+     ;; reject any conflicts
      (not-empty conflicts)
-     (recur (remove-conflicts-helper strat-state conflicts))
+     (recur (reject-conflicts-helper strat-state conflicts))
 
      ;; accept essentials
      (not-empty essentials)
@@ -129,9 +129,9 @@
 	clearbest (clearbest-helper strat-state unexplained)]
     (cond
 
-     ;; remove any conflicts
+     ;; reject any conflicts
      (not-empty conflicts)
-     (recur (remove-conflicts-helper strat-state conflicts))
+     (recur (reject-conflicts-helper strat-state conflicts))
 
      ;; accept essentials
      (not-empty essentials)
