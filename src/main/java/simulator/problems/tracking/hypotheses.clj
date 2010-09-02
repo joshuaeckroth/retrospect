@@ -3,19 +3,19 @@
   (:import [simulator.problems.tracking.events EventNew EventMove])
   (:import [simulator.problems.tracking.entities Entity EntitySnapshot])
   (:use [simulator.problems.tracking.positions :only (manhattan-distance)])
-  (:use [simulator.problems.tracking.entities :only (pos)])
+  (:use [simulator.problems.tracking.entities :only (pos add-snapshot)])
   (:use [simulator.problems.tracking.eventlog :only
-	 (get-entities add-entity add-event update-entity)])
+	 (get-entities add-entity remove-entity add-event update-entity)])
   (:use [simulator.types.hypotheses :only
 	 (add-explainers get-explainers add-conflicts set-apriori)])
   (:use [simulator.strategies :only (add-log-msg)])
   (:use [clojure.set]))
 
-(defrecord TrackingHyp [type time spotted entity prev]
+(defrecord TrackingHyp [type time spotted entity prev event]
   Object
-  (toString [_] (format "TrackingHyp (%s)@%d (spotted: %s) %s"
+  (toString [_] (format "TrackingHyp (%s)@%d (spotted: %s) %s - %s"
 			type time spotted
-			(if (= type "new") entity prev))))
+			(if (= type "new") entity prev) event)))
 
 (defn pair-near
   "For each spotted, find entities within walk distance."
@@ -47,16 +47,18 @@
 
 (defn add-hyp-new
   [strat-state spotted time apriori]
-  (let [entity (Entity. [(EntitySnapshot. time (pos spotted))])]
+  (let [event (EventNew. (:time spotted) (pos spotted))
+	entity (Entity. [(EntitySnapshot. time (pos spotted))])]
     (add-hyp strat-state time
-	     (TrackingHyp. "new" time spotted entity nil)
+	     (TrackingHyp. "new" time spotted entity nil event)
 	     spotted apriori)))
 
 (defn add-hyp-move
   [strat-state spotted time prev apriori]
-  (let [event (EventMove. time (pos prev) (pos spotted))]
+  (let [event (EventMove. time (pos prev) (pos spotted))
+	entity (add-snapshot prev (EntitySnapshot. time (pos spotted)))]
     (add-hyp strat-state time
-	     (TrackingHyp. "move" time spotted nil prev)
+	     (TrackingHyp. "move" time spotted entity prev event)
 	     spotted apriori)))
 
 (defn add-mutual-conflicts
@@ -73,15 +75,12 @@
 
 (defn generate-hypotheses
   [strat-state sensors time]
-  "The idea behind 'nearest' hypotheses is all spotted & existing entities will be
-   paired according to k-closest pair (where k = number of spotted entities),
-   and given these pairings, each spotted entity whose pairing has a distance
-   less than some constant will be explained as having moved from its paired
-   existing entity; all pairings with too great a distance will have 'new-entity'
-   explanations."
   (let [unique-spotted (set (apply concat (map :spotted sensors)))
-	candidate-entities (filter-candidate-entities time
-			    (get-entities (:problem-data strat-state)))]
+	candidate-entities
+	(filter-candidate-entities time (get-entities (:problem-data strat-state)))]
+    (doseq [e (get-entities (:problem-data strat-state))] (println (str e)))
+    (println (count candidate-entities))
+    (doseq [e candidate-entities] (println (str e)))
     
     (if (empty? candidate-entities)
 
@@ -117,29 +116,44 @@
 (defn update-problem-data
   [strat-state]
   (loop [accepted (:accepted strat-state)
+	 rejected (:rejected strat-state)
 	 eventlog (:problem-data strat-state)]
-    (if	(empty? accepted) (assoc strat-state :problem-data eventlog)
-	
-	(let [hyp (first accepted)]
 
-	  ;; skip sensor entity types
-	  (if (= (type hyp) simulator.problems.tracking.sensors.SensorEntity)
-	    (recur (rest accepted) eventlog)
-	    
-	    (case (:type hyp)
-		  
-		  "new"
-		  (let [event (EventNew. (:time hyp) (pos (:spotted hyp)))
-			entity (Entity. [(EntitySnapshot. (:time hyp)
-							  (pos (:spotted hyp)))])
-			el (-> eventlog (add-event event) (add-entity entity))]
-		    (recur (rest accepted) el))
-		  
-		  "move"
-		  (let [event (EventMove. (:time hyp) (pos (:prev hyp))
-					  (pos (:spotted hyp)))
-			el (-> eventlog (add-event event)
-			       (update-entity (:time hyp) (:prev hyp)
-					      (pos (:spotted hyp))))]
-		    (recur (rest accepted) el))))))))
+    (cond (and (empty? accepted) (empty? rejected))
+	  (assoc strat-state :problem-data eventlog)
+
+	  (not-empty rejected)
+	  (let [hyp (first rejected)]
+
+	    ;; skip sensor entity types
+	    (if (= (type hyp) simulator.problems.tracking.sensors.SensorEntity)
+	      (recur accepted (rest rejected) eventlog)
+	      (recur accepted (rest rejected) (remove-entity eventlog (:entity hyp)))))
+
+	  :else ;; not-empty accepted
+	  (let [hyp (first accepted)]
+
+	    ;; skip sensor entity types
+	    (if (= (type hyp) simulator.problems.tracking.sensors.SensorEntity)
+	      (recur (rest accepted) rejected eventlog)
+	      
+	      (case (:type hyp)
+		    
+		    "new"
+		    (recur (rest accepted)
+			   rejected
+			   (-> eventlog
+			       (add-event (:event hyp))
+			       (add-entity (:entity hyp))))
+		    
+		    "move"
+		    (recur (rest accepted)
+			   rejected
+			   (-> eventlog (add-event (:event hyp))
+			       (remove-entity (:prev hyp))
+			       (add-entity (:entity hyp))))))))))
+
+(defn clear-considering
+  [strat-state]
+  (assoc strat-state :hypspace (assoc (:hypspace strat-state) :considering #{})))
 

@@ -1,20 +1,20 @@
 (ns simulator.problems.tracking.core
-  (:require [simulator.problems.tracking events eventlog grid entities])
+  (:require [simulator.problems.tracking events grid entities])
   (:import [simulator.problems.tracking.events EventNew EventMove])
   (:import [simulator.problems.tracking.entities Entity EntitySnapshot])
-  (:import [simulator.problems.tracking.eventlog EventLog])
   (:import [simulator.problems.tracking.grid GridState])
   (:use clojure.set)
   (:use [simulator.evaluator :only (evaluate)])
   (:use [simulator.problems.tracking.entities :only (pos)])
   (:use [simulator.problems.tracking.eventlog :only
-	 (add-entity add-event add-event-new add-event-move update-entity get-entities)])
+	 (init-event-log add-entity add-event add-event-new add-event-move
+			 update-entity get-entities)])
   (:use [simulator.problems.tracking.grid :only
 	 (new-grid new-entity update-grid-entity walk1 forward-time)])
   (:use [simulator.problems.tracking.sensors :only
 	 (update-spotted generate-sensors-with-coverage measure-sensor-coverage)])
   (:use [simulator.problems.tracking.hypotheses :only
-	 (generate-hypotheses update-problem-data)])
+	 (generate-hypotheses update-problem-data clear-considering)])
   (:use [simulator.strategies :only (init-strat-state explain)]))
 
 (defn add-new-entities
@@ -35,7 +35,7 @@
 
 (defn init-states
   [width height numes]
-  (let [trueevents (EventLog. [] [])
+  (let [trueevents (init-event-log)
 	gridstate (GridState. (new-grid width height) 0)]
     (add-new-entities trueevents gridstate numes)))
 
@@ -71,7 +71,7 @@
   [params sensors [trueevents gridstate strat-state]]
   (let [sens (map #(update-spotted % gridstate) sensors)
 	ss (generate-hypotheses strat-state sens (:time gridstate))
-	ss2 (update-problem-data (explain ss))
+	ss2 (clear-considering (update-problem-data (explain ss)))
 	[te gs] (random-walks (:MaxWalk params) trueevents (forward-time gridstate 1))
 	[newte newgs] (possibly-add-new-entities te gs)]
     [newte newgs ss2]))
@@ -80,7 +80,7 @@
   [sensors [trueevents gridstate strat-state]]
   (let [sens (map #(update-spotted % gridstate) sensors)
 	ss (generate-hypotheses strat-state sens (:time gridstate))
-	ss2 (update-problem-data (explain ss))]
+	ss2 (clear-considering (update-problem-data (explain ss)))]
     [trueevents ss2]))
 
 (defn run

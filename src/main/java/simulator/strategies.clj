@@ -114,7 +114,9 @@
 	   (recur (-> strat-state
 		      ;; TODO: does not support composite explainers
 		      (update-in [:accepted] union #{hyp expl})
-		      (update-in [:considering] difference #{hyp expl}))))))
+		      (update-in [:considering] difference #{hyp expl})
+		      (add-abducer-log-msg
+		       (str "Accepting guess that " expl " explains " hyp)))))))
      
      :else strat-state)))
 

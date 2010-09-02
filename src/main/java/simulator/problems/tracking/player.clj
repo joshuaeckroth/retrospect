@@ -29,10 +29,10 @@
 
 (def *steplabel* (JLabel. "Step: "))
 (def *resultslabel* (JLabel. "Correct: "))
-(def *true-events-box* (JTextArea. 10 40))
-(def *abducer-log-box* (JTextArea. 10 40))
-(def *strat-events-box* (JTextArea. 10 40))
-(def *strat-log-box* (JTextArea. 10 40))
+(def *true-events-box* (JTextArea. 15 50))
+(def *abducer-log-box* (JTextArea. 15 50))
+(def *strat-events-box* (JTextArea. 15 50))
+(def *strat-log-box* (JTextArea. 15 50))
 
 (def *mouse-xy* (JLabel.))
 
@@ -340,7 +340,7 @@
 	:fill :BOTH, :insets (Insets. 5 5 5 5)
 
 	:gridx 0, :gridy 0
-	(JLabel. "True log")
+	(JLabel. "Abducer log")
 	:gridx 1, :gridy 0
 	(JLabel. "Strategy log")
 
