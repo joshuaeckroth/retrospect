@@ -14,7 +14,7 @@
   (:use [simulator.problems.tracking.sensors :only
 	 (update-spotted generate-sensors-with-coverage measure-sensor-coverage)])
   (:use [simulator.problems.tracking.hypotheses :only
-	 (generate-hypotheses update-problem-data clear-considering)])
+	 (generate-hypotheses update-problem-data)])
   (:use [simulator.strategies :only (init-strat-state explain)]))
 
 (defn add-new-entities
@@ -69,19 +69,23 @@
 
 (defn single-step
   [params sensors [trueevents gridstate strat-state]]
-  (let [sens (map #(update-spotted % gridstate) sensors)
-	ss (generate-hypotheses strat-state sens (:time gridstate))
-	ss2 (clear-considering (update-problem-data (explain ss)))
+  (let [time (:time gridstate)
+	sens (map #(update-spotted % gridstate) sensors)
+	ss (generate-hypotheses strat-state sens time)
+	ss2 (explain ss time)
+	ss3 (update-problem-data ss2 time)
 	[te gs] (random-walks (:MaxWalk params) trueevents (forward-time gridstate 1))
 	[newte newgs] (possibly-add-new-entities te gs)]
-    [newte newgs ss2]))
+    [newte newgs ss3]))
 
 (defn last-explanation
   [sensors [trueevents gridstate strat-state]]
-  (let [sens (map #(update-spotted % gridstate) sensors)
-	ss (generate-hypotheses strat-state sens (:time gridstate))
-	ss2 (clear-considering (update-problem-data (explain ss)))]
-    [trueevents ss2]))
+  (let [time (:time gridstate)
+	sens (map #(update-spotted % gridstate) sensors)
+	ss (generate-hypotheses strat-state sens time)
+	ss2 (explain ss time)
+	ss3 (update-problem-data ss2 time)]
+    [trueevents ss3]))
 
 (defn run
   [params strat-state]

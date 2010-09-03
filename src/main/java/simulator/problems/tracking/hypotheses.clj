@@ -29,14 +29,14 @@
 (defn add-hyp
   [strat-state time hyp spotted apriori]
   (let [hypspace (-> (:hypspace strat-state)
-		     (update-in [:hyps] conj spotted)
-		     (update-in [:hyps] conj hyp)
+		     (update-in [:hyps] union #{spotted})
+		     (update-in [:hyps] union #{hyp})
 		     (add-explainers spotted #{hyp})
 		     (set-apriori spotted 1.0)
 		     (set-apriori hyp apriori))]
     (-> strat-state
-	(update-in [:accepted] conj spotted)
-	(update-in [:considering] conj hyp)
+	(update-in [:accepted time] union #{spotted})
+	(update-in [:considering time] union #{hyp})
 	(assoc :hypspace hypspace)
 	(add-log-msg time
 		     (if (= (:type hyp) "new")
@@ -78,9 +78,6 @@
   (let [unique-spotted (set (apply concat (map :spotted sensors)))
 	candidate-entities
 	(filter-candidate-entities time (get-entities (:problem-data strat-state)))]
-    (doseq [e (get-entities (:problem-data strat-state))] (println (str e)))
-    (println (count candidate-entities))
-    (doseq [e candidate-entities] (println (str e)))
     
     (if (empty? candidate-entities)
 
@@ -114,9 +111,9 @@
 		(recur (rest pairs) ssconflicts)))))))
 
 (defn update-problem-data
-  [strat-state]
-  (loop [accepted (:accepted strat-state)
-	 rejected (:rejected strat-state)
+  [strat-state time]
+  (loop [accepted (get (:accepted strat-state) time)
+	 rejected (get (:rejected strat-state) time)
 	 eventlog (:problem-data strat-state)]
 
     (cond (and (empty? accepted) (empty? rejected))
@@ -153,7 +150,4 @@
 			       (remove-entity (:prev hyp))
 			       (add-entity (:entity hyp))))))))))
 
-(defn clear-considering
-  [strat-state]
-  (assoc strat-state :hypspace (assoc (:hypspace strat-state) :considering #{})))
 

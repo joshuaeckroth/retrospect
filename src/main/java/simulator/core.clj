@@ -6,9 +6,11 @@
 	 :only (run-with-new-record list-records prepare-hadoop cleanup-hadoop-results)])
   (:use [simulator.runners.hadoop :only (run-hadoop)])
   (:use [simulator.types.problem :only (start-player)])
-  (:use [clj-stacktrace.repl :only (pst+)]))
+  (:use [clj-stacktrace.repl :only (pst+)])
+  (:require [swank.swank]))
 
 (defn -main [& args]
+  (swank.swank/start-repl 4006)
   (try
     (with-command-line args
       "Simulator"

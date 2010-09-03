@@ -11,7 +11,8 @@
   (:use [simulator.problems.tracking.eventlog :only (get-events)])
   (:use [simulator.strategies :only (strategies init-strat-state)])
   (:use [simulator.problems.tracking.core :as tracking :only (run)])
-  (:use [simulator.evaluator :only (evaluate)]))
+  (:use [simulator.evaluator :only (evaluate)])
+  (:use [simulator.repl]))
 
 (def *gridpanel-width* 500)
 (def *gridpanel-height* 500)
@@ -197,14 +198,13 @@
 (defn update-logs-panel []
   (. *true-events-box* setText
      (apply str (map str (filter #(<= (:time %) *time*) *true-events*))))
-  (. *abducer-log-box* setText (apply str (map #(format "%s\n" %) *abducer-log*)))
+  (. *abducer-log-box* setText (apply str (get *abducer-log* *time*)))
   (. *strat-events-box*
      setText (apply str (map (fn [event]
 			       (format-event event (filter #(<= (:time %) *time*)
 							     *true-events*)))
 		     (filter #(<= (:time %) *time*) *strat-events*))))
-  (. *strat-log-box*
-     setText (apply str (map str (filter #(<= (:time %) *time*) *strat-log*)))))
+  (. *strat-log-box* setText (apply str (get *strat-log* *time*))))
 
 (defn next-step []
   (when (< *time* (:Steps *params*))
@@ -225,6 +225,7 @@
 	strategy (get-strategy)
 	{te :trueevents ss :stratstate sensors :sensors results :results}
 	(tracking/run params (init-strat-state strategy (EventLog. #{} #{})))]
+    (update-strat-state ss)
     (def *params* params)
     (def *abducer-log* (:abducer-log ss))
     (def *true-events* (get-events te))

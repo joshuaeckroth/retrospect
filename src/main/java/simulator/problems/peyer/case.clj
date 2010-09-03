@@ -130,7 +130,7 @@
 
 (defn build-hypspace
   [hyps]
-  (-> (HypothesisSpace. hyps {} {})
+  (-> (init-hypspace)
       (build-explainers hyps)
       (build-conflicts hyps)))
 

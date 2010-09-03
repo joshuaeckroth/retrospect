@@ -1,22 +1,39 @@
 (ns simulator.types.hypotheses
   (:use clojure.set))
 
-(defrecord HypothesisSpace [hyps explainers conflicts apriori])
+(defrecord HypothesisSpace [hyps explains explainers conflicts apriori])
 
-(defn init-hypspace
-  []
-  (HypothesisSpace. {} {} {} {}))
+(defn init-hypspace []
+  ;; hyps must be a set, rest must be maps
+  (HypothesisSpace. #{} {} {} {} {}))
 
 (defn get-explainers
   [hypspace hyp]
   (get (:explainers hypspace) hyp))
 
+(defn get-explains
+  [hypspace hyp]
+  (get (:explains hypspace) hyp))
+
+(defn add-single-explains
+  [hypspace explainer hyp]
+  "Record that 'explainer' is an explanation of 'hyp'."
+  (let [origexplains (get-explains hypspace explainer)
+	newexplains (assoc (:explains hypspace) explainer
+			   (if origexplains (conj origexplains hyp) #{hyp}))]
+    (assoc hypspace :explains newexplains)))
+
 (defn add-explainers
   [hypspace hyp es]
+  "Record that 'hyp' is explained by each of 'es'."
   (let [origexplainers (get-explainers hypspace hyp)
 	newexplainers (assoc (:explainers hypspace) hyp
 			     (if origexplainers (union origexplainers es) es))]
-    (assoc hypspace :explainers newexplainers)))
+    ;; add each 'explains' relationship...
+    (reduce (fn [hs e] (add-single-explains hs e hyp))
+	    ;; after adding the explainers
+	    (assoc hypspace :explainers newexplainers)
+	    es)))
 
 (defn get-conflicts
   [hypspace hyp]
@@ -40,7 +57,7 @@
 
 (defn explained?
   [hypspace hyp hyps]
-  "Is hyp explained by hyps?"
+  "Is 'hyp' explained by 'hyps'?"
   (let [explainers (get-explainers hypspace hyp)]
     (if (empty? explainers) true
 	(loop [es explainers]
