@@ -4,11 +4,11 @@
   (:use [simulator.problems.tracking.entities :only (EntityMethods pos)])
   (:use [simulator.problems.tracking.grid :only (entity-at)]))
 
-(defrecord SensorEntity [id time pos]
+(defrecord SensorEntity [id apriori time pos]
   EntityMethods
   (pos [this] (:pos this))
   Object
-  (toString [_] (format "SensorEntity %s %s@%d" id (str pos) time)))
+  (toString [_] (format "SensorEntity %s (a=%.2f) %s@%d" id apriori (str pos) time)))
 
 (defn make-sensorentity-id
   [pos time]
@@ -31,7 +31,7 @@
   [sensor gridstate]
   (assoc sensor :spotted
 	 (map #(SensorEntity. (make-sensorentity-id (pos %) (:time gridstate))
-			      (:time gridstate) (pos %))
+			      1.0 (:time gridstate) (pos %))
 	      (filter #(not (nil? %))
 		      (for [x (range (:left sensor) (inc (:right sensor)))
 			    y (range (:bottom sensor) (inc (:top sensor)))]

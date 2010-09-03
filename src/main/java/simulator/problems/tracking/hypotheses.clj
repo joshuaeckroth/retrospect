@@ -11,15 +11,16 @@
   (:use [simulator.strategies :only (add-log-msg)])
   (:use [clojure.set]))
 
-(defrecord TrackingHyp [id type time spotted entity prev event]
+(defrecord TrackingHyp [id apriori type time spotted entity prev event]
   Object
-  (toString [_] (format "TrackingHyp %s (%s)@%d (spotted: %s) %s - %s"
-			id type time spotted
+  (toString [_] (format "TrackingHyp %s (a=%.2f) (%s)@%d\n\t(spotted: %s)\n\t%s\n\t%s"
+			id apriori type time spotted
 			(if (= type "new") entity prev) event)))
 
 (defn make-hyp-id
-  [spotted time move?]
-  (format "TH%d%d%d%d" (if move? 1 0) (:x (pos spotted)) (:y (pos spotted)) time))
+  [spotted time prev]
+  (format "TH%d%d%d%s%s" (:x (pos spotted)) (:y (pos spotted)) time
+	  (if prev (str (:x (pos prev))) "X") (if prev (str (:y (pos prev))) "X")))
 
 (defn pair-near
   "For each spotted, find entities within walk distance."
@@ -39,6 +40,7 @@
 		     (set-apriori spotted 1.0)
 		     (set-apriori hyp apriori))]
     (-> strat-state
+	(update-in [:hypothesized-at time] union #{hyp spotted})
 	(update-in [:accepted time] union #{spotted})
 	(update-in [:considering time] union #{hyp})
 	(assoc :hypspace hypspace)
@@ -54,7 +56,7 @@
   (let [event (EventNew. (:time spotted) (pos spotted))
 	entity (Entity. [(EntitySnapshot. time (pos spotted))])]
     (add-hyp strat-state time
-	     (TrackingHyp. (make-hyp-id spotted time false)
+	     (TrackingHyp. (make-hyp-id spotted time nil) apriori
 			   "new" time spotted entity nil event)
 	     spotted apriori)))
 
@@ -63,7 +65,7 @@
   (let [event (EventMove. time (pos prev) (pos spotted))
 	entity (add-snapshot prev (EntitySnapshot. time (pos spotted)))]
     (add-hyp strat-state time
-	     (TrackingHyp. (make-hyp-id spotted time true)
+	     (TrackingHyp. (make-hyp-id spotted time prev) apriori
 			   "move" time spotted entity prev event)
 	     spotted apriori)))
 

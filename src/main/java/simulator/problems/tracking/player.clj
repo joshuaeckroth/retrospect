@@ -197,14 +197,15 @@
 
 (defn update-logs-panel []
   (. *true-events-box* setText
-     (apply str (map str (filter #(<= (:time %) *time*) *true-events*))))
-  (. *abducer-log-box* setText (apply str (get *abducer-log* *time*)))
+     (apply str (interpose "\n" (map str (filter #(<= (:time %) *time*) *true-events*)))))
+  (. *abducer-log-box* setText (apply str (interpose "\n" (get *abducer-log* *time*))))
   (. *strat-events-box*
-     setText (apply str (map (fn [event]
-			       (format-event event (filter #(<= (:time %) *time*)
-							     *true-events*)))
-		     (filter #(<= (:time %) *time*) *strat-events*))))
-  (. *strat-log-box* setText (apply str (get *strat-log* *time*))))
+     setText (apply str (interpose "\n"
+				   (map (fn [event]
+					  (format-event event (filter #(<= (:time %) *time*)
+								      *true-events*)))
+					(filter #(<= (:time %) *time*) *strat-events*)))))
+  (. *strat-log-box* setText (apply str (interpose "\n" (get *strat-log* *time*)))))
 
 (defn next-step []
   (when (< *time* (:Steps *params*))
@@ -361,15 +362,15 @@
 	(JScrollPane. *strat-events-box*))))
 
 (defn start-player []
+  (doto (JFrame. "Logs")
+    (.setContentPane *logspanel*)
+    (.setResizable false)
+    (.pack)
+    (.show))
   (doto (JFrame. "Tracking player")
     (.setContentPane *mainpanel*)
     (.setResizable false)
     (.setDefaultCloseOperation JFrame/EXIT_ON_CLOSE)
-    (.pack)
-    (.show))
-  (doto (JFrame. "Logs")
-    (.setContentPane *logspanel*)
-    (.setResizable false)
     (.pack)
     (.show)))
 

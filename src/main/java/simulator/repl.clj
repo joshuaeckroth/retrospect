@@ -40,7 +40,8 @@
   (print-hyps (grep re (:hyps (:hypspace *strat-state*)))))
 
 (defn hypothesized-at
-  [time])
+  [time]
+  (print-hyps (get (:hypothesized-at *strat-state*) time)))
 
 (defn rejected-at
   [time]
@@ -51,26 +52,50 @@
   (print-hyps (get (:accepted *strat-state*) time)))
 
 (defn unexplained-before
-  [time])
+  [time]
+  (print-hyps (get (:unexplained-before *strat-state*) time)))
 
 (defn unexplained-after
-  [time])
+  [time]
+  (print-hyps (get (:unexplained-after *strat-state*) time)))
 
 (defn considering-before
-  [time])
+  [time]
+  (print-hyps (get (:considering-before *strat-state*) time)))
 
 (defn considering-after
-  [time])
+  [time]
+  (print-hyps (get (:considering-after *strat-state*) time)))
 
 (defn accepted
   []
   (doseq [time (sort (keys (:rejected *strat-state*)))]
-    (println (format "Accepted at %d:" time))
+    (println (format "* Accepted at %d *" time))
     (rejected-at time)))
 
 (defn rejected
   []
   (doseq [time (sort (keys (:rejected *strat-state*)))]
-    (println (format "Rejected at %d:" time))
+    (println (format "* Rejected at %d *" time))
     (rejected-at time)))
 
+(defn accepted-rejected
+  []
+  (let [maxtime (apply max (concat (keys (:rejected *strat-state*))
+				   (keys (:accepted *strat-state*))))]
+    (doseq [time (range 0 (inc maxtime))]
+      (println (format "** Time %d **" time))
+      (println (format "* Accepted at %d *" time))
+      (accepted-at time)
+      (println (format "* Rejected at %d *" time))
+      (rejected-at time))))
+
+(defn abducer-log-at
+  [time]
+  (doseq [msg (get (:abducer-log *strat-state*) time)]
+    (println (str msg))))
+
+(defn log-at
+  [time]
+  (doseq [msg (get (:log *strat-state*) time)]
+    (println (str msg))))
