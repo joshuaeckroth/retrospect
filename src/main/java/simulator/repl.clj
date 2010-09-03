@@ -8,39 +8,47 @@
   [newss]
   (def *strat-state* newss))
 
+(defn lookup-hyp
+  [hypid]
+  (let [candidates (filter #(= hypid (:id %)) (:hyps (:hypspace *strat-state*)))]
+    (if (empty? candidates) nil (first candidates))))
+
 (defn print-hyps
   [hyps]
-  (doseq [h hyps] (println h)))
+  (doseq [h hyps] (println (str h))))
 
 (defn list-hyps []
   (print-hyps (:hyps (:hypspace *strat-state*))))
 
 (defn interrogate
-  [hyp])
+  [hypid])
 
 (defn explains
-  [hyp])
+  [hypid]
+  (print-hyps (get-explains (:hypspace *strat-state*) (lookup-hyp hypid))))
 
 (defn explainers
-  [hyp]
-  (print-hyps (get-explainers (:hypspace *strat-state*) hyp)))
+  [hypid]
+  (print-hyps (get-explainers (:hypspace *strat-state*) (lookup-hyp hypid))))
 
 (defn conflicts
-  [hyp]
-  (print-hyps (get-conflicts (:hypspace *strat-state*) hyp)))
+  [hypid]
+  (print-hyps (get-conflicts (:hypspace *strat-state*) (lookup-hyp hypid))))
 
 (defn grep-hyps
   [re]
-  (grep re (:hyps (:hypspace *strat-state*))))
+  (print-hyps (grep re (:hyps (:hypspace *strat-state*)))))
 
 (defn hypothesized-at
   [time])
 
 (defn rejected-at
-  [time])
+  [time]
+  (print-hyps (get (:rejected *strat-state*) time)))
 
 (defn accepted-at
-  [time])
+  [time]
+  (print-hyps (get (:accepted *strat-state*) time)))
 
 (defn unexplained-before
   [time])
@@ -53,4 +61,16 @@
 
 (defn considering-after
   [time])
+
+(defn accepted
+  []
+  (doseq [time (sort (keys (:rejected *strat-state*)))]
+    (println (format "Accepted at %d:" time))
+    (rejected-at time)))
+
+(defn rejected
+  []
+  (doseq [time (sort (keys (:rejected *strat-state*)))]
+    (println (format "Rejected at %d:" time))
+    (rejected-at time)))
 

@@ -11,11 +11,15 @@
   (:use [simulator.strategies :only (add-log-msg)])
   (:use [clojure.set]))
 
-(defrecord TrackingHyp [type time spotted entity prev event]
+(defrecord TrackingHyp [id type time spotted entity prev event]
   Object
-  (toString [_] (format "TrackingHyp (%s)@%d (spotted: %s) %s - %s"
-			type time spotted
+  (toString [_] (format "TrackingHyp %s (%s)@%d (spotted: %s) %s - %s"
+			id type time spotted
 			(if (= type "new") entity prev) event)))
+
+(defn make-hyp-id
+  [spotted time move?]
+  (format "TH%d%d%d%d" (if move? 1 0) (:x (pos spotted)) (:y (pos spotted)) time))
 
 (defn pair-near
   "For each spotted, find entities within walk distance."
@@ -50,7 +54,8 @@
   (let [event (EventNew. (:time spotted) (pos spotted))
 	entity (Entity. [(EntitySnapshot. time (pos spotted))])]
     (add-hyp strat-state time
-	     (TrackingHyp. "new" time spotted entity nil event)
+	     (TrackingHyp. (make-hyp-id spotted time false)
+			   "new" time spotted entity nil event)
 	     spotted apriori)))
 
 (defn add-hyp-move
@@ -58,7 +63,8 @@
   (let [event (EventMove. time (pos prev) (pos spotted))
 	entity (add-snapshot prev (EntitySnapshot. time (pos spotted)))]
     (add-hyp strat-state time
-	     (TrackingHyp. "move" time spotted entity prev event)
+	     (TrackingHyp. (make-hyp-id spotted time true)
+			   "move" time spotted entity prev event)
 	     spotted apriori)))
 
 (defn add-mutual-conflicts

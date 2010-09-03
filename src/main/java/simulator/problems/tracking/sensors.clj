@@ -4,11 +4,15 @@
   (:use [simulator.problems.tracking.entities :only (EntityMethods pos)])
   (:use [simulator.problems.tracking.grid :only (entity-at)]))
 
-(defrecord SensorEntity [time pos]
+(defrecord SensorEntity [id time pos]
   EntityMethods
   (pos [this] (:pos this))
   Object
-  (toString [_] (format "SensorEntity %s@%d" (str pos) time)))
+  (toString [_] (format "SensorEntity %s %s@%d" id (str pos) time)))
+
+(defn make-sensorentity-id
+  [pos time]
+  (format "SE%d%d%d" (:x pos) (:y pos) time))
 
 (defprotocol SensorMethods
   (sees [this x y]))
@@ -26,7 +30,8 @@
   "Create 'spotted' vector based on grid."
   [sensor gridstate]
   (assoc sensor :spotted
-	 (map #(SensorEntity. (:time gridstate) (pos %))
+	 (map #(SensorEntity. (make-sensorentity-id (pos %) (:time gridstate))
+			      (:time gridstate) (pos %))
 	      (filter #(not (nil? %))
 		      (for [x (range (:left sensor) (inc (:right sensor)))
 			    y (range (:bottom sensor) (inc (:top sensor)))]
