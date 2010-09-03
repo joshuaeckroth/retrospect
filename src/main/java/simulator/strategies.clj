@@ -43,11 +43,17 @@
 
 (defn add-log-msg
   [strat-state time msg]
-  (update-in strat-state [:log time] conj (LogEntry. time msg)))
+  (let [entry (LogEntry. time msg)]
+    (if (get (:log strat-state) time)
+      (update-in strat-state [:log time] conj entry)
+      (update-in strat-state [:log] assoc time [entry]))))
 
 (defn add-abducer-log-msg
   [strat-state time hyps msg]
-  (update-in strat-state [:abducer-log time] conj (AbducerLogEntry. time hyps msg)))
+  (let [entry (AbducerLogEntry. time hyps msg)]
+    (if (get (:abducer-log strat-state) time)
+      (update-in strat-state [:abducer-log time] conj entry)
+      (update-in strat-state [:abducer-log] assoc time [entry]))))
 
 (defn format-logs
   [strat-state]

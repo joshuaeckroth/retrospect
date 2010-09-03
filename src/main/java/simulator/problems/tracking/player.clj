@@ -12,7 +12,8 @@
   (:use [simulator.strategies :only (strategies init-strat-state)])
   (:use [simulator.problems.tracking.core :as tracking :only (run)])
   (:use [simulator.evaluator :only (evaluate)])
-  (:use [simulator.repl]))
+  (:use [simulator.repl])
+  (:use [simulator.problems.tracking.repl]))
 
 (def *gridpanel-width* 500)
 (def *gridpanel-height* 500)
@@ -227,6 +228,7 @@
 	{te :trueevents ss :stratstate sensors :sensors results :results}
 	(tracking/run params (init-strat-state strategy (EventLog. #{} #{})))]
     (update-strat-state ss)
+    (update-trueevents te)
     (def *params* params)
     (def *abducer-log* (:abducer-log ss))
     (def *true-events* (get-events te))

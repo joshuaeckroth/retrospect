@@ -92,7 +92,7 @@
 		  expapriori (map (fn [e] {:explainer e
 					   :apriori (get-apriori hypspace e)})
 				  explainers)
-		  expsorted (sort-by :apriori expapriori)]
+		  expsorted (reverse (sort-by :apriori expapriori))]
 	      
 	      (cond (empty? expsorted) nil
 

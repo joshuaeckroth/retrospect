@@ -5,8 +5,8 @@
 (def *strat-state*)
 
 (defn update-strat-state
-  [newss]
-  (def *strat-state* newss))
+  [ss]
+  (def *strat-state* ss))
 
 (defn lookup-hyp
   [hypid]
