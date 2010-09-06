@@ -94,7 +94,8 @@
   [id date commit params]
   (str
    (format "%s (%s)\n" id date)
-   (format "  Commit: %s\n" (apply str commit))
+   (format "  Commit: https://github.com/joshuaeckroth/Simulator/commit/%s\n"
+	   (apply str commit))
    "  Params:\n"
    (apply str (for [p params] (format "    %s\n" p)))
    "\n"))
@@ -109,10 +110,13 @@
   (apply println
    (let [records (filter #(.isDirectory %) (.listFiles (File. recordsdir)))]
      (for [r (sort-by #(.toString %) records)]
-       (let [meta (zip/xml-zip (xml/parse (File. r "meta.xml")))
-	     id (.getName r)
-	     date (.toString (Date. (Long/parseLong id)))
-	     commit (zf/xml-> meta :git-commit zf/text)
-	     params (zf/xml-> meta :params params-str)]
-	 (record-str id date commit params))))))
+       (try
+	 (let [meta (zip/xml-zip (xml/parse (File. r "meta.xml")))
+	       id (.getName r)
+	       date (.toString (Date. (Long/parseLong id)))
+	       commit (zf/xml-> meta :git-commit zf/text)
+	       params (zf/xml-> (zip/xml-zip (xml/parse (File. r "params.xml")))
+				:params params-str)]
+	   (record-str id date commit params))
+	 (catch Exception e))))))
 

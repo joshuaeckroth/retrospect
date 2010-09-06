@@ -10,7 +10,6 @@
   (:require [swank.swank]))
 
 (defn -main [& args]
-  (swank.swank/start-repl 4006)
   (try
     (with-command-line args
       "Simulator"
@@ -37,7 +36,9 @@
 	      "list"
 	      (list-records recordsdir)
 	      "player"
-	      (start-player prob)
+	      (do
+		(swank.swank/start-repl 4006)
+		(start-player prob))
 
 	      (println "No action given."))))
     (catch Exception e (pst+ e))))
