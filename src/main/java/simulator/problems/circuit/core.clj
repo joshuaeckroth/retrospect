@@ -121,6 +121,51 @@
 	 :else
 	 (recur))))))
 
+(defn find-input-nodes
+  [j wiring]
+  (filter identity (map (fn [i] (if (nth (nth wiring i) j) i)) (range (count wiring)))))
+
+(defn find-input-node-values
+  [i wiring outputs]
+  (map (fn [j] (nth outputs j)) (find-input-nodes i wiring)))
+
+(defn eval-outputs
+  [gates wiring outputs]
+  (loop [i 0
+	 os outputs]
+    (let [input-node-values (find-input-node-values i wiring os)]
+      (cond (= i (count gates)) os
+	  
+	    (or (= (nth gates i) true) (= (nth gates i) false))
+	    (recur (inc i) (assoc (vec os) i (nth gates i)))
+	  
+	    (and (= (nth os i) \?)
+		 (not-any? #(= \? %) input-node-values))
+	    (recur (inc i) (assoc (vec os) i (apply (nth gates i) input-node-values)))
+
+	    :else (recur (inc i) os)))))
+
+(defn evaluate-circuit
+  [gates wiring]
+  (loop [outputs (repeat (count gates) \?)]
+    (if (not-any? #(= \? %) outputs) outputs
+	(recur (eval-outputs gates wiring outputs)))))
+
+(defn format-evaluate-circuit
+  [gates wiring]
+  (let [outputs (evaluate-circuit gates wiring)
+	input-idxs (find-inputs gates)
+	output-idxs (find-outputs wiring)]
+    (format "%s\n%s"
+	    (apply str (interpose "; " (map #(format "input %d=%s"
+						     (input-index % gates)
+						     (nth outputs %))
+					    input-idxs)))
+	    (apply str (interpose "; " (map #(format "output %d=%s"
+						     (output-index % wiring)
+						     (nth outputs %))
+					    output-idxs))))))
+
 (defn make-graphviz-nodes
   [gates]
   (loop [i 0
