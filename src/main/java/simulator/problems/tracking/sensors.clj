@@ -59,3 +59,10 @@
     (let [measured (measure-sensor-coverage width height sensors)]
       (if (and (> measured (- coverage 5.0)) (< measured (+ coverage 5.0))) sensors
 	  (recur (generate-sensors-sample width height))))))
+
+(defn measure-sensor-overlap
+  [width height sensors]
+  (let [count-xy
+	(for [x (range width) y (range height)]
+	  (count (filter identity (map (fn [s] (sees s x y)) sensors))))]
+    (double (/ (reduce + count-xy) (* width height)))))

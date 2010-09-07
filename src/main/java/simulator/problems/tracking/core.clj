@@ -12,7 +12,8 @@
   (:use [simulator.problems.tracking.grid :only
 	 (new-grid new-entity update-grid-entity walk1 forward-time)])
   (:use [simulator.problems.tracking.sensors :only
-	 (update-spotted generate-sensors-with-coverage measure-sensor-coverage)])
+	 (update-spotted generate-sensors-with-coverage measure-sensor-coverage
+			 measure-sensor-overlap)])
   (:use [simulator.problems.tracking.hypotheses :only
 	 (generate-hypotheses update-problem-data)])
   (:use [simulator.problems.tracking.positions :only
@@ -128,6 +129,7 @@
 	     :AvgWalk (calc-average-walk te)
 	     :SensorCoverage (measure-sensor-coverage
 			      (:GridWidth params) (:GridHeight params) sensors)
-	     :SensorOverlap 0)})))))
+	     :SensorOverlap (measure-sensor-overlap
+			     (:GridWidth params) (:GridHeight params) sensors))})))))
 
 
