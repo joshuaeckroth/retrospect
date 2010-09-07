@@ -25,4 +25,10 @@
   [entities]
   (dorun (map #(println (str %)) entities)))
 
+(defn pair-snapshots
+  [entity]
+  (for [i (range 1 (count (:snapshots entity)))]
+    [(nth (:snapshots entity) (dec i)) (nth (:snapshots entity) i)]))
+
+
 

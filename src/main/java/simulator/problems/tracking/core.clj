@@ -5,7 +5,7 @@
   (:import [simulator.problems.tracking.grid GridState])
   (:use clojure.set)
   (:use [simulator.evaluator :only (evaluate)])
-  (:use [simulator.problems.tracking.entities :only (pos)])
+  (:use [simulator.problems.tracking.entities :only (pos pair-snapshots)])
   (:use [simulator.problems.tracking.eventlog :only
 	 (init-event-log add-entity add-event add-event-new add-event-move
 			 update-entity get-entities)])
@@ -15,6 +15,8 @@
 	 (update-spotted generate-sensors-with-coverage measure-sensor-coverage)])
   (:use [simulator.problems.tracking.hypotheses :only
 	 (generate-hypotheses update-problem-data)])
+  (:use [simulator.problems.tracking.positions :only
+	 (manhattan-distance)])
   (:use [simulator.strategies :only (init-strat-state explain)]))
 
 (defn add-new-entities
@@ -87,6 +89,21 @@
 	ss3 (update-problem-data ss2 time)]
     [trueevents ss3]))
 
+(defn calc-average-walk
+  [trueevents]
+  (let [calc-walk-sum
+	(fn [sum [es-old es-new]]
+	  (+ sum (manhattan-distance (:pos es-old) (:pos es-new))))
+
+	sum-walks
+	(fn [pairs] (reduce calc-walk-sum 0 pairs))
+
+	walk-avgs
+	(map (fn [e] (let [pairs (pair-snapshots e)]
+		       (if (empty? pairs) 0 (/ (sum-walks pairs) (count pairs)))))
+	     (get-entities trueevents))]
+    (double (/ (reduce + 0 walk-avgs) (count walk-avgs)))))
+
 (defn run
   [params strat-state]
   (let [sensors (generate-sensors-with-coverage
@@ -108,7 +125,7 @@
 	     :StrategyCompute 0
 	     :StrategyMilliseconds 0
 	     :StrategyMemory 0
-	     :AvgWalk 0
+	     :AvgWalk (calc-average-walk te)
 	     :SensorCoverage (measure-sensor-coverage
 			      (:GridWidth params) (:GridHeight params) sensors)
 	     :SensorOverlap 0)})))))
