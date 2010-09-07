@@ -74,6 +74,14 @@
 			       (= false (nth gates i))) i))
 	       (range (count gates)))))
 
+(defn input-index
+  [i gates]
+  (let [inputs (find-inputs gates)]
+    (loop [index 0]
+      (cond (= index (count inputs)) nil
+	    (= (nth inputs index) i) index
+	    :else (recur (inc index))))))
+
 (defn find-outputs
   [wiring]
   (filter identity
@@ -121,8 +129,8 @@
 
 	  (or (= (nth gates i) false) (= (nth gates i) true))
 	  (recur (inc i) (str graphviz
-			      (format "gate%d [label=\"%s\", shape=\"plaintext\"];\n"
-				      i (nth gates i))))
+			      (format "gate%d [label=\"%d=%s\", shape=\"plaintext\"];\n"
+				      i (input-index i gates) (nth gates i))))
 
 	  :else
 	  (recur (inc i)
