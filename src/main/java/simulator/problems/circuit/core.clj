@@ -74,6 +74,20 @@
 			       (= false (nth gates i))) i))
 	       (range (count gates)))))
 
+(defn find-outputs
+  [wiring]
+  (filter identity
+	  (map (fn [i] (if (not-any? identity (nth wiring i)) i))
+	       (range (count wiring)))))
+
+(defn output-index
+  [i wiring]
+  (let [outputs (find-outputs wiring)]
+    (loop [index 0]
+      (cond (= index (count outputs)) nil
+	    (= (nth outputs index) i) index
+	    :else (recur (inc index))))))
+
 (defn valid-wiring
   [gates wiring inputs]
   (and
@@ -119,6 +133,16 @@
 				    (= (nth gates i) not-gate) "not"
 				    :else "unknown")))))))
 
+(defn make-graphviz-edge
+  [i gates wiring]
+  (let [con (filter identity (for [j (range (count gates))]
+			       (if (nth (nth wiring i) j) j)))
+	oi (output-index i wiring)]
+    (if oi ;; gate connects to nothing; make an output node
+      (format "gate%dout [label=\"%d\", shape=\"box\"];\ngate%d -> gate%dout;\n"
+	      i oi i i)
+      (apply str (map (fn [j] (format "gate%d -> gate%d;\n" i j)) con)))))
+
 (defn make-graphviz-string
   [gates wiring]
   (loop [i 0
@@ -126,11 +150,7 @@
     (cond (= i (count gates)) (str graphviz "}\n")
 
 	  :else
-	  (let [con (filter identity (for [j (range (count gates))]
-				       (if (nth (nth wiring i) j) j)))
-		con-str (apply str (map (fn [j] (format "gate%d -> gate%d;\n" i j))
-					con))]
-	    (recur (inc i) (str graphviz con-str))))))
+	  (recur (inc i) (str graphviz (make-graphviz-edge i gates wiring))))))
 
 (defn view-graphviz
   [filename gates wiring]
