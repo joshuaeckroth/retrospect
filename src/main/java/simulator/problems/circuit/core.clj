@@ -17,28 +17,46 @@
 
 (def and-gate (fn [a b] (and a b)))
 
+(def broken-and-gate (fn [a b] (not (and a b))))
+
 (def or-gate (fn [a b] (or a b)))
+
+(def broken-or-gate (fn [a b] (not (or a b))))
 
 (def not-gate (fn [a] (not a)))
 
-(def choices [true false and-gate or-gate not-gate])
+(def broken-not-gate (fn [a] a))
+
+(def choices
+  [{:fn true :str "true" :input true}
+   {:fn false :str "false" :input true}
+   {:fn and-gate :str "and" :input false :broken-fn broken-and-gate :broken false}
+   {:fn or-gate :str "or" :input false :broken-fn broken-or-gate :broken false}
+   {:fn not-gate :str "not" :input false :broken-fn broken-not-gate :broken false}])
+
+(defn rand-gate
+  [choices]
+  (let [choice (rand-nth choices)
+	broken? (< 0.8 (rand))]
+    (assoc choice :broken broken?)))
 
 (defn rand-gates
   [n choices]
-  (let [mkgates #(map (fn [i] (rand-nth choices)) (range n))]
-    (loop [gates (mkgates)
-	   c 0]
-      (let [input-count (count (filter (fn [g] (or (= g false) (= g true))) gates))]
+  (let [mkgates #(map (fn [i] (rand-gate choices)) (range n))]
+    (loop [gates (mkgates)]
+      (let [input-count (count (filter :input gates))]
 	;; ensure there are some inputs and fewer than (n-1) inputs
 	(if (or (= input-count 0) (>= input-count (- n 1)))
-	  (recur (mkgates) (inc c))
+	  (recur (mkgates))
 	  gates)))))
 
 (defn rand-wiring-column
   [i inputs gates]
   (if (not-any? #(= i %) inputs) ;; not an input column
     ;; make exactly "arity" number of trues
-    (let [arity (arg-count (nth gates i))
+    (let [arity (arg-count (if (:broken (nth gates i))
+			     (:broken-fn (nth gates i))
+			     (:fn (nth gates i))))
 	  trues (repeat arity true)
 	  falses (repeat (- (count gates) arity) false)
 	  column (vec (shuffle (concat trues falses)))]
@@ -70,8 +88,7 @@
 (defn find-inputs
   [gates]
   (filter identity
-	  (map (fn [i] (if (or (= true (nth gates i))
-			       (= false (nth gates i))) i))
+	  (map (fn [i] (if (:input (nth gates i)) i))
 	       (range (count gates)))))
 
 (defn input-index
@@ -118,32 +135,37 @@
 	 (valid-wiring gates wiring inputs)
 	 [gates wiring]
 
-	 :else
-	 (recur))))))
+	 :else (recur))))))
 
-(defn find-input-nodes
+(defn find-gate-input-nodes
   [j wiring]
   (filter identity (map (fn [i] (if (nth (nth wiring i) j) i)) (range (count wiring)))))
 
-(defn find-input-node-values
+(defn find-gate-input-node-values
   [i wiring outputs]
-  (map (fn [j] (nth outputs j)) (find-input-nodes i wiring)))
+  (map (fn [j] (nth outputs j)) (find-gate-input-nodes i wiring)))
 
 (defn eval-outputs
   [gates wiring outputs]
   (loop [i 0
 	 os outputs]
-    (let [input-node-values (find-input-node-values i wiring os)]
-      (cond (= i (count gates)) os
+    (if (= i (count gates)) os
+	(let [input-node-values (find-gate-input-node-values i wiring os)
+	      gate (nth gates i)]
+	  (cond 
 	  
-	    (or (= (nth gates i) true) (= (nth gates i) false))
-	    (recur (inc i) (assoc (vec os) i (nth gates i)))
+	   (:input gate)
+	   (recur (inc i) (assoc (vec os) i (:fn gate)))
 	  
-	    (and (= (nth os i) \?)
-		 (not-any? #(= \? %) input-node-values))
-	    (recur (inc i) (assoc (vec os) i (apply (nth gates i) input-node-values)))
+	   (and (= (nth os i) \?)
+		(not-any? #(= \? %) input-node-values))
+	   (recur (inc i) (assoc (vec os) i
+				 (apply (if (:broken gate)
+					  (:broken-fn gate)
+					  (:fn gate))
+					input-node-values)))
 
-	    :else (recur (inc i) os)))))
+	   :else (recur (inc i) os))))))
 
 (defn evaluate-circuit
   [gates wiring]
@@ -170,21 +192,20 @@
   [gates]
   (loop [i 0
 	 graphviz ""]
-    (cond (= i (count gates)) graphviz
+    (if (= i (count gates)) graphviz
+	(let [gate (nth gates i)]
+	  (cond 
 
-	  (or (= (nth gates i) false) (= (nth gates i) true))
-	  (recur (inc i) (str graphviz
-			      (format "gate%d [label=\"%d=%s\", shape=\"plaintext\"];\n"
-				      i (input-index i gates) (nth gates i))))
+	   (:input gate)
+	   (recur (inc i) (str graphviz
+			       (format "gate%d [label=\"%d=%s\", shape=\"plaintext\"];\n"
+				       i (input-index i gates) (:str gate))))
 
-	  :else
-	  (recur (inc i)
-	       (str graphviz
-		    (format "gate%d [label=\"%s\"];\n"
-			    i (cond (= (nth gates i) and-gate) "and"
-				    (= (nth gates i) or-gate) "or"
-				    (= (nth gates i) not-gate) "not"
-				    :else "unknown")))))))
+	   :else
+	   (recur (inc i)
+		  (str graphviz
+		       (format "gate%d [label=\"%s\", color=\"%s\"];\n"
+			       i (:str gate) (if (:broken gate) "blue" "black")))))))))
 
 (defn make-graphviz-edge
   [i gates wiring]
