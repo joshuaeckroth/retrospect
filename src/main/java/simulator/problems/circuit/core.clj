@@ -146,7 +146,7 @@
   (map (fn [j] (nth outputs j)) (find-gate-input-nodes i wiring)))
 
 (defn eval-outputs
-  [gates wiring outputs]
+  [gates wiring outputs eval-broken?]
   (loop [i 0
 	 os outputs]
     (if (= i (count gates)) os
@@ -160,7 +160,7 @@
 	   (and (= (nth os i) \?)
 		(not-any? #(= \? %) input-node-values))
 	   (recur (inc i) (assoc (vec os) i
-				 (apply (if (:broken gate)
+				 (apply (if (and eval-broken? (:broken gate))
 					  (:broken-fn gate)
 					  (:fn gate))
 					input-node-values)))
@@ -168,14 +168,14 @@
 	   :else (recur (inc i) os))))))
 
 (defn evaluate-circuit
-  [gates wiring]
+  [gates wiring eval-broken?]
   (loop [outputs (repeat (count gates) \?)]
     (if (not-any? #(= \? %) outputs) outputs
-	(recur (eval-outputs gates wiring outputs)))))
+	(recur (eval-outputs gates wiring outputs eval-broken?)))))
 
 (defn format-evaluate-circuit
-  [gates wiring]
-  (let [outputs (evaluate-circuit gates wiring)
+  [gates wiring eval-broken?]
+  (let [outputs (evaluate-circuit gates wiring eval-broken?)
 	input-idxs (find-inputs gates)
 	output-idxs (find-outputs wiring)]
     (format "%s\n%s"
@@ -187,6 +187,13 @@
 						     (output-index % wiring)
 						     (nth outputs %))
 					    output-idxs))))))
+
+(defn find-differences
+  [gates wiring]
+  (let [expected (evaluate-circuit gates wiring false)
+	obtained (evaluate-circuit gates wiring true)]
+    (filter identity (map (fn [i] (if (not= (nth expected i) (nth obtained i)) i))
+			  (range (count expected))))))
 
 (defn make-graphviz-nodes
   [gates]
