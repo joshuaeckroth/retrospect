@@ -1,6 +1,7 @@
 (ns simulator.problems.circuit.core
   (:use [clojure.java.io :only (writer)])
-  (:use [clojure.contrib.shell :only (sh)]))
+  (:use [clojure.contrib.shell :only (sh)])
+  (:use [clojure.set]))
 
 ;; http://stackoverflow.com/questions/1696693/
 ;; clojure-how-to-find-out-the-arity-of-function-at-runtime/1813967#1813967
@@ -22,10 +23,10 @@
 
 (def outputs [true false \? \? \?])
 
-(def wiring [[false false true false false]
+(def wiring [[false false true true false]
+	     [false false true false false]
 	     [false false false true false]
-	     [false false false true false]
-	     [false false true false true]
+	     [false false false false true]
 	     [false false false false false]])
 
 (defn rand-gates
@@ -35,10 +36,18 @@
       (nth choices r))))
 
 (defn rand-wiring
-  [n]
-  (for [i (range n)]
-    (for [j (range n)]
-      (= 0 (rand-int 2)))))
+  [n inputs]
+  (let [mkrow (fn [n]
+		(for [j (range n)]
+		  ;; if it's an input column, make it false
+		  ;; because nothing connects to inputs
+		  (if (some #(= j %) inputs) false
+		      (= 0 (rand-int 2)))))]
+    (for [i (range n)]
+      (loop [row (mkrow n)]
+	   ;; make sure an input row is not completely "false"
+	(if (and (some #(= i %) inputs) (not-any? identity row))
+	  (recur (mkrow n)) row)))))
 
 (defn gates-point-to-inputs
   [inputs wiring]
@@ -55,26 +64,49 @@
 				  (for [i (range (count gates))]
 				    (nth (nth wiring i) j)))))))))
 
+(defn has-cycle
+  [wiring i visited]
+  (let [neighbors (set (filter identity (for [j (range (count (nth wiring i)))]
+					  (if (nth (nth wiring i) j) j))))
+	unvisited (difference neighbors visited)]
+    (cond
+     (not-empty (intersection neighbors (conj visited i))) true
+     (empty? unvisited) false
+     :else (some identity (map (fn [neighbor] (has-cycle wiring neighbor (conj visited i)))
+			       unvisited)))))
+
+(defn has-cycles
+  [wiring]
+  (some identity (map (fn [i] (has-cycle wiring i #{})) (range (count wiring)))))
+
+(defn find-inputs
+  [gates]
+  (filter identity
+	  (map (fn [i] (if (or (= true (nth gates i))
+			       (= false (nth gates i))) i))
+	       (range (count gates)))))
+
 (defn valid-wiring
-  [gates wiring]
-  (let [inputs (filter identity (map (fn [i] (if (or (= true (nth gates i))
-						     (= false (nth gates i))) i))
-				     (range (count gates))))]
-    (cond (or (empty? inputs) (= (count gates) (count inputs))) false
+  [gates wiring inputs]
+  (cond (or (empty? inputs) (= (count gates) (count inputs))) false
 
-	  (gates-point-to-inputs inputs wiring) false
+	(gates-point-to-inputs inputs wiring) false
 
-	  (not (arity-matches gates wiring)) false
+	(not (arity-matches gates wiring)) false
 
-	  :else true)))
+	(has-cycles wiring) false
+
+	:else true))
 
 (defn rand-gates-wiring
   []
-  (loop [n (+ 6 (rand-int 20))]
-    (let [gates (rand-gates n choices)
-	  wiring (rand-wiring n)]
-      (if (valid-wiring gates wiring) [gates wiring]
-	  (recur (+ 6 (rand-int 20)))))))
+  (let [n (rand-int 8)]
+    (loop [c 0]
+      (let [gates (rand-gates n choices)
+	    inputs (find-inputs gates)
+	    wiring (rand-wiring n inputs)]
+	(if (valid-wiring gates wiring inputs) (do (println c) [gates wiring])
+	    (recur (inc c)))))))
 
 (defn make-graphviz-nodes
   [gates]
