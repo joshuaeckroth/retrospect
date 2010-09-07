@@ -11,6 +11,10 @@
 	p (.getParameterTypes m)]
     (alength p)))
 
+;; http://rosettacode.org/wiki/Matrix_transposition#Clojure
+(defn transpose [m] 
+  (vec (apply map vector m)))
+
 (def and-gate (fn [a b] (and a b)))
 
 (def or-gate (fn [a b] (or a b)))
@@ -19,50 +23,34 @@
 
 (def choices [true false and-gate or-gate not-gate])
 
-(def gates [true false and-gate or-gate not-gate])
-
-(def outputs [true false \? \? \?])
-
-(def wiring [[false false true true false]
-	     [false false true false false]
-	     [false false false true false]
-	     [false false false false true]
-	     [false false false false false]])
-
 (defn rand-gates
   [n choices]
-  (for [i (range n)]
-    (let [r (rand-int (count choices))]
-      (nth choices r))))
+  (let [mkgates #(map (fn [i] (rand-nth choices)) (range n))]
+    (loop [gates (mkgates)
+	   c 0]
+      (let [input-count (count (filter (fn [g] (or (= g false) (= g true))) gates))]
+	;; ensure there are some inputs and fewer than (n-1) inputs
+	(if (or (= input-count 0) (>= input-count (- n 1)))
+	  (recur (mkgates) (inc c))
+	  gates)))))
+
+(defn rand-wiring-column
+  [i inputs gates]
+  (if (not-any? #(= i %) inputs) ;; not an input column
+    ;; make exactly "arity" number of trues
+    (let [arity (arg-count (nth gates i))
+	  trues (repeat arity true)
+	  falses (repeat (- (count gates) arity) false)
+	  column (vec (shuffle (concat trues falses)))]
+      (if (nth column i) (recur i inputs gates) ;; try again if self-loop
+	  column))
+    
+    ;; otherwise, it's an input column, so it's all falses
+    (vec (repeat (count gates) false))))
 
 (defn rand-wiring
-  [n inputs]
-  (let [mkrow (fn [n]
-		(for [j (range n)]
-		  ;; if it's an input column, make it false
-		  ;; because nothing connects to inputs
-		  (if (some #(= j %) inputs) false
-		      (= 0 (rand-int 2)))))]
-    (for [i (range n)]
-      (loop [row (mkrow n)]
-	   ;; make sure an input row is not completely "false"
-	(if (and (some #(= i %) inputs) (not-any? identity row))
-	  (recur (mkrow n)) row)))))
-
-(defn gates-point-to-inputs
-  [inputs wiring]
-  (some (fn [i] (some identity (for [j (range (count wiring))] (nth (nth wiring j) i))))
-	inputs))
-
-(defn arity-matches
-  [gates wiring]
-  (every? identity
-	  (for [j (range (count gates))]
-	    (or (or (= (nth gates j) true) (= (nth gates j) false))
-		(= (arg-count (nth gates j))
-		   (count (filter identity
-				  (for [i (range (count gates))]
-				    (nth (nth wiring i) j)))))))))
+  [n inputs gates]
+  (transpose (for [i (range n)] (rand-wiring-column i inputs gates))))
 
 (defn has-cycle
   [wiring i visited]
@@ -88,25 +76,28 @@
 
 (defn valid-wiring
   [gates wiring inputs]
-  (cond (or (empty? inputs) (= (count gates) (count inputs))) false
+  (and
+   ;; each input connects to at least on gate
+   (every? identity (for [i inputs] (some identity (nth wiring i))))
 
-	(gates-point-to-inputs inputs wiring) false
-
-	(not (arity-matches gates wiring)) false
-
-	(has-cycles wiring) false
-
-	:else true))
+   ;; no cycles
+   (not (has-cycles wiring))))
 
 (defn rand-gates-wiring
   []
-  (let [n (rand-int 8)]
-    (loop [c 0]
+  (let [n (+ 3 (rand-int 30))]
+    (loop []
       (let [gates (rand-gates n choices)
 	    inputs (find-inputs gates)
-	    wiring (rand-wiring n inputs)]
-	(if (valid-wiring gates wiring inputs) (do (println c) [gates wiring])
-	    (recur (inc c)))))))
+	    wiring (rand-wiring n inputs gates)]
+	(cond
+	 (nil? wiring) (recur)
+	 
+	 (valid-wiring gates wiring inputs)
+	 [gates wiring]
+
+	 :else
+	 (recur))))))
 
 (defn make-graphviz-nodes
   [gates]
