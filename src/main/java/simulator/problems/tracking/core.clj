@@ -123,9 +123,9 @@
 	     :Milliseconds (/ (double (- (. System (nanoTime)) startTime)) 1000000.0)
 	     :PercentCorrect (evaluate te ss)
 	     :Strategy (:strategy ss)
-	     :StrategyCompute 0
-	     :StrategyMilliseconds 0
-	     :StrategyMemory 0
+	     :StrategyCompute (:compute (:resources ss))
+	     :StrategyMilliseconds (:milliseconds (:resources ss))
+	     :StrategyMemory (:memory (:resources ss))
 	     :AvgWalk (calc-average-walk te)
 	     :SensorCoverage (measure-sensor-coverage
 			      (:GridWidth params) (:GridHeight params) sensors)

@@ -19,7 +19,7 @@
   (StrategyState. strategy
 		  (init-hypspace)
 		  {} {} {} {} {} {} {} {} {} {} ;; these are maps, keyed by time
-		  {} pdata))
+		  {:compute 0 :milliseconds 0 :memory 0} pdata))
 
 (defn prepare-strat-state
   [strat-state time]
@@ -32,14 +32,18 @@
 	(update-in [:considering-before] assoc time considering-before))))
 
 (defn postprocess-strat-state
-  [strat-state time]
+  [strat-state time startTime]
   (let [unexplained-after (find-unexplained
 			   (:hypspace strat-state)
 			   (get (:accepted strat-state) time))
-	considering-after (get (:considering strat-state) time)]
+	considering-after (get (:considering strat-state) time)
+	milliseconds (+ (:milliseconds (:resources strat-state))
+			(/ (- (. System (nanoTime)) startTime)
+			   1000000.0))]
     (-> strat-state
 	(update-in [:unexplained-after] assoc time unexplained-after)
-	(update-in [:considering-after] assoc time considering-after))))
+	(update-in [:considering-after] assoc time considering-after)
+	(update-in [:resources] assoc :milliseconds milliseconds))))
 
 (defn add-log-msg
   [strat-state time msg]
@@ -233,6 +237,7 @@
 (defn explain
   [strat-state time]
   (let [ss (prepare-strat-state strat-state time)
+	startTime (. System (nanoTime))
 	ss2
 	(case (:strategy ss)
 	      "guess" (explain-guess ss time)
@@ -240,7 +245,7 @@
 	      "essentials-clearbest-guess" (explain-essentials-clearbest-guess ss time)
 	      "essentials-clearbest-weakbest-guess"
 	      (explain-essentials-clearbest-weakbest-guess ss time))]
-    (postprocess-strat-state ss2 time)))
+    (postprocess-strat-state ss2 time startTime)))
 
 (def strategies ["guess" "essentials-guess" "essentials-clearbest-guess"
 		 "essentials-clearbest-weakbest-guess"])
