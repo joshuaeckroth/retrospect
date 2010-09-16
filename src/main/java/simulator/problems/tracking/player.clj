@@ -1,5 +1,4 @@
 (ns simulator.problems.tracking.player
-  (:import (java.io BufferedWriter FileWriter))
   (:import (java.awt Color Graphics2D Dimension GridBagLayout Insets RenderingHints))
   (:import (java.awt.image BufferedImage))
   (:import (javax.swing JPanel JFrame JButton JTextField JTextArea
