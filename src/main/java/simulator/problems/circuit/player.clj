@@ -3,19 +3,35 @@
   (:import (java.awt.image BufferedImage))
   (:import (javax.imageio ImageIO))
   (:import (javax.swing JPanel JFrame JButton JTextField JTextArea
-                        JLabel JScrollPane JSpinner SpinnerNumberModel JComboBox))
+                        JLabel JScrollPane JSpinner SpinnerNumberModel JComboBox
+                        JTable))
+  (:import (javax.swing.table AbstractTableModel))
   (:import (java.io File))
   (:use [simulator.strategies :only (strategies)])
   (:use [simulator.problems.circuit.core
-         :only (rand-gates-wiring make-input-vals save-graphviz)]))
+         :only (rand-gates-wiring make-input-vals save-graphviz transpose)]))
+
+(def *table-headers* ["Blah 1" "Blah 2"])
+(def *table-data* (transpose [[0 1] [2 3]]))
+
+(def *table-model*
+  (proxy [AbstractTableModel] []
+    (getColumnCount [] (count *table-headers*))
+    (getRowCount [] (count *table-data*))
+    (getColumnName [col] (nth *table-headers* col))
+    (getValueAt [row col] (nth (nth *table-data* row) col))))
 
 (def *graphpng* nil)
+(def *table* (JTable. *table-model*))
+(def *gates* nil)
+(def *wiring* nil)
+(def *input-vals* nil)
 
 (def *resultslabel* (JLabel. "Correct: "))
 
 (def *param-spinners*
   {:MinGates (JSpinner. (SpinnerNumberModel. 3 3 1000 1))
-   :MaxGates (JSpinner. (SpinnerNumberModel. 3 3 1000 1))
+   :MaxGates (JSpinner. (SpinnerNumberModel. 20 3 1000 1))
    :ProbBroken (JSpinner. (SpinnerNumberModel. 20 0 100 10))})
 
 (def *params* (apply hash-map (flatten (for [k (keys *param-spinners*)] [k 0]))))
@@ -75,6 +91,8 @@
                                     (. Image SCALE_SMOOTH))]
     (def *graphpng* resized)))
 
+(defn update-table [])
+
 (def *graphpanel*
   (doto (proxy [JPanel] []
           (paint [g]
@@ -91,8 +109,12 @@
   (let [params (get-parameters)
         [gates wiring] (rand-gates-wiring params)
         input-vals (make-input-vals gates)]
+    (def *gates* gates)
+    (def *wiring* wiring)
+    (def *input-vals* input-vals)
     (save-graphviz "/home/josh/test.dot" "/home/josh/test.png" gates wiring)
     (update-graph)
+    (update-table)
     (. *graphpanel* (repaint))))
 
 (def *newbutton*
@@ -134,7 +156,7 @@
      *resultslabel*
 
      :gridy 6, :gridwidth 2, :gridheight :REMAINDER
-     (JPanel.))))
+     (JScrollPane. *table*))))
 
 (defn start-player []
   (doto (JFrame. "Circuit player")
