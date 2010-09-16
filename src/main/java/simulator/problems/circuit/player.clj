@@ -16,7 +16,7 @@
 (def *param-spinners*
   {:MinGates (JSpinner. (SpinnerNumberModel. 3 3 1000 1))
    :MaxGates (JSpinner. (SpinnerNumberModel. 3 3 1000 1))
-   :ProbBroken (JSpinner. (SpinnerNumberModel. 80 0 100 10))})
+   :ProbBroken (JSpinner. (SpinnerNumberModel. 20 0 100 10))})
 
 (def *params* (apply hash-map (flatten (for [k (keys *param-spinners*)] [k 0]))))
 
@@ -73,8 +73,7 @@
         scale (float (/ 500.0 (max width height)))
         resized (.getScaledInstance img (* scale width) (* scale height)
                                     (. Image SCALE_SMOOTH))]
-    (def *graphpng* resized)
-    (println (/ (- 500.0 (.getWidth *graphpng*)) 2.0))))
+    (def *graphpng* resized)))
 
 (def *graphpanel*
   (doto (proxy [JPanel] []
@@ -89,7 +88,8 @@
     (.setPreferredSize (new Dimension 500 500))))
 
 (defn run-simulation []
-  (let [[gates wiring] (rand-gates-wiring)
+  (let [params (get-parameters)
+        [gates wiring] (rand-gates-wiring params)
         input-vals (make-input-vals gates)]
     (save-graphviz "/home/josh/test.dot" "/home/josh/test.png" gates wiring)
     (update-graph)

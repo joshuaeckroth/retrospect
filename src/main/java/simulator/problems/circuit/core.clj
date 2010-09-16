@@ -36,14 +36,14 @@
    {:fn not-gate :str "not" :input false :broken-fn broken-not-gate :broken false}])
 
 (defn rand-gate
-  [choices]
+  [prob-broken choices]
   (let [choice (rand-nth choices)
-	broken? (< 0.8 (rand))]
+	broken? (> (/ prob-broken 100.0) (rand))]
     (assoc choice :broken broken?)))
 
 (defn rand-gates
-  [n choices]
-  (let [mkgates #(map (fn [i] (rand-gate choices)) (range n))]
+  [n prob-broken choices]
+  (let [mkgates #(map (fn [i] (rand-gate prob-broken choices)) (range n))]
     (loop [gates (mkgates)]
       (let [input-count (count (filter :input gates))]
 	;; ensure there are some inputs and fewer than (n-1) inputs
@@ -131,10 +131,10 @@
    (not (has-cycles wiring))))
 
 (defn rand-gates-wiring
-  []
-  (let [n (+ 3 (rand-int 30))]
+  [params]
+  (let [n (+ (:MinGates params) (rand-int (- (:MaxGates params) (:MinGates params))))]
     (loop []
-      (let [gates (rand-gates n choices)
+      (let [gates (rand-gates n (:ProbBroken params) choices)
 	    inputs (find-inputs gates)
 	    wiring (rand-wiring n inputs gates)]
 	(cond
