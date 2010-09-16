@@ -27,9 +27,10 @@
 
 (def broken-not-gate (fn [a] a))
 
+(defn rand-input [] (rand-nth [true false]))
+
 (def choices
-  [{:fn true :str "true" :input true}
-   {:fn false :str "false" :input true}
+  [{:fn rand-input :input true}
    {:fn and-gate :str "and" :input false :broken-fn broken-and-gate :broken false}
    {:fn or-gate :str "or" :input false :broken-fn broken-or-gate :broken false}
    {:fn not-gate :str "not" :input false :broken-fn broken-not-gate :broken false}])
@@ -99,6 +100,13 @@
 	    (= (nth inputs index) i) index
 	    :else (recur (inc index))))))
 
+(defn make-input-vals
+  [gates]
+  (let [is (find-inputs gates)
+        inputs (map (fn [i] (nth gates i)) is)]
+    (apply hash-map (interleave is
+                                (map (fn [{val-fn :fn}] (val-fn)) inputs)))))
+
 (defn find-outputs
   [wiring]
   (filter identity
@@ -146,7 +154,7 @@
   (map (fn [j] (nth outputs j)) (find-gate-input-nodes i wiring)))
 
 (defn eval-outputs
-  [gates wiring outputs eval-broken?]
+  [gates wiring input-vals outputs eval-broken?]
   (loop [i 0
 	 os outputs]
     (if (= i (count gates)) os
@@ -155,7 +163,7 @@
 	  (cond 
 	  
 	   (:input gate)
-	   (recur (inc i) (assoc (vec os) i (:fn gate)))
+	   (recur (inc i) (assoc (vec os) i (get input-vals i)))
 	  
 	   (and (= (nth os i) \?)
 		(not-any? #(= \? %) input-node-values))
@@ -168,14 +176,14 @@
 	   :else (recur (inc i) os))))))
 
 (defn evaluate-circuit
-  [gates wiring eval-broken?]
+  [gates wiring input-vals eval-broken?]
   (loop [outputs (repeat (count gates) \?)]
     (if (not-any? #(= \? %) outputs) outputs
-	(recur (eval-outputs gates wiring outputs eval-broken?)))))
+        (recur (eval-outputs gates wiring input-vals outputs eval-broken?)))))
 
 (defn format-evaluate-circuit
-  [gates wiring eval-broken?]
-  (let [outputs (evaluate-circuit gates wiring eval-broken?)
+  [gates wiring input-vals eval-broken?]
+  (let [outputs (evaluate-circuit gates wiring input-vals eval-broken?)
 	input-idxs (find-inputs gates)
 	output-idxs (find-outputs wiring)]
     (format "%s\n%s"
@@ -189,10 +197,11 @@
 					    output-idxs))))))
 
 (defn find-differences
-  [gates wiring]
-  (let [expected (evaluate-circuit gates wiring false)
-	obtained (evaluate-circuit gates wiring true)]
-    (filter identity (map (fn [i] (if (not= (nth expected i) (nth obtained i)) i))
+  [gates wiring input-vals]
+  (let [expected (evaluate-circuit gates wiring input-vals false)
+	obtained (evaluate-circuit gates wiring input-vals true)]
+    (filter identity (map (fn [i] (if (not= (nth expected i) (nth obtained i))
+                                   (output-index i wiring)))
 			  (range (count expected))))))
 
 (defn make-graphviz-nodes
@@ -205,14 +214,16 @@
 
 	   (:input gate)
 	   (recur (inc i) (str graphviz
-			       (format "gate%d [label=\"%d=%s\", shape=\"plaintext\"];\n"
-				       i (input-index i gates) (:str gate))))
+			       (format "gate%d [label=\"%d\", shape=\"plaintext\"];\n"
+				       i (input-index i gates))))
 
 	   :else
 	   (recur (inc i)
 		  (str graphviz
-		       (format "gate%d [label=\"%s\", color=\"%s\"];\n"
-			       i (:str gate) (if (:broken gate) "blue" "black")))))))))
+		       (format "gate%d [label=\"%s\", color=\"%s\", fontcolor=\"%s\"];\n"
+			       i (:str gate)
+                               (if (:broken gate) "blue" "black")
+                               (if (:broken gate) "blue" "black")))))))))
 
 (defn make-graphviz-edge
   [i gates wiring]
@@ -227,7 +238,8 @@
 (defn make-graphviz-string
   [gates wiring]
   (loop [i 0
-	 graphviz (apply str "digraph G {\n" (make-graphviz-nodes gates))]
+	 graphviz (apply str "digraph G {\n"
+                         (make-graphviz-nodes gates))]
     (cond (= i (count gates)) (str graphviz "}\n")
 
 	  :else
@@ -238,6 +250,12 @@
   (with-open [file (writer filename)]
     (.write file (make-graphviz-string gates wiring)))
   (sh "dot" "-Txlib" filename))
+
+(defn save-graphviz
+  [dotfile pngfile gates wiring]
+  (with-open [file (writer dotfile)]
+    (.write file (make-graphviz-string gates wiring)))
+  (sh "dot" "-Tpng" "-o" pngfile dotfile))
 
 
 
