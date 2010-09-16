@@ -9,6 +9,8 @@
   (:use [simulator.problems.circuit.core
          :only (rand-gates-wiring make-input-vals save-graphviz)]))
 
+(def *graphpng* nil)
+
 (def *resultslabel* (JLabel. "Correct: "))
 
 (def *param-spinners*
@@ -64,20 +66,34 @@
                               result)
                         (next body)))))))))
 
-(def *graphpanel*
+(defn update-graph []
   (let [img (. ImageIO (read (File. "/home/josh/test.png")))
         width (.getWidth img)
         height (.getHeight img)
         scale (float (/ 500.0 (max width height)))
         resized (.getScaledInstance img (* scale width) (* scale height)
                                     (. Image SCALE_SMOOTH))]
-    (doto (proxy [JPanel] [] (paint [g] (. g (drawImage resized 0 0 nil))))
-      (.setPreferredSize (new Dimension 500 500)))))
+    (def *graphpng* resized)
+    (println (/ (- 500.0 (.getWidth *graphpng*)) 2.0))))
+
+(def *graphpanel*
+  (doto (proxy [JPanel] []
+          (paint [g]
+                 (. g (setColor (. Color white)))
+                 (. g (fillRect 0 0 500 500))
+                 (if *graphpng*
+                   (. g (drawImage *graphpng*
+                                   (int (/ (- 500.0 (.getWidth *graphpng*)) 2.0))
+                                   (int (/ (- 500.0 (.getHeight *graphpng*)) 2.0))
+                                   nil)))))
+    (.setPreferredSize (new Dimension 500 500))))
 
 (defn run-simulation []
   (let [[gates wiring] (rand-gates-wiring)
         input-vals (make-input-vals gates)]
-    (save-graphviz "/home/josh/test.dot" "/home/josh/test.png" gates wiring)))
+    (save-graphviz "/home/josh/test.dot" "/home/josh/test.png" gates wiring)
+    (update-graph)
+    (. *graphpanel* (repaint))))
 
 (def *newbutton*
      (let [b (JButton. "New")]
