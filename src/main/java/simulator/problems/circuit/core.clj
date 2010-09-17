@@ -220,8 +220,8 @@
 	   :else
 	   (recur (inc i)
 		  (str graphviz
-		       (format "gate%d [label=\"%s\", color=\"%s\", fontcolor=\"%s\"];\n"
-			       i (:str gate)
+		       (format "gate%d [label=\"%s.%d\", color=\"%s\", fontcolor=\"%s\"];\n"
+			       i (:str gate) i
                                (if (:broken gate) "blue" "black")
                                (if (:broken gate) "blue" "black")))))))))
 

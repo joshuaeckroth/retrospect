@@ -11,18 +11,7 @@
   (:use [simulator.problems.circuit.core
          :only (rand-gates-wiring make-input-vals save-graphviz transpose)]))
 
-(def *table-headers* ["Blah 1" "Blah 2"])
-(def *table-data* (transpose [[0 1] [2 3]]))
-
-(def *table-model*
-  (proxy [AbstractTableModel] []
-    (getColumnCount [] (count *table-headers*))
-    (getRowCount [] (count *table-data*))
-    (getColumnName [col] (nth *table-headers* col))
-    (getValueAt [row col] (nth (nth *table-data* row) col))))
-
 (def *graphpng* nil)
-(def *table* (JTable. *table-model*))
 (def *gates* nil)
 (def *wiring* nil)
 (def *input-vals* nil)
@@ -91,8 +80,6 @@
                                     (. Image SCALE_SMOOTH))]
     (def *graphpng* resized)))
 
-(defn update-table [])
-
 (def *graphpanel*
   (doto (proxy [JPanel] []
           (paint [g]
@@ -114,7 +101,6 @@
     (def *input-vals* input-vals)
     (save-graphviz "/home/josh/test.dot" "/home/josh/test.png" gates wiring)
     (update-graph)
-    (update-table)
     (. *graphpanel* (repaint))))
 
 (def *newbutton*
@@ -156,7 +142,7 @@
      *resultslabel*
 
      :gridy 6, :gridwidth 2, :gridheight :REMAINDER
-     (JScrollPane. *table*))))
+     (JPanel.))))
 
 (defn start-player []
   (doto (JFrame. "Circuit player")
