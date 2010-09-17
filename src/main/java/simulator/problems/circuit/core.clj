@@ -153,6 +153,16 @@
   [i wiring outputs]
   (map (fn [j] (nth outputs j)) (find-gate-input-nodes i wiring)))
 
+(defn find-all-gate-input-gates
+  [j gates wiring]
+  (let [inputs-to-j
+        (set (filter identity (map (fn [i] (if (and (nth (nth wiring i) j)
+                                                    (not (:input (nth gates i))))
+                                             i)) (range (count wiring)))))]
+    (apply union inputs-to-j
+           (map #(find-all-gate-input-gates % gates wiring)
+                inputs-to-j))))
+
 (defn eval-outputs
   [gates wiring input-vals outputs eval-broken?]
   (loop [i 0
