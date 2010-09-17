@@ -1,7 +1,8 @@
 (ns simulator.problems.circuit.core
   (:use [clojure.java.io :only (writer)])
   (:use [clojure.contrib.shell :only (sh)])
-  (:use [clojure.set]))
+  (:use [clojure.set])
+  (:use [clojure.contrib.combinatorics :only (selections)]))
 
 ;; http://stackoverflow.com/questions/1696693/
 ;; clojure-how-to-find-out-the-arity-of-function-at-runtime/1813967#1813967
@@ -27,7 +28,9 @@
 
 (def broken-not-gate (fn [a] a))
 
-(defn rand-input [] (rand-nth [true false]))
+(def possible-inputs [true false])
+
+(defn rand-input [] (rand-nth possible-inputs))
 
 (def choices
   [{:fn rand-input :input true}
@@ -211,8 +214,42 @@
   (let [expected (evaluate-circuit gates wiring input-vals false)
 	obtained (evaluate-circuit gates wiring input-vals true)]
     (filter identity (map (fn [i] (if (not= (nth expected i) (nth obtained i))
-                                   (output-index i wiring)))
+                                    (let [oi (output-index i wiring)]
+                                      (if oi [i oi]))))
 			  (range (count expected))))))
+
+(defn find-implicated-gates
+  [gates wiring input-vals]
+  (let [differences (find-differences gates wiring input-vals)
+        output-gates (map (fn [[i _]] i) differences)]
+    (map #(conj (find-all-gate-input-gates % gates wiring) %) output-gates)))
+
+(defn generate-all-input-vals
+  [gates]
+  (let [inputs (find-inputs gates)
+        sels (selections possible-inputs (count inputs))]
+    (map (fn [sel] (apply hash-map (interleave inputs sel))) sels)))
+
+(defn find-exhaustive-differences
+  [gates wiring]
+  (let [all-input-vals (generate-all-input-vals gates)]
+    (map (fn [input-vals] (find-differences gates wiring input-vals)) all-input-vals)))
+
+(defn find-undetectable-gates
+  [gates wiring]
+  (let [all-input-vals (generate-all-input-vals gates)
+        all-implicated-gates (map (fn [input-vals] (apply union (find-implicated-gates
+                                                                 gates wiring input-vals)))
+                                  all-input-vals)]
+    (filter identity
+            (for [i (range (count gates))]
+              (if (and
+                   (not (:input (nth gates i)))
+                   (:broken (nth gates i))
+                   (not (some (fn [implicated]
+                                (some (fn [j] (= i j)) implicated))
+                              all-implicated-gates)))
+                i)))))
 
 (defn make-graphviz-nodes
   [gates]
