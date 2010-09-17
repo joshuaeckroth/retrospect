@@ -235,7 +235,7 @@
   (let [all-input-vals (generate-all-input-vals gates)]
     (map (fn [input-vals] (find-differences gates wiring input-vals)) all-input-vals)))
 
-(defn find-undetectable-gates
+(defn find-undetectable-broken-gates
   [gates wiring]
   (let [all-input-vals (generate-all-input-vals gates)
         all-implicated-gates (map (fn [input-vals] (apply union (find-implicated-gates

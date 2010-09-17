@@ -9,12 +9,15 @@
   (:import (java.io File))
   (:use [simulator.strategies :only (strategies)])
   (:use [simulator.problems.circuit.core
-         :only (rand-gates-wiring make-input-vals save-graphviz transpose)]))
+         :only [rand-gates-wiring make-input-vals save-graphviz transpose
+                find-undetectable-broken-gates]]))
 
 (def *graphpng* nil)
 (def *gates* nil)
 (def *wiring* nil)
 (def *input-vals* nil)
+
+(def *undetectable-label* (JLabel. "Undetectable broken gates: "))
 
 (def *resultslabel* (JLabel. "Correct: "))
 
@@ -80,6 +83,17 @@
                                     (. Image SCALE_SMOOTH))]
     (def *graphpng* resized)))
 
+(defn update-labels []
+  (let [undetectable (find-undetectable-broken-gates *gates* *wiring*)]
+    (if (empty? undetectable)
+      (.setText *undetectable-label* "Undetectable broken gates:")
+      (.setText *undetectable-label*
+                (format "Undetectable broken gates: %s (n=%d or %.0f%%)"
+                        (apply str (interpose ", " (map str undetectable)))
+                        (count undetectable)
+                        (* 100.0 (/ (count undetectable)
+                                    (count *gates*))))))))
+
 (def *graphpanel*
   (doto (proxy [JPanel] []
           (paint [g]
@@ -101,6 +115,7 @@
     (def *input-vals* input-vals)
     (save-graphviz "/home/josh/test.dot" "/home/josh/test.png" gates wiring)
     (update-graph)
+    (update-labels)
     (. *graphpanel* (repaint))))
 
 (def *newbutton*
@@ -112,7 +127,7 @@
   (doto (JPanel. (GridBagLayout.))
     (grid-bag-layout
      :fill :BOTH, :insets (Insets. 5 5 5 5)
-     :gridx 0, :gridy 0, :gridheight 7
+     :gridx 0, :gridy 0, :gridheight 8
      *graphpanel*
 
      :gridx 1, :gridy 0, :gridheight 1
@@ -141,7 +156,10 @@
      :gridx 1, :gridy 5
      *resultslabel*
 
-     :gridy 6, :gridwidth 2, :gridheight :REMAINDER
+     :gridx 1, :gridy 6, :gridwidth 2
+     *undetectable-label*
+
+     :gridy 7, :gridwidth 2, :gridheight :REMAINDER
      (JPanel.))))
 
 (defn start-player []
