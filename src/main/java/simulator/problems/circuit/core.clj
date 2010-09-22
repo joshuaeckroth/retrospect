@@ -110,6 +110,13 @@
     (apply hash-map (interleave is
                                 (map (fn [{val-fn :fn}] (val-fn)) inputs)))))
 
+(defn format-input-vals
+  [input-vals gates]
+  (format "[%s]" (apply str (interpose ", " (map #(format "%d=%s"
+                                                          (input-index % gates)
+                                                          (get input-vals %))
+                                                 (keys input-vals))))))
+
 (defn find-outputs
   [wiring]
   (filter identity
@@ -212,16 +219,16 @@
 (defn find-differences
   [gates wiring input-vals]
   (let [expected (evaluate-circuit gates wiring input-vals false)
-	obtained (evaluate-circuit gates wiring input-vals true)]
-    (filter identity (map (fn [i] (if (not= (nth expected i) (nth obtained i))
+	observed (evaluate-circuit gates wiring input-vals true)]
+    (filter identity (map (fn [i] (if (not= (nth expected i) (nth observed i))
                                     (let [oi (output-index i wiring)]
-                                      (if oi [i oi]))))
+                                      (if oi [i oi (nth expected i) (nth observed i)]))))
 			  (range (count expected))))))
 
 (defn find-implicated-gates
   [gates wiring input-vals]
   (let [differences (find-differences gates wiring input-vals)
-        output-gates (map (fn [[i _]] i) differences)]
+        output-gates (map (fn [[i _ _ _]] i) differences)]
     (map #(conj (find-all-gate-input-gates % gates wiring) %) output-gates)))
 
 (defn generate-all-input-vals
@@ -250,6 +257,33 @@
                                 (some (fn [j] (= i j)) implicated))
                               all-implicated-gates)))
                 i)))))
+
+(defrecord DiscrepancyHyp [id apriori input-vals ivstr output-id expected observed]
+  Object
+  (toString [_] (format (str "DiscrepancyHyp %s (a=%.2f) given input vals: "
+                             "%s, output %d should equal %s but %s was observed")
+                        id apriori ivstr output-id
+                        (str expected) (str observed))))
+
+(defn make-disc-hyp-id
+  [oi exp obs]
+  (format "DH%d" oi))
+
+(defn generate-discrepancy-hyps
+  [differences input-vals gates]
+  (map (fn [[i oi exp obs]]
+         (DiscrepancyHyp. (make-disc-hyp-id oi exp obs) 1.0
+                          input-vals (format-input-vals input-vals gates) oi exp obs))
+       differences))
+
+(defrecord BrokenGateHyp [id apriori gate-id]
+  Object
+  (toString [_] (format "BrokenGateHyp %s (a=%.2f) gate %d is broken"
+                        id apriori gate-id)))
+
+(defn make-hyp-id
+  [gate-id]
+  (format "BGH%d" gate-id))
 
 (defn make-graphviz-nodes
   [gates]
