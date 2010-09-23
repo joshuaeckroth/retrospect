@@ -2,6 +2,7 @@
   (:gen-class)
   (:use [clojure.contrib.command-line :only (with-command-line)])
   (:use [simulator.problems.tracking.problem :only (tracking-problem)])
+  (:use [simulator.problems.circuit.problem :only (circuit-problem)])
   (:use [simulator.records
 	 :only (run-with-new-record list-records prepare-hadoop cleanup-hadoop-results)])
   (:use [simulator.runners.hadoop :only (run-hadoop)])
@@ -21,7 +22,9 @@
        [input "Hadoop input" ""]
        [output "Hadoop output" ""]]
       (let [nthreads (Integer/parseInt nthreads)
-	    prob tracking-problem]
+	    prob (cond (= problem "tracking") tracking-problem
+                       (= problem "circuit") circuit-problem
+                       :else nil)]
 	(case action
 	      "run"
 	      (run-with-new-record prob paramsfile recordsdir nthreads)

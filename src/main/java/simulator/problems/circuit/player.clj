@@ -24,7 +24,7 @@
 (def *param-spinners*
   {:MinGates (JSpinner. (SpinnerNumberModel. 3 3 1000 1))
    :MaxGates (JSpinner. (SpinnerNumberModel. 20 3 1000 1))
-   :ProbBroken (JSpinner. (SpinnerNumberModel. 0.2 0.0 1.0 0.1))})
+   :ProbBroken (JSpinner. (SpinnerNumberModel. 20 0 100 10))})
 
 (def *params* (apply hash-map (flatten (for [k (keys *param-spinners*)] [k 0]))))
 

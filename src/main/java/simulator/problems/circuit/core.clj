@@ -42,7 +42,7 @@
 (defn rand-gate
   [prob-broken choices]
   (let [choice (rand-nth choices)
-	broken? (> prob-broken (rand))]
+	broken? (> (double (/ prob-broken 100)) (rand))]
     (assoc choice :broken broken?)))
 
 (defn rand-gates
@@ -309,7 +309,8 @@
   (let [disc-hyps (generate-discrepancy-hyps gates wiring input-vals)
         implicated (apply union (find-implicated-gates gates wiring input-vals))]
     (for [gate-id implicated]
-      {:hyp (BrokenGateHyp. (make-hyp-id gate-id) (:ProbBroken params) gate-id)
+      {:hyp (BrokenGateHyp. (make-hyp-id gate-id)
+                            (double (/ (:ProbBroken params) 100)) gate-id)
        :explains (find-discrepancies-explained gate-id disc-hyps gates wiring)})))
 
 (defn generate-hyps
@@ -324,13 +325,12 @@
             strat-state sing-hyps)))
 
 (defn process
-  [gates wiring input-vals time params]
-  (let [ss (init-strat-state (:Strategy params) nil)
-        ss-with-hyps (generate-hyps ss time gates wiring input-vals params)
+  [gates wiring input-vals time params strat-state]
+  (let [ss-with-hyps (generate-hyps strat-state time gates wiring input-vals params)
         ss-explained (explain ss-with-hyps time)]
     ss-explained))
 
-(defn evaluator
+(defn evaluate
   [gates wiring time strat-state]
   (let [broken-gates (find-broken-gates gates)
         observable-broken-gates
@@ -343,7 +343,28 @@
     {:TotalEvents (count broken-gates)
      :Correct (count correct-b-g-hyps)
      :Incorrect (- (count accepted-b-g-hyps) (count correct-b-g-hyps))
-     :Observable observable-broken-gates}))
+     :Observable observable-broken-gates
+     :PercentCorrect
+     (if (empty? broken-gates) 100.0
+         (double (* 100 (/ (count correct-b-g-hyps) (count broken-gates)))))}))
+
+(defn run
+  [params strat-state]
+  (let [[gates wiring] (rand-gates-wiring params)
+        time 0
+        input-vals (make-input-vals gates)
+        startTime (. System (nanoTime))
+        ss (process gates wiring input-vals time params strat-state)
+        evaluation (evaluate gates wiring time ss)]
+    {:stratstate ss
+     :results (merge params
+                     (assoc evaluation
+                       :Milliseconds (/ (double (- (. System (nanoTime)) startTime))
+                                        1000000.0)
+                       :Strategy (:strategy ss)
+                       :StrategyCompute (:compute (:resources ss))
+                       :StrategyMilliseconds (:milliseconds (:resources ss))
+                       :StrategyMemory (:memory (:resources ss))))}))
 
 (defn make-graphviz-nodes
   [gates]

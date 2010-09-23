@@ -13,4 +13,11 @@
       <SensorCoverage start="0" end="101" step="20" />
     </params>
   </problem>
+  <problem name="circuit">
+    <params>
+      <MinGates start="3" end="10" step="1" />
+      <MaxGates start="10" end="30" step="5" />
+      <ProbBroken start="0" end="101" step="20" />
+    </params>
+  </problem>
 </problems>

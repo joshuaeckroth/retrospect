@@ -34,24 +34,22 @@
 (defn add-hyp-new
   [strat-state spotted time apriori]
   (let [event (EventNew. (:time spotted) (pos spotted))
-	entity (Entity. [(EntitySnapshot. time (pos spotted))])]
-    (add-hyp strat-state time
-	     (TrackingHyp. (make-hyp-id spotted time nil) apriori
-			   "new" time spotted entity nil event)
-	     #{spotted} apriori
+	entity (Entity. [(EntitySnapshot. time (pos spotted))])
+        hyp (TrackingHyp. (make-hyp-id spotted time nil) apriori
+                          "new" time spotted entity nil event)]
+    (add-hyp strat-state time hyp #{spotted} apriori
              (format "Hypothesizing (apriori=%.2f) that %s is new: %s"
-			       apriori spotted (:entity hyp)))))
+                     apriori spotted (:entity hyp)))))
 
 (defn add-hyp-move
   [strat-state spotted time prev apriori]
   (let [event (EventMove. time (pos prev) (pos spotted))
-	entity (add-snapshot prev (EntitySnapshot. time (pos spotted)))]
-    (add-hyp strat-state time
-	     (TrackingHyp. (make-hyp-id spotted time prev) apriori
-			   "move" time spotted entity prev event)
-	     #{spotted} apriori
+	entity (add-snapshot prev (EntitySnapshot. time (pos spotted)))
+        hyp (TrackingHyp. (make-hyp-id spotted time prev) apriori
+                          "move" time spotted entity prev event)]
+    (add-hyp strat-state time hyp #{spotted} apriori
              (format "Hypothesizing (apriori=%.2f) that %s is the movement of %s"
-			       apriori spotted (:prev hyp)))))
+                     apriori spotted (:prev hyp)))))
 
 (defn add-mutual-conflicts
   [strat-state hyps]
