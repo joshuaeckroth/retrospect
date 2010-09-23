@@ -8,9 +8,10 @@
   (:import (javax.swing.table AbstractTableModel))
   (:import (java.io File))
   (:use [simulator.strategies :only (strategies)])
-  (:use [simulator.problems.circuit.core
-         :only [rand-gates-wiring make-input-vals save-graphviz transpose
-                find-undetectable-broken-gates]]))
+  (:use [simulator.problems.circuit.circuit
+         :only [rand-gates-wiring make-input-vals transpose
+                find-undetectable-broken-gates]])
+  (:use [simulator.problems.circuit.graphviz :only (save-graphviz)]))
 
 (def *graphpng* nil)
 (def *gates* nil)
