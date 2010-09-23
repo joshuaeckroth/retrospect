@@ -3,7 +3,7 @@
   (:use [clojure.contrib.shell :only (sh)])
   (:use [clojure.set])
   (:use [clojure.contrib.combinatorics :only (selections)])
-  (:use [simulator.strategies :only (init-strat-state add-hyp)]))
+  (:use [simulator.strategies :only (init-strat-state add-hyp explain)]))
 
 ;; http://stackoverflow.com/questions/1696693/
 ;; clojure-how-to-find-out-the-arity-of-function-at-runtime/1813967#1813967
@@ -89,6 +89,12 @@
 (defn has-cycles
   [wiring]
   (some identity (map (fn [i] (has-cycle wiring i #{})) (range (count wiring)))))
+
+(defn find-broken-gates
+  [gates]
+  (filter identity (map #(if (and (not (:input (nth gates %)))
+                                  (:broken (nth gates %))) %)
+                        (range (count gates)))))
 
 (defn find-inputs
   [gates]
@@ -284,10 +290,10 @@
   [gate-id disc-hyps gates wiring]
   "A discrepancy is explained if the gate in question is in the parentage of
    the output identified by the discrepancy."
-  (filter (fn [d-h] (some #(= gate-id %)
-                          (conj (find-all-gate-input-gates (:index d-h) gates wiring)
-                                (:index d-h))))
-          disc-hyps))
+  (set (filter (fn [d-h] (some #(= gate-id %)
+                               (conj (find-all-gate-input-gates (:index d-h) gates wiring)
+                                     (:index d-h))))
+               disc-hyps)))
 
 (defrecord BrokenGateHyp [id apriori gate-id]
   Object
@@ -316,6 +322,28 @@
                                (:apriori hyp) (str hyp)
                                (apply str (interpose "; " (map str explains))))))
             strat-state sing-hyps)))
+
+(defn process
+  [gates wiring input-vals time params]
+  (let [ss (init-strat-state (:Strategy params) nil)
+        ss-with-hyps (generate-hyps ss time gates wiring input-vals params)
+        ss-explained (explain ss-with-hyps time)]
+    ss-explained))
+
+(defn evaluator
+  [gates wiring time strat-state]
+  (let [broken-gates (find-broken-gates gates)
+        observable-broken-gates
+        (- (count broken-gates) (count (find-undetectable-broken-gates gates wiring)))
+        accepted-b-g-hyps
+        (filter #(= (type %) simulator.problems.circuit.core.BrokenGateHyp)
+                (get (:accepted strat-state) time))
+        correct-b-g-hyps
+        (filter (fn [b-h] (some #(= (:gate-id b-h) %) broken-gates)) accepted-b-g-hyps)]
+    {:TotalEvents (count broken-gates)
+     :Correct (count correct-b-g-hyps)
+     :Incorrect (- (count accepted-b-g-hyps) (count correct-b-g-hyps))
+     :Observable observable-broken-gates}))
 
 (defn make-graphviz-nodes
   [gates]
