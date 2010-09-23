@@ -4,11 +4,10 @@
   (:import [simulator.problems.tracking.entities Entity EntitySnapshot])
   (:import [simulator.problems.tracking.grid GridState])
   (:use clojure.set)
-  (:use [simulator.evaluator :only (evaluate)])
   (:use [simulator.problems.tracking.entities :only (pos pair-snapshots)])
   (:use [simulator.problems.tracking.eventlog :only
 	 (init-event-log add-entity add-event add-event-new add-event-move
-			 update-entity get-entities)])
+			 update-entity get-entities get-events)])
   (:use [simulator.problems.tracking.grid :only
 	 (new-grid new-entity update-grid-entity walk1 forward-time)])
   (:use [simulator.problems.tracking.sensors :only
@@ -104,6 +103,13 @@
 		       (if (empty? pairs) 0 (/ (sum-walks pairs) (count pairs)))))
 	     (get-entities trueevents))]
     (double (/ (reduce + 0 walk-avgs) (count walk-avgs)))))
+
+(defn evaluate
+  [trueevents strat-state]
+  (let [correct (count (intersection (set (get-events trueevents))
+                                     (set (get-events (:problem-data strat-state)))))
+	total (count (get-events trueevents))]
+    (double (* 100 (/ correct total)))))
 
 (defn run
   [params strat-state]
