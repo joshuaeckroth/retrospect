@@ -15,7 +15,7 @@
         observable-broken-gates
         (- (count broken-gates) (count (find-undetectable-broken-gates gates wiring)))
         accepted-b-g-hyps
-        (filter #(= (type %) simulator.problems.circuit.core.BrokenGateHyp)
+        (filter #(= (type %) simulator.problems.circuit.hypotheses.BrokenGateHyp)
                 (get (:accepted strat-state) time))
         correct-b-g-hyps
         (filter (fn [b-h] (some #(= (:gate-id b-h) %) broken-gates)) accepted-b-g-hyps)]
@@ -33,9 +33,11 @@
         time 0
         input-vals (make-input-vals gates)
         startTime (. System (nanoTime))
-        ss (process gates wiring input-vals time params strat-state)
-        evaluation (evaluate gates wiring time ss)]
-    {:stratstate ss
+        ss (assoc strat-state :problem-data
+                  {:gates gates :wiring wiring :input-vals input-vals})
+        ss2 (process gates wiring input-vals time params ss)
+        evaluation (evaluate gates wiring time ss2)]
+    {:stratstate ss2
      :results (merge params
                      (assoc evaluation
                        :Milliseconds (/ (double (- (. System (nanoTime)) startTime))

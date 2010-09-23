@@ -9,8 +9,7 @@
   (:use [simulator.problems.tracking.sensors :only (sees)])
   (:use [simulator.problems.tracking.eventlog :only (get-events)])
   (:use [simulator.strategies :only (strategies init-strat-state)])
-  (:use [simulator.problems.tracking.core :as tracking :only (run)])
-  (:use [simulator.evaluator :only (evaluate)])
+  (:use [simulator.problems.tracking.core :as tracking :only (run evaluate)])
   (:use [simulator.repl])
   (:use [simulator.problems.tracking.repl]))
 
@@ -242,7 +241,7 @@
     (update-logs-panel)
     (. *gridpanel* (repaint))
     (. *steplabel* (setText (str "Step: " *time*)))
-    (. *resultslabel* (setText (format "Correct: %.2f%%" (evaluate te ss))))))
+    (. *resultslabel* (setText (format "Correct: %.2f%%" (tracking/evaluate te ss))))))
 
 (def *newbutton*
      (let [b (JButton. "New")]
