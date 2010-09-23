@@ -24,8 +24,8 @@
      :Incorrect (- (count accepted-b-g-hyps) (count correct-b-g-hyps))
      :Observable observable-broken-gates
      :PercentCorrect
-     (if (empty? broken-gates) 100.0
-         (double (* 100 (/ (count correct-b-g-hyps) (count broken-gates)))))}))
+     (if (= 0 observable-broken-gates) 100.0
+         (double (* 100 (/ (count correct-b-g-hyps) observable-broken-gates))))}))
 
 (defn run
   [params strat-state]
