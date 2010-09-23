@@ -59,6 +59,21 @@
       (update-in strat-state [:abducer-log time] conj entry)
       (update-in strat-state [:abducer-log] assoc time [entry]))))
 
+(defn add-hyp
+  [strat-state time hyp explained apriori log-msg]
+  (let [hypspace (-> (:hypspace strat-state)
+		     (update-in [:hyps] union explained)
+		     (update-in [:hyps] union #{hyp})
+		     (add-explainers explained #{hyp})
+		     (set-apriori-many explained 1.0) ;; TODO REMOVE THIS
+		     (set-apriori hyp apriori))]
+    (-> strat-state
+	(update-in [:hypothesized-at time] union #{hyp} explained)
+	(update-in [:accepted time] union explained)
+	(update-in [:considering time] union #{hyp})
+	(assoc :hypspace hypspace)
+	(add-log-msg time log-msg))))
+
 (defn format-logs
   [strat-state]
   (apply str (map str (:log strat-state))))

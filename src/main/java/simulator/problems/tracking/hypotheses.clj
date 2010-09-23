@@ -8,7 +8,7 @@
 	 (get-entities add-entity remove-entity add-event update-entity)])
   (:use [simulator.types.hypotheses :only
 	 (add-explainers get-explainers add-conflicts set-apriori)])
-  (:use [simulator.strategies :only (add-log-msg)])
+  (:use [simulator.strategies :only (add-hyp)])
   (:use [clojure.set]))
 
 (defrecord TrackingHyp [id apriori type time spotted entity prev event]
@@ -31,26 +31,6 @@
        (filter #(>= walk (:dist %))
 	       (map (partial distfn s) entities))})))
 
-(defn add-hyp
-  [strat-state time hyp spotted apriori]
-  (let [hypspace (-> (:hypspace strat-state)
-		     (update-in [:hyps] union #{spotted})
-		     (update-in [:hyps] union #{hyp})
-		     (add-explainers spotted #{hyp})
-		     (set-apriori spotted 1.0)
-		     (set-apriori hyp apriori))]
-    (-> strat-state
-	(update-in [:hypothesized-at time] union #{hyp spotted})
-	(update-in [:accepted time] union #{spotted})
-	(update-in [:considering time] union #{hyp})
-	(assoc :hypspace hypspace)
-	(add-log-msg time
-		     (if (= (:type hyp) "new")
-		       (format "Hypothesizing (apriori=%.2f) that %s is new: %s"
-			       apriori spotted (:entity hyp))
-		       (format "Hypothesizing (apriori=%.2f) that %s is the movement of %s"
-			       apriori spotted (:prev hyp)))))))
-
 (defn add-hyp-new
   [strat-state spotted time apriori]
   (let [event (EventNew. (:time spotted) (pos spotted))
@@ -58,7 +38,9 @@
     (add-hyp strat-state time
 	     (TrackingHyp. (make-hyp-id spotted time nil) apriori
 			   "new" time spotted entity nil event)
-	     spotted apriori)))
+	     #{spotted} apriori
+             (format "Hypothesizing (apriori=%.2f) that %s is new: %s"
+			       apriori spotted (:entity hyp)))))
 
 (defn add-hyp-move
   [strat-state spotted time prev apriori]
@@ -67,7 +49,9 @@
     (add-hyp strat-state time
 	     (TrackingHyp. (make-hyp-id spotted time prev) apriori
 			   "move" time spotted entity prev event)
-	     spotted apriori)))
+	     #{spotted} apriori
+             (format "Hypothesizing (apriori=%.2f) that %s is the movement of %s"
+			       apriori spotted (:prev hyp)))))
 
 (defn add-mutual-conflicts
   [strat-state hyps]

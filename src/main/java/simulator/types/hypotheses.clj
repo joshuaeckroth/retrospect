@@ -24,16 +24,19 @@
     (assoc hypspace :explains newexplains)))
 
 (defn add-explainers
-  [hypspace hyp es]
-  "Record that 'hyp' is explained by each of 'es'."
-  (let [origexplainers (get-explainers hypspace hyp)
-	newexplainers (assoc (:explainers hypspace) hyp
-			     (if origexplainers (union origexplainers es) es))]
-    ;; add each 'explains' relationship...
-    (reduce (fn [hs e] (add-single-explains hs e hyp))
-	    ;; after adding the explainers
-	    (assoc hypspace :explainers newexplainers)
-	    es)))
+  [hypspace hyps es]
+  "Record that each of 'hyps' is explained by each of 'es'."
+  (reduce
+   (fn [hs hyp]
+     (let [origexplainers (get-explainers hs hyp)
+           newexplainers (assoc (:explainers hs) hyp
+                                (if origexplainers (union origexplainers es) es))]
+       ;; add each 'explains' relationship...
+       (reduce (fn [hs2 e] (add-single-explains hs2 e hyp))
+               ;; after adding the explainers
+               (assoc hs :explainers newexplainers)
+               es)))
+   hypspace hyps))
 
 (defn get-conflicts
   [hypspace hyp]
@@ -54,6 +57,10 @@
   [hypspace hyp p]
   (let [newapriori (assoc (:apriori hypspace) hyp p)]
     (assoc hypspace :apriori newapriori)))
+
+(defn set-apriori-many
+  [hypspace hyps p]
+  (reduce (fn [hs hyp] (set-apriori hs hyp p)) hypspace hyps))
 
 (defn explained?
   [hypspace hyp hyps]

@@ -2,7 +2,8 @@
   (:use [clojure.java.io :only (writer)])
   (:use [clojure.contrib.shell :only (sh)])
   (:use [clojure.set])
-  (:use [clojure.contrib.combinatorics :only (selections)]))
+  (:use [clojure.contrib.combinatorics :only (selections)])
+  (:use [simulator.strategies :only (init-strat-state add-hyp)]))
 
 ;; http://stackoverflow.com/questions/1696693/
 ;; clojure-how-to-find-out-the-arity-of-function-at-runtime/1813967#1813967
@@ -41,7 +42,7 @@
 (defn rand-gate
   [prob-broken choices]
   (let [choice (rand-nth choices)
-	broken? (> (/ prob-broken 100.0) (rand))]
+	broken? (> prob-broken (rand))]
     (assoc choice :broken broken?)))
 
 (defn rand-gates
@@ -258,23 +259,35 @@
                               all-implicated-gates)))
                 i)))))
 
-(defrecord DiscrepancyHyp [id apriori input-vals ivstr output-id expected observed]
+(defrecord DiscrepancyHyp [id apriori input-vals ivstr index output expected observed]
   Object
   (toString [_] (format (str "DiscrepancyHyp %s (a=%.2f) given input vals: "
-                             "%s, output %d should equal %s but %s was observed")
-                        id apriori ivstr output-id
+                             "%s, output %d should equal '%s' but '%s' was observed")
+                        id apriori ivstr output
                         (str expected) (str observed))))
 
 (defn make-disc-hyp-id
-  [oi exp obs]
-  (format "DH%d" oi))
+  [i oi exp obs]
+  (format "DH%d%d" i oi))
 
 (defn generate-discrepancy-hyps
-  [differences input-vals gates]
-  (map (fn [[i oi exp obs]]
-         (DiscrepancyHyp. (make-disc-hyp-id oi exp obs) 1.0
-                          input-vals (format-input-vals input-vals gates) oi exp obs))
-       differences))
+  [gates wiring input-vals]
+  "There is exactly one discrepancy hyp for each difference."
+  (let [differences (find-differences gates wiring input-vals)]
+    (map (fn [[i oi exp obs]]
+           (DiscrepancyHyp. (make-disc-hyp-id i oi exp obs) 1.0
+                            input-vals (format-input-vals input-vals gates)
+                            i oi exp obs))
+         differences)))
+
+(defn find-discrepancies-explained
+  [gate-id disc-hyps gates wiring]
+  "A discrepancy is explained if the gate in question is in the parentage of
+   the output identified by the discrepancy."
+  (filter (fn [d-h] (some #(= gate-id %)
+                          (conj (find-all-gate-input-gates (:index d-h) gates wiring)
+                                (:index d-h))))
+          disc-hyps))
 
 (defrecord BrokenGateHyp [id apriori gate-id]
   Object
@@ -284,6 +297,25 @@
 (defn make-hyp-id
   [gate-id]
   (format "BGH%d" gate-id))
+
+(defn generate-singular-hyps
+  [gates wiring input-vals params]
+  (let [disc-hyps (generate-discrepancy-hyps gates wiring input-vals)
+        implicated (apply union (find-implicated-gates gates wiring input-vals))]
+    (for [gate-id implicated]
+      {:hyp (BrokenGateHyp. (make-hyp-id gate-id) (:ProbBroken params) gate-id)
+       :explains (find-discrepancies-explained gate-id disc-hyps gates wiring)})))
+
+(defn generate-hyps
+  [strat-state time gates wiring input-vals params]
+  (let [sing-hyps (generate-singular-hyps gates wiring input-vals params)]
+    (reduce (fn [ss {hyp :hyp explains :explains}]
+              (add-hyp ss time hyp explains (:apriori hyp)
+                       (format (str "Hypothesizing (apriori=%.2f) that %s "
+                                    "explains %s")
+                               (:apriori hyp) (str hyp)
+                               (apply str (interpose "; " (map str explains))))))
+            strat-state sing-hyps)))
 
 (defn make-graphviz-nodes
   [gates]
