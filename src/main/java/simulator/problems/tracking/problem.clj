@@ -15,6 +15,14 @@
 
 (def headers (concat avg-fields non-avg-fields))
 
+(def charts
+  [{:x :NumberEntities :y :PercentCorrect :name "numberentities-percentcorrect"
+    :split-by :SensorCoverage :split-list (range 0 100 10) :split-delta 5
+    :y-range [0.0 100.0]}
+   {:x :AvgWalk :y :Milliseconds :name "avgwalk-milliseconds"
+    :split-by :SensorCoverage :split-list (range 0 100 10) :split-delta 5
+    :regression :linear}])
+
 (def tracking-problem
-  (Problem. "tracking" run start-player headers avg-fields non-avg-fields
+  (Problem. "tracking" run start-player headers avg-fields non-avg-fields charts
 	    (init-event-log)))

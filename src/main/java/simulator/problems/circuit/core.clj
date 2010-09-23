@@ -19,10 +19,14 @@
                 (get (:accepted strat-state) time))
         correct-b-g-hyps
         (filter (fn [b-h] (some #(= (:gate-id b-h) %) broken-gates)) accepted-b-g-hyps)]
-    {:TotalEvents (count broken-gates)
+    {:Gates (count gates)
+     :TotalBroken (count broken-gates)
      :Correct (count correct-b-g-hyps)
      :Incorrect (- (count accepted-b-g-hyps) (count correct-b-g-hyps))
      :Observable observable-broken-gates
+     :ObservablePercent
+     (if (empty? broken-gates) 100.0
+         (double (* 100 (/ observable-broken-gates (count broken-gates)))))
      :PercentCorrect
      (if (= 0 observable-broken-gates) 100.0
          (double (* 100 (/ (count correct-b-g-hyps) observable-broken-gates))))}))
@@ -39,7 +43,7 @@
         evaluation (evaluate gates wiring time ss2)]
     {:stratstate ss2
      :results (merge params
-                     (assoc evaluation
+                     (assoc evaluation                       
                        :Milliseconds (/ (double (- (. System (nanoTime)) startTime))
                                         1000000.0)
                        :Strategy (:strategy ss)

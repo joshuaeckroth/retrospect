@@ -29,7 +29,12 @@
   "Each thread will have 10 configurations (and average 10 over runs per configuration)."
   (let [n 10
 	partitions (partition-all n (shuffle params))
-	total (* n (count partitions))]
+	total (* n (reduce + (map count partitions)))]
+    (println (format "Averaging %d runs per configuration." n))
+    (println (format (str "Splitting parameters into %d partitions, "
+                          "about %d configurations each, "
+                          "further split over %d threads.")
+                     (count partitions) n nthreads))
     (loop [pofps (partition-all nthreads partitions)
 	   finished 0
 	   time 0.0
@@ -42,7 +47,7 @@
 		endtime (. System (nanoTime))
 		milliseconds (/ (- endtime starttime) 1000000.0)
 		newtime (+ time milliseconds)
-		newfinished (+ (* n (count part)) finished)]
+		newfinished (+ (* n (reduce + (map count part))) finished)]
 	    (print-progress newtime milliseconds newfinished total)
 	    (recur (next pofps) newfinished newtime (concat rs results))))
 	results))))

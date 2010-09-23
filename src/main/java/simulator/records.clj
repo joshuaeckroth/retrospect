@@ -31,7 +31,7 @@
 	update-with-range (fn [pm paramtag]
 			    (assoc pm paramtag
 				   (range (get-value paramsmaps paramtag :start)
-					  (get-value paramsmaps paramtag :end)
+					  (inc (get-value paramsmaps paramtag :end))
 					  (get-value paramsmaps paramtag :step))))]
     (reduce update-with-range {} paramtags)))
 
@@ -60,15 +60,20 @@
   control process or a local (this machine) runner."
   (let [dir (str recordsdir "/" (. System (currentTimeMillis)))
 	params (explode-params (read-params problem paramsfile))]
-    (println (format "Making new directory %s..." dir))
+    (print (format "Making new directory %s..." dir))
     (.mkdir (File. dir))
-    (println "Writing meta.xml...")
+    (println "done.")
+    (print "Writing meta.xml...")
     (write-xml (str dir "/meta.xml"))
-    (println "Copying params file...")
+    (println "done.")
+    (print "Copying params file...")
     (copy-params-file (str dir "/params.xml") paramsfile)
+    (println "done.")
+    (println (format "Running %d parameter combinations..." (count params)))
     (run-local problem params dir nthreads)
-    (println "Saving charts...")
-    (save-plots dir)))
+    (print "Saving charts...")
+    (save-plots dir problem)
+    (println "done.")))
 
 (defn write-input
   [params input]

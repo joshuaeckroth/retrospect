@@ -1,56 +1,51 @@
 (ns simulator.charts
   (:use [incanter.core])
   (:use [incanter.charts])
-  (:use [incanter.io]))
+  (:use [incanter.io])
+  (:use [incanter.stats :as stats])
+  (:use [simulator.strategies :only (strategies)]))
 
 (defn plot
-  [data x y strategies sensor-coverage]
+  [data x y strategies y-range regression]
   (with-data data
-    (let [plot (doto
-		   (scatter-plot x y :x-label (name x) :y-label (name y) :legend true
-				 :data ($where {:Strategy "guess"
-						:SensorCoverage {:$gt (- sensor-coverage 5.0)
-								 :$lt (+ sensor-coverage 5.0)}})
-				 :series-label "guess"
-				 :title (format "Sensor coverage: %.0f%%" sensor-coverage))
-		 (set-y-range 0.0 100.0)
-		 (clear-background))]
-      (if (nil? (rest strategies)) plot
-	  (reduce (fn [p strategy]
-		    (add-points p x y
-				:data ($where {:Strategy strategy
-					       :SensorCoverage {:$gt (- sensor-coverage 5.0)
-								:$lt (+ sensor-coverage 5.0)}})
-				:series-label strategy))
-		  plot (rest strategies))))))
+    (let [plot (doto (scatter-plot x y :x-label (name x) :y-label (name y)
+                                   :data ($where {:Strategy (first strategies)})
+                                   :legend true :series-label (first strategies))
+                 (clear-background))
+          plot2 (reduce (fn [p strategy]
+                          (add-points p x y
+                                      :data ($where {:Strategy strategy})
+                                      :series-label strategy))
+                        plot (rest strategies))
+          plot3 (if y-range (apply set-y-range plot2 y-range) plot2)]
+      (cond (nil? regression)
+            plot3
+            (= regression :linear)
+            (let [lm (stats/linear-model (sel data :cols y)
+                                         (sel data :cols x))]
+              (add-lines plot3 (sel data :cols x) (:fitted lm)
+                         :series-label (format "Linear regression, r-square=%.2f"
+                                               (:r-square lm))))))))
 
 (defn read-results [filename]
   (read-dataset filename :header true))
 
 (defn save-plots
-  [recordsdir]
+  [recordsdir problem]
   (let [results (read-results (str recordsdir "/results.csv"))]
-    (save (plot results :NumberEntities :PercentCorrect ["guess" "essentials-guess"] 100.0)
-	  (str recordsdir "/numes-correct-100.png"))))
+    (doseq [c (:charts problem)]
+      (if (:split-by c)
+        (doseq [split (:split-list c)]
+          (let [data ($where {(:split-by c) {:$gt (- split (:split-delta c))
+                                             :$lt (+ split (:split-delta c))}}
+                             results)]
+            (when (not-empty (sel data :cols (:x c)))
+              (save (plot data (:x c) (:y c) strategies (:y-range c) (:regression c))
+                    (format "%s/%s-%s--%s-%s.png" recordsdir
+                            (:name problem) (:name c)
+                            (name (:split-by c)) (str split))))))
+        (save (plot results (:x c) (:y c) strategies (:y-range c) (:regression c))
+              (format "%s/%s-%s.png" recordsdir
+                      (:name problem) (:name c)))))))
 
-
-(comment
-  (save-results (multiple-runs))
-  (with-data (read-results)
-    (view (scatter-plot :Walk-size :Percent-correct :group-by :Strategy-index :legend true)))
-  (with-data (read-results)
-    (view (scatter-plot :Number-entities :Percent-correct :group-by :Strategy-index :legend true)))
-  (with-data (read-results)
-    (view (scatter-plot :Steps :Percent-correct :group-by :Strategy-index :legend true)))
-  (with-data (read-results)
-    (view (box-plot :Percent-correct :group-by :Strategy-index :legend true)))
-  (with-data (read-results)
-    (let [plot (scatter-plot :Steps :Milliseconds)]
-      (view plot)
-      (add-lines plot (sel (read-results) :cols 1)
-		 (:fitted (stats/linear-model
-			   (sel (read-results) :cols 0)
-			   (sel (read-results) :cols 1))))))
-  (with-data (sel (read-results) :filter #(= 50.0 (nth % 7)))
-    (view (scatter-plot :Walk-size :Percent-correct :group-by :Strategy-index :legend true))))
 

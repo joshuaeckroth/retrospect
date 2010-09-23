@@ -22,4 +22,4 @@
 (defn get-headers [problem] (:headers problem))
 
 (defrecord Problem
-  [name runner-fn player-fn headers avg-fields non-avg-fields problem-data])
+  [name runner-fn player-fn headers avg-fields non-avg-fields charts problem-data])
