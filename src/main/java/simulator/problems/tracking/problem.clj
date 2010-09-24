@@ -21,6 +21,8 @@
     :y-range [0.0 100.0]}
    {:x :AvgWalk :y :Milliseconds :name "avgwalk-milliseconds"
     :split-by :SensorCoverage :split-list (range 0 100 10) :split-delta 5
+    :regression :linear}
+   {:x :SensorCoverage :y :PercentCorrect :name "coverage-correct"
     :regression :linear}])
 
 (def tracking-problem

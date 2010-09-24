@@ -109,7 +109,7 @@
                 (format "Undetectable broken gates: %s"
                         (apply str (interpose ", " (map str undetectable)))))))
   (.setText *number-broken-label*
-            (format "Number broken: %d" (:TotalEvents *results*)))
+            (format "Number broken: %d" (:TotalBroken *results*)))
   (.setText *correct-label*
             (format "Correct: %d" (:Correct *results*)))
   (.setText *incorrect-label*
