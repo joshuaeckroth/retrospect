@@ -172,24 +172,27 @@
      (recur (penalize-conflicts-helper strat-state time conflicts) time)
      
      ;; don't continue 10% of the time
-     (< (rand) 0.1) strat-state
+     (< (rand) 0.1)
+     (add-abducer-log-msg strat-state time #{}
+                          (format "Halting guess strategy. %d still unexplained."
+                                  (count unexplained)))
 
      ;; choose an unexplained hyp and add a random explainer (if any exist)
      (not-empty unexplained)
      (let [hyp (rand-nth (vec unexplained))
-	   explainers (difference (get-explainers (:hypspace strat-state) hyp))]
+	   explainers (get-explainers (:hypspace strat-state) hyp)]
+
        (if (empty? explainers)
 
-	 ;; no explainers, just add the hyp
-	 (recur (-> strat-state
-		    (update-in [:accepted time] union #{hyp})) time)
+	 ;; no explainers, just recur
+	 (recur strat-state time)
 
 	 ;; some explainers, add a random one and the hyp
 	 (let [expl (rand-nth (vec explainers))]
 	   (recur (-> strat-state
 		      ;; TODO: does not support composite explainers
-		      (update-in [:accepted time] union #{hyp expl})
-		      (update-in [:considering time] difference #{hyp expl})
+		      (update-in [:accepted time] union #{expl})
+		      (update-in [:considering time] difference #{expl})
 		      (add-abducer-log-msg time #{hyp expl}
 					   (format "Accepting guess that %s explains %s"
                                                    (get-hyp-id-str expl)

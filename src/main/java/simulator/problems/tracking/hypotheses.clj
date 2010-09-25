@@ -8,7 +8,8 @@
 	 (get-entities add-entity remove-entity add-event update-entity)])
   (:use [simulator.confidences])
   (:use [simulator.types.hypotheses :only
-	 (Hypothesis add-explainers get-explainers add-conflicts get-hyp-id-str)])
+	 (Hypothesis add-explainers get-explainers
+                     add-conflicts get-hyp-id-str get-hyp-ids-str)])
   (:use [simulator.strategies :only (add-hyp force-acceptance)])
   (:use [clojure.set]))
 
@@ -48,8 +49,8 @@
                                  (format "Accepting as fact spotted %s"
                                          (get-hyp-id-str spotted))))]
     (add-hyp ss time hyp #{spotted}
-             (format "Hypothesizing (a=%d) that %s is new: %s"
-                     apriori spotted (:entity hyp)))))
+             (format "Hypothesizing %s (a=%d) that %s is new: %s"
+                     (get-hyp-id-str hyp) apriori spotted (:entity hyp)))))
 
 (defn add-hyp-move
   [strat-state spotted time prev apriori]
@@ -60,8 +61,8 @@
         ss (add-hyp strat-state time spotted #{}
                     (format "Hypothesizing spotted %s" (get-hyp-id-str spotted)))]
     (add-hyp ss time hyp #{spotted}
-             (format "Hypothesizing (a=%d) that %s is the movement of %s"
-                     apriori (get-hyp-id-str spotted) (:prev hyp)))))
+             (format "Hypothesizing %s (a=%d) that %s is the movement of %s"
+                     (get-hyp-id-str hyp) apriori (get-hyp-id-str spotted) (:prev hyp)))))
 
 (defn add-mutual-conflicts
   [strat-state hyps]
@@ -75,53 +76,84 @@
    or one prior (for movements)."
   (filter #(>= 1 (- time (:time (last (:snapshots %))))) entities))
 
+(defn add-mutual-conflict-continuations
+  [strat-state entities time]
+  "For each entity, find all hypotheses that were hypothesized at 'time' and
+   are continuations of that entity, and add mutual conflict relations for these
+   continuation hypotheses."
+  (reduce
+   (fn [ss e]
+     (let [continuations
+           (filter
+            (fn [h] (and (= (type h)
+                            simulator.problems.tracking.hypotheses.TrackingHyp)
+                         (= (type (:event h))
+                            simulator.problems.tracking.events.EventMove)
+                         (= (pos e) (:oldpos (:event h)))))
+            (get (:hypothesized-at ss) time))]
+       (add-mutual-conflicts ss (set continuations))))
+   strat-state entities))
+
+(defn generate-new-hypotheses
+  [strat-state spotted time params]
+  (reduce (fn [ss spot]
+            (add-hyp-new ss spot time
+                         (if (>= 0.5 (:ProbNewEntities params))
+                           IMPLAUSIBLE PLAUSIBLE)))
+          strat-state spotted))
+
+(defn generate-movement-hypotheses
+  [strat-state spotted entities time params]
+  (loop [pairs (pair-near spotted entities (:MaxWalk params))
+         ss strat-state]
+    (cond (empty? pairs) ss
+          
+          ;; all entities too far for this spotted; hypothesize new entity
+          (empty? (:entities (first pairs)))
+          (recur (rest pairs)
+                 (add-hyp-new ss (:spotted (first pairs)) time
+                              (if (>= 0.5 (:ProbNewEntities params))
+                                IMPLAUSIBLE PLAUSIBLE)))
+          
+          ;; some entities in range; hypothesize them all, plus a new-entity hyp
+          ;; then make them all mutually conflicting
+          :else
+          (let [spotted (:spotted (first pairs))
+                es (:entities (first pairs))
+                ss2 (reduce
+                     (fn [tempss e]
+                       (add-hyp-move tempss spotted time (:entity e)
+                                     (case (< (:dist e) (/ (:MaxWalk params) 4))
+                                           VERY-PLAUSIBLE
+                                           (< (:dist e) (/ (:MaxWalk params) 2))
+                                           PLAUSIBLE
+                                           :else NEUTRAL)))
+                     ss es)
+                ss3 (add-hyp-new ss2 spotted time
+                                 (if (>= 0.5 (:ProbNewEntities params))
+                                   IMPLAUSIBLE PLAUSIBLE))
+                ssconflicts
+                (add-mutual-conflicts ss3 (get-explainers (:hypspace ss3) spotted))]
+            (recur (rest pairs) ssconflicts)))))
+
 (defn generate-hypotheses
   [strat-state sensors time params]
-  (let [unique-spotted (set (apply concat (map :spotted sensors)))
+  (let [unique-spotted
+        (set (apply concat (map :spotted sensors)))
 	candidate-entities
-	(filter-candidate-entities time (get-entities (:problem-data strat-state)))]
+        (filter-candidate-entities time (get-entities (:problem-data strat-state)))
+        ss (if (empty? candidate-entities)
+
+             ;; no previously-known entities, hypothesize all as new
+             (generate-new-hypotheses strat-state unique-spotted time params)
+             
+             ;; else, got some previously-known entities, so associate them with spotted
+             (generate-movement-hypotheses strat-state unique-spotted
+                                           candidate-entities time params))]
     
-    (if (empty? candidate-entities)
-
-      ;; no previously-known entities, hypothesize all as new
-      (reduce (fn [ss spotted]
-                (add-hyp-new ss spotted time
-                             (if (>= 0.5 (:ProbNewEntities params))
-                               IMPLAUSIBLE PLAUSIBLE)))
-	      strat-state unique-spotted)
-
-      ;; got some previously-known entities, so associate them with spotted
-      (loop [pairs (pair-near unique-spotted candidate-entities (:MaxWalk params))
-	     ss strat-state]
-	(cond (empty? pairs) ss
-
-	      ;; all entities too far for this spotted; hypothesize new entity
-	      (empty? (:entities (first pairs)))
-	      (recur (rest pairs)
-		     (add-hyp-new ss (:spotted (first pairs)) time
-                                  (if (>= 0.5 (:ProbNewEntities params))
-                                    IMPLAUSIBLE PLAUSIBLE)))
-
-	      ;; some entities in range; hypothesize them all, plus a new-entity hyp
-	      ;; then make them all mutually conflicting
-	      :else
-	      (let [spotted (:spotted (first pairs))
-		    es (:entities (first pairs))
-		    ss2 (reduce
-			 (fn [tempss e]
-			   (add-hyp-move tempss spotted time (:entity e)
-                                         (case (< (:dist e) (/ (:MaxWalk params) 4))
-                                               VERY-PLAUSIBLE
-                                               (< (:dist e) (/ (:MaxWalk params) 2))
-                                               PLAUSIBLE
-                                               :else NEUTRAL)))
-			 ss es)
-		    ss3 (add-hyp-new ss2 spotted time
-                                     (if (>= 0.5 (:ProbNewEntities params))
-                                       IMPLAUSIBLE PLAUSIBLE))
-		    ssconflicts
-		    (add-mutual-conflicts ss3 (get-explainers (:hypspace ss3) spotted))]
-		(recur (rest pairs) ssconflicts)))))))
+    ;; finally, add mutual conflicts for all hypotheses that are a continuation
+    ;; of the same entity
+    (add-mutual-conflict-continuations ss candidate-entities time)))
 
 (defn update-problem-data
   [strat-state time]
