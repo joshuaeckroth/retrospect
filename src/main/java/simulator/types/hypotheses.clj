@@ -102,7 +102,7 @@
   [hypspace hyps]
   (let [essentials (apply union (filter #(= 1 (count %))
 					(map #(get-explainers hypspace %) hyps)))]
-    (filter #(<= PLAUSIBLE (get-confidence hypspace %)) essentials)))
+    (filter #(<= IMPLAUSIBLE (get-confidence hypspace %)) essentials)))
 
 (defn find-conflicts
   [hypspace hyps]
@@ -122,7 +122,7 @@
 
 		    ;; single explainer or difference in confidence above a threshold?
 		    (and
-		     (<= PLAUSIBLE (:conf (first expsorted)))
+		     (<= IMPLAUSIBLE (:conf (first expsorted)))
 		     (or
 		      (= 1 (count expsorted))
 		      (<= threshold (- (:conf (first expsorted))

@@ -28,7 +28,8 @@
 (def *grid* (vec (repeat (* *width* *height*) nil)))
 
 (def *steplabel* (JLabel. "Step: "))
-(def *resultslabel* (JLabel. "Correct: "))
+(def *events-correct-label* (JLabel. "Events correct: "))
+(def *identities-correct-label* (JLabel. "Identities correct: "))
 (def *true-events-box* (JTextArea. 15 50))
 (def *abducer-log-box* (JTextArea. 15 50))
 (def *strat-events-box* (JTextArea. 15 50))
@@ -241,7 +242,14 @@
     (update-logs-panel)
     (. *gridpanel* (repaint))
     (. *steplabel* (setText (str "Step: " *time*)))
-    (. *resultslabel* (setText (format "Correct: %.2f%%" (tracking/evaluate te ss))))))
+    (. *events-correct-label*
+       (setText
+        (format "Events correct: %.2f%%"
+                (:PercentEventsCorrect (tracking/evaluate te ss)))))
+    (. *identities-correct-label*
+       (setText
+        (format "Identities correct: %.2f%%"
+                (:PercentIdentitiesCorrect (tracking/evaluate te ss)))))))
 
 (def *newbutton*
      (let [b (JButton. "New")]
@@ -264,7 +272,7 @@
      (doto (JPanel. (GridBagLayout.))
        (grid-bag-layout
 	:fill :BOTH, :insets (Insets. 5 5 5 5)
-	:gridx 0, :gridy 0, :gridheight 14
+	:gridx 0, :gridy 0, :gridheight 17
 	*gridpanel*
 
 	:gridx 1, :gridy 0, :gridheight 1
@@ -319,21 +327,26 @@
 
 	:gridx 1, :gridy 10
 	*newbutton*
+        
 	:gridx 2, :gridy 10
 	*steplabel*
 
 	:gridx 1, :gridy 11
 	*prevbutton*
-	:gridx 2, :gridy 11
+        
+	:gridx 1, :gridy 12
 	*nextbutton*
 
-	:gridx 1, :gridy 12
-	*resultslabel*
+	:gridx 1, :gridy 13, :gridwidth 2
+	*events-correct-label*
 
-	:gridx 2, :gridy 12
+        :gridx 1, :gridy 14
+        *identities-correct-label*
+
+	:gridx 1, :gridy 15
 	*mouse-xy*
 
-	:gridy 13, :gridwidth 2, :gridheight :REMAINDER
+	:gridy 16, :gridheight :REMAINDER
 	(JPanel.))))
 
 (def *logspanel*

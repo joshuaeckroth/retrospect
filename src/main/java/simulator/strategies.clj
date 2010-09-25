@@ -98,7 +98,7 @@
 
 (defn conflicts-helper
   [strat-state time]
-  (filter-lower-bound strat-state NEUTRAL
+  (filter-lower-bound strat-state IMPLAUSIBLE
                       (find-conflicts (:hypspace strat-state)
                                       (get (:accepted strat-state) time))))
 

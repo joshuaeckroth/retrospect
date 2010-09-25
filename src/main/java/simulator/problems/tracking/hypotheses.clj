@@ -41,14 +41,8 @@
   (let [event (EventNew. (:time spotted) (pos spotted))
 	entity (Entity. [(EntitySnapshot. time (pos spotted))])
         hyp (TrackingHyp. (make-hyp-id spotted time nil) apriori
-                          "new" time spotted entity nil event)
-        ss (-> strat-state
-               (add-hyp time spotted #{}
-                        (format "Hypothesizing spotted %s" (get-hyp-id-str spotted)))
-               (force-acceptance time spotted
-                                 (format "Accepting as fact spotted %s"
-                                         (get-hyp-id-str spotted))))]
-    (add-hyp ss time hyp #{spotted}
+                          "new" time spotted entity nil event)]
+    (add-hyp strat-state time hyp #{spotted}
              (format "Hypothesizing %s (a=%d) that %s is new: %s"
                      (get-hyp-id-str hyp) apriori spotted (:entity hyp)))))
 
@@ -57,10 +51,8 @@
   (let [event (EventMove. time (pos prev) (pos spotted))
 	entity (add-snapshot prev (EntitySnapshot. time (pos spotted)))
         hyp (TrackingHyp. (make-hyp-id spotted time prev) apriori
-                          "move" time spotted entity prev event)
-        ss (add-hyp strat-state time spotted #{}
-                    (format "Hypothesizing spotted %s" (get-hyp-id-str spotted)))]
-    (add-hyp ss time hyp #{spotted}
+                          "move" time spotted entity prev event)]
+    (add-hyp strat-state time hyp #{spotted}
              (format "Hypothesizing %s (a=%d) that %s is the movement of %s"
                      (get-hyp-id-str hyp) apriori (get-hyp-id-str spotted) (:prev hyp)))))
 
@@ -73,8 +65,8 @@
 (defn filter-candidate-entities
   [time entities]
   "Restrict candidate entities to those just hypothesized (for new)
-   or one prior (for movements)."
-  (filter #(>= 1 (- time (:time (last (:snapshots %))))) entities))
+   or last seen at most three steps prior (for movements)."
+  (filter #(>= 3 (- time (:time (last (:snapshots %))))) entities))
 
 (defn add-mutual-conflict-continuations
   [strat-state entities time]
@@ -98,7 +90,7 @@
   [strat-state spotted time params]
   (reduce (fn [ss spot]
             (add-hyp-new ss spot time
-                         (if (>= 0.5 (:ProbNewEntities params))
+                         (if (>= 50 (:ProbNewEntities params))
                            IMPLAUSIBLE PLAUSIBLE)))
           strat-state spotted))
 
@@ -108,14 +100,16 @@
          ss strat-state]
     (cond (empty? pairs) ss
           
-          ;; all entities too far for this spotted; hypothesize new entity
+          ;; all entities too far for this spotted; maybe hypothesize new entity
           (empty? (:entities (first pairs)))
           (recur (rest pairs)
-                 (add-hyp-new ss (:spotted (first pairs)) time
-                              (if (>= 0.5 (:ProbNewEntities params))
-                                IMPLAUSIBLE PLAUSIBLE)))
+                 (if (= 0 (:ProbNewEntities params)) ss
+                   (add-hyp-new ss (:spotted (first pairs)) time
+                                (if (>= 50 (:ProbNewEntities params))
+                                  IMPLAUSIBLE PLAUSIBLE))))
           
-          ;; some entities in range; hypothesize them all, plus a new-entity hyp
+          ;; some entities in range; hypothesize them all,
+          ;; plus a new-entity hyp (if probnew != 0),
           ;; then make them all mutually conflicting
           :else
           (let [spotted (:spotted (first pairs))
@@ -129,9 +123,10 @@
                                            PLAUSIBLE
                                            :else NEUTRAL)))
                      ss es)
-                ss3 (add-hyp-new ss2 spotted time
-                                 (if (>= 0.5 (:ProbNewEntities params))
-                                   IMPLAUSIBLE PLAUSIBLE))
+                ss3 (if (= 0 (:ProbNewEntities params)) ss2
+                      (add-hyp-new ss2 spotted time
+                                   (if (>= 50 (:ProbNewEntities params))
+                                     IMPLAUSIBLE PLAUSIBLE)))
                 ssconflicts
                 (add-mutual-conflicts ss3 (get-explainers (:hypspace ss3) spotted))]
             (recur (rest pairs) ssconflicts)))))
@@ -142,18 +137,30 @@
         (set (apply concat (map :spotted sensors)))
 	candidate-entities
         (filter-candidate-entities time (get-entities (:problem-data strat-state)))
-        ss (if (empty? candidate-entities)
+        
+        ;; hypothesize and accept as fact all the spotted
+        ss (reduce (fn [ss spotted]
+                     (-> ss
+                         (add-hyp time spotted #{}
+                                  (format "Hypothesizing spotted %s"
+                                          (get-hyp-id-str spotted)))
+                         (force-acceptance time spotted
+                                           (format "Accepting as fact spotted %s"
+                                                   (get-hyp-id-str spotted)))))
+                   strat-state unique-spotted)
+        
+        ss2 (if (empty? candidate-entities)
 
              ;; no previously-known entities, hypothesize all as new
-             (generate-new-hypotheses strat-state unique-spotted time params)
+             (generate-new-hypotheses ss unique-spotted time params)
              
              ;; else, got some previously-known entities, so associate them with spotted
-             (generate-movement-hypotheses strat-state unique-spotted
+             (generate-movement-hypotheses ss unique-spotted
                                            candidate-entities time params))]
     
     ;; finally, add mutual conflicts for all hypotheses that are a continuation
     ;; of the same entity
-    (add-mutual-conflict-continuations ss candidate-entities time)))
+    (add-mutual-conflict-continuations ss2 candidate-entities time)))
 
 (defn update-problem-data
   [strat-state time]

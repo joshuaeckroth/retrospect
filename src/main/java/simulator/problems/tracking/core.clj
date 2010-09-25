@@ -20,7 +20,7 @@
   (:use [simulator.strategies :only (init-strat-state explain)]))
 
 (defn add-new-entities
-  [trueevents gridstate numes]
+  [trueevents gridstate numes time]
   (loop [i 0
 	 te trueevents
 	 gs gridstate]
@@ -32,14 +32,14 @@
 	(recur (inc i)
 	       (-> te
 		   (add-entity entity)
-		   (add-event-new 0 (pos entity)))
+		   (add-event-new time (pos entity)))
 	       (update-grid-entity gs nil entity))))))
 
 (defn init-states
   [width height numes]
   (let [trueevents (init-event-log)
 	gridstate (GridState. (new-grid width height) 0)]
-    (add-new-entities trueevents gridstate numes)))
+    (add-new-entities trueevents gridstate numes 0)))
 
 (defn random-walks
   [walk trueevents gridstate]
@@ -65,9 +65,10 @@
 		 (rest ew)))))))
 
 (defn possibly-add-new-entities
-  [trueevents gridstate]
-  (if (> 2.0 (rand)) [trueevents gridstate] ; skip adding new entities 95% of the time
-      (add-new-entities trueevents gridstate (inc (rand-int 2)))))
+  [trueevents gridstate params time]
+  (if (>= (double (/ (:ProbNewEntities params) 100)) (rand))
+    (add-new-entities trueevents gridstate 1 time)
+    [trueevents gridstate]))
 
 (defn single-step
   [params sensors [trueevents gridstate strat-state]]
@@ -76,8 +77,8 @@
 	ss (generate-hypotheses strat-state sens time params)
 	ss2 (explain ss time)
 	ss3 (update-problem-data ss2 time)
-	[te gs] (random-walks (:MaxWalk params) trueevents (forward-time gridstate 1))
-	[newte newgs] (possibly-add-new-entities te gs)]
+        [te gs] (possibly-add-new-entities trueevents gridstate params time)
+	[newte newgs] (random-walks (:MaxWalk params) te (forward-time gs 1))]
     [newte newgs ss3]))
 
 (defn last-explanation
@@ -104,12 +105,33 @@
 	     (get-entities trueevents))]
     (double (/ (reduce + 0 walk-avgs) (count walk-avgs)))))
 
+(defn find-correct-identities
+  [trueevents strat-state]
+  "An 'identity' of an entity is its starting position (at a specific
+   time). Here we compare starting positions with ending positions to
+   see if the believed entities can also match start-end
+   positions. This means a believed 'identity' is correct even when
+   the inner path is wrong; only the beginning and end must match up
+   with the true entities."
+  (let [get-starts-ends (fn [es] (set (map (fn [e] {:start (first (:snapshots e))
+                                                    :end (last (:snapshots e))})
+                                           es)))
+        true-starts-ends (get-starts-ends (get-entities trueevents))
+        strat-starts-ends (get-starts-ends (get-entities (:problem-data strat-state)))]
+    (intersection true-starts-ends strat-starts-ends)))
+
 (defn evaluate
   [trueevents strat-state]
-  (let [correct (count (intersection (set (get-events trueevents))
-                                     (set (get-events (:problem-data strat-state)))))
-	total (count (get-events trueevents))]
-    (double (* 100 (/ correct total)))))
+  (let [events-correct
+        (count (intersection (set (get-events trueevents))
+                             (set (get-events (:problem-data strat-state)))))
+	events-total (count (get-events trueevents))
+        identities-correct (count (find-correct-identities trueevents strat-state))
+        identities-total (count (get-entities trueevents))]
+    {:PercentEventsCorrect
+     (double (* 100 (/ events-correct events-total)))
+     :PercentIdentitiesCorrect
+     (double (* 100 (/ identities-correct identities-total)))}))
 
 (defn run
   [params strat-state]
@@ -124,18 +146,22 @@
       (if (< i (:Steps params))
 	(recur (inc i) (single-step params sensors combined-states))
 	(let [[te ss] (last-explanation params sensors combined-states)]
-	  {:trueevents te :stratstate ss :sensors sensors :results
-	   (assoc params
-	     :Milliseconds (/ (double (- (. System (nanoTime)) startTime)) 1000000.0)
-	     :PercentCorrect (evaluate te ss)
-	     :Strategy (:strategy ss)
-	     :StrategyCompute (:compute (:resources ss))
-	     :StrategyMilliseconds (:milliseconds (:resources ss))
-	     :StrategyMemory (:memory (:resources ss))
-	     :AvgWalk (calc-average-walk te)
-	     :SensorCoverage (measure-sensor-coverage
-			      (:GridWidth params) (:GridHeight params) sensors)
-	     :SensorOverlap (measure-sensor-overlap
-			     (:GridWidth params) (:GridHeight params) sensors))})))))
+	  {:trueevents te :stratstate ss :sensors sensors
+           :results
+           (merge (evaluate te ss)
+                  (assoc params
+                    :Milliseconds
+                    (/ (double (- (. System (nanoTime)) startTime)) 1000000.0)
+                    :Strategy (:strategy ss)
+                    :StrategyCompute (:compute (:resources ss))
+                    :StrategyMilliseconds (:milliseconds (:resources ss))
+                    :StrategyMemory (:memory (:resources ss))
+                    :AvgWalk (calc-average-walk te)
+                    :SensorCoverage
+                    (measure-sensor-coverage
+                     (:GridWidth params) (:GridHeight params) sensors)
+                    :SensorOverlap
+                    (measure-sensor-overlap
+                     (:GridWidth params) (:GridHeight params) sensors)))})))))
 
 
