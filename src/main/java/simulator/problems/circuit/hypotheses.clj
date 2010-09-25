@@ -15,6 +15,14 @@
                         id apriori ivstr output
                         (str expected) (str observed))))
 
+(defrecord BrokenGateHyp [id apriori gate-id]
+  Hypothesis
+  (get-id [_] id)
+  (get-apriori [_] apriori)
+  Object
+  (toString [_] (format "BrokenGateHyp %s (a=%d) gate %d is broken"
+                        id apriori gate-id)))
+
 (defn make-disc-hyp-id
   [i oi exp obs]
   (format "DH%d%d" i oi))
@@ -37,14 +45,6 @@
                                (conj (find-all-gate-input-gates (:index d-h) gates wiring)
                                      (:index d-h))))
                disc-hyps)))
-
-(defrecord BrokenGateHyp [id apriori gate-id]
-  Hypothesis
-  (get-id [_] id)
-  (get-apriori [_] apriori)
-  Object
-  (toString [_] (format "BrokenGateHyp %s (a=%d) gate %d is broken"
-                        id apriori gate-id)))
 
 (defn make-hyp-id
   [gate-id]

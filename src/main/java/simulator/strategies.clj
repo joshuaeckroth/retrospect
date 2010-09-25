@@ -1,6 +1,6 @@
 (ns simulator.strategies
   (:require [simulator.types logs hypotheses])
-  (:import [simulator.types.logs LogEntry AbducerLogEntry])
+  (:import [simulator.types.logs LogEntry AbducerLogEntry HypLogEntry])
   (:import [simulator.types.hypotheses HypothesisSpace])
   (:use simulator.types.hypotheses)
   (:use simulator.confidences)
@@ -9,17 +9,18 @@
 (defrecord StrategyState
     [strategy hypspace
      accepted considering                 ;; maps keyed by time
-     hypothesized                         ;; maps keyed by time
+     hypothesized-at                      ;; maps keyed by time
      considering-before considering-afer  ;; maps keyed by time
      unexplained-before unexplained-after ;; maps keyed by time
-     log abducer-log 
+     log abducer-log                      ;; maps keyed by time
+     hyp-log                              ;; keyed by hyp
      resources problem-data])
 
 (defn init-strat-state
   [strategy pdata]
   (StrategyState. strategy
 		  (init-hypspace)
-		  {} {} {} {} {} {} {} {} {} ;; these are maps, keyed by time
+		  {} {} {} {} {} {} {} {} {} {} ;; these are maps
 		  {:compute 0 :milliseconds 0 :memory 0} pdata))
 
 (defn prepare-strat-state
@@ -60,6 +61,13 @@
       (update-in strat-state [:abducer-log time] conj entry)
       (update-in strat-state [:abducer-log] assoc time [entry]))))
 
+(defn add-hyp-log-msg
+  [strat-state time hyp msg]
+  (let [entry (HypLogEntry. time hyp msg)]
+    (if (get (:hyp-log strat-state) hyp)
+      (update-in strat-state [:hyp-log hyp] conj entry)
+      (update-in strat-state [:hyp-log] assoc hyp [entry]))))
+
 (defn add-hyp
   [strat-state time hyp explained log-msg]
   (let [hypspace (-> (:hypspace strat-state)
@@ -70,7 +78,9 @@
 	(update-in [:hypothesized-at time] union #{hyp})
 	(update-in [:considering time] union #{hyp})
 	(assoc :hypspace hypspace)
-	(add-log-msg time log-msg))))
+	(add-log-msg time log-msg)
+        (add-abducer-log-msg time #{hyp} "Adding hypothesis.")
+        (add-hyp-log-msg time hyp "Adding hypothesis."))))
 
 (defn force-acceptance
   [strat-state time hyp log-msg]
@@ -79,15 +89,12 @@
       (update-in [:considering time] difference #{hyp})
       (add-abducer-log-msg time #{hyp}
                            (format "Forcing acceptance of: %s" (get-hyp-id-str hyp)))
+      (add-hyp-log-msg time hyp "Forcing acceptance.")
       (add-log-msg time log-msg)))
 
 (defn filter-lower-bound
   [strat-state lower-bound hyps]
   (filter (fn [hyp] (<= lower-bound (get-confidence (:hypspace strat-state) hyp))) hyps))
-
-(defn format-logs
-  [strat-state]
-  (apply str (map str (:log strat-state))))
 
 (defn conflicts-helper
   [strat-state time]
@@ -117,21 +124,26 @@
                            (-> hs
                                (penalize c)
                                (penalize c)))
-                         (:hypspace strat-state) conflicts)]
-    (-> strat-state
-        (assoc :hypspace hypspace)
-        (add-abducer-log-msg time conflicts
-                             (format "Penalizing conflicts: %s"
-                                     (get-hyp-ids-str conflicts))))))
+                         (:hypspace strat-state) conflicts)
+        ss (-> strat-state
+               (assoc :hypspace hypspace)
+               (add-abducer-log-msg time conflicts
+                                    (format "Penalizing conflicts: %s"
+                                            (get-hyp-ids-str conflicts))))]
+    (reduce (fn [ss c] (add-hyp-log-msg ss time c "Penalizing due to conflict."))
+            ss conflicts)))
 
 (defn accept-essentials-helper
   [strat-state time essentials]
-  (-> strat-state
-      (update-in [:accepted time] union essentials)
-      (update-in [:considering time] difference essentials)
-      (add-abducer-log-msg time essentials
-			   (format "Accepting essentials: %s"
-                                   (get-hyp-ids-str essentials)))))
+  (let [ss
+        (-> strat-state
+            (update-in [:accepted time] union essentials)
+            (update-in [:considering time] difference essentials)
+            (add-abducer-log-msg time essentials
+                                 (format "Accepting essentials: %s"
+                                         (get-hyp-ids-str essentials))))]
+    (reduce (fn [ss e] (add-hyp-log-msg ss time e "Accepting as essential."))
+            ss essentials)))
 
 (defn accept-clearbest-helper
   [strat-state time clearbest]
@@ -143,7 +155,13 @@
 		   (update-in [:considering time] difference #{explainer})
 		   (add-abducer-log-msg time #{explainer}
 					(format "Accepting clearbest %s"
-                                                (get-hyp-id-str explainer))))
+                                                (get-hyp-id-str explainer)))
+                   (add-hyp-log-msg time explainer
+                                    (format "Accepting as clearbest as explainer of %s."
+                                            (get-hyp-id-str hyp)))
+                   (add-hyp-log-msg time hyp
+                                    (format "Accepting as clearbest %s is an explainer."
+                                            (get-hyp-id-str explainer))))
 	       time
 	       (rest clearbest)))))
 
@@ -157,7 +175,8 @@
 		   (update-in [:considering time] difference #{explainer})
 		   (add-abducer-log-msg time #{explainer}
 					(format "Accepting weakbest %s"
-                                                (get-hyp-id-str explainer))))
+                                                (get-hyp-id-str explainer)))
+                   (add-hyp-log-msg time explainer "Accepting as weakbest."))
 	       time
 	       (rest weakbest)))))
 
@@ -196,7 +215,13 @@
 		      (add-abducer-log-msg time #{hyp expl}
 					   (format "Accepting guess that %s explains %s"
                                                    (get-hyp-id-str expl)
-                                                   (get-hyp-id-str hyp))))
+                                                   (get-hyp-id-str hyp)))
+                      (add-hyp-log-msg time expl
+                                       (format "Accepting as a guess to explain %s."
+                                               (get-hyp-id-str hyp)))
+                      (add-hyp-log-msg time hyp
+                                       (format "Accepting as a guess %s is an explainer."
+                                               (get-hyp-id-str expl))))
 		  time))))
      
      :else strat-state)))

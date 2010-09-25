@@ -20,8 +20,10 @@
 (defn list-hyps []
   (print-hyps (:hyps (:hypspace *strat-state*))))
 
-(defn interrogate
-  [hypid])
+(defn hyp-log
+  [hypid]
+  (doseq [entry (get (:hyp-log *strat-state*) (lookup-hyp hypid))]
+    (println (str entry))))
 
 (defn explains
   [hypid]
