@@ -1,11 +1,15 @@
 (ns simulator.problems.circuit.hypotheses
   (:use [clojure.set])
-  (:use [simulator.strategies :only (add-hyp)])
+  (:use [simulator.types.hypotheses :only (Hypothesis)])
+  (:use [simulator.confidences])
+  (:use [simulator.strategies :only (add-hyp force-acceptance)])
   (:use [simulator.problems.circuit.circuit]))
 
 (defrecord DiscrepancyHyp [id apriori input-vals ivstr index output expected observed]
+  Hypothesis
+  (get-apriori [_] apriori)
   Object
-  (toString [_] (format (str "DiscrepancyHyp %s (a=%.2f) given input vals: "
+  (toString [_] (format (str "DiscrepancyHyp %s (a=%d) given input vals: "
                              "%s, output %d should equal '%s' but '%s' was observed")
                         id apriori ivstr output
                         (str expected) (str observed))))
@@ -19,7 +23,7 @@
   "There is exactly one discrepancy hyp for each difference."
   (let [differences (find-differences gates wiring input-vals)]
     (map (fn [[i oi exp obs]]
-           (DiscrepancyHyp. (make-disc-hyp-id i oi exp obs) 1.0
+           (DiscrepancyHyp. (make-disc-hyp-id i oi exp obs) VERY-PLAUSIBLE
                             input-vals (format-input-vals input-vals gates)
                             i oi exp obs))
          differences)))
@@ -34,8 +38,10 @@
                disc-hyps)))
 
 (defrecord BrokenGateHyp [id apriori gate-id]
+  Hypothesis
+  (get-apriori [_] apriori)
   Object
-  (toString [_] (format "BrokenGateHyp %s (a=%.2f) gate %d is broken"
+  (toString [_] (format "BrokenGateHyp %s (a=%d) gate %d is broken"
                         id apriori gate-id)))
 
 (defn make-hyp-id
@@ -45,20 +51,29 @@
 (defn generate-singular-hyps
   [gates wiring input-vals params]
   (let [disc-hyps (generate-discrepancy-hyps gates wiring input-vals)
-        implicated (apply union (find-implicated-gates gates wiring input-vals))]
+        implicated (apply union (find-implicated-gates gates wiring input-vals))
+        apriori (if (>= 0.5 (:ProbBroken params)) IMPLAUSIBLE PLAUSIBLE)]
     (for [gate-id implicated]
       {:hyp (BrokenGateHyp. (make-hyp-id gate-id)
-                            (double (/ (:ProbBroken params) 100)) gate-id)
+                            apriori gate-id)
        :explains (find-discrepancies-explained gate-id disc-hyps gates wiring)})))
 
 (defn generate-hyps
   [strat-state time gates wiring input-vals params]
-  (let [sing-hyps (generate-singular-hyps gates wiring input-vals params)]
+  (let [sing-hyps (generate-singular-hyps gates wiring input-vals params)
+        ss (reduce (fn [ss d-h]
+                     (-> ss
+                         (add-hyp time d-h #{}
+                                  (format "Hypothesizing discrepancy %s" (str d-h)))
+                         (force-acceptance time d-h
+                                           (format "Accepting as fact discrepancy %s"
+                                                   (str d-h)))))
+                   strat-state (apply union (map :explains sing-hyps)))]    
     (reduce (fn [ss {hyp :hyp explains :explains}]
-              (add-hyp ss time hyp explains (:apriori hyp)
-                       (format (str "Hypothesizing (apriori=%.2f) that %s "
+              (add-hyp ss time hyp explains
+                       (format (str "Hypothesizing (a=%d) that %s "
                                     "explains %s")
                                (:apriori hyp) (str hyp)
                                (apply str (interpose "; " (map str explains))))))
-            strat-state sing-hyps)))
+            ss sing-hyps)))
 

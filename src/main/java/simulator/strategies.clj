@@ -60,19 +60,25 @@
       (update-in strat-state [:abducer-log] assoc time [entry]))))
 
 (defn add-hyp
-  [strat-state time hyp explained apriori log-msg]
+  [strat-state time hyp explained log-msg]
   (let [hypspace (-> (:hypspace strat-state)
-		     (update-in [:hyps] union explained)
 		     (update-in [:hyps] union #{hyp})
 		     (add-explainers explained #{hyp})
-		     (set-apriori-many explained 1.0) ;; TODO REMOVE THIS
-		     (set-apriori hyp apriori))]
+		     (set-confidence hyp (get-apriori hyp)))]
     (-> strat-state
-	(update-in [:hypothesized-at time] union #{hyp} explained)
-	(update-in [:accepted time] union explained)
+	(update-in [:hypothesized-at time] union #{hyp})
 	(update-in [:considering time] union #{hyp})
 	(assoc :hypspace hypspace)
 	(add-log-msg time log-msg))))
+
+(defn force-acceptance
+  [strat-state time hyp log-msg]
+  (-> strat-state
+      (update-in [:accepted time] union #{hyp})
+      (update-in [:considering time] difference #{hyp})
+      (add-abducer-log-msg time #{hyp}
+                           (format "Forcing acceptance of: %s" (str hyp)))
+      (add-log-msg time log-msg)))
 
 (defn format-logs
   [strat-state]

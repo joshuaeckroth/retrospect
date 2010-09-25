@@ -1,14 +1,18 @@
 (ns simulator.problems.tracking.sensors
   (:require [simulator.problems.tracking positions])
   (:import [simulator.problems.tracking.positions Position])
+  (:use [simulator.types.hypotheses :only (Hypothesis)])
+  (:use [simulator.confidences])
   (:use [simulator.problems.tracking.entities :only (EntityMethods pos)])
   (:use [simulator.problems.tracking.grid :only (entity-at)]))
 
 (defrecord SensorEntity [id apriori time pos]
+  Hypothesis
+  (get-apriori [_] apriori)
   EntityMethods
   (pos [this] (:pos this))
   Object
-  (toString [_] (format "SensorEntity %s (a=%.2f) %s@%d" id apriori (str pos) time)))
+  (toString [_] (format "SensorEntity %s (a=%d) %s@%d" id apriori (str pos) time)))
 
 (defn make-sensorentity-id
   [pos time]
@@ -31,7 +35,7 @@
   [sensor gridstate]
   (assoc sensor :spotted
 	 (map #(SensorEntity. (make-sensorentity-id (pos %) (:time gridstate))
-			      1.0 (:time gridstate) (pos %))
+			      VERY-PLAUSIBLE (:time gridstate) (pos %))
 	      (filter #(not (nil? %))
 		      (for [x (range (:left sensor) (inc (:right sensor)))
 			    y (range (:bottom sensor) (inc (:top sensor)))]

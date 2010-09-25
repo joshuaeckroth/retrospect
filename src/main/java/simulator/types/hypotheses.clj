@@ -1,5 +1,9 @@
 (ns simulator.types.hypotheses
-  (:use clojure.set))
+  (:use [clojure.set])
+  (:use [simulator.confidences]))
+
+(defprotocol Hypothesis
+  (get-apriori [this]))
 
 (defrecord HypothesisSpace [hyps explains explainers conflicts apriori])
 
@@ -49,18 +53,22 @@
 			    (if origconflicts (union origconflicts cs) cs))]
     (assoc hypspace :conflicts newconflicts)))
 
-(defn get-apriori
+(defn get-confidence
   [hypspace hyp]
-  (get (:apriori hypspace) hyp))
+  (get (:confidence hypspace) hyp))
 
-(defn set-apriori
-  [hypspace hyp p]
-  (let [newapriori (assoc (:apriori hypspace) hyp p)]
-    (assoc hypspace :apriori newapriori)))
+(defn set-confidence
+  [hypspace hyp c]
+  (let [newconfidence (assoc (:confidence hypspace) hyp c)]
+    (assoc hypspace :confidence newconfidence)))
 
-(defn set-apriori-many
-  [hypspace hyps p]
-  (reduce (fn [hs hyp] (set-apriori hs hyp p)) hypspace hyps))
+(defn boost
+  [hypspace hyp]
+  (set-confidence hypspace hyp (max VERY-PLAUSIBLE (get-confidence hypspace hyp))))
+
+(defn penalize
+  [hypspace hyp]
+  (set-confidence hypspace hyp (min VERY-IMPLAUSIBLE (get-confidence hypspace hyp))))
 
 (defn explained?
   [hypspace hyp hyps]
@@ -85,7 +93,7 @@
   [hypspace hyps]
   (let [essentials (apply union (filter #(= 1 (count %))
 					(map #(get-explainers hypspace %) hyps)))]
-    (filter #(< 0.0 (get-apriori hypspace %)) essentials)))
+    (filter #(<= PLAUSIBLE (get-confidence hypspace %)) essentials)))
 
 (defn find-conflicts
   [hypspace hyps]
@@ -96,29 +104,29 @@
   (filter identity
 	  (for [h hyps]
 	    (let [explainers (get-explainers hypspace h)
-		  expapriori (map (fn [e] {:explainer e
-					   :apriori (get-apriori hypspace e)})
-				  explainers)
-		  expsorted (reverse (sort-by :apriori expapriori))]
+		  expconf (map (fn [e] {:explainer e
+                                        :conf (get-confidence hypspace e)})
+                               explainers)
+		  expsorted (reverse (sort-by :conf expconf))]
 	      
 	      (cond (empty? expsorted) nil
 
-		    ;; single explainer or difference in apriori above a threshold?
+		    ;; single explainer or difference in confidence above a threshold?
 		    (and
-		     (< 0.0 (:apriori (first expsorted)))
+		     (<= PLAUSIBLE (:conf (first expsorted)))
 		     (or
 		      (= 1 (count expsorted))
-		      (<= threshold (- (:apriori (first expsorted))
-				       (:apriori (second expsorted))))))
+		      (<= threshold (- (:conf (first expsorted))
+				       (:conf (second expsorted))))))
 		    {:hyp h :explainer (:explainer (first expsorted))
-		     :apriori (:apriori (first expsorted))}
+		     :conf (:conf (first expsorted))}
 		    
 		    :else nil)))))
 
 (defn find-clearbest
   [hypspace hyps]
-  (find-best-by-threshold hypspace hyps 0.5))
+  (find-best-by-threshold hypspace hyps 2))
 
 (defn find-weakbest
   [hypspace hyps]
-  (find-best-by-threshold hypspace hyps 0.2))
+  (find-best-by-threshold hypspace hyps 1))

@@ -73,7 +73,7 @@
   [params sensors [trueevents gridstate strat-state]]
   (let [time (:time gridstate)
 	sens (map #(update-spotted % gridstate) sensors)
-	ss (generate-hypotheses strat-state sens time)
+	ss (generate-hypotheses strat-state sens time params)
 	ss2 (explain ss time)
 	ss3 (update-problem-data ss2 time)
 	[te gs] (random-walks (:MaxWalk params) trueevents (forward-time gridstate 1))
@@ -81,10 +81,10 @@
     [newte newgs ss3]))
 
 (defn last-explanation
-  [sensors [trueevents gridstate strat-state]]
+  [params sensors [trueevents gridstate strat-state]]
   (let [time (:time gridstate)
 	sens (map #(update-spotted % gridstate) sensors)
-	ss (generate-hypotheses strat-state sens time)
+	ss (generate-hypotheses strat-state sens time params)
 	ss2 (explain ss time)
 	ss3 (update-problem-data ss2 time)]
     [trueevents ss3]))
@@ -123,7 +123,7 @@
 	   combined-states [trueevents gridstate strat-state]]
       (if (< i (:Steps params))
 	(recur (inc i) (single-step params sensors combined-states))
-	(let [[te ss] (last-explanation sensors combined-states)]
+	(let [[te ss] (last-explanation params sensors combined-states)]
 	  {:trueevents te :stratstate ss :sensors sensors :results
 	   (assoc params
 	     :Milliseconds (/ (double (- (. System (nanoTime)) startTime)) 1000000.0)
