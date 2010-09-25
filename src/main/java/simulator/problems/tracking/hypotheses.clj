@@ -8,12 +8,13 @@
 	 (get-entities add-entity remove-entity add-event update-entity)])
   (:use [simulator.confidences])
   (:use [simulator.types.hypotheses :only
-	 (Hypothesis add-explainers get-explainers add-conflicts)])
+	 (Hypothesis add-explainers get-explainers add-conflicts get-hyp-id-str)])
   (:use [simulator.strategies :only (add-hyp force-acceptance)])
   (:use [clojure.set]))
 
 (defrecord TrackingHyp [id apriori type time spotted entity prev event]
   Hypothesis
+  (get-id [_] id)
   (get-apriori [_] apriori)
   Object
   (toString [_] (format "TrackingHyp %s (a=%d) (%s)@%d\n\t(spotted: %s)\n\t%s\n\t%s"
@@ -42,9 +43,10 @@
                           "new" time spotted entity nil event)
         ss (-> strat-state
                (add-hyp time spotted #{}
-                        (format "Hypothesizing spotted %s" (str spotted)))
+                        (format "Hypothesizing spotted %s" (get-hyp-id-str spotted)))
                (force-acceptance time spotted
-                                 (format "Accepting as fact spotted %s" (str spotted))))]
+                                 (format "Accepting as fact spotted %s"
+                                         (get-hyp-id-str spotted))))]
     (add-hyp ss time hyp #{spotted}
              (format "Hypothesizing (a=%d) that %s is new: %s"
                      apriori spotted (:entity hyp)))))
@@ -56,10 +58,10 @@
         hyp (TrackingHyp. (make-hyp-id spotted time prev) apriori
                           "move" time spotted entity prev event)
         ss (add-hyp strat-state time spotted #{}
-                    (format "Hypothesizing spotted %s" (str spotted)))]
+                    (format "Hypothesizing spotted %s" (get-hyp-id-str spotted)))]
     (add-hyp ss time hyp #{spotted}
              (format "Hypothesizing (a=%d) that %s is the movement of %s"
-                     apriori spotted (:prev hyp)))))
+                     apriori (get-hyp-id-str spotted) (:prev hyp)))))
 
 (defn add-mutual-conflicts
   [strat-state hyps]

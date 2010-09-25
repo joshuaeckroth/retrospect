@@ -1,12 +1,13 @@
 (ns simulator.problems.circuit.hypotheses
   (:use [clojure.set])
-  (:use [simulator.types.hypotheses :only (Hypothesis)])
+  (:use [simulator.types.hypotheses :only (Hypothesis get-hyp-id-str get-hyp-ids-str)])
   (:use [simulator.confidences])
   (:use [simulator.strategies :only (add-hyp force-acceptance)])
   (:use [simulator.problems.circuit.circuit]))
 
 (defrecord DiscrepancyHyp [id apriori input-vals ivstr index output expected observed]
   Hypothesis
+  (get-id [_] id)
   (get-apriori [_] apriori)
   Object
   (toString [_] (format (str "DiscrepancyHyp %s (a=%d) given input vals: "
@@ -39,6 +40,7 @@
 
 (defrecord BrokenGateHyp [id apriori gate-id]
   Hypothesis
+  (get-id [_] id)
   (get-apriori [_] apriori)
   Object
   (toString [_] (format "BrokenGateHyp %s (a=%d) gate %d is broken"
@@ -64,16 +66,17 @@
         ss (reduce (fn [ss d-h]
                      (-> ss
                          (add-hyp time d-h #{}
-                                  (format "Hypothesizing discrepancy %s" (str d-h)))
+                                  (format "Hypothesizing discrepancy %s"
+                                          (get-hyp-id-str d-h)))
                          (force-acceptance time d-h
                                            (format "Accepting as fact discrepancy %s"
-                                                   (str d-h)))))
+                                                   (get-hyp-id-str d-h)))))
                    strat-state (apply union (map :explains sing-hyps)))]    
     (reduce (fn [ss {hyp :hyp explains :explains}]
               (add-hyp ss time hyp explains
                        (format (str "Hypothesizing (a=%d) that %s "
                                     "explains %s")
-                               (:apriori hyp) (str hyp)
-                               (apply str (interpose "; " (map str explains))))))
+                               (:apriori hyp) (get-hyp-id-str hyp)
+                               (get-hyp-ids-str explains))))
             ss sing-hyps)))
 

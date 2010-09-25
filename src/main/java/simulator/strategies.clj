@@ -3,11 +3,12 @@
   (:import [simulator.types.logs LogEntry AbducerLogEntry])
   (:import [simulator.types.hypotheses HypothesisSpace])
   (:use simulator.types.hypotheses)
+  (:use simulator.confidences)
   (:use clojure.set))
 
 (defrecord StrategyState
     [strategy hypspace
-     accepted considering rejected        ;; maps keyed by time
+     accepted considering                 ;; maps keyed by time
      hypothesized                         ;; maps keyed by time
      considering-before considering-afer  ;; maps keyed by time
      unexplained-before unexplained-after ;; maps keyed by time
@@ -18,7 +19,7 @@
   [strategy pdata]
   (StrategyState. strategy
 		  (init-hypspace)
-		  {} {} {} {} {} {} {} {} {} {} ;; these are maps, keyed by time
+		  {} {} {} {} {} {} {} {} {} ;; these are maps, keyed by time
 		  {:compute 0 :milliseconds 0 :memory 0} pdata))
 
 (defn prepare-strat-state
@@ -77,8 +78,12 @@
       (update-in [:accepted time] union #{hyp})
       (update-in [:considering time] difference #{hyp})
       (add-abducer-log-msg time #{hyp}
-                           (format "Forcing acceptance of: %s" (str hyp)))
+                           (format "Forcing acceptance of: %s" (get-hyp-id-str hyp)))
       (add-log-msg time log-msg)))
+
+(defn filter-lower-bound
+  [strat-state lower-bound hyps]
+  (filter (fn [hyp] (<= lower-bound (get-confidence (:hypspace strat-state) hyp))) hyps))
 
 (defn format-logs
   [strat-state]
@@ -86,8 +91,9 @@
 
 (defn conflicts-helper
   [strat-state time]
-  (difference (find-conflicts (:hypspace strat-state) (get (:accepted strat-state) time))
-	      (get (:rejected strat-state) time)))
+  (filter-lower-bound strat-state NEUTRAL
+                      (find-conflicts (:hypspace strat-state)
+                                      (get (:accepted strat-state) time))))
 
 (defn unexplained-helper
   [strat-state time]
@@ -105,14 +111,18 @@
   [strat-state unexplained]
   (find-weakbest (:hypspace strat-state) unexplained))
 
-(defn reject-conflicts-helper
+(defn penalize-conflicts-helper
   [strat-state time conflicts]
-  (-> strat-state
-      (update-in [:rejected time] union conflicts)
-      (update-in [:considering time] difference conflicts)
-      (add-abducer-log-msg time conflicts
-			   (format "Rejecting conflicts: %s"
-				   (apply str (interpose "," (map :id conflicts)))))))
+  (let [hypspace (reduce (fn [hs c]
+                           (-> hs
+                               (penalize c)
+                               (penalize c)))
+                         (:hypspace strat-state) conflicts)]
+    (-> strat-state
+        (assoc :hypspace hypspace)
+        (add-abducer-log-msg time conflicts
+                             (format "Penalizing conflicts: %s"
+                                     (get-hyp-ids-str conflicts))))))
 
 (defn accept-essentials-helper
   [strat-state time essentials]
@@ -121,7 +131,7 @@
       (update-in [:considering time] difference essentials)
       (add-abducer-log-msg time essentials
 			   (format "Accepting essentials: %s"
-				   (apply str (interpose "," (map :id essentials)))))))
+                                   (get-hyp-ids-str essentials)))))
 
 (defn accept-clearbest-helper
   [strat-state time clearbest]
@@ -132,7 +142,8 @@
 		   (update-in [:accepted time] union #{explainer})
 		   (update-in [:considering time] difference #{explainer})
 		   (add-abducer-log-msg time #{explainer}
-					(format "Accepting clearbest %s" (:id explainer))))
+					(format "Accepting clearbest %s"
+                                                (get-hyp-id-str explainer))))
 	       time
 	       (rest clearbest)))))
 
@@ -145,7 +156,8 @@
 		   (update-in [:accepted time] union #{explainer})
 		   (update-in [:considering time] difference #{explainer})
 		   (add-abducer-log-msg time #{explainer}
-					(format "Accepting weakbest %s" (:id explainer))))
+					(format "Accepting weakbest %s"
+                                                (get-hyp-id-str explainer))))
 	       time
 	       (rest weakbest)))))
 
@@ -155,9 +167,9 @@
 	unexplained (unexplained-helper strat-state time)]
     (cond
      
-     ;; reject any conflicts
+     ;; penalize any conflicts
      (not-empty conflicts)
-     (recur (reject-conflicts-helper strat-state time conflicts) time)
+     (recur (penalize-conflicts-helper strat-state time conflicts) time)
      
      ;; don't continue 10% of the time
      (< (rand) 0.1) strat-state
@@ -165,8 +177,7 @@
      ;; choose an unexplained hyp and add a random explainer (if any exist)
      (not-empty unexplained)
      (let [hyp (rand-nth (vec unexplained))
-	   explainers (difference (get-explainers (:hypspace strat-state) hyp)
-				  (get (:rejected strat-state) time))]
+	   explainers (difference (get-explainers (:hypspace strat-state) hyp))]
        (if (empty? explainers)
 
 	 ;; no explainers, just add the hyp
@@ -181,7 +192,8 @@
 		      (update-in [:considering time] difference #{hyp expl})
 		      (add-abducer-log-msg time #{hyp expl}
 					   (format "Accepting guess that %s explains %s"
-						   (:id expl) (:id hyp))))
+                                                   (get-hyp-id-str expl)
+                                                   (get-hyp-id-str hyp))))
 		  time))))
      
      :else strat-state)))
@@ -193,9 +205,9 @@
 	essentials (essentials-helper strat-state unexplained)]
     (cond
      
-     ;; reject any conflicts
+     ;; penalize any conflicts
      (not-empty conflicts)
-     (recur (reject-conflicts-helper strat-state time conflicts) time)
+     (recur (penalize-conflicts-helper strat-state time conflicts) time)
 
      ;; accept essentials
      (not-empty essentials)
@@ -212,9 +224,9 @@
 	clearbest (clearbest-helper strat-state unexplained)]
     (cond
 
-     ;; reject any conflicts
+     ;; penalize any conflicts
      (not-empty conflicts)
-     (recur (reject-conflicts-helper strat-state time conflicts) time)
+     (recur (penalize-conflicts-helper strat-state time conflicts) time)
 
      ;; accept essentials
      (not-empty essentials)
@@ -236,9 +248,9 @@
 	weakbest (weakbest-helper strat-state unexplained)]
     (cond
 
-     ;; reject any conflicts
+     ;; penalize any conflicts
      (not-empty conflicts)
-     (recur (reject-conflicts-helper strat-state time conflicts) time)
+     (recur (penalize-conflicts-helper strat-state time conflicts) time)
 
      ;; accept essentials
      (not-empty essentials)

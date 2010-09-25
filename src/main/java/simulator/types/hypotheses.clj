@@ -3,9 +3,18 @@
   (:use [simulator.confidences]))
 
 (defprotocol Hypothesis
+  (get-id [this])
   (get-apriori [this]))
 
-(defrecord HypothesisSpace [hyps explains explainers conflicts apriori])
+(defn get-hyp-id-str
+  [hyp]
+  (str (get-id hyp)))
+
+(defn get-hyp-ids-str
+ [hyps]
+ (apply str (interpose "," (map get-id hyps))))
+
+(defrecord HypothesisSpace [hyps explains explainers conflicts confidence])
 
 (defn init-hypspace []
   ;; hyps must be a set, rest must be maps

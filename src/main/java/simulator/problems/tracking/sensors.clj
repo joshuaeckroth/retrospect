@@ -8,6 +8,7 @@
 
 (defrecord SensorEntity [id apriori time pos]
   Hypothesis
+  (get-id [_] id)
   (get-apriori [_] apriori)
   EntityMethods
   (pos [this] (:pos this))
