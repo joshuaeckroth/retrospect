@@ -53,9 +53,9 @@
   [width height]
   (for [i (range (rand-int (* width height)))]
     (let [left (rand-int width)
-	  right (+ left (rand-int (- width left)))
-	  bottom (rand-int height)
-	  top (+ bottom (rand-int (- height bottom)))]
+          right (+ left (rand-int (- width left)))
+          bottom (rand-int height)
+          top (+ bottom (rand-int (- height bottom)))]
       (new-sensor "sensorid" left right bottom top))))
 
 (defn generate-sensors-with-coverage

@@ -4,6 +4,8 @@
   (:use [clojure.java.io :as io :only (writer)])
   (:use [simulator.types.problem :only (average-some-runs get-headers)]))
 
+(def progress (atom 0))
+
 (defn format-time
   [seconds]
   (let [hours (int (/ seconds 3600.0))
@@ -24,34 +26,6 @@
 		     (format-time (int (/ expected 1000.0)))
 		     wallexpected))))
 
-(defn parallel-runs
-  [problem params nthreads]
-  "Each thread will have 10 configurations (and average 10 over runs per configuration)."
-  (let [n 10
-	partitions (partition-all n (shuffle params))
-	total (* n (reduce + (map count partitions)))]
-    (println (format "Averaging %d runs per configuration." n))
-    (println (format (str "Splitting parameters into %d partitions, "
-                          "about %d configurations each, "
-                          "further split over %d threads.")
-                     (count partitions) n nthreads))
-    (loop [pofps (partition-all nthreads partitions)
-	   finished 0
-	   time 0.0
-	   results []]
-      (if pofps
-	(do
-	  (let [part (first pofps)
-		starttime (. System (nanoTime))
-		rs (apply concat (pmap #(average-some-runs problem % n) part))
-		endtime (. System (nanoTime))
-		milliseconds (/ (- endtime starttime) 1000000.0)
-		newtime (+ time milliseconds)
-		newfinished (+ (* n (reduce + (map count part))) finished)]
-	    (print-progress newtime milliseconds newfinished total)
-	    (recur (next pofps) newfinished newtime (concat rs results))))
-	results))))
-
 (defn format-csv-row
   [row]
   (apply str (concat (interpose "," row) [\newline])))
@@ -63,7 +37,42 @@
     (doseq [row (map (fn [r] (map (fn [h] (h r)) headers)) results)]
       (.write writer (format-csv-row row)))))
 
+(defn run-partition
+  [x problem params]
+  (loop [ps params
+         results []]
+    (if (not-empty ps)
+      (let [rs (doall (average-some-runs problem (first ps) 2))]
+        (swap! progress inc)
+        (recur (rest ps) (doall (concat results rs))))
+      results)))
+
+(comment
+  (defn check-progress
+    [remaining total]
+    (when (> remaining 0)
+      (let [progress @progress]
+        (println (format "Complete: %d/%d, remaining: %d"
+                         progress total (- total progress)))
+        (. Thread (sleep 1000))
+        (send *agent* #'check-progress total)
+        (- total progress)))))
+
+(defn watch-progress
+  [_ _ _ progress]
+  (print (format "%d " progress)))
+
+(defn run-agents
+  [problem params nthreads]
+  (add-watch progress 0 watch-progress)
+  (let [partitions (partition (int (/ (count params) nthreads)) (shuffle params))
+        agents (take (count partitions) (repeatedly #(agent nil)))]
+    (doseq [i (range (count agents))]
+      (send (nth agents i) run-partition problem (nth partitions i)))
+    (apply await agents)
+    (apply concat (map deref agents))))
+
 (defn run-local
   [problem params dir nthreads]
-  (let [results (parallel-runs problem params nthreads)]
+  (let [results (run-agents problem params nthreads)]
     (write-csv (str dir "/results.csv") (get-headers problem) results)))
