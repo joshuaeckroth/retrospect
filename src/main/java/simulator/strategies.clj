@@ -16,12 +16,12 @@
      hyp-log                              ;; keyed by hyp
      resources problem-data])
 
-(defn init-strat-state
-  [strategy pdata]
-  (StrategyState. strategy
-		  (init-hypspace)
-		  {} {} {} {} {} {} {} {} {} {} ;; these are maps
-		  {:compute 0 :milliseconds 0 :memory 0} pdata))
+(defn init-strat-states
+  [strategies pdata]
+  (for [s strategies]
+    (StrategyState. s (init-hypspace)
+                    {} {} {} {} {} {} {} {} {} {} ;; these are maps
+                    {:compute 0 :milliseconds 0 :memory 0} pdata)))
 
 (defn prepare-strat-state
   [strat-state time]
@@ -256,12 +256,11 @@
 	ss2
 	(case (:strategy ss)
 	      "guess" (explain-guess ss time)
-	      "essentials-guess" (explain-essentials-guess ss time)
-	      "essentials-clearbest-guess" (explain-essentials-clearbest-guess ss time)
-	      "essentials-clearbest-weakbest-guess"
+	      "es-guess" (explain-essentials-guess ss time)
+	      "es-cb-guess" (explain-essentials-clearbest-guess ss time)
+	      "es-cb-wb-guess"
 	      (explain-essentials-clearbest-weakbest-guess ss time))]
     (postprocess-strat-state ss2 time startTime)))
 
-(def strategies ["guess" "essentials-guess" "essentials-clearbest-guess"
-		 "essentials-clearbest-weakbest-guess"])
+(def strategies ["guess" "es-guess" "es-cb-guess" "es-cb-wb-guess"])
 

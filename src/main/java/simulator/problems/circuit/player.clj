@@ -7,7 +7,7 @@
                         JTable))
   (:import (javax.swing.table AbstractTableModel))
   (:import (java.io File))
-  (:use [simulator.strategies :only (strategies init-strat-state)])
+  (:use [simulator.strategies :only (strategies init-strat-states)])
   (:use [simulator.problems.circuit.core :as circuit :only (run)])
   (:use [simulator.problems.circuit.circuit
          :only [rand-gates-wiring make-input-vals transpose
@@ -153,7 +153,7 @@
   (let [params (get-parameters)
         strategy (get-strategy)
         {ss :stratstate results :results}
-        (circuit/run params (init-strat-state strategy nil))
+        (first (circuit/run params (init-strat-states [strategy] nil)))
         {gates :gates wiring :wiring input-vals :input-vals} (:problem-data ss)]
     (def *results* results)
     (def *gates* gates)

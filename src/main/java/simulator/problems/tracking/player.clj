@@ -8,7 +8,7 @@
   (:use [clojure.contrib.math :as math])
   (:use [simulator.problems.tracking.sensors :only (sees)])
   (:use [simulator.problems.tracking.eventlog :only (get-events)])
-  (:use [simulator.strategies :only (strategies init-strat-state)])
+  (:use [simulator.strategies :only (strategies init-strat-states)])
   (:use [simulator.problems.tracking.core :as tracking :only (run evaluate)])
   (:use [simulator.repl])
   (:use [simulator.problems.tracking.repl]))
@@ -225,7 +225,7 @@
   (let [params (get-parameters)
 	strategy (get-strategy)
 	{te :trueevents ss :stratstate sensors :sensors results :results}
-	(tracking/run params (init-strat-state strategy (EventLog. #{} #{})))]
+	(first (tracking/run params (init-strat-states [strategy] (EventLog. #{} #{}))))]
     (update-strat-state ss)
     (update-trueevents te)
     (def *params* params)

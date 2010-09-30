@@ -4,7 +4,8 @@
   (:use [simulator.problems.tracking.problem :only (tracking-problem)])
   (:use [simulator.problems.circuit.problem :only (circuit-problem)])
   (:use [simulator.records
-	 :only (run-with-new-record list-records prepare-hadoop cleanup-hadoop-results)])
+	 :only (run-with-new-record list-records chart
+                 prepare-hadoop cleanup-hadoop-results)])
   (:use [simulator.runners.hadoop :only (run-hadoop)])
   (:use [simulator.types.problem :only (start-player)])
   (:require [swank.swank]))
@@ -12,10 +13,11 @@
 (defn -main [& args]
   (with-command-line args
     "Simulator"
-    [[action "Action (run/list/player/prepare-hadoop/hadoop/clean-hadoop)"]
+    [[action "Action (run/list/player/chart/prepare-hadoop/hadoop/clean-hadoop)"]
      [problem "Problem" "tracking"]
      [paramsfile "Parameters XML file" "params.xml"]
      [recordsdir "Records directory" "records"]
+     [record "Record" ""]
      [nthreads "Number of threads" "8"]
      [input "Hadoop input" ""]
      [output "Hadoop output" ""]]
@@ -36,6 +38,8 @@
                                     (str recordsdir "/results.csv"))
             "list"
             (list-records recordsdir)
+            "chart"
+            (chart recordsdir record prob)
             "player"
             (do
               (swank.swank/start-repl 4006)

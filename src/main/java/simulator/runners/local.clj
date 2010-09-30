@@ -2,9 +2,9 @@
   (:use [incanter.io :only (read-dataset)])
   (:import (java.util Date))
   (:use [clojure.java.io :as io :only (writer)])
-  (:use [simulator.types.problem :only (average-some-runs get-headers)]))
+  (:use [simulator.types.problem :only (average-strategy-runs get-headers)]))
 
-(def progress (atom 0))
+(def progress (agent 0))
 
 (defn format-time
   [seconds]
@@ -42,29 +42,24 @@
   (loop [ps params
          results []]
     (if (not-empty ps)
-      (let [rs (doall (average-some-runs problem (first ps) 2))]
-        (swap! progress inc)
+      (let [rs (doall (average-strategy-runs problem (first ps) 2))]
+        (send progress inc)
         (recur (rest ps) (doall (concat results rs))))
       results)))
 
-(comment
-  (defn check-progress
-    [remaining total]
-    (when (> remaining 0)
-      (let [progress @progress]
-        (println (format "Complete: %d/%d, remaining: %d"
-                         progress total (- total progress)))
-        (. Thread (sleep 1000))
-        (send *agent* #'check-progress total)
-        (- total progress)))))
-
-(defn watch-progress
-  [_ _ _ progress]
-  (print (format "%d " progress)))
+(defn check-progress
+  [remaining total]
+  (when (> remaining 0)
+    (let [progress @progress]
+      (println (format "Complete: %d/%d, remaining: %d"
+                       progress total (- total progress)))
+      (. Thread (sleep 10000))
+      (send *agent* #'check-progress total)
+      (- total progress))))
 
 (defn run-agents
   [problem params nthreads]
-  (add-watch progress 0 watch-progress)
+  (send (agent (count params)) check-progress (count params))
   (let [partitions (partition (int (/ (count params) nthreads)) (shuffle params))
         agents (take (count partitions) (repeatedly #(agent nil)))]
     (doseq [i (range (count agents))]

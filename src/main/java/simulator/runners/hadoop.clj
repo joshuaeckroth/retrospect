@@ -2,7 +2,7 @@
   (:require [clojure-hadoop.gen :as gen])
   (:require [clojure-hadoop.imports :as imp])
   (:import (org.apache.hadoop.util Tool))
-  (:use [simulator.types.problem :only (average-some-runs get-headers)])
+  (:use [simulator.types.problem :only (average-strategy-runs get-headers)])
   (:use [simulator.problems.tracking.problem :only (tracking-problem)]))
 
 (imp/import-io)
@@ -21,12 +21,15 @@
 					 (get-headers tracking-problem)))
 		     [\newline])))
 
+;; MAY NO LONGER WORK
 (defn mapper-map [this wkey wvalue #^OutputCollector output reporter]
-  (doseq [result (average-some-runs tracking-problem [(read-string (.toString wvalue))] 10)]
+  (doseq [result (average-strategy-runs tracking-problem
+                                        [(read-string (.toString wvalue))] 10)]
     (.collect output (Text.) (Text. (to-csv result)))))
 
 (defn reducer-reduce [this wkey wvalues #^OutputCollector output reporter]
-  (.collect output wkey (reduce str (map (fn [#^Text v] (.toString v)) (iterator-seq wvalues)))))
+  (.collect output wkey (reduce str (map (fn [#^Text v] (.toString v))
+                                         (iterator-seq wvalues)))))
 
 (defn tool-run
   [#^Tool this args]

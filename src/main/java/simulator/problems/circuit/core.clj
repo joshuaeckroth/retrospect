@@ -1,5 +1,5 @@
 (ns simulator.problems.circuit.core
-  (:use [simulator.strategies :only (init-strat-state explain)])
+  (:use [simulator.strategies :only (explain)])
   (:use [simulator.problems.circuit.circuit])
   (:use [simulator.problems.circuit.hypotheses]))
 
@@ -32,24 +32,25 @@
          (double (* 100 (/ (count correct-b-g-hyps) observable-broken-gates))))}))
 
 (defn run
-  [params strat-state]
+  [params strat-states]
   (let [[gates wiring] (rand-gates-wiring params)
         time 0
         input-vals (make-input-vals gates)
         startTime (. System (nanoTime))
-        ss (assoc strat-state :problem-data
-                  {:gates gates :wiring wiring :input-vals input-vals})
-        ss2 (process gates wiring input-vals time params ss)
-        evaluation (evaluate gates wiring time ss2)]
-    {:stratstate ss2
-     :results (merge params
-                     (assoc evaluation                       
-                       :Milliseconds (/ (double (- (. System (nanoTime)) startTime))
-                                        1000000.0)
-                       :Strategy (:strategy ss)
-                       :StrategyCompute (:compute (:resources ss))
-                       :StrategyMilliseconds (:milliseconds (:resources ss))
-                       :StrategyMemory (:memory (:resources ss))))}))
+        sss (map #(assoc % :problem-data
+                         {:gates gates :wiring wiring :input-vals input-vals})
+                 strat-states)
+        sss2 (map #(process gates wiring input-vals time params %) sss)]
+    (for [ss sss2]
+      {:stratstate ss
+       :results (merge params
+                       (assoc (evaluate gates wiring time ss)
+                         :Milliseconds (/ (double (- (. System (nanoTime)) startTime))
+                                          1000000.0)
+                         :Strategy (:strategy ss)
+                         :StrategyCompute (:compute (:resources ss))
+                         :StrategyMilliseconds (:milliseconds (:resources ss))
+                         :StrategyMemory (:memory (:resources ss))))})))
 
 
 

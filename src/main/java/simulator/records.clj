@@ -125,3 +125,8 @@
 	   (record-str id date commit params))
 	 (catch Exception e))))))
 
+(defn chart
+  [recordsdir record problem]
+  (print "Saving charts...")
+  (save-plots (str recordsdir "/" record) problem)
+  (println "done."))

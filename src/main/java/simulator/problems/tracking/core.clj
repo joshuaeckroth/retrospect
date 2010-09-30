@@ -17,7 +17,7 @@
 	 (generate-hypotheses update-problem-data)])
   (:use [simulator.problems.tracking.positions :only
 	 (manhattan-distance)])
-  (:use [simulator.strategies :only (init-strat-state explain)]))
+  (:use [simulator.strategies :only (explain)]))
 
 (defn add-new-entities
   [trueevents gridstate numes time]
@@ -71,24 +71,24 @@
     [trueevents gridstate]))
 
 (defn single-step
-  [params sensors [trueevents gridstate strat-state]]
+  [params sensors [trueevents gridstate strat-states]]
   (let [time (:time gridstate)
 	sens (map #(update-spotted % gridstate) sensors)
-	ss (generate-hypotheses strat-state sens time params)
-	ss2 (explain ss time)
-	ss3 (update-problem-data ss2 time)
+	sss (map #(generate-hypotheses % sens time params) strat-states)
+	sss2 (map #(explain % time) sss)
+	sss3 (map #(update-problem-data % time) sss2)
         [te gs] (possibly-add-new-entities trueevents gridstate params time)
 	[newte newgs] (random-walks (:MaxWalk params) te (forward-time gs 1))]
-    [newte newgs ss3]))
+    [newte newgs sss3]))
 
 (defn last-explanation
-  [params sensors [trueevents gridstate strat-state]]
+  [params sensors [trueevents gridstate strat-states]]
   (let [time (:time gridstate)
 	sens (map #(update-spotted % gridstate) sensors)
-	ss (generate-hypotheses strat-state sens time params)
-	ss2 (explain ss time)
-	ss3 (update-problem-data ss2 time)]
-    [trueevents ss3]))
+	sss (map #(generate-hypotheses % sens time params) strat-states)
+	sss2 (map #(explain % time) sss)
+	sss3 (map #(update-problem-data % time) sss2)]
+    [trueevents sss3]))
 
 (defn calc-average-walk
   [trueevents]
@@ -134,7 +134,7 @@
      (double (* 100 (/ identities-correct identities-total)))}))
 
 (defn run
-  [params strat-state]
+  [params strat-states]
   (let [sensors (generate-sensors-with-coverage
 		  (:GridWidth params) (:GridHeight params) (:SensorCoverage params))
 	[trueevents gridstate] (init-states
@@ -142,26 +142,27 @@
 				(:NumberEntities params))
 	startTime (. System (nanoTime))]
     (loop [i 0
-	   combined-states [trueevents gridstate strat-state]]
+	   combined-states [trueevents gridstate strat-states]]
       (if (< i (:Steps params))
 	(recur (inc i) (single-step params sensors combined-states))
-	(let [[te ss] (last-explanation params sensors combined-states)]
-	  {:trueevents te :stratstate ss :sensors sensors
-           :results
-           (merge (evaluate te ss)
-                  (assoc params
-                    :Milliseconds
-                    (/ (double (- (. System (nanoTime)) startTime)) 1000000.0)
-                    :Strategy (:strategy ss)
-                    :StrategyCompute (:compute (:resources ss))
-                    :StrategyMilliseconds (:milliseconds (:resources ss))
-                    :StrategyMemory (:memory (:resources ss))
-                    :AvgWalk (calc-average-walk te)
-                    :SensorCoverage
-                    (measure-sensor-coverage
-                     (:GridWidth params) (:GridHeight params) sensors)
-                    :SensorOverlap
-                    (measure-sensor-overlap
-                     (:GridWidth params) (:GridHeight params) sensors)))})))))
+	(let [[te sss] (last-explanation params sensors combined-states)]
+          (for [ss sss]
+            {:trueevents te :stratstate ss :sensors sensors
+             :results
+             (merge (evaluate te ss)
+                    (assoc params
+                      :Milliseconds
+                      (/ (double (- (. System (nanoTime)) startTime)) 1000000.0)
+                      :Strategy (:strategy ss)
+                      :StrategyCompute (:compute (:resources ss))
+                      :StrategyMilliseconds (:milliseconds (:resources ss))
+                      :StrategyMemory (:memory (:resources ss))
+                      :AvgWalk (calc-average-walk te)
+                      :SensorCoverage
+                      (measure-sensor-coverage
+                       (:GridWidth params) (:GridHeight params) sensors)
+                      :SensorOverlap
+                      (measure-sensor-overlap
+                       (:GridWidth params) (:GridHeight params) sensors)))}))))))
 
 
