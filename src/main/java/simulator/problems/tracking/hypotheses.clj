@@ -18,8 +18,8 @@
   (get-id [_] id)
   (get-apriori [_] apriori)
   Object
-  (toString [_] (format "TrackingHyp %s (a=%d) (%s)@%d\n\t(spotted: %s)\n\t%s\n\t%s"
-			id apriori type time spotted
+  (toString [_] (format "TrackingHyp %s (a=%d) (%s)@%d\n\t(spotted: %s)\n\t%s\n\t%s."
+			id apriori type time (get-hyp-id-str spotted)
 			(if (= type "new") entity prev) event)))
 
 (defn make-hyp-id
@@ -43,8 +43,9 @@
         hyp (TrackingHyp. (make-hyp-id spotted time nil) apriori
                           "new" time spotted entity nil event)]
     (add-hyp strat-state time hyp #{spotted}
-             (format "Hypothesizing %s (a=%d) that %s is new: %s"
-                     (get-hyp-id-str hyp) apriori spotted (:entity hyp)))))
+             (format "Hypothesizing %s (a=%d) that %s is new: %s."
+                     (get-hyp-id-str hyp) apriori (get-hyp-id-str spotted)
+                     (:entity hyp)))))
 
 (defn add-hyp-move
   [strat-state spotted time prev apriori]
@@ -53,7 +54,7 @@
         hyp (TrackingHyp. (make-hyp-id spotted time prev) apriori
                           "move" time spotted entity prev event)]
     (add-hyp strat-state time hyp #{spotted}
-             (format "Hypothesizing %s (a=%d) that %s is the movement of %s"
+             (format "Hypothesizing %s (a=%d) that %s is the movement of %s."
                      (get-hyp-id-str hyp) apriori (get-hyp-id-str spotted) (:prev hyp)))))
 
 (defn add-mutual-conflicts
@@ -117,7 +118,7 @@
                 ss2 (reduce
                      (fn [tempss e]
                        (add-hyp-move tempss spotted time (:entity e)
-                                     (case (< (:dist e) (/ (:MaxWalk params) 4))
+                                     (cond (< (:dist e) (/ (:MaxWalk params) 4))
                                            VERY-PLAUSIBLE
                                            (< (:dist e) (/ (:MaxWalk params) 2))
                                            PLAUSIBLE
@@ -142,10 +143,10 @@
         ss (reduce (fn [ss spotted]
                      (-> ss
                          (add-hyp time spotted #{}
-                                  (format "Hypothesizing spotted %s"
+                                  (format "Hypothesizing spotted %s."
                                           (get-hyp-id-str spotted)))
                          (force-acceptance time spotted
-                                           (format "Accepting as fact spotted %s"
+                                           (format "Accepting as fact spotted %s."
                                                    (get-hyp-id-str spotted)))))
                    strat-state unique-spotted)
         

@@ -82,218 +82,172 @@
         (add-abducer-log-msg time #{hyp} "Adding hypothesis.")
         (add-hyp-log-msg time hyp "Adding hypothesis."))))
 
+(defn penalize-conflicts
+  [strat-state time conflicts log-msg]
+  (if (empty? conflicts) strat-state
+    (let [hypspace (reduce (fn [hs c]
+                             (-> hs
+                                 (penalize c)
+                                 (penalize c)))
+                           (:hypspace strat-state) conflicts)
+          ss (-> strat-state
+                 (assoc :hypspace hypspace)
+                 (add-abducer-log-msg time conflicts
+                                      (format "Penalizing conflicts: %s."
+                                              (get-hyp-ids-str conflicts))))]
+      (reduce (fn [ss c] (add-hyp-log-msg ss time c log-msg))
+              ss conflicts))))
+
+(defn accept-hyp
+  [strat-state time hyp]
+  (let [conflicts (find-conflicts (:hypspace strat-state) #{hyp})]
+    (-> strat-state
+        (update-in [:accepted time] union #{hyp})
+        (update-in [:considering time] difference #{hyp})
+        (penalize-conflicts time conflicts
+                            (format "Penalizing due to conflict with accepted hyp %s."
+                                    (get-hyp-id-str hyp))))))
+
+(defn accept-explainer-type
+  [strat-state time explainer hyp type]
+  (-> strat-state
+      (accept-hyp time explainer)
+      (add-abducer-log-msg time #{hyp explainer}
+                           (format "Accepting %s %s as explainer of %s."
+                                   type
+                                   (get-hyp-id-str explainer)
+                                   (get-hyp-id-str hyp)))
+      (add-hyp-log-msg time explainer
+                       (format "Accepting as %s explainer of %s."
+                               type (get-hyp-id-str hyp)))
+      (add-hyp-log-msg time hyp
+                       (format "Hyp %s accepted as %s explainer."
+                               (get-hyp-id-str explainer) type))))
+
+(defn accept-guess
+  [strat-state time explainer hyp]
+  (accept-explainer-type strat-state time explainer hyp "guess"))
+
+(defn accept-essential
+  [strat-state time explainer hyp]
+  (accept-explainer-type strat-state time explainer hyp "essential"))
+
+(defn accept-clearbest
+  [strat-state time explainer hyp]
+  (accept-explainer-type strat-state time explainer hyp "clearbest"))
+
+(defn accept-weakbest
+  [strat-state time explainer hyp]
+  (accept-explainer-type strat-state time explainer hyp "weakbest"))
+
 (defn force-acceptance
   [strat-state time hyp log-msg]
   (-> strat-state
-      (update-in [:accepted time] union #{hyp})
-      (update-in [:considering time] difference #{hyp})
+      (accept-hyp time hyp)
       (add-abducer-log-msg time #{hyp}
-                           (format "Forcing acceptance of: %s" (get-hyp-id-str hyp)))
+                           (format "Forcing acceptance of: %s." (get-hyp-id-str hyp)))
       (add-hyp-log-msg time hyp "Forcing acceptance.")
       (add-log-msg time log-msg)))
 
-(defn filter-lower-bound
-  [strat-state lower-bound hyps]
-  (filter (fn [hyp] (<= lower-bound (get-confidence (:hypspace strat-state) hyp))) hyps))
-
-(defn conflicts-helper
-  [strat-state time]
-  (filter-lower-bound strat-state IMPLAUSIBLE
-                      (find-conflicts (:hypspace strat-state)
-                                      (get (:accepted strat-state) time))))
+(defn choose-random-hyp
+  [hyps]
+  (rand-nth (vec hyps)))
 
 (defn unexplained-helper
   [strat-state time]
   (find-unexplained (:hypspace strat-state) (get (:accepted strat-state) time)))
 
 (defn essentials-helper
-  [strat-state unexplained]
-  (find-essentials (:hypspace strat-state) unexplained))
+  [strat-state time]
+  (find-essentials (:hypspace strat-state)
+                   (unexplained-helper strat-state time)))
 
 (defn clearbest-helper
-  [strat-state unexplained]
-  (find-clearbest (:hypspace strat-state) unexplained))
+  [strat-state time]
+  (find-clearbest (:hypspace strat-state)
+                  (unexplained-helper strat-state time)))
 
 (defn weakbest-helper
-  [strat-state unexplained]
-  (find-weakbest (:hypspace strat-state) unexplained))
-
-(defn penalize-conflicts-helper
-  [strat-state time conflicts]
-  (let [hypspace (reduce (fn [hs c]
-                           (-> hs
-                               (penalize c)
-                               (penalize c)))
-                         (:hypspace strat-state) conflicts)
-        ss (-> strat-state
-               (assoc :hypspace hypspace)
-               (add-abducer-log-msg time conflicts
-                                    (format "Penalizing conflicts: %s"
-                                            (get-hyp-ids-str conflicts))))]
-    (reduce (fn [ss c] (add-hyp-log-msg ss time c "Penalizing due to conflict."))
-            ss conflicts)))
-
-(defn accept-essentials-helper
-  [strat-state time essentials]
-  (let [ss
-        (-> strat-state
-            (update-in [:accepted time] union essentials)
-            (update-in [:considering time] difference essentials)
-            (add-abducer-log-msg time essentials
-                                 (format "Accepting essentials: %s"
-                                         (get-hyp-ids-str essentials))))]
-    (reduce (fn [ss e] (add-hyp-log-msg ss time e "Accepting as essential."))
-            ss essentials)))
-
-(defn accept-clearbest-helper
-  [strat-state time clearbest]
-  (if (empty? clearbest) strat-state
-      (let [hyp (:hyp (first clearbest))
-	    explainer (:explainer (first clearbest))]
-	(recur (-> strat-state
-		   (update-in [:accepted time] union #{explainer})
-		   (update-in [:considering time] difference #{explainer})
-		   (add-abducer-log-msg time #{explainer}
-					(format "Accepting clearbest %s"
-                                                (get-hyp-id-str explainer)))
-                   (add-hyp-log-msg time explainer
-                                    (format "Accepting as clearbest as explainer of %s."
-                                            (get-hyp-id-str hyp)))
-                   (add-hyp-log-msg time hyp
-                                    (format "Accepting as clearbest %s is an explainer."
-                                            (get-hyp-id-str explainer))))
-	       time
-	       (rest clearbest)))))
-
-(defn accept-weakbest-helper
-  [strat-state time weakbest]
-  (if (empty? weakbest) strat-state
-      (let [hyp (:hyp (first weakbest))
-	    explainer (:explainer (first weakbest))]
-	(recur (-> strat-state
-		   (update-in [:accepted time] union #{explainer})
-		   (update-in [:considering time] difference #{explainer})
-		   (add-abducer-log-msg time #{explainer}
-					(format "Accepting weakbest %s"
-                                                (get-hyp-id-str explainer)))
-                   (add-hyp-log-msg time explainer "Accepting as weakbest."))
-	       time
-	       (rest weakbest)))))
+  [strat-state time]
+  (find-weakbest (:hypspace strat-state)
+                 (unexplained-helper strat-state time)))
 
 (defn explain-guess
   [strat-state time]
-  (let [conflicts (conflicts-helper strat-state time)
-	unexplained (unexplained-helper strat-state time)]
+  (let [unexplained (unexplained-helper strat-state time)]
     (cond
-     
-     ;; penalize any conflicts
-     (not-empty conflicts)
-     (recur (penalize-conflicts-helper strat-state time conflicts) time)
-     
+
      ;; don't continue 10% of the time
-     (< (rand) 0.1)
+     (and (not-empty unexplained) (< (rand) 0.1))
      (add-abducer-log-msg strat-state time #{}
                           (format "Halting guess strategy. %d still unexplained."
                                   (count unexplained)))
-
+    
      ;; choose an unexplained hyp and add a random explainer (if any exist)
      (not-empty unexplained)
-     (let [hyp (rand-nth (vec unexplained))
-	   explainers (get-explainers (:hypspace strat-state) hyp)]
+     (let [hyp (choose-random-hyp unexplained)
+           explainers (get-explainers (:hypspace strat-state) hyp)
+           explainer (if (not-empty explainers) (choose-random-hyp explainers))]
+       (if explainer
+         (recur (accept-guess strat-state time explainer hyp) time)
+         (recur strat-state time)))
 
-       (if (empty? explainers)
-
-	 ;; no explainers, just recur
-	 (recur strat-state time)
-
-	 ;; some explainers, add a random one and the hyp
-	 (let [expl (rand-nth (vec explainers))]
-	   (recur (-> strat-state
-		      ;; TODO: does not support composite explainers
-		      (update-in [:accepted time] union #{expl})
-		      (update-in [:considering time] difference #{expl})
-		      (add-abducer-log-msg time #{hyp expl}
-					   (format "Accepting guess that %s explains %s"
-                                                   (get-hyp-id-str expl)
-                                                   (get-hyp-id-str hyp)))
-                      (add-hyp-log-msg time expl
-                                       (format "Accepting as a guess to explain %s."
-                                               (get-hyp-id-str hyp)))
-                      (add-hyp-log-msg time hyp
-                                       (format "Accepting as a guess %s is an explainer."
-                                               (get-hyp-id-str expl))))
-		  time))))
-     
-     :else strat-state)))
+     :else
+     strat-state)))
 
 (defn explain-essentials-guess
   [strat-state time]
-  (let [conflicts (conflicts-helper strat-state time)
-	unexplained (unexplained-helper strat-state time)
-	essentials (essentials-helper strat-state unexplained)]
+  (let [essentials (essentials-helper strat-state time)]
+
     (cond
-     
-     ;; penalize any conflicts
-     (not-empty conflicts)
-     (recur (penalize-conflicts-helper strat-state time conflicts) time)
 
-     ;; accept essentials
      (not-empty essentials)
-     (recur (accept-essentials-helper strat-state time essentials) time)
-
-     ;; no more essentials, so refer to explain-guess for the rest
-     :else (explain-guess strat-state time))))
+     (let [{hyp :hyp explainer :essential} (choose-random-hyp essentials)]
+       (recur (accept-essential strat-state time explainer hyp) time))
+     
+     :else
+     (explain-guess strat-state time))))
 
 (defn explain-essentials-clearbest-guess
   [strat-state time]
-  (let [conflicts (conflicts-helper strat-state time)
-	unexplained (unexplained-helper strat-state time)
-	essentials (essentials-helper strat-state unexplained)
-	clearbest (clearbest-helper strat-state unexplained)]
+  (let [essentials (essentials-helper strat-state time)
+        clearbest (clearbest-helper strat-state time)]
+
     (cond
 
-     ;; penalize any conflicts
-     (not-empty conflicts)
-     (recur (penalize-conflicts-helper strat-state time conflicts) time)
-
-     ;; accept essentials
      (not-empty essentials)
-     (recur (accept-essentials-helper strat-state time essentials) time)
+     (let [{hyp :hyp explainer :essential} (choose-random-hyp essentials)]
+       (recur (accept-essential strat-state time explainer hyp) time))
 
-     ;; accept clearbest
      (not-empty clearbest)
-     (recur (accept-clearbest-helper strat-state time clearbest) time)
+     (let [{hyp :hyp explainer :clearbest} (choose-random-hyp clearbest)]
+       (recur (accept-clearbest strat-state time explainer hyp) time))
 
-     ;; no more clearbest, so refer to explain-guess for the rest
-     :else (explain-guess strat-state time))))
+     :else
+     (explain-guess strat-state time))))
 
 (defn explain-essentials-clearbest-weakbest-guess
   [strat-state time]
-  (let [conflicts (conflicts-helper strat-state time)
-	unexplained (unexplained-helper strat-state time)
-	essentials (essentials-helper strat-state unexplained)
-	clearbest (clearbest-helper strat-state unexplained)
-	weakbest (weakbest-helper strat-state unexplained)]
+  (let [essentials (essentials-helper strat-state time)
+        clearbest (clearbest-helper strat-state time)
+        weakbest (weakbest-helper strat-state time)]
+
     (cond
 
-     ;; penalize any conflicts
-     (not-empty conflicts)
-     (recur (penalize-conflicts-helper strat-state time conflicts) time)
-
-     ;; accept essentials
      (not-empty essentials)
-     (recur (accept-essentials-helper strat-state time essentials) time)
+     (let [{hyp :hyp explainer :essential} (choose-random-hyp essentials)]
+       (recur (accept-essential strat-state time explainer hyp) time))
 
-     ;; accept clearbest
      (not-empty clearbest)
-     (recur (accept-clearbest-helper strat-state time clearbest) time)
+     (let [{hyp :hyp explainer :clearbest} (choose-random-hyp clearbest)]
+       (recur (accept-clearbest strat-state time explainer hyp) time))
 
-     ;; accept weakbest
      (not-empty weakbest)
-     (recur (accept-weakbest-helper strat-state time weakbest) time)
+     (let [{hyp :hyp explainer :weakbest} (choose-random-hyp weakbest)]
+       (recur (accept-weakbest strat-state time explainer hyp) time))
 
-     ;; no more weakbest, so refer to explain-guess for the rest
-     :else (explain-guess strat-state time))))
+     :else
+     (explain-guess strat-state time))))
 
 (defn explain
   [strat-state time]

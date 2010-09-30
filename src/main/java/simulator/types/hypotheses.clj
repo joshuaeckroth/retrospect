@@ -100,16 +100,20 @@
 ;; does not work for composite essentials
 (defn find-essentials
   [hypspace hyps]
-  (let [essentials (apply union (filter #(= 1 (count %))
-					(map #(get-explainers hypspace %) hyps)))]
-    (filter #(<= IMPLAUSIBLE (get-confidence hypspace %)) essentials)))
+  "Returns a collection with items like {:hyp h :essential e}."
+  (map (fn [{h :hyp es :explainers}] {:hyp h :essential (first es)})
+       (filter #(and (= 1 (count (:explainers %)))
+                     (<= IMPLAUSIBLE (get-confidence hypspace (first (:explainers %)))))
+               (map (fn [h] {:hyp h :explainers (get-explainers hypspace h)}) hyps))))
 
 (defn find-conflicts
   [hypspace hyps]
   (reduce union (map #(get-conflicts hypspace %) hyps)))
 
 (defn find-best-by-threshold
-  [hypspace hyps threshold]
+  [hypspace hyps threshold key]
+  "Returns a collection with items like {:hyp h key e :conf c}, where
+   key is something like :clearbest"
   (filter identity
 	  (for [h hyps]
 	    (let [explainers (get-explainers hypspace h)
@@ -127,15 +131,15 @@
 		      (= 1 (count expsorted))
 		      (<= threshold (- (:conf (first expsorted))
 				       (:conf (second expsorted))))))
-		    {:hyp h :explainer (:explainer (first expsorted))
+		    {:hyp h key (:explainer (first expsorted))
 		     :conf (:conf (first expsorted))}
 		    
 		    :else nil)))))
 
 (defn find-clearbest
   [hypspace hyps]
-  (find-best-by-threshold hypspace hyps 2))
+  (find-best-by-threshold hypspace hyps 2 :clearbest))
 
 (defn find-weakbest
   [hypspace hyps]
-  (find-best-by-threshold hypspace hyps 1))
+  (find-best-by-threshold hypspace hyps 1 :weakbest))
