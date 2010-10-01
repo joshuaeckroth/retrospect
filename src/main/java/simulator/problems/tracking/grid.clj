@@ -82,17 +82,17 @@
 	down (Position. (:x pos) (inc (:y pos)))
 	up (Position. (:x pos) (dec (:y pos)))]
     (case dir
-	  "fixed" pos
-	  "left" (if (pos-free? left grid) left pos)
-	  "right" (if (pos-free? right grid) right pos)
-	  "down" (if (pos-free? down grid) down pos)
-	  "up" (if (pos-free? up grid) up pos))))
+	  "left" (if (pos-free? left grid) left)
+	  "right" (if (pos-free? right grid) right)
+	  "down" (if (pos-free? down grid) down)
+	  "up" (if (pos-free? up grid) up))))
 
 (defn walk1
   "Move an entity one step in a random (free) direction,
    and add that movement to the entity's history"
   [entity grid time]
-  (let [dir (nth ["left" "right" "down" "up" "fixed"] (rand-int 4))
-	pos (attempt-move dir (pos entity) grid)]
-    (add-snapshot entity (EntitySnapshot. time pos))))
+  (let [dir (nth ["left" "right" "down" "up"] (rand-int 4))
+	newpos (attempt-move dir (pos entity) grid)]
+    (if newpos
+      (add-snapshot entity (EntitySnapshot. time newpos)))))
 

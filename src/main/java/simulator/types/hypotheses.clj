@@ -102,8 +102,7 @@
   [hypspace hyps]
   "Returns a collection with items like {:hyp h :essential e}."
   (map (fn [{h :hyp es :explainers}] {:hyp h :essential (first es)})
-       (filter #(and (= 1 (count (:explainers %)))
-                     (<= IMPLAUSIBLE (get-confidence hypspace (first (:explainers %)))))
+       (filter #(= 1 (count (:explainers %)))
                (map (fn [h] {:hyp h :explainers (get-explainers hypspace h)}) hyps))))
 
 (defn find-conflicts

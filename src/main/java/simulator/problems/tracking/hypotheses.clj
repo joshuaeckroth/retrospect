@@ -28,12 +28,12 @@
 	  (if prev (str (:x (pos prev))) "X") (if prev (str (:y (pos prev))) "X")))
 
 (defn pair-near
-  "For each spotted, find entities within walk distance."
+  "For each spotted, find entities within walk distance; exclude non-movements."
   [spotted entities walk]
   (let [distfn (fn [s e] {:entity e :dist (manhattan-distance (pos s) (pos e))})]
     (for [s spotted]
       {:spotted s :entities
-       (filter #(>= walk (:dist %))
+       (filter #(and (< 0 (:dist %)) (>= walk (:dist %)))
 	       (map (partial distfn s) entities))})))
 
 (defn add-hyp-new
@@ -107,7 +107,7 @@
                  (if (= 0 (:ProbNewEntities params)) ss
                    (add-hyp-new ss (:spotted (first pairs)) time
                                 (if (>= 50 (:ProbNewEntities params))
-                                  IMPLAUSIBLE PLAUSIBLE))))
+                                  IMPLAUSIBLE NEUTRAL))))
           
           ;; some entities in range; hypothesize them all,
           ;; plus a new-entity hyp (if probnew != 0),
@@ -127,7 +127,7 @@
                 ss3 (if (= 0 (:ProbNewEntities params)) ss2
                       (add-hyp-new ss2 spotted time
                                    (if (>= 50 (:ProbNewEntities params))
-                                     IMPLAUSIBLE PLAUSIBLE)))
+                                     IMPLAUSIBLE NEUTRAL)))
                 ssconflicts
                 (add-mutual-conflicts ss3 (get-explainers (:hypspace ss3) spotted))]
             (recur (rest pairs) ssconflicts)))))

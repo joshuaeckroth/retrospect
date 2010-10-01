@@ -43,26 +43,29 @@
 
 (defn random-walks
   [walk trueevents gridstate]
-  (let [time (:time gridstate) ;;; TODO: should time change for every move?
-	entities (get-entities trueevents)
+  (let [time (:time gridstate)
+        all-entities (get-entities trueevents)
+	entities (take (inc (rand-int (count all-entities))) (shuffle all-entities))
 	entities-map (apply assoc {} (interleave entities entities))
-	entity-walks (shuffle (apply concat (map #(repeat (rand-int (inc walk)) %)
+	entity-walks (shuffle (apply concat (map #(repeat (inc (rand-int walk)) %)
 						 entities)))]
     (loop [em entities-map
 	   gs gridstate
 	   ew entity-walks]
       (if (empty? ew)
-	[(reduce (fn [te olde] (-> te
-				 (update-entity time olde (pos (get em olde)))
-				 (add-event-move time (pos olde) (pos (get em olde)))))
-		 trueevents (keys em))
-	 gs]
+        [(reduce (fn [te olde] (-> te
+                                   (update-entity time olde (pos (get em olde)))
+                                   (add-event-move time (pos olde) (pos (get em olde)))))
+                 trueevents (keys em))
+         gs]
 	(let [e (first ew)
 	      olde (get em e)
 	      newe (walk1 olde (:grid gs) time)]
-	  (recur (assoc em e newe)
-		 (update-grid-entity gs olde newe)
-		 (rest ew)))))))
+          (if newe
+            (recur (assoc em e newe)
+                   (update-grid-entity gs olde newe)
+                   (rest ew))
+            (recur (dissoc em e) gs (rest ew))))))))
 
 (defn possibly-add-new-entities
   [trueevents gridstate params time]
@@ -73,11 +76,11 @@
 (defn single-step
   [params sensors [trueevents gridstate strat-states]]
   (let [time (:time gridstate)
-	sens (map #(update-spotted % gridstate) sensors)
+        [te gs] (possibly-add-new-entities trueevents gridstate params time)
+	sens (map #(update-spotted % gs) sensors)
 	sss (map #(generate-hypotheses % sens time params) strat-states)
 	sss2 (map #(explain % time) sss)
 	sss3 (map #(update-problem-data % time) sss2)
-        [te gs] (possibly-add-new-entities trueevents gridstate params time)
 	[newte newgs] (random-walks (:MaxWalk params) te (forward-time gs 1))]
     [newte newgs sss3]))
 

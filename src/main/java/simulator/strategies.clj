@@ -143,8 +143,18 @@
       (add-log-msg time log-msg)))
 
 (defn choose-random-hyp
-  [hyps]
-  (rand-nth (vec hyps)))
+  ([hyps] (rand-nth (vec hyps)))
+     
+  ([type strat-state hyps]
+     (case type
+           :smartguess
+           (let [hs (:hypspace strat-state)
+                 threshold (first (sort (map (fn [h] (get-confidence hs h))
+                                             hyps)))]
+             (rand-nth (vec (filter (fn [h] (= threshold (get-confidence hs h))) hyps))))
+           
+           "default"
+           (choose-random-hyp hyps))))
 
 (defn unexplained-helper
   [strat-state time]
@@ -161,18 +171,26 @@
              (unexplained-helper strat-state time)
              threshold))
 
-(defn guess
-  [strat-state time]
+(defn guess-type
+  [strat-state time type]
   (let [unexplained (unexplained-helper strat-state time)]
-    (if
+    (if (not-empty unexplained)
      ;; choose an unexplained hyp and add a random explainer (if any exist)
-     (not-empty unexplained)
      (let [hyp (choose-random-hyp unexplained)
            explainers (get-explainers (:hypspace strat-state) hyp)
-           explainer (if (not-empty explainers) (choose-random-hyp explainers))]
+           explainer (if (not-empty explainers)
+                       (choose-random-hyp type strat-state explainers))]
        (if explainer
          (accept-guess strat-state time explainer hyp)
          strat-state)))))
+
+(defn guess
+  [strat-state time]
+  (guess-type strat-state time :guess))
+
+(defn smartguess
+  [strat-state time]
+  (guess-type strat-state time :smartguess))
 
 (defn essentials
   [strat-state time]
@@ -190,11 +208,17 @@
 
 (def strategy-funcs
   {"guess" [guess]
+   "smartguess" [smartguess]
    "es-guess" [essentials guess]
+   "es-smartguess" [essentials smartguess]
    "es-b1-guess" [essentials (partial best 1) guess]
+   "es-b1-smartguess" [essentials (partial best 1) smartguess]
    "es-b2-b1-guess" [essentials (partial best 2) (partial best 1) guess]
+   "es-b2-b1-smartguess" [essentials (partial best 2) (partial best 1) smartguess]
    "es-b3-b2-b1-guess"
    [essentials (partial best 3) (partial best 2) (partial best 1) guess]
+   "es-b3-b2-b1-smartguess"
+   [essentials (partial best 3) (partial best 2) (partial best 1) smartguess]
    "es" [essentials]
    "es-b1" [essentials (partial best 1)]
    "es-b2-b1" [essentials (partial best 2) (partial best 1)]
