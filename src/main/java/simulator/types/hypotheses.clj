@@ -110,10 +110,9 @@
   [hypspace hyps]
   (reduce union (map #(get-conflicts hypspace %) hyps)))
 
-(defn find-best-by-threshold
-  [hypspace hyps threshold key]
-  "Returns a collection with items like {:hyp h key e :conf c}, where
-   key is something like :clearbest"
+(defn find-best
+  [hypspace hyps threshold]
+  "Returns a collection with items like {:hyp h :best e :conf c}"
   (filter identity
 	  (for [h hyps]
 	    (let [explainers (get-explainers hypspace h)
@@ -125,21 +124,12 @@
 	      (cond (empty? expsorted) nil
 
 		    ;; single explainer or difference in confidence above a threshold?
-		    (and
-		     (<= IMPLAUSIBLE (:conf (first expsorted)))
-		     (or
-		      (= 1 (count expsorted))
-		      (<= threshold (- (:conf (first expsorted))
-				       (:conf (second expsorted))))))
-		    {:hyp h key (:explainer (first expsorted))
+                    (or
+                     (= 1 (count expsorted))
+                     (<= threshold (- (:conf (first expsorted))
+                                      (:conf (second expsorted)))))
+		    {:hyp h :best (:explainer (first expsorted))
 		     :conf (:conf (first expsorted))}
 		    
 		    :else nil)))))
 
-(defn find-clearbest
-  [hypspace hyps]
-  (find-best-by-threshold hypspace hyps 2 :clearbest))
-
-(defn find-weakbest
-  [hypspace hyps]
-  (find-best-by-threshold hypspace hyps 1 :weakbest))

@@ -85,10 +85,7 @@
 (defn penalize-conflicts
   [strat-state time conflicts log-msg]
   (if (empty? conflicts) strat-state
-    (let [hypspace (reduce (fn [hs c]
-                             (-> hs
-                                 (penalize c)
-                                 (penalize c)))
+    (let [hypspace (reduce (fn [hs c] (penalize hs c))
                            (:hypspace strat-state) conflicts)
           ss (-> strat-state
                  (assoc :hypspace hypspace)
@@ -132,13 +129,9 @@
   [strat-state time explainer hyp]
   (accept-explainer-type strat-state time explainer hyp "essential"))
 
-(defn accept-clearbest
-  [strat-state time explainer hyp]
-  (accept-explainer-type strat-state time explainer hyp "clearbest"))
-
-(defn accept-weakbest
-  [strat-state time explainer hyp]
-  (accept-explainer-type strat-state time explainer hyp "weakbest"))
+(defn accept-best
+  [strat-state time explainer hyp threshold]
+  (accept-explainer-type strat-state time explainer hyp (format "best-by-%d" threshold)))
 
 (defn force-acceptance
   [strat-state time hyp log-msg]
@@ -162,105 +155,67 @@
   (find-essentials (:hypspace strat-state)
                    (unexplained-helper strat-state time)))
 
-(defn clearbest-helper
-  [strat-state time]
-  (find-clearbest (:hypspace strat-state)
-                  (unexplained-helper strat-state time)))
+(defn best-helper
+  [strat-state time threshold]
+  (find-best (:hypspace strat-state)
+             (unexplained-helper strat-state time)
+             threshold))
 
-(defn weakbest-helper
-  [strat-state time]
-  (find-weakbest (:hypspace strat-state)
-                 (unexplained-helper strat-state time)))
-
-(defn explain-guess
+(defn guess
   [strat-state time]
   (let [unexplained (unexplained-helper strat-state time)]
-    (cond
-
-     ;; don't continue 10% of the time
-     (and (not-empty unexplained) (< (rand) 0.1))
-     (add-abducer-log-msg strat-state time #{}
-                          (format "Halting guess strategy. %d still unexplained."
-                                  (count unexplained)))
-    
+    (if
      ;; choose an unexplained hyp and add a random explainer (if any exist)
      (not-empty unexplained)
      (let [hyp (choose-random-hyp unexplained)
            explainers (get-explainers (:hypspace strat-state) hyp)
            explainer (if (not-empty explainers) (choose-random-hyp explainers))]
        (if explainer
-         (recur (accept-guess strat-state time explainer hyp) time)
-         (recur strat-state time)))
+         (accept-guess strat-state time explainer hyp)
+         strat-state)))))
 
-     :else
-     strat-state)))
-
-(defn explain-essentials-guess
+(defn essentials
   [strat-state time]
   (let [essentials (essentials-helper strat-state time)]
+    (if (not-empty essentials)
+      (let [{hyp :hyp explainer :essential} (choose-random-hyp essentials)]
+        (accept-essential strat-state time explainer hyp)))))
 
-    (cond
+(defn best
+  [threshold strat-state time]
+  (let [best (best-helper strat-state time threshold)]
+    (if (not-empty best)
+      (let [{hyp :hyp explainer :best} (choose-random-hyp best)]
+        (accept-best strat-state time explainer hyp threshold)))))
 
-     (not-empty essentials)
-     (let [{hyp :hyp explainer :essential} (choose-random-hyp essentials)]
-       (recur (accept-essential strat-state time explainer hyp) time))
-     
-     :else
-     (explain-guess strat-state time))))
+(def strategy-funcs
+  {"guess" [guess]
+   "es-guess" [essentials guess]
+   "es-b1-guess" [essentials (partial best 1) guess]
+   "es-b2-b1-guess" [essentials (partial best 2) (partial best 1) guess]
+   "es-b3-b2-b1-guess"
+   [essentials (partial best 3) (partial best 2) (partial best 1) guess]
+   "es" [essentials]
+   "es-b1" [essentials (partial best 1)]
+   "es-b2-b1" [essentials (partial best 2) (partial best 1)]
+   "es-b3-b2-b1" [essentials (partial best 3) (partial best 2) (partial best 1)]})
 
-(defn explain-essentials-clearbest-guess
+(def strategies (sort (keys strategy-funcs)))
+
+(defn explain-recursive
   [strat-state time]
-  (let [essentials (essentials-helper strat-state time)
-        clearbest (clearbest-helper strat-state time)]
-
-    (cond
-
-     (not-empty essentials)
-     (let [{hyp :hyp explainer :essential} (choose-random-hyp essentials)]
-       (recur (accept-essential strat-state time explainer hyp) time))
-
-     (not-empty clearbest)
-     (let [{hyp :hyp explainer :clearbest} (choose-random-hyp clearbest)]
-       (recur (accept-clearbest strat-state time explainer hyp) time))
-
-     :else
-     (explain-guess strat-state time))))
-
-(defn explain-essentials-clearbest-weakbest-guess
-  [strat-state time]
-  (let [essentials (essentials-helper strat-state time)
-        clearbest (clearbest-helper strat-state time)
-        weakbest (weakbest-helper strat-state time)]
-
-    (cond
-
-     (not-empty essentials)
-     (let [{hyp :hyp explainer :essential} (choose-random-hyp essentials)]
-       (recur (accept-essential strat-state time explainer hyp) time))
-
-     (not-empty clearbest)
-     (let [{hyp :hyp explainer :clearbest} (choose-random-hyp clearbest)]
-       (recur (accept-clearbest strat-state time explainer hyp) time))
-
-     (not-empty weakbest)
-     (let [{hyp :hyp explainer :weakbest} (choose-random-hyp weakbest)]
-       (recur (accept-weakbest strat-state time explainer hyp) time))
-
-     :else
-     (explain-guess strat-state time))))
+  (let [strat-funcs (get strategy-funcs (:strategy strat-state))]
+    (loop [funcs strat-funcs
+           ss strat-state]
+      (if (empty? funcs) ss
+          (let [ss2 ((first funcs) ss time)]
+            (if ss2
+              (recur funcs ss2)
+              (recur (rest funcs) ss)))))))
 
 (defn explain
   [strat-state time]
   (let [ss (prepare-strat-state strat-state time)
 	startTime (. System (nanoTime))
-	ss2
-	(case (:strategy ss)
-	      "guess" (explain-guess ss time)
-	      "es-guess" (explain-essentials-guess ss time)
-	      "es-cb-guess" (explain-essentials-clearbest-guess ss time)
-	      "es-cb-wb-guess"
-	      (explain-essentials-clearbest-weakbest-guess ss time))]
+        ss2 (explain-recursive strat-state time)]
     (postprocess-strat-state ss2 time startTime)))
-
-(def strategies ["guess" "es-guess" "es-cb-guess" "es-cb-wb-guess"])
-
