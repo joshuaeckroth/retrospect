@@ -7,7 +7,7 @@
   (:import [simulator.problems.tracking.eventlog EventLog])
   (:use [clojure.contrib.math :as math])
   (:use [simulator.problems.tracking.sensors :only (sees)])
-  (:use [simulator.problems.tracking.eventlog :only (get-events)])
+  (:use [simulator.problems.tracking.eventlog :only (get-events get-entities)])
   (:use [simulator.strategies :only (strategies init-strat-states)])
   (:use [simulator.problems.tracking.core :as tracking :only (run evaluate)])
   (:use [simulator.repl])
@@ -22,6 +22,7 @@
 (def *grid-cell-height* 50)
 (def *time* 0)
 (def *abducer-log* nil)
+(def *true-entities* nil)
 (def *true-events* nil)
 (def *strat-log* nil)
 (def *strat-events* nil)
@@ -104,29 +105,34 @@
        (fill-cell g x y (new Color 255 180 180 150)))))
   (dorun
    (for [x (range *width*) y (range *height*)]
-     (let [event (grid-at x y)]
-       (when (not (nil? event))
-	 (cond (= (type event) simulator.problems.tracking.events.EventNew)
-	       (fill-cell g x y (new Color 180 180 255 150))
-	       (= (type event) simulator.problems.tracking.events.EventMove)
-	       (do
-		 (fill-cell g (:x (:oldpos event)) (:y (:oldpos event))
-			    (new Color 150 150 150 150))
-		 (fill-cell g x y (new Color 100 100 100 150))
-		 (draw-move g (:x (:oldpos event)) (:y (:oldpos event)) x y
-			    (new Color 0 0 0)))))))))
+     (let [e (grid-at x y)]
+       (when (not (nil? e))
+	 (cond
+          (= (type e) simulator.problems.tracking.entities.Entity)
+          (fill-cell g x y (new Color 150 150 150 150))
+          (= (type e) simulator.problems.tracking.events.EventNew)
+          (fill-cell g x y (new Color 180 180 255 150))
+          (= (type e) simulator.problems.tracking.events.EventMove)
+          (do
+            (fill-cell g (:x (:oldpos e)) (:y (:oldpos e))
+                       (new Color 150 150 150 150))
+            (fill-cell g x y (new Color 100 100 100 150))
+            (draw-move g (:x (:oldpos e)) (:y (:oldpos e)) x y
+                       (new Color 0 0 0)))))))))
 
 (defn update-grid []
   (def *grid* (vec (repeat (* *width* *height*) nil)))
+  (when *true-entities*
+    (dorun (for [e (filter #(<= (:time (first (:snapshots %))) *time*) *true-entities*)]
+             (let [{x :x y :y} (:pos (last (filter #(<= (:time %) *time*)
+                                                   (:snapshots e))))]
+               (def *grid* (assoc *grid* (+ (* y *width*) x) e))))))
   (when *true-events*
     (dorun (for [e (filter #(= (:time %) *time*) *true-events*)]
 	     (let [{x :x y :y}
 		   (if (= (type e) simulator.problems.tracking.events.EventMove)
 		     (:newpos e) (:pos e))]
-	       (def *grid* (assoc *grid* (+ (* y *width*) x) e))))))
-  (dorun (for [x (range *width*) y (range *height*)]
-           (if (and (not (nil? (grid-at x y))) (< (:time (grid-at x y)) (- *time* 1)))
-             (def *grid* (assoc *grid* (+ (* y *width*) x) nil))))))
+	       (def *grid* (assoc *grid* (+ (* y *width*) x) e)))))))
 
 (defn render [g]
   (let [img (new BufferedImage *gridpanel-width* *gridpanel-height*
@@ -230,6 +236,7 @@
     (update-trueevents te)
     (def *params* params)
     (def *abducer-log* (:abducer-log ss))
+    (def *true-entities* (get-entities te))
     (def *true-events* (get-events te))
     (def *strat-log* (:log ss))
     (def *strat-events* (get-events (:problem-data ss)))
