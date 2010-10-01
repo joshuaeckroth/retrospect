@@ -40,6 +40,7 @@
     :regression :linear
     :strategy-regression :linear}
    {:x :PercentEventsCorrect :y :PercentIdentitiesCorrect :name "events-identities"
+    :split-by :SensorCoverage :split-list (range 10 101 10) :split-delta 5
     :regression :linear}])
 
 (def tracking-problem
