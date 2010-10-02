@@ -2,6 +2,19 @@
   (:use [clojure.set])
   (:use [simulator.confidences]))
 
+(defn prob-apriori
+  [prob]
+  (cond
+   (<= prob 20) VERY-IMPLAUSIBLE
+   (<= prob 40) IMPLAUSIBLE
+   (<= prob 60) NEUTRAL
+   (<= prob 80) PLAUSIBLE
+   :else VERY-PLAUSIBLE))
+
+(defn prob-neg-apriori
+  [prob]
+  (prob-apriori (- 100 prob)))
+
 (defprotocol Hypothesis
   (get-id [this])
   (get-apriori [this]))
@@ -110,7 +123,7 @@
   (reduce union (map #(get-conflicts hypspace %) hyps)))
 
 (defn find-best
-  [hypspace hyps threshold]
+  [hypspace hyps threshold type]
   "Returns a collection with items like {:hyp h :best e :conf c}"
   (filter identity
 	  (for [h hyps]
@@ -128,7 +141,17 @@
                      (<= threshold (- (:conf (first expsorted))
                                       (:conf (second expsorted)))))
 		    {:hyp h :best (:explainer (first expsorted))
-		     :conf (:conf (first expsorted))}
+		     :conf (:conf (first expsorted)) :type "best"}
 		    
-		    :else nil)))))
+		    ;; if type is :smartbest and there is no true best,
+                    ;; check for best by (threshold-1) and explains more
+                    (and (<= (dec threshold) (- (:conf (first expsorted))
+                                                (:conf (second expsorted))))
+                         (> (count (get-explainers hypspace
+                                                   (:explainer (first expsorted))))
+                            (count (get-explainers hypspace
+                                                   (:explainer (second expsorted))))))
+                    {:hyp h :best (:explainer (first expsorted))
+                     :conf (:conf (first expsorted)) :type "smartbest"}
 
+                    :else nil)))))

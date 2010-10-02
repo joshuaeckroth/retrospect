@@ -42,20 +42,25 @@
     (add-new-entities trueevents gridstate numes 0)))
 
 (defn random-walks
-  [walk trueevents gridstate]
+  [trueevents gridstate params]
   (let [time (:time gridstate)
         all-entities (get-entities trueevents)
-	entities (take (inc (rand-int (count all-entities))) (shuffle all-entities))
+        entities (take (inc (int (* (count all-entities)
+                                    (double (/ (:ProbMovement params) 100)))))
+                       (shuffle all-entities))
 	entities-map (apply assoc {} (interleave entities entities))
-	entity-walks (shuffle (apply concat (map #(repeat (inc (rand-int walk)) %)
+	entity-walks
+        (shuffle (apply concat (map #(repeat (inc (rand-int (:MaxWalk params))) %)
 						 entities)))]
     (loop [em entities-map
 	   gs gridstate
 	   ew entity-walks]
       (if (empty? ew)
-        [(reduce (fn [te olde] (-> te
-                                   (update-entity time olde (pos (get em olde)))
-                                   (add-event-move time (pos olde) (pos (get em olde)))))
+        [(reduce (fn [te olde]
+                   (if (= (pos olde) (pos (get em olde))) te
+                     (-> te
+                         (update-entity time olde (pos (get em olde)))
+                         (add-event-move time (pos olde) (pos (get em olde))))))
                  trueevents (keys em))
          gs]
 	(let [e (first ew)
@@ -65,7 +70,7 @@
             (recur (assoc em e newe)
                    (update-grid-entity gs olde newe)
                    (rest ew))
-            (recur (dissoc em e) gs (rest ew))))))))
+            (recur em gs (rest ew))))))))
 
 (defn possibly-add-new-entities
   [trueevents gridstate params time]
@@ -81,7 +86,7 @@
 	sss (map #(generate-hypotheses % sens time params) strat-states)
 	sss2 (map #(explain % time) sss)
 	sss3 (map #(update-problem-data % time) sss2)
-	[newte newgs] (random-walks (:MaxWalk params) te (forward-time gs 1))]
+	[newte newgs] (random-walks te (forward-time gs 1) params)]
     [newte newgs sss3]))
 
 (defn last-explanation

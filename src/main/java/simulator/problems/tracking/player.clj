@@ -13,8 +13,8 @@
   (:use [simulator.repl])
   (:use [simulator.problems.tracking.repl]))
 
-(def *gridpanel-width* 500)
-(def *gridpanel-height* 500)
+(def *gridpanel-width* 600)
+(def *gridpanel-height* 600)
 (def *width* 10)
 (def *height* 10)
 (def *sensors* nil)
@@ -43,6 +43,7 @@
       :NumberEntities (JSpinner. (SpinnerNumberModel. 1 1 100 1))
       :MaxWalk (JSpinner. (SpinnerNumberModel. 1 1 100 1))
       :ProbNewEntities (JSpinner. (SpinnerNumberModel. 0 0 100 10))
+      :ProbMovement (JSpinner. (SpinnerNumberModel. 50 0 100 10))
       :SensorReportNoise (JSpinner. (SpinnerNumberModel. 0 0 100 10))
       :BeliefNoise (JSpinner. (SpinnerNumberModel. 0 0 100 10))
       :GridWidth (JSpinner. (SpinnerNumberModel. 10 1 100 1))
@@ -279,7 +280,7 @@
      (doto (JPanel. (GridBagLayout.))
        (grid-bag-layout
 	:fill :BOTH, :insets (Insets. 5 5 5 5)
-	:gridx 0, :gridy 0, :gridheight 17
+	:gridx 0, :gridy 0, :gridheight 18
 	*gridpanel*
 
 	:gridx 1, :gridy 0, :gridheight 1
@@ -302,58 +303,62 @@
 	:gridx 2, :gridy 3
 	(:ProbNewEntities *param-spinners*)
 
-	:gridx 1, :gridy 4
-	(JLabel. "SensorReportNoise:")
-	:gridx 2, :gridy 4
-	(:SensorReportNoise *param-spinners*)
+        :gridx 1, :gridy 4
+        (JLabel. "ProbMovement:")
+        :gridx 2, :gridy 4
+        (:ProbMovement *param-spinners*)
 
 	:gridx 1, :gridy 5
-	(JLabel. "BeliefNoise:")
+	(JLabel. "SensorReportNoise:")
 	:gridx 2, :gridy 5
-	(:BeliefNoise *param-spinners*)
+	(:SensorReportNoise *param-spinners*)
 
 	:gridx 1, :gridy 6
-	(JLabel. "GridWidth:")
+	(JLabel. "BeliefNoise:")
 	:gridx 2, :gridy 6
-	(:GridWidth *param-spinners*)
+	(:BeliefNoise *param-spinners*)
 
 	:gridx 1, :gridy 7
-	(JLabel. "GridHeight:")
+	(JLabel. "GridWidth:")
 	:gridx 2, :gridy 7
-	(:GridHeight *param-spinners*)
+	(:GridWidth *param-spinners*)
 
 	:gridx 1, :gridy 8
-	(JLabel. "SensorCoverage:")
+	(JLabel. "GridHeight:")
 	:gridx 2, :gridy 8
-	(:SensorCoverage *param-spinners*)
+	(:GridHeight *param-spinners*)
 
 	:gridx 1, :gridy 9
-	(JLabel. "Strategy:")
+	(JLabel. "SensorCoverage:")
 	:gridx 2, :gridy 9
-	(:Strategy *param-other*)
+	(:SensorCoverage *param-spinners*)
 
 	:gridx 1, :gridy 10
-	*newbutton*
-        
+	(JLabel. "Strategy:")
 	:gridx 2, :gridy 10
-	*steplabel*
+	(:Strategy *param-other*)
 
 	:gridx 1, :gridy 11
+	*newbutton*
+	:gridx 2, :gridy 11
+	*steplabel*
+
+	:gridx 1, :gridy 12
 	*prevbutton*
         
-	:gridx 1, :gridy 12
+	:gridx 1, :gridy 13
 	*nextbutton*
 
-	:gridx 1, :gridy 13, :gridwidth 2
+	:gridx 1, :gridy 14, :gridwidth 2
 	*events-correct-label*
 
-        :gridx 1, :gridy 14
+        :gridx 1, :gridy 15
         *identities-correct-label*
 
-	:gridx 1, :gridy 15
+	:gridx 1, :gridy 16
 	*mouse-xy*
 
-	:gridy 16, :gridheight :REMAINDER
+	:gridy 17, :gridheight :REMAINDER
 	(JPanel.))))
 
 (def *logspanel*

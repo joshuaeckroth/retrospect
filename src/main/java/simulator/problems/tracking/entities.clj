@@ -19,7 +19,12 @@
   (pos [_] (:pos (last snapshots)))
   Object
   (toString [_] (format "Entity %s"
-			(apply str (interpose "->" (map str snapshots))))))
+                        (if (>= 3 (count snapshots))
+                          (apply str (interpose "->" (map str snapshots)))
+                          (format "%s->...->%s->%s"
+                                  (str (first snapshots))
+                                  (str (second (reverse snapshots)))
+                                  (str (last snapshots)))))))
 
 (defn print-entities
   [entities]

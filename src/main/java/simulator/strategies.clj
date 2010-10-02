@@ -121,18 +121,6 @@
                        (format "Hyp %s accepted as %s explainer."
                                (get-hyp-id-str explainer) type))))
 
-(defn accept-guess
-  [strat-state time explainer hyp]
-  (accept-explainer-type strat-state time explainer hyp "guess"))
-
-(defn accept-essential
-  [strat-state time explainer hyp]
-  (accept-explainer-type strat-state time explainer hyp "essential"))
-
-(defn accept-best
-  [strat-state time explainer hyp threshold]
-  (accept-explainer-type strat-state time explainer hyp (format "best-by-%d" threshold)))
-
 (defn force-acceptance
   [strat-state time hyp log-msg]
   (-> strat-state
@@ -160,17 +148,6 @@
   [strat-state time]
   (find-unexplained (:hypspace strat-state) (get (:accepted strat-state) time)))
 
-(defn essentials-helper
-  [strat-state time]
-  (find-essentials (:hypspace strat-state)
-                   (unexplained-helper strat-state time)))
-
-(defn best-helper
-  [strat-state time threshold]
-  (find-best (:hypspace strat-state)
-             (unexplained-helper strat-state time)
-             threshold))
-
 (defn guess-type
   [strat-state time type]
   (let [unexplained (unexplained-helper strat-state time)]
@@ -181,7 +158,7 @@
            explainer (if (not-empty explainers)
                        (choose-random-hyp type strat-state explainers))]
        (if explainer
-         (accept-guess strat-state time explainer hyp)
+         (accept-explainer-type strat-state time explainer hyp (name type))
          strat-state)))))
 
 (defn guess
@@ -194,35 +171,62 @@
 
 (defn essentials
   [strat-state time]
-  (let [essentials (essentials-helper strat-state time)]
+  (let [essentials (find-essentials (:hypspace strat-state)
+                                    (unexplained-helper strat-state time))]
     (if (not-empty essentials)
       (let [{hyp :hyp explainer :essential} (choose-random-hyp essentials)]
-        (accept-essential strat-state time explainer hyp)))))
+        (accept-explainer-type strat-state time explainer hyp "essential")))))
+
+(defn best-threshold
+  [threshold type strat-state time]
+  (let [best (find-best (:hypspace strat-state)
+                        (unexplained-helper strat-state time)
+                        threshold type)]
+    (if (not-empty best)
+      (let [{hyp :hyp explainer :best chosen-type :type} (choose-random-hyp best)]
+        (accept-explainer-type strat-state time explainer hyp
+                               (if (= type :smartbest)
+                                 (format "%s-%d-%s" (name type) chosen-type threshold)
+                                 (format "%s-%d" (name type) threshold)))))))
 
 (defn best
-  [threshold strat-state time]
-  (let [best (best-helper strat-state time threshold)]
-    (if (not-empty best)
-      (let [{hyp :hyp explainer :best} (choose-random-hyp best)]
-        (accept-best strat-state time explainer hyp threshold)))))
+  [threshold]
+  (partial best-threshold threshold :best))
+
+(defn smartbest
+  [threshold]
+  (partial best-threshold threshold :smartbest))
 
 (def strategy-funcs
   {"guess" [guess]
    "smartguess" [smartguess]
    "es-guess" [essentials guess]
    "es-smartguess" [essentials smartguess]
-   "es-b1-guess" [essentials (partial best 1) guess]
-   "es-b1-smartguess" [essentials (partial best 1) smartguess]
-   "es-b2-b1-guess" [essentials (partial best 2) (partial best 1) guess]
-   "es-b2-b1-smartguess" [essentials (partial best 2) (partial best 1) smartguess]
-   "es-b3-b2-b1-guess"
-   [essentials (partial best 3) (partial best 2) (partial best 1) guess]
-   "es-b3-b2-b1-smartguess"
-   [essentials (partial best 3) (partial best 2) (partial best 1) smartguess]
+   "es-b1-guess" [essentials (best 1) guess]
+   "es-sb1-guess" [essentials (smartbest 1) guess]
+   "es-b1-smartguess" [essentials (best 1) smartguess]
+   "es-sb1-smartguess" [essentials (smartbest 1) smartguess]
+   "es-b2-b1-guess" [essentials (best 2) (best 1) guess]
+   "es-sb2-sb1-guess" [essentials (smartbest 2) (smartbest 1) guess]
+   "es-b2-b1-smartguess" [essentials (best 2) (best 1) smartguess]
+   "es-sb2-sb1-smartguess" [essentials (smartbest 2) (smartbest 1) smartguess]
+   "es-b3-b2-b1-guess" [essentials (best 3) (best 2) (best 1) guess]
+   "es-sb3-sb2-sb1-guess" [essentials (smartbest 3) (smartbest 2) (smartbest 1) guess]
+   "es-b3-b2-b1-smartguess" [essentials (best 3) (best 2) (best 1) smartguess]
+   "es-sb3-sb2-sb1-smartguess" [essentials (smartbest 3) (smartbest 2)
+                                (smartbest 1) smartguess]
+   "es-b4-b3-b2-b1-smartguess" [essentials (best 4) (best 3) (best 2) (best 1) smartguess]
+   "es-sb4-sb3-sb2-sb1-smartguess" [essentials (smartbest 4) (smartbest 3) (smartbest 2)
+                                (smartbest 1) smartguess]
    "es" [essentials]
-   "es-b1" [essentials (partial best 1)]
-   "es-b2-b1" [essentials (partial best 2) (partial best 1)]
-   "es-b3-b2-b1" [essentials (partial best 3) (partial best 2) (partial best 1)]})
+   "es-b1" [essentials (best 1)]
+   "es-sb1" [essentials (smartbest 1)]
+   "es-b2-b1" [essentials (best 2) (best 1)]
+   "es-sb2-sb1" [essentials (smartbest 2) (smartbest 1)]
+   "es-b3-b2-b1" [essentials (best 3) (best 2) (best 1)]
+   "es-sb3-sb2-sb1" [essentials (smartbest 3) (smartbest 2) (smartbest 1)]
+   "es-sb4-sb3-sb2-sb1" [essentials (smartbest 4) (smartbest 3)
+                         (smartbest 2) (smartbest 1)]})
 
 (def strategies (sort (keys strategy-funcs)))
 

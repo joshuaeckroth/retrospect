@@ -2,10 +2,11 @@
 <problems>
   <problem name="tracking">
     <params>
-      <Steps start="30" end="30" step="1" />
-      <NumberEntities start="1" end="1" step="1" />
-      <MaxWalk start="1" end="3" step="2" />
+      <Steps start="20" end="20" step="1" />
+      <NumberEntities start="1" end="11" step="1" />
+      <MaxWalk start="5" end="10" step="1" />
       <ProbNewEntities start="0" end="0" step="1" />
+      <ProbMovement start="50" end="50" step="1" />
       <SensorReportNoise start="0" end="0" step="1" />
       <BeliefNoise start="0" end="0" step="1" />
       <GridWidth start="10" end="10" step="10" />
