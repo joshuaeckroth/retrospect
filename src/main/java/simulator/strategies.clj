@@ -8,9 +8,8 @@
 
 (defrecord StrategyState
     [strategy hypspace
-     accepted considering                 ;; maps keyed by time
+     accepted                             ;; map keyed by time
      hypothesized-at                      ;; maps keyed by time
-     considering-before considering-afer  ;; maps keyed by time
      unexplained-before unexplained-after ;; maps keyed by time
      log abducer-log                      ;; maps keyed by time
      hyp-log                              ;; keyed by hyp
@@ -20,31 +19,27 @@
   [strategies pdata]
   (for [s strategies]
     (StrategyState. s (init-hypspace)
-                    {} {} {} {} {} {} {} {} {} {} ;; these are maps
+                    {} {} {} {} {} {} {} ;; these are maps
                     {:compute 0 :milliseconds 0 :memory 0} pdata)))
 
 (defn prepare-strat-state
   [strat-state time]
   (let [unexplained-before (find-unexplained
 			    (:hypspace strat-state)
-			    (get (:accepted strat-state) time))
-	considering-before (get (:considering strat-state) time)]
+			    (get (:accepted strat-state) time))]
     (-> strat-state
-	(update-in [:unexplained-before] assoc time unexplained-before)
-	(update-in [:considering-before] assoc time considering-before))))
+	(update-in [:unexplained-before] assoc time unexplained-before))))
 
 (defn postprocess-strat-state
   [strat-state time startTime]
   (let [unexplained-after (find-unexplained
 			   (:hypspace strat-state)
 			   (get (:accepted strat-state) time))
-	considering-after (get (:considering strat-state) time)
 	milliseconds (+ (:milliseconds (:resources strat-state))
 			(/ (- (. System (nanoTime)) startTime)
 			   1000000.0))]
     (-> strat-state
 	(update-in [:unexplained-after] assoc time unexplained-after)
-	(update-in [:considering-after] assoc time considering-after)
 	(update-in [:resources] assoc :milliseconds milliseconds))))
 
 (defn add-log-msg
@@ -71,15 +66,14 @@
 (defn add-hyp
   [strat-state time hyp explained log-msg]
   (let [hypspace (-> (:hypspace strat-state)
-		     (update-in [:hyps] union #{hyp})
-		     (add-explainers explained #{hyp})
+		     (update-in [:hyps] conj hyp)
+		     (add-explainers explained [hyp])
 		     (set-confidence hyp (get-apriori hyp)))]
     (-> strat-state
-	(update-in [:hypothesized-at time] union #{hyp})
-	(update-in [:considering time] union #{hyp})
+	(update-in [:hypothesized-at time] conj hyp)
 	(assoc :hypspace hypspace)
 	(add-log-msg time log-msg)
-        (add-abducer-log-msg time #{hyp} "Adding hypothesis.")
+        (add-abducer-log-msg time [hyp] "Adding hypothesis.")
         (add-hyp-log-msg time hyp "Adding hypothesis."))))
 
 (defn penalize-conflicts
@@ -99,8 +93,7 @@
   [strat-state time hyp]
   (let [conflicts (find-conflicts (:hypspace strat-state) #{hyp})]
     (-> strat-state
-        (update-in [:accepted time] union #{hyp})
-        (update-in [:considering time] difference #{hyp})
+        (update-in [:accepted time] conj hyp)
         (penalize-conflicts time conflicts
                             (format "Penalizing due to conflict with accepted hyp %s."
                                     (get-hyp-id-str hyp))))))
@@ -109,7 +102,7 @@
   [strat-state time explainer hyp type]
   (-> strat-state
       (accept-hyp time explainer)
-      (add-abducer-log-msg time #{hyp explainer}
+      (add-abducer-log-msg time [hyp explainer]
                            (format "Accepting %s %s as explainer of %s."
                                    type
                                    (get-hyp-id-str explainer)
@@ -125,7 +118,7 @@
   [strat-state time hyp log-msg]
   (-> strat-state
       (accept-hyp time hyp)
-      (add-abducer-log-msg time #{hyp}
+      (add-abducer-log-msg time [hyp]
                            (format "Forcing acceptance of: %s." (get-hyp-id-str hyp)))
       (add-hyp-log-msg time hyp "Forcing acceptance.")
       (add-log-msg time log-msg)))
@@ -134,14 +127,13 @@
   ([hyps] (rand-nth (vec hyps)))
      
   ([type strat-state hyps]
-     (case type
-           :smartguess
+     (cond (= :smartguess type)
            (let [hs (:hypspace strat-state)
                  threshold (first (sort (map (fn [h] (get-confidence hs h))
                                              hyps)))]
              (rand-nth (vec (filter (fn [h] (= threshold (get-confidence hs h))) hyps))))
            
-           "default"
+           :else
            (choose-random-hyp hyps))))
 
 (defn unexplained-helper
@@ -186,7 +178,7 @@
       (let [{hyp :hyp explainer :best chosen-type :type} (choose-random-hyp best)]
         (accept-explainer-type strat-state time explainer hyp
                                (if (= type :smartbest)
-                                 (format "%s-%d-%s" (name type) chosen-type threshold)
+                                 (format "%s-%d-%s" (name type) threshold chosen-type)
                                  (format "%s-%d" (name type) threshold)))))))
 
 (defn best

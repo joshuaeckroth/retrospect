@@ -35,16 +35,16 @@
 
 (defn get-explainers
   [hypspace hyp]
-  (get (:explainers hypspace) hyp))
+  (set (get (:explainers hypspace) hyp)))
 
 (defn get-explains
   [hypspace hyp]
-  (get (:explains hypspace) hyp))
+  (set (get (:explains hypspace) hyp)))
 
 (defn add-single-explains
   [hypspace explainer hyp]
   "Record that 'explainer' is an explanation of 'hyp'."
-  (let [origexplains (get-explains hypspace explainer)
+  (let [origexplains (get (:explains hypspace) explainer)
 	newexplains (assoc (:explains hypspace) explainer
 			   (if origexplains (conj origexplains hyp) #{hyp}))]
     (assoc hypspace :explains newexplains)))
@@ -54,9 +54,9 @@
   "Record that each of 'hyps' is explained by each of 'es'."
   (reduce
    (fn [hs hyp]
-     (let [origexplainers (get-explainers hs hyp)
+     (let [origexplainers (get (:explainers hs) hyp)
            newexplainers (assoc (:explainers hs) hyp
-                                (if origexplainers (union origexplainers es) es))]
+                                (if origexplainers (concat origexplainers es) es))]
        ;; add each 'explains' relationship...
        (reduce (fn [hs2 e] (add-single-explains hs2 e hyp))
                ;; after adding the explainers
@@ -66,13 +66,13 @@
 
 (defn get-conflicts
   [hypspace hyp]
-  (get (:conflicts hypspace) hyp))
+  (set (get (:conflicts hypspace) hyp)))
 
 (defn add-conflicts
   [hypspace hyp cs]
-  (let [origconflicts (get-conflicts hypspace hyp)
+  (let [origconflicts (get (:conflicts hypspace) hyp)
 	newconflicts (assoc (:conflicts hypspace) hyp
-			    (if origconflicts (union origconflicts cs) cs))]
+			    (if origconflicts (concat origconflicts cs) cs))]
     (assoc hypspace :conflicts newconflicts)))
 
 (defn get-confidence
@@ -94,21 +94,17 @@
 
 (defn explained?
   [hypspace hyp hyps]
-  "Is 'hyp' explained by 'hyps'?"
-  (let [explainers (get-explainers hypspace hyp)]
-    (if (empty? explainers) true
+  "Is 'hyp' explained by 'hyps'? Does not support composite explainers."
+  (let [explainers (get (:explainers hypspace) hyp)]
+    (if (or (nil? explainers) (empty? explainers)) true ;; no explainers == explained
 	(loop [es explainers]
-	  (cond (empty? es) false
-		(set? (first es))
-		(if (subset? (first es) hyps) true
-		    (recur (rest es)))
-		:else
-		(if (some #(= % (first es)) hyps) true
-		    (recur (rest es))))))))
+	  (if (empty? es) false
+              (if (some #(= % (first es)) hyps) true
+                  (recur (rest es))))))))
 
 (defn find-unexplained
   [hypspace hyps]
-  (difference hyps (set (filter #(explained? hypspace % hyps) hyps))))
+  (difference (set hyps) (set (filter #(explained? hypspace % hyps) hyps))))
 
 ;; does not work for composite essentials
 (defn find-essentials

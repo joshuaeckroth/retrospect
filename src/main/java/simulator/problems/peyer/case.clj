@@ -140,5 +140,5 @@
 
 (defn peyer-strat-state
   []
-  (StrategyState. nil (peyer-hypspace) *observations* #{} #{} [] nil nil))
+  (StrategyState. nil (peyer-hypspace) *observations* {} {} {} {} {} {} {} nil))
 
