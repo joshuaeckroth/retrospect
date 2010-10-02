@@ -235,11 +235,14 @@
   (let [strat-funcs (get strategy-funcs (:strategy strat-state))]
     (loop [funcs strat-funcs
            ss strat-state]
-      (if (empty? funcs) ss
-          (let [ss2 ((first funcs) ss time)]
-            (if ss2
-              (recur funcs ss2)
-              (recur (rest funcs) ss)))))))
+      (if (empty? funcs)
+        (let [unexplained (unexplained-helper ss time)]
+          (add-abducer-log-msg ss time unexplained (format "%d unexplained hypotheses."
+                                                           (count unexplained))))
+        (let [ss2 ((first funcs) ss time)]
+          (if ss2
+            (recur funcs ss2)
+            (recur (rest funcs) ss)))))))
 
 (defn explain
   [strat-state time]
