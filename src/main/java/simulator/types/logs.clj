@@ -1,15 +1,14 @@
-(ns simulator.types.logs
-  (:use [simulator.types.hypotheses :only (get-hyp-id-str)]))
+(ns simulator.types.logs)
 
 (defrecord LogEntry [time msg]
   Object
   (toString [_] (format "At %d, %s" time msg)))
 
-(defrecord AbducerLogEntry [time hyps msg]
+(defrecord AbducerLogEntry [time hyp-ids msg]
   Object
   (toString [_] (format "At %d, hypotheses: %s\n\t%s"
-			time (apply str (interpose "," (map :id hyps))) msg)))
+			time (apply str (interpose "," hyp-ids)) msg)))
 
-(defrecord HypLogEntry [time hyp msg]
+(defrecord HypLogEntry [time hyp-id msg]
   Object
-  (toString [_] (format "At %d, hyp %s, %s" time (get-hyp-id-str hyp) msg)))
+  (toString [_] (format "At %d, hyp %s, %s" time hyp-id msg)))

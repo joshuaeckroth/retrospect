@@ -155,9 +155,7 @@
 	(recur (inc i) (single-step params sensors combined-states))
 	(let [[te sss] (last-explanation params sensors combined-states)]
           (for [ss sss]
-            {:trueevents te :stratstate ss :sensors sensors
-             :results
-             (merge (evaluate te ss)
+            (merge (evaluate te ss)
                     (assoc params
                       :Milliseconds
                       (/ (double (- (. System (nanoTime)) startTime)) 1000000.0)
@@ -171,6 +169,6 @@
                        (:GridWidth params) (:GridHeight params) sensors)
                       :SensorOverlap
                       (measure-sensor-overlap
-                       (:GridWidth params) (:GridHeight params) sensors)))}))))))
+                       (:GridWidth params) (:GridHeight params) sensors)))))))))
 
 

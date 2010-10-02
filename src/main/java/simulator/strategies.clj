@@ -51,14 +51,14 @@
 
 (defn add-abducer-log-msg
   [strat-state time hyps msg]
-  (let [entry (AbducerLogEntry. time hyps msg)]
+  (let [entry (AbducerLogEntry. time (map get-hyp-id-str hyps) msg)]
     (if (get (:abducer-log strat-state) time)
       (update-in strat-state [:abducer-log time] conj entry)
       (update-in strat-state [:abducer-log] assoc time [entry]))))
 
 (defn add-hyp-log-msg
   [strat-state time hyp msg]
-  (let [entry (HypLogEntry. time hyp msg)]
+  (let [entry (HypLogEntry. time (get-hyp-id-str hyp) msg)]
     (if (get (:hyp-log strat-state) hyp)
       (update-in strat-state [:hyp-log hyp] conj entry)
       (update-in strat-state [:hyp-log] assoc hyp [entry]))))
@@ -229,8 +229,9 @@
            ss strat-state]
       (if (empty? funcs)
         (let [unexplained (unexplained-helper ss time)]
-          (add-abducer-log-msg ss time unexplained (format "%d unexplained hypotheses."
-                                                           (count unexplained))))
+          (add-abducer-log-msg ss time unexplained
+                               (format "%d unexplained hypotheses."
+                                       (count unexplained))))
         (let [ss2 ((first funcs) ss time)]
           (if ss2
             (recur funcs ss2)
