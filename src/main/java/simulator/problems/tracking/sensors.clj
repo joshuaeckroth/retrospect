@@ -35,12 +35,12 @@
   "Create 'spotted' vector based on grid."
   [sensor gridstate]
   (assoc sensor :spotted
-	 (map #(SensorEntity. (make-sensorentity-id (pos %) (:time gridstate))
-			      VERY-PLAUSIBLE (:time gridstate) (pos %))
-	      (filter #(not (nil? %))
-		      (for [x (range (:left sensor) (inc (:right sensor)))
-			    y (range (:bottom sensor) (inc (:top sensor)))]
-			(entity-at (:grid gridstate) (Position. x y)))))))
+	 (doall (map #(SensorEntity. (make-sensorentity-id (pos %) (:time gridstate))
+                                     VERY-PLAUSIBLE (:time gridstate) (pos %))
+                     (filter #(not (nil? %))
+                             (doall (for [x (range (:left sensor) (inc (:right sensor)))
+                                          y (range (:bottom sensor) (inc (:top sensor)))]
+                                      (entity-at (:grid gridstate) (Position. x y)))))))))
 
 (defn measure-sensor-coverage
   [width height sensors]
@@ -51,12 +51,12 @@
 
 (defn generate-sensors-sample
   [width height]
-  (for [i (range (rand-int (* width height)))]
-    (let [left (rand-int width)
-          right (+ left (rand-int (- width left)))
-          bottom (rand-int height)
-          top (+ bottom (rand-int (- height bottom)))]
-      (new-sensor "sensorid" left right bottom top))))
+  (doall (for [i (range (rand-int (* width height)))]
+           (let [left (rand-int width)
+                 right (+ left (rand-int (- width left)))
+                 bottom (rand-int height)
+                 top (+ bottom (rand-int (- height bottom)))]
+             (new-sensor "sensorid" left right bottom top)))))
 
 (defn generate-sensors-with-coverage
   [width height coverage]
@@ -68,6 +68,6 @@
 (defn measure-sensor-overlap
   [width height sensors]
   (let [count-xy
-	(for [x (range width) y (range height)]
-	  (count (filter identity (map (fn [s] (sees s x y)) sensors))))]
+	(doall (for [x (range width) y (range height)]
+                 (count (filter identity (map (fn [s] (sees s x y)) sensors)))))]
     (double (/ (reduce + count-xy) (* width height)))))

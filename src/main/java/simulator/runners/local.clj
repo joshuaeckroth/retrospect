@@ -4,7 +4,7 @@
   (:use [clojure.java.io :as io :only (writer)])
   (:use [simulator.types.problem :only (average-strategy-runs get-headers)]))
 
-(def *progress* 0)
+(def write-agent (agent 0))
 
 (defn format-time
   [seconds]
@@ -31,39 +31,37 @@
   (apply str (concat (interpose "," row) [\newline])))
 
 (defn write-csv
-  [filename headers results]
-  (with-open [writer (io/writer filename)]
-    (.write writer (format-csv-row (map name headers)))
-    (doseq [row (map (fn [r] (map (fn [h] (h r)) headers)) results)]
-      (.write writer (format-csv-row row)))))
+  [progress filename problem results]
+  (with-open [writer (io/writer filename :append true)]
+    (doseq [row (map (fn [r] (map (fn [h] (h r)) (get-headers problem))) results)]
+      (.write writer (format-csv-row row))))
+  (inc progress))
+
+(defn run-partition
+  [problem filename params]
+  (when (not-empty params)
+    (send-off write-agent write-csv filename problem
+              (average-strategy-runs problem (first params) 5))
+    (recur problem filename (rest params))))
 
 (defn check-progress
   [remaining total start-time]
   (when (> remaining 0)
-    (let [progress *progress*]
+    (let [progress @write-agent]
       (if (< 0 progress)
         (print-progress (- (.getTime (Date.)) start-time) progress total))
       (. Thread (sleep 30000))
       (send *agent* #'check-progress total start-time)
       (- total progress))))
 
-(defn run-partition
-  [problem params]
-  (loop [ps params
-         results []]
-    (if (not-empty ps)
-      (let [rs (doall (average-strategy-runs problem (first ps) 5))]
-        (def *progress* (inc *progress*)) ;; chance of race-condition; non-atomic update
-        (recur (rest ps) (doall (concat results rs))))
-      results)))
-
 (defn run-partitions
-  [problem params nthreads]
+  [problem filename params nthreads]
+  (with-open [writer (io/writer filename)]
+    (.write writer (format-csv-row (map name (get-headers problem)))))
   (send (agent (count params)) check-progress (count params) (.getTime (Date.)))
   (let [partitions (partition (int (/ (count params) nthreads)) (shuffle params))]
-    (apply concat (pmap (partial run-partition problem) partitions))))
+    (doall (pmap (partial run-partition problem filename) partitions))))
 
 (defn run-local
   [problem params dir nthreads]
-  (let [results (run-partitions problem params nthreads)]
-    (write-csv (str dir "/results.csv") (get-headers problem) results)))
+  (run-partitions problem (str dir "/results.csv") params nthreads))

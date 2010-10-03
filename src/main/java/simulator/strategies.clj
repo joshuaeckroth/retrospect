@@ -17,10 +17,10 @@
 
 (defn init-strat-states
   [strategies pdata]
-  (for [s strategies]
-    (StrategyState. s (init-hypspace)
-                    {} {} {} {} {} {} {} ;; these are maps
-                    {:compute 0 :milliseconds 0 :memory 0} pdata)))
+  (doall (for [s strategies]
+           (StrategyState. s (init-hypspace)
+                           {} {} {} {} {} {} {} ;; these are maps
+                           {:compute 0 :milliseconds 0 :memory 0} pdata))))
 
 (defn prepare-strat-state
   [strat-state time]

@@ -82,20 +82,20 @@
   [params sensors [trueevents gridstate strat-states]]
   (let [time (:time gridstate)
         [te gs] (possibly-add-new-entities trueevents gridstate params time)
-	sens (map #(update-spotted % gs) sensors)
-	sss (map #(generate-hypotheses % sens time params) strat-states)
-	sss2 (map #(explain % time) sss)
-	sss3 (map #(update-problem-data % time) sss2)
+	sens (doall (map #(update-spotted % gs) sensors))
+	sss (doall (map #(generate-hypotheses % sens time params) strat-states))
+	sss2 (doall (map #(explain % time) sss))
+	sss3 (doall (map #(update-problem-data % time) sss2))
 	[newte newgs] (random-walks te (forward-time gs 1) params)]
     [newte newgs sss3]))
 
 (defn last-explanation
   [params sensors [trueevents gridstate strat-states]]
   (let [time (:time gridstate)
-	sens (map #(update-spotted % gridstate) sensors)
-	sss (map #(generate-hypotheses % sens time params) strat-states)
-	sss2 (map #(explain % time) sss)
-	sss3 (map #(update-problem-data % time) sss2)]
+	sens (doall (map #(update-spotted % gridstate) sensors))
+	sss (doall (map #(generate-hypotheses % sens time params) strat-states))
+	sss2 (doall (map #(explain % time) sss))
+	sss3 (doall (map #(update-problem-data % time) sss2))]
     [trueevents sss3]))
 
 (defn calc-average-walk
@@ -108,9 +108,9 @@
 	(fn [pairs] (reduce calc-walk-sum 0 pairs))
 
 	walk-avgs
-	(map (fn [e] (let [pairs (pair-snapshots e)]
-		       (if (empty? pairs) 0 (/ (sum-walks pairs) (count pairs)))))
-	     (get-entities trueevents))]
+	(doall (map (fn [e] (let [pairs (pair-snapshots e)]
+                              (if (empty? pairs) 0 (/ (sum-walks pairs) (count pairs)))))
+                    (get-entities trueevents)))]
     (double (/ (reduce + 0 walk-avgs) (count walk-avgs)))))
 
 (defn find-correct-identities
@@ -121,9 +121,9 @@
    positions. This means a believed 'identity' is correct even when
    the inner path is wrong; only the beginning and end must match up
    with the true entities."
-  (let [get-starts-ends (fn [es] (set (map (fn [e] {:start (first (:snapshots e))
-                                                    :end (last (:snapshots e))})
-                                           es)))
+  (let [get-starts-ends (fn [es] (set (doall (map (fn [e] {:start (first (:snapshots e))
+                                                           :end (last (:snapshots e))})
+                                                  es))))
         true-starts-ends (get-starts-ends (get-entities trueevents))
         strat-starts-ends (get-starts-ends (get-entities (:problem-data strat-state)))]
     (intersection true-starts-ends strat-starts-ends)))
@@ -154,21 +154,21 @@
       (if (< i (:Steps params))
 	(recur (inc i) (single-step params sensors combined-states))
 	(let [[te sss] (last-explanation params sensors combined-states)]
-          (for [ss sss]
-            (merge (evaluate te ss)
-                    (assoc params
-                      :Milliseconds
-                      (/ (double (- (. System (nanoTime)) startTime)) 1000000.0)
-                      :Strategy (:strategy ss)
-                      :StrategyCompute (:compute (:resources ss))
-                      :StrategyMilliseconds (:milliseconds (:resources ss))
-                      :StrategyMemory (:memory (:resources ss))
-                      :AvgWalk (calc-average-walk te)
-                      :SensorCoverage
-                      (measure-sensor-coverage
-                       (:GridWidth params) (:GridHeight params) sensors)
-                      :SensorOverlap
-                      (measure-sensor-overlap
-                       (:GridWidth params) (:GridHeight params) sensors)))))))))
+          (doall (for [ss sss]
+                   (merge (evaluate te ss)
+                          (assoc params
+                            :Milliseconds
+                            (/ (double (- (. System (nanoTime)) startTime)) 1000000.0)
+                            :Strategy (:strategy ss)
+                            :StrategyCompute (:compute (:resources ss))
+                            :StrategyMilliseconds (:milliseconds (:resources ss))
+                            :StrategyMemory (:memory (:resources ss))
+                            :AvgWalk (calc-average-walk te)
+                            :SensorCoverage
+                            (measure-sensor-coverage
+                             (:GridWidth params) (:GridHeight params) sensors)
+                            :SensorOverlap
+                            (measure-sensor-overlap
+                             (:GridWidth params) (:GridHeight params) sensors))))))))))
 
 

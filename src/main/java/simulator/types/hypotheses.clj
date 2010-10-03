@@ -110,44 +110,49 @@
 (defn find-essentials
   [hypspace hyps]
   "Returns a collection with items like {:hyp h :essential e}."
-  (map (fn [{h :hyp es :explainers}] {:hyp h :essential (first es)})
-       (filter #(= 1 (count (:explainers %)))
-               (map (fn [h] {:hyp h :explainers (get-explainers hypspace h)}) hyps))))
+  (doall (map (fn [{h :hyp es :explainers}] {:hyp h :essential (first es)})
+              (filter #(= 1 (count (:explainers %)))
+                      (doall (map (fn [h] {:hyp h
+                                           :explainers (get-explainers hypspace h)})
+                                  hyps))))))
 
 (defn find-conflicts
   [hypspace hyps]
-  (reduce union (map #(get-conflicts hypspace %) hyps)))
+  (reduce union (doall (map #(get-conflicts hypspace %) hyps))))
 
 (defn find-best
   [hypspace hyps threshold type]
   "Returns a collection with items like {:hyp h :best e :conf c}"
   (filter identity
-	  (for [h hyps]
-	    (let [explainers (get-explainers hypspace h)
-		  expconf (map (fn [e] {:explainer e
-                                        :conf (get-confidence hypspace e)})
-                               explainers)
-		  expsorted (reverse (sort-by :conf expconf))]
+	  (doall (for [h hyps]
+                   (let [explainers (get-explainers hypspace h)
+                         expconf (doall (map (fn [e] {:explainer e
+                                                      :conf (get-confidence hypspace e)})
+                                             explainers))
+                         expsorted (reverse (sort-by :conf expconf))]
 	      
-	      (cond (empty? expsorted) nil
+                     (cond (empty? expsorted) nil
 
-		    ;; single explainer or difference in confidence above a threshold?
-                    (or
-                     (= 1 (count expsorted))
-                     (<= threshold (- (:conf (first expsorted))
-                                      (:conf (second expsorted)))))
-		    {:hyp h :best (:explainer (first expsorted))
-		     :conf (:conf (first expsorted)) :type "best"}
+                           ;; single explainer or difference in confidence
+                           ;; above a threshold?
+                           (or
+                            (= 1 (count expsorted))
+                            (<= threshold (- (:conf (first expsorted))
+                                             (:conf (second expsorted)))))
+                           {:hyp h :best (:explainer (first expsorted))
+                            :conf (:conf (first expsorted)) :type "best"}
 		    
-		    ;; if type is :smartbest and there is no true best,
-                    ;; check for best by (threshold-1) and explains more
-                    (and (<= (dec threshold) (- (:conf (first expsorted))
-                                                (:conf (second expsorted))))
-                         (> (count (get-explainers hypspace
-                                                   (:explainer (first expsorted))))
-                            (count (get-explainers hypspace
-                                                   (:explainer (second expsorted))))))
-                    {:hyp h :best (:explainer (first expsorted))
-                     :conf (:conf (first expsorted)) :type "smartbest"}
+                           ;; if type is :smartbest and there is no true best,
+                           ;; check for best by (threshold-1) and explains more
+                           (and (<= (dec threshold) (- (:conf (first expsorted))
+                                                       (:conf (second expsorted))))
+                                (> (count (get-explainers
+                                           hypspace
+                                           (:explainer (first expsorted))))
+                                   (count (get-explainers
+                                           hypspace
+                                           (:explainer (second expsorted))))))
+                           {:hyp h :best (:explainer (first expsorted))
+                            :conf (:conf (first expsorted)) :type "smartbest"}
 
-                    :else nil)))))
+                           :else nil))))))

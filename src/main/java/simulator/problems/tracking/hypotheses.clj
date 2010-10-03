@@ -31,10 +31,10 @@
   "For each spotted, find entities within walk distance; exclude non-movements."
   [spotted entities walk]
   (let [distfn (fn [s e] {:entity e :dist (manhattan-distance (pos s) (pos e))})]
-    (for [s spotted]
-      {:spotted s :entities
-       (filter #(and (< 0 (:dist %)) (>= walk (:dist %)))
-	       (map (partial distfn s) entities))})))
+    (doall (for [s spotted]
+             {:spotted s :entities
+              (filter #(and (< 0 (:dist %)) (>= walk (:dist %)))
+                      (map (partial distfn s) entities))}))))
 
 (defn find-possibly-frozen
   [spotted entities]
