@@ -7,10 +7,14 @@
   (:use [simulator.problems.tracking.eventlog :only
 	 (get-entities add-entity remove-entity add-event update-entity)])
   (:use [simulator.confidences])
-  (:use [simulator.types.hypotheses :only
+  (:use [simulator.hypotheses :only
 	 (Hypothesis add-explainers get-explainers prob-apriori prob-neg-apriori
-                     add-conflicts get-hyp-id-str get-hyp-ids-str)])
-  (:use [simulator.strategies :only (add-hyp force-acceptance)])
+                     get-hyp-id-str get-hyp-ids-str)])
+  (:use [simulator.epistemicstates :only
+         (add-hyp add-mutual-conflicts
+                  add-mutual-conflicts-all-explainers
+                  force-acceptance)])
+  (:use [simulator.sensors :only (sensed-at)])
   (:use [clojure.set]))
 
 (defrecord TrackingHyp [id apriori type time spotted entity prev event]
@@ -47,40 +51,34 @@
                             entities))})))
 
 (defn add-hyp-new
-  [strat-state spotted time apriori]
+  [ep-state spotted time apriori]
   (let [event (EventNew. (:time spotted) (pos spotted))
 	entity (Entity. [(EntitySnapshot. time (pos spotted))])
         hyp (TrackingHyp. (make-hyp-id spotted time nil) apriori
                           "new" time spotted entity nil event)]
-    (add-hyp strat-state time hyp #{spotted}
+    (add-hyp ep-state hyp #{spotted}
              (format "Hypothesizing %s (a=%d) that %s is new: %s."
                      (get-hyp-id-str hyp) apriori (get-hyp-id-str spotted) entity))))
 
 (defn add-hyp-move
-  [strat-state spotted time prev apriori]
+  [ep-state spotted time prev apriori]
   (let [event (EventMove. time (pos prev) (pos spotted))
 	entity (add-snapshot prev (EntitySnapshot. time (pos spotted)))
         hyp (TrackingHyp. (make-hyp-id spotted time prev) apriori
                           "move" time spotted entity prev event)]
-    (add-hyp strat-state time hyp #{spotted}
+    (add-hyp ep-state hyp #{spotted}
              (format "Hypothesizing %s (a=%d) that %s is the movement of %s."
                      (get-hyp-id-str hyp) apriori (get-hyp-id-str spotted) prev))))
 
 (defn add-hyp-frozen
-  [strat-state spotted prev time apriori]
+  [ep-state spotted prev time apriori]
   (let [event (EventFrozen. (:time spotted) (pos spotted))
         entity (add-snapshot prev (EntitySnapshot. time (pos spotted)))
         hyp (TrackingHyp. (make-hyp-id spotted time prev) apriori
                           "frozen" time spotted entity prev event)]
-    (add-hyp strat-state time hyp #{spotted}
+    (add-hyp ep-state hyp #{spotted}
              (format "Hypothesizing %s (a=%d) that %s is the frozen entity %s."
                      (get-hyp-id-str hyp) apriori (get-hyp-id-str spotted) prev))))
-
-(defn add-mutual-conflicts
-  [strat-state hyps]
-  (reduce (fn [ss hyp] (update-in ss [:hypspace] add-conflicts hyp
-				  (difference hyps #{hyp})))
-	  strat-state hyps))
 
 (defn filter-candidate-entities
   [time entities]
@@ -89,12 +87,12 @@
   (filter #(>= 3 (- time (:time (last (:snapshots %))))) entities))
 
 (defn add-mutual-conflict-events
-  [strat-state entities time]
+  [ep-state entities]
   "For each entity, find all hypotheses that were hypothesized at 'time' and
    are events of that entity, and add mutual conflict relations for these
    event hypotheses."
   (reduce
-   (fn [ss e]
+   (fn [es e]
      (let [events
            (filter
             (fn [h] (and (= (type h)
@@ -108,36 +106,36 @@
                            (= (type (:event h))
                               simulator.problems.tracking.events.EventFrozen)
                            (= (pos e) (:pos (:event h)))))))
-            (get (:hypothesized-at ss) time))]
-       (add-mutual-conflicts ss (set events))))
-   strat-state entities))
+            (:hypothesized es))]
+       (add-mutual-conflicts es (set events))))
+   ep-state entities))
 
 (defn generate-new-hypotheses
-  [strat-state spotted time params]
-  (reduce (fn [ss spot]
-            (add-hyp-new ss spot time (prob-apriori (:ProbNewEntities params))))
-          strat-state spotted))
+  [ep-state spotted time params]
+  (reduce (fn [es spot]
+            (add-hyp-new es spot time (prob-apriori (:ProbNewEntities params))))
+          ep-state spotted))
 
 (defn generate-frozen-hypotheses
-  [strat-state spotted entities time params]
+  [ep-state spotted entities time params]
   (loop [frozen (find-possibly-frozen spotted entities)
-         ss strat-state]
-    (if (empty? frozen) ss
+         es ep-state]
+    (if (empty? frozen) es
         (recur (rest frozen)
-               (add-hyp-frozen ss (:spotted (first frozen)) (:entity (first frozen)) time
+               (add-hyp-frozen es (:spotted (first frozen)) (:entity (first frozen)) time
                                (prob-neg-apriori (:ProbMovement params)))))))
 
 (defn generate-movement-hypotheses
-  [strat-state spotted entities time params]
+  [ep-state spotted entities time params]
   (loop [pairs (pair-near spotted entities (:MaxWalk params))
-         ss strat-state]
-    (cond (empty? pairs) ss
+         es ep-state]
+    (cond (empty? pairs) es
           
           ;; all entities too far for this spotted; maybe hypothesize new entity
           (empty? (:entities (first pairs)))
           (recur (rest pairs)
-                 (if (= 0 (:ProbNewEntities params)) ss
-                     (add-hyp-new ss (:spotted (first pairs)) time
+                 (if (= 0 (:ProbNewEntities params)) es
+                     (add-hyp-new es (:spotted (first pairs)) time
                                   (prob-apriori (:ProbNewEntities params)))))
           
           ;; some entities in range; hypothesize them all,
@@ -145,66 +143,68 @@
           ;; then make them all mutually conflicting
           :else
           (let [spotted (:spotted (first pairs))
-                es (:entities (first pairs))
-                ss2 (reduce
-                     (fn [tempss e]
-                       (add-hyp-move tempss spotted time (:entity e)
+                ents (:entities (first pairs))
+                es2 (reduce
+                     (fn [tempes e]
+                       (add-hyp-move tempes spotted time (:entity e)
                                      (cond (< (:dist e) (/ (:MaxWalk params) 4))
                                            VERY-PLAUSIBLE
                                            (< (:dist e) (/ (:MaxWalk params) 2))
                                            PLAUSIBLE
                                            :else NEUTRAL)))
-                     ss es)
-                ss3 (if (= 0 (:ProbNewEntities params)) ss2
-                        (add-hyp-new ss2 spotted time
+                     es ents)
+                es3 (if (= 0 (:ProbNewEntities params)) es2
+                        (add-hyp-new es2 spotted time
                                      (prob-apriori (:ProbNewEntities params))))
-                ssconflicts
-                (add-mutual-conflicts ss3 (get-explainers (:hypspace ss3) spotted))]
-            (recur (rest pairs) ssconflicts)))))
+                esconflicts
+                (add-mutual-conflicts-all-explainers es3 spotted)]
+            (recur (rest pairs) esconflicts)))))
 
 (defn generate-hypotheses
-  [strat-state sensors time params]
-  (let [unique-spotted
-        (set (apply concat (map :spotted sensors)))
+  [ep-state sensors params]
+  (let [time (:time ep-state)
+        unique-spotted
+        (set (apply concat (map #(sensed-at % time) sensors)))
 	candidate-entities
-        (filter-candidate-entities time (get-entities (:problem-data strat-state)))
+        (filter-candidate-entities time (get-entities (:problem-data ep-state)))
         
         ;; hypothesize and accept as fact all the spotted
-        ss (reduce (fn [ss spotted]
-                     (-> ss
-                         (add-hyp time spotted #{}
+        es (reduce (fn [es spotted]
+                     (-> es
+                         (add-hyp spotted #{}
                                   (format "Hypothesizing spotted %s."
                                           (get-hyp-id-str spotted)))
-                         (force-acceptance time spotted
+                         (force-acceptance spotted
                                            (format "Accepting as fact spotted %s."
                                                    (get-hyp-id-str spotted)))))
-                   strat-state unique-spotted)
+                   ep-state unique-spotted)
         
-        ss2 (if (empty? candidate-entities)
+        es2 (if (empty? candidate-entities)
 
              ;; no previously-known entities, hypothesize all as new
-             (generate-new-hypotheses ss unique-spotted time params)
+             (generate-new-hypotheses es unique-spotted time params)
              
              ;; else, got some previously-known entities, so associate them with spotted
-             (let [ss-frozen (if (= 1 (:NumberEntities params)) ss
-                               (generate-frozen-hypotheses ss unique-spotted
+             (let [es-frozen (if (= 1 (:NumberEntities params)) es
+                               (generate-frozen-hypotheses es unique-spotted
                                                            candidate-entities time params))
-                   ss-movements (generate-movement-hypotheses ss-frozen unique-spotted
+                   es-movements (generate-movement-hypotheses es-frozen unique-spotted
                                                               candidate-entities
                                                               time params)]
-               ss-movements))]
+               es-movements))]
     
     ;; finally, add mutual conflicts for all hypotheses that are an event
     ;; of the same entity
-    (add-mutual-conflict-events ss2 candidate-entities time)))
+    (add-mutual-conflict-events es2 candidate-entities)))
 
+;; needs to be called before reasoning begins at each time step
 (defn update-problem-data
-  [strat-state time]
-  (loop [accepted (get (:accepted strat-state) time)
-	 eventlog (:problem-data strat-state)]
+  [ep-state]
+  (loop [accepted (:accepted ep-state)
+	 eventlog (:problem-data ep-state)]
 
     (cond (empty? accepted)
-	  (assoc strat-state :problem-data eventlog)
+	  (assoc ep-state :problem-data eventlog)
 
 	  :else ;; not-empty accepted
 	  (let [hyp (first accepted)]

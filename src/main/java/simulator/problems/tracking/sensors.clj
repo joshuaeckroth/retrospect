@@ -1,10 +1,14 @@
 (ns simulator.problems.tracking.sensors
   (:require [simulator.problems.tracking positions])
+  (:require [simulator sensors])
   (:import [simulator.problems.tracking.positions Position])
-  (:use [simulator.types.hypotheses :only (Hypothesis)])
+  (:import [simulator.sensors Sensor])
+  (:use [simulator.hypotheses :only (Hypothesis)])
   (:use [simulator.confidences])
   (:use [simulator.problems.tracking.entities :only (EntityMethods pos)])
-  (:use [simulator.problems.tracking.grid :only (entity-at)]))
+  (:use [simulator.problems.tracking.grid :only (entity-at)])
+  (:use [simulator.problems.tracking.eventlog :only (get-entities)])
+  (:use [simulator.sensors :only (init-sensor add-sensed)]))
 
 (defrecord SensorEntity [id apriori time pos]
   Hypothesis
@@ -19,28 +23,45 @@
   [pos time]
   (format "SE%d%d%d" (:x pos) (:y pos) time))
 
-(defprotocol SensorMethods
-  (sees [this x y]))
+(defn sens-left
+  [sensor]
+  (:left (:attributes sensor)))
 
-(defrecord Sensor [id left right bottom top spotted]
-  SensorMethods
-  (sees [this x y] (and (>= x left) (<= x right) (>= y bottom) (<= y top))))
+(defn sens-right
+  [sensor]
+  (:right (:attributes sensor)))
+
+(defn sens-top
+  [sensor]
+  (:top (:attributes sensor)))
+
+(defn sens-bottom
+  [sensor]
+  (:bottom (:attributes sensor)))
+
+(defn sees
+  [sensor x y]
+  (and (>= x (sens-left sensor)) (<= x (sens-right sensor))
+       (>= y (sens-bottom sensor)) (<= y (sens-top sensor))))
+
+(defn find-spotted
+  [sensor grid time]
+  (doall (map #(SensorEntity. (make-sensorentity-id (pos %) time)
+                              VERY-PLAUSIBLE time (pos %))
+              (filter #(not (nil? %))
+                      (doall (for [x (range (sens-left sensor) (inc (sens-right sensor)))
+                                   y (range (sens-bottom sensor) (inc (sens-top sensor)))]
+                               (entity-at grid (Position. x y))))))))
+
+(defn sense
+  [sensor {grid :grid} time]
+  (let [spotted (find-spotted sensor grid time)]
+    (add-sensed sensor time spotted)))
 
 (defn new-sensor
   "Generate a new sensor with provided values and an empty 'spotted' vector."
   [id left right bottom top]
-  (Sensor. id left right bottom top []))
-
-(defn update-spotted
-  "Create 'spotted' vector based on grid."
-  [sensor gridstate]
-  (assoc sensor :spotted
-	 (doall (map #(SensorEntity. (make-sensorentity-id (pos %) (:time gridstate))
-                                     VERY-PLAUSIBLE (:time gridstate) (pos %))
-                     (filter #(not (nil? %))
-                             (doall (for [x (range (:left sensor) (inc (:right sensor)))
-                                          y (range (:bottom sensor) (inc (:top sensor)))]
-                                      (entity-at (:grid gridstate) (Position. x y)))))))))
+  (init-sensor sense {:id id :left left :right right :bottom bottom :top top}))
 
 (defn measure-sensor-coverage
   [width height sensors]
@@ -48,6 +69,13 @@
 		  (if (some #(sees % x y) sensors) 1 0))
 	covered (reduce + markers)]
     (double (* 100 (/ covered (* width height))))))
+
+(defn measure-sensor-overlap
+  [width height sensors]
+  (let [count-xy
+	(doall (for [x (range width) y (range height)]
+                 (count (filter identity (map (fn [s] (sees s x y)) sensors)))))]
+    (double (/ (reduce + count-xy) (* width height)))))
 
 (defn generate-sensors-sample
   [width height]
@@ -65,9 +93,8 @@
       (if (and (> measured (- coverage 5.0)) (< measured (+ coverage 5.0))) sensors
 	  (recur (generate-sensors-sample width height))))))
 
-(defn measure-sensor-overlap
-  [width height sensors]
-  (let [count-xy
-	(doall (for [x (range width) y (range height)]
-                 (count (filter identity (map (fn [s] (sees s x y)) sensors)))))]
-    (double (/ (reduce + count-xy) (* width height)))))
+(defn generate-sensors
+  [params]
+  (generate-sensors-with-coverage
+    (:GridWidth params) (:GridHeight params) (:SensorCoverage params)))
+

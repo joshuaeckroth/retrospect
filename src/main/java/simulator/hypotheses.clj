@@ -1,4 +1,4 @@
-(ns simulator.types.hypotheses
+(ns simulator.hypotheses
   (:use [clojure.set])
   (:use [simulator.confidences]))
 

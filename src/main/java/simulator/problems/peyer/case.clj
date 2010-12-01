@@ -1,13 +1,13 @@
 (ns simulator.problems.peyer.case
-  (:require [simulator.types hypotheses])
+  (:require [simulator hypotheses])
   (:require [simulator.strategies core])
   (:require [clojure string])
-  (:import [simulator.types.hypotheses HypothesisSpace])
-  (:import [simulator.strategies.core StrategyState])
+  (:import [simulator.hypotheses HypothesisSpace])
+  (:import [simulator.strategies StrategyState])
   (:use clojure.set)
   (:use clojure.test)
   (:use simulator.strategies)
-  (:use simulator.types.hypotheses))
+  (:use simulator.hypotheses))
 
 (defrecord Hypothesis [id explained-by conflicts string]
   Object

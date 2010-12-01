@@ -24,8 +24,8 @@
 (def *abducer-log* nil)
 (def *true-entities* nil)
 (def *true-events* nil)
-(def *strat-log* nil)
-(def *strat-events* nil)
+(def *ep-log* nil)
+(def *ep-events* nil)
 (def *grid* (vec (repeat (* *width* *height*) nil)))
 
 (def *steplabel* (JLabel. "Step: "))
@@ -33,8 +33,8 @@
 (def *identities-correct-label* (JLabel. "Identities correct: "))
 (def *true-events-box* (JTextArea. 15 50))
 (def *abducer-log-box* (JTextArea. 15 50))
-(def *strat-events-box* (JTextArea. 15 50))
-(def *strat-log-box* (JTextArea. 15 50))
+(def *ep-events-box* (JTextArea. 15 50))
+(def *ep-log-box* (JTextArea. 15 50))
 
 (def *mouse-xy* (JLabel.))
 
@@ -206,13 +206,13 @@
   (. *true-events-box* setText
      (apply str (interpose "\n" (map str (filter #(<= (:time %) *time*) *true-events*)))))
   (. *abducer-log-box* setText (apply str (interpose "\n" (get *abducer-log* *time*))))
-  (. *strat-events-box*
+  (. *ep-events-box*
      setText (apply str (interpose "\n"
 				   (map (fn [event]
 					  (format-event event (filter #(<= (:time %) *time*)
 								      *true-events*)))
-					(filter #(<= (:time %) *time*) *strat-events*)))))
-  (. *strat-log-box* setText (apply str (interpose "\n" (get *strat-log* *time*)))))
+					(filter #(<= (:time %) *time*) *ep-events*)))))
+  (. *ep-log-box* setText (apply str (interpose "\n" (get *ep-log* *time*)))))
 
 (defn next-step []
   (when (< *time* (:Steps *params*))
@@ -239,8 +239,8 @@
     (def *abducer-log* (:abducer-log ss))
     (def *true-entities* (get-entities te))
     (def *true-events* (get-events te))
-    (def *strat-log* (:log ss))
-    (def *strat-events* (get-events (:problem-data ss)))
+    (def *ep-log* (:log (:ep-state ss)))
+    (def *ep-events* (get-events (:problem-data (:ep-state ss))))
     (def *time* 0)
     (def *width* (:GridWidth results))
     (def *height* (:GridHeight results))
@@ -374,7 +374,7 @@
 	:gridx 0, :gridy 1
 	(JScrollPane. *abducer-log-box*)
 	:gridx 1, :gridy 1
-	(JScrollPane. *strat-log-box*)
+	(JScrollPane. *ep-log-box*)
 	
 	:gridx 0, :gridy 2
 	(JLabel. "True events")
@@ -384,7 +384,7 @@
 	:gridx 0, :gridy 3
 	(JScrollPane. *true-events-box*)
 	:gridx 1, :gridy 3
-	(JScrollPane. *strat-events-box*))))
+	(JScrollPane. *ep-events-box*))))
 
 (defn start-player []
   (doto (JFrame. "Logs")

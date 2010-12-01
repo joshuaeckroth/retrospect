@@ -6,33 +6,38 @@
   (:use [simulator.strategies :only (strategies)]))
 
 (defn get-strat-regression
-  [strategy data x y strategy-regression]
+  [strategy meta-abduce data x y strategy-regression]
   (case strategy-regression
-
         :linear
         (merge
          {:strategy strategy :reg-type "Linear"
-          :xs (sel ($where {:Strategy strategy} data) :cols x)}
-         (try (stats/linear-model (sel ($where {:Strategy strategy} data) :cols y)
-                                  (sel ($where {:Strategy strategy} data) :cols x))
+          :xs (sel ($where {:Strategy strategy :MetaAbduce meta-abduce} data) :cols x)}
+         (try (stats/linear-model
+               (sel ($where {:Strategy strategy :MetaAbduce meta-abduce} data) :cols y)
+               (sel ($where {:Strategy strategy :MetaAbduce meta-abduce} data) :cols x))
               (catch Exception e {})))))
 
 (defn plot
   [data x y y-range regression strategy-regression]
   (with-data data
-    (let [strats-with-data (filter (fn [s] (< 1 (nrow ($where {:Strategy s})))) strategies)
+    (let [strats-with-data (filter
+                            (fn [s] (< 1 (nrow ($where {:Strategy s :MetaAbduce "false"}))))
+                            strategies)
           strat-regs (doall (map #(if strategy-regression
-                                    (get-strat-regression % data x y strategy-regression))
+                                    (get-strat-regression % "false" data x y
+                                                          strategy-regression))
                                  strats-with-data))
           plot (doto (scatter-plot x y :x-label (name x) :y-label (name y)
-                                   :data ($where {:Strategy (first strats-with-data)})
+                                   :data ($where {:Strategy (first strats-with-data)
+                                                  :MetaAbduce "false"})
                                    :legend true
                                    :series-label (first strats-with-data))
                  (clear-background))
           plot2 (reduce (fn [p strategy]                          
-                          (if (= 1 (nrow ($where {:Strategy strategy}))) p
+                          (if (= 1 (nrow ($where {:Strategy strategy :MetaAbduce "false"}))) p
                               (add-points p x y
-                                          :data ($where {:Strategy strategy})
+                                          :data ($where {:Strategy strategy
+                                                         :MetaAbduce "false"})
                                           :series-label strategy)))
                         plot (rest strats-with-data))
           plot3 (if y-range (apply set-y-range plot2 y-range) plot2)

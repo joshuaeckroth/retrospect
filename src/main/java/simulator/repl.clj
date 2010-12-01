@@ -1,6 +1,6 @@
 (ns simulator.repl
   (:use [clojure.contrib.str-utils2 :only (grep)])
-  (:use [simulator.types.hypotheses]))
+  (:use [simulator.hypotheses]))
 
 (def *strat-state*)
 
@@ -10,7 +10,8 @@
 
 (defn lookup-hyp
   [hypid]
-  (let [candidates (filter #(= hypid (:id %)) (:hyps (:hypspace *strat-state*)))]
+  (let [candidates (filter #(= hypid (:id %))
+                           (:hyps (:hypspace (:ep-state *strat-state*))))]
     (if (empty? candidates) nil (first candidates))))
 
 (defn print-hyps
@@ -18,57 +19,47 @@
   (doseq [h hyps] (println (str h))))
 
 (defn list-hyps []
-  (print-hyps (:hyps (:hypspace *strat-state*))))
+  (print-hyps (:hyps (:hypspace (:ep-state *strat-state*)))))
 
 (defn hyp-log
   [hypid]
-  (doseq [entry (get (:hyp-log *strat-state*) (lookup-hyp hypid))]
+  (doseq [entry (get (:hyp-log (:ep-state *strat-state*)) (lookup-hyp hypid))]
     (println (str entry))))
 
 (defn explains
   [hypid]
-  (print-hyps (get-explains (:hypspace *strat-state*) (lookup-hyp hypid))))
+  (print-hyps (get-explains (:hypspace (:ep-state *strat-state*)) (lookup-hyp hypid))))
 
 (defn explainers
   [hypid]
-  (print-hyps (get-explainers (:hypspace *strat-state*) (lookup-hyp hypid))))
+  (print-hyps (get-explainers (:hypspace (:ep-state *strat-state*)) (lookup-hyp hypid))))
 
 (defn conflicts
   [hypid]
-  (print-hyps (get-conflicts (:hypspace *strat-state*) (lookup-hyp hypid))))
+  (print-hyps (get-conflicts (:hypspace (:ep-state *strat-state*)) (lookup-hyp hypid))))
 
 (defn grep-hyps
   [re]
-  (print-hyps (grep re (:hyps (:hypspace *strat-state*)))))
+  (print-hyps (grep re (:hyps (:hypspace (:ep-state *strat-state*))))))
 
-(defn hypothesized-at
-  [time]
-  (print-hyps (get (:hypothesized-at *strat-state*) time)))
-
-(defn accepted-at
-  [time]
-  (print-hyps (get (:accepted *strat-state*) time)))
-
-(defn unexplained-before
-  [time]
-  (print-hyps (get (:unexplained-before *strat-state*) time)))
-
-(defn unexplained-after
-  [time]
-  (print-hyps (get (:unexplained-after *strat-state*) time)))
+(defn hypothesized
+  []
+  (print-hyps (:hypothesized (:ep-state *strat-state*))))
 
 (defn accepted
   []
-  (doseq [time (sort (keys (:accepted *strat-state*)))]
-    (println (format "* Accepted at %d *" time))
-    (accepted-at time)))
+  (print-hyps (:accepted (:ep-state *strat-state*))))
 
-(defn abducer-log-at
-  [time]
-  (doseq [msg (get (:abducer-log *strat-state*) time)]
+(defn unexplained
+  []
+  (print-hyps (:unexplained (:ep-state *strat-state*))))
+
+(defn abducer-log
+  []
+  (doseq [msg (:abducer-log (:ep-state *strat-state*))]
     (println (str msg))))
 
-(defn log-at
-  [time]
-  (doseq [msg (get (:log *strat-state*) time)]
+(defn log
+  []
+  (doseq [msg (:log (:ep-state *strat-state*))]
     (println (str msg))))

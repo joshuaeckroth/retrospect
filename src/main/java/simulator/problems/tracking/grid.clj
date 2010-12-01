@@ -5,11 +5,15 @@
   (:use [simulator.problems.tracking.entities :only (pos add-snapshot)])
   (:use [simulator.problems.tracking.positions :only (equal)]))
 
+;; top-left is (0, 0); bottom-right is (width-1, height-1)
+
+(defrecord Grid [width height gridvec])
+
 (defn get-grid-pos
   [grid pos]
   (+ (* (:y pos) (:width grid)) (:x pos)))
 
-(defn replace-entity
+(defn replace-grid-entity
   "Replace an entity in the grid (which may be nil) with a new one."
   [grid oldentity newentity]
   (let [snapshot (last (:snapshots newentity))
@@ -24,25 +28,12 @@
 		       (get-grid-pos newgrid (:pos prior-snapshot))
 		       nil)))))))
 
-(defn update-grid-entity
-  [gridstate oldentity newentity]
-  (update-in gridstate [:grid] replace-entity oldentity newentity))
-
-(defn forward-time
-  [gridstate amount]
-  (update-in gridstate [:time] + amount))
-
-(defrecord GridState [grid time])
-
-;; top-left is (0, 0); bottom-right is (width-1, height-1)
-
-(defrecord Grid [width height gridvec])
-
 (defn new-grid
   "Generate a width-by-height grid (represented as a 1-D array)
    full of nil entities."
-  [width height]
-  (Grid. width height (vec (repeat (* width height) nil))))
+  [params]
+  (Grid. (:GridWidth params) (:GridHeight params)
+         (vec (repeat (* (:GridWidth params) (:GridHeight params)) nil))))
 
 (defn entity-at
   "Get the entity at a posx, posy."

@@ -2,7 +2,7 @@
   (:use [incanter.io :only (read-dataset)])
   (:import (java.util Date))
   (:use [clojure.java.io :as io :only (writer)])
-  (:use [simulator.types.problem :only (average-strategy-runs get-headers)]))
+  (:use [simulator.problem :only (average-strategies get-headers)]))
 
 (def write-agent (agent 0))
 
@@ -41,7 +41,7 @@
   [problem filename params]
   (when (not-empty params)
     (send-off write-agent write-csv filename problem
-              (average-strategy-runs problem (first params) 5))
+              (average-strategies problem (first params) 1))
     (recur problem filename (rest params))))
 
 (defn check-progress

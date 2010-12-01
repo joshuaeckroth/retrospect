@@ -1,19 +1,20 @@
 (ns simulator.problems.tracking.problem
-  (:require [simulator.types problem])
-  (:import [simulator.types.problem Problem])
-  (:use [simulator.problems.tracking.core :only (run)])
-  (:use [simulator.problems.tracking.player :only (start-player)])
+  (:require [simulator problem])
+  (:import [simulator.problem Problem])
+  (:use [simulator.problems.tracking.evaluate :only (evaluate)])
+  (:use [simulator.problems.tracking.truedata :only (generate-truedata)])
+  (:use [simulator.problems.tracking.sensors :only (generate-sensors)])
+  (:use [simulator.problems.tracking.hypotheses :only
+         (generate-hypotheses update-problem-data)])
+;  (:use [simulator.problems.tracking.player :only (start-player)])
   (:use [simulator.problems.tracking.eventlog :only (init-event-log)]))
 
-(def avg-fields [:Milliseconds :PercentEventsCorrect :PercentIdentitiesCorrect
-		 :StrategyCompute :StrategyMilliseconds :StrategyMemory
-		 :Steps :NumberEntities :MaxWalk :AvgWalk
-		 :ProbNewEntities :SensorReportNoise :BeliefNoise
-		 :GridWidth :GridHeight :SensorCoverage :SensorOverlap])
+(def avg-fields [:PercentEventsCorrect :PercentIdentitiesCorrect
+		 :NumberEntities :MaxWalk :AvgWalk
+		 :ProbNewEntities :GridWidth :GridHeight
+                 :SensorCoverage :SensorOverlap])
 
-(def non-avg-fields [:Strategy])
-
-(def headers (concat avg-fields non-avg-fields))
+(def non-avg-fields [])
 
 (def charts
   [{:x :NumberEntities :y :PercentEventsCorrect :name "numes-events"
@@ -43,6 +44,12 @@
     :split-by :SensorCoverage :split-list (range 10 101 10) :split-delta 5
     :regression :linear}])
 
+(defn single-step
+  [ep-state sensors params]
+  (let [es (update-problem-data ep-state)]
+    (generate-hypotheses es sensors params)))
+
 (def tracking-problem
-  (Problem. "tracking" run start-player headers avg-fields non-avg-fields charts
-	    (init-event-log)))
+  (Problem. "tracking"
+            single-step nil generate-truedata generate-sensors
+            evaluate (init-event-log) avg-fields non-avg-fields charts))

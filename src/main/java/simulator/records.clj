@@ -10,7 +10,7 @@
   (:use [clojure.string :only (split)])
   (:use [simulator.runners.local :only (run-local)])
   (:use [simulator.charts :only (save-plots)])
-  (:use [simulator.types.problem :only (get-headers)]))
+  (:use [simulator.problem :only (get-headers)]))
 
 (defn get-gitcommit []
   (first (split (sh "git" "rev-list" "HEAD") #"\n")))
