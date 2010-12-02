@@ -10,7 +10,8 @@
                              essentials best smartbest
                              unexplained-helper
                              print-ep-state-tree measure-decision-confidence
-                             find-least-confident-decision)])
+                             find-least-confident-decision
+                             count-branches)])
   (:use [simulator.sensors :only (update-sensors)])
   (:use [simulator.confidences])
   (:use clojure.set))
@@ -48,9 +49,9 @@
    "es-sb4-sb3-sb2-sb1" [essentials (smartbest 4) (smartbest 3)
                          (smartbest 2) (smartbest 1)]})
 
-                                        ;(def strategies (sort (keys strategy-funcs)))
+;;(def strategies (sort (keys strategy-funcs)))
 
-(def strategies ["guess" "es-guess"])
+(def strategies ["es-b1-smartguess"])
 
 (defrecord StrategyState
     [strategy
@@ -88,17 +89,20 @@
 
 (defn need-meta-abduction?
   [ep-state-tree ep-state]
-  (cond (not *meta*) false
+  (let [least-conf (find-least-confident-decision ep-state-tree)]
+    (cond (not *meta*) false
 
-        ;; is the present decision confidence worse than NEUTRAL
-        ;; and the least confident past decision is worse than NEUTRAL?
-        (and (> NEUTRAL
-                (measure-decision-confidence ep-state))
-             (> NEUTRAL
-                (:confidence (:decision (find-least-confident-decision ep-state-tree)))))
-        true
+          ;; is the present decision confidence worse than NEUTRAL
+          ;; and the least confident past decision worse than NEUTRAL
+          ;; and the number of existing branches not too large?
+          (and (> NEUTRAL
+                  (measure-decision-confidence ep-state))
+               (> NEUTRAL
+                  (:confidence (:decision least-conf)))
+               (> 5 (count-branches ep-state-tree least-conf)))
+          true
 
-        :else false))
+          :else false)))
 
 (defn prepare-meta-abduce
   [strat-state ep-state]
@@ -109,6 +113,8 @@
         branched-ep-state-tree (new-branch-ep-state
                                 (:ep-state-tree strat-state)
                                 ep-state least-conf)]
+    (println "branches of " (str least-conf) ":"
+             (count-branches (:ep-state-tree strat-state) least-conf))
     (-> strat-state
         (assoc :ep-state-tree branched-ep-state-tree)
         (assoc :ep-state (current-ep-state branched-ep-state-tree)))))

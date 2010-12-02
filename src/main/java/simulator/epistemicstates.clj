@@ -104,6 +104,23 @@
   [ep-state-tree]
   (vijual/draw-tree [(ep-state-tree-to-nested (zip/root ep-state-tree))]))
 
+(defn add-log-msg
+  [ep-state msg]
+  (let [entry (LogEntry. msg)]
+    (update-in ep-state [:log] conj entry)))
+
+(defn add-abducer-log-msg
+  [ep-state hyps msg]
+  (let [entry (AbducerLogEntry. (map get-hyp-id-str hyps) msg)]
+    (update-in ep-state [:abducer-log] conj entry)))
+
+(defn add-hyp-log-msg
+  [ep-state hyp msg]
+  (let [entry (HypLogEntry. (get-hyp-id-str hyp) msg)]
+    (if (get (:hyp-log ep-state) hyp)
+      (update-in ep-state [:hyp-log hyp] conj entry)
+      (update-in ep-state [:hyp-log] assoc hyp [entry]))))
+
 (defn accept-decision
   [ep-state id]
   (let [accepted (concat (:accepted ep-state) (:hyps (:decision ep-state)))]
@@ -152,6 +169,23 @@
         ep-tree (goto-ep-state (zip/replace ep-state-tree ep) (:id ep))]
     ep-tree))
 
+(defn penalize-decision-hyps
+  [ep-state hyps]
+  (if (empty? hyps) ep-state
+      (let [hypspace (reduce (fn [hs h] (penalize hs h))
+                             (:hypspace ep-state) hyps)
+            ep (-> ep-state
+                   (assoc :hypspace hypspace)
+                   (add-abducer-log-msg hyps
+                                        (format "Penalizing reverted decision: %s."
+                                                (get-hyp-ids-str hyps))))]
+        (reduce (fn [ep h] (add-hyp-log-msg ep h "Penalizing reverted decision."))
+                ep hyps))))
+
+(defn count-branches
+  [ep-state-tree branch]
+  (count (zip/children (zip/up (goto-ep-state ep-state-tree (:id branch))))))
+
 (defn new-branch-ep-state
   [ep-state-tree ep-state branch]
   (let [ep-tree (update-decision ep-state-tree ep-state)
@@ -161,10 +195,11 @@
         ep-no-dec (update-in ep [:decision] assoc :confidence nil :hyps [])
 
         ;; penalize hyps in decision
-        ep-penalized ep-no-dec
+        ep-penalized (penalize-decision-hyps ep-no-dec (:hyps (:decision ep)))
         
-        ep-tree-branch (goto-ep-state (zip/insert-left ep-tree ep-penalized)
-                                      (:id ep-penalized))]
+        ep-tree-branch
+        (goto-ep-state (zip/insert-left (goto-ep-state ep-tree (:id branch)) ep-penalized)
+                       (:id ep-penalized))]
     ep-tree-branch))
 
 (defn new-child-ep-state
@@ -173,23 +208,6 @@
         ep-child (accept-decision ep-state (make-ep-state-id ep-tree))
         ep-tree-child (goto-ep-state (zip/append-child ep-tree ep-child) (:id ep-child))]
     ep-tree-child))
-
-(defn add-log-msg
-  [ep-state msg]
-  (let [entry (LogEntry. msg)]
-    (update-in ep-state [:log] conj entry)))
-
-(defn add-abducer-log-msg
-  [ep-state hyps msg]
-  (let [entry (AbducerLogEntry. (map get-hyp-id-str hyps) msg)]
-    (update-in ep-state [:abducer-log] conj entry)))
-
-(defn add-hyp-log-msg
-  [ep-state hyp msg]
-  (let [entry (HypLogEntry. (get-hyp-id-str hyp) msg)]
-    (if (get (:hyp-log ep-state) hyp)
-      (update-in ep-state [:hyp-log hyp] conj entry)
-      (update-in ep-state [:hyp-log] assoc hyp [entry]))))
 
 (defn add-hyp
   [ep-state hyp explained log-msg]
