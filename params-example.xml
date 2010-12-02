@@ -2,16 +2,16 @@
 <problems>
   <problem name="tracking">
     <params>
-      <Steps start="20" end="20" step="1" />
-      <NumberEntities start="1" end="11" step="1" />
-      <MaxWalk start="5" end="10" step="1" />
-      <ProbNewEntities start="0" end="0" step="1" />
-      <ProbMovement start="50" end="50" step="1" />
+      <Steps start="40" end="40" step="1" />
+      <NumberEntities start="4" end="4" step="10" />
+      <MaxWalk start="1" end="10" step="3" />
+      <ProbNewEntities start="0" end="10" step="10" />
+      <ProbMovement start="0" end="100" step="50" />
       <SensorReportNoise start="0" end="0" step="1" />
       <BeliefNoise start="0" end="0" step="1" />
-      <GridWidth start="10" end="10" step="10" />
-      <GridHeight start="10" end="10" step="10" />
-      <SensorCoverage start="0" end="100" step="20" />
+      <GridWidth start="10" end="10" step="1" />
+      <GridHeight start="10" end="10" step="1" />
+      <SensorCoverage start="100" end="100" step="50" />
     </params>
   </problem>
   <problem name="circuit">
