@@ -64,15 +64,15 @@
      "A")
   ([ep-state-tree]
      (let [count
-           (loop [count 1
+           (loop [count 0
                   loc (zip-ep-state-tree (zip/root ep-state-tree))]
              (if (zip/end? loc) count
                  (recur (inc count) (zip/next loc))))]
        (loop [i count
               id ""]
          (if (<= i 26)
-           (str id (char (+ 64 i)))
-           (recur (- i 26) (str id (char (+ 64 (mod i 26))))))))))
+           (str id (char (+ 65 i)))
+           (recur (- i 26) (str id (char (+ 65 (mod i 26))))))))))
 
 (defn init-ep-state-tree
   [pdata]
@@ -137,6 +137,15 @@
           (recur (zip/next e-s-t) (zip/node e-s-t))
           (recur (zip/next e-s-t) least-conf)))))
 
+(defn new-branch-ep-state
+  [ep-state-tree]
+  (let [ep (clone-ep-state (zip/node ep-state-tree) (make-ep-state-id ep-state-tree) [])
+        ep-no-dec (assoc ep :decision {:confidence nil :hyps []})
+        ep-penalized ep-no-dec ;; penalize hyps in decision
+        ep-tree-branch (goto-ep-state (zip/insert-left ep-state-tree ep-penalized)
+                                      (:id ep-penalized))]
+    ep-tree-branch))
+
 (defn new-child-ep-state
   [ep-state-tree ep-state]
   (let [d (assoc (:decision ep-state)
@@ -146,14 +155,6 @@
         ep-child (accept-decision ep (make-ep-state-id ep-tree))
         ep-tree-child (goto-ep-state (zip/append-child ep-tree ep-child) (:id ep-child))]
     ep-tree-child))
-
-(defn new-branch-ep-state
-  [ep-state-tree]
-  ;; FIXME
-  (zip/left (zip/insert-left ep-state-tree
-                             (clone-ep-state (zip/node ep-state-tree)
-                                             (make-ep-state-id ep-state-tree)
-                                             []))))
 
 (defn back-to
   [ep-state time]
