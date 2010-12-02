@@ -9,7 +9,6 @@
   (:use [simulator.confidences])
   (:require [clojure.zip :as zip])
   (:require [clojure.set :as set])
-  (:require [clojure.walk :as walk])
   (:require [vijual :as vijual]))
 
 (defprotocol EpistemicStateTree
@@ -70,7 +69,7 @@
                  (recur (inc count) (zip/next loc))))]
        (loop [i count
               id ""]
-         (if (<= i 26)
+         (if (<= i 25)
            (str id (char (+ 65 i)))
            (recur (- i 26) (str id (char (+ 65 (mod i 26))))))))))
 
@@ -116,49 +115,64 @@
      accepted
      []
      (find-unexplained (:hypspace ep-state) accepted)
-     {:confidence nil :hyps []}
+     {:confidence nil :forced [] :hyps []}
      [] [] {}
      (:problem-data ep-state))))
 
 (defn measure-decision-confidence
   [ep-state]
-  ;; find the minimum confidence of a hypothesis
-  (apply min (map (fn [h] (get-confidence (:hypspace ep-state) h))
-                  (:hyps (:decision ep-state)))))
+
+  ;; if no accepted hyps, this is very implausible
+  (if (empty? (:hyps (:decision ep-state))) VERY-IMPLAUSIBLE
+
+      ;; if accepted hyps exist, find the minimum confidence of them
+      (apply min (map (fn [h] (get-confidence (:hypspace ep-state) h))
+                      (:hyps (:decision ep-state))))))
 
 (defn find-least-confident-decision
   [ep-state-tree]
-  "Finds most recent lowest-confidence decision; returns the epistemic state."
-  (loop [e-s-t (zip-ep-state-tree (zip/root ep-state-tree))
-         least-conf (zip/node e-s-t)]
-    (if (zip/end? e-s-t) least-conf
-        (if (<= (:confidence (:decision (zip/node e-s-t)))
-                (:confidence (:decision least-conf)))
-          (recur (zip/next e-s-t) (zip/node e-s-t))
-          (recur (zip/next e-s-t) least-conf)))))
+  "Finds most recent (up the path) lowest-confidence decision; returns
+   the epistemic state."
+  (loop [loc (zip/up ep-state-tree)
+         least-conf (if loc (zip/node loc))]
+    (cond
+     (nil? loc) least-conf
+
+     (< (:confidence (:decision (zip/node loc)))
+        (:confidence (:decision least-conf)))
+     (recur (zip/up loc) (zip/node loc))
+     
+     :else
+     (recur (zip/up loc) least-conf))))
+
+(defn update-decision
+  [ep-state-tree ep-state]
+  (let [ep (update-in ep-state [:decision] assoc :confidence
+                      (measure-decision-confidence ep-state))
+        ep-tree (goto-ep-state (zip/replace ep-state-tree ep) (:id ep))]
+    ep-tree))
 
 (defn new-branch-ep-state
-  [ep-state-tree]
-  (let [ep (clone-ep-state (zip/node ep-state-tree) (make-ep-state-id ep-state-tree) [])
-        ep-no-dec (assoc ep :decision {:confidence nil :hyps []})
-        ep-penalized ep-no-dec ;; penalize hyps in decision
-        ep-tree-branch (goto-ep-state (zip/insert-left ep-state-tree ep-penalized)
+  [ep-state-tree ep-state branch]
+  (let [ep-tree (update-decision ep-state-tree ep-state)
+        ep (clone-ep-state branch (make-ep-state-id ep-tree) [])
+        
+        ;; clear the decision
+        ep-no-dec (update-in ep [:decision] assoc :confidence nil :hyps [])
+
+        ;; penalize hyps in decision
+        ep-penalized ep-no-dec
+        
+        ep-tree-branch (goto-ep-state (zip/insert-left ep-tree ep-penalized)
                                       (:id ep-penalized))]
     ep-tree-branch))
 
 (defn new-child-ep-state
   [ep-state-tree ep-state]
-  (let [d (assoc (:decision ep-state)
-            :confidence (measure-decision-confidence ep-state))
-        ep (assoc ep-state :decision d)
-        ep-tree (goto-ep-state (zip/replace ep-state-tree ep) (:id ep))
-        ep-child (accept-decision ep (make-ep-state-id ep-tree))
+  (let [ep-tree (update-decision ep-state-tree ep-state)
+        ep-child (accept-decision ep-state (make-ep-state-id ep-tree))
         ep-tree-child (goto-ep-state (zip/append-child ep-tree ep-child) (:id ep-child))]
     ep-tree-child))
-
-(defn back-to
-  [ep-state time]
-  )
 
 (defn add-log-msg
   [ep-state msg]
@@ -222,10 +236,14 @@
                             (format "Penalizing due to conflict with accepted hyp %s."
                                     (get-hyp-id-str hyp))))))
 
+(defn accept-hyp-forced
+  [ep-state hyp]
+  (update-in (accept-hyp ep-state hyp) [:decision :forced] conj hyp))
+
 (defn force-acceptance
   [ep-state hyp log-msg]
   (-> ep-state
-      (accept-hyp hyp)
+      (accept-hyp-forced hyp)
       (add-abducer-log-msg [hyp]
                            (format "Forcing acceptance of: %s." (get-hyp-id-str hyp)))
       (add-hyp-log-msg hyp "Forcing acceptance.")
@@ -263,7 +281,10 @@
 (defn unexplained-helper
   [ep-state]
   (find-unexplained (:hypspace ep-state)
-                    (concat (:hyps (:decision ep-state)) (:accepted ep-state))))
+                    (concat
+                     (:forced (:decision ep-state))
+                     (:hyps (:decision ep-state))
+                     (:accepted ep-state))))
 
 (defn guess-type
   [ep-state type]

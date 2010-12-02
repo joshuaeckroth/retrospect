@@ -4,9 +4,8 @@
                  [org.clojure/clojure-contrib "1.2.0-SNAPSHOT"]
 		 [incanter "1.2.3-SNAPSHOT"]
 		 [org.clojars.choas/clojure-hadoop "1.2.1-SNAPSHOT"]
-		 [clj-stacktrace "0.2.0"]
-                 [vijual "0.1.0-SNAPSHOT"]]
-  :dev-dependencies [[swank-clojure "1.2.1"]]
+                 [org.clojars.overtone/vijual "0.2.1"]]
+  :dev-dependencies [[swank-clojure "1.3.0-SNAPSHOT"]]
   :main simulator.core
   :source-path "src/main/java"
   :test-path "src/test/java"

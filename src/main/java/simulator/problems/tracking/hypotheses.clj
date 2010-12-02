@@ -112,9 +112,11 @@
 
 (defn generate-new-hypotheses
   [ep-state spotted time params]
-  (reduce (fn [es spot]
-            (add-hyp-new es spot time (prob-apriori (:ProbNewEntities params))))
-          ep-state spotted))
+  (let [apriori (if (= time 0) VERY-PLAUSIBLE
+                    (prob-apriori (:ProbNewEntities params)))]
+    (reduce (fn [es spot]
+              (add-hyp-new es spot time apriori))
+            ep-state spotted)))
 
 (defn generate-frozen-hypotheses
   [ep-state spotted entities time params]
