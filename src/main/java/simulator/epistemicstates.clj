@@ -128,13 +128,14 @@
 
 (defn find-least-confident-decision
   [ep-state-tree]
-  (loop [least-conf (zip/node (zip/root ep-state-tree))
-         est (zip/root ep-state-tree)]
-    (if (zip/end? est) least-conf
-        (if (< (:confidence (:decision (zip/node est)))
-               (:confidence (:decision least-conf)))
-          (recur (zip/node est) (zip/next est))
-          (recur least-conf (zip/next est))))))
+  "Finds most recent lowest-confidence decision; returns the epistemic state."
+  (loop [e-s-t (zip-ep-state-tree (zip/root ep-state-tree))
+         least-conf (zip/node e-s-t)]
+    (if (zip/end? e-s-t) least-conf
+        (if (<= (:confidence (:decision (zip/node e-s-t)))
+                (:confidence (:decision least-conf)))
+          (recur (zip/next e-s-t) (zip/node e-s-t))
+          (recur (zip/next e-s-t) least-conf)))))
 
 (defn new-child-ep-state
   [ep-state-tree ep-state]
