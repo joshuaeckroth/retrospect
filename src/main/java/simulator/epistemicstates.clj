@@ -6,12 +6,21 @@
                         penalize boost find-conflicts find-unexplained get-confidence
                         add-explainers get-apriori add-conflicts find-essentials
                         find-best)])
+  (:use [simulator.confidences])
   (:require [clojure.zip :as zip])
   (:require [clojure.set :as set])
-  (:require [clojure.walk :as walk]))
+  (:require [clojure.walk :as walk])
+  (:require [vijual :as vijual]))
+
+(defprotocol EpistemicStateTree
+  (branch? [ep-state] "Is it possible for node to have children?")
+  (node-children [ep-state] "Return children of this node.")
+  (make-node [ep-state children] "Makes new node from existing node and new children."))
 
 (defrecord EpistemicState
-    [time
+    [id
+     children
+     time
      hypspace
      accepted
      hypothesized
@@ -22,66 +31,128 @@
      hyp-log
      problem-data]
   Object
-  (toString [_] ("ep-state")))
+  (toString [_] (format "%s %d %s" id time (confidence-str (:confidence decision)))))
+
+(defn clone-ep-state
+  [ep-state id children]
+  (EpistemicState.
+   id
+   children
+   (:time ep-state)
+   (:hypspace ep-state)
+   (:accepted ep-state)
+   (:hypothesized ep-state)
+   (:unexplained ep-state)
+   (:decision ep-state)
+   (:log ep-state)
+   (:abducer-log ep-state)
+   (:hyp-log ep-state)
+   (:problem-data ep-state)))
+
+(extend-protocol EpistemicStateTree
+  EpistemicState
+  (branch? [ep-state] true)
+  (node-children [ep-state] (seq (:children ep-state)))
+  (make-node [ep-state children] (clone-ep-state ep-state (:id ep-state) children)))
+
+(defn zip-ep-state-tree
+  [root]
+  (zip/zipper branch? node-children make-node root))
+
+(defn make-ep-state-id
+  ([]
+     "A")
+  ([ep-state-tree]
+     (let [count
+           (loop [count 1
+                  loc (zip-ep-state-tree (zip/root ep-state-tree))]
+             (if (zip/end? loc) count
+                 (recur (inc count) (zip/next loc))))]
+       (loop [i count
+              id ""]
+         (if (<= i 26)
+           (str id (char (+ 64 i)))
+           (recur (- i 26) (str id (char (+ 64 (mod i 26))))))))))
 
 (defn init-ep-state-tree
   [pdata]
-  (zip/down (zip/vector-zip [(EpistemicState. 0 (init-hypspace) [] [] []
-                                              {:confidence nil :hyps []}
-                                              [] [] {} pdata)])))
+  (zip-ep-state-tree
+   (EpistemicState. (make-ep-state-id) [] 0
+                    (init-hypspace) [] [] []
+                    {:confidence nil :hyps []}
+                    [] [] {} pdata)))
 
 (defn current-ep-state
   [ep-state-tree]
   (zip/node ep-state-tree))
 
+(defn goto-ep-state
+  [ep-state-tree id]
+  (loop [loc (zip-ep-state-tree (zip/root ep-state-tree))]
+    (cond (zip/end? loc) nil
+          (= id (:id (zip/node loc))) loc
+          :else (recur (zip/next loc)))))
+
 (defn update-ep-state-tree
   [ep-state-tree ep-state]
   (zip/replace ep-state-tree ep-state))
 
-(defn clone-ep-state
-  [ep-state]
-  (EpistemicState. (:time ep-state)
-                   (:hypspace ep-state)
-                   (:accepted ep-state)
-                   (:hypothesized ep-state)
-                   (:unexplained ep-state)
-                   {:confidence nil :hyps []}
-                   (:log ep-state)
-                   (:abducer-log ep-state)
-                   (:hyp-log ep-state)
-                   (:problem-data ep-state)))
+(defn ep-state-tree-to-nested
+  [root]
+  (conj (map ep-state-tree-to-nested (:children root)) (str root)))
+
+(defn print-ep-state-tree
+  [ep-state-tree]
+  (vijual/draw-tree [(ep-state-tree-to-nested (zip/root ep-state-tree))]))
 
 (defn accept-decision
-  [ep-state]
+  [ep-state id]
   (let [accepted (concat (:accepted ep-state) (:hyps (:decision ep-state)))]
-    (EpistemicState. (inc (:time ep-state))
-                     (:hypspace ep-state)
-                     accepted
-                     []
-                     (find-unexplained (:hypspace ep-state) accepted)
-                     {:confidence nil :hyps []}
-                     [] [] {}
-                     (:problem-data ep-state))))
+    (EpistemicState.
+     id
+     []
+     (inc (:time ep-state))
+     (:hypspace ep-state)
+     accepted
+     []
+     (find-unexplained (:hypspace ep-state) accepted)
+     {:confidence nil :hyps []}
+     [] [] {}
+     (:problem-data ep-state))))
 
 (defn measure-decision-confidence
   [ep-state]
-  0.0)
+  ;; find the minimum confidence of a hypothesis
+  (apply min (map (fn [h] (get-confidence (:hypspace ep-state) h))
+                  (:hyps (:decision ep-state)))))
+
+(defn find-least-confident-decision
+  [ep-state-tree]
+  (loop [least-conf (zip/node (zip/root ep-state-tree))
+         est (zip/root ep-state-tree)]
+    (if (zip/end? est) least-conf
+        (if (< (:confidence (:decision (zip/node est)))
+               (:confidence (:decision least-conf)))
+          (recur (zip/node est) (zip/next est))
+          (recur least-conf (zip/next est))))))
 
 (defn new-child-ep-state
   [ep-state-tree ep-state]
-  (let [ep-tree (zip/replace ep-state-tree ep-state)
-        d (assoc (:decision ep-state)
+  (let [d (assoc (:decision ep-state)
             :confidence (measure-decision-confidence ep-state))
         ep (assoc ep-state :decision d)
-        ep-child (accept-decision ep)]
-    (zip/down (zip/right (zip/down (zip/append-child
-                                    (zip/replace ep-tree [(zip/node ep-tree)])
-                                    [ep-child]))))))
+        ep-tree (goto-ep-state (zip/replace ep-state-tree ep) (:id ep))
+        ep-child (accept-decision ep (make-ep-state-id ep-tree))
+        ep-tree-child (goto-ep-state (zip/append-child ep-tree ep-child) (:id ep-child))]
+    ep-tree-child))
 
 (defn new-branch-ep-state
   [ep-state-tree]
   ;; FIXME
-  (zip/left (zip/insert-left ep-state-tree (clone-ep-state (zip/node ep-state-tree)))))
+  (zip/left (zip/insert-left ep-state-tree
+                             (clone-ep-state (zip/node ep-state-tree)
+                                             (make-ep-state-id ep-state-tree)
+                                             []))))
 
 (defn back-to
   [ep-state time]

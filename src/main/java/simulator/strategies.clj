@@ -5,7 +5,8 @@
   (:use [simulator.epistemicstates :only
          (init-ep-state-tree current-ep-state update-ep-state-tree
                              new-child-ep-state guess smartguess
-                             essentials best smartbest)])
+                             essentials best smartbest
+                             print-ep-state-tree)])
   (:use [simulator.sensors :only
          (update-sensors)])
   (:use clojure.set))
