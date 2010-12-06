@@ -2,20 +2,20 @@
   (:use simulator.repl)
   (:use [simulator.problems.tracking.eventlog :only (get-events get-entities)]))
 
-(def *trueevents*)
+(def *truedata*)
 
-(defn update-trueevents
-  [te]
-  (def *trueevents* te))
+(defn update-truedata
+  [td]
+  (def *truedata* td))
 
 (defn trueevents-at
   [time]
-  (doseq [e (filter #(= (:time %) time) (get-events *trueevents*))]
+  (doseq [e (get-events (:eventlog (get *truedata* time)))]
     (println (str e))))
 
 (defn trueentities-at
   [time]
-  (doseq [e (filter #(= (:time (last (:snapshots %))) time) (get-entities *trueevents*))]
+  (doseq [e (get-entities (:eventlog (get *truedata* time)))]
     (println (str e))))
 
 (defn everything-at

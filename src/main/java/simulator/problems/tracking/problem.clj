@@ -6,7 +6,11 @@
   (:use [simulator.problems.tracking.sensors :only (generate-sensors)])
   (:use [simulator.problems.tracking.hypotheses :only
          (generate-hypotheses update-problem-data)])
-;  (:use [simulator.problems.tracking.player :only (start-player)])
+  (:use [simulator.problems.tracking.player :only
+         [player-get-params player-get-params-panel
+          player-get-diagram player-update-diagram player-get-stats-panel
+          player-update-stats player-update-truedata-log-box
+          player-update-problem-log-box]])
   (:use [simulator.problems.tracking.eventlog :only (init-event-log)]))
 
 (def avg-fields [:PercentEventsCorrect :PercentIdentitiesCorrect
@@ -51,5 +55,14 @@
 
 (def tracking-problem
   (Problem. "tracking"
-            single-step nil generate-truedata generate-sensors
+            single-step
+            {:get-params-fn player-get-params
+             :get-params-panel-fn player-get-params-panel
+             :get-diagram-fn player-get-diagram
+             :update-diagram-fn player-update-diagram
+             :get-stats-panel-fn player-get-stats-panel
+             :update-stats-fn player-update-stats
+             :update-truedata-log-box-fn player-update-truedata-log-box
+             :update-problem-log-box-fn player-update-problem-log-box}
+            generate-truedata generate-sensors
             evaluate (init-event-log) avg-fields non-avg-fields charts))

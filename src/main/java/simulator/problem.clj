@@ -1,5 +1,5 @@
 (ns simulator.problem
-  (:use [simulator.strategies :only (init-strat-states strategies run-simulation)]))
+  (:use [simulator.strategies :only (init-one-run-states strategies run-simulation)]))
 
 (def avg-fields
   [:Milliseconds :Steps
@@ -9,23 +9,21 @@
 (def non-avg-fields
   [:Strategy :MetaAbduce])
 
-(defn start-player [problem] ((:player-fn problem)))
-
 (defn run-strategies
   [problem params strats]
   (let [truedata ((:truedata-fn problem) params)
         sensors ((:sensor-gen-fn problem) params)
-        strat-states (init-strat-states strats truedata sensors
-                                        (:initial-problem-data problem))]
-    (doall (for [ss strat-states]
-             (run-simulation problem ss params)))))
+        or-states (init-one-run-states strats sensors (:initial-problem-data problem))]
+    (doall (for [ors or-states]
+             ;; get last result set
+             (last (run-simulation problem truedata ors params))))))
 
 (defn run-strategies-many
   [problem params n]
   (apply concat
          (for [i (range n)]
-           (let [ss strategies]
-             (run-strategies problem params ss)))))
+           (let [s strategies]
+             (run-strategies problem params s)))))
 
 (defn average-strategies
   [problem params n]
@@ -48,5 +46,5 @@
                                     (:avg-fields problem) (:non-avg-fields problem)))
 
 (defrecord Problem
-    [name runner-fn player-fn truedata-fn sensor-gen-fn evaluate-fn
+    [name runner-fn player-fns truedata-fn sensor-gen-fn evaluate-fn
      initial-problem-data avg-fields non-avg-fields charts])

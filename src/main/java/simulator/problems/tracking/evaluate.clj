@@ -38,14 +38,14 @@
     (set/intersection true-starts-ends strat-starts-ends)))
 
 (defn evaluate
-  [strat-state params]
-  (let [trueevents (:eventlog (last (:truedata strat-state)))
-        pdata (:problem-data (:ep-state strat-state))
+  [or-state truedata params]
+  (let [trueevents (:eventlog (get truedata (:time (:ep-state or-state))))
+        pdata (:problem-data (:ep-state or-state))
         events-correct (count (set/intersection (set (get-events trueevents))
                                             (set (get-events pdata))))
 	events-total (count (get-events trueevents))
         identities-correct (count (find-correct-identities
-                                   trueevents (:ep-state strat-state)))
+                                   trueevents (:ep-state or-state)))
         identities-total (count (get-entities trueevents))]
     {:PercentEventsCorrect
      (double (* 100 (/ events-correct events-total)))
@@ -53,6 +53,6 @@
      (double (* 100 (/ identities-correct identities-total)))
      :AvgWalk (calc-average-walk trueevents)
      :SensorCoverage (measure-sensor-coverage
-                      (:GridWidth params) (:GridHeight params) (:sensors strat-state))
+                      (:GridWidth params) (:GridHeight params) (:sensors or-state))
      :SensorOverlap (measure-sensor-overlap
-                     (:GridWidth params) (:GridHeight params) (:sensors strat-state))}))
+                     (:GridWidth params) (:GridHeight params) (:sensors or-state))}))

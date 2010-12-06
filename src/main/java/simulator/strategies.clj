@@ -3,15 +3,17 @@
   (:import [simulator.logs LogEntry AbducerLogEntry HypLogEntry])
   (:import [simulator.hypotheses HypothesisSpace])
   (:use [simulator.epistemicstates :only
-         (init-ep-state-tree current-ep-state update-ep-state-tree
-                             new-child-ep-state
-                             new-branch-ep-state
-                             guess smartguess
-                             essentials best smartbest
-                             unexplained-helper
-                             print-ep-state-tree measure-decision-confidence
-                             find-least-confident-decision
-                             count-branches)])
+         [init-ep-state-tree current-ep-state update-ep-state-tree
+          new-child-ep-state
+          new-branch-ep-state
+          guess smartguess
+          essentials best smartbest
+          unexplained-helper
+          print-ep-state-tree
+          list-ep-states
+          measure-decision-confidence
+          find-least-confident-decision
+          count-branches]])
   (:use [simulator.sensors :only (update-sensors)])
   (:use [simulator.confidences])
   (:use clojure.set))
@@ -51,39 +53,44 @@
 
 ;;(def strategies (sort (keys strategy-funcs)))
 
-(def strategies ["es-b1-smartguess"])
+(def strategies ["es-sb4-sb3-sb2-sb1-smartguess"])
 
-(defrecord StrategyState
+(defrecord OneRunState
     [strategy
      meta-abduce                          ;; use meta abduction?
      resources
-     truedata
+     results
      sensors
      ep-state-tree
      ep-state])
 
-(defn init-strat-states
-  [strategies truedata sensors problem-data]
+(defn init-one-run-state
+  [strategy sensors problem-data meta?]
+  (let [ep-state-tree (init-ep-state-tree problem-data)]
+    (OneRunState. strategy meta?
+                  {:compute 0 :milliseconds 0 :memory 0}
+                  []
+                  sensors
+                  ep-state-tree (current-ep-state ep-state-tree))))
+
+(defn init-one-run-states
+  [strategies sensors problem-data]
   (doall (for [s strategies
                meta-abduce [true false]]
-           (let [ep-state-tree (init-ep-state-tree problem-data)]
-             (StrategyState. s meta-abduce
-                             {:compute 0 :milliseconds 0 :memory 0}
-                             truedata sensors
-                             ep-state-tree (current-ep-state ep-state-tree))))))
+           (init-one-run-state s sensors problem-data meta-abduce))))
 
-(defn update-strat-state
-  [strat-state ep-state sensors]
-  (let [ep-state-tree (update-ep-state-tree (:ep-state-tree strat-state) ep-state)]
-    (-> strat-state
+(defn update-one-run-state
+  [or-state ep-state sensors]
+  (let [ep-state-tree (update-ep-state-tree (:ep-state-tree or-state) ep-state)]
+    (-> or-state
         (assoc :ep-state-tree ep-state-tree)
         (assoc :ep-state (current-ep-state ep-state-tree))
         (assoc :sensors sensors))))
 
-(defn proceed-strat-state
-  [strat-state ep-state]
-  (let [ep-state-tree (new-child-ep-state (:ep-state-tree strat-state) ep-state)]
-    (-> strat-state
+(defn proceed-one-run-state
+  [or-state ep-state]
+  (let [ep-state-tree (new-child-ep-state (:ep-state-tree or-state) ep-state)]
+    (-> or-state
         (assoc :ep-state-tree ep-state-tree)
         (assoc :ep-state (current-ep-state ep-state-tree)))))
 
@@ -105,17 +112,15 @@
           :else false)))
 
 (defn prepare-meta-abduce
-  [strat-state ep-state]
+  [or-state ep-state]
   "XXX: Note that presently no check is made for how low conf is
    least-conf; perhaps least-conf has high confidence... what would
    this imply?"
-  (let [least-conf (find-least-confident-decision (:ep-state-tree strat-state))
+  (let [least-conf (find-least-confident-decision (:ep-state-tree or-state))
         branched-ep-state-tree (new-branch-ep-state
-                                (:ep-state-tree strat-state)
+                                (:ep-state-tree or-state)
                                 ep-state least-conf)]
-    (println "branches of " (str least-conf) ":"
-             (count-branches (:ep-state-tree strat-state) least-conf))
-    (-> strat-state
+    (-> or-state
         (assoc :ep-state-tree branched-ep-state-tree)
         (assoc :ep-state (current-ep-state branched-ep-state-tree)))))
 
@@ -130,43 +135,47 @@
             (recur (rest fs) ep))))))
 
 (defn explain
-  [strat-state]
-  (print-ep-state-tree (:ep-state-tree strat-state))
-  (binding [*meta* (and (< 0 (:time (:ep-state strat-state)))
-                        (:meta-abduce strat-state))]
+  [or-state]
+  (binding [*meta* (and (< 0 (:time (:ep-state or-state)))
+                        (:meta-abduce or-state))]
     (let [start-time (. System (nanoTime))
           ep-state (explain-recursive
-                    (:ep-state strat-state)
-                    (get strategy-funcs (:strategy strat-state)))
-          milliseconds (+ (:milliseconds (:resources strat-state))
+                    (:ep-state or-state)
+                    (get strategy-funcs (:strategy or-state)))
+          milliseconds (+ (:milliseconds (:resources or-state))
                           (/ (- (. System (nanoTime)) start-time)
                              1000000.0))
-          ss (update-in strat-state [:resources] assoc :milliseconds milliseconds)]
-      (if (need-meta-abduction? (:ep-state-tree ss) ep-state)
-        (explain (prepare-meta-abduce ss ep-state))
-        (proceed-strat-state ss ep-state)))))
+          ors (update-in or-state [:resources] assoc :milliseconds milliseconds)]
+      (if (need-meta-abduction? (:ep-state-tree ors) ep-state)
+        (explain (prepare-meta-abduce ors ep-state))
+        (proceed-one-run-state ors ep-state)))))
 
-(defn general-evaluation
-  [strat-state params start-time]
-  (assoc params
-    :Milliseconds (/ (double (- (. System (nanoTime)) start-time)) 1000000.0)
-    :Strategy (:strategy strat-state)
-    :MetaAbduce (if (:meta-abduce strat-state) "true" "false")
-    :StrategyCompute (:compute (:resources strat-state))
-    :StrategyMilliseconds (:milliseconds (:resources strat-state))
-    :StrategyMemory (:memory (:resources strat-state))))
+(defn evaluate
+  [problem truedata or-state params start-time]
+  (update-in or-state [:results] conj
+             (merge ((:evaluate-fn problem) or-state truedata params)
+                    (assoc params
+                      :Milliseconds (/ (double (- (. System (nanoTime)) start-time))
+                                       1000000.0)
+                      :Strategy (:strategy or-state)
+                      :MetaAbduce (if (:meta-abduce or-state) "true" "false")
+                      :StrategyCompute (:compute (:resources or-state))
+                      :StrategyMilliseconds (:milliseconds (:resources or-state))
+                      :StrategyMemory (:memory (:resources or-state))))))
+
+(defn run-simulation-step
+  [problem truedata or-state params start-time]
+  (let [time (:time (:ep-state or-state))
+        sensors (update-sensors (:sensors or-state) (get truedata time) time)
+        ep-state ((:runner-fn problem) (:ep-state or-state) sensors params)
+        ors2 (update-one-run-state or-state ep-state sensors)
+        ors3 (explain ors2)]
+    (evaluate problem truedata ors3 params start-time)))
 
 (defn run-simulation
-  [problem strat-state params]
-  (let [startTime (. System (nanoTime))]
-    (loop [time 0
-           ss strat-state]
-      (if (> time (:Steps params))
-        (merge (general-evaluation ss params startTime)
-               ((:evaluate-fn problem) ss params))
-        (let [sensors (update-sensors (:sensors ss) (get (:truedata ss) time) time)
-              ep-state ((:runner-fn problem) (:ep-state ss) sensors params)
-              ss2 (update-strat-state ss ep-state sensors)
-              ss3 (explain ss2)
-              newtime (:time (:ep-state ss3))]
-          (recur newtime ss3))))))
+  [problem truedata or-state params]
+  (let [start-time (. System (nanoTime))]
+    (loop [ors or-state]
+      (if (> (:time (:ep-state ors)) (:Steps params)) (:results ors)
+          (recur (run-simulation-step problem truedata ors params start-time))))))
+

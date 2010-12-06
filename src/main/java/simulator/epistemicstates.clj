@@ -104,6 +104,24 @@
   [ep-state-tree]
   (vijual/draw-tree [(ep-state-tree-to-nested (zip/root ep-state-tree))]))
 
+(defn draw-ep-state-tree
+  [ep-state-tree]
+  (vijual/draw-tree-image [(ep-state-tree-to-nested (zip/root ep-state-tree))]))
+
+(defn list-ep-states
+  [ep-state-tree]
+  "List ep-states in the order that they were created (i.e., sorted by id,
+   which is the same as a depth-first left-first walk)."
+  (let [ep-tree
+        (loop [loc ep-state-tree]
+          (if (nil? (zip/up loc)) loc
+              (recur (zip/up loc))))]
+    (loop [loc ep-tree
+           strs []]
+      (if (not (zip/end? loc))
+        (recur (zip/next loc) (conj strs (str (zip/node loc))))
+        strs))))
+
 (defn add-log-msg
   [ep-state msg]
   (let [entry (LogEntry. msg)]
@@ -196,9 +214,12 @@
 
         ;; penalize hyps in decision
         ep-penalized (penalize-decision-hyps ep-no-dec (:hyps (:decision ep)))
-        
+
+        ;; make a branch; the choice of "insert-right" over "insert-left" here
+        ;; is what makes (list-ep-states) possible, since depth-first search
+        ;; looks left before looking right
         ep-tree-branch
-        (goto-ep-state (zip/insert-left (goto-ep-state ep-tree (:id branch)) ep-penalized)
+        (goto-ep-state (zip/insert-right (goto-ep-state ep-tree (:id branch)) ep-penalized)
                        (:id ep-penalized))]
     ep-tree-branch))
 

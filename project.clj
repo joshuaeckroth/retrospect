@@ -11,4 +11,4 @@
   :test-path "src/test/java"
   :library-path "target/dependency"
   :resources-path "resources"
-  :jar-dir "target")
+  :target-dir "target")

@@ -7,7 +7,7 @@
 	 :only (run-with-new-record list-records chart
                  prepare-hadoop cleanup-hadoop-results)])
   (:use [simulator.runners.hadoop :only (run-hadoop)])
-  (:use [simulator.problem :only (start-player)])
+  (:use [simulator.player.gui :only (start-player)])
   (:require [swank.swank]))
 
 (defn -main [& args]
