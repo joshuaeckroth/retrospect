@@ -9,8 +9,7 @@
   (:use [simulator.problems.tracking.player :only
          [player-get-params player-get-params-panel
           player-get-diagram player-update-diagram player-get-stats-panel
-          player-update-stats player-update-truedata-log-box
-          player-update-problem-log-box]])
+          player-update-stats player-update-truedata-log-box]])
   (:use [simulator.problems.tracking.eventlog :only (init-event-log)]))
 
 (def avg-fields [:PercentEventsCorrect :PercentIdentitiesCorrect
@@ -62,7 +61,6 @@
              :update-diagram-fn player-update-diagram
              :get-stats-panel-fn player-get-stats-panel
              :update-stats-fn player-update-stats
-             :update-truedata-log-box-fn player-update-truedata-log-box
-             :update-problem-log-box-fn player-update-problem-log-box}
+             :update-truedata-log-box-fn player-update-truedata-log-box}
             generate-truedata generate-sensors
             evaluate (init-event-log) avg-fields non-avg-fields charts))

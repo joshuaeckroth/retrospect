@@ -268,6 +268,3 @@
   (let [events (filter #(<= (:time %) *time*)
                        (get-events (:eventlog (get *truedata* *time*))))]
     (apply str (interpose "\n" (map str events)))))
-
-(defn player-update-problem-log-box
-  [])

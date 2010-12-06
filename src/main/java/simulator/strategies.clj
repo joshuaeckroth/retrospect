@@ -51,9 +51,9 @@
    "es-sb4-sb3-sb2-sb1" [essentials (smartbest 4) (smartbest 3)
                          (smartbest 2) (smartbest 1)]})
 
-;;(def strategies (sort (keys strategy-funcs)))
+(def strategies (sort (keys strategy-funcs)))
 
-(def strategies ["es-sb4-sb3-sb2-sb1-smartguess"])
+;;(def strategies ["es-sb4-sb3-sb2-sb1-smartguess"])
 
 (defrecord OneRunState
     [strategy

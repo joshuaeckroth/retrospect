@@ -85,6 +85,11 @@
   [ep-state-tree]
   (zip/node ep-state-tree))
 
+(defn previous-ep-state
+  [ep-state-tree]
+  (let [up (zip/up ep-state-tree)]
+    (if-not (nil? up) (zip/node up))))
+
 (defn goto-ep-state
   [ep-state-tree id]
   (loop [loc (zip-ep-state-tree (zip/root ep-state-tree))]
