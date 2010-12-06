@@ -1,8 +1,9 @@
 (ns simulator.player.gui
   (:import (java.awt GridBagLayout Insets Dimension))
+  (:import (java.awt.image BufferedImage))
   (:import (javax.swing JPanel JFrame JButton JTextField JTextArea
 			JLabel JScrollPane JSpinner SpinnerNumberModel JComboBox
-                        ImageIcon))
+                        ImageIcon Scrollable JViewport))
   (:use [simulator.player.state])
   (:use [simulator.strategies :only [strategies init-one-run-state run-simulation-step]])
   (:use [simulator.epistemicstates :only [draw-ep-state-tree]]))
@@ -16,7 +17,7 @@
 (def *false-pos-label* (JLabel. "False pos: "))
 (def *false-neg-label* (JLabel. "False neg: "))
 
-(def *ep-tree* nil)
+(def *ep-tree* (BufferedImage. 1 1 (. BufferedImage TYPE_4BYTE_ABGR)))
 (def *truedata-log-box* (JTextArea. 10 50))
 (def *abduction-log-box* (JTextArea. 10 50))
 (def *problem-log-box* (JTextArea. 10 50))
@@ -84,22 +85,36 @@
   [g]
   (. g (drawImage *ep-tree* 0 0 nil)))
 
-(def *ep-tree-frame*
-  (doto (JPanel. (GridBagLayout.))
-    (grid-bag-layout
-     :fill :BOTH, :insets (Insets. 5 5 5 5)
+(def *ep-tree-panel*
+  (doto (proxy [JViewport Scrollable] []
+          (paint [g]
+            (render-ep-tree-diagram g))
+          (getPreferredSize []
+            (new Dimension (.getWidth *ep-tree*) (.getHeight *ep-tree*)))
+          (getPreferredScrollableViewportSize []
+            (new Dimension (.getWidth *ep-tree*) (.getHeight *ep-tree*)))
+          (getScrollableBlockIncrement [visibleRect orientation direction]
+            1)
+          (getScrollableUnitIncrement [visibleRect orientation direction]
+            1)
+          (getScrollableTracksViewportWidth [] false)
+          (getScrollableTracksViewportHeight [] false))))
 
-     :gridx 0, :gridy 0
-     (JScrollPane.
-      (doto (proxy [JPanel] []
-              (paint [g] (render-ep-tree-diagram g)))
-        (.setPreferredSize
-         (new Dimension 600 600)))))))
+(defn get-ep-tree-viewport
+  []
+  (doto (JViewport.)
+    (.setView (JLabel. (ImageIcon. *ep-tree*)))))
+
+(def *ep-tree-scrollpane*
+  (doto
+      (JScrollPane. (get-ep-tree-viewport))
+    (.setPreferredSize
+     (new Dimension 600 600))))
 
 (defn update-ep-tree-diagram
   []
   (def *ep-tree* (draw-ep-state-tree (:ep-state-tree *or-state*)))
-  (. *ep-tree-frame* (repaint)))
+  (. *ep-tree-scrollpane* (setViewport (get-ep-tree-viewport))))
 
 (defn step []
   (let [or-state (run-simulation-step *problem* *truedata* *or-state* *params* 0)]
@@ -225,6 +240,14 @@
 
      :gridy 7, :gridheight :REMAINDER
      (JPanel.))))
+
+(def *ep-tree-frame*
+  (doto (JPanel. (GridBagLayout.))
+    (grid-bag-layout
+     :fill :BOTH, :insets (Insets. 5 5 5 5)
+
+     :gridx 0, :gridy 0
+     *ep-tree-scrollpane*)))
 
 (def *logs-frame*
   (doto (JPanel. (GridBagLayout.))
