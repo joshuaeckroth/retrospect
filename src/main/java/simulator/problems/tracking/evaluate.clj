@@ -5,6 +5,7 @@
   (:use [simulator.epistemicstates :only (current-ep-state)])
   (:use [simulator.problems.tracking.sensors :only
          (measure-sensor-overlap measure-sensor-coverage)])
+  (:use [simulator.problems.tracking.hypotheses :only [update-problem-data]])
   (:require [clojure.set :as set]))
 
 (defn calc-average-walk
@@ -23,7 +24,7 @@
     (double (/ (reduce + 0 walk-avgs) (count walk-avgs)))))
 
 (defn find-correct-identities
-  [eventlog ep-state]
+  [eventlog pdata]
   "An 'identity' of an entity is its starting position (at a specific
    time). Here we compare starting positions with ending positions to
    see if the believed entities can also match start-end
@@ -34,18 +35,18 @@
                                                            :end (last (:snapshots e))})
                                                   es))))
         true-starts-ends (get-starts-ends (get-entities eventlog))
-        strat-starts-ends (get-starts-ends (get-entities (:problem-data ep-state)))]
+        strat-starts-ends (get-starts-ends (get-entities pdata))]
     (set/intersection true-starts-ends strat-starts-ends)))
 
 (defn evaluate
-  [or-state truedata params]
-  (let [trueevents (:eventlog (get truedata (:time (:ep-state or-state))))
-        pdata (:problem-data (:ep-state or-state))
+  [ep-state sensors truedata params]
+  (let [trueevents (:eventlog (get truedata (:time ep-state)))
+        pdata (:problem-data (update-problem-data ep-state true))
         events-correct (count (set/intersection (set (get-events trueevents))
                                             (set (get-events pdata))))
 	events-total (count (get-events trueevents))
         identities-correct (count (find-correct-identities
-                                   trueevents (:ep-state or-state)))
+                                   trueevents pdata))
         identities-total (count (get-entities trueevents))]
     {:PercentEventsCorrect
      (double (* 100 (/ events-correct events-total)))
@@ -53,6 +54,6 @@
      (double (* 100 (/ identities-correct identities-total)))
      :AvgWalk (calc-average-walk trueevents)
      :SensorCoverage (measure-sensor-coverage
-                      (:GridWidth params) (:GridHeight params) (:sensors or-state))
+                      (:GridWidth params) (:GridHeight params) sensors)
      :SensorOverlap (measure-sensor-overlap
-                     (:GridWidth params) (:GridHeight params) (:sensors or-state))}))
+                     (:GridWidth params) (:GridHeight params) sensors)}))

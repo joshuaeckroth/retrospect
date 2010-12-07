@@ -3,7 +3,10 @@
   (:import [simulator.logs LogEntry AbducerLogEntry HypLogEntry])
   (:import [simulator.hypotheses HypothesisSpace])
   (:use [simulator.epistemicstates :only
-         [init-ep-state-tree current-ep-state update-ep-state-tree
+         [init-ep-state-tree
+          current-ep-state
+          previous-ep-state
+          update-ep-state-tree
           new-child-ep-state
           new-branch-ep-state
           guess smartguess
@@ -79,21 +82,6 @@
                meta-abduce [true false]]
            (init-one-run-state s sensors problem-data meta-abduce))))
 
-(defn update-one-run-state
-  [or-state ep-state sensors]
-  (let [ep-state-tree (update-ep-state-tree (:ep-state-tree or-state) ep-state)]
-    (-> or-state
-        (assoc :ep-state-tree ep-state-tree)
-        (assoc :ep-state (current-ep-state ep-state-tree))
-        (assoc :sensors sensors))))
-
-(defn proceed-one-run-state
-  [or-state ep-state]
-  (let [ep-state-tree (new-child-ep-state (:ep-state-tree or-state) ep-state)]
-    (-> or-state
-        (assoc :ep-state-tree ep-state-tree)
-        (assoc :ep-state (current-ep-state ep-state-tree)))))
-
 (defn need-meta-abduction?
   [ep-state-tree ep-state]
   (let [least-conf (find-least-confident-decision ep-state-tree)]
@@ -134,6 +122,36 @@
             (recur fs ep2)
             (recur (rest fs) ep))))))
 
+(defn update-one-run-state
+  [or-state ep-state sensors]
+  (let [ep-state-tree (update-ep-state-tree (:ep-state-tree or-state) ep-state)]
+    (-> or-state
+        (assoc :ep-state-tree ep-state-tree)
+        (assoc :ep-state (current-ep-state ep-state-tree))
+        (assoc :sensors sensors))))
+
+(defn proceed-one-run-state
+  [or-state ep-state]
+  (let [ep-state-tree (new-child-ep-state (:ep-state-tree or-state) ep-state)]
+    (-> or-state
+        (assoc :ep-state-tree ep-state-tree)
+        (assoc :ep-state (current-ep-state ep-state-tree)))))
+
+(defn evaluate
+  [problem truedata or-state params start-time]
+  (update-in or-state [:results] conj
+             (merge ((:evaluate-fn problem)
+                     (previous-ep-state (:ep-state-tree or-state))
+                     (:sensors or-state) truedata params)
+                    (assoc params
+                      :Milliseconds (/ (double (- (. System (nanoTime)) start-time))
+                                       1000000.0)
+                      :Strategy (:strategy or-state)
+                      :MetaAbduce (if (:meta-abduce or-state) "true" "false")
+                      :StrategyCompute (:compute (:resources or-state))
+                      :StrategyMilliseconds (:milliseconds (:resources or-state))
+                      :StrategyMemory (:memory (:resources or-state))))))
+
 (defn explain
   [or-state]
   (binding [*meta* (and (< 0 (:time (:ep-state or-state)))
@@ -149,19 +167,6 @@
       (if (need-meta-abduction? (:ep-state-tree ors) ep-state)
         (explain (prepare-meta-abduce ors ep-state))
         (proceed-one-run-state ors ep-state)))))
-
-(defn evaluate
-  [problem truedata or-state params start-time]
-  (update-in or-state [:results] conj
-             (merge ((:evaluate-fn problem) or-state truedata params)
-                    (assoc params
-                      :Milliseconds (/ (double (- (. System (nanoTime)) start-time))
-                                       1000000.0)
-                      :Strategy (:strategy or-state)
-                      :MetaAbduce (if (:meta-abduce or-state) "true" "false")
-                      :StrategyCompute (:compute (:resources or-state))
-                      :StrategyMilliseconds (:milliseconds (:resources or-state))
-                      :StrategyMemory (:memory (:resources or-state))))))
 
 (defn run-simulation-step
   [problem truedata or-state params start-time]

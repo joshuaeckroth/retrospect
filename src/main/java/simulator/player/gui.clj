@@ -3,7 +3,7 @@
   (:import (java.awt.image BufferedImage))
   (:import (javax.swing JPanel JFrame JButton JTextField JTextArea
 			JLabel JScrollPane JSpinner SpinnerNumberModel JComboBox
-                        ImageIcon Scrollable JViewport))
+                        ImageIcon Scrollable JViewport JTabbedPane))
   (:use [simulator.player.state])
   (:use [simulator.strategies :only [strategies init-one-run-state run-simulation-step]])
   (:use [simulator.epistemicstates :only [draw-ep-state-tree list-ep-states
@@ -242,15 +242,48 @@
 	:gridx 0, :gridy 0
         *steplabel*)))
 
+(def *ep-tree-panel*
+  (doto (JPanel. (GridBagLayout.))
+    (grid-bag-layout
+     :fill :BOTH, :insets (Insets. 5 5 5 5)
+
+     :gridx 0, :gridy 0
+     *ep-tree-scrollpane*)))
+
+(def *logs-panel*
+  (doto (JPanel. (GridBagLayout.))
+    (grid-bag-layout
+     :fill :BOTH, :insets (Insets. 5 5 5 5)
+
+     :gridx 0, :gridy 0
+     (JLabel. "True data log")
+     :gridx 0, :gridy 1
+     (JScrollPane. *truedata-log-box*)
+     
+     :gridx 0, :gridy 2
+     *abduction-log-label*
+     :gridx 0, :gridy 3
+     (JScrollPane. *abduction-log-box*)
+
+     :gridx 0, :gridy 4
+     *problem-log-label*
+     :gridx 0, :gridy 5
+     (JScrollPane. *problem-log-box*))))
+
 (defn get-mainframe
   []
-  (doto (JPanel. (GridBagLayout.))
+  (doto (JFrame. "Player")
+    (.setLayout (GridBagLayout.))
     (grid-bag-layout
      :fill :BOTH, :insets (Insets. 5 5 5 5)
      
      :gridx 0, :gridy 0, :gridheight 6
-     *problem-diagram*
-
+     (doto (JTabbedPane.)
+       (.addTab "Problem diagram" *problem-diagram*)
+       (.addTab "Epistemic state tree" *ep-tree-panel*)
+       (.addTab "Logs" *logs-panel*)
+       (.setSelectedIndex 0))
+     
      :gridx 1, :gridy 0, :gridheight 1, :gridwidth 2
      *params-panel*
 
@@ -276,34 +309,6 @@
      :gridy 6, :gridheight :REMAINDER
      (JPanel.))))
 
-(def *ep-tree-frame*
-  (doto (JPanel. (GridBagLayout.))
-    (grid-bag-layout
-     :fill :BOTH, :insets (Insets. 5 5 5 5)
-
-     :gridx 0, :gridy 0
-     *ep-tree-scrollpane*)))
-
-(def *logs-frame*
-  (doto (JPanel. (GridBagLayout.))
-    (grid-bag-layout
-     :fill :BOTH, :insets (Insets. 5 5 5 5)
-
-     :gridx 0, :gridy 0
-     (JLabel. "True data log")
-     :gridx 0, :gridy 1
-     (JScrollPane. *truedata-log-box*)
-     
-     :gridx 0, :gridy 2
-     *abduction-log-label*
-     :gridx 0, :gridy 3
-     (JScrollPane. *abduction-log-box*)
-
-     :gridx 0, :gridy 4
-     *problem-log-label*
-     :gridx 0, :gridy 5
-     (JScrollPane. *problem-log-box*))))
-
 (defn start-player
   [problem]
 
@@ -316,19 +321,8 @@
 
   (def *mainframe* (get-mainframe))
   
-  (doto (JFrame. "Epistemic state tree")
-    (.setContentPane *ep-tree-frame*)
-    (.setResizable false)
-    (.pack)
-    (.show))
-  (doto (JFrame. "Logs")
-    (.setContentPane *logs-frame*)
-    (.setResizable false)
-    (.pack)
-    (.show))
-  (doto (JFrame. "Player")
-    (.setContentPane *mainframe*)
-    (.setResizable false)
+  (doto *mainframe*
+    (.setResizable true)
     (.setDefaultCloseOperation JFrame/EXIT_ON_CLOSE)
     (.pack)
     (.show))

@@ -13,7 +13,7 @@
 (defn -main [& args]
   (with-command-line args
     "Simulator"
-    [[action "Action (run/list/player/chart/prepare-hadoop/hadoop/clean-hadoop)"]
+    [[action "Action (run/list/player/chart/prepare-hadoop/hadoop/clean-hadoop)" "player"]
      [problem "Problem" "tracking"]
      [paramsfile "Parameters XML file" "params.xml"]
      [recordsdir "Records directory" "records"]

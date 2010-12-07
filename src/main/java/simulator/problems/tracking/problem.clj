@@ -49,7 +49,7 @@
 
 (defn single-step
   [ep-state sensors params]
-  (let [es (update-problem-data ep-state)]
+  (let [es (update-problem-data ep-state false)]
     (generate-hypotheses es sensors params)))
 
 (def tracking-problem

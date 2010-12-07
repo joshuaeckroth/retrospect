@@ -199,10 +199,9 @@
     ;; of the same entity
     (add-mutual-conflict-events es2 candidate-entities)))
 
-;; needs to be called before reasoning begins at each time step
 (defn update-problem-data
-  [ep-state]
-  (loop [accepted (:accepted ep-state)
+  [ep-state pre-decision?]
+  (loop [accepted (if pre-decision? (:hyps (:decision ep-state)) (:accepted ep-state))
 	 eventlog (:problem-data ep-state)]
 
     (cond (empty? accepted)
