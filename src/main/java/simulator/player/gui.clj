@@ -5,7 +5,8 @@
 			JLabel JScrollPane JSpinner SpinnerNumberModel JComboBox
                         ImageIcon Scrollable JViewport JTabbedPane))
   (:use [simulator.player.state])
-  (:use [simulator.strategies :only [strategies init-one-run-state run-simulation-step]])
+  (:use [simulator.strategies.composite :only [strategies]])
+  (:use [simulator.onerun :only [init-one-run-state run-simulation-step]])
   (:use [simulator.epistemicstates :only [draw-ep-state-tree list-ep-states
                                           current-ep-state goto-ep-state
                                           previous-ep-state]]))

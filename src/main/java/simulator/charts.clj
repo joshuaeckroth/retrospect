@@ -3,7 +3,7 @@
   (:use [incanter.charts])
   (:use [incanter.io])
   (:use [incanter.stats :as stats])
-  (:use [simulator.strategies :only (strategies)]))
+  (:use [simulator.strategies.composite :only (strategies)]))
 
 (defn get-strat-regression
   [strategy meta-abduce data x y strategy-regression]

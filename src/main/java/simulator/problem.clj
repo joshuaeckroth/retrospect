@@ -1,5 +1,6 @@
 (ns simulator.problem
-  (:use [simulator.strategies :only (init-one-run-states strategies run-simulation)]))
+  (:use [simulator.onerun :only [init-one-run-states run-simulation]])
+  (:use [simulator.strategies.composite :only [strategies]]))
 
 (def avg-fields
   [:Milliseconds :Steps
