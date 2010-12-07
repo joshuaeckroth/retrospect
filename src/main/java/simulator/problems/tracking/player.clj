@@ -254,18 +254,24 @@
 
 (defn player-update-stats
   []
-  (. *percent-events-correct-label*
-     (setText
-      (format "%.2f%%"
-              (:PercentEventsCorrect (get (:results *or-state*) (dec *time*))))))
-  (. *percent-events-wrong-label*
-     (setText
-      (format "%.2f%%"
-              (:PercentEventsWrong (get (:results *or-state*) (dec *time*))))))
-  (. *percent-identities-correct-label*
-     (setText
-      (format "%.2f%%"
-              (:PercentIdentitiesCorrect (get (:results *or-state*) (dec *time*)))))))
+  (if (>= *time* 0)
+    (do
+      (. *percent-events-correct-label*
+         (setText
+          (format "%.2f%%"
+                  (:PercentEventsCorrect (get (:results *or-state*) *time*)))))
+      (. *percent-events-wrong-label*
+         (setText
+          (format "%.2f%%"
+                  (:PercentEventsWrong (get (:results *or-state*) *time*)))))
+      (. *percent-identities-correct-label*
+         (setText
+          (format "%.2f%%"
+                  (:PercentIdentitiesCorrect (get (:results *or-state*) *time*))))))
+    (do
+      (. *percent-events-correct-label* (setText "N/A"))
+      (. *percent-events-wrong-label* (setText "N/A"))
+      (. *percent-identities-correct-label* (setText "N/A")))))
 
 (defn format-event
   [event true-events]
@@ -275,6 +281,6 @@
 
 (defn player-update-truedata-log-box
   []
-  (let [events (filter #(<= (:time %) *time*)
+  (let [events (filter #(= (:time %) *time*)
                        (get-events (:eventlog (get *truedata* *time*))))]
     (apply str (interpose "\n" (map str events)))))

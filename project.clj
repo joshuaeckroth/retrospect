@@ -5,7 +5,7 @@
 		 [incanter "1.2.3-SNAPSHOT"]
 		 [org.clojars.choas/clojure-hadoop "1.2.1-SNAPSHOT"]
                  [org.clojars.overtone/vijual "0.2.1"]]
-  :dev-dependencies [[swank-clojure "1.3.0-SNAPSHOT"]]
+  :dev-dependencies [[swank-clojure "1.2.1"]]
   :main simulator.core
   :source-path "src/main/java"
   :test-path "src/test/java"

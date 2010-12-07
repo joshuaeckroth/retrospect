@@ -80,10 +80,14 @@
 
 (defn walk1
   "Move an entity one step in a random (free) direction,
-   and add that movement to the entity's history"
+   and add that movement to the entity's history; try to
+   move 4 times, but give up if no move comes out by that point."
   [entity grid time]
-  (let [dir (nth ["left" "right" "down" "up"] (rand-int 4))
-	newpos (attempt-move dir (pos entity) grid)]
-    (if newpos
-      (add-snapshot entity (EntitySnapshot. time newpos)))))
+  (loop [attempts 0]
+    (if (< attempts 4)
+      (let [dir (nth ["left" "right" "down" "up"] (rand-int 4))
+            newpos (attempt-move dir (pos entity) grid)]
+        (if newpos
+          (add-snapshot entity (EntitySnapshot. time newpos))
+          (recur (inc attempts)))))))
 

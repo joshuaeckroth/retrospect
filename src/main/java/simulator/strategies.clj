@@ -123,12 +123,13 @@
             (recur (rest fs) ep))))))
 
 (defn update-one-run-state
-  [or-state ep-state sensors]
-  (let [ep-state-tree (update-ep-state-tree (:ep-state-tree or-state) ep-state)]
-    (-> or-state
-        (assoc :ep-state-tree ep-state-tree)
-        (assoc :ep-state (current-ep-state ep-state-tree))
-        (assoc :sensors sensors))))
+  ([or-state ep-state]
+     (let [ep-state-tree (update-ep-state-tree (:ep-state-tree or-state) ep-state)]
+       (-> or-state
+           (assoc :ep-state-tree ep-state-tree)
+           (assoc :ep-state (current-ep-state ep-state-tree)))))
+  ([or-state ep-state sensors]
+     (assoc (update-one-run-state or-state ep-state) :sensors sensors)))
 
 (defn proceed-one-run-state
   [or-state ep-state]
@@ -141,7 +142,7 @@
   [problem truedata or-state params start-time]
   (update-in or-state [:results] conj
              (merge ((:evaluate-fn problem)
-                     (previous-ep-state (:ep-state-tree or-state))
+                     (:ep-state or-state)
                      (:sensors or-state) truedata params)
                     (assoc params
                       :Milliseconds (/ (double (- (. System (nanoTime)) start-time))
@@ -154,6 +155,11 @@
 
 (defn explain
   [or-state]
+  "Takes a OneRunState with sensors that have sensed and
+   an epistemic state that has the problem's hypotheses.
+   Returns a OneRunState in which the current epistemic state
+   has accepted a decision (possibly after a few steps of
+   meta-abduction)."
   (binding [*meta* (and (< 0 (:time (:ep-state or-state)))
                         (:meta-abduce or-state))]
     (let [start-time (. System (nanoTime))
@@ -170,12 +176,19 @@
 
 (defn run-simulation-step
   [problem truedata or-state params start-time]
+  "Updates the OneRunState so that the sensors have sensed the events
+   at the current time step, and the problem has generated hypotheses;
+   then runs the abduction machinery (the (explain) function), next
+   updates the problem data based on the new (post-decision) epistemic
+   state, and returns a OneRunState in which the accepted decision has
+   been evaluated."
   (let [time (:time (:ep-state or-state))
         sensors (update-sensors (:sensors or-state) (get truedata time) time)
-        ep-state ((:runner-fn problem) (:ep-state or-state) sensors params)
-        ors2 (update-one-run-state or-state ep-state sensors)
-        ors3 (explain ors2)]
-    (evaluate problem truedata ors3 params start-time)))
+        ep-state ((:gen-hyps-fn problem) (:ep-state or-state) sensors params)
+        ors (explain (update-one-run-state or-state ep-state sensors))
+        ors2 (update-one-run-state
+              ors ((:update-problem-data-fn problem) (:ep-state ors)))]
+    (evaluate problem truedata ors2 params start-time)))
 
 (defn run-simulation
   [problem truedata or-state params]

@@ -47,14 +47,10 @@
     :split-by :SensorCoverage :split-list (range 10 101 10) :split-delta 5
     :regression :linear}])
 
-(defn single-step
-  [ep-state sensors params]
-  (let [es (update-problem-data ep-state false)]
-    (generate-hypotheses es sensors params)))
-
 (def tracking-problem
   (Problem. "tracking"
-            single-step
+            generate-hypotheses
+            update-problem-data
             {:get-params-fn player-get-params
              :get-params-panel-fn player-get-params-panel
              :get-diagram-fn player-get-diagram

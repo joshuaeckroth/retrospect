@@ -60,7 +60,6 @@
                               result)
                         (next body)))))))))
 
-
 (def *param-spinners*
   {:Steps (JSpinner. (SpinnerNumberModel. 50 1 1000 1))
    :SensorReportNoise (JSpinner. (SpinnerNumberModel. 0 0 100 10))
@@ -146,13 +145,19 @@
 (defn update-everything
   [or-state]
   (update-or-state or-state)
-  (update-time (:time (:ep-state or-state)))
-  (. *steplabel* (setText (format "Step: %d" *time*)))
-  (update-goto-ep-state-combobox)
-  (update-ep-tree-diagram)
-  ((:update-diagram-fn (:player-fns *problem*)))
-  ((:update-stats-fn (:player-fns *problem*)))
-  (update-logs))
+  (let [ep-state (previous-ep-state (:ep-state-tree *or-state*))]
+    (if-not (nil? ep-state)
+      (do
+        (update-time (:time ep-state))
+        (. *steplabel* (setText (format "Step: %d" *time*))))
+      (do
+        (update-time -1)
+        (. *steplabel* (setText "Step: N/A"))))
+    (update-goto-ep-state-combobox)
+    (update-ep-tree-diagram)
+    ((:update-diagram-fn (:player-fns *problem*)))
+    ((:update-stats-fn (:player-fns *problem*)))
+    (update-logs)))
 
 (defn goto-ep-state-action
   []
@@ -190,8 +195,7 @@
 
 (defn next-step
   []
-  (when (<= *time* (:Steps *params*))
-    (update-time (inc *time*))
+  (when (< *time* (:Steps *params*))
     (step)))
 
 (def *nextbutton*

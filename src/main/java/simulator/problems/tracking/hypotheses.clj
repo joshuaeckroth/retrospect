@@ -187,9 +187,8 @@
              (generate-new-hypotheses es unique-spotted time params)
              
              ;; else, got some previously-known entities, so associate them with spotted
-             (let [es-frozen (if (= 1 (:NumberEntities params)) es
-                               (generate-frozen-hypotheses es unique-spotted
-                                                           candidate-entities time params))
+             (let [es-frozen (generate-frozen-hypotheses es unique-spotted
+                                                         candidate-entities time params)
                    es-movements (generate-movement-hypotheses es-frozen unique-spotted
                                                               candidate-entities
                                                               time params)]
@@ -200,8 +199,8 @@
     (add-mutual-conflict-events es2 candidate-entities)))
 
 (defn update-problem-data
-  [ep-state pre-decision?]
-  (loop [accepted (if pre-decision? (:hyps (:decision ep-state)) (:accepted ep-state))
+  [ep-state]
+  (loop [accepted (:accepted ep-state)
 	 eventlog (:problem-data ep-state)]
 
     (cond (empty? accepted)

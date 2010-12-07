@@ -40,8 +40,12 @@
 
 (defn evaluate
   [ep-state sensors truedata params]
-  (let [trueeventlog (:eventlog (get truedata (:time ep-state)))
-        pdata (:problem-data (update-problem-data ep-state true))
+  "The current ep-state has accepted the decision of the previous ep-state;
+   however, the current ep-state has a time 1+ the previous, in which the
+   events occurred and were explained; thus, we must get the 'truedata' from
+   the current ep-state's time minus 1."
+  (let [trueeventlog (:eventlog (get truedata (dec (:time ep-state))))
+        pdata (:problem-data ep-state)
         pevents (set (get-events pdata))
         pentities (get-entities pdata)
         trueevents (set (get-events trueeventlog))

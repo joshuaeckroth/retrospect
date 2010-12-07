@@ -5,7 +5,8 @@
          (init-event-log add-entity add-event
                          add-event-new add-event-move update-entity
                          get-entities get-events)])
-  (:use [simulator.problems.tracking.entities :only (pos pair-snapshots)]))
+  (:use [simulator.problems.tracking.entities :only (pos pair-snapshots)])
+  (:use [clojure.set :only [difference]]))
 
 (defn add-new-entities
   [eventlog grid numes time]
@@ -25,28 +26,45 @@
 
 (defn random-walks
   [eventlog grid params time]
-  (let [all-entities (get-entities eventlog)
-        entities (take (inc (int (* (count all-entities)
-                                    (double (/ (:ProbMovement params) 100)))))
-                       (shuffle all-entities))
-	entities-map (apply assoc {} (interleave entities entities))
-	entity-walks
-        (shuffle (apply concat (map #(repeat (inc (rand-int (:MaxWalk params))) %)
-						 entities)))]
+  (let [all-entities
+        (get-entities eventlog)
+        
+        moving-entities
+        (filter (fn [_] (<= (rand) (double (/ (:ProbMovement params) 100))))
+                (shuffle all-entities))
+        
+        non-moving-entities
+        (difference (set all-entities) (set moving-entities))
+        
+        frozen-eventlog
+        (reduce (fn [te olde] (update-entity te time olde (pos olde)))
+                eventlog non-moving-entities)
+        
+        entities-map
+        (if (empty? moving-entities) {}
+            (apply assoc {} (interleave moving-entities moving-entities)))
+        
+        entity-walks
+        (if (empty? moving-entities) []
+            (shuffle (apply concat (map #(repeat (inc (rand-int (:MaxWalk params))) %)
+                                        moving-entities))))]
     (loop [em entities-map
-	   g grid
-	   ew entity-walks]
+           g grid
+           ew entity-walks]
       (if (empty? ew)
-        [(reduce (fn [te olde]
-                   (if (= (pos olde) (pos (get em olde))) te
-                     (-> te
+        [(reduce (fn [fe olde]
+                   (if (= (pos olde) (pos (get em olde)))
+                     ;; entity didn't move afterall
+                     (-> fe (update-entity time olde pos (olde)))
+                     ;; entity moved
+                     (-> fe
                          (update-entity time olde (pos (get em olde)))
                          (add-event-move time (pos olde) (pos (get em olde))))))
-                 eventlog (keys em))
+                 frozen-eventlog (keys em))
          g]
-	(let [e (first ew)
-	      olde (get em e)
-	      newe (walk1 olde g time)]
+        (let [e (first ew)
+              olde (get em e)
+              newe (walk1 olde g time)]
           (if newe
             (recur (assoc em e newe)
                    (replace-grid-entity g olde newe)
