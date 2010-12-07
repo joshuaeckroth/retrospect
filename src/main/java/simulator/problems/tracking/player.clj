@@ -20,6 +20,7 @@
 (def *grid* nil)
 
 (def *percent-events-correct-label* (JLabel.))
+(def *percent-events-wrong-label* (JLabel.))
 (def *percent-identities-correct-label* (JLabel.))
 (def *mouse-xy* (JLabel.))
 
@@ -237,13 +238,18 @@
      (JLabel. "PercentEventsCorrect:")
      :gridx 1, :gridy 0
      *percent-events-correct-label*
-     
+
      :gridx 0, :gridy 1
-     (JLabel. "PercentIdentitiesCorrect:")
+     (JLabel. "PercentEventsWrong:")
      :gridx 1, :gridy 1
+     *percent-events-wrong-label*
+     
+     :gridx 0, :gridy 2
+     (JLabel. "PercentIdentitiesCorrect:")
+     :gridx 1, :gridy 2
      *percent-identities-correct-label*
 
-     :gridx 0, :gridy 2
+     :gridx 0, :gridy 3
      *mouse-xy*)))
 
 (defn player-update-stats
@@ -252,6 +258,10 @@
      (setText
       (format "%.2f%%"
               (:PercentEventsCorrect (get (:results *or-state*) (dec *time*))))))
+  (. *percent-events-wrong-label*
+     (setText
+      (format "%.2f%%"
+              (:PercentEventsWrong (get (:results *or-state*) (dec *time*))))))
   (. *percent-identities-correct-label*
      (setText
       (format "%.2f%%"

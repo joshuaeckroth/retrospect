@@ -181,6 +181,6 @@
   [problem truedata or-state params]
   (let [start-time (. System (nanoTime))]
     (loop [ors or-state]
-      (if (> (:time (:ep-state ors)) (:Steps params)) (:results ors)
+      (if (>= (:time (:ep-state ors)) (:Steps params)) (:results ors)
           (recur (run-simulation-step problem truedata ors params start-time))))))
 

@@ -190,9 +190,9 @@
 
 (defn next-step
   []
-  (when (< *time* (:Steps *params*))
-    (update-time (inc *time*)))
-  (step))
+  (when (<= *time* (:Steps *params*))
+    (update-time (inc *time*))
+    (step)))
 
 (def *nextbutton*
   (let [b (JButton. "Next Step")]
