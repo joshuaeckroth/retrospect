@@ -17,8 +17,6 @@
 (def *problem-stats-panel* nil)
 
 (def *steplabel* (JLabel. "Step: "))
-(def *false-pos-label* (JLabel. "False pos: "))
-(def *false-neg-label* (JLabel. "False neg: "))
 (def *goto-ep-state-combobox* (JComboBox. (to-array "")))
 
 (def *ep-tree* (BufferedImage. 1 1 (. BufferedImage TYPE_4BYTE_ABGR)))

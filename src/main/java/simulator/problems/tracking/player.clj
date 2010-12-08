@@ -274,8 +274,8 @@
       (. *percent-identities-correct-label* (setText "N/A")))))
 
 (defn format-event
-  [event true-events]
-  (if (some #(= event %) true-events)
+  [event]
+  (if (some #(= event %) (get-events (:problem-data (:ep-state *or-state*))))
     (str event)
     (str "!" event)))
 
@@ -283,4 +283,4 @@
   []
   (let [events (filter #(= (:time %) *time*)
                        (get-events (:eventlog (get *truedata* *time*))))]
-    (apply str (interpose "\n" (map str events)))))
+    (apply str (interpose "\n" (map format-event events)))))

@@ -55,7 +55,7 @@
         [(reduce (fn [fe olde]
                    (if (= (pos olde) (pos (get em olde)))
                      ;; entity didn't move afterall
-                     (-> fe (update-entity time olde pos (olde)))
+                     (-> fe (update-entity time olde (pos olde)))
                      ;; entity moved
                      (-> fe
                          (update-entity time olde (pos (get em olde)))
