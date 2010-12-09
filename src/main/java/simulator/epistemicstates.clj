@@ -48,15 +48,21 @@
    (:hyp-log ep-state)
    (:problem-data ep-state)))
 
+(defrecord RootNode [children])
+
 (extend-protocol EpistemicStateTree
   EpistemicState
   (branch? [ep-state] true)
   (node-children [ep-state] (seq (:children ep-state)))
-  (make-node [ep-state children] (clone-ep-state ep-state (:id ep-state) children)))
+  (make-node [ep-state children] (clone-ep-state ep-state (:id ep-state) children))
+  RootNode
+  (branch? [root] true)
+  (node-children [root] (seq (:children root)))
+  (make-node [ep-state children] (assoc ep-state :children children)))
 
 (defn zip-ep-state-tree
-  [root]
-  (zip/zipper branch? node-children make-node root))
+  [ep-states]
+  (zip/zipper branch? node-children make-node (RootNode. ep-states)))
 
 (defn make-ep-state-id
   ([]
@@ -64,7 +70,7 @@
   ([ep-state-tree]
      (let [count
            (loop [count 0
-                  loc (zip-ep-state-tree (zip/root ep-state-tree))]
+                  loc (zip/down (zip-ep-state-tree (:children (zip/root ep-state-tree))))]
              (if (zip/end? loc) count
                  (recur (inc count) (zip/next loc))))]
        (loop [i count
@@ -75,11 +81,16 @@
 
 (defn init-ep-state-tree
   [pdata]
-  (zip-ep-state-tree
-   (EpistemicState. (make-ep-state-id) [] 0
-                    (init-hypspace) [] [] []
-                    {:confidence nil :hyps []}
-                    [] [] {} pdata)))
+  (zip/down
+   (zip-ep-state-tree
+    [(EpistemicState. (make-ep-state-id) [] 0
+                      (init-hypspace) [] [] []
+                      {:confidence nil :hyps []}
+                      [] [] {} pdata)])))
+
+(defn root-ep-state?
+  [ep-state]
+  (= (type ep-state) simulator.epistemicstates.RootNode))
 
 (defn current-ep-state
   [ep-state-tree]
@@ -88,11 +99,11 @@
 (defn previous-ep-state
   [ep-state-tree]
   (let [up (zip/up ep-state-tree)]
-    (if-not (nil? up) (zip/node up))))
+    (if-not (root-ep-state? (zip/node up)) (zip/node up))))
 
 (defn goto-ep-state
   [ep-state-tree id]
-  (loop [loc (zip-ep-state-tree (zip/root ep-state-tree))]
+  (loop [loc (zip/down (zip-ep-state-tree (:children (zip/root ep-state-tree))))]
     (cond (zip/end? loc) nil
           (= id (:id (zip/node loc))) loc
           :else (recur (zip/next loc)))))
@@ -101,17 +112,24 @@
   [ep-state-tree ep-state]
   (zip/replace ep-state-tree ep-state))
 
+(defn ep-state-tree-to-nested-helper
+  [ep-state]
+  (conj (map ep-state-tree-to-nested-helper
+             (:children ep-state)) (str ep-state)))
+
 (defn ep-state-tree-to-nested
-  [root]
-  (conj (map ep-state-tree-to-nested (:children root)) (str root)))
+  [ep-state-tree]
+  (conj (map ep-state-tree-to-nested-helper
+             (:children (zip/root ep-state-tree)))
+        "root"))
 
 (defn print-ep-state-tree
   [ep-state-tree]
-  (vijual/draw-tree [(ep-state-tree-to-nested (zip/root ep-state-tree))]))
+  (vijual/draw-tree [(ep-state-tree-to-nested ep-state-tree)]))
 
 (defn draw-ep-state-tree
   [ep-state-tree]
-  (vijual/draw-tree-image [(ep-state-tree-to-nested (zip/root ep-state-tree))]))
+  (vijual/draw-tree-image [(ep-state-tree-to-nested ep-state-tree)]))
 
 (defn list-ep-states
   [ep-state-tree]
@@ -119,7 +137,7 @@
    which is the same as a depth-first left-first walk)."
   (let [ep-tree
         (loop [loc ep-state-tree]
-          (if (nil? (zip/up loc)) loc
+          (if (root-ep-state? (zip/node (zip/up loc))) loc
               (recur (zip/up loc))))]
     (loop [loc ep-tree
            strs []]
@@ -176,7 +194,7 @@
   (loop [loc (zip/up ep-state-tree)
          least-conf (if loc (zip/node loc))]
     (cond
-     (nil? loc) least-conf
+     (root-ep-state? (zip/node loc)) least-conf
 
      (< (:confidence (:decision (zip/node loc)))
         (:confidence (:decision least-conf)))

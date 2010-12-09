@@ -9,6 +9,7 @@
   (:use [simulator.onerun :only [init-one-run-state run-simulation-step]])
   (:use [simulator.epistemicstates :only [draw-ep-state-tree list-ep-states
                                           current-ep-state goto-ep-state
+                                          root-ep-state?
                                           previous-ep-state]]))
 
 (def *mainframe* nil)
@@ -144,25 +145,24 @@
 (defn update-everything
   [or-state]
   (update-or-state or-state)
-  (let [ep-state (previous-ep-state (:ep-state-tree *or-state*))]
-    (if-not (nil? ep-state)
-      (do
-        (update-time (:time ep-state))
-        (. *steplabel* (setText (format "Step: %d" *time*))))
-      (do
-        (update-time -1)
-        (. *steplabel* (setText "Step: N/A"))))
-    (update-goto-ep-state-combobox)
-    (update-ep-tree-diagram)
-    ((:update-diagram-fn (:player-fns *problem*)))
-    ((:update-stats-fn (:player-fns *problem*)))
-    (update-logs)))
+  (if (= "A" (:id (:ep-state or-state)))
+    (do
+      (update-time -1)
+      (. *steplabel* (setText "Step: N/A")))
+    (do
+      (update-time (:time (:ep-state or-state)))
+      (. *steplabel* (setText (format "Step: %d" *time*)))))
+  (update-goto-ep-state-combobox)
+  (update-ep-tree-diagram)
+  ((:update-diagram-fn (:player-fns *problem*)))
+  ((:update-stats-fn (:player-fns *problem*)))
+  (update-logs))
 
 (defn goto-ep-state-action
   []
   (let [id (re-find #"^[A-Z]+" (. *goto-ep-state-combobox* (getSelectedItem)))
         ep-state-tree (goto-ep-state (:ep-state-tree *or-state*) id)]
-    (if-not (nil? ep-state-tree)
+    (if-not (root-ep-state? ep-state-tree)
       (update-everything
        (-> *or-state*
            (assoc :ep-state-tree ep-state-tree)

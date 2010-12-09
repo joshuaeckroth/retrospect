@@ -17,7 +17,7 @@
   (:use [simulator.strategies.composite :only [strategy-funcs]])
   (:use [simulator.sensors :only (update-sensors)])
   (:use [simulator.confidences])
-  (:use clojure.set))
+  (:use [clojure.set]))
 
 (def *meta* false)
 
