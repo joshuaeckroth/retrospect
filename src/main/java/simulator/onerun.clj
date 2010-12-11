@@ -1,7 +1,4 @@
 (ns simulator.onerun
-  (:require [simulator logs hypotheses])
-  (:import [simulator.logs LogEntry AbducerLogEntry HypLogEntry])
-  (:import [simulator.hypotheses HypothesisSpace])
   (:use [simulator.epistemicstates :only
          [init-ep-state-tree
           current-ep-state
@@ -12,18 +9,17 @@
           print-ep-state-tree
           list-ep-states
           measure-decision-confidence
-          find-least-confident-decision
           count-branches]])
   (:use [simulator.strategies.composite :only [strategy-funcs]])
+  (:use [simulator.strategies.metastrategies :only [meta-strategy-funcs]])
   (:use [simulator.sensors :only (update-sensors)])
   (:use [simulator.confidences])
   (:use [clojure.set]))
 
-(def *meta* false)
-
 (defrecord OneRunState
     [strategy
-     meta-abduce                          ;; use meta abduction?
+     meta-strategy
+     meta-log
      resources
      results
      sensors
@@ -31,49 +27,24 @@
      ep-state])
 
 (defn init-one-run-state
-  [strategy sensors problem-data meta?]
+  [strategy meta-strategy sensors problem-data]
   (let [ep-state-tree (init-ep-state-tree problem-data)]
-    (OneRunState. strategy meta?
+    (OneRunState. strategy meta-strategy []
                   {:compute 0 :milliseconds 0 :memory 0}
                   []
                   sensors
                   ep-state-tree (current-ep-state ep-state-tree))))
 
 (defn init-one-run-states
-  [strategies sensors problem-data]
-  (doall (for [s strategies
-               meta-abduce [true false]]
-           (init-one-run-state s sensors problem-data meta-abduce))))
+  [strategies meta-strategies sensors problem-data]
+  (doall (for [s strategies ms meta-strategies]
+           (init-one-run-state s ms sensors problem-data))))
 
-(defn need-meta-abduction?
-  [ep-state-tree ep-state]
-  (let [least-conf (find-least-confident-decision ep-state-tree)]
-    (cond (not *meta*) false
-
-          ;; is the present decision confidence worse than NEUTRAL
-          ;; and the least confident past decision worse than NEUTRAL
-          ;; and the number of existing branches not too large?
-          (and (> NEUTRAL
-                  (measure-decision-confidence ep-state))
-               (> NEUTRAL
-                  (:confidence (:decision least-conf)))
-               (> 5 (count-branches ep-state-tree least-conf)))
-          true
-
-          :else false)))
-
-(defn prepare-meta-abduce
-  [or-state ep-state]
-  "XXX: Note that presently no check is made for how low conf is
-   least-conf; perhaps least-conf has high confidence... what would
-   this imply?"
-  (let [least-conf (find-least-confident-decision (:ep-state-tree or-state))
-        branched-ep-state-tree (new-branch-ep-state
-                                (:ep-state-tree or-state)
-                                ep-state least-conf)]
-    (-> or-state
-        (assoc :ep-state-tree branched-ep-state-tree)
-        (assoc :ep-state (current-ep-state branched-ep-state-tree)))))
+(defn attempt-meta-abduction
+  [or-state]
+  "Return new or-state if there is a new one."
+  (if-let [ors ((get meta-strategy-funcs (:meta-strategy or-state)) or-state)]
+    ors))
 
 (defn explain-recursive
   [ep-state funcs]
@@ -111,7 +82,7 @@
                       :Milliseconds (/ (double (- (. System (nanoTime)) start-time))
                                        1000000.0)
                       :Strategy (:strategy or-state)
-                      :MetaAbduce (if (:meta-abduce or-state) "true" "false")
+                      :MetaStrategy (:meta-strategy or-state)
                       :StrategyCompute (:compute (:resources or-state))
                       :StrategyMilliseconds (:milliseconds (:resources or-state))
                       :StrategyMemory (:memory (:resources or-state))))))
@@ -123,19 +94,18 @@
    Returns a OneRunState in which the current epistemic state
    has accepted a decision (possibly after a few steps of
    meta-abduction)."
-  (binding [*meta* (and (< 0 (:time (:ep-state or-state)))
-                        (:meta-abduce or-state))]
-    (let [start-time (. System (nanoTime))
-          ep-state (explain-recursive
-                    (:ep-state or-state)
-                    (get strategy-funcs (:strategy or-state)))
-          milliseconds (+ (:milliseconds (:resources or-state))
-                          (/ (- (. System (nanoTime)) start-time)
-                             1000000.0))
-          ors (update-in or-state [:resources] assoc :milliseconds milliseconds)]
-      (if (need-meta-abduction? (:ep-state-tree ors) ep-state)
-        (explain (prepare-meta-abduce ors ep-state))
-        (proceed-one-run-state ors ep-state)))))
+  (let [start-time (. System (nanoTime))
+        ep-state (explain-recursive
+                  (:ep-state or-state)
+                  (get strategy-funcs (:strategy or-state)))
+        milliseconds (+ (:milliseconds (:resources or-state))
+                        (/ (- (. System (nanoTime)) start-time)
+                           1000000.0))
+        ors (update-in (update-one-run-state or-state ep-state)
+                       [:resources] assoc :milliseconds milliseconds)]
+    (if-let [ors2 (attempt-meta-abduction ors)]
+      (explain ors2)
+      (proceed-one-run-state ors ep-state))))
 
 (defn run-simulation-step
   [problem truedata or-state params start-time]

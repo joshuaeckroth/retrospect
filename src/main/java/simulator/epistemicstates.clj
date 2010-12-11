@@ -174,7 +174,8 @@
      []
      (find-unexplained (:hypspace ep-state) accepted)
      {:confidence nil :forced [] :hyps []}
-     [] [] {}
+     [] []
+     {}
      (:problem-data ep-state))))
 
 (defn measure-decision-confidence
@@ -190,18 +191,19 @@
 (defn find-least-confident-decision
   [ep-state-tree]
   "Finds most recent (up the path) lowest-confidence decision; returns
-   the epistemic state."
-  (loop [loc (zip/up ep-state-tree)
-         least-conf (if loc (zip/node loc))]
-    (cond
-     (root-ep-state? (zip/node loc)) least-conf
+   the epistemic state; returns nil if there are no past states."
+  (if-not (root-ep-state? (zip/node (zip/up ep-state-tree)))
+    (loop [loc (zip/up ep-state-tree)
+           least-conf (zip/node loc)]
+      (cond
+       (root-ep-state? (zip/node loc)) least-conf
 
-     (< (:confidence (:decision (zip/node loc)))
-        (:confidence (:decision least-conf)))
-     (recur (zip/up loc) (zip/node loc))
-     
-     :else
-     (recur (zip/up loc) least-conf))))
+       (< (:confidence (:decision (zip/node loc)))
+          (:confidence (:decision least-conf)))
+       (recur (zip/up loc) (zip/node loc))
+       
+       :else
+       (recur (zip/up loc) least-conf)))))
 
 (defn update-decision
   [ep-state-tree ep-state]

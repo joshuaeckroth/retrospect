@@ -1,11 +1,13 @@
 (ns simulator.player.gui
+  (:gen-class)
   (:import (java.awt GridBagLayout Insets Dimension Checkbox))
   (:import (java.awt.image BufferedImage))
   (:import (javax.swing JPanel JFrame JButton JTextField JTextArea
 			JLabel JScrollPane JSpinner SpinnerNumberModel JComboBox
-                        ImageIcon Scrollable JViewport JTabbedPane))
+                        ImageIcon JViewport Scrollable JTabbedPane))
   (:use [simulator.player.state])
   (:use [simulator.strategies.composite :only [strategies]])
+  (:use [simulator.strategies.metastrategies :only [meta-strategies]])
   (:use [simulator.onerun :only [init-one-run-state run-simulation-step]])
   (:use [simulator.epistemicstates :only [draw-ep-state-tree list-ep-states
                                           current-ep-state goto-ep-state
@@ -21,11 +23,12 @@
 (def *goto-ep-state-combobox* (JComboBox. (to-array "")))
 
 (def *ep-tree* (BufferedImage. 1 1 (. BufferedImage TYPE_4BYTE_ABGR)))
-(def *truedata-log-box* (JTextArea. 10 50))
+(def *truedata-log-box* (JTextArea.))
 (def *abduction-log-label* (JLabel. "Abduction log"))
-(def *abduction-log-box* (JTextArea. 10 50))
+(def *abduction-log-box* (JTextArea.))
+(def *meta-log-box* (JTextArea.))
 (def *problem-log-label* (JLabel. "Problem log"))
-(def *problem-log-box* (JTextArea. 10 50))
+(def *problem-log-box* (JTextArea.))
 
 ;; from http://stuartsierra.com/2010/01/08/agents-of-swing
 (defmacro with-action [component event & body]
@@ -66,10 +69,10 @@
    :BeliefNoise (JSpinner. (SpinnerNumberModel. 0 0 100 10))})
 
 (def *param-combobox*
-  {:Strategy {:elements strategies :combobox (JComboBox. (to-array strategies))}})
-
-(def *param-checkbox*
-  {:MetaAbduce (Checkbox.)})
+  {:Strategy {:elements strategies
+              :combobox (JComboBox. (to-array strategies))}
+   :MetaStrategy {:elements meta-strategies
+                  :combobox (JComboBox. (to-array meta-strategies))}})
 
 (defn get-params
   []
@@ -82,29 +85,11 @@
                      .getModel .getNumber .intValue)])
            (for [k (keys *param-combobox*)]
              [k (nth (:elements (k *param-combobox*))
-                     (.getSelectedIndex (:combobox (k *param-combobox*))))])
-           (for [k (keys *param-checkbox*)]
-             [k (->> (k *param-checkbox*)
-                     .getState)])))))
+                     (.getSelectedIndex (:combobox (k *param-combobox*))))])))))
 
 (defn render-ep-tree-diagram
   [g]
   (. g (drawImage *ep-tree* 0 0 nil)))
-
-(def *ep-tree-panel*
-  (doto (proxy [JViewport Scrollable] []
-          (paint [g]
-            (render-ep-tree-diagram g))
-          (getPreferredSize []
-            (Dimension. (.getWidth *ep-tree*) (.getHeight *ep-tree*)))
-          (getPreferredScrollableViewportSize []
-            (Dimension. (.getWidth *ep-tree*) (.getHeight *ep-tree*)))
-          (getScrollableBlockIncrement [visibleRect orientation direction]
-            1)
-          (getScrollableUnitIncrement [visibleRect orientation direction]
-            1)
-          (getScrollableTracksViewportWidth [] false)
-          (getScrollableTracksViewportHeight [] false))))
 
 (defn get-ep-tree-viewport
   []
@@ -112,10 +97,7 @@
     (.setView (JLabel. (ImageIcon. *ep-tree*)))))
 
 (def *ep-tree-scrollpane*
-  (doto
-      (JScrollPane. (get-ep-tree-viewport))
-    (.setPreferredSize
-     (new Dimension 600 600))))
+  (JScrollPane. (get-ep-tree-viewport)))
 
 (defn update-ep-tree-diagram
   []
@@ -140,7 +122,9 @@
        (apply str (interpose "\n" (map str (:log ep-state)))))
     (. *abduction-log-label* setText (format "Abduction log for: %s" (str ep-state)))
     (. *abduction-log-box* setText
-       (apply str (interpose "\n" (map str (:abducer-log ep-state)))))))
+       (apply str (interpose "\n" (map str (:abducer-log ep-state)))))
+    (. *meta-log-box* setText
+       (apply str (interpose "\n" (map str (:meta-log *or-state*)))))))
 
 (defn update-everything
   [or-state]
@@ -150,11 +134,11 @@
       (update-time -1)
       (. *steplabel* (setText "Step: N/A")))
     (do
-      (update-time (:time (:ep-state or-state)))
+      (update-time (dec (:time (:ep-state or-state))))
       (. *steplabel* (setText (format "Step: %d" *time*)))))
   (update-goto-ep-state-combobox)
   (update-ep-tree-diagram)
-  ((:update-diagram-fn (:player-fns *problem*)))
+  (.repaint *problem-diagram*)
   ((:update-stats-fn (:player-fns *problem*)))
   (update-logs))
 
@@ -176,12 +160,12 @@
 (defn new-simulation
   []
   (let [params (get-params)
-        meta? (:MetaAbduce params)
 	strategy (:Strategy params)
+        meta-strategy (:MetaStrategy params)
         sensors ((:sensor-gen-fn *problem*) params)
         truedata ((:truedata-fn *problem*) params)
-        or-state (init-one-run-state
-                  strategy sensors (:initial-problem-data *problem*) meta?)]
+        or-state (init-one-run-state strategy meta-strategy sensors
+                                     (:initial-problem-data *problem*))]
     (update-params params)
     (update-sensors sensors)
     (update-truedata truedata)
@@ -212,30 +196,30 @@
     (grid-bag-layout
      :fill :BOTH, :insets (Insets. 5 5 5 5)
      
-     :gridx 0, :gridy 0
+     :gridx 0, :gridy 0, :gridwidth 1
      (JLabel. "Strategy:")
      :gridx 0, :gridy 1, :gridwidth 2
      (:combobox (:Strategy *param-combobox*))
 
      :gridx 0, :gridy 2, :gridwidth 1
+     (JLabel. "Meta-strategy:")
+     :gridx 0, :gridy 3, :gridwidth 2
+     (:combobox (:MetaStrategy *param-combobox*))
+
+     :gridx 0, :gridy 4, :gridwidth 1
      (JLabel. "Steps:")
-     :gridx 1, :gridy 2
+     :gridx 1, :gridy 4
      (:Steps *param-spinners*)
      
-     :gridx 0, :gridy 3
+     :gridx 0, :gridy 5
      (JLabel. "SensorReportNoise:")
-     :gridx 1, :gridy 3
+     :gridx 1, :gridy 5
      (:SensorReportNoise *param-spinners*)
      
-     :gridx 0, :gridy 4
+     :gridx 0, :gridy 6
      (JLabel. "BeliefNoise:")
-     :gridx 1, :gridy 4
-     (:BeliefNoise *param-spinners*)
-
-     :gridx 0, :gridy 5
-     (JLabel. "MetaAbduce:")
-     :gridx 1, :gridy 5
-     (:MetaAbduce *param-checkbox*))))
+     :gridx 1, :gridy 6
+     (:BeliefNoise *param-spinners*))))
 
 (def *stats-panel*
      (doto (JPanel. (GridBagLayout.))
@@ -245,49 +229,49 @@
 	:gridx 0, :gridy 0
         *steplabel*)))
 
-(def *ep-tree-panel*
-  (doto (JPanel. (GridBagLayout.))
-    (grid-bag-layout
-     :fill :BOTH, :insets (Insets. 5 5 5 5)
-
-     :gridx 0, :gridy 0
-     *ep-tree-scrollpane*)))
-
 (def *logs-panel*
   (doto (JPanel. (GridBagLayout.))
     (grid-bag-layout
-     :fill :BOTH, :insets (Insets. 5 5 5 5)
+     :insets (Insets. 5 5 5 5)
+     :weightx 1.0, :fill :BOTH
 
-     :gridx 0, :gridy 0
+     :gridx 0, :gridy 0, :weighty 0.0
      (JLabel. "True data log")
-     :gridx 0, :gridy 1
+     :gridx 0, :gridy 1, :weighty 1.0
      (JScrollPane. *truedata-log-box*)
      
-     :gridx 0, :gridy 2
+     :gridx 0, :gridy 2, :weighty 0.0
      *abduction-log-label*
-     :gridx 0, :gridy 3
+     :gridx 0, :gridy 3, :weighty 1.0
      (JScrollPane. *abduction-log-box*)
 
-     :gridx 0, :gridy 4
+     :gridx 0, :gridy 4, :weighty 0.0
      *problem-log-label*
-     :gridx 0, :gridy 5
-     (JScrollPane. *problem-log-box*))))
+     :gridx 0, :gridy 5, :weighty 1.0
+     (JScrollPane. *problem-log-box*)
+
+     :gridx 0, :gridy 6, :weighty 0.0
+     (JLabel. "Meta-abduction log")
+     :gridx 0, :gridy 7, :weighty 1.0
+     (JScrollPane. *meta-log-box*))))
 
 (defn get-mainframe
   []
   (doto (JFrame. "Player")
     (.setLayout (GridBagLayout.))
     (grid-bag-layout
-     :fill :BOTH, :insets (Insets. 5 5 5 5)
+     :insets (Insets. 5 5 5 5)
      
-     :gridx 0, :gridy 0, :gridheight 6
+     :gridx 0, :gridy 0, :gridheight 7, :fill :BOTH
+     :weightx 1.0, :weighty 1.0
      (doto (JTabbedPane.)
        (.addTab "Problem diagram" *problem-diagram*)
-       (.addTab "Epistemic state tree" *ep-tree-panel*)
+       (.addTab "Epistemic state tree" *ep-tree-scrollpane*)
        (.addTab "Logs" *logs-panel*)
        (.setSelectedIndex 0))
      
      :gridx 1, :gridy 0, :gridheight 1, :gridwidth 2
+     :weightx 0.0, :weighty 0.0
      *params-panel*
 
      :gridx 1, :gridy 1
@@ -318,16 +302,17 @@
   (update-problem problem)
   (update-params (get-params))
 
-  (def *problem-diagram* ((:get-diagram-fn (:player-fns problem)) 600 600))
+  (def *problem-diagram* ((:get-diagram-fn (:player-fns problem))))
   (def *problem-params-panel* ((:get-params-panel-fn (:player-fns problem))))
   (def *problem-stats-panel* ((:get-stats-panel-fn (:player-fns problem))))
 
   (def *mainframe* (get-mainframe))
   
   (doto *mainframe*
-    (.setResizable true)
     (.setDefaultCloseOperation JFrame/EXIT_ON_CLOSE)
+    (.setResizable true)
     (.pack)
+    (.setSize 900 700)
     (.show))
 
   (new-simulation))

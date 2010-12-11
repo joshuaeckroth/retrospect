@@ -8,7 +8,7 @@
          (generate-hypotheses update-problem-data)])
   (:use [simulator.problems.tracking.player :only
          [player-get-params player-get-params-panel
-          player-get-diagram player-update-diagram player-get-stats-panel
+          player-get-diagram player-get-stats-panel
           player-update-stats player-update-truedata-log-box]])
   (:use [simulator.problems.tracking.eventlog :only (init-event-log)]))
 
@@ -54,7 +54,6 @@
             {:get-params-fn player-get-params
              :get-params-panel-fn player-get-params-panel
              :get-diagram-fn player-get-diagram
-             :update-diagram-fn player-update-diagram
              :get-stats-panel-fn player-get-stats-panel
              :update-stats-fn player-update-stats
              :update-truedata-log-box-fn player-update-truedata-log-box}

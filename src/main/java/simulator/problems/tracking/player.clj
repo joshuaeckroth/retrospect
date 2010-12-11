@@ -10,19 +10,18 @@
   (:use [simulator.problems.tracking.eventlog :only (get-events get-entities)])
   (:use [simulator.player.state]))
 
-(def *diagram* nil)
+(def *grid* nil)
 (def *diagram-width* nil)
 (def *diagram-height* nil)
-(def *width* nil)
-(def *height* nil)
+(def *grid-width* nil)
+(def *grid-height* nil)
 (def *grid-cell-width* nil)
 (def *grid-cell-height* nil)
-(def *grid* nil)
 
 (def *percent-events-correct-label* (JLabel.))
 (def *percent-events-wrong-label* (JLabel.))
 (def *percent-identities-correct-label* (JLabel.))
-(def *mouse-xy* (JLabel.))
+(def *mouse-xy* (JLabel. "Grid ?, ?"))
 
 ;; from http://stuartsierra.com/2010/01/08/agents-of-swing
 (defmacro with-action [component event & body]
@@ -121,7 +120,7 @@
   [(floor (/ x *grid-cell-width*)) (floor (/ y *grid-cell-height*))])
 
 (defn grid-at [x y]
-  (nth *grid* (+ (* y *width*) x)))
+  (nth *grid* (+ (* y *grid-width*) x)))
 
 (defn fill-cell [#^Graphics2D g x y c]
   (doto g
@@ -143,14 +142,14 @@
 
 (defn draw-grid [g]
   (dorun
-   (for [x (range *width*) y (range *height*)]
+   (for [x (range *grid-width*) y (range *grid-height*)]
      (fill-cell g x y (new Color 255 255 255))))
   (dorun
-   (for [x (range *width*) y (range *height*)]
+   (for [x (range *grid-width*) y (range *grid-height*)]
      (when (sensors-see x y)
        (fill-cell g x y (new Color 255 180 180 150)))))
   (dorun
-   (for [x (range *width*) y (range *height*)]
+   (for [x (range *grid-width*) y (range *grid-height*)]
      (let [e (grid-at x y)]
        (when (not (nil? e))
 	 (cond
@@ -167,28 +166,34 @@
                        (new Color 0 0 0)))))))))
 
 (defn update-grid []
-  (def *grid* (vec (repeat (* *width* *height*) nil)))
+  (def *grid* (vec (repeat (* *grid-width* *grid-height*) nil)))
   (let [true-entities (get-entities (:eventlog (get *truedata* *time*)))
         true-events (get-events (:eventlog (get *truedata* *time*)))]
     (when true-entities
       (dorun (for [e (filter #(<= (:time (first (:snapshots %))) *time*) true-entities)]
                (let [{x :x y :y} (:pos (last (filter #(<= (:time %) *time*)
                                                      (:snapshots e))))]
-                 (def *grid* (assoc *grid* (+ (* y *width*) x) e))))))
+                 (def *grid* (assoc *grid* (+ (* y *grid-width*) x) e))))))
     (when true-events
       (dorun (for [e (filter #(= (:time %) *time*) true-events)]
                (let [{x :x y :y}
                      (if (= (type e) simulator.problems.tracking.events.EventMove)
                        (:newpos e) (:pos e))]
-                 (def *grid* (assoc *grid* (+ (* y *width*) x) e))))))))
+                 (def *grid* (assoc *grid* (+ (* y *grid-width*) x) e))))))))
 
 (defn render [g]
+  (def *diagram-width* (.. g (getClipBounds) width))
+  (def *diagram-height* (.. g (getClipBounds) height))
+  (def *grid-width* (:GridWidth *params*))
+  (def *grid-height* (:GridHeight *params*))
+  (def *grid-cell-width* (/ *diagram-width* *grid-width*))
+  (def *grid-cell-height* (/ *diagram-height* *grid-height*))
   (let [img (new BufferedImage *diagram-width* *diagram-height*
-		 (. BufferedImage TYPE_INT_ARGB))
+                 (. BufferedImage TYPE_INT_ARGB))
         bg (. img (getGraphics))]
     (doto bg
       (.setRenderingHint (. RenderingHints KEY_ANTIALIASING)
-			 (. RenderingHints VALUE_ANTIALIAS_ON))
+                         (. RenderingHints VALUE_ANTIALIAS_ON))
       (.setColor (. Color white))
       (.fillRect 0 0 *diagram-width* *diagram-height*))
     (update-grid)
@@ -196,37 +201,25 @@
     (. g (drawImage img 0 0 nil))
     (. bg (dispose))))
 
-(defn player-update-diagram
-  []
-  (def *width* (:GridWidth *params*))
-  (def *height* (:GridHeight *params*))
-  (def *grid-cell-width* (/ *diagram-width* *width*))
-  (def *grid-cell-height* (/ *diagram-height* *height*))
-  (. *diagram* (repaint)))
-    
 (defn player-get-diagram
-  [diagram-width diagram-height]
-  (def *diagram-width* diagram-width)
-  (def *diagram-height* diagram-height)
-  (def *diagram*
-    (doto (proxy [JPanel] []
-            (paint [g] (render g)))
-      (.setPreferredSize
-       (new Dimension *diagram-width* *diagram-height*))
-      (.addMouseListener
-       (proxy [java.awt.event.MouseListener] []
-         (mouseClicked [e])
-         (mouseEntered [e])
-         (mouseExited [e] (. *mouse-xy* setText ""))
-         (mousePressed [e])
-         (mouseReleased [e])))
-      (.addMouseMotionListener
-       (proxy [java.awt.event.MouseMotionListener] []
-         (mouseMoved [e] (. *mouse-xy* setText
-                            (let [[x y] (get-grid-from-xy (. e getX) (. e getY))]
-                              (format "Grid %d, %d" x y))))))))
-  (player-update-diagram)
-  *diagram*)
+  []
+  (doto (proxy [JPanel] []
+          (paint [g] (render g)))
+    (.addMouseListener
+     (proxy [java.awt.event.MouseListener] []
+       (mouseClicked [e])
+       (mouseEntered [e])
+       (mouseExited [e]
+         (. *mouse-xy* setText "Grid ?, ?"))
+       (mousePressed [e])
+       (mouseReleased [e])))
+    (.addMouseMotionListener
+     (proxy [java.awt.event.MouseMotionListener] []
+       (mouseDragged [e])
+       (mouseMoved [e]
+         (. *mouse-xy* setText
+            (let [[x y] (get-grid-from-xy (. e getX) (. e getY))]
+              (format "Grid %d, %d" x y))))))))
 
 (defn player-get-stats-panel
   []
