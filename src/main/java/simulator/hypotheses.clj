@@ -84,6 +84,24 @@
   (let [newconfidence (assoc (:confidence hypspace) hyp c)]
     (assoc hypspace :confidence newconfidence)))
 
+(defn remove-mapped-hyps
+  [m hyps]
+  "Removes hyps that appear in a sequence for some map key, as well as
+   keys representing the hyps to be deleted."
+  (let [m-without-keys (reduce (fn [mm h] (dissoc mm h)) m hyps)]
+    (reduce (fn [mm h] (assoc mm h (filter (fn [hh] (not (some #(= % hh) hyps)))
+                                           (get m-without-keys h))))
+            {} (keys m-without-keys))))
+
+(defn delete-hyps
+  [hypspace hyps]
+  (-> hypspace
+      (assoc :hyps (apply disj (set (:hyps hypspace)) hyps))
+      (assoc :explains (apply dissoc (:explains hypspace) hyps))
+      (assoc :explainers (remove-mapped-hyps (:explainers hypspace) hyps))
+      (assoc :conflicts (remove-mapped-hyps (:conflicts hypspace) hyps))
+      (assoc :confidence (apply dissoc (:confidence hypspace) hyps))))
+
 (defn boost
   [hypspace hyp]
   (set-confidence hypspace hyp (max VERY-PLAUSIBLE (get-confidence hypspace hyp))))

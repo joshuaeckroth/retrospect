@@ -274,10 +274,10 @@
      :weightx 0.0, :weighty 0.0
      *params-panel*
 
-     :gridx 1, :gridy 1
+     :gridx 1, :gridy 1, :insets (Insets. 0 0 0 0)
      *problem-params-panel*
 
-     :gridx 1, :gridy 2, :gridwidth 1
+     :gridx 1, :gridy 2, :gridwidth 1, :insets (Insets. 5 5 5 5)
      *newbutton*
      :gridx 2, :gridy 2
      *nextbutton*

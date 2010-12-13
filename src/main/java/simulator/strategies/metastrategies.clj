@@ -28,17 +28,19 @@
                (> NEUTRAL (:confidence (:decision least-conf)))
                (> 5 (count-branches (:ep-state-tree or-state) least-conf)))
 
-        ;; Note that presently no check is made for how low conf is
-        ;; least-conf; perhaps least-conf has high confidence... what
-        ;; would this imply?
-        (-> or-state
-            (add-meta-log-msg
-             (:ep-state or-state) least-conf
-             (format "Confidence of %s is %s, found 'least confident'
-                      prior %s which has fewer than 5 branches."
-                     (str (:ep-state or-state)) (confidence-str this-conf)
-                     (str least-conf)))
-            (prepare-meta-abduction least-conf))))))
+        (let [new-ep-state (delete-decision-hyps-below least-conf NEUTRAL)]
+
+          ;; Note that presently no check is made for how low conf is
+          ;; least-conf; perhaps least-conf has high confidence... what
+          ;; would this imply?
+          (-> or-state
+              (add-meta-log-msg
+               (:ep-state or-state) least-conf
+               (format "Confidence of %s is %s, found 'least confident'
+                        prior %s which has fewer than 5 branches."
+                       (str (:ep-state or-state)) (confidence-str this-conf)
+                       (str least-conf)))
+              (prepare-meta-abduction new-ep-state)))))))
 
 (defn essentials-add-guess
   [or-state]

@@ -2,10 +2,10 @@
   (:require [simulator logs])
   (:import [simulator.logs LogEntry AbducerLogEntry HypLogEntry])
   (:use [simulator.hypotheses :only
-         (init-hypspace get-explainers get-hyp-id-str get-hyp-ids-str set-confidence
-                        penalize boost find-conflicts find-unexplained get-confidence
-                        add-explainers get-apriori add-conflicts find-essentials
-                        find-best)])
+         [init-hypspace get-explainers get-hyp-id-str get-hyp-ids-str set-confidence
+          penalize boost find-conflicts find-unexplained get-confidence
+          add-explainers get-apriori add-conflicts find-essentials
+          find-best delete-hyps]])
   (:use [simulator.confidences])
   (:require [clojure.zip :as zip])
   (:require [clojure.set :as set])
@@ -225,6 +225,24 @@
         (reduce (fn [ep h] (add-hyp-log-msg ep h "Penalizing reverted decision."))
                 ep hyps))))
 
+(defn delete-decision-hyps-below
+  [ep-state threshold]
+  (let [hyps (filter #(> threshold (get-confidence (:hypspace ep-state) %))
+                     (:hyps (:decision ep-state)))
+        ep-state-deleted (assoc ep-state :hypspace (delete-hyps (:hypspace ep-state) hyps))
+        ep-state-hyp-logs (reduce (fn [ep h]
+                                    (add-hyp-log-msg
+                                     ep h (format "Deleting as part of reverted
+                                                   decision since confidence is below %s."
+                                                  (get-hyp-id-str h)
+                                                  (confidence-str threshold))))
+                                  ep-state-deleted hyps)]
+    (add-abducer-log-msg
+     ep-state-hyp-logs hyps
+     (format "Deleting hyps in decision that have confidence below %s: %s"
+             (confidence-str threshold)
+             (get-hyp-ids-str hyps)))))
+
 (defn count-branches
   [ep-state-tree branch]
   (count (zip/children (zip/up (goto-ep-state ep-state-tree (:id branch))))))
@@ -237,15 +255,12 @@
         ;; clear the decision
         ep-no-dec (update-in ep [:decision] assoc :confidence nil :hyps [])
 
-        ;; penalize hyps in decision
-        ep-penalized (penalize-decision-hyps ep-no-dec (:hyps (:decision ep)))
-
         ;; make a branch; the choice of "insert-right" over "insert-left" here
         ;; is what makes (list-ep-states) possible, since depth-first search
         ;; looks left before looking right
         ep-tree-branch
-        (goto-ep-state (zip/insert-right (goto-ep-state ep-tree (:id branch)) ep-penalized)
-                       (:id ep-penalized))]
+        (goto-ep-state (zip/insert-right (goto-ep-state ep-tree (:id branch)) ep-no-dec)
+                       (:id ep-no-dec))]
     ep-tree-branch))
 
 (defn new-child-ep-state
@@ -289,7 +304,7 @@
                                       (format "Penalizing conflicts: %s."
                                               (get-hyp-ids-str conflicts))))]
       (reduce (fn [ep c] (add-hyp-log-msg ep c log-msg))
-              ep conflicts))))
+               ep conflicts))))
 
 (defn accept-hyp
   [ep-state hyp]
