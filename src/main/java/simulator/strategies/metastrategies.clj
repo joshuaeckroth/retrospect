@@ -40,8 +40,34 @@
                      (str least-conf)))
             (prepare-meta-abduction least-conf))))))
 
+(defn essentials-add-guess
+  [or-state]
+  (if (and (= "es" (:strategy or-state))
+           (> NEUTRAL (measure-decision-confidence (:ep-state or-state))))
+    (-> or-state
+        (assoc :strategy "es-guess")
+        (add-meta-log-msg (:ep-state or-state) (:ep-state or-state)
+                          "Confidence of current decision is below NEUTRAL,
+                           so switching from essentials-only strategy
+                           to essentials-guess strategy.")
+        (prepare-meta-abduction (:ep-state or-state)))))
+
+(defn essentials-add-smartbest1
+  [or-state]
+  (if (and (= "es" (:strategy or-state))
+           (> NEUTRAL (measure-decision-confidence (:ep-state or-state))))
+    (-> or-state
+        (assoc :strategy "es-sb1")
+        (add-meta-log-msg (:ep-state or-state) (:ep-state or-state)
+                          "Confidence of current decision is below NEUTRAL,
+                           so switching from essentials-only strategy
+                           to essentials-smartbest1 strategy.")
+        (prepare-meta-abduction (:ep-state or-state)))))
+
 (def meta-strategy-funcs
   {"none" (fn [_] nil)
-   "least-conf-recent" least-conf-recent})
+   "least-conf-recent" least-conf-recent
+   "essentials-add-guess" essentials-add-guess
+   "essentials-add-sb1" essentials-add-smartbest1})
 
 (def meta-strategies (sort (keys meta-strategy-funcs)))
