@@ -11,4 +11,5 @@
   :test-path "src/test/java"
   :library-path "target/dependency"
   :resources-path "resources"
-  :target-dir "target")
+  :target-dir "target"
+  :keep-non-project-classes true)
