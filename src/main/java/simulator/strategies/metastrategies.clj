@@ -44,10 +44,10 @@
 
 (defn essentials-add-guess
   [or-state]
-  (if (and (= "es" (:strategy or-state))
+  (if (and (= "es" (:operative-strategy or-state))
            (> NEUTRAL (measure-decision-confidence (:ep-state or-state))))
     (-> or-state
-        (assoc :strategy "es-guess")
+        (assoc :operative-strategy "es-guess")
         (add-meta-log-msg (:ep-state or-state) (:ep-state or-state)
                           "Confidence of current decision is below NEUTRAL,
                            so switching from essentials-only strategy
@@ -56,10 +56,10 @@
 
 (defn essentials-add-smartbest1
   [or-state]
-  (if (and (= "es" (:strategy or-state))
+  (if (and (= "es" (:operative-strategy or-state))
            (> NEUTRAL (measure-decision-confidence (:ep-state or-state))))
     (-> or-state
-        (assoc :strategy "es-sb1")
+        (assoc :operative-strategy "es-sb1")
         (add-meta-log-msg (:ep-state or-state) (:ep-state or-state)
                           "Confidence of current decision is below NEUTRAL,
                            so switching from essentials-only strategy
@@ -74,5 +74,5 @@
 
 ;;(def meta-strategies (sort (keys meta-strategy-funcs)))
 
-(def meta-strategies ["none" "least-conf-recent" "essentials-add-guess"])
+(def meta-strategies ["none" "least-conf-recent"])
 

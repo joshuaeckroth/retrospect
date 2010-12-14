@@ -20,9 +20,9 @@
                  :funcs [essentials (smartbest 2) (smartbest 1) smartguess]}
    "es-b321-g" {:color Color/pink
                 :funcs [essentials (best 3) (best 2) (best 1) guess]}
-   "es-sb3-sb2-sb1-g" {:color Color/pink
-                       :funcs [essentials (smartbest 3) (smartbest 2)
-                               (smartbest 1) guess]}
+   "es-sb321-g" {:color Color/pink
+                 :funcs [essentials (smartbest 3) (smartbest 2)
+                         (smartbest 1) guess]}
    "es-b321-sg" {:color Color/pink
                  :funcs [essentials (best 3) (best 2) (best 1) smartguess]}
    "es-sb321-sg" {:color Color/pink
@@ -48,6 +48,6 @@
 
 ;;(def strategies (sort (keys strategy-funcs)))
 
-(def strategies ["guess" "es" "es-sb4321-sg"])
+(def strategies ["guess" "es" "es-sg" "es-sb4321" "es-sb4321-sg"])
 
 

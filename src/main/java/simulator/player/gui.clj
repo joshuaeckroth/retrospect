@@ -23,6 +23,7 @@
 (def *problem-stats-panel* nil)
 
 (def *steplabel* (JLabel. "Step: "))
+(def *operativelabel* (JLabel. "Operative: "))
 (def *goto-ep-state-combobox* (JComboBox. (to-array "")))
 
 (def *ep-tree* (BufferedImage. 1 1 (. BufferedImage TYPE_4BYTE_ABGR)))
@@ -155,6 +156,9 @@
     (do
       (update-time (dec (:time (:ep-state or-state))))
       (. *steplabel* (setText (format "Step: %d" *time*)))))
+  (. *operativelabel* (setText (format "Operative: %s+%s"
+                                       (:operative-strategy or-state)
+                                       (:operative-meta-strategy or-state))))
   (update-goto-ep-state-combobox)
   (update-ep-tree-diagram)
   (update-results)
@@ -247,7 +251,10 @@
      :fill :BOTH, :insets (Insets. 5 5 5 5)
      
      :gridx 0, :gridy 0
-     *steplabel*)))
+     *steplabel*
+
+     :gridx 0, :gridy 1
+     *operativelabel*)))
 
 (def *logs-tab*
   (doto (JPanel. (GridBagLayout.))

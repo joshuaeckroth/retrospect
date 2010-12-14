@@ -44,20 +44,26 @@
   [ep-state trueevents]
   (let [accepted (:accepted ep-state)
         correct-event (fn [h] (if (not (or (= (:type h) "new") (= (:type h) "move"))) false
-                                  (some #(= % h) trueevents)))
+                                  (some #(= % (:event h)) trueevents)))
         correct-frozen (fn [h] (if (not (= (:type h) "frozen")) false
                                    (not-any? (fn [e] (and (= (:time e) (:time h))
                                                           (or (= (:oldpos e) (:pos h))
                                                               (= (:newpos e) (:pos h)))))
                                              trueevents)))
-        hyps-correct (filter (fn [h] (or (correct-event h) (correct-frozen h))) accepted)
-        hyps-wrong (set/difference (set accepted) (set hyps-correct))
+        hyps-correct (filter (fn [h]
+                               (and (= (type h)
+                                       simulator.problems.tracking.hypotheses.TrackingHyp)
+                                    (or (correct-event h) (correct-frozen h))))
+                             accepted)
+        hyps-wrong (filter (fn [h] (= (type h)
+                                      simulator.problems.tracking.hypotheses.TrackingHyp))
+                           (set/difference (set accepted) (set hyps-correct)))
         conf (fn [h] (get-confidence (:hypspace ep-state) h))
         value (fn [h op] (cond (op NEUTRAL (conf h)) 1 (= NEUTRAL (conf h)) 0 :else -1))
-        positive (reduce + 0 (map #(value % >) hyps-correct))
-        negative (reduce + 0 (map #(value % <) hyps-wrong))]
-    (if (empty? accepted) 0.0
-      (double (/ (+ positive negative) (count accepted))))))
+        positive (reduce + 0 (map #(value % <) hyps-correct))
+        negative (reduce + 0 (map #(value % >) hyps-wrong))]
+    (if (empty? (concat hyps-correct hyps-wrong)) 0.0
+      (double (/ (+ positive negative) (count (concat hyps-correct hyps-wrong)))))))
 
 (defn evaluate
   [ep-state sensors truedata params]

@@ -19,6 +19,8 @@
 (defrecord OneRunState
     [strategy
      meta-strategy
+     operative-strategy
+     operative-meta-strategy
      meta-log
      resources
      results
@@ -29,7 +31,7 @@
 (defn init-one-run-state
   [strategy meta-strategy sensors problem-data]
   (let [ep-state-tree (init-ep-state-tree problem-data)]
-    (OneRunState. strategy meta-strategy []
+    (OneRunState. strategy meta-strategy strategy meta-strategy []
                   {:meta-abductions 0 :compute 0 :milliseconds 0 :memory 0}
                   []
                   sensors
@@ -43,7 +45,7 @@
 (defn attempt-meta-abduction
   [or-state]
   "Return new or-state if there is a new one."
-  (if-let [ors ((get meta-strategy-funcs (:meta-strategy or-state)) or-state)]
+  (if-let [ors ((get meta-strategy-funcs (:operative-meta-strategy or-state)) or-state)]
     ors))
 
 (defn explain-recursive
@@ -98,7 +100,7 @@
   (let [start-time (. System (nanoTime))
         ep-state (explain-recursive
                   (:ep-state or-state)
-                  (:funcs (get strategy-info (:strategy or-state))))
+                  (:funcs (get strategy-info (:operative-strategy or-state))))
         milliseconds (+ (:milliseconds (:resources or-state))
                         (/ (- (. System (nanoTime)) start-time)
                            1000000.0))

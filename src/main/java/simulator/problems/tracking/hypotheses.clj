@@ -15,7 +15,8 @@
                   add-mutual-conflicts-all-explainers
                   force-acceptance)])
   (:use [simulator.sensors :only (sensed-at)])
-  (:use [clojure.set]))
+  (:use [clojure.set])
+  (:use [clojure.contrib.math :as math :only [ceil]]))
 
 (defrecord TrackingHyp [id apriori type time spotted entity prev event]
   Hypothesis
@@ -149,11 +150,14 @@
                 es2 (reduce
                      (fn [tempes e]
                        (add-hyp-move tempes spotted time (:entity e)
-                                     (cond (< (:dist e) (/ (:MaxWalk params) 4))
+                                     (cond (<= (:dist e) (math/ceil (/ (:MaxWalk params) 4)))
                                            VERY-PLAUSIBLE
-                                           (< (:dist e) (/ (:MaxWalk params) 2))
+                                           (<= (:dist e) (math/ceil (/ (:MaxWalk params) 3)))
                                            PLAUSIBLE
-                                           :else NEUTRAL)))
+                                           (<= (:dist e) (math/ceil (/ (:MaxWalk params) 2)))
+                                           IMPLAUSIBLE
+                                           (<= (:dist e) (:MaxWalk params))
+                                           VERY-IMPLAUSIBLE)))
                      es ents)
                 es3 (if (= 0 (:ProbNewEntities params)) es2
                         (add-hyp-new es2 spotted time
