@@ -19,7 +19,7 @@
 	avgtime (/ elapsed finished)
 	expected (* remaining avgtime)
 	wallexpected (.toString (Date. (long (+ expected (.getTime (Date.))))))]
-    (println (format "Done %d/%d;\t Elapsed: %s;\t Remaining: %s, ending %s"
+    (println (format "Done %d/%d;\t Elapsed: %s;\t Remaining: %s;\t Ending %s"
 		     finished
 		     total
 		     (format-time (int (/ elapsed 1000.0)))

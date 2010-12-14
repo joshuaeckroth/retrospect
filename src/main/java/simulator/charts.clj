@@ -107,20 +107,22 @@
     (doseq [c (:charts problem)]
       (if (:split-by c)
         (doseq [split (:split-list c)]
-          (let [data ($where {(:split-by c) {:$gt (- split (:split-delta c))
-                                             :$lt (+ split (:split-delta c))}}
+          (let [data ($where (merge (:filter c)
+                                    {(:split-by c) {:$gt (- split (:split-delta c))
+                                                    :$lt (+ split (:split-delta c))}})
                              results)]
-            (when (not-empty (sel data :cols (:x c)))
+            (when (not-empty (sel results :cols (:x c))) 
               (if-let [p (plot data (:x c) (:y c) (:y-range c)
                                (:regression c) (:strategy-regression c))]
                 (save p
                  (format "%s/%s-%s--%s-%s.png" recordsdir
                          (:name problem) (:name c)
                          (name (:split-by c)) (str split))
-                 :width 800 :height 600)))))
-        (if-let [p (plot results (:x c) (:y c) (:y-range c)
+                 :width 500 :height 500)))))
+        (if-let [p (plot (if (:filter c) ($where (:filter c) results) results)
+                         (:x c) (:y c) (:y-range c)
                          (:regression c) (:strategy-regression c))]
           (save p
                 (format "%s/%s-%s.png" recordsdir
                         (:name problem) (:name c))
-                :width 800 :height 600))))))
+                :width 500 :height 500))))))

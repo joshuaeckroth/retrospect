@@ -74,5 +74,5 @@
 
 ;;(def meta-strategies (sort (keys meta-strategy-funcs)))
 
-(def meta-strategies ["none" "least-conf-recent"])
+(def meta-strategies ["none" "least-conf-recent" "essentials-add-guess"])
 

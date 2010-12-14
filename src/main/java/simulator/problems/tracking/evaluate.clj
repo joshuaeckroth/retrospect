@@ -6,6 +6,8 @@
   (:use [simulator.problems.tracking.sensors :only
          (measure-sensor-overlap measure-sensor-coverage)])
   (:use [simulator.problems.tracking.hypotheses :only [update-problem-data]])
+  (:use [simulator.hypotheses :only [get-confidence]])
+  (:use [simulator.confidences])
   (:require [clojure.set :as set]))
 
 (defn calc-average-walk
@@ -38,6 +40,25 @@
         strat-starts-ends (get-starts-ends pentities)]
     (set/intersection true-starts-ends strat-starts-ends)))
 
+(defn measure-plausibility-accuracy
+  [ep-state trueevents]
+  (let [accepted (:accepted ep-state)
+        correct-event (fn [h] (if (not (or (= (:type h) "new") (= (:type h) "move"))) false
+                                  (some #(= % h) trueevents)))
+        correct-frozen (fn [h] (if (not (= (:type h) "frozen")) false
+                                   (not-any? (fn [e] (and (= (:time e) (:time h))
+                                                          (or (= (:oldpos e) (:pos h))
+                                                              (= (:newpos e) (:pos h)))))
+                                             trueevents)))
+        hyps-correct (filter (fn [h] (or (correct-event h) (correct-frozen h))) accepted)
+        hyps-wrong (set/difference (set accepted) (set hyps-correct))
+        conf (fn [h] (get-confidence (:hypspace ep-state) h))
+        value (fn [h op] (cond (op NEUTRAL (conf h)) 1 (= NEUTRAL (conf h)) 0 :else -1))
+        positive (reduce + 0 (map #(value % >) hyps-correct))
+        negative (reduce + 0 (map #(value % <) hyps-wrong))]
+    (if (empty? accepted) 0.0
+      (double (/ (+ positive negative) (count accepted))))))
+
 (defn evaluate
   [ep-state sensors truedata params]
   "The current ep-state has accepted the decision of the previous ep-state;
@@ -54,7 +75,8 @@
         events-wrong (count (set/difference pevents trueevents))
 	events-total (count trueevents)
         identities-correct (count (find-correct-identities trueentities pentities))
-        identities-total (count trueentities)]
+        identities-total (count trueentities)
+        hypspace (:hypspace ep-state)]
     {:PercentEventsCorrect
      (double (* 100 (/ events-correct events-total)))
      :PercentEventsWrong
@@ -62,6 +84,7 @@
      :PercentIdentitiesCorrect
      (double (* 100 (/ identities-correct identities-total)))
      :AvgWalk (calc-average-walk trueentities)
+     :PlausibilityAccuracy (measure-plausibility-accuracy ep-state trueevents)
      :SensorCoverage (measure-sensor-coverage
                       (:GridWidth params) (:GridHeight params) sensors)
      :SensorOverlap (measure-sensor-overlap

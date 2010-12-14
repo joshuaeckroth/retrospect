@@ -30,7 +30,7 @@
   [strategy meta-strategy sensors problem-data]
   (let [ep-state-tree (init-ep-state-tree problem-data)]
     (OneRunState. strategy meta-strategy []
-                  {:compute 0 :milliseconds 0 :memory 0}
+                  {:meta-abductions 0 :compute 0 :milliseconds 0 :memory 0}
                   []
                   sensors
                   ep-state-tree (current-ep-state ep-state-tree))))
@@ -83,6 +83,7 @@
                                        1000000.0)
                       :Strategy (:strategy or-state)
                       :MetaStrategy (:meta-strategy or-state)
+                      :MetaAbductions (:meta-abductions (:resources or-state))
                       :StrategyCompute (:compute (:resources or-state))
                       :StrategyMilliseconds (:milliseconds (:resources or-state))
                       :StrategyMemory (:memory (:resources or-state))))))
@@ -104,7 +105,7 @@
         ors (update-in (update-one-run-state or-state ep-state)
                        [:resources] assoc :milliseconds milliseconds)]
     (if-let [ors2 (attempt-meta-abduction ors)]
-      (explain ors2)
+      (explain (update-in ors2 [:resources :meta-abductions] inc))
       (proceed-one-run-state ors ep-state))))
 
 (defn run-simulation-step

@@ -13,20 +13,39 @@
   (:use [simulator.problems.tracking.eventlog :only (init-event-log)]))
 
 (def avg-fields [:PercentEventsCorrect :PercentEventsWrong :PercentIdentitiesCorrect
-		 :NumberEntities :MaxWalk :AvgWalk
+		 :NumberEntities :MaxWalk :AvgWalk :PlausibilityAccuracy
 		 :ProbNewEntities :GridWidth :GridHeight
                  :SensorCoverage :SensorOverlap])
 
 (def non-avg-fields [])
 
 (def charts
-  [{:x :NumberEntities :y :PercentEventsCorrect :name "numes-events-correct"
+  [{:x :PlausibilityAccuracy :y :PercentEventsCorrect :name "pl-acc-events-correct"
+    :strategy-regression :linear}
+   {:x :NumberEntities :y :PlausibilityAccuracy :name "numes-pl-acc"
+    :strategy-regression :linear}
+   {:x :MetaAbductions :y :PlausibilityAccuracy :name "meta-abductions-pl-acc"
+    :strategy-regression :linear}
+   {:x :PercentEventsCorrect :y :MetaAbductions :name "events-correct-meta-abductions"
+    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 5
+    :strategy-regression :linear :filter {:MetaStrategy {:$ne "none"}}}
+   {:x :PercentEventsWrong :y :MetaAbductions :name "events-wrong-meta-abductions"
+    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 5
+    :strategy-regression :linear :filter {:MetaStrategy {:$ne "none"}}}
+   {:x :PercentIdentitiesCorrect :y :MetaAbductions :name "ids-wrong-meta-abductions"
+    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 5
+    :strategy-regression :linear :filter {:MetaStrategy {:$ne "none"}}}
+   {:x :MetaAbductions :y :Milliseconds :name "meta-abductions-milliseconds"
+    :strategy-regression :linear :filter {:MetaStrategy {:$ne "none"}}}
+   {:x :PercentEventsCorrect :y :PercentEventsWrong :name "events-correct-wrong"
+    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 5
+    :strategy-regression :linear}
+   {:x :NumberEntities :y :PercentEventsCorrect :name "numes-events-correct"
     :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 5
     :y-range [0.0 100.0]
     :strategy-regression :linear}
    {:x :NumberEntities :y :PercentEventsWrong :name "numes-events-wrong"
     :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 5
-    :y-range [0.0 100.0]
     :strategy-regression :linear}
    {:x :AvgWalk :y :PercentEventsCorrect :name "avgwalk-events"
     :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 5

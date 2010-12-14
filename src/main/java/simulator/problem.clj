@@ -5,7 +5,7 @@
 
 (def avg-fields
   [:Milliseconds :Steps
-   :StrategyCompute :StrategyMilliseconds :StrategyMemory
+   :MetaAbductions :StrategyCompute :StrategyMilliseconds :StrategyMemory
    :SensorReportNoise :BeliefNoise])
 
 (def non-avg-fields
