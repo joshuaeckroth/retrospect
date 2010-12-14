@@ -4,7 +4,10 @@
   (:import (java.awt.image BufferedImage))
   (:import (javax.swing JPanel JFrame JButton JTextField JTextArea
 			JLabel JScrollPane JSpinner SpinnerNumberModel JComboBox
-                        ImageIcon JViewport Scrollable JTabbedPane))
+                        ImageIcon JViewport Scrollable JTabbedPane JTable))
+  (:import (java.util Vector))
+  (:use [incanter.core :only [to-list]])
+  (:use [simulator.problem :only [get-headers]])
   (:use [simulator.player.state])
   (:use [simulator.strategies.composite :only [strategies]])
   (:use [simulator.strategies.metastrategies :only [meta-strategies]])
@@ -126,6 +129,22 @@
     (. *meta-log-box* setText
        (apply str (interpose "\n" (map str (:meta-log *or-state*)))))))
 
+(defn get-results-viewport
+  []
+  (let [headers (get-headers *problem*)
+        results-matrix (map (fn [r] (map (fn [h] (h r)) headers))
+                            (:results *or-state*))]
+    (doto (JViewport.)
+      (.setView  (JTable. (Vector. (map #(Vector. %) (to-list results-matrix)))
+                          (Vector. (map name headers)))))))
+
+(def *results-scrollpane*
+  (JScrollPane. (get-results-viewport)))
+
+(defn update-results
+  []
+  (. *results-scrollpane* (setViewport (get-results-viewport))))
+
 (defn update-everything
   [or-state]
   (update-or-state or-state)
@@ -138,6 +157,7 @@
       (. *steplabel* (setText (format "Step: %d" *time*)))))
   (update-goto-ep-state-combobox)
   (update-ep-tree-diagram)
+  (update-results)
   (.repaint *problem-diagram*)
   ((:update-stats-fn (:player-fns *problem*)))
   (update-logs))
@@ -222,14 +242,14 @@
      (:BeliefNoise *param-spinners*))))
 
 (def *stats-panel*
-     (doto (JPanel. (GridBagLayout.))
-       (grid-bag-layout
-	:fill :BOTH, :insets (Insets. 5 5 5 5)
+  (doto (JPanel. (GridBagLayout.))
+    (grid-bag-layout
+     :fill :BOTH, :insets (Insets. 5 5 5 5)
+     
+     :gridx 0, :gridy 0
+     *steplabel*)))
 
-	:gridx 0, :gridy 0
-        *steplabel*)))
-
-(def *logs-panel*
+(def *logs-tab*
   (doto (JPanel. (GridBagLayout.))
     (grid-bag-layout
      :insets (Insets. 5 5 5 5)
@@ -267,7 +287,8 @@
      (doto (JTabbedPane.)
        (.addTab "Problem diagram" *problem-diagram*)
        (.addTab "Epistemic state tree" *ep-tree-scrollpane*)
-       (.addTab "Logs" *logs-panel*)
+       (.addTab "Logs" *logs-tab*)
+       (.addTab "Results" *results-scrollpane*)
        (.setSelectedIndex 0))
      
      :gridx 1, :gridy 0, :gridheight 1, :gridwidth 2
