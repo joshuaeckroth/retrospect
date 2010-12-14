@@ -9,7 +9,7 @@
   (:require [clojure.set :as set]))
 
 (defn calc-average-walk
-  [events]
+  [entities]
   (let [calc-walk-sum
 	(fn [sum [es-old es-new]]
 	  (+ sum (manhattan-distance (:pos es-old) (:pos es-new))))
@@ -20,7 +20,7 @@
 	walk-avgs
 	(doall (map (fn [e] (let [pairs (pair-snapshots e)]
                               (if (empty? pairs) 0 (/ (sum-walks pairs) (count pairs)))))
-                    events))]
+                    entities))]
     (double (/ (reduce + 0 walk-avgs) (count walk-avgs)))))
 
 (defn find-correct-identities
@@ -61,7 +61,7 @@
      (double (* 100 (/ events-wrong events-total)))
      :PercentIdentitiesCorrect
      (double (* 100 (/ identities-correct identities-total)))
-     :AvgWalk (calc-average-walk trueevents)
+     :AvgWalk (calc-average-walk trueentities)
      :SensorCoverage (measure-sensor-coverage
                       (:GridWidth params) (:GridHeight params) sensors)
      :SensorOverlap (measure-sensor-overlap

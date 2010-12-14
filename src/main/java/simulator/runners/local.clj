@@ -19,7 +19,7 @@
 	avgtime (/ elapsed finished)
 	expected (* remaining avgtime)
 	wallexpected (.toString (Date. (long (+ expected (.getTime (Date.))))))]
-    (println (format "Done %d/%d; Elapsed: %s; Remaining: %s, ending %s"
+    (println (format "Done %d/%d;\t Elapsed: %s;\t Remaining: %s, ending %s"
 		     finished
 		     total
 		     (format-time (int (/ elapsed 1000.0)))
@@ -41,7 +41,7 @@
   [problem filename params]
   (when (not-empty params)
     (send-off write-agent write-csv filename problem
-              (average-strategies problem (first params) 1))
+              (average-strategies problem (first params) 10))
     (recur problem filename (rest params))))
 
 (defn check-progress

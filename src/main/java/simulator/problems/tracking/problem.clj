@@ -12,7 +12,7 @@
           player-update-stats player-update-truedata-log-box]])
   (:use [simulator.problems.tracking.eventlog :only (init-event-log)]))
 
-(def avg-fields [:PercentEventsCorrect :PercentIdentitiesCorrect
+(def avg-fields [:PercentEventsCorrect :PercentEventsWrong :PercentIdentitiesCorrect
 		 :NumberEntities :MaxWalk :AvgWalk
 		 :ProbNewEntities :GridWidth :GridHeight
                  :SensorCoverage :SensorOverlap])
@@ -20,7 +20,11 @@
 (def non-avg-fields [])
 
 (def charts
-  [{:x :NumberEntities :y :PercentEventsCorrect :name "numes-events"
+  [{:x :NumberEntities :y :PercentEventsCorrect :name "numes-events-correct"
+    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 5
+    :y-range [0.0 100.0]
+    :strategy-regression :linear}
+   {:x :NumberEntities :y :PercentEventsWrong :name "numes-events-wrong"
     :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 5
     :y-range [0.0 100.0]
     :strategy-regression :linear}
@@ -40,10 +44,13 @@
     :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 5
     :regression :linear
     :strategy-regression :linear}
-   {:x :SensorCoverage :y :PercentEventsCorrect :name "coverage-correct"
+   {:x :SensorCoverage :y :PercentEventsCorrect :name "coverage-events-correct"
     :regression :linear
     :strategy-regression :linear}
-   {:x :PercentEventsCorrect :y :PercentIdentitiesCorrect :name "events-identities"
+   {:x :SensorCoverage :y :PercentEventsWrong :name "coverage-events-wrong"
+    :regression :linear
+    :strategy-regression :linear}
+   {:x :PercentEventsCorrect :y :PercentIdentitiesCorrect :name "events-correct-identities"
     :split-by :SensorCoverage :split-list (range 10 101 10) :split-delta 5
     :regression :linear}])
 

@@ -10,7 +10,7 @@
           list-ep-states
           measure-decision-confidence
           count-branches]])
-  (:use [simulator.strategies.composite :only [strategy-funcs]])
+  (:use [simulator.strategies.composite :only [strategy-info]])
   (:use [simulator.strategies.metastrategies :only [meta-strategy-funcs]])
   (:use [simulator.sensors :only (update-sensors)])
   (:use [simulator.confidences])
@@ -97,7 +97,7 @@
   (let [start-time (. System (nanoTime))
         ep-state (explain-recursive
                   (:ep-state or-state)
-                  (get strategy-funcs (:strategy or-state)))
+                  (:funcs (get strategy-info (:strategy or-state))))
         milliseconds (+ (:milliseconds (:resources or-state))
                         (/ (- (. System (nanoTime)) start-time)
                            1000000.0))

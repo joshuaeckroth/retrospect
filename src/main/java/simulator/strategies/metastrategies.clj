@@ -72,4 +72,7 @@
    "essentials-add-guess" essentials-add-guess
    "essentials-add-sb1" essentials-add-smartbest1})
 
-(def meta-strategies (sort (keys meta-strategy-funcs)))
+;;(def meta-strategies (sort (keys meta-strategy-funcs)))
+
+(def meta-strategies ["none" "least-conf-recent"])
+
