@@ -85,7 +85,7 @@
    (zip-ep-state-tree
     [(EpistemicState. (make-ep-state-id) [] 0
                       (init-hypspace) [] [] []
-                      {:confidence nil :hyps []}
+                      {:confidence nil :hyps [] :forced []}
                       [] [] {} pdata)])))
 
 (defn root-ep-state?
@@ -164,7 +164,9 @@
 
 (defn accept-decision
   [ep-state id]
-  (let [accepted (concat (:accepted ep-state) (:hyps (:decision ep-state)))]
+  (let [accepted (concat (:accepted ep-state)
+                         (:hyps (:decision ep-state))
+                         (:forced (:decision ep-state)))]
     (EpistemicState.
      id
      []
@@ -180,10 +182,8 @@
 
 (defn measure-decision-confidence
   [ep-state]
-
   ;; if no accepted hyps, this is very implausible
   (if (empty? (:hyps (:decision ep-state))) VERY-IMPLAUSIBLE
-
       ;; if accepted hyps exist, find the minimum confidence of them
       (apply min (map (fn [h] (get-confidence (:hypspace ep-state) h))
                       (:hyps (:decision ep-state))))))
@@ -225,23 +225,24 @@
         (reduce (fn [ep h] (add-hyp-log-msg ep h "Penalizing reverted decision."))
                 ep hyps))))
 
-(defn delete-decision-hyps-below
-  [ep-state threshold]
-  (let [hyps (filter #(> threshold (get-confidence (:hypspace ep-state) %))
-                     (:hyps (:decision ep-state)))
-        ep-state-deleted (assoc ep-state :hypspace (delete-hyps (:hypspace ep-state) hyps))
-        ep-state-hyp-logs (reduce (fn [ep h]
-                                    (add-hyp-log-msg
-                                     ep h (format "Deleting as part of reverted
-                                                   decision since confidence is below %s."
-                                                  (get-hyp-id-str h)
-                                                  (confidence-str threshold))))
-                                  ep-state-deleted hyps)]
-    (add-abducer-log-msg
-     ep-state-hyp-logs hyps
-     (format "Deleting hyps in decision that have confidence below %s: %s"
-             (confidence-str threshold)
-             (get-hyp-ids-str hyps)))))
+(defn delete-random-min-conf-decision
+  [ep-state]
+  (if (empty? (:hyps (:decision ep-state))) ep-state
+      (let [hyp (first (sort-by #(get-confidence (:hypspace ep-state) %)
+                                (:hyps (:decision ep-state))))
+            ep-state-deleted (assoc ep-state :hypspace
+                                    (delete-hyps (:hypspace ep-state) [hyp]))
+            ep-state-hyp-logs (add-hyp-log-msg ep-state-deleted hyp
+                                               (format "Deleting as part of reverted
+                                                        decision since its confidence %s
+                                                        is lowest among the decision hyps."
+                                                       (confidence-str
+                                                        (get-confidence (:hypspace ep-state)
+                                                                        hyp))))]
+        (add-abducer-log-msg
+         ep-state-hyp-logs [hyp]
+         (format "Deleting random hyp in decision that has lowest confidence: %s"
+                 (get-hyp-id-str hyp))))))
 
 (defn count-branches
   [ep-state-tree branch]
@@ -252,7 +253,7 @@
   (let [ep-tree (update-decision ep-state-tree ep-state)
         ep (clone-ep-state branch (make-ep-state-id ep-tree) [])
         
-        ;; clear the decision
+        ;; clear the decision, except for what was forced
         ep-no-dec (update-in ep [:decision] assoc :confidence nil :hyps [])
 
         ;; make a branch; the choice of "insert-right" over "insert-left" here
@@ -265,10 +266,29 @@
 
 (defn new-child-ep-state
   [ep-state-tree ep-state]
-  (let [ep-tree (update-decision ep-state-tree ep-state)
-        ep-child (accept-decision ep-state (make-ep-state-id ep-tree))
+  (let [confstr (fn [h] (confidence-str (get-confidence (:hypspace ep-state) h)))
+        ep-with-log (add-abducer-log-msg
+                     ep-state (:hyps (:decision ep-state))
+                     (format "Final accepted hyps: %s"
+                             (apply str (interpose "," (map #(format "%s (%s)"
+                                                                     (get-hyp-id-str %)
+                                                                     (confstr %))
+                                                            (:hyps (:decision ep-state)))))))
+        ep-tree (update-decision ep-state-tree ep-with-log)
+        ep-child (accept-decision ep-with-log (make-ep-state-id ep-tree))
         ep-tree-child (goto-ep-state (zip/append-child ep-tree ep-child) (:id ep-child))]
     ep-tree-child))
+
+(defn reset-confidences-to-apriori
+  [ep-state]
+  (let [hyps (:hyps (:decision ep-state))
+        hypspace (reduce (fn [hs h] (set-confidence hs h (get-apriori h)))
+                         (:hypspace ep-state) hyps)]
+    (reduce (fn [ep h] (add-hyp-log-msg ep h "Resetting confidence back to apriori value."))
+            (-> ep-state
+                (assoc :hypspace hypspace)
+                (add-abducer-log-msg hyps "Resetting confidence back to apriori values."))
+            hyps)))
 
 (defn add-hyp
   [ep-state hyp explained log-msg]
@@ -317,7 +337,7 @@
 
 (defn accept-hyp-forced
   [ep-state hyp]
-  (update-in (accept-hyp ep-state hyp) [:decision :forced] conj hyp))
+  (update-in ep-state [:decision :forced] conj hyp))
 
 (defn force-acceptance
   [ep-state hyp log-msg]
@@ -331,7 +351,6 @@
 (defn accept-explainer-type
   [ep-state explainer hyp type]
   (-> ep-state
-      (accept-hyp explainer)
       (add-abducer-log-msg [hyp explainer]
                            (format "Accepting %s %s as explainer of %s."
                                    type
@@ -342,7 +361,8 @@
                                type (get-hyp-id-str hyp)))
       (add-hyp-log-msg hyp
                        (format "Hyp %s accepted as %s explainer."
-                               (get-hyp-id-str explainer) type))))
+                               (get-hyp-id-str explainer) type))
+      (accept-hyp explainer)))
 
 (defn choose-random-hyp
   ([hyps] (rand-nth (vec hyps)))

@@ -24,7 +24,7 @@
   (get-apriori [_] apriori)
   Object
   (toString [_] (format "TrackingHyp %s (a=%d) (%s)@%d\n\t(spotted: %s)\n\t%s\n\t%s."
-			id apriori type time (get-hyp-id-str spotted)
+			id (confidence-str apriori) type time (get-hyp-id-str spotted)
 			(if (not= type "move") entity prev) event)))
 
 (defn make-hyp-id

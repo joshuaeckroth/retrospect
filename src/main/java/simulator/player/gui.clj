@@ -1,5 +1,5 @@
 (ns simulator.player.gui
-  (:gen-class)
+  (:import [java.awt Color])
   (:import (java.awt GridBagLayout Insets Dimension Checkbox))
   (:import (java.awt.image BufferedImage))
   (:import (javax.swing JPanel JFrame JButton JTextField JTextArea
@@ -91,13 +91,10 @@
              [k (nth (:elements (k *param-combobox*))
                      (.getSelectedIndex (:combobox (k *param-combobox*))))])))))
 
-(defn render-ep-tree-diagram
-  [g]
-  (. g (drawImage *ep-tree* 0 0 nil)))
-
 (defn get-ep-tree-viewport
   []
   (doto (JViewport.)
+    (.setBackground Color/white)
     (.setView (JLabel. (ImageIcon. *ep-tree*)))))
 
 (def *ep-tree-scrollpane*
