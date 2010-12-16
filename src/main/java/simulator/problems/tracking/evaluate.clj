@@ -41,8 +41,8 @@
     (set/intersection true-starts-ends strat-starts-ends)))
 
 (defn measure-plausibility-accuracy
-  [ep-state trueevents]
-  (let [accepted (:accepted ep-state)
+  [workspace trueevents]
+  (let [accepted (:accepted workspace)
         correct-event (fn [h] (if (not (or (= (:type h) "new") (= (:type h) "move"))) false
                                   (some #(= % (:event h)) trueevents)))
         correct-frozen (fn [h] (if (not (= (:type h) "frozen")) false
@@ -58,7 +58,7 @@
         hyps-wrong (filter (fn [h] (= (type h)
                                       simulator.problems.tracking.hypotheses.TrackingHyp))
                            (set/difference (set accepted) (set hyps-correct)))
-        conf (fn [h] (get-confidence (:hypspace ep-state) h))
+        conf (fn [h] (get-confidence (:hypspace workspace) h))
         value (fn [h op] (cond (op NEUTRAL (conf h)) 1 (= NEUTRAL (conf h)) 0 :else -1))
         positive (reduce + 0 (map #(value % <) hyps-correct))
         negative (reduce + 0 (map #(value % >) hyps-wrong))]
@@ -81,8 +81,7 @@
         events-wrong (count (set/difference pevents trueevents))
 	events-total (count trueevents)
         identities-correct (count (find-correct-identities trueentities pentities))
-        identities-total (count trueentities)
-        hypspace (:hypspace ep-state)]
+        identities-total (count trueentities)]
     {:PercentEventsCorrect
      (double (* 100 (/ events-correct events-total)))
      :PercentEventsWrong
@@ -90,7 +89,7 @@
      :PercentIdentitiesCorrect
      (double (* 100 (/ identities-correct identities-total)))
      :AvgWalk (calc-average-walk trueentities)
-     :PlausibilityAccuracy (measure-plausibility-accuracy ep-state trueevents)
+     :PlausibilityAccuracy (measure-plausibility-accuracy (:workspace ep-state) trueevents)
      :SensorCoverage (measure-sensor-coverage
                       (:GridWidth params) (:GridHeight params) sensors)
      :SensorOverlap (measure-sensor-overlap

@@ -8,11 +8,10 @@
           new-branch-ep-state
           print-ep-state-tree
           list-ep-states
-          measure-decision-confidence
           count-branches]])
   (:use [simulator.strategies.composite :only [strategy-info]])
   (:use [simulator.strategies.metastrategies :only [meta-strategy-funcs]])
-  (:use [simulator.sensors :only (update-sensors)])
+  (:use [simulator.sensors :only [update-sensors]])
   (:use [simulator.confidences])
   (:use [clojure.set]))
 
@@ -48,16 +47,6 @@
   (if-let [ors ((get meta-strategy-funcs (:operative-meta-strategy or-state)) or-state)]
     ors))
 
-(defn explain-recursive
-  [ep-state funcs]
-  (loop [fs funcs
-         ep ep-state]
-    (if (empty? fs) ep
-        (let [ep2 ((first fs) ep)]
-          (if ep2
-            (recur fs ep2)
-            (recur (rest fs) ep))))))
-
 (defn update-one-run-state
   ([or-state ep-state]
      (let [ep-state-tree (update-ep-state-tree (:ep-state-tree or-state) ep-state)]
@@ -90,6 +79,16 @@
                       :StrategyMilliseconds (:milliseconds (:resources or-state))
                       :StrategyMemory (:memory (:resources or-state))))))
 
+(defn explain-recursive
+  [workspace funcs]
+  (loop [fs funcs
+         ws workspace]
+    (if (empty? fs) ws
+        (let [ws2 ((first fs) ws)]
+          (if ws2
+            (recur fs ws2)
+            (recur (rest fs) ws))))))
+
 (defn explain
   [or-state]
   "Takes a OneRunState with sensors that have sensed and
@@ -98,9 +97,10 @@
    has accepted a decision (possibly after a few steps of
    meta-abduction)."
   (let [start-time (. System (nanoTime))
-        ep-state (explain-recursive
-                  (:ep-state or-state)
-                  (:funcs (get strategy-info (:operative-strategy or-state))))
+        workspace (explain-recursive
+                   (:workspace (:ep-state or-state))
+                   (:funcs (get strategy-info (:operative-strategy or-state))))
+        ep-state (assoc (:ep-state or-state) :workspace workspace)
         milliseconds (+ (:milliseconds (:resources or-state))
                         (/ (- (. System (nanoTime)) start-time)
                            1000000.0))

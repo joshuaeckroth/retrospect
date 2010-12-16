@@ -123,7 +123,7 @@
        (apply str (interpose "\n" (map str (:log ep-state)))))
     (. *abduction-log-label* setText (format "Abduction log for: %s" (str ep-state)))
     (. *abduction-log-box* setText
-       (apply str (interpose "\n" (map str (:abducer-log ep-state)))))
+       (apply str (interpose "\n" (map str (:abducer-log (:workspace ep-state))))))
     (. *meta-log-box* setText
        (apply str (interpose "\n" (map str (:meta-log *or-state*)))))))
 

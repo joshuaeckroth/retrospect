@@ -8,12 +8,12 @@
 	 (get-entities add-entity remove-entity add-event update-entity)])
   (:use [simulator.confidences])
   (:use [simulator.hypotheses :only
-	 (Hypothesis add-explainers get-explainers prob-apriori prob-neg-apriori
-                     get-hyp-id-str get-hyp-ids-str)])
+	 [Hypothesis add-explainers get-explainers prob-apriori prob-neg-apriori
+          get-hyp-id-str get-hyp-ids-str]])
   (:use [simulator.epistemicstates :only
-         (add-hyp add-mutual-conflicts
-                  add-mutual-conflicts-all-explainers
-                  force-acceptance)])
+         [add-hyp force-acceptance]])
+  (:use [simulator.workspaces :only
+         [add-mutual-conflicts-all-explainers add-mutual-conflicts]])
   (:use [simulator.sensors :only (sensed-at)])
   (:use [clojure.set])
   (:use [clojure.contrib.math :as math :only [ceil]]))
@@ -88,12 +88,12 @@
   (filter #(>= 3 (- time (:time (last (:snapshots %))))) entities))
 
 (defn add-mutual-conflict-events
-  [ep-state entities]
+  [workspace entities]
   "For each entity, find all hypotheses that were hypothesized at 'time' and
    are events of that entity, and add mutual conflict relations for these
    event hypotheses."
   (reduce
-   (fn [es e]
+   (fn [ws e]
      (let [events
            (filter
             (fn [h] (and (= (type h)
@@ -107,9 +107,9 @@
                            (= (type (:event h))
                               simulator.problems.tracking.events.EventFrozen)
                            (= (pos e) (:pos (:event h)))))))
-            (:hypothesized es))]
-       (add-mutual-conflicts es (set events))))
-   ep-state entities))
+            (:hypothesized ws))]
+       (add-mutual-conflicts ws (set events))))
+   workspace entities))
 
 (defn generate-new-hypotheses
   [ep-state spotted time params]
@@ -163,7 +163,7 @@
                         (add-hyp-new es2 spotted time
                                      (prob-apriori (:ProbNewEntities params))))
                 esconflicts
-                (add-mutual-conflicts-all-explainers es3 spotted)]
+                (update-in es3 [:workspace] add-mutual-conflicts-all-explainers spotted)]
             (recur (rest pairs) esconflicts)))))
 
 (defn generate-hypotheses
@@ -200,11 +200,11 @@
     
     ;; finally, add mutual conflicts for all hypotheses that are an event
     ;; of the same entity
-    (add-mutual-conflict-events es2 candidate-entities)))
+    (update-in es2 [:workspace] add-mutual-conflict-events candidate-entities)))
 
 (defn update-problem-data
   [ep-state]
-  (loop [accepted (:accepted ep-state)
+  (loop [accepted (:accepted (:workspace ep-state))
 	 eventlog (:problem-data ep-state)]
 
     (cond (empty? accepted)

@@ -2,7 +2,11 @@
   (:require [simulator logs])
   (:import [simulator.logs MetaLogEntry])
   (:use [simulator.confidences])
-  (:use [simulator.epistemicstates]))
+  (:use [simulator.epistemicstates :only
+         [find-least-confident-decision new-branch-ep-state current-ep-state count-branches]])
+  (:use [simulator.workspaces :only
+         [measure-decision-confidence reset-confidences-to-apriori get-decision-confidence
+          delete-random-min-conf-decision]]))
 
 (defn add-meta-log-msg
   [or-state ep-state ep-state-revisit msg]
@@ -11,7 +15,7 @@
 
 (defn prepare-meta-abduction
   [or-state ep-state]
-  (let [ep-state-apriori (reset-confidences-to-apriori ep-state)
+  (let [ep-state-apriori (update-in ep-state [:workspace] reset-confidences-to-apriori)
         branched-ep-state-tree (new-branch-ep-state (:ep-state-tree or-state)
                                                     (:ep-state or-state) ep-state-apriori)]
     (-> or-state
@@ -21,15 +25,16 @@
 (defn least-conf-recent
   [or-state]
   (if-let [least-conf (find-least-confident-decision (:ep-state-tree or-state))]
-    (let [this-conf (measure-decision-confidence (:ep-state or-state))]
+    (let [this-conf (measure-decision-confidence (:workspace (:ep-state or-state)))]
       ;; is the present decision confidence worse than NEUTRAL
       ;; and the least confident past decision worse than NEUTRAL
       ;; and the number of existing branches not too large?
       (if (and (> NEUTRAL this-conf)
-               (> NEUTRAL (:confidence (:decision least-conf)))
+               (> NEUTRAL (get-decision-confidence (:workspace least-conf)))
                (> 3 (count-branches (:ep-state-tree or-state) least-conf)))
 
-        (let [new-ep-state (delete-random-min-conf-decision least-conf)]
+        (let [new-ep-state (update-in least-conf [:workspace]
+                                      delete-random-min-conf-decision)]
 
           ;; Note that presently no check is made for how low conf is
           ;; least-conf; perhaps least-conf has high confidence... what
@@ -46,7 +51,7 @@
 (defn essentials-add-guess
   [or-state]
   (if (and (= "es" (:operative-strategy or-state))
-           (> NEUTRAL (measure-decision-confidence (:ep-state or-state))))
+           (> NEUTRAL (measure-decision-confidence (:workspace (:ep-state or-state)))))
     (-> or-state
         (assoc :operative-strategy "es-guess")
         (add-meta-log-msg (:ep-state or-state) (:ep-state or-state)
@@ -58,7 +63,7 @@
 (defn essentials-add-smartbest1
   [or-state]
   (if (and (= "es" (:operative-strategy or-state))
-           (> NEUTRAL (measure-decision-confidence (:ep-state or-state))))
+           (> NEUTRAL (measure-decision-confidence (:workspace (:ep-state or-state)))))
     (-> or-state
         (assoc :operative-strategy "es-sb1")
         (add-meta-log-msg (:ep-state or-state) (:ep-state or-state)

@@ -2,6 +2,12 @@
   (:use [clojure.set])
   (:use [simulator.confidences]))
 
+(defrecord HypothesisSpace [hyps explains explainers conflicts confidence])
+
+(defn init-hypspace []
+  ;; hyps must be a set, rest must be maps
+  (HypothesisSpace. #{} {} {} {} {}))
+
 (defn prob-apriori
   [prob]
   (cond
@@ -26,12 +32,6 @@
 (defn get-hyp-ids-str
  [hyps]
  (apply str (interpose "," (map get-id hyps))))
-
-(defrecord HypothesisSpace [hyps explains explainers conflicts confidence])
-
-(defn init-hypspace []
-  ;; hyps must be a set, rest must be maps
-  (HypothesisSpace. #{} {} {} {} {}))
 
 (defn get-explainers
   [hypspace hyp]

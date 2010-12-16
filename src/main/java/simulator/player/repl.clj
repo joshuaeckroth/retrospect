@@ -8,7 +8,7 @@
 (defn lookup-hyp
   [hypid]
   (let [candidates (filter #(= hypid (:id %))
-                           (:hyps (:hypspace (:ep-state *or-state*))))]
+                           (:hyps (:hypspace (:workspace (:ep-state *or-state*)))))]
     (if (empty? candidates) nil (first candidates))))
 
 (defn print-hyps
@@ -16,44 +16,47 @@
   (doseq [h hyps] (println (str h))))
 
 (defn list-hyps []
-  (print-hyps (:hyps (:hypspace (:ep-state *or-state*)))))
+  (print-hyps (:hyps (:hypspace (:workspace (:ep-state *or-state*))))))
 
 (defn hyp-log
   [hypid]
-  (doseq [entry (get (:hyp-log (:ep-state *or-state*)) (lookup-hyp hypid))]
+  (doseq [entry (get (:hyp-log (:workspace (:ep-state *or-state*))) (lookup-hyp hypid))]
     (println (str entry))))
 
 (defn explains
   [hypid]
-  (print-hyps (get-explains (:hypspace (:ep-state *or-state*)) (lookup-hyp hypid))))
+  (print-hyps (get-explains (:hypspace (:workspace (:ep-state *or-state*)))
+                            (lookup-hyp hypid))))
 
 (defn explainers
   [hypid]
-  (print-hyps (get-explainers (:hypspace (:ep-state *or-state*)) (lookup-hyp hypid))))
+  (print-hyps (get-explainers (:hypspace (:workspace (:ep-state *or-state*)))
+                              (lookup-hyp hypid))))
 
 (defn conflicts
   [hypid]
-  (print-hyps (get-conflicts (:hypspace (:ep-state *or-state*)) (lookup-hyp hypid))))
+  (print-hyps (get-conflicts (:hypspace (:workspace (:ep-state *or-state*)))
+                             (lookup-hyp hypid))))
 
 (defn grep-hyps
   [re]
-  (print-hyps (grep re (:hyps (:hypspace (:ep-state *or-state*))))))
+  (print-hyps (grep re (:hyps (:hypspace (:workspace (:ep-state *or-state*)))))))
 
 (defn hypothesized
   []
-  (print-hyps (:hypothesized (:ep-state *or-state*))))
+  (print-hyps (:hypothesized (:workspace (:ep-state *or-state*)))))
 
 (defn accepted
   []
-  (print-hyps (:accepted (:ep-state *or-state*))))
+  (print-hyps (:accepted (:workspace (:ep-state *or-state*)))))
 
 (defn unexplained
   []
-  (print-hyps (:unexplained (:ep-state *or-state*))))
+  (print-hyps (:unexplained (:workspace (:ep-state *or-state*)))))
 
 (defn abducer-log
   []
-  (doseq [msg (:abducer-log (:ep-state *or-state*))]
+  (doseq [msg (:abducer-log (:workspace (:ep-state *or-state*)))]
     (println (str msg))))
 
 (defn log
