@@ -7,7 +7,8 @@
 			JLabel JScrollPane JSpinner SpinnerNumberModel JComboBox
                         ImageIcon JViewport Scrollable JTabbedPane JTable))
   (:import (java.util Vector))
-  (:use [incanter.core :only [to-list]])
+  (:use [incanter.core :only [to-list with-data dataset nrow]])
+  (:use [incanter.charts :only [scatter-plot]])
   (:use [simulator.problem :only [get-headers]])
   (:use [simulator.player.state])
   (:use [simulator.strategies.composite :only [strategies]])
@@ -164,6 +165,28 @@
     (if (empty? cbs) p
         (recur (doto p (.add (get *results-checkboxes* (first cbs)))) (rest cbs)))))
 
+(defn results-to-dataset
+  []
+  (dataset (get-headers *problem*)
+           (map (fn [r] (map (fn [h] (get r h))
+                             (get-headers *problem*)))
+                (:results *or-state*))))
+
+(defn paint-results-graph
+  [g]
+  (let [data (results-to-dataset)]
+    (if (< 1 (nrow data))
+      (let [graph (with-data (results-to-dataset)
+                    (scatter-plot
+                     :AvgWalk
+                     :PercentEventsCorrect))]
+        (.draw graph g (.getClipBounds g))))))
+
+(def *results-graph*
+  (proxy [JPanel] []
+    (getPreferredSize [] (Dimension. 300 300))
+    (paint [g] (paint-results-graph g))))
+
 (defn get-results-tab
   []
   (doto (JPanel. (GridBagLayout.))
@@ -173,7 +196,10 @@
      :gridx 0, :gridy 0, :weightx 1.0, :weighty 1.0
      *results-scrollpane*
 
-     :gridx 0, :gridy 1, :weighty 0.0
+     :gridx 0, :gridy 1, :weighty 1.0
+     *results-graph*
+
+     :gridx 0, :gridy 2, :weighty 0.0
      *results-checkboxes-panel*)))
 
 (defn update-everything
@@ -192,6 +218,7 @@
   (update-goto-ep-state-combobox)
   (update-ep-tree-diagram)
   (update-results)
+  (.repaint *results-graph*)
   (.repaint *problem-diagram*)
   ((:update-stats-fn (:player-fns *problem*)))
   (update-logs))
