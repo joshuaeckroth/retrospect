@@ -1,6 +1,7 @@
 (ns simulator.player.gui
+  (:import [misc WrapLayout])
   (:import [java.awt Color])
-  (:import (java.awt GridBagLayout Insets Dimension Checkbox))
+  (:import (java.awt GridBagLayout FlowLayout Insets Dimension Checkbox))
   (:import (java.awt.image BufferedImage))
   (:import (javax.swing JPanel JFrame JButton JTextField JTextArea
 			JLabel JScrollPane JSpinner SpinnerNumberModel JComboBox
@@ -33,6 +34,8 @@
 (def *meta-log-box* (JTextArea.))
 (def *problem-log-label* (JLabel. "Problem log"))
 (def *problem-log-box* (JTextArea.))
+(def *results-checkboxes* {})
+(def *results-checkboxes-panel* (JPanel.))
 
 ;; from http://stuartsierra.com/2010/01/08/agents-of-swing
 (defmacro with-action [component event & body]
@@ -129,7 +132,9 @@
 
 (defn get-results-viewport
   []
-  (let [headers (get-headers *problem*)
+  (let [headers (filter (fn [h] (if-let [cb (get *results-checkboxes* h)]
+                                  (.getState cb)))
+                        (get-headers *problem*))
         results-matrix (map (fn [r] (map (fn [h] (h r)) headers))
                             (:results *or-state*))]
     (doto (JViewport.)
@@ -142,6 +147,34 @@
 (defn update-results
   []
   (. *results-scrollpane* (setViewport (get-results-viewport))))
+
+(defn get-results-checkboxes
+  []
+  (reduce (fn [m h] (let [cb (Checkbox. (name h) true)]
+                      (. cb addItemListener
+                         (proxy [java.awt.event.ItemListener] []
+                           (itemStateChanged [_] (update-results))))
+                      (assoc m h cb)))
+          {} (get-headers *problem*)))
+
+(defn get-results-checkboxes-panel
+  []
+  (loop [p (JPanel. (WrapLayout. FlowLayout/LEFT))
+         cbs (get-headers *problem*)]
+    (if (empty? cbs) p
+        (recur (doto p (.add (get *results-checkboxes* (first cbs)))) (rest cbs)))))
+
+(defn get-results-tab
+  []
+  (doto (JPanel. (GridBagLayout.))
+    (grid-bag-layout
+     :fill :BOTH, :insets (Insets. 5 5 5 5)
+
+     :gridx 0, :gridy 0, :weightx 1.0, :weighty 1.0
+     *results-scrollpane*
+
+     :gridx 0, :gridy 1, :weighty 0.0
+     *results-checkboxes-panel*)))
 
 (defn update-everything
   [or-state]
@@ -292,7 +325,7 @@
        (.addTab "Problem diagram" *problem-diagram*)
        (.addTab "Epistemic state tree" *ep-tree-scrollpane*)
        (.addTab "Logs" *logs-tab*)
-       (.addTab "Results" *results-scrollpane*)
+       (.addTab "Results" (get-results-tab))
        (.setSelectedIndex 0))
      
      :gridx 1, :gridy 0, :gridheight 1, :gridwidth 2
@@ -330,6 +363,8 @@
   (def *problem-diagram* ((:get-diagram-fn (:player-fns problem))))
   (def *problem-params-panel* ((:get-params-panel-fn (:player-fns problem))))
   (def *problem-stats-panel* ((:get-stats-panel-fn (:player-fns problem))))
+  (def *results-checkboxes* (get-results-checkboxes))
+  (def *results-checkboxes-panel* (get-results-checkboxes-panel))
 
   (def *mainframe* (get-mainframe))
   
