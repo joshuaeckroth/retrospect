@@ -5,7 +5,8 @@
 		 [incanter "1.2.3-SNAPSHOT"]
 		 [org.clojars.choas/clojure-hadoop "1.2.1-SNAPSHOT"]
                  [org.clojars.overtone/vijual "0.2.1"]]
-  :dev-dependencies [[swank-clojure "1.2.1"]]
+  :dev-dependencies [[swank-clojure "1.2.1"] [org.clojars.rayne/autodoc "0.8.0-SNAPSHOT"]]
+  :autodoc { :name "SIMULATOR", :page-title "SIMULATOR API Documentation"}
   :main simulator.core
   :source-path "src/main/java"
   :test-path "src/test/java"
