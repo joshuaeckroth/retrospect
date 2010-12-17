@@ -1,4 +1,6 @@
-(ns simulator.meta.actions)
+(ns simulator.meta.actions
+  (:use [simulator.epistemicstates :only
+         [new-branch-ep-state current-ep-state update-ep-state-tree]]))
 
 (defn do-nothing
   [or-state]
@@ -6,6 +8,28 @@
 
 (defn switch-states
   [ep-state or-state])
+
+(defn change-strategy
+  [strategy workspace or-state]
+  (let [
+        ;; branch the tree
+        branched-ep-state-tree (new-branch-ep-state
+                                (:ep-state-tree or-state)
+                                (:ep-state or-state)
+                                (:ep-state or-state))
+
+        ;; put the workspace into the new branched ep-state
+        new-ep-state (assoc (current-ep-state branched-ep-state-tree)
+                       :workspace workspace)
+
+        ;; update the tree
+        ep-state-tree (update-ep-state-tree branched-ep-state-tree new-ep-state)]
+
+    ;; put the tree in the or-state
+    (assoc or-state
+      :ep-state-tree ep-state-tree
+      :ep-state (current-ep-state ep-state-tree)
+      :operative-strategy strategy)))
 
 (defn delete-least-conf
   [or-state])

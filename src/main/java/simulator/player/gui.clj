@@ -128,7 +128,8 @@
     (. *abduction-log-box* setText
        (apply str (interpose "\n" (map str (:abducer-log (:workspace ep-state))))))
     (. *meta-log-box* setText
-       (apply str (interpose "\n" (map str (:meta-log *or-state*)))))))
+       (apply str (interpose "\n---\n" (map (fn [ls] (apply str (interpose "\n" (map str ls))))
+                                          (:meta-log *or-state*)))))))
 
 (defn get-results-viewport
   []

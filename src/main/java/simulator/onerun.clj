@@ -10,10 +10,10 @@
           list-ep-states
           count-branches]])
   (:use [simulator.strategies.composite :only [strategy-info]])
+  (:use [simulator.strategies.explain :only [explain-recursive]])
   (:use [simulator.meta.hypotheses :only
-         [generate-meta-hypotheses generate-ep-state-hyp]])
-  (:use [simulator.workspaces :only
-         [init-workspace add-hyp force-acceptance unexplained-helper get-explainers]])
+         [generate-meta-hypotheses]])
+  (:use [simulator.workspaces :only [init-workspace]])
   (:use [simulator.sensors :only [update-sensors]])
   (:use [simulator.confidences])
   (:use [clojure.set]))
@@ -76,26 +76,14 @@
                       :StrategyMilliseconds (:milliseconds (:resources or-state))
                       :StrategyMemory (:memory (:resources or-state))))))
 
-(defn explain-recursive
-  [workspace funcs]
-  (loop [fs funcs
-         ws workspace]
-    (if (empty? fs) ws
-        (let [ws2 ((first fs) ws)]
-          (if ws2
-            (recur fs ws2)
-            (recur (rest fs) ws))))))
-
 (defn explain-meta
   [or-state]
-  (let [ep-state-hyp (generate-ep-state-hyp (:ep-state or-state))
-        workspace (-> (init-workspace)
-                      (add-hyp ep-state-hyp [])
-                      (force-acceptance ep-state-hyp)
-                      (generate-meta-hypotheses ep-state-hyp)
+  (let [workspace (-> (init-workspace)
+                      (generate-meta-hypotheses or-state)
                       (explain-recursive
-                       (:funcs (get strategy-info (:operative-meta-strategy or-state)))))]
-    (reduce (fn [ors action] (action ors)) or-state
+                       (:funcs (get strategy-info (:operative-meta-strategy or-state)))))
+        ors (update-in or-state [:meta-log] conj (:abducer-log workspace))]
+    (reduce (fn [ors action] (action ors)) ors
             (map :action (:hyps (:decision workspace))))))
 
 (defn explain

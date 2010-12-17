@@ -4,7 +4,7 @@
   (:require [simulator.workspaces :as ws :only
              [init-workspace accept-workspace-decision get-decision-confidence
               update-decision-confidence log-final-accepted-hyps add-hyp
-              force-acceptance]])
+              force-acceptance reset-confidences-to-apriori]])
   (:use [simulator.confidences])
   (:require [clojure.zip :as zip])
   (:require [clojure.set :as set])
@@ -189,9 +189,11 @@
   [ep-state-tree ep-state branch]
   (let [ep-tree (update-decision ep-state-tree ep-state)
         ep (clone-ep-state branch (make-ep-state-id ep-tree) [])
+
+        ep-apriori (update-in ep [:workspace] ws/reset-confidences-to-apriori)
         
         ;; clear the decision, except for what was forced
-        ep-no-dec (update-in ep [:workspace] ws/clear-decision)
+        ep-no-dec (update-in ep-apriori [:workspace] ws/clear-decision)
 
         ;; make a branch; the choice of "insert-right" over "insert-left" here
         ;; is what makes (list-ep-states) possible, since depth-first search

@@ -114,7 +114,7 @@
 
 (defn reset-confidences-to-apriori
   [workspace]
-  (let [hyps (:hyps (:decision workspace))
+  (let [hyps (:hypothesized workspace)
         hypspace (reduce (fn [hs h] (hyps/set-confidence hs h (hyps/get-apriori h)))
                          (:hypspace workspace) hyps)]
     (reduce (fn [ws h] (add-hyp-log-msg ws h "Resetting confidence back to apriori value."))
@@ -133,8 +133,12 @@
     (-> workspace
 	(update-in [:hypothesized] conj hyp)
 	(assoc :hypspace hypspace)
-        (add-abducer-log-msg [hyp] "Adding hypothesis.")
-        (add-hyp-log-msg hyp "Adding hypothesis."))))
+        (add-abducer-log-msg
+         [hyp] (format "Adding hypothesis (apriori=%s)."
+                       (confidence-str (hyps/get-apriori hyp))))
+        (add-hyp-log-msg
+         hyp (format "Adding hypothesis (apriori=%s)."
+                     (confidence-str (hyps/get-apriori hyp)))))))
 
 (defn add-mutual-conflicts
   [workspace hyps]
@@ -202,9 +206,8 @@
   ([type workspace hyps]
      (cond (= :smartguess type)
            (let [hs (:hypspace workspace)
-                 threshold (first (sort (map (fn [h] (hyps/get-confidence hs h))
-                                             hyps)))]
-             (rand-nth (vec (filter (fn [h] (= threshold (hyps/get-confidence hs h))) hyps))))
+                 threshold (apply max (map #(hyps/get-confidence hs %) hyps))]
+             (rand-nth (vec (filter #(= threshold (hyps/get-confidence hs %)) hyps))))
            
            :else
            (choose-random-hyp hyps))))
