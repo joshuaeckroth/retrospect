@@ -12,7 +12,6 @@
   (:use [simulator.problem :only [get-headers]])
   (:use [simulator.player.state])
   (:use [simulator.strategies.composite :only [strategies]])
-  (:use [simulator.strategies.metastrategies :only [meta-strategies]])
   (:use [simulator.onerun :only [init-one-run-state run-simulation-step]])
   (:use [simulator.epistemicstates :only [draw-ep-state-tree list-ep-states
                                           current-ep-state goto-ep-state
@@ -79,8 +78,8 @@
 (def *param-combobox*
   {:Strategy {:elements strategies
               :combobox (JComboBox. (to-array strategies))}
-   :MetaStrategy {:elements meta-strategies
-                  :combobox (JComboBox. (to-array meta-strategies))}})
+   :MetaStrategy {:elements strategies
+                  :combobox (JComboBox. (to-array strategies))}})
 
 (defn get-params
   []

@@ -10,7 +10,10 @@
           list-ep-states
           count-branches]])
   (:use [simulator.strategies.composite :only [strategy-info]])
-  (:use [simulator.strategies.metastrategies :only [meta-strategy-funcs]])
+  (:use [simulator.meta.hypotheses :only
+         [generate-meta-hypotheses generate-ep-state-hyp]])
+  (:use [simulator.workspaces :only
+         [init-workspace add-hyp force-acceptance unexplained-helper get-explainers]])
   (:use [simulator.sensors :only [update-sensors]])
   (:use [simulator.confidences])
   (:use [clojure.set]))
@@ -37,15 +40,9 @@
                   ep-state-tree (current-ep-state ep-state-tree))))
 
 (defn init-one-run-states
-  [strategies meta-strategies sensors problem-data]
-  (doall (for [s strategies ms meta-strategies]
+  [strategies sensors problem-data]
+  (doall (for [s strategies ms strategies]
            (init-one-run-state s ms sensors problem-data))))
-
-(defn attempt-meta-abduction
-  [or-state]
-  "Return new or-state if there is a new one."
-  (if-let [ors ((get meta-strategy-funcs (:operative-meta-strategy or-state)) or-state)]
-    ors))
 
 (defn update-one-run-state
   ([or-state ep-state]
@@ -89,13 +86,25 @@
             (recur fs ws2)
             (recur (rest fs) ws))))))
 
-(defn explain
+(defn explain-meta
   [or-state]
+  (let [ep-state-hyp (generate-ep-state-hyp (:ep-state or-state))
+        workspace (-> (init-workspace)
+                      (add-hyp ep-state-hyp [])
+                      (force-acceptance ep-state-hyp)
+                      (generate-meta-hypotheses ep-state-hyp)
+                      (explain-recursive
+                       (:funcs (get strategy-info (:operative-meta-strategy or-state)))))]
+    (reduce (fn [ors action] (action ors)) or-state
+            (map :action (:hyps (:decision workspace))))))
+
+(defn explain
   "Takes a OneRunState with sensors that have sensed and
    an epistemic state that has the problem's hypotheses.
    Returns a OneRunState in which the current epistemic state
    has accepted a decision (possibly after a few steps of
    meta-abduction)."
+  [or-state]
   (let [start-time (. System (nanoTime))
         workspace (explain-recursive
                    (:workspace (:ep-state or-state))
@@ -105,19 +114,19 @@
                         (/ (- (. System (nanoTime)) start-time)
                            1000000.0))
         ors (update-in (update-one-run-state or-state ep-state)
-                       [:resources] assoc :milliseconds milliseconds)]
-    (if-let [ors2 (attempt-meta-abduction ors)]
-      (explain (update-in ors2 [:resources :meta-abductions] inc))
-      (proceed-one-run-state ors ep-state))))
+                       [:resources] assoc :milliseconds milliseconds)
+        ors-meta (explain-meta ors)
+        ep-state-meta (:ep-state ors-meta)]
+    (proceed-one-run-state ors-meta ep-state-meta)))
 
 (defn run-simulation-step
-  [problem truedata or-state params start-time]
   "Updates the OneRunState so that the sensors have sensed the events
    at the current time step, and the problem has generated hypotheses;
    then runs the abduction machinery (the (explain) function), next
    updates the problem data based on the new (post-decision) epistemic
    state, and returns a OneRunState in which the accepted decision has
    been evaluated."
+  [problem truedata or-state params start-time]
   (let [time (:time (:ep-state or-state))
         sensors (update-sensors (:sensors or-state) (get truedata time) time)
         ep-state ((:gen-hyps-fn problem) (:ep-state or-state) sensors params)

@@ -50,8 +50,8 @@
     (assoc hypspace :explains newexplains)))
 
 (defn add-explainers
-  [hypspace hyps es]
   "Record that each of 'hyps' is explained by each of 'es'."
+  [hypspace hyps es]
   (reduce
    (fn [hs hyp]
      (let [origexplainers (get (:explainers hs) hyp)
@@ -111,8 +111,8 @@
   (set-confidence hypspace hyp (min VERY-IMPLAUSIBLE (get-confidence hypspace hyp))))
 
 (defn explained?
-  [hypspace hyp hyps]
   "Is 'hyp' explained by 'hyps'? Does not support composite explainers."
+  [hypspace hyp hyps]
   (let [explainers (get (:explainers hypspace) hyp)]
     (if (or (nil? explainers) (empty? explainers)) true ;; no explainers == explained
 	(loop [es explainers]
@@ -126,8 +126,8 @@
 
 ;; does not work for composite essentials
 (defn find-essentials
-  [hypspace hyps]
   "Returns a collection with items like {:hyp h :essential e}."
+  [hypspace hyps]
   (doall (map (fn [{h :hyp es :explainers}] {:hyp h :essential (first es)})
               (filter #(= 1 (count (:explainers %)))
                       (doall (map (fn [h] {:hyp h
@@ -139,8 +139,8 @@
   (reduce union (doall (map #(get-conflicts hypspace %) hyps))))
 
 (defn find-best
-  [hypspace hyps threshold type]
   "Returns a collection with items like {:hyp h :best e :conf c}"
+  [hypspace hyps threshold type]
   (filter identity
 	  (doall (for [h hyps]
                    (let [explainers (get-explainers hypspace h)

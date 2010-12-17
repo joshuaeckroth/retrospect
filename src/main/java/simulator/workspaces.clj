@@ -124,6 +124,7 @@
             hyps)))
 
 (defn add-hyp
+  "explained must be a sequence."
   [workspace hyp explained]
   (let [hypspace (-> (:hypspace workspace)
 		     (update-in [:hyps] conj hyp)
@@ -219,6 +220,10 @@
 (defn get-explainers
   [workspace hyp]
   (hyps/get-explainers (:hypspace workspace) hyp))
+
+(defn get-explains
+  [workspace hyp]
+  (hyps/get-explains (:hypspace workspace) hyp))
 
 (defn find-essentials
   [workspace]

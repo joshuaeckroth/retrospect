@@ -1,7 +1,6 @@
 (ns simulator.problem
   (:use [simulator.onerun :only [init-one-run-states run-simulation]])
-  (:use [simulator.strategies.composite :only [strategies]])
-  (:use [simulator.strategies.metastrategies :only [meta-strategies]]))
+  (:use [simulator.strategies.composite :only [strategies]]))
 
 (def avg-fields
   [:Milliseconds :Steps
@@ -15,7 +14,7 @@
   [problem params]
   (let [truedata ((:truedata-fn problem) params)
         sensors ((:sensor-gen-fn problem) params)
-        or-states (init-one-run-states strategies meta-strategies sensors
+        or-states (init-one-run-states strategies sensors
                                        (:initial-problem-data problem))]
     (doall (for [ors or-states]
              ;; get last result set from each run
@@ -28,7 +27,7 @@
 (defn average-strategies
   [problem params n]
   (let [results (run-strategies-many problem params n)]
-    (doall (for [s strategies ms meta-strategies]
+    (doall (for [s strategies ms strategies]
              (let [rs (filter #(and (= ms (:MetaStrategy %))
                                     (= s (:Strategy %))) results)
             
