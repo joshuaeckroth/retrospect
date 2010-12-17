@@ -172,20 +172,43 @@
                              (get-headers *problem*)))
                 (:results *or-state*))))
 
+(def *results-graph-x-dropdown* (JComboBox.))
+
+(defn get-results-graph-x-dropdown
+  []
+  (def *results-graph-x-dropdown*
+    (JComboBox. (to-array (map name (get-headers *problem*))))))
+
+(def *results-graph-y-dropdown* (JComboBox.))
+
+(defn get-results-graph-y-dropdown
+  []
+  (def *results-graph-y-dropdown*
+    (JComboBox. (to-array (map name (get-headers *problem*))))))
+
+(def *results-graph* nil)
+
 (defn paint-results-graph
   [g]
-  (let [data (results-to-dataset)]
-    (if (< 1 (nrow data))
-      (let [graph (with-data (results-to-dataset)
-                    (scatter-plot
-                     :AvgWalk
-                     :PercentEventsCorrect))]
-        (.draw graph g (.getClipBounds g))))))
+  (if *results-graph*
+    (.draw *results-graph* g (.getClipBounds g))))
 
-(def *results-graph*
+(def *results-graph-panel*
   (proxy [JPanel] []
     (getPreferredSize [] (Dimension. 300 300))
     (paint [g] (paint-results-graph g))))
+
+(defn update-results-graph
+  []
+  (let [data (results-to-dataset)]
+    (if (< 1 (nrow data))
+      (def *results-graph*
+        (let [x-axis (keyword (.getSelectedItem *results-graph-x-dropdown*))
+              y-axis (keyword (.getSelectedItem *results-graph-y-dropdown*))]
+          (with-data (results-to-dataset)
+            (scatter-plot x-axis y-axis :x-label (name x-axis) :y-label (name y-axis)))))
+      (def *results-graph* nil)))
+  (.repaint *results-graph-panel*))
 
 (defn get-results-tab
   []
@@ -193,13 +216,32 @@
     (grid-bag-layout
      :fill :BOTH, :insets (Insets. 5 5 5 5)
 
-     :gridx 0, :gridy 0, :weightx 1.0, :weighty 1.0
+     :gridx 0, :gridy 0, :weightx 1.0, :weighty 1.0, :gridwidth 5
      *results-scrollpane*
 
-     :gridx 0, :gridy 1, :weighty 1.0
-     *results-graph*
+     :gridx 0, :gridy 1, :weightx 0.0, :weighty 0.0, :gridwidth 1
+     (JLabel. "x-axis:")
 
-     :gridx 0, :gridy 2, :weighty 0.0
+     :gridx 1
+     (doto *results-graph-x-dropdown*
+       (. addItemListener (proxy [java.awt.event.ItemListener] []
+                            (itemStateChanged [_] (update-results-graph)))))
+
+     :gridx 2
+     (JLabel. "y-axis:")
+
+     :gridx 3
+     (doto *results-graph-y-dropdown*
+       (. addItemListener (proxy [java.awt.event.ItemListener] []
+                            (itemStateChanged [_] (update-results-graph)))))
+
+     :gridx 4, :weightx 1.0
+     (JPanel.)
+
+     :gridx 0, :gridy 2, :weightx 1.0, :weighty 1.0, :gridwidth 5
+     *results-graph-panel*
+
+     :gridx 0, :gridy 3, :weighty 0.0
      *results-checkboxes-panel*)))
 
 (defn update-everything
@@ -218,7 +260,7 @@
   (update-goto-ep-state-combobox)
   (update-ep-tree-diagram)
   (update-results)
-  (.repaint *results-graph*)
+  (update-results-graph)
   (.repaint *problem-diagram*)
   ((:update-stats-fn (:player-fns *problem*)))
   (update-logs))
@@ -235,8 +277,17 @@
 
 (defn step
   []
-  (let [or-state (run-simulation-step *problem* *truedata* *or-state* *params* 0)]
-    (update-everything or-state)))
+  (let [or-state (run-simulation-step *problem* *truedata* *or-state* *params*
+                                      (. System (nanoTime)))]
+    (update-everything
+     (assoc or-state :results
+            (let [milli (:Milliseconds (last (:results or-state)))
+                  prev-milli (:Milliseconds (second (reverse (:results or-state))))]
+              (conj (vec (reverse (rest (reverse (:results or-state)))))
+                    (assoc (last (:results or-state)) :Milliseconds
+                           (if prev-milli
+                             (+ milli prev-milli)
+                             milli))))))))
 
 (defn new-simulation
   []
@@ -386,6 +437,9 @@
 
   (update-problem problem)
   (update-params (get-params))
+
+  (get-results-graph-x-dropdown)
+  (get-results-graph-y-dropdown)
 
   (def *problem-diagram* ((:get-diagram-fn (:player-fns problem))))
   (def *problem-params-panel* ((:get-params-panel-fn (:player-fns problem))))
