@@ -433,7 +433,7 @@
      (JPanel.))))
 
 (defn start-player
-  [problem]
+  [problem & opts]
 
   (update-problem problem)
   (update-params (get-params))
@@ -448,13 +448,16 @@
   (def *results-checkboxes-panel* (get-results-checkboxes-panel))
 
   (def *mainframe* (get-mainframe))
-  
-  (doto *mainframe*
-    (.setDefaultCloseOperation JFrame/EXIT_ON_CLOSE)
-    (.setResizable true)
-    (.pack)
-    (.setSize 900 700)
-    (.show))
+
+  (let [options (apply hash-map opts)]
+    (when (not (:interactive options))
+      (doto *mainframe*
+        (.setDefaultCloseOperation JFrame/EXIT_ON_CLOSE)))
+    (doto *mainframe*
+      (.setResizable true)
+      (.pack)
+      (.setSize 900 700)
+      (.show)))
 
   (new-simulation))
 
