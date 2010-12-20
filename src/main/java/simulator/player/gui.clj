@@ -78,8 +78,8 @@
 (def *param-combobox*
   {:Strategy {:elements strategies
               :combobox (JComboBox. (to-array strategies))}
-   :MetaStrategy {:elements strategies
-                  :combobox (JComboBox. (to-array strategies))}})
+   :MetaStrategy {:elements (conj (seq strategies) "none")
+                  :combobox (JComboBox. (to-array (conj (seq strategies) "none")))}})
 
 (defn get-params
   []
@@ -255,8 +255,8 @@
       (update-time (dec (:time (:ep-state or-state))))
       (. *steplabel* (setText (format "Step: %d" *time*)))))
   (. *operativelabel* (setText (format "Operative: %s+%s"
-                                       (:operative-strategy or-state)
-                                       (:operative-meta-strategy or-state))))
+                                       (:strategy (:ep-state or-state))
+                                       (:meta-strategy or-state))))
   (update-goto-ep-state-combobox)
   (update-ep-tree-diagram)
   (update-results)

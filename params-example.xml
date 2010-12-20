@@ -1,4 +1,8 @@
 <?xml version="1.0" ?>
+<general>
+  <strategies>guess smartguess es-sg es-sb4321-sg</strategies>
+  <meta-strategies>es-sg es-sb4321-sg</meta-strategies>
+</general>
 <problems>
   <problem name="tracking">
     <params>

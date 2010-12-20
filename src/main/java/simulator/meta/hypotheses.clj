@@ -6,7 +6,8 @@
   (:use [simulator.meta.actions])
   (:use [simulator.strategies.composite])
   (:use [simulator.strategies.explain :only [explain-recursive]])
-  (:use [simulator.confidences]))
+  (:use [simulator.confidences])
+  (:use [clojure.set :as set :only [difference]]))
 
 (defrecord EpistemicStateHypothesis [ep-state]
   Hypothesis
@@ -33,7 +34,7 @@
                        (format "MH:%s" s)
                        (measure-decision-confidence ws)
                        (partial change-strategy s ws))))
-                  strategies)]
+                  (set/difference (set strategies) #{(:strategy (:ep-state or-state))}))]
     (reduce (fn [ws h] (add-hyp ws h [ep-state-hyp])) workspace hyps)))
 
 (defn add-accurate-decision-hyp

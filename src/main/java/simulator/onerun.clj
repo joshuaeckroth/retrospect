@@ -21,8 +21,6 @@
 (defrecord OneRunState
     [strategy
      meta-strategy
-     operative-strategy
-     operative-meta-strategy
      meta-log
      resources
      results
@@ -32,16 +30,16 @@
 
 (defn init-one-run-state
   [strategy meta-strategy sensors problem-data]
-  (let [ep-state-tree (init-ep-state-tree problem-data)]
-    (OneRunState. strategy meta-strategy strategy meta-strategy []
+  (let [ep-state-tree (init-ep-state-tree strategy problem-data)]
+    (OneRunState. strategy meta-strategy []
                   {:meta-abductions 0 :compute 0 :milliseconds 0 :memory 0}
                   []
                   sensors
                   ep-state-tree (current-ep-state ep-state-tree))))
 
 (defn init-one-run-states
-  [strategies sensors problem-data]
-  (doall (for [s strategies ms strategies]
+  [strategies meta-strategies sensors problem-data]
+  (doall (for [s strategies ms meta-strategies]
            (init-one-run-state s ms sensors problem-data))))
 
 (defn update-one-run-state
@@ -78,13 +76,14 @@
 
 (defn explain-meta
   [or-state]
-  (let [workspace (-> (init-workspace)
-                      (generate-meta-hypotheses or-state)
-                      (explain-recursive
-                       (:funcs (get strategy-info (:operative-meta-strategy or-state)))))
-        ors (update-in or-state [:meta-log] conj (:abducer-log workspace))]
-    (reduce (fn [ors action] (action ors)) ors
-            (map :action (:hyps (:decision workspace))))))
+  (if (= "none" (:meta-strategy or-state)) or-state
+      (let [workspace (-> (init-workspace)
+                          (generate-meta-hypotheses or-state)
+                          (explain-recursive
+                           (:funcs (get strategy-info (:meta-strategy or-state)))))
+            ors (update-in or-state [:meta-log] conj (:abducer-log workspace))]
+        (reduce (fn [ors action] (action ors)) ors
+                (map :action (:hyps (:decision workspace)))))))
 
 (defn explain
   "Takes a OneRunState with sensors that have sensed and
@@ -96,7 +95,7 @@
   (let [start-time (. System (nanoTime))
         workspace (explain-recursive
                    (:workspace (:ep-state or-state))
-                   (:funcs (get strategy-info (:operative-strategy or-state))))
+                   (:funcs (get strategy-info (:strategy (:ep-state or-state)))))
         ep-state (assoc (:ep-state or-state) :workspace workspace)
         milliseconds (+ (:milliseconds (:resources or-state))
                         (/ (- (. System (nanoTime)) start-time)

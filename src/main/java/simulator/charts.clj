@@ -3,8 +3,7 @@
   (:use [incanter.charts])
   (:use [incanter.io])
   (:use [incanter.stats :as stats])
-  (:use [simulator.strategies.composite :only [strategies strategy-info]])
-  (:use [simulator.strategies.metastrategies :only [meta-strategies]]))
+  (:use [simulator.strategies.composite :only [strategies strategy-info]]))
 
 (defn get-strat-regression
   [series strategy meta-strategy data x y strategy-regression]
@@ -24,7 +23,7 @@
     (let [strats-with-data-noseries
           (filter (fn [{s :strategy ms :meta-strategy}]
                     (< 1 (nrow ($where {:Strategy s :MetaStrategy ms}))))
-                  (for [s strategies ms meta-strategies] {:strategy s :meta-strategy ms}))
+                  (for [s strategies ms strategies] {:strategy s :meta-strategy ms}))
           strats-with-data
           (for [i (range (count strats-with-data-noseries))]
             {:series i

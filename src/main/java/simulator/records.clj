@@ -22,25 +22,35 @@
   "Reads parameters from params XML file for a certain problem. Result
   is a map like {:SensorCoverage [0 10 20], :BeliefNoise [0 10 20]}"
   (let [xmltree (zip/xml-zip (xml/parse (File. paramsfile)))
-	paramstree (zf/xml-> xmltree :problem (attr= :name (:name problem))
+        strategies
+        (re-seq #"[\w-]+" (first (zf/xml-> xmltree :general :strategies text)))
+        meta-strategies
+        (re-seq #"[\w-]+" (first (zf/xml-> xmltree :general :meta-strategies text)))
+
+	probtree (zf/xml-> xmltree :problems :problem (attr= :name (:name problem))
 			     :params children)
-	paramsmaps (apply merge (map (fn [p] {(first (zf/xml-> p tag))
-					      (first (xml-> p attrs))}) paramstree))
-	paramtags (keys paramsmaps)
+	probmaps (apply merge (map (fn [p] {(first (zf/xml-> p tag))
+                                            (first (xml-> p attrs))}) probtree))
+	probtags (keys probmaps)
 	get-value (fn [pm p k] (Integer/parseInt (k (p pm))))
-	update-with-range (fn [pm paramtag]
-			    (assoc pm paramtag
-				   (range (get-value paramsmaps paramtag :start)
-					  (inc (get-value paramsmaps paramtag :end))
-					  (get-value paramsmaps paramtag :step))))]
-    (reduce update-with-range {} paramtags)))
+	update-with-range (fn [pm probtag]
+			    (assoc pm probtag
+				   (range (get-value probmaps probtag :start)
+					  (inc (get-value probmaps probtag :end))
+					  (get-value probmaps probtag :step))))]
+    ;; must put Strategies/MetaStrategies in a sequence so that they don't get
+    ;; individually expanded by (explode-params) (it's easier to fix it here
+    ;; than there)
+    (merge {:Strategies [strategies] :MetaStrategies [meta-strategies]}
+           (reduce update-with-range {} probtags))))
 
 (defn explode-params
+  "Want {:Xyz [1 2 3], :Abc [3 4]} to become [{:Xyz 1, :Abc 3}, {:Xyz 2, :Abc 4}, ...]"
   [params]
   {:pre [(not (empty? params))]}
-  "Want {:Xyz [1 2 3], :Abc [3 4]} to become [{:Xyz 1, :Abc 3}, {:Xyz 2, :Abc 4}, ...]"
   (if (= 1 (count params))
-    (for [v (second (first params))] {(first (first params)) v})
+    (for [v (second (first params))]
+      {(first (first params)) v})
     (let [p (first params)
 	  deeper (explode-params (rest params))]
       (flatten (map (fn [v] (map #(assoc % (first p) v) deeper)) (second p))))))

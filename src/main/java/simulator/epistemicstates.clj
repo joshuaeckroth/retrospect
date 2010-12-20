@@ -18,19 +18,22 @@
 (defrecord EpistemicState
     [id
      children
+     strategy
      time
      workspace
      log
      problem-data]
   Object
-  (toString [_] (format "%s %d %s" id time
-                        (confidence-str (:confidence (:decision workspace))))))
+  (toString [_] (format "%s %d %s (%s)" id time
+                        (confidence-str (:confidence (:decision workspace)))
+                        strategy)))
 
 (defn clone-ep-state
   [ep-state id children]
   (EpistemicState.
    id
    children
+   (:strategy ep-state)
    (:time ep-state)
    (:workspace ep-state)
    (:log ep-state)
@@ -68,10 +71,10 @@
            (recur (- i 26) (str id (char (+ 65 (mod i 26))))))))))
 
 (defn init-ep-state-tree
-  [pdata]
+  [strategy pdata]
   (zip/down
    (zip-ep-state-tree
-    [(EpistemicState. (make-ep-state-id) [] 0
+    [(EpistemicState. (make-ep-state-id) [] strategy 0
                       (ws/init-workspace)
                       []
                       pdata)])))
@@ -153,6 +156,7 @@
   (EpistemicState.
    id
    []
+   (:strategy ep-state)
    (inc (:time ep-state))
    (ws/accept-workspace-decision (:workspace ep-state))
    []

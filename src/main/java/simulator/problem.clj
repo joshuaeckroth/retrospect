@@ -14,7 +14,8 @@
   [problem params]
   (let [truedata ((:truedata-fn problem) params)
         sensors ((:sensor-gen-fn problem) params)
-        or-states (init-one-run-states strategies sensors
+        or-states (init-one-run-states (:Strategies params) (:MetaStrategies params)
+                                       sensors
                                        (:initial-problem-data problem))]
     (doall (for [ors or-states]
              ;; get last result set from each run
@@ -27,7 +28,7 @@
 (defn average-strategies
   [problem params n]
   (let [results (run-strategies-many problem params n)]
-    (doall (for [s strategies ms strategies]
+    (doall (for [s (:Strategies params) ms (:MetaStrategies params)]
              (let [rs (filter #(and (= ms (:MetaStrategy %))
                                     (= s (:Strategy %))) results)
             

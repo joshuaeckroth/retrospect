@@ -18,9 +18,10 @@
                                 (:ep-state or-state)
                                 (:ep-state or-state))
 
-        ;; put the workspace into the new branched ep-state
+        ;; put the workspace & strategy into the new branched ep-state
         new-ep-state (assoc (current-ep-state branched-ep-state-tree)
-                       :workspace workspace)
+                       :workspace workspace
+                       :strategy strategy)
 
         ;; update the tree
         ep-state-tree (update-ep-state-tree branched-ep-state-tree new-ep-state)]
@@ -28,8 +29,7 @@
     ;; put the tree in the or-state
     (assoc or-state
       :ep-state-tree ep-state-tree
-      :ep-state (current-ep-state ep-state-tree)
-      :operative-strategy strategy)))
+      :ep-state (current-ep-state ep-state-tree))))
 
 (defn delete-least-conf
   [or-state])
