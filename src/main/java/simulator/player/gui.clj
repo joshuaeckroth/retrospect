@@ -1,7 +1,6 @@
 (ns simulator.player.gui
   (:import [misc WrapLayout])
-  (:import [java.awt Color])
-  (:import (java.awt GridBagLayout FlowLayout Insets Dimension Checkbox))
+  (:import (java.awt Color GridBagLayout FlowLayout Insets Dimension Checkbox))
   (:import (java.awt.image BufferedImage))
   (:import (javax.swing JPanel JFrame JButton JTextField JTextArea
 			JLabel JScrollPane JSpinner SpinnerNumberModel JComboBox
@@ -11,7 +10,6 @@
   (:use [incanter.charts :only [scatter-plot]])
   (:use [simulator.problem :only [get-headers]])
   (:use [simulator.player.state])
-  (:use [simulator.strategies.composite :only [strategies]])
   (:use [simulator.onerun :only [init-one-run-state run-simulation-step]])
   (:use [simulator.epistemicstates :only [draw-ep-state-tree list-ep-states
                                           current-ep-state goto-ep-state
@@ -24,7 +22,6 @@
 (def *problem-stats-panel* nil)
 
 (def *steplabel* (JLabel. "Step: "))
-(def *operativelabel* (JLabel. "Operative: "))
 (def *goto-ep-state-combobox* (JComboBox. (to-array "")))
 
 (def *ep-tree* (BufferedImage. 1 1 (. BufferedImage TYPE_4BYTE_ABGR)))
@@ -75,11 +72,8 @@
    :SensorReportNoise (JSpinner. (SpinnerNumberModel. 0 0 100 10))
    :BeliefNoise (JSpinner. (SpinnerNumberModel. 0 0 100 10))})
 
-(def *param-combobox*
-  {:Strategy {:elements strategies
-              :combobox (JComboBox. (to-array strategies))}
-   :MetaStrategy {:elements (conj (seq strategies) "none")
-                  :combobox (JComboBox. (to-array (conj (seq strategies) "none")))}})
+(def *param-checkbox*
+  {:MetaAbduction (Checkbox.)})
 
 (defn get-params
   []
@@ -90,9 +84,8 @@
            (for [k (keys *param-spinners*)]
              [k (->> (k *param-spinners*)
                      .getModel .getNumber .intValue)])
-           (for [k (keys *param-combobox*)]
-             [k (nth (:elements (k *param-combobox*))
-                     (.getSelectedIndex (:combobox (k *param-combobox*))))])))))
+           (for [k (keys *param-checkbox*)]
+             [k (.getState (k *param-checkbox*))])))))
 
 (defn get-ep-tree-viewport
   []
@@ -254,9 +247,7 @@
     (do
       (update-time (dec (:time (:ep-state or-state))))
       (. *steplabel* (setText (format "Step: %d" *time*)))))
-  (. *operativelabel* (setText (format "Operative: %s+%s"
-                                       (:strategy (:ep-state or-state))
-                                       (:meta-strategy or-state))))
+  
   (update-goto-ep-state-combobox)
   (update-ep-tree-diagram)
   (update-results)
@@ -292,11 +283,10 @@
 (defn new-simulation
   []
   (let [params (get-params)
-	strategy (:Strategy params)
-        meta-strategy (:MetaStrategy params)
+        meta-abduction (:MetaAbduction params)
         sensors ((:sensor-gen-fn *problem*) params)
         truedata ((:truedata-fn *problem*) params)
-        or-state (init-one-run-state strategy meta-strategy sensors
+        or-state (init-one-run-state meta-abduction sensors
                                      (:initial-problem-data *problem*))]
     (update-params params)
     (update-sensors sensors)
@@ -327,30 +317,26 @@
   (doto (JPanel. (GridBagLayout.))
     (grid-bag-layout
      :fill :BOTH, :insets (Insets. 5 5 5 5)
+     :gridwidth 1
      
-     :gridx 0, :gridy 0, :gridwidth 1
-     (JLabel. "Strategy:")
-     :gridx 0, :gridy 1, :gridwidth 2
-     (:combobox (:Strategy *param-combobox*))
+     :gridx 0, :gridy 0
+     (JLabel. "MetaAbduction:")
+     :gridx 1, :gridy 0
+     (:MetaAbduction *param-checkbox*)
 
-     :gridx 0, :gridy 2, :gridwidth 1
-     (JLabel. "Meta-strategy:")
-     :gridx 0, :gridy 3, :gridwidth 2
-     (:combobox (:MetaStrategy *param-combobox*))
-
-     :gridx 0, :gridy 4, :gridwidth 1
+     :gridx 0, :gridy 1
      (JLabel. "Steps:")
-     :gridx 1, :gridy 4
+     :gridx 1, :gridy 1
      (:Steps *param-spinners*)
      
-     :gridx 0, :gridy 5
+     :gridx 0, :gridy 2
      (JLabel. "SensorReportNoise:")
-     :gridx 1, :gridy 5
+     :gridx 1, :gridy 2
      (:SensorReportNoise *param-spinners*)
      
-     :gridx 0, :gridy 6
+     :gridx 0, :gridy 3
      (JLabel. "BeliefNoise:")
-     :gridx 1, :gridy 6
+     :gridx 1, :gridy 3
      (:BeliefNoise *param-spinners*))))
 
 (def *stats-panel*
@@ -359,10 +345,7 @@
      :fill :BOTH, :insets (Insets. 5 5 5 5)
      
      :gridx 0, :gridy 0
-     *steplabel*
-
-     :gridx 0, :gridy 1
-     *operativelabel*)))
+     *steplabel*)))
 
 (def *logs-tab*
   (doto (JPanel. (GridBagLayout.))

@@ -1,28 +1,26 @@
 <?xml version="1.0" ?>
-<general>
-  <strategies>guess smartguess es-sg es-sb4321-sg</strategies>
-  <meta-strategies>es-sg es-sb4321-sg</meta-strategies>
-</general>
-<problems>
-  <problem name="tracking">
-    <params>
-      <Steps start="40" end="40" step="1" />
-      <NumberEntities start="4" end="4" step="10" />
-      <MaxWalk start="1" end="10" step="3" />
-      <ProbNewEntities start="0" end="10" step="10" />
-      <ProbMovement start="0" end="100" step="50" />
-      <SensorReportNoise start="0" end="0" step="1" />
-      <BeliefNoise start="0" end="0" step="1" />
-      <GridWidth start="10" end="10" step="1" />
-      <GridHeight start="10" end="10" step="1" />
-      <SensorCoverage start="100" end="100" step="50" />
-    </params>
-  </problem>
-  <problem name="circuit">
-    <params>
-      <MinGates start="3" end="10" step="1" />
-      <MaxGates start="10" end="30" step="5" />
-      <ProbBroken start="0" end="100" step="20" />
-    </params>
-  </problem>
-</problems>
+<parameters>
+  <problems>
+    <problem name="tracking">
+      <params>
+        <Steps start="20" end="20" step="1" />
+        <NumberEntities start="1" end="20" step="5" />
+        <MaxWalk start="1" end="11" step="5" />
+        <ProbNewEntities start="0" end="0" step="10" />
+        <ProbMovement start="100" end="100" step="50" />
+        <SensorReportNoise start="0" end="0" step="1" />
+        <BeliefNoise start="0" end="0" step="1" />
+        <GridWidth start="10" end="10" step="1" />
+        <GridHeight start="10" end="10" step="1" />
+        <SensorCoverage start="60" end="100" step="20" />
+      </params>
+    </problem>
+    <problem name="circuit">
+      <params>
+        <MinGates start="3" end="10" step="1" />
+        <MaxGates start="10" end="30" step="5" />
+        <ProbBroken start="0" end="100" step="20" />
+      </params>
+    </problem>
+  </problems>
+</parameters>

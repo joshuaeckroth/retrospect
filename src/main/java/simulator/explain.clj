@@ -1,5 +1,8 @@
-(ns simulator.strategies.substrategies
-  (:use [simulator.workspaces]))
+(ns simulator.explain
+  (:use [simulator.workspaces :only
+         [unexplained-helper choose-random-hyp
+          get-explainers accept-explainer-type
+          find-essentials find-best]]))
 
 (defn guess-type
   [workspace type]
@@ -46,3 +49,20 @@
 (defn smartbest
   [threshold]
   (partial best-threshold threshold :smartbest))
+
+(defn explain-recursive
+  [workspace funcs]
+  (loop [fs funcs
+         ws workspace]
+    (if (empty? fs) ws
+        (let [ws2 ((first fs) ws)]
+          (if ws2
+            (recur fs ws2)
+            (recur (rest fs) ws))))))
+
+(defn explain
+  [workspace]
+  (explain-recursive
+   workspace
+   [essentials (smartbest 4) (smartbest 3)
+    (smartbest 2) (smartbest 1) smartguess]))

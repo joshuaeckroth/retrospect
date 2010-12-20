@@ -4,8 +4,7 @@
          [add-hyp measure-decision-confidence force-acceptance
           clear-decision reset-confidences-to-apriori]])
   (:use [simulator.meta.actions])
-  (:use [simulator.strategies.composite])
-  (:use [simulator.strategies.explain :only [explain-recursive]])
+  (:use [simulator.explain :only [explain-recursive]])
   (:use [simulator.confidences])
   (:use [clojure.set :as set :only [difference]]))
 
@@ -23,20 +22,6 @@
   [ep-state]
   (EpistemicStateHypothesis. ep-state))
 
-(defn add-change-single-strategy-hyps
-  [workspace or-state ep-state-hyp]
-  (let [ws-clone (reset-confidences-to-apriori
-                  (clear-decision (:workspace (:ep-state or-state))))
-        ws-new (fn [s] (explain-recursive ws-clone (:funcs (get strategy-info s))))
-        hyps (map (fn [s]
-                    (let [ws (ws-new s)]
-                      (MetaHypothesis.
-                       (format "MH:%s" s)
-                       (measure-decision-confidence ws)
-                       (partial change-strategy s ws))))
-                  (set/difference (set strategies) #{(:strategy (:ep-state or-state))}))]
-    (reduce (fn [ws h] (add-hyp ws h [ep-state-hyp])) workspace hyps)))
-
 (defn add-accurate-decision-hyp
   [workspace ep-state-hyp]
   (let [apriori (measure-decision-confidence (:workspace (:ep-state ep-state-hyp)))]
@@ -50,5 +35,4 @@
     (-> workspace
         (add-hyp ep-state-hyp [])
         (force-acceptance ep-state-hyp)
-        (add-accurate-decision-hyp ep-state-hyp)
-        (add-change-single-strategy-hyps or-state ep-state-hyp))))
+        (add-accurate-decision-hyp ep-state-hyp))))

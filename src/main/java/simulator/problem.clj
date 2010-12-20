@@ -1,36 +1,34 @@
 (ns simulator.problem
-  (:use [simulator.onerun :only [init-one-run-states run-simulation]])
-  (:use [simulator.strategies.composite :only [strategies]]))
+  (:use [simulator.onerun :only [init-one-run-states run-simulation]]))
 
 (def avg-fields
   [:Milliseconds :Steps
-   :MetaAbductions :StrategyCompute :StrategyMilliseconds :StrategyMemory
+   :MetaAbductions :Compute :Milliseconds :Memory
    :SensorReportNoise :BeliefNoise])
 
 (def non-avg-fields
-  [:Strategy :MetaStrategy])
+  [:MetaAbduction])
 
-(defn run-strategies
+(defn run-comparative
   [problem params]
   (let [truedata ((:truedata-fn problem) params)
         sensors ((:sensor-gen-fn problem) params)
-        or-states (init-one-run-states (:Strategies params) (:MetaStrategies params)
+        or-states (init-one-run-states {:MetaAbduction [true false]}
                                        sensors
                                        (:initial-problem-data problem))]
     (doall (for [ors or-states]
              ;; get last result set from each run
              (last (run-simulation problem truedata ors params))))))
 
-(defn run-strategies-many
+(defn run-many
   [problem params n]
-  (apply concat (for [i (range n)] (run-strategies problem params))))
+  (apply concat (for [i (range n)] (run-comparative problem params))))
 
-(defn average-strategies
+(defn average-runs
   [problem params n]
-  (let [results (run-strategies-many problem params n)]
-    (doall (for [s (:Strategies params) ms (:MetaStrategies params)]
-             (let [rs (filter #(and (= ms (:MetaStrategy %))
-                                    (= s (:Strategy %))) results)
+  (let [results (run-many problem params n)]
+    (doall (for [meta-abduction [true false]]
+             (let [rs (filter #(= meta-abduction (:MetaAbduction %)) results)
             
                    ;; choose any result; 'avg-fields' will be updated
                    result (first rs) 

@@ -22,11 +22,6 @@
   "Reads parameters from params XML file for a certain problem. Result
   is a map like {:SensorCoverage [0 10 20], :BeliefNoise [0 10 20]}"
   (let [xmltree (zip/xml-zip (xml/parse (File. paramsfile)))
-        strategies
-        (re-seq #"[\w-]+" (first (zf/xml-> xmltree :general :strategies text)))
-        meta-strategies
-        (re-seq #"[\w-]+" (first (zf/xml-> xmltree :general :meta-strategies text)))
-
 	probtree (zf/xml-> xmltree :problems :problem (attr= :name (:name problem))
 			     :params children)
 	probmaps (apply merge (map (fn [p] {(first (zf/xml-> p tag))
@@ -38,11 +33,7 @@
 				   (range (get-value probmaps probtag :start)
 					  (inc (get-value probmaps probtag :end))
 					  (get-value probmaps probtag :step))))]
-    ;; must put Strategies/MetaStrategies in a sequence so that they don't get
-    ;; individually expanded by (explode-params) (it's easier to fix it here
-    ;; than there)
-    (merge {:Strategies [strategies] :MetaStrategies [meta-strategies]}
-           (reduce update-with-range {} probtags))))
+    (reduce update-with-range {} probtags)))
 
 (defn explode-params
   "Want {:Xyz [1 2 3], :Abc [3 4]} to become [{:Xyz 1, :Abc 3}, {:Xyz 2, :Abc 4}, ...]"
