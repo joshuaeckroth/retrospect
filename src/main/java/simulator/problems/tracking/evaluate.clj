@@ -5,8 +5,6 @@
   (:use [simulator.epistemicstates :only (current-ep-state)])
   (:use [simulator.problems.tracking.sensors :only
          (measure-sensor-overlap measure-sensor-coverage)])
-  (:use [simulator.problems.tracking.hypotheses :only [update-problem-data]])
-  (:use [simulator.hypotheses :only [get-confidence]])
   (:use [simulator.confidences])
   (:require [clojure.set :as set]))
 
@@ -42,28 +40,30 @@
 
 (defn measure-plausibility-accuracy
   [workspace trueevents]
-  (let [accepted (:accepted workspace)
-        correct-event (fn [h] (if (not (or (= (:type h) "new") (= (:type h) "move"))) false
-                                  (some #(= % (:event h)) trueevents)))
-        correct-frozen (fn [h] (if (not (= (:type h) "frozen")) false
-                                   (not-any? (fn [e] (and (= (:time e) (:time h))
-                                                          (or (= (:oldpos e) (:pos h))
-                                                              (= (:newpos e) (:pos h)))))
+  (let [accepted (doall (filter #(or (= (:type %) :tracking-new)
+                                     (= (:type %) :tracking-move)
+                                     (= (:type %) :tracking-frozen))
+                                (:accepted workspace)))
+        correct-event (fn [h] (if (= (:type h) :tracking-frozen) false
+                                  (some #(= % (:event (:data h))) trueevents)))
+        correct-frozen (fn [h] (if (not (= (:type h) :tracking-frozen)) false
+                                   (not-any? (fn [e] (and (= (:time e)
+                                                             (:time (:event (:data h))))
+                                                          (or (= (:oldpos e)
+                                                                 (:pos (:event (:data h))))
+                                                              (= (:pos e)
+                                                                 (:pos (:event (:data h)))))))
                                              trueevents)))
-        hyps-correct (filter (fn [h]
-                               (and (= (type h)
-                                       simulator.problems.tracking.hypotheses.TrackingHyp)
-                                    (or (correct-event h) (correct-frozen h))))
-                             accepted)
-        hyps-wrong (filter (fn [h] (= (type h)
-                                      simulator.problems.tracking.hypotheses.TrackingHyp))
-                           (set/difference (set accepted) (set hyps-correct)))
-        conf (fn [h] (get-confidence (:hypspace workspace) h))
-        value (fn [h op] (cond (op NEUTRAL (conf h)) 1 (= NEUTRAL (conf h)) 0 :else -1))
+        hyps-correct (doall (filter (fn [h] (or (correct-event h) (correct-frozen h)))
+                                    accepted))
+        hyps-wrong (set/difference (set accepted) (set hyps-correct))
+        value (fn [h op] (cond (op NEUTRAL (:confidence h)) 1
+                               (= NEUTRAL (:confidence h)) 0
+                               :else -1))
         positive (reduce + 0 (map #(value % <) hyps-correct))
         negative (reduce + 0 (map #(value % >) hyps-wrong))]
     (if (empty? (concat hyps-correct hyps-wrong)) 0.0
-      (double (/ (+ positive negative) (count (concat hyps-correct hyps-wrong)))))))
+        (double (/ (+ positive negative) (count (concat hyps-correct hyps-wrong)))))))
 
 (defn evaluate
   [ep-state sensors truedata params]

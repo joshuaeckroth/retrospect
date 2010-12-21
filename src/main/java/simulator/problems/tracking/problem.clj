@@ -5,7 +5,7 @@
   (:use [simulator.problems.tracking.truedata :only (generate-truedata)])
   (:use [simulator.problems.tracking.sensors :only (generate-sensors)])
   (:use [simulator.problems.tracking.hypotheses :only
-         (generate-hypotheses update-problem-data)])
+         (generate-hypotheses)])
   (:use [simulator.problems.tracking.player :only
          [player-get-params player-get-params-panel
           player-get-diagram player-get-stats-panel
@@ -27,40 +27,40 @@
    {:x :MetaAbductions :y :PlausibilityAccuracy :name "meta-abductions-pl-acc"
     :each-reg :linear}
    {:x :PercentEventsCorrect :y :MetaAbductions :name "events-correct-meta-abductions"
-    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 5
+    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 10
     :each-reg :linear}
    {:x :PercentEventsWrong :y :MetaAbductions :name "events-wrong-meta-abductions"
-    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 5
+    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 10
     :each-reg :linear}
    {:x :PercentIdentitiesCorrect :y :MetaAbductions :name "ids-wrong-meta-abductions"
-    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 5
+    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 10
     :each-reg :linear}
    {:x :MetaAbductions :y :Milliseconds :name "meta-abductions-milliseconds"
     :each-reg :linear}
    {:x :PercentEventsCorrect :y :PercentEventsWrong :name "events-correct-wrong"
-    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 5
+    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 10
     :each-reg :linear}
    {:x :NumberEntities :y :PercentEventsCorrect :name "numes-events-correct"
-    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 5
+    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 10
     :y-range [0.0 100.0]
     :each-reg :linear}
    {:x :NumberEntities :y :PercentEventsWrong :name "numes-events-wrong"
-    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 5
+    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 10
     :each-reg :linear}
    {:x :AvgWalk :y :PercentEventsCorrect :name "avgwalk-events"
-    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 5
+    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 10
     :y-range [0.0 100.0]
     :each-reg :linear}
    {:x :NumberEntities :y :PercentIdentitiesCorrect :name "numes-ids"
-    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 5
+    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 10
     :y-range [0.0 100.0]
     :each-reg :linear}
    {:x :AvgWalk :y :PercentIdentitiesCorrect :name "avgwalk-ids"
-    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 5
+    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 10
     :y-range [0.0 100.0]
     :each-reg :linear}
    {:x :AvgWalk :y :Milliseconds :name "avgwalk-milliseconds"
-    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 5
+    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 10
     :regression :linear
     :each-reg :linear}
    {:x :SensorCoverage :y :PercentEventsCorrect :name "coverage-events-correct"
@@ -76,7 +76,6 @@
 (def tracking-problem
   (Problem. "tracking"
             generate-hypotheses
-            update-problem-data
             {:get-params-fn player-get-params
              :get-params-panel-fn player-get-params-panel
              :get-diagram-fn player-get-diagram

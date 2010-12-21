@@ -1,5 +1,7 @@
 (ns simulator.problems.tracking.hypotheses
+  (:require [simulator workspaces])
   (:require [simulator.problems.tracking events entities])
+  (:import [simulator.workspaces Hypothesis])
   (:import [simulator.problems.tracking.events EventNew EventMove EventFrozen])
   (:import [simulator.problems.tracking.entities Entity EntitySnapshot])
   (:use [simulator.problems.tracking.positions :only (manhattan-distance)])
@@ -7,117 +9,138 @@
   (:use [simulator.problems.tracking.eventlog :only
 	 (get-entities add-entity remove-entity add-event update-entity)])
   (:use [simulator.confidences])
-  (:use [simulator.hypotheses :only
-	 [Hypothesis add-explainers get-explainers prob-apriori prob-neg-apriori
-          get-hyp-id-str get-hyp-ids-str]])
   (:use [simulator.epistemicstates :only
          [add-hyp force-acceptance]])
-  (:use [simulator.workspaces :only
-         [add-mutual-conflicts-all-explainers add-mutual-conflicts]])
   (:use [simulator.sensors :only (sensed-at)])
   (:use [clojure.set])
   (:use [clojure.contrib.math :as math :only [ceil]]))
 
-(defrecord TrackingHyp [id apriori type time spotted entity prev event]
-  Hypothesis
-  (get-id [_] id)
-  (get-apriori [_] apriori)
-  Object
-  (toString [_] (format "TrackingHyp %s (a=%d) (%s)@%d\n\t(spotted: %s)\n\t%s\n\t%s."
-			id (confidence-str apriori) type time (get-hyp-id-str spotted)
-			(if (not= type "move") entity prev) event)))
+(defn tracking-hyp-to-str
+  [hyp]
+  (format "TrackingHyp %s (a=%d) (%s)@%d\n\t(spotted: %s)\n\t%s\n\t%s."
+          (name (:id hyp)) (confidence-str (:apriori hyp))
+          (name (:type hyp)) (:time (:data hyp))
+          (name (first (:explains hyp)))
+          (if (not= (:type hyp) :tracking-move) (:entity (:data hyp)) (:prev (:data hyp)))
+          (:event (:data hyp))))
 
 (defn make-hyp-id
   [spotted time prev]
-  (format "TH%d%d%d%s%s" (:x (pos spotted)) (:y (pos spotted)) time
-	  (if prev (str (:x (pos prev))) "X") (if prev (str (:y (pos prev))) "X")))
+  (keyword (format "TH%d%d%d%s%s" (:x (:pos (:data spotted))) (:y (:pos (:data spotted))) time
+                   (if prev (str (:x (pos prev))) "X") (if prev (str (:y (pos prev))) "X"))))
 
-(defn pair-near
-  "For each spotted, find entities within walk distance; exclude non-movements."
-  [spotted entities walk]
-  (let [distfn (fn [s e] {:entity e :dist (manhattan-distance (pos s) (pos e))})]
-    (doall (for [s spotted]
-             {:spotted s :entities
-              (filter #(and (< 0 (:dist %)) (>= walk (:dist %)))
-                      (map (partial distfn s) entities))}))))
+(defn same-start-or-end
+  [hyp1 hyp2]
+  (let [event1 (:event (:data hyp1))
+        event2 (:event (:data hyp2))
+        oldpos1 (if (:oldpos event1) (:oldpos event1) (:pos event1))
+        oldpos2 (if (:oldpos event2) (:oldpos event2) (:pos event2))
+        either-new? (or (= (:type hyp1) :tracking-new) (= (:type hyp2) :tracking-new))]
+    (and
+     ;; not same hypothesis
+     (not (= (:id hyp1) (:id hyp2)))
+     ;; same new position at same time
+     (or (and (= (:time event1) (:time event2)) (= (:pos event1) (:pos event2)))
+         ;; or neither event is new and they have the same previous position at same time
+         (and (not either-new?) (= oldpos1 oldpos2) (= (:time event1) (:time event2)))))))
 
-(defn find-possibly-frozen
-  [spotted entities]
-  (filter :entity
-          (for [s spotted]
-            {:spotted s :entity
-             (first (filter (fn [e] (and (= (dec (:time s))
-                                            (:time (last (:snapshots e))))
-                                         (= (pos s) (pos e))))
-                            entities))})))
+(defn find-conflicts
+  "Find tracking hypotheses that end up at same position or originate from same position."
+  [hyp hyps]
+  (let [tracking-hyps (doall
+                       (filter (fn [h] (some #(= (:type h) %)
+                                             [:tracking-new :tracking-move :tracking-frozen]))
+                               hyps))]
+    (doall (filter (partial same-start-or-end hyp) tracking-hyps))))
+
+(defn ancient-fn
+  [old-time hyp new-time]
+  (> (- new-time old-time) 1))
 
 (defn add-hyp-new
   [ep-state spotted time apriori]
-  (let [event (EventNew. (:time spotted) (pos spotted))
-	entity (Entity. [(EntitySnapshot. time (pos spotted))])
-        hyp (TrackingHyp. (make-hyp-id spotted time nil) apriori
-                          "new" time spotted entity nil event)]
-    (add-hyp ep-state hyp #{spotted}
+  (let [event (EventNew. time (:pos (:data spotted)))
+	entity (Entity. [(EntitySnapshot. time (:pos (:data spotted)))])
+        hyp (Hypothesis. (make-hyp-id spotted time nil)
+                         :tracking-new
+                         apriori apriori
+                         [(:id spotted)]
+                         (constantly [])
+                         find-conflicts
+                         (fn [el] (-> el
+                                      (add-event event)
+                                      (add-entity entity)))
+                         (partial ancient-fn time)
+                         tracking-hyp-to-str
+                         {:time time :entity entity :event event})]
+    (add-hyp ep-state hyp
              (format "Hypothesizing %s (a=%d) that %s is new: %s."
-                     (get-hyp-id-str hyp) apriori (get-hyp-id-str spotted) entity))))
+                     (name (:id hyp)) apriori (name (:id spotted)) entity))))
 
 (defn add-hyp-move
   [ep-state spotted time prev apriori]
-  (let [event (EventMove. time (pos prev) (pos spotted))
-	entity (add-snapshot prev (EntitySnapshot. time (pos spotted)))
-        hyp (TrackingHyp. (make-hyp-id spotted time prev) apriori
-                          "move" time spotted entity prev event)]
-    (add-hyp ep-state hyp #{spotted}
+  (let [event (EventMove. time (pos prev) (:pos (:data spotted)))
+	entity (add-snapshot prev (EntitySnapshot. time (:pos (:data spotted))))
+        hyp (Hypothesis. (make-hyp-id spotted time prev)
+                         :tracking-move
+                         apriori apriori
+                         [(:id spotted)]
+                         (constantly [])
+                         find-conflicts
+                         (fn [el] (-> el
+                                      (add-event event)
+                                      (remove-entity prev)
+                                      (add-entity entity)))
+                         (partial ancient-fn time)
+                         tracking-hyp-to-str
+                         {:time time :entity entity :event event :prev prev})]
+    (add-hyp ep-state hyp
              (format "Hypothesizing %s (a=%d) that %s is the movement of %s."
-                     (get-hyp-id-str hyp) apriori (get-hyp-id-str spotted) prev))))
+                     (name (:id hyp)) apriori (name (:id spotted)) prev))))
 
 (defn add-hyp-frozen
   [ep-state spotted prev time apriori]
-  (let [event (EventFrozen. (:time spotted) (pos spotted))
-        entity (add-snapshot prev (EntitySnapshot. time (pos spotted)))
-        hyp (TrackingHyp. (make-hyp-id spotted time prev) apriori
-                          "frozen" time spotted entity prev event)]
-    (add-hyp ep-state hyp #{spotted}
+  (let [event (EventFrozen. time (:pos (:data spotted)))
+        entity (add-snapshot prev (EntitySnapshot. time (:pos (:data spotted))))
+        hyp (Hypothesis. (make-hyp-id spotted time prev)
+                         :tracking-frozen
+                         apriori apriori
+                         [(:id spotted)]
+                         (constantly [])
+                         find-conflicts
+                         (fn [el] (-> el
+                                      (remove-entity prev)
+                                      (add-entity entity)))
+                         (partial ancient-fn time)
+                         tracking-hyp-to-str
+                         {:time time :entity entity :event event :prev prev})]
+    (add-hyp ep-state hyp
              (format "Hypothesizing %s (a=%d) that %s is the frozen entity %s."
-                     (get-hyp-id-str hyp) apriori (get-hyp-id-str spotted) prev))))
+                     (name (:id hyp)) apriori (name (:id spotted)) prev))))
 
 (defn filter-candidate-entities
   [time entities]
   "Restrict candidate entities to those just hypothesized (for new)
    or last seen at most three steps prior (for movements or frozen)."
-  (filter #(>= 3 (- time (:time (last (:snapshots %))))) entities))
-
-(defn add-mutual-conflict-events
-  [workspace entities]
-  "For each entity, find all hypotheses that were hypothesized at 'time' and
-   are events of that entity, and add mutual conflict relations for these
-   event hypotheses."
-  (reduce
-   (fn [ws e]
-     (let [events
-           (filter
-            (fn [h] (and (= (type h)
-                            simulator.problems.tracking.hypotheses.TrackingHyp)
-                         (or
-                          (and
-                           (= (type (:event h))
-                              simulator.problems.tracking.events.EventMove)
-                           (= (pos e) (:oldpos (:event h))))
-                          (and
-                           (= (type (:event h))
-                              simulator.problems.tracking.events.EventFrozen)
-                           (= (pos e) (:pos (:event h)))))))
-            (:hypothesized ws))]
-       (add-mutual-conflicts ws (set events))))
-   workspace entities))
+  (doall (filter #(= (- time (:time (last (:snapshots %))))) entities)))
 
 (defn generate-new-hypotheses
   [ep-state spotted time params]
   (let [apriori (if (= time 0) VERY-PLAUSIBLE
                     (prob-apriori (:ProbNewEntities params)))]
-    (reduce (fn [es spot]
-              (add-hyp-new es spot time apriori))
-            ep-state spotted)))
+    (doall (reduce (fn [es spot]
+                     (add-hyp-new es spot time apriori))
+                   ep-state spotted))))
+
+(defn find-possibly-frozen
+  [spotted entities]
+  (doall (filter :entity
+                 (for [s spotted]
+                   {:spotted s :entity
+                    (first (filter (fn [e] (and (= (dec (:time (:data s)))
+                                                   (:time (last (:snapshots e))))
+                                                (= (:pos (:data s)) (pos e))))
+                                   entities))}))))
 
 (defn generate-frozen-hypotheses
   [ep-state spotted entities time params]
@@ -127,6 +150,15 @@
         (recur (rest frozen)
                (add-hyp-frozen es (:spotted (first frozen)) (:entity (first frozen)) time
                                (prob-neg-apriori (:ProbMovement params)))))))
+
+(defn pair-near
+  "For each spotted, find entities within walk distance; exclude non-movements."
+  [spotted entities walk]
+  (let [distfn (fn [s e] {:entity e :dist (manhattan-distance (:pos (:data s)) (pos e))})]
+    (doall (for [s spotted]
+             {:spotted s :entities
+              (filter #(and (< 0 (:dist %)) (>= walk (:dist %)))
+                      (map (partial distfn s) entities))}))))
 
 (defn generate-movement-hypotheses
   [ep-state spotted entities time params]
@@ -161,29 +193,27 @@
                      es ents)
                 es3 (if (= 0 (:ProbNewEntities params)) es2
                         (add-hyp-new es2 spotted time
-                                     (prob-apriori (:ProbNewEntities params))))
-                esconflicts
-                (update-in es3 [:workspace] add-mutual-conflicts-all-explainers spotted)]
-            (recur (rest pairs) esconflicts)))))
+                                     (prob-apriori (:ProbNewEntities params))))]
+            (recur (rest pairs) es3)))))
 
 (defn generate-hypotheses
   [ep-state sensors params]
   (let [time (:time ep-state)
+        spotted-by-sensors (apply concat (map #(sensed-at % time) sensors))
         unique-spotted
-        (set (apply concat (map #(sensed-at % time) sensors)))
+        (vals (apply merge (map (fn [s] {(:id s) s}) spotted-by-sensors)))
 	candidate-entities
         (filter-candidate-entities time (get-entities (:problem-data ep-state)))
         
         ;; hypothesize and accept as fact all the spotted
-        es (reduce (fn [es spotted]
-                     (-> es
-                         (add-hyp spotted #{}
-                                  (format "Hypothesizing spotted %s."
-                                          (get-hyp-id-str spotted)))
-                         (force-acceptance spotted
-                                           (format "Accepting as fact spotted %s."
-                                                   (get-hyp-id-str spotted)))))
-                   ep-state unique-spotted)
+        es (doall (reduce (fn [es spotted]
+                            (-> es
+                                (add-hyp spotted (format "Hypothesizing spotted %s."
+                                                         (name (:id spotted))))
+                                (force-acceptance spotted
+                                                  (format "Accepting as fact spotted %s."
+                                                          (name (:id spotted))))))
+                          ep-state unique-spotted))
         
         es2 (if (empty? candidate-entities)
 
@@ -197,45 +227,6 @@
                                                               candidate-entities
                                                               time params)]
                es-movements))]
-    
-    ;; finally, add mutual conflicts for all hypotheses that are an event
-    ;; of the same entity
-    (update-in es2 [:workspace] add-mutual-conflict-events candidate-entities)))
-
-(defn update-problem-data
-  [ep-state]
-  (loop [accepted (:accepted (:workspace ep-state))
-	 eventlog (:problem-data ep-state)]
-
-    (cond (empty? accepted)
-	  (assoc ep-state :problem-data eventlog)
-
-	  :else ;; not-empty accepted
-	  (let [hyp (first accepted)]
-
-	    ;; skip sensor entity types
-	    (if (= (type hyp) simulator.problems.tracking.sensors.SensorEntity)
-	      (recur (rest accepted) eventlog)
-	      
-	      (case (:type hyp)
-
-		    "new"
-		    (recur (rest accepted)
-			   (-> eventlog
-			       (add-event (:event hyp))
-			       (add-entity (:entity hyp))))
-		    
-		    "move"
-		    (recur (rest accepted)
-			   (-> eventlog
-                               (add-event (:event hyp))
-			       (remove-entity (:prev hyp))
-			       (add-entity (:entity hyp))))
-
-                    "frozen" ;; don't add 'frozen' events to log; just update entity
-                    (recur (rest accepted)
-                           (-> eventlog
-                               (remove-entity (:prev hyp))
-                               (add-entity (:entity hyp))))))))))
+    es2))
 
 

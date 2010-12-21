@@ -30,15 +30,15 @@
         (get-entities eventlog)
         
         moving-entities
-        (filter (fn [_] (<= (rand) (double (/ (:ProbMovement params) 100))))
-                (shuffle all-entities))
+        (doall (filter (fn [_] (<= (rand) (double (/ (:ProbMovement params) 100))))
+                       (shuffle all-entities)))
         
         non-moving-entities
         (difference (set all-entities) (set moving-entities))
         
         frozen-eventlog
-        (reduce (fn [te olde] (update-entity te time olde (pos olde)))
-                eventlog non-moving-entities)
+        (doall (reduce (fn [te olde] (update-entity te time olde (pos olde)))
+                       eventlog non-moving-entities))
         
         entities-map
         (if (empty? moving-entities) {}
@@ -52,15 +52,15 @@
            g grid
            ew entity-walks]
       (if (empty? ew)
-        [(reduce (fn [fe olde]
-                   (if (= (pos olde) (pos (get em olde)))
-                     ;; entity didn't move afterall
-                     (-> fe (update-entity time olde (pos olde)))
-                     ;; entity moved
-                     (-> fe
-                         (update-entity time olde (pos (get em olde)))
-                         (add-event-move time (pos olde) (pos (get em olde))))))
-                 frozen-eventlog (keys em))
+        [(doall (reduce (fn [fe olde]
+                          (if (= (pos olde) (pos (get em olde)))
+                            ;; entity didn't move afterall
+                            (-> fe (update-entity time olde (pos olde)))
+                            ;; entity moved
+                            (-> fe
+                                (update-entity time olde (pos (get em olde)))
+                                (add-event-move time (pos olde) (pos (get em olde))))))
+                        frozen-eventlog (keys em)))
          g]
         (let [e (first ew)
               olde (get em e)

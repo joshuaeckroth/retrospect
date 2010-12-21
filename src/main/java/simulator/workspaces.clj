@@ -1,69 +1,119 @@
 (ns simulator.workspaces
   (:require [simulator logs])
-  (:import [simulator.logs AbducerLogEntry HypLogEntry])
-  (:require [simulator.hypotheses :as hyps :only
-         [init-hypspace get-explainers get-hyp-id-str get-hyp-ids-str
-          set-confidence penalize boost find-conflicts find-unexplained
-          get-confidence add-explainers get-apriori add-conflicts
-          find-essentials find-best delete-hyps]])
+  (:import [simulator.logs AbducerLogEntry])
   (:use [simulator.confidences])
   (:require [clojure.set :as set]))
 
+(defrecord Hypothesis
+    [id ;; a keyword
+     type ;; a keyword
+     apriori
+     confidence
+     explains
+     implausible-fn
+     impossible-fn
+     update-fn
+     ancient-fn
+     str-fn
+     data])
+
 (defrecord Workspace
-    [hypspace
-     accepted
-     hypothesized
-     unexplained
-     decision
+    [hyps ;; this is a map keyed by hyp-id
+     accepted ;; hyp-ids
+     rejected ;; hyp-ids
+     hypothesized ;; hyp-ids
+     unexplained ;; hyp-ids
+     candidates ;; hyp-ids
      abducer-log
-     hyp-log])
+     decision]) ;; {:confidence :accepted (hyp-ids) :rejected (hyp-ids) :forced (hyp-ids)}
 
 (defn init-workspace
   []
-  (Workspace. (hyps/init-hypspace) [] [] []
-              {:confidence nil :hyps [] :forced []}
-              [] {}))
+  (Workspace. {} [] [] [] [] [] []
+              {:confidence nil :accepted [] :rejected [] :forced []}))
+
+(defn update-hyps
+  [workspace hyps]
+  (doall (reduce (fn [ws h] (update-in ws [:hyps] assoc (:id h) h))
+                 workspace hyps)))
+
+(defn lookup-hyps
+  [workspace hyp-ids]
+  (doall (map #((:hyps workspace) %) hyp-ids)))
 
 (defn add-abducer-log-msg
   [workspace hyps msg]
-  (let [entry (AbducerLogEntry. (map hyps/get-hyp-id-str hyps) msg)]
-    (update-in workspace [:abducer-log] conj entry)))
+  (update-in workspace [:abducer-log] conj (AbducerLogEntry. hyps msg)))
 
-(defn add-hyp-log-msg
-  [workspace hyp msg]
-  (let [entry (HypLogEntry. (hyps/get-hyp-id-str hyp) msg)]
-    (if (get (:hyp-log workspace) hyp)
-      (update-in workspace [:hyp-log hyp] conj entry)
-      (update-in workspace [:hyp-log] assoc hyp [entry]))))
-
-(defn log-final-accepted-hyps
+(defn log-final-accepted-rejected-hyps
   [workspace]
-  (let [confstr (fn [h] (confidence-str (hyps/get-confidence (:hypspace workspace) h)))]
+  (let [id-to-str (fn [t] (apply str (interpose ", " (map name (t (:decision workspace))))))]
     (add-abducer-log-msg
-     workspace (:hyps (:decision workspace))
-     (format "Final accepted hyps: %s"
-             (apply str
-                    (interpose ", "
-                               (map #(format "%s(%s)" (hyps/get-hyp-id-str %) (confstr %))
-                                    (:hyps (:decision workspace)))))))))
+     workspace
+     (concat (:accepted (:decision workspace))
+             (:rejected (:decision workspace)))
+     (format "Final accepted: %s\n\tFinal rejected: %s\n\tFinal unexplained: %s"
+             (id-to-str :accepted) (id-to-str :rejected)
+             (apply str (interpose ", " (map name (:unexplained workspace))))))))
+
+(defn find-explainers
+  [hyp hyps]
+  (doall (filter (fn [h] (some #(= (:id hyp) %) (:explains h))) hyps)))
+
+(defn delete-ancient-hyps
+  "Called by OneRun."
+  [workspace time]
+  (let [ancient (set (map :id (filter #((:ancient-fn %) % time)
+                                      (vals (:hyps workspace)))))
+        new-hyps (apply dissoc (:hyps workspace) ancient)
+        new-accepted (set/difference (set (:accepted workspace)) ancient)
+        new-rejected (set/difference (set (:rejected workspace)) ancient)
+        new-candidates (set/difference (set (:candidates workspace)) ancient)]
+    (-> workspace
+        (assoc :hyps new-hyps)
+        (assoc :accepted new-accepted)
+        (assoc :rejected new-rejected)
+        (assoc :candidates new-candidates))))
+
+(defn update-candidates-unexplained
+  [workspace]
+  (let [accepted-ids (concat
+                      (:accepted workspace)
+                      (:accepted (:decision workspace))
+                      (:forced (:decision workspace)))
+        non-accepted-ids (set/difference
+                      (set (keys (:hyps workspace)))
+                      (set (concat accepted-ids
+                                   (:rejected workspace)
+                                   (:rejected (:decision workspace)))))
+        accepted (lookup-hyps workspace accepted-ids)
+        non-accepted (lookup-hyps workspace non-accepted-ids)
+        is-unexplained #(and (empty? (find-explainers % accepted))
+                             (not-empty (find-explainers % non-accepted)))]
+    (-> workspace
+        (assoc :candidates non-accepted-ids)
+        (assoc :unexplained (map :id (filter is-unexplained accepted))))))
 
 (defn accept-workspace-decision
   [workspace]
   (let [accepted (concat (:accepted workspace)
-                         (:hyps (:decision workspace))
-                         (:forced (:decision workspace)))]
+                         (:accepted (:decision workspace))
+                         (:forced (:decision workspace)))
+        rejected (concat (:rejected workspace)
+                         (:rejected (:decision workspace)))]
     (-> (init-workspace)
-        (assoc :hypspace (:hypspace workspace))
+        (assoc :hyps (:hyps workspace))
         (assoc :accepted accepted)
-        (assoc :unexplained (hyps/find-unexplained (:hypspace workspace) accepted)))))
+        (assoc :rejected rejected)
+        (update-candidates-unexplained))))
 
 (defn measure-decision-confidence
   [workspace]
   ;; if no accepted hyps, this is very implausible
-  (if (empty? (:hyps (:decision workspace))) VERY-IMPLAUSIBLE
+  (if (empty? (:accepted (:decision workspace))) VERY-IMPLAUSIBLE
       ;; if accepted hyps exist, find the minimum confidence of them
-      (apply min (map (fn [h] (hyps/get-confidence (:hypspace workspace) h))
-                      (:hyps (:decision workspace))))))
+      (apply min (map (fn [h] (:confidence h))
+                      (lookup-hyps workspace (:accepted (:decision workspace)))))))
 
 (defn update-decision-confidence
   [workspace]
@@ -77,161 +127,89 @@
 (defn clear-decision
   [workspace]
   "Clear the decision, except for what was 'forced'."
-  (assoc workspace :decision {:confidence nil :hyps []
-                              :forced (:forced (:decision workspace))}))
-
-(defn penalize-decision-hyps
-  [workspace hyps]
-  (if (empty? hyps) workspace
-      (let [hypspace (reduce (fn [hs h] (hyps/penalize hs h))
-                             (:hypspace workspace) hyps)
-            ws (-> workspace
-                   (assoc :hypspace hypspace)
-                   (add-abducer-log-msg hyps
-                                        (format "Penalizing reverted decision: %s."
-                                                (hyps/get-hyp-ids-str hyps))))]
-        (reduce (fn [ws h] (add-hyp-log-msg ws h "Penalizing reverted decision."))
-                ws hyps))))
-
-(defn delete-random-min-conf-decision
-  [workspace]
-  (if (empty? (:hyps (:decision workspace))) workspace
-      (let [hyp (first (sort-by #(hyps/get-confidence (:hypspace workspace) %)
-                                (:hyps (:decision workspace))))
-            ws-deleted (assoc workspace :hypspace
-                              (hyps/delete-hyps (:hypspace workspace) [hyp]))
-            ws-hyp-logs (add-hyp-log-msg ws-deleted hyp
-                                         (format "Deleting as part of reverted
-                                                  decision since its confidence %s
-                                                  is lowest among the decision hyps."
-                                                 (confidence-str
-                                                  (hyps/get-confidence (:hypspace workspace)
-                                                                       hyp))))]
-        (add-abducer-log-msg
-         ws-hyp-logs [hyp]
-         (format "Deleting random hyp in decision that has lowest confidence: %s"
-                 (hyps/get-hyp-id-str hyp))))))
+  (update-in workspace [:decision]
+             (assoc :confidence nil :accepted [] :rejected [])))
 
 (defn reset-confidences-to-apriori
   [workspace]
-  (let [hyps (:hypothesized workspace)
-        hypspace (reduce (fn [hs h] (hyps/set-confidence hs h (hyps/get-apriori h)))
-                         (:hypspace workspace) hyps)]
-    (reduce (fn [ws h] (add-hyp-log-msg ws h "Resetting confidence back to apriori value."))
-            (-> workspace
-                (assoc :hypspace hypspace)
-                (add-abducer-log-msg hyps "Resetting confidence back to apriori values."))
-            hyps)))
+  (-> workspace
+      (update-hyps (doall (map #(assoc % :confidence (:apriori %)) (vals (:hyps workspace)))))
+      (add-abducer-log-msg (keys (:hyps workspace))
+                           "Resetting confidences back to apriori values.")))
 
 (defn add-hyp
-  "explained must be a sequence."
-  [workspace hyp explained]
-  (let [hypspace (-> (:hypspace workspace)
-		     (update-in [:hyps] conj hyp)
-		     (hyps/add-explainers explained [hyp])
-		     (hyps/set-confidence hyp (hyps/get-apriori hyp)))]
-    (-> workspace
-	(update-in [:hypothesized] conj hyp)
-	(assoc :hypspace hypspace)
-        (add-abducer-log-msg
-         [hyp] (format "Adding hypothesis (apriori=%s)."
-                       (confidence-str (hyps/get-apriori hyp))))
-        (add-hyp-log-msg
-         hyp (format "Adding hypothesis (apriori=%s)."
-                     (confidence-str (hyps/get-apriori hyp)))))))
-
-(defn add-mutual-conflicts
-  [workspace hyps]
-  (reduce (fn [ws hyp] (update-in ws [:hypspace] hyps/add-conflicts hyp
-				  (set/difference hyps #{hyp})))
-	  workspace hyps))
-
-(defn add-mutual-conflicts-all-explainers
   [workspace hyp]
-  (add-mutual-conflicts workspace (hyps/get-explainers (:hypspace workspace) hyp)))
+  (-> workspace
+      (update-in [:hypothesized] conj (:id hyp))
+      (update-in [:hyps] assoc (:id hyp) hyp)
+      (add-abducer-log-msg
+       [(:id hyp)] (format "Adding hypothesis (apriori=%s)." (confidence-str (:apriori hyp))))
+      (update-candidates-unexplained)))
 
-(defn penalize-conflicts
-  [workspace conflicts log-msg]
-  (if (empty? conflicts) workspace
-    (let [hypspace (reduce (fn [hs c] (hyps/penalize hs c))
-                           (:hypspace workspace) conflicts)
-          ws (-> workspace
-                 (assoc :hypspace hypspace)
-                 (add-abducer-log-msg conflicts
-                                      (format "Penalizing conflicts: %s."
-                                              (hyps/get-hyp-ids-str conflicts))))]
-      (reduce (fn [ws c] (add-hyp-log-msg ws c log-msg))
-               ws conflicts))))
+(defn penalize-implausible
+  [workspace hyps log-msg]
+  (if (empty? hyps) workspace
+      (let [penalized (doall (map #(update-in % [:confidence] penalize) hyps))]
+        (add-abducer-log-msg (update-hyps workspace penalized) (map :id penalized) log-msg))))
+
+(defn reject-impossible
+  [workspace hyps log-msg]
+  (if (empty? hyps) workspace
+      (let [rejected (doall (map #(assoc % :confidence IMPOSSIBLE) hyps))]
+        (-> workspace
+            (update-hyps rejected)
+            (update-in [:decision :rejected] concat (map :id rejected))
+            (add-abducer-log-msg (map :id rejected) log-msg)))))
 
 (defn accept-hyp
   [workspace hyp]
-  (let [conflicts (hyps/find-conflicts (:hypspace workspace) #{hyp})]
+  (let [implausible (doall ((:implausible-fn hyp) hyp (vals (:hyps workspace))))
+        impossible (doall ((:impossible-fn hyp) hyp (vals (:hyps workspace))))]
     (-> workspace
-        (update-in [:decision :hyps] conj hyp)
-        (penalize-conflicts conflicts
-                            (format "Penalizing due to conflict with accepted hyp %s."
-                                    (hyps/get-hyp-id-str hyp))))))
-
-(defn accept-hyp-forced
-  [workspace hyp]
-  (update-in workspace [:decision :forced] conj hyp))
+        (update-in [:decision :accepted] conj (:id hyp))
+        (penalize-implausible
+         implausible
+         (format "Penalizing because accepting %s." (name (:id hyp))))
+        (reject-impossible
+         impossible
+         (format "Rejecting because accepting %s." (name (:id hyp))))
+        (update-candidates-unexplained))))
 
 (defn force-acceptance
   [workspace hyp]
   (-> workspace
-      (accept-hyp-forced hyp)
+      (update-in [:decision :forced] conj (:id hyp))
       (add-abducer-log-msg
-       [hyp] (format "Forcing acceptance of: %s." (hyps/get-hyp-id-str hyp)))
-      (add-hyp-log-msg hyp "Forcing acceptance.")))
-
-(defn accept-explainer-type
-  [workspace explainer hyp type]
-  (-> workspace
-      (add-abducer-log-msg
-       [hyp explainer] (format "Accepting %s %s as explainer of %s."
-                               type
-                               (hyps/get-hyp-id-str explainer)
-                               (hyps/get-hyp-id-str hyp)))
-      (add-hyp-log-msg
-       explainer (format "Accepting as %s explainer of %s."
-                         type (hyps/get-hyp-id-str hyp)))
-      (add-hyp-log-msg
-       hyp (format "Hyp %s accepted as %s explainer."
-                   (hyps/get-hyp-id-str explainer) type))
-      (accept-hyp explainer)))
-
-(defn choose-random-hyp
-  ([hyps] (rand-nth (vec hyps)))
-     
-  ([type workspace hyps]
-     (cond (= :smartguess type)
-           (let [hs (:hypspace workspace)
-                 threshold (apply max (map #(hyps/get-confidence hs %) hyps))]
-             (rand-nth (vec (filter #(= threshold (hyps/get-confidence hs %)) hyps))))
-           
-           :else
-           (choose-random-hyp hyps))))
-
-(defn unexplained-helper
-  [workspace]
-  (hyps/find-unexplained (:hypspace workspace)
-                         (concat
-                          (:forced (:decision workspace))
-                          (:hyps (:decision workspace))
-                          (:accepted workspace))))
-
-(defn get-explainers
-  [workspace hyp]
-  (hyps/get-explainers (:hypspace workspace) hyp))
-
-(defn get-explains
-  [workspace hyp]
-  (hyps/get-explains (:hypspace workspace) hyp))
-
-(defn find-essentials
-  [workspace]
-  (hyps/find-essentials (:hypspace workspace) (unexplained-helper workspace)))
+       [(:id hyp)] (format "Forcing acceptance of %s." (name (:id hyp))))
+      (update-candidates-unexplained)))
 
 (defn find-best
-  [workspace threshold type]
-  (hyps/find-best (:hypspace workspace) (unexplained-helper workspace) threshold type))
+  [workspace]
+  (let [unexplained (lookup-hyps workspace (:unexplained workspace))
+        candidates (lookup-hyps workspace (:candidates workspace))
+        explainers (map #(find-explainers % candidates) unexplained)
+        essentials (filter #(= 1 (count %)) explainers)]
+    (if (not-empty essentials)
+      ;; choose most confident essential
+      (first (reverse (sort-by :confidence (apply concat essentials))))
+
+      ;; otherwise choose random most confident / most explanatory
+      (let [sorted (reverse (sort-by :confidence (apply concat explainers)))
+            max-conf (:confidence (first sorted))
+            most-conf (filter #(= max-conf (:confidence %)) sorted)
+            expl-sorted (reverse (sort-by (comp count :explains) most-conf))
+            max-expl (count (:explains (first expl-sorted)))]
+        (if (not-empty most-conf)
+          (rand-nth (vec (filter #(= max-expl (count (:explains %))) most-conf))))))))
+
+(defn explain
+  [workspace]
+  (if (empty? (:unexplained workspace)) workspace
+      (let [best (find-best workspace)]
+        (if (nil? best) workspace
+            (recur (-> workspace
+                       (add-abducer-log-msg
+                        (conj (:explains best) (:id best))
+                        (format "Accepting %s as explainer of %s." (name (:id best))
+                                (apply str (interpose ", " (map name (:explains best))))))
+                       (accept-hyp best)))))))

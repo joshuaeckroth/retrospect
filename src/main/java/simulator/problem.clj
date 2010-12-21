@@ -3,7 +3,7 @@
 
 (def avg-fields
   [:Milliseconds :Steps
-   :MetaAbductions :Compute :Milliseconds :Memory
+   :MetaAbductions :ExplainCompute :ExplainMilliseconds :ExplainMemory
    :SensorReportNoise :BeliefNoise])
 
 (def non-avg-fields
@@ -44,6 +44,5 @@
                                     (:avg-fields problem) (:non-avg-fields problem)))
 
 (defrecord Problem
-    [name gen-hyps-fn update-problem-data-fn
-     player-fns truedata-fn sensor-gen-fn evaluate-fn
+    [name gen-hyps-fn player-fns truedata-fn sensor-gen-fn evaluate-fn
      initial-problem-data avg-fields non-avg-fields charts])

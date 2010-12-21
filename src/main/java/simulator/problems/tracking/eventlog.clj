@@ -34,8 +34,8 @@
   (add-event eventlog (EventNew. time pos)))
 
 (defn add-event-move
-  [eventlog time oldpos newpos]
-  (add-event eventlog (EventMove. time oldpos newpos)))
+  [eventlog time oldpos pos]
+  (add-event eventlog (EventMove. time oldpos pos)))
 
 (defn get-entities [eventlog] (:entities eventlog))
 

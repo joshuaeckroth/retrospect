@@ -9,10 +9,10 @@
           print-ep-state-tree
           list-ep-states
           count-branches]])
-  (:use [simulator.explain :only [explain]])
   (:use [simulator.meta.hypotheses :only
          [generate-meta-hypotheses]])
-  (:use [simulator.workspaces :only [init-workspace]])
+  (:use [simulator.workspaces :only
+         [init-workspace lookup-hyps explain delete-ancient-hyps]])
   (:use [simulator.sensors :only [update-sensors]])
   (:use [simulator.confidences])
   (:use [clojure.set]))
@@ -67,9 +67,9 @@
                                        1000000.0)
                       :MetaAbduction (:meta-abduction or-state)
                       :MetaAbductions (:meta-abductions (:resources or-state))
-                      :Compute (:compute (:resources or-state))
-                      :Milliseconds (:milliseconds (:resources or-state))
-                      :Memory (:memory (:resources or-state))))))
+                      :ExplainCompute (:compute (:resources or-state))
+                      :ExplainMilliseconds (:milliseconds (:resources or-state))
+                      :ExplainMemory (:memory (:resources or-state))))))
 
 (defn do-explain-meta
   [or-state]
@@ -79,7 +79,7 @@
                           (explain))
             ors (update-in or-state [:meta-log] conj (:abducer-log workspace))]
         (reduce (fn [ors action] (action ors)) ors
-                (map :action (:hyps (:decision workspace)))))))
+                (map :update-fn (lookup-hyps workspace (:accepted (:decision workspace))))))))
 
 (defn do-explain
   "Takes a OneRunState with sensors that have sensed and
@@ -89,12 +89,20 @@
    meta-abduction)."
   [or-state]
   (let [start-time (. System (nanoTime))
-        workspace (explain (:workspace (:ep-state or-state)))
+        workspace (explain (delete-ancient-hyps (:workspace (:ep-state or-state))
+                                                (:time (:ep-state or-state))))
         ep-state (assoc (:ep-state or-state) :workspace workspace)
+        ep-state-updated (doall
+                          (reduce (fn [ep action]
+                                    (update-in ep [:problem-data] action))
+                                  ep-state
+                                  (map :update-fn
+                                       (lookup-hyps workspace
+                                                    (:accepted (:decision workspace))))))
         milliseconds (+ (:milliseconds (:resources or-state))
                         (/ (- (. System (nanoTime)) start-time)
                            1000000.0))
-        ors (update-in (update-one-run-state or-state ep-state)
+        ors (update-in (update-one-run-state or-state ep-state-updated)
                        [:resources] assoc :milliseconds milliseconds)
         ors-meta (do-explain-meta ors)
         ep-state-meta (:ep-state ors-meta)]
@@ -111,10 +119,8 @@
   (let [time (:time (:ep-state or-state))
         sensors (update-sensors (:sensors or-state) (get truedata time) time)
         ep-state ((:gen-hyps-fn problem) (:ep-state or-state) sensors params)
-        ors (do-explain (update-one-run-state or-state ep-state sensors))
-        ors2 (update-one-run-state
-              ors ((:update-problem-data-fn problem) (:ep-state ors)))]
-    (evaluate problem truedata ors2 params start-time)))
+        ors (do-explain (update-one-run-state or-state ep-state sensors))]
+    (evaluate problem truedata ors params start-time)))
 
 (defn run-simulation
   [problem truedata or-state params]

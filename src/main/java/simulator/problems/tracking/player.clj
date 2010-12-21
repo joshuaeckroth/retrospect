@@ -176,9 +176,7 @@
                  (def *grid* (assoc *grid* (+ (* y *grid-width*) x) e))))))
     (when true-events
       (dorun (for [e (filter #(= (:time %) *time*) true-events)]
-               (let [{x :x y :y}
-                     (if (= (type e) simulator.problems.tracking.events.EventMove)
-                       (:newpos e) (:pos e))]
+               (let [{x :x y :y} (:pos e)]
                  (def *grid* (assoc *grid* (+ (* y *grid-width*) x) e))))))))
 
 (defn render [g]

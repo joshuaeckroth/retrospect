@@ -7,11 +7,7 @@
 (defrecord AbducerLogEntry [hyp-ids msg]
   Object
   (toString [_] (format "Hypotheses: %s\n\t%s"
-			(apply str (interpose "," hyp-ids)) msg)))
-
-(defrecord HypLogEntry [hyp-id msg]
-  Object
-  (toString [_] (format "Hyp %s, %s" hyp-id msg)))
+			(apply str (interpose ", " (map name hyp-ids))) msg)))
 
 (defrecord MetaLogEntry [ep-state ep-state-revisit msg]
   Object

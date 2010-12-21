@@ -4,10 +4,10 @@
   Object
   (toString [_] (format "EventNew: (%d,%d)@%d" (:x pos) (:y pos) time)))
 
-(defrecord EventMove [time oldpos newpos]
+(defrecord EventMove [time oldpos pos]
   Object
   (toString [_] (format "EventMove: (%d,%d)->(%d,%d)@%d"
-			(:x oldpos) (:y oldpos) (:x newpos) (:y newpos) time)))
+			(:x oldpos) (:y oldpos) (:x pos) (:y pos) time)))
 
 (defrecord EventFrozen [time pos]
   Object

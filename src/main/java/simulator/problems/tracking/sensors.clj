@@ -1,27 +1,25 @@
 (ns simulator.problems.tracking.sensors
   (:require [simulator.problems.tracking positions])
-  (:require [simulator sensors])
+  (:require [simulator workspaces sensors])
   (:import [simulator.problems.tracking.positions Position])
   (:import [simulator.sensors Sensor])
-  (:use [simulator.hypotheses :only (Hypothesis)])
+  (:import [simulator.workspaces Hypothesis])
   (:use [simulator.confidences])
   (:use [simulator.problems.tracking.entities :only (EntityMethods pos)])
   (:use [simulator.problems.tracking.grid :only (entity-at)])
   (:use [simulator.problems.tracking.eventlog :only (get-entities)])
   (:use [simulator.sensors :only (init-sensor add-sensed)]))
 
-(defrecord SensorEntity [id apriori time pos]
-  Hypothesis
-  (get-id [_] id)
-  (get-apriori [_] apriori)
-  EntityMethods
-  (pos [this] (:pos this))
-  Object
-  (toString [_] (format "SensorEntity %s (a=%d) %s@%d" id apriori (str pos) time)))
+(defn sensor-entity-to-str
+  [hyp]
+  (format "SensorEntity %s (a=%d, c=%d) %s@%d"
+          (name (:id hyp)) (confidence-str (:apriori hyp))
+          (confidence-str (:confidence hyp)) (str (:pos (:data hyp)))
+          (:time (:data hyp))))
 
 (defn make-sensorentity-id
   [pos time]
-  (format "SE%d%d%d" (:x pos) (:y pos) time))
+  (keyword (format "SE%d%d%d" (:x pos) (:y pos) time)))
 
 (defn sens-left
   [sensor]
@@ -46,8 +44,14 @@
 
 (defn find-spotted
   [sensor grid time]
-  (doall (map #(SensorEntity. (make-sensorentity-id (pos %) time)
-                              VERY-PLAUSIBLE time (pos %))
+  (doall (map #(Hypothesis. (make-sensorentity-id (pos %) time)
+                            :sensor-entity
+                            VERY-PLAUSIBLE VERY-PLAUSIBLE
+                            [] (constantly []) (constantly [])
+                            identity
+                            (fn [h t] (> (- t time) 3))
+                            sensor-entity-to-str
+                            {:time time :pos (pos %)})
               (filter #(not (nil? %))
                       (doall (for [x (range (sens-left sensor) (inc (sens-right sensor)))
                                    y (range (sens-bottom sensor) (inc (sens-top sensor)))]

@@ -2,8 +2,7 @@
   (:require [simulator.problems.tracking positions entities])
   (:import [simulator.problems.tracking.positions Position])
   (:import [simulator.problems.tracking.entities Entity EntitySnapshot])
-  (:use [simulator.problems.tracking.entities :only (pos add-snapshot)])
-  (:use [simulator.problems.tracking.positions :only (equal)]))
+  (:use [simulator.problems.tracking.entities :only (pos add-snapshot)]))
 
 ;; top-left is (0, 0); bottom-right is (width-1, height-1)
 
@@ -22,7 +21,7 @@
 			 (get-grid-pos grid (:pos snapshot)) newentity))]
     (if (nil? oldentity) newgrid
 	(let [prior-snapshot (last (:snapshots oldentity))]
-	  (if (equal (:pos prior-snapshot) (:pos snapshot)) newgrid
+	  (if (= (:pos prior-snapshot) (:pos snapshot)) newgrid
 	      (assoc newgrid :gridvec
 		     (assoc (:gridvec newgrid)
 		       (get-grid-pos newgrid (:pos prior-snapshot))
@@ -86,8 +85,8 @@
   (loop [attempts 0]
     (if (< attempts 4)
       (let [dir (nth ["left" "right" "down" "up"] (rand-int 4))
-            newpos (attempt-move dir (pos entity) grid)]
-        (if newpos
-          (add-snapshot entity (EntitySnapshot. time newpos))
+            pos (attempt-move dir (pos entity) grid)]
+        (if pos
+          (add-snapshot entity (EntitySnapshot. time pos))
           (recur (inc attempts)))))))
 

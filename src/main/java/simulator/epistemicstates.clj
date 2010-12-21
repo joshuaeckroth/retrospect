@@ -3,7 +3,7 @@
   (:import [simulator.logs LogEntry])
   (:require [simulator.workspaces :as ws :only
              [init-workspace accept-workspace-decision get-decision-confidence
-              update-decision-confidence log-final-accepted-hyps add-hyp
+              update-decision-confidence log-final-accepted-rejeted-hyps add-hyp
               force-acceptance reset-confidences-to-apriori]])
   (:use [simulator.confidences])
   (:require [clojure.zip :as zip])
@@ -139,9 +139,8 @@
     (update-in ep-state [:log] conj entry)))
 
 (defn add-hyp
-  [ep-state hyp explained log-msg]
-  (add-log-msg (update-in ep-state [:workspace] ws/add-hyp hyp explained)
-               log-msg))
+  [ep-state hyp log-msg]
+  (add-log-msg (update-in ep-state [:workspace] ws/add-hyp hyp) log-msg))
 
 (defn force-acceptance
   [ep-state hyp log-msg]
@@ -205,7 +204,7 @@
 
 (defn new-child-ep-state
   [ep-state-tree ep-state]
-  (let [ep-with-log (update-in ep-state [:workspace] ws/log-final-accepted-hyps)
+  (let [ep-with-log (update-in ep-state [:workspace] ws/log-final-accepted-rejected-hyps)
         ep-tree (update-decision ep-state-tree ep-with-log)
         ep-child (accept-decision ep-with-log (make-ep-state-id ep-tree))
         ep-tree-child (goto-ep-state (zip/append-child ep-tree ep-child) (:id ep-child))]

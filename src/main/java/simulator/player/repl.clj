@@ -1,6 +1,5 @@
 (ns simulator.player.repl
   (:use [clojure.contrib.str-utils2 :only (grep)])
-  (:use [simulator.hypotheses])
   (:use [simulator.epistemicstates :only
          [print-ep-state-tree]])
   (:use [simulator.player.state]))

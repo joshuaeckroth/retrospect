@@ -28,7 +28,7 @@
 
 (defn print-entities
   [entities]
-  (dorun (map #(println (str %)) entities)))
+  (map #(println (str %)) entities))
 
 (defn pair-snapshots
   [entity]
