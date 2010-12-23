@@ -11,7 +11,7 @@
   (:use [simulator.confidences])
   (:use [simulator.epistemicstates :only
          [add-hyp force-acceptance]])
-  (:use [simulator.sensors :only (sensed-at)])
+  (:use [simulator.sensors :only (sensed-from)])
   (:use [clojure.set])
   (:use [clojure.contrib.math :as math :only [ceil]]))
 
@@ -196,10 +196,11 @@
                                      (prob-apriori (:ProbNewEntities params))))]
             (recur (rest pairs) es3)))))
 
+;; TODO: fix to generate hypotheses from time onwards (as much as sensors provide)
 (defn generate-hypotheses
   [ep-state sensors params]
   (let [time (:time ep-state)
-        spotted-by-sensors (apply concat (map #(sensed-at % time) sensors))
+        spotted-by-sensors (apply concat (map #(sensed-from % time) sensors))
         unique-spotted
         (vals (apply merge (map (fn [s] {(:id s) s}) spotted-by-sensors)))
 	candidate-entities
@@ -227,6 +228,7 @@
                                                               candidate-entities
                                                               time params)]
                es-movements))]
+    (println "candidate entities: " (count candidate-entities))
     es2))
 
 

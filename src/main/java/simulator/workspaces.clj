@@ -63,8 +63,7 @@
 (defn delete-ancient-hyps
   "Called by OneRun."
   [workspace time]
-  (let [ancient (set (map :id (filter #((:ancient-fn %) % time)
-                                      (vals (:hyps workspace)))))
+  (let [ancient #{} ; (set (map :id (filter #((:ancient-fn %) % time) (vals (:hyps workspace)))))
         new-hyps (apply dissoc (:hyps workspace) ancient)
         new-accepted (set/difference (set (:accepted workspace)) ancient)
         new-rejected (set/difference (set (:rejected workspace)) ancient)
@@ -128,7 +127,7 @@
   [workspace]
   "Clear the decision, except for what was 'forced'."
   (update-in workspace [:decision]
-             (assoc :confidence nil :accepted [] :rejected [])))
+             assoc :confidence nil :accepted [] :rejected []))
 
 (defn reset-confidences-to-apriori
   [workspace]
@@ -160,6 +159,14 @@
             (update-hyps rejected)
             (update-in [:decision :rejected] concat (map :id rejected))
             (add-abducer-log-msg (map :id rejected) log-msg)))))
+
+(defn reject-all-impossible
+  [workspace]
+  (let [impossible (filter #(= (:confidence %) IMPOSSIBLE)
+                           (lookup-hyps workspace (:candidates workspace)))]
+    (-> workspace
+        (reject-impossible impossible "Rejecting due to IMPOSSIBLE confidence.")
+        (update-candidates-unexplained))))
 
 (defn accept-hyp
   [workspace hyp]
@@ -204,12 +211,14 @@
 
 (defn explain
   [workspace]
-  (if (empty? (:unexplained workspace)) workspace
-      (let [best (find-best workspace)]
-        (if (nil? best) workspace
-            (recur (-> workspace
-                       (add-abducer-log-msg
-                        (conj (:explains best) (:id best))
-                        (format "Accepting %s as explainer of %s." (name (:id best))
-                                (apply str (interpose ", " (map name (:explains best))))))
-                       (accept-hyp best)))))))
+  (let [ws (reject-all-impossible workspace)]
+    (if (empty? (:unexplained ws)) ws
+        (let [best (find-best ws)]
+          (if (nil? best) ws
+              (recur (-> ws
+                         (add-abducer-log-msg
+                          (conj (:explains best) (:id best))
+                          (format "Accepting %s as explainer of %s." (name (:id best))
+                                  (apply str (interpose ", " (map name (:explains best))))))
+                         (accept-hyp best))))))))
+

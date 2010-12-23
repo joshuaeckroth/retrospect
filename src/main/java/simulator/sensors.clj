@@ -10,9 +10,10 @@
   [sense-fn attributes]
   (Sensor. sense-fn {} -1 attributes))
 
-(defn sensed-at
+(defn sensed-from
   [sensor time]
-  (get (:sensed sensor) time))
+  (apply concat (map (fn [t] (get (:sensed sensor) t))
+                     (range time (inc (:sensed-up-to sensor))))))
 
 (defn add-sensed
   [sensor time data]

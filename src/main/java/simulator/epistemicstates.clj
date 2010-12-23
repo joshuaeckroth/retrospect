@@ -4,7 +4,7 @@
   (:require [simulator.workspaces :as ws :only
              [init-workspace accept-workspace-decision get-decision-confidence
               update-decision-confidence log-final-accepted-rejeted-hyps add-hyp
-              force-acceptance reset-confidences-to-apriori]])
+              force-acceptance reset-confidences-to-apriori lookup-hyps]])
   (:use [simulator.confidences])
   (:require [clojure.zip :as zip])
   (:require [clojure.set :as set])
@@ -89,6 +89,10 @@
   (let [up (zip/up ep-state-tree)]
     (if-not (root-ep-state? (zip/node up)) (zip/node up))))
 
+(defn left-ep-state
+  [ep-state-tree]
+  (zip/node (zip/left ep-state-tree)))
+
 (defn goto-ep-state
   [ep-state-tree id]
   (loop [loc (zip/down (zip-ep-state-tree (:children (zip/root ep-state-tree))))]
@@ -119,19 +123,18 @@
   [ep-state-tree]
   (vijual/draw-tree-image [(ep-state-tree-to-nested ep-state-tree)]))
 
+(defn flatten-ep-state-tree
+  [ep-state-tree]
+  (loop [loc (goto-ep-state ep-state-tree "A")
+         states []]
+    (if (zip/end? loc) states
+        (recur (zip/next loc) (conj states (zip/node loc))))))
+
 (defn list-ep-states
   [ep-state-tree]
   "List ep-states in the order that they were created (i.e., sorted by id,
    which is the same as a depth-first left-first walk)."
-  (let [ep-tree
-        (loop [loc ep-state-tree]
-          (if (root-ep-state? (zip/node (zip/up loc))) loc
-              (recur (zip/up loc))))]
-    (loop [loc ep-tree
-           strs []]
-      (if (not (zip/end? loc))
-        (recur (zip/next loc) (conj strs (str (zip/node loc))))
-        strs))))
+  (map str (flatten-ep-state-tree ep-state-tree)))
 
 (defn add-log-msg
   [ep-state msg]
@@ -149,13 +152,17 @@
 
 (defn accept-decision
   [ep-state id]
-  (EpistemicState.
-   id
-   []
-   (inc (:time ep-state))
-   (ws/accept-workspace-decision (:workspace ep-state))
-   []
-   (:problem-data ep-state)))
+  (let [workspace (:workspace ep-state)
+        accepted-hyps (ws/lookup-hyps workspace (:accepted (:decision workspace)))]
+    (EpistemicState.
+     id
+     []
+     (inc (:time ep-state))
+     (ws/accept-workspace-decision workspace)
+     []
+     (doall (reduce (fn [pdata action] (action pdata))
+                    (:problem-data ep-state)
+                    (map :update-fn accepted-hyps)) ))))
 
 (defn find-least-confident-decision
   [ep-state-tree]
@@ -185,21 +192,16 @@
   (count (zip/children (zip/up (goto-ep-state ep-state-tree (:id branch))))))
 
 (defn new-branch-ep-state
-  [ep-state-tree ep-state branch]
-  (let [ep-tree (update-decision ep-state-tree ep-state)
+  [ep-state-tree branch]
+  (let [ep-tree (update-decision ep-state-tree (current-ep-state ep-state-tree))
         ep (clone-ep-state branch (make-ep-state-id ep-tree) [])
-
-        ep-apriori (update-in ep [:workspace] ws/reset-confidences-to-apriori)
-        
-        ;; clear the decision, except for what was forced
-        ep-no-dec (update-in ep-apriori [:workspace] ws/clear-decision)
 
         ;; make a branch; the choice of "insert-right" over "insert-left" here
         ;; is what makes (list-ep-states) possible, since depth-first search
         ;; looks left before looking right
         ep-tree-branch
-        (goto-ep-state (zip/insert-right (goto-ep-state ep-tree (:id branch)) ep-no-dec)
-                       (:id ep-no-dec))]
+        (goto-ep-state (zip/insert-right (goto-ep-state ep-tree (:id branch)) ep)
+                       (:id ep))]
     ep-tree-branch))
 
 (defn new-child-ep-state
@@ -209,3 +211,11 @@
         ep-child (accept-decision ep-with-log (make-ep-state-id ep-tree))
         ep-tree-child (goto-ep-state (zip/append-child ep-tree ep-child) (:id ep-child))]
     ep-tree-child))
+
+(defn generate-hyps-and-explain
+  [problem ep-state sensors params]
+  (let [ep-state-with-hyps ((:gen-hyps-fn problem) ep-state sensors params)
+        ws-fresh (ws/delete-ancient-hyps (:workspace ep-state-with-hyps)
+                                         (:time ep-state-with-hyps))
+        ws-explained (ws/explain ws-fresh)]
+    (assoc ep-state-with-hyps :workspace ws-explained)))

@@ -8,9 +8,9 @@
   (:import (java.util Vector))
   (:use [incanter.core :only [to-list with-data dataset nrow]])
   (:use [incanter.charts :only [scatter-plot]])
-  (:use [simulator.problem :only [get-headers]])
+  (:use [simulator.problem :only [get-headers run-simulation-step]])
   (:use [simulator.player.state])
-  (:use [simulator.onerun :only [init-one-run-state run-simulation-step]])
+  (:use [simulator.onerun :only [init-one-run-state]])
   (:use [simulator.epistemicstates :only [draw-ep-state-tree list-ep-states
                                           current-ep-state goto-ep-state
                                           root-ep-state?
@@ -268,17 +268,8 @@
 
 (defn step
   []
-  (let [or-state (run-simulation-step *problem* *truedata* *or-state* *params*
-                                      (. System (nanoTime)))]
-    (update-everything
-     (assoc or-state :results
-            (let [milli (:Milliseconds (last (:results or-state)))
-                  prev-milli (:Milliseconds (second (reverse (:results or-state))))]
-              (conj (vec (reverse (rest (reverse (:results or-state)))))
-                    (assoc (last (:results or-state)) :Milliseconds
-                           (if prev-milli
-                             (+ milli prev-milli)
-                             milli))))))))
+  (let [or-state (run-simulation-step *problem* *truedata* *or-state* *params*)]
+    (update-everything or-state)))
 
 (defn new-simulation
   []
