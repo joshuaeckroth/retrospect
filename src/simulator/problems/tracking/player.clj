@@ -1,5 +1,6 @@
 (ns simulator.problems.tracking.player
-  (:import (java.awt Color Graphics2D Dimension GridBagLayout Insets RenderingHints))
+  (:import (java.awt Color Graphics2D Dimension GridBagLayout
+                     Insets RenderingHints BasicStroke))
   (:import (java.awt.image BufferedImage))
   (:import (javax.swing JPanel JFrame JButton JTextField JTextArea
 			JLabel JScrollPane JSpinner SpinnerNumberModel JComboBox))
@@ -8,6 +9,7 @@
   (:use [clojure.contrib.math :only [floor]])
   (:use [simulator.problems.tracking.sensors :only (sees)])
   (:use [simulator.problems.tracking.eventlog :only (get-events get-entities)])
+  (:use [simulator.problems.tracking.entities :only (pair-snapshots)])
   (:use [simulator.player.state]))
 
 (def *grid* nil)
@@ -128,17 +130,27 @@
     (.fillRect (* x *grid-cell-width*) (* y *grid-cell-height*)
 	       *grid-cell-width* *grid-cell-height*)))
 
-(defn draw-move [#^Graphics2D g oldx oldy newx newy c]
+(defn draw-move [#^Graphics2D g oldx oldy newx newy color width]
   (let [oldpx (+ (* oldx *grid-cell-width*) (/ *grid-cell-width* 2))
 	oldpy (+ (* oldy *grid-cell-height*) (/ *grid-cell-height* 2))
 	newpx (+ (* newx *grid-cell-width*) (/ *grid-cell-width* 2))
 	newpy (+ (* newy *grid-cell-height*) (/ *grid-cell-height* 2))]
     (doto g
-      (.setColor c)
-      (.drawLine oldpx oldpy newpx newpy)
-      (.fillArc (- newpx (/ *grid-cell-width* 10))
-		(- newpy (/ *grid-cell-height* 10))
-		(/ *grid-cell-width* 5) (/ *grid-cell-height* 5) 0 360))))
+      (.setColor color)
+      (.setStroke (BasicStroke. width))
+      (.drawLine oldpx oldpy newpx newpy))))
+
+(defn draw-movements [#^Graphics2D g entity]
+  (let [in-range (fn [s] (and (<= (:time s) *time*) (> (:time s) *time-prev*)))
+        pairs (filter #(in-range (second %))
+                      (pair-snapshots entity))]
+    (doseq [p pairs]
+      (let [gray (int (* 255 (/ (- *time* (:time (second p))) (- *time* *time-prev*))))
+            width (double (+ 2 (* 5 (/ gray 255))))]
+        (draw-move g (:x (:pos (first p))) (:y (:pos (first p)))
+                   (:x (:pos (second p))) (:y (:pos (second p)))
+                   (new Color gray gray gray)
+                   width)))))
 
 (defn draw-grid [g]
   (dorun
@@ -150,33 +162,17 @@
        (fill-cell g x y (new Color 255 180 180 150)))))
   (dorun
    (for [x (range *grid-width*) y (range *grid-height*)]
-     (let [e (grid-at x y)]
-       (when (not (nil? e))
-	 (cond
-          (= (type e) simulator.problems.tracking.entities.Entity)
-          (fill-cell g x y (new Color 150 150 150 150))
-          (= (type e) simulator.problems.tracking.events.EventNew)
-          (fill-cell g x y (new Color 180 180 255 150))
-          (= (type e) simulator.problems.tracking.events.EventMove)
-          (do
-            (fill-cell g (:x (:oldpos e)) (:y (:oldpos e))
-                       (new Color 150 150 150 150))
-            (fill-cell g x y (new Color 100 100 100 150))
-            (draw-move g (:x (:oldpos e)) (:y (:oldpos e)) x y
-                       (new Color 0 0 0)))))))))
+     (when-let [e (grid-at x y)]
+       (fill-cell g x y (new Color 150 150 150 150))
+       (draw-movements g e)))))
 
 (defn update-grid []
   (def *grid* (vec (repeat (* *grid-width* *grid-height*) nil)))
-  (let [true-entities (get-entities (:eventlog (get *truedata* *time*)))
-        true-events (get-events (:eventlog (get *truedata* *time*)))]
+  (let [true-entities (get-entities (:eventlog (get *truedata* *time*)))]
     (when true-entities
       (dorun (for [e (filter #(<= (:time (first (:snapshots %))) *time*) true-entities)]
                (let [{x :x y :y} (:pos (last (filter #(<= (:time %) *time*)
                                                      (:snapshots e))))]
-                 (def *grid* (assoc *grid* (+ (* y *grid-width*) x) e))))))
-    (when true-events
-      (dorun (for [e (filter #(= (:time %) *time*) true-events)]
-               (let [{x :x y :y} (:pos e)]
                  (def *grid* (assoc *grid* (+ (* y *grid-width*) x) e))))))))
 
 (defn render [g]
