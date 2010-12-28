@@ -13,9 +13,10 @@
             :copyright "Copyright 2010-2011 Joshua Eckroth. All rights reserved."
             :trim-prefix "simulator."}
   :main simulator.core
-  :source-path "src/main/java"
-  :test-path "src/test/java"
-  :library-path "target/dependency"
+  :source-path "src"
+  :test-path "test"
+  :library-path "lib"
   :resources-path "resources"
   :target-dir "target"
-  :keep-non-project-classes true)
+  :keep-non-project-classes true
+  :jvm-opts ["-agentlib:jdwp=transport=dt_socket,address=8021,server=y,suspend=n"])
