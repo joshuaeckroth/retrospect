@@ -7,7 +7,7 @@
                  [org.clojars.overtone/vijual "0.2.1"]]
   :dev-dependencies [[swank-clojure "1.2.1"]
                      [org.clojars.rayne/autodoc "0.8.0-SNAPSHOT"]
-                     [marginalia "0.2.1"]]
+                     [marginalia "0.2.2"]]
   :autodoc {:name "SIMULATOR" :page-title "SIMULATOR API Documentation"
             :web-home "http://joshuaeckroth.github.com/Simulator/"
             :copyright "Copyright 2010-2011 Joshua Eckroth. All rights reserved."
