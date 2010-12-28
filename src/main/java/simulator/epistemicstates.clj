@@ -142,13 +142,12 @@
     (update-in ep-state [:log] conj entry)))
 
 (defn add-hyp
-  [ep-state hyp log-msg]
-  (add-log-msg (update-in ep-state [:workspace] ws/add-hyp hyp) log-msg))
+  [ep-state hyp]
+  (update-in ep-state [:workspace] ws/add-hyp hyp))
 
 (defn force-acceptance
-  [ep-state hyp log-msg]
-  (add-log-msg (update-in ep-state [:workspace] ws/force-acceptance hyp)
-               log-msg))
+  [ep-state hyp]
+  (update-in ep-state [:workspace] ws/force-acceptance hyp))
 
 (defn accept-decision
   [ep-state id]

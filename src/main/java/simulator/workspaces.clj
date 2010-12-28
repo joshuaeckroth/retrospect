@@ -136,14 +136,28 @@
       (add-abducer-log-msg (keys (:hyps workspace))
                            "Resetting confidences back to apriori values.")))
 
+(defn make-next-hyp-id
+  "Make a hypothesis id that is just the next value from the largest
+  existing id."
+  [workspace]
+  (format "%d" (inc (apply max 0 (map #(Integer/parseInt (name %))
+                                      (filter #(re-matches #"\d+" (name %))
+                                              (keys (:hyps workspace))))))))
+
 (defn add-hyp
+  "Add the hypothesis to the workspace. If the hyp has no :id field,
+  then one is generated."
   [workspace hyp]
-  (-> workspace
-      (update-in [:hypothesized] conj (:id hyp))
-      (update-in [:hyps] assoc (:id hyp) hyp)
-      (add-abducer-log-msg
-       [(:id hyp)] (format "Adding hypothesis (apriori=%s)." (confidence-str (:apriori hyp))))
-      (update-candidates-unexplained)))
+  (let [id (if (:id hyp) (:id hyp) (make-next-hyp-id workspace))
+        hyp-with-id (assoc hyp :id id)]
+    (-> workspace
+        (update-in [:hypothesized] conj id)
+        (update-in [:hyps] assoc id hyp-with-id)
+        (add-abducer-log-msg
+         [id] (format "Adding hypothesis (apriori=%s; explains %s)."
+                      (confidence-str (:apriori hyp-with-id))
+                      (apply str (interpose "," (map name (:explains hyp-with-id))))))
+        (update-candidates-unexplained))))
 
 (defn penalize-implausible
   [workspace hyps log-msg]
