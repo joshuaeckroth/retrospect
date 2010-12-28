@@ -29,6 +29,8 @@
 (def *truedata-log-box* (JTextArea.))
 (def *abduction-log-label* (JLabel. "Abduction log"))
 (def *abduction-log-box* (JTextArea.))
+(def *hyp-choice* (JComboBox.))
+(def *hyp-box* (JTextArea.))
 (def *meta-log-box* (JTextArea.))
 (def *problem-log-label* (JLabel. "Problem log"))
 (def *problem-log-box* (JTextArea.))
@@ -122,8 +124,22 @@
     (. *abduction-log-box* setText
        (apply str (interpose "\n" (map str (:abducer-log (:workspace ep-state))))))
     (. *meta-log-box* setText
-       (apply str (interpose "\n---\n" (map (fn [ls] (apply str (interpose "\n" (map str ls))))
-                                          (:meta-log *or-state*)))))))
+       (apply str (interpose "\n---\n"
+                             (map (fn [ls] (apply str (interpose "\n" (map str ls))))
+                                            (:meta-log *or-state*)))))))
+
+(defn update-hyp-box
+  []
+  (if-let [hyp (get (:hyps (:workspace (:ep-state *or-state*)))
+                    (keyword (.getSelectedItem *hyp-choice*)))]
+    (. *hyp-box* setText ((:str-fn hyp) hyp))
+    (. *hyp-box* setText "")))
+
+(defn update-hyp-choice-dropdown
+  []
+  (.removeAllItems *hyp-choice*)
+  (doseq [i (sort (map name (keys (:hyps (:workspace (:ep-state *or-state*))))))]
+    (.addItem *hyp-choice* i)))
 
 (defn get-results-viewport
   []
@@ -248,9 +264,10 @@
     (do
       (update-time (dec (:time (:ep-state or-state))))
       (. *steplabel* (setText (format "Step: %d" *time*)))))
-  
   (update-goto-ep-state-combobox)
   (update-ep-tree-diagram)
+  (update-hyp-choice-dropdown)
+  (update-hyp-box)
   (update-results)
   (update-results-graph)
   (.repaint *problem-diagram*)
@@ -363,13 +380,20 @@
      (JScrollPane. *abduction-log-box*)
 
      :gridx 0, :gridy 4, :weighty 0.0
-     *problem-log-label*
+     (doto *hyp-choice*
+       (. addItemListener (proxy [java.awt.event.ItemListener] []
+                            (itemStateChanged [_] (update-hyp-box)))))
      :gridx 0, :gridy 5, :weighty 1.0
-     (JScrollPane. *problem-log-box*)
+     (JScrollPane. *hyp-box*)
 
      :gridx 0, :gridy 6, :weighty 0.0
-     (JLabel. "Meta-abduction log")
+     *problem-log-label*
      :gridx 0, :gridy 7, :weighty 1.0
+     (JScrollPane. *problem-log-box*)
+
+     :gridx 0, :gridy 8, :weighty 0.0
+     (JLabel. "Meta-abduction log")
+     :gridx 0, :gridy 9, :weighty 1.0
      (JScrollPane. *meta-log-box*))))
 
 (defn get-mainframe

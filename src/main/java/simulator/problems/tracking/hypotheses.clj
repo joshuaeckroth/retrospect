@@ -63,11 +63,13 @@
 ;; been performed yet). The set of available linkages need not be
 ;; sorted more than once (which takes O(n*log(n)).
 
-;; TODO: make more informative
 (defn str-fn
   [hyp]
-  (format "TrackingHyp %s (a=%d)"
-          (name (:id hyp)) (confidence-str (:apriori hyp))))
+  (format "TrackingHyp %s (a=%s, c=%s)\nEntity: %s\nExplains: %s"
+          (name (:id hyp)) (confidence-str (:apriori hyp))
+          (confidence-str (:confidence hyp))
+          (str (:entity (:data hyp)))
+          (apply str (interpose "," (map name (:explains hyp))))))
 
 (defn ancient-fn
   [old-time hyp new-time]

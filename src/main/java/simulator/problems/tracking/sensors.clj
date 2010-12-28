@@ -12,7 +12,7 @@
 
 (defn sensor-entity-to-str
   [hyp]
-  (format "SensorEntity %s (a=%d, c=%d) %s@%d"
+  (format "SensorEntity %s (a=%s, c=%s) %s@%d"
           (name (:id hyp)) (confidence-str (:apriori hyp))
           (confidence-str (:confidence hyp)) (str (:pos (:data hyp)))
           (:time (:data hyp))))

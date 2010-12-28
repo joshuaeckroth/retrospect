@@ -140,9 +140,9 @@
   "Make a hypothesis id that is just the next value from the largest
   existing id."
   [workspace]
-  (format "%d" (inc (apply max 0 (map #(Integer/parseInt (name %))
-                                      (filter #(re-matches #"\d+" (name %))
-                                              (keys (:hyps workspace))))))))
+  (keyword (format "%d" (inc (apply max 0 (map #(Integer/parseInt (name %))
+                                               (filter #(re-matches #"\d+" (name %))
+                                                       (keys (:hyps workspace)))))))))
 
 (defn add-hyp
   "Add the hypothesis to the workspace. If the hyp has no :id field,
