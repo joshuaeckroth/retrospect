@@ -17,6 +17,7 @@
                                           previous-ep-state]]))
 
 (def *mainframe* nil)
+(def *problem-headers* nil)
 (def *problem-diagram* nil)
 (def *problem-params-panel* nil)
 (def *problem-stats-panel* nil)
@@ -128,7 +129,7 @@
   []
   (let [headers (filter (fn [h] (if-let [cb (get *results-checkboxes* h)]
                                   (.getState cb)))
-                        (get-headers *problem*))
+                        *problem-headers*)
         results-matrix (map (fn [r] (map (fn [h] (h r)) headers))
                             (:results *or-state*))]
     (doto (JViewport.)
@@ -149,20 +150,20 @@
                          (proxy [java.awt.event.ItemListener] []
                            (itemStateChanged [_] (update-results))))
                       (assoc m h cb)))
-          {} (get-headers *problem*)))
+          {} *problem-headers*))
 
 (defn get-results-checkboxes-panel
   []
   (loop [p (JPanel. (WrapLayout. FlowLayout/LEFT))
-         cbs (get-headers *problem*)]
+         cbs *problem-headers*]
     (if (empty? cbs) p
         (recur (doto p (.add (get *results-checkboxes* (first cbs)))) (rest cbs)))))
 
 (defn results-to-dataset
   []
-  (dataset (get-headers *problem*)
+  (dataset *problem-headers*
            (map (fn [r] (map (fn [h] (get r h))
-                             (get-headers *problem*)))
+                             *problem-headers*))
                 (:results *or-state*))))
 
 (def *results-graph-x-dropdown* (JComboBox.))
@@ -170,14 +171,14 @@
 (defn get-results-graph-x-dropdown
   []
   (def *results-graph-x-dropdown*
-    (JComboBox. (to-array (map name (get-headers *problem*))))))
+    (JComboBox. (to-array (map name *problem-headers*)))))
 
 (def *results-graph-y-dropdown* (JComboBox.))
 
 (defn get-results-graph-y-dropdown
   []
   (def *results-graph-y-dropdown*
-    (JComboBox. (to-array (map name (get-headers *problem*))))))
+    (JComboBox. (to-array (map name *problem-headers*)))))
 
 (def *results-graph* nil)
 
@@ -266,10 +267,17 @@
            (assoc :ep-state-tree ep-state-tree)
            (assoc :ep-state (current-ep-state ep-state-tree)))))))
 
+(defn add-step
+  [results step]
+  (let [result (assoc (last results) :Step step)]
+    (vec (reverse (cons result (rest (reverse results)))))))
+
 (defn step
   []
-  (let [or-state (run-simulation-step *problem* *truedata* *or-state* *params*)]
-    (update-everything or-state)))
+  (let [or-state (run-simulation-step *problem* *truedata* *or-state* *params*)
+        or-state-with-step (update-in or-state [:results]
+                                      add-step (:time (:ep-state or-state)))]
+    (update-everything or-state-with-step)))
 
 (defn new-simulation
   []
@@ -410,6 +418,8 @@
   [problem & opts]
 
   (update-problem problem)
+  (def *problem-headers* (cons :Step (get-headers *problem*)))
+
   (update-params (get-params))
 
   (get-results-graph-x-dropdown)

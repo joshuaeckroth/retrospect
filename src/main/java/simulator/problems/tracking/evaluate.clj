@@ -38,6 +38,7 @@
         strat-starts-ends (get-starts-ends pentities)]
     (set/intersection true-starts-ends strat-starts-ends)))
 
+;; TODO: update so that it handles hyps with many events
 (defn measure-plausibility-accuracy
   [workspace trueevents]
   (let [accepted (doall (filter #(or (= (:type %) :tracking-new)

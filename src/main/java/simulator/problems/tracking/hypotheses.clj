@@ -71,7 +71,7 @@
 
 (defn ancient-fn
   [old-time hyp new-time]
-  false)
+  (< 3 (- new-time old-time)))
 
 (defn update-fn
   "Given an entity and events, update the event log."
@@ -147,9 +147,9 @@
     (reverse (sort-by :conf (map score available)))))
 
 (defn score-path
-  "Scores an entire path of events for some entity."
-  [entity events]
-  NEUTRAL)
+  "Scores an entire path of choices."
+  [path]
+  (apply min (map :conf path)))
 
 (defn generate-all-links
   "For each existing entity and each sensor detection, generate the
@@ -261,7 +261,7 @@
                               (filter identity (concat (map :spotted (entity-map e))
                                                        (map :spotted-start (entity-map e))
                                                        (map :spotted-end (entity-map e))))))
-            apriori (score-path e events)]
+            apriori (score-path (entity-map e))]
         (Hypothesis. nil
                      :tracking
                      apriori apriori

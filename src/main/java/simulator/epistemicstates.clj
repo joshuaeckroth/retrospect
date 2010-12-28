@@ -208,13 +208,14 @@
   (let [ep-with-log (update-in ep-state [:workspace] ws/log-final-accepted-rejected-hyps)
         ep-tree (update-decision ep-state-tree ep-with-log)
         ep-child (accept-decision ep-with-log (make-ep-state-id ep-tree))
-        ep-tree-child (goto-ep-state (zip/append-child ep-tree ep-child) (:id ep-child))]
+        ep-child-fresh (update-in ep-child [:workspace]
+                                  ws/delete-ancient-hyps (:time ep-child))
+        ep-tree-child (goto-ep-state (zip/append-child ep-tree ep-child-fresh)
+                                     (:id ep-child-fresh))]
     ep-tree-child))
 
 (defn generate-hyps-and-explain
   [problem ep-state sensors params]
   (let [ep-state-with-hyps ((:gen-hyps-fn problem) ep-state sensors params)
-        ws-fresh (ws/delete-ancient-hyps (:workspace ep-state-with-hyps)
-                                         (:time ep-state-with-hyps))
-        ws-explained (ws/explain ws-fresh)]
+        ws-explained (ws/explain (:workspace ep-state-with-hyps))]
     (assoc ep-state-with-hyps :workspace ws-explained)))

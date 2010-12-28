@@ -61,9 +61,9 @@
   (doall (filter (fn [h] (some #(= (:id hyp) %) (:explains h))) hyps)))
 
 (defn delete-ancient-hyps
-  "Called by OneRun."
+  "Called by new-child-ep-state in epistemicstates.clj"
   [workspace time]
-  (let [ancient #{} ; (set (map :id (filter #((:ancient-fn %) % time) (vals (:hyps workspace)))))
+  (let [ancient (set (map :id (filter #((:ancient-fn %) % time) (vals (:hyps workspace)))))
         new-hyps (apply dissoc (:hyps workspace) ancient)
         new-accepted (set/difference (set (:accepted workspace)) ancient)
         new-rejected (set/difference (set (:rejected workspace)) ancient)
