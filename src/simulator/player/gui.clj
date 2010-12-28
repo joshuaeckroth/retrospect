@@ -107,10 +107,10 @@
 (defn update-goto-ep-state-combobox
   []
   (loop [cb (doto *goto-ep-state-combobox* (.removeAllItems))
-         ep-states (list-ep-states (:ep-state-tree *or-state*))]
+         ep-states (sort (list-ep-states (:ep-state-tree *or-state*)))]
     (if (empty? ep-states)
       (def *goto-ep-state-combobox*
-        (doto cb (.setSelectedItem (str (:ep-state *or-state*)))))
+        (doto cb (.setSelectedItem (str (previous-ep-state (:ep-state-tree *or-state*))))))
       (recur (doto cb (.addItem (first ep-states))) (rest ep-states)))))
 
 (defn update-logs
@@ -261,9 +261,15 @@
     (do
       (update-time -1)
       (. *steplabel* (setText "Step: N/A")))
-    (do
-      (update-time (dec (:time (:ep-state or-state))))
-      (. *steplabel* (setText (format "Step: %d" *time*)))))
+    (let [prev-ep (previous-ep-state (:ep-state-tree *or-state*))
+          prev-prev-ep (previous-ep-state (goto-ep-state (:ep-state-tree *or-state*)
+                                                         (:id prev-ep)))
+          time-now (:time prev-ep)
+          time-prev (:time prev-prev-ep)]
+      (update-time time-now)
+      (update-time-prev time-prev)
+      (. *steplabel* (setText (if time-prev (format "Step: %d->%d" time-prev time-now)
+                                  (format "Step: N/A->%d" time-now))))))
   (update-goto-ep-state-combobox)
   (update-ep-tree-diagram)
   (update-hyp-choice-dropdown)

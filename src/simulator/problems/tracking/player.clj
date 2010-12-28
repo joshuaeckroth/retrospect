@@ -272,6 +272,6 @@
 
 (defn player-update-truedata-log-box
   []
-  (let [events (filter #(= (:time %) *time*)
+  (let [events (filter #(and (<= (:time %) *time*) (> (:time %) *time-prev*))
                        (get-events (:eventlog (get *truedata* *time*))))]
     (apply str (interpose "\n" (map format-event events)))))

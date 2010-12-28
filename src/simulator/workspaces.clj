@@ -47,14 +47,15 @@
 
 (defn log-final-accepted-rejected-hyps
   [workspace]
-  (let [id-to-str (fn [t] (apply str (interpose ", " (map name (t (:decision workspace))))))]
+  (let [id-to-str
+        (fn [t] (apply str (interpose ", " (sort (map name (t (:decision workspace)))))))]
     (add-abducer-log-msg
      workspace
      (concat (:accepted (:decision workspace))
              (:rejected (:decision workspace)))
      (format "Final accepted: %s\n\tFinal rejected: %s\n\tFinal unexplained: %s"
              (id-to-str :accepted) (id-to-str :rejected)
-             (apply str (interpose ", " (map name (:unexplained workspace))))))))
+             (apply str (interpose ", " (sort (map name (:unexplained workspace)))))))))
 
 (defn find-explainers
   [hyp hyps]

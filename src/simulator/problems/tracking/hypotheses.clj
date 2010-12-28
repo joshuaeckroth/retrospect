@@ -69,7 +69,7 @@
           (name (:id hyp)) (confidence-str (:apriori hyp))
           (confidence-str (:confidence hyp))
           (str (:entity (:data hyp)))
-          (apply str (interpose "," (map name (:explains hyp))))))
+          (apply str (interpose "," (sort (map name (:explains hyp)))))))
 
 (defn ancient-fn
   [old-time hyp new-time]
@@ -243,13 +243,13 @@
   (loop [;; initialize 'path' as the vec containing only the entity's first link
          path (filter #(and % (= (:entity %) entity)) choices-seq)]
     (if (empty? path) path
-        (let [{prev-time :end-time prev-pos :end-pos} (last path)
-              ;; 'next' is whatever link starts at prev-pos and has time=prevtime+1
-              next (first (filter #(and (= (:prev-pos %) prev-pos)
-                                        (= (:end-time %) (inc prev-time)))
+        (let [{end-time :end-time end-pos :end-pos} (last path)
+              ;; 'next' is whatever link starts at end-pos and has :endtime=endtime+1
+              next (first (filter #(and (= (:start-pos %) end-pos)
+                                        (= (:end-time %) (inc end-time)))
                                   choices-seq))]
           (if (nil? next) path
-              (recur (conj path next)))))))
+              (recur (conj (vec path) next)))))))
 
 (defn generate-hyps-from-choices
   "Given a seq of choices from the 'choices' tree, make hyps."

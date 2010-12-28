@@ -106,13 +106,16 @@
 
 (defn ep-state-tree-to-nested-helper
   [ep-state]
-  (conj (map ep-state-tree-to-nested-helper
-             (:children ep-state)) (str ep-state)))
+  (let [deeper (map ep-state-tree-to-nested-helper
+                    (filter (comp :confidence :decision :workspace)
+                            (:children ep-state)))]
+    (conj deeper (str ep-state))))
 
 (defn ep-state-tree-to-nested
   [ep-state-tree]
   (conj (map ep-state-tree-to-nested-helper
-             (:children (zip/root ep-state-tree)))
+             (filter (comp :confidence :decision :workspace)
+                     (:children (zip/root ep-state-tree))))
         "root"))
 
 (defn print-ep-state-tree
@@ -134,7 +137,8 @@
   [ep-state-tree]
   "List ep-states in the order that they were created (i.e., sorted by id,
    which is the same as a depth-first left-first walk)."
-  (map str (flatten-ep-state-tree ep-state-tree)))
+  (map str (filter (comp :confidence :decision :workspace)
+                   (flatten-ep-state-tree ep-state-tree))))
 
 (defn add-log-msg
   [ep-state msg]

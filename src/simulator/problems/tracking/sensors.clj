@@ -19,7 +19,7 @@
 
 (defn make-sensorentity-id
   [pos time]
-  (keyword (format "SE%d%d%d" (:x pos) (:y pos) time)))
+  (keyword (format "SE%d-%d-%d" time (:x pos) (:y pos))))
 
 (defn sens-left
   [sensor]

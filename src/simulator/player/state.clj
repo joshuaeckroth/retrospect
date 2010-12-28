@@ -6,6 +6,7 @@
 (def *sensors* nil)
 (def *truedata* nil)
 (def *time* 0)
+(def *time-prev* -1)
 
 (defn update-problem
   [problem]
@@ -30,3 +31,8 @@
 (defn update-time
   [time]
   (def *time* time))
+
+(defn update-time-prev
+  [time]
+  (if (nil? time) (def *time-prev* -1)
+      (def *time-prev* time)))
