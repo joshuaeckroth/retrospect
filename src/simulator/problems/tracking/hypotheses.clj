@@ -266,7 +266,7 @@
                                                        (map :spotted-start (entity-map e))
                                                        (map :spotted-end (entity-map e))))))
             apriori (score-path (entity-map e))]
-        (Hypothesis. nil
+        (Hypothesis. (keyword (format "TH%d" (hash [e events spotted])))
                      :tracking
                      apriori apriori
                      spotted
