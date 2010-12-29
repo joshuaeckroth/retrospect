@@ -12,7 +12,7 @@
   (:use [simulator.epistemicstates :only
          [add-hyp force-acceptance]])
   (:use [simulator.sensors :only [sensed-from]])
-  (:use [clojure.set :as set :only [intersection]])
+  (:use [clojure.set :as set :only [intersection difference]])
   (:require [clojure.zip :as zip])
   (:use [clojure.contrib.math :as math :only [ceil]]))
 
@@ -211,9 +211,8 @@
   "Given the 'choices' tree (existing choices) and the available
   linkages, add a new choice node in the tree that contains what is
   currently avaiable and the choice made"
-  [choices]
-  (let [available (:available (zip/node choices))
-        link (first available)
+  [choices available]
+  (let [link (first available)
         avail (filter (fn [l] (not (same-start-or-end link l))) available)
         choice {:link link :available avail}]
     (zip/rightmost (zip/down (zip/append-child choices choice)))))
@@ -222,8 +221,11 @@
   "Given a 'choices' tree (which may or may not have partial paths in
   it), construct the remaining paths."
   [choices]
-  (if (empty? (:available (zip/node choices))) choices
-      (recur (choose-next-link choices))))
+  (let [available (reverse (sort-by :conf (set/difference
+                                           (set (:available (zip/node choices)))
+                                           (set (map :link (zip/lefts choices))))))]
+    (if (empty? (:available (zip/node choices))) choices
+        (recur (choose-next-link choices available)))))
 
 (defn choices-to-seq
   "Walks up from the current choice to the root, building a sequence
