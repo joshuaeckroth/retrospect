@@ -23,22 +23,20 @@
    likely incorrect) hypothesis is not accepted again, and something
    else is accepted instead."
   [ep-state]
-  (comment
-    (println "pre-mark: " (str ep-state) (:decision (:workspace ep-state))
-             (map :id (vals (:hyps (:workspace ep-state)))))
-    (if (empty? (:accepted (:decision (:workspace ep-state))))
-      (do (println "empty decision: " (str ep-state)) ep-state)
-      (let [ws (:workspace ep-state)
-            least-conf (first (sort-by :confidence (lookup-hyps ws (:accepted (:decision ws)))))
-            least-conf-impossible (assoc least-conf :confidence IMPOSSIBLE)]
-        (println "least-conf nil? " (nil? least-conf) "-" (str ep-state))
-        (assoc ep-state :workspace
-               (-> ws
-                   (reset-confidences-to-apriori)
-                   (clear-decision)
-                   (update-hyps [least-conf-impossible])
-                   (update-candidates-unexplained))))))
-  ep-state)
+  (comment (println "pre-mark: " (str ep-state) (:decision (:workspace ep-state))
+                    (map :id (vals (:hyps (:workspace ep-state))))))
+  (if (empty? (:accepted (:decision (:workspace ep-state))))
+    (do (comment (println "empty decision: " (str ep-state))) ep-state)
+    (let [ws (:workspace ep-state)
+          least-conf (first (sort-by :confidence (lookup-hyps ws (:accepted (:decision ws)))))
+          least-conf-impossible (assoc least-conf :confidence IMPOSSIBLE)]
+      (comment (println "least-conf nil? " (nil? least-conf) "-" (str ep-state)))
+      (assoc ep-state :workspace
+             (-> ws
+                 (reset-confidences-to-apriori)
+                 (clear-decision)
+                 (update-hyps [least-conf-impossible])
+                 (update-candidates-unexplained))))))
 
 (defn branch-and-mark-impossible
   "A composite action that branches at the specified ep-state,
@@ -101,7 +99,12 @@
   [workspace ep-state-hyp problem ep-state-tree sensors params]
   (let [est (new-branch-ep-state ep-state-tree (:ep-state (:data ep-state-hyp)))
         ep ((:get-more-hyps-fn problem) (current-ep-state est) sensors params true)
-        est2 (update-ep-state-tree est ep)
+        ep2 (assoc ep :workspace
+                   (-> (:workspace ep)
+                       (reset-confidences-to-apriori)
+                       (clear-decision)
+                       (update-candidates-unexplained)))
+        est2 (update-ep-state-tree est ep2)
         hyp (let [{score :score ep :ep-state}
                   (score-by-explaining problem est2 sensors params true)]
               (Hypothesis. (keyword

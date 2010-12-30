@@ -89,10 +89,21 @@
         accepted (lookup-hyps workspace accepted-ids)
         non-accepted (lookup-hyps workspace non-accepted-ids)
         is-unexplained #(and (empty? (find-explainers % accepted))
-                             (not-empty (find-explainers % non-accepted)))]
-    (-> workspace
+                             (not-empty (find-explainers % non-accepted)))
+        unexplained (map :id (filter is-unexplained accepted))
+        essentials (apply concat (filter #(= 1 (count %))
+                                         (map #(find-explainers
+                                                % (lookup-hyps workspace non-accepted-ids))
+                                              (lookup-hyps workspace unexplained))))
+        essentials-vp (map #(assoc % :confidence VERY-PLAUSIBLE)
+                           (filter #(not= VERY-PLAUSIBLE (:confidence %)) essentials))
+        workspace-essentials (if (empty? essentials-vp) workspace
+                               (add-abducer-log-msg (update-hyps workspace essentials-vp)
+                                                    (map :id essentials-vp)
+                                                    "Marking essentials VP."))]
+    (-> workspace-essentials
         (assoc :candidates non-accepted-ids)
-        (assoc :unexplained (map :id (filter is-unexplained accepted))))))
+        (assoc :unexplained unexplained))))
 
 (defn accept-workspace-decision
   [workspace]
@@ -204,8 +215,8 @@
         explainers (map #(find-explainers % candidates) unexplained)
         essentials (filter #(= 1 (count %)) explainers)]
     (if (not-empty essentials)
-      ;; choose most confident essential
-      (first (reverse (sort-by :confidence (apply concat essentials))))
+      ;; choose random essential
+      (rand-nth (apply concat essentials))
 
       ;; otherwise choose random most confident / most explanatory
       (let [sorted (reverse (sort-by :confidence (apply concat explainers)))
