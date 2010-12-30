@@ -75,7 +75,8 @@
    :BeliefNoise (JSpinner. (SpinnerNumberModel. 0 0 100 10))})
 
 (def *param-checkbox*
-  {:MetaAbduction (Checkbox.)})
+  {:MetaAbduction (Checkbox.)
+   :Lazy (Checkbox.)})
 
 (defn get-params
   []
@@ -304,9 +305,10 @@
   []
   (let [params (get-params)
         meta-abduction (:MetaAbduction params)
+        lazy (:Lazy params)
         sensors ((:sensor-gen-fn *problem*) params)
         truedata ((:truedata-fn *problem*) params)
-        or-state (init-one-run-state meta-abduction sensors
+        or-state (init-one-run-state meta-abduction lazy sensors
                                      (:initial-problem-data *problem*))]
     (update-params params)
     (update-sensors sensors)
@@ -345,18 +347,23 @@
      (:MetaAbduction *param-checkbox*)
 
      :gridx 0, :gridy 1
-     (JLabel. "Steps:")
+     (JLabel. "Lazy:")
      :gridx 1, :gridy 1
+     (:Lazy *param-checkbox*)
+
+     :gridx 0, :gridy 2
+     (JLabel. "Steps:")
+     :gridx 1, :gridy 2
      (:Steps *param-spinners*)
      
-     :gridx 0, :gridy 2
+     :gridx 0, :gridy 3
      (JLabel. "SensorReportNoise:")
-     :gridx 1, :gridy 2
+     :gridx 1, :gridy 3
      (:SensorReportNoise *param-spinners*)
      
-     :gridx 0, :gridy 3
+     :gridx 0, :gridy 4
      (JLabel. "BeliefNoise:")
-     :gridx 1, :gridy 3
+     :gridx 1, :gridy 4
      (:BeliefNoise *param-spinners*))))
 
 (def *stats-panel*

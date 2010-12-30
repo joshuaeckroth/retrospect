@@ -7,6 +7,7 @@
 
 (defrecord OneRunState
     [meta-abduction
+     lazy
      meta-log
      resources
      results
@@ -15,9 +16,9 @@
      ep-state])
 
 (defn init-one-run-state
-  [meta-abduction sensors problem-data]
+  [meta-abduction lazy sensors problem-data]
   (let [ep-state-tree (init-ep-state-tree problem-data)]
-    (OneRunState. meta-abduction []
+    (OneRunState. meta-abduction lazy []
                   {:meta-abductions 0 :compute 0 :milliseconds 0 :memory 0}
                   []
                   sensors
@@ -25,8 +26,9 @@
 
 (defn init-one-run-states
   [options sensors problem-data]
-  (doall (for [meta-abduction (:MetaAbduction options)]
-           (init-one-run-state meta-abduction sensors problem-data))))
+  (doall (for [meta-abduction (:MetaAbduction options)
+               lazy (:Lazy options)]
+           (init-one-run-state meta-abduction lazy sensors problem-data))))
 
 (defn update-one-run-state
   [or-state ep-state]

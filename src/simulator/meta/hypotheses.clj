@@ -53,7 +53,7 @@
     (update-ep-state-tree est ep)))
 
 (defn score-by-explaining
-  [problem ep-state-tree sensors params]
+  [problem ep-state-tree sensors params lazy]
   (let [ep-state (current-ep-state ep-state-tree)]
     (comment (println "pre-score: " (str ep-state) (:decision (:workspace ep-state))
                       (map :id (vals (:hyps (:workspace ep-state)))))))
@@ -61,7 +61,7 @@
                     (inc time-prev) (:time (current-ep-state ep-state-tree)))
         ep-state-prepared ((:prepare-hyps-fn problem) (current-ep-state ep-state-tree)
                            time-prev sensors params)
-        ep-state (generate-hyps-and-explain problem ep-state-prepared sensors params)
+        ep-state (generate-hyps-and-explain problem ep-state-prepared sensors params lazy)
         score (measure-decision-confidence (:workspace ep-state))
         ep-state-updated-time (assoc ep-state :time (apply max (map :sensed-up-to sensors)))]
     {:score score :ep-state ep-state-updated-time}))
@@ -79,7 +79,7 @@
 
 ;; TODO: remove (take 3 (shuffle #))
 (defn add-revisit-ep-state-hyps
-  [workspace ep-state-hyp problem ep-state-tree sensors params]
+  [workspace ep-state-hyp problem ep-state-tree sensors params lazy]
   "For all existing ep-states, attempt to revisit them and apply each
    of many possible actions to take on that ep-state (e.g., mark
    IMPOSSIBLE least-confident hyp)."
@@ -87,7 +87,7 @@
         ests (take 3 (shuffle (map (partial branch-and-mark-impossible ep-state-tree)
                                    ep-states)))
         make-hyp (fn [est] (let [{score :score ep :ep-state}
-                                 (score-by-explaining problem est sensors params)]
+                                 (score-by-explaining problem est sensors params lazy)]
                              (Hypothesis. (keyword
                                            (format "MH%d" (hash [ep-state-hyp est ep score])))
                                           :meta
@@ -112,10 +112,10 @@
     (add-hyp workspace hyp)))
 
 (defn generate-meta-hypotheses
-  [workspace problem ep-state-tree sensors params]
+  [workspace problem ep-state-tree sensors params lazy]
   (let [ep-state-hyp (generate-ep-state-hyp (current-ep-state ep-state-tree))]
     (-> workspace
         (add-hyp ep-state-hyp)
         (force-acceptance ep-state-hyp)
         (add-accurate-decision-hyp ep-state-hyp)
-        (add-revisit-ep-state-hyps ep-state-hyp problem ep-state-tree sensors params))))
+        (add-revisit-ep-state-hyps ep-state-hyp problem ep-state-tree sensors params lazy))))

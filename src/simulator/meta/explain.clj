@@ -8,7 +8,8 @@
   (if (not (:meta-abduction or-state)) or-state
       (let [workspace (-> (init-workspace)
                           (generate-meta-hypotheses problem (:ep-state-tree or-state)
-                                                    (:sensors or-state) params)
+                                                    (:sensors or-state) params
+                                                    (:lazy or-state))
                           (explain))
             ors (update-in or-state [:meta-log] conj (:abducer-log workspace))
             accepted-hyps (lookup-hyps workspace (:accepted (:decision workspace)))

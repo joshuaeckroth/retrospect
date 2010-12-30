@@ -223,7 +223,7 @@
     ep-tree-child))
 
 (defn generate-hyps-and-explain
-  [problem ep-state sensors params]
-  (let [ep-state-with-hyps ((:get-more-hyps-fn problem) ep-state sensors params)
+  [problem ep-state sensors params lazy]
+  (let [ep-state-with-hyps ((:get-more-hyps-fn problem) ep-state sensors params lazy)
         ws-explained (ws/explain (:workspace ep-state-with-hyps))]
     (assoc ep-state-with-hyps :workspace ws-explained)))

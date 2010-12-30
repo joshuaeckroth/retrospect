@@ -14,7 +14,8 @@
   (:use [simulator.sensors :only [sensed-from]])
   (:use [clojure.set :as set :only [intersection difference]])
   (:require [clojure.zip :as zip])
-  (:use [clojure.contrib.math :as math :only [ceil]]))
+  (:use [clojure.contrib.math :as math :only [ceil]])
+  (:require [vijual :as vijual]))
 
 ;; The technique for generating tracking hypothesis is the following.
 ;;
@@ -166,18 +167,21 @@
      (for [s entities e (filter (fn [n] (and (= (inc (:time (last (:snapshots s))))
                                                 (:time n))
                                              (not= (pos s) (:pos n)))) nodes)]
-       {:event (EventMove. (:time e) (pos s) (:pos e))
+       {:id (hash [s (:time e) (:pos e)])
+        :event (EventMove. (:time e) (pos s) (:pos e))
         :start-pos (pos s) :end-pos (:pos e) :end-time (:time e)
         :entity s :spotted (:spotted e)})
      ;; generate movements between sensor detections
      (for [s nodes e (filter (fn [n] (and (= (inc (:time s)) (:time n))
                                           (not= (:pos s) (:pos n)))) nodes)]
-       {:event (EventMove. (:time e) (:pos s) (:pos e))
+       {:id (hash [(:time s) (:pos s) (:time e) (:pos e)])
+        :event (EventMove. (:time e) (:pos s) (:pos e))
         :start-pos (:pos s) :end-pos (:pos e) :end-time (:time e)
         :spotted-start (:spotted s) :spotted-end (:spotted e)})
      ;; generate new entity events
      (for [e nodes]
-       {:event (EventNew. (:time e) (:pos e))
+       {:id (hash [(:time e) (:pos e)])
+        :event (EventNew. (:time e) (:pos e))
         :start-pos (:pos e) :end-pos (:pos e) :end-time (:time e)
         :entity (Entity. [(EntitySnapshot. (:time e) (:pos e))])
         :spotted (:spotted e)})
@@ -185,13 +189,15 @@
      (for [s entities e (filter (fn [n] (and (= (inc (:time (last (:snapshots s))))
                                                 (:time n))
                                              (= (pos s) (:pos n)))) nodes)]
-       {:event (EventFrozen. (:time e) (:pos e))
+       {:id (hash [s (:time e) (:pos e)])
+        :event (EventFrozen. (:time e) (:pos e))
         :start-pos (:pos e) :end-pos (:pos e) :end-time (:time e)
         :entity s :spotted (:spotted e)})
      ;; generate frozen entity events among sensor detections
      (for [s nodes e (filter (fn [n] (and (= (inc (:time s)) (:time n))
                                           (= (:pos s) (:pos n)))) nodes)]
-       {:event (EventFrozen. (:time e) (:pos e))
+       {:id (hash [(:time s) (:pos s) (:time e) (:pos e)])
+        :event (EventFrozen. (:time e) (:pos e))
         :start-pos (:pos e) :end-pos (:pos e) :end-time (:time e)
         :spotted-start (:spotted s) :spotted-end (:spotted e)}))))
 
@@ -201,11 +207,46 @@
 
 (defn choices-make-node [choice children] (assoc choice :children children))
 
+(defn choice-to-str
+  [choice]
+  (format "%d (A=%d)" (:id (:link choice)) (count (:available choice))))
+
+(defn choices-to-nested-helper
+  [choice]
+  (let [deeper (map choices-to-nested-helper (:children choice))]
+    (conj deeper (choice-to-str choice))))
+
+(defn choices-to-nested
+  [choices]
+  (conj (map choices-to-nested-helper (:children (zip/root choices)))
+        "root"))
+
+(defn print-choices
+  [choices]
+  (vijual/draw-tree [(choices-to-nested choices)]))
+
+(defn flatten-choices
+  [choices]
+  (loop [choices (:children (zip/root choices))
+         cs []]
+    (if (empty? choices) cs
+        (recur (apply concat (map :children choices))
+               (concat cs (map (comp :id :link) choices))))))
+
 (defn init-choices
   "Initialize the 'choices' tree with all links available and no link
   chosen."
   [available]
   (zip/zipper choices-branch? choices-children choices-make-node {:available available}))
+
+(defn subtract-from-available
+  [choices attempted]
+  (let [available (:available (zip/node choices))
+        att (map :link attempted)
+        remaining-ids (set/difference (set (map :id available))
+                                      (set (map :id att)))]
+    (reverse (sort-by :conf (filter (fn [a] (some #(= % (:id a)) remaining-ids))
+                                    available)))))
 
 (defn choose-next-link
   "Given the 'choices' tree (existing choices) and the available
@@ -221,10 +262,8 @@
   "Given a 'choices' tree (which may or may not have partial paths in
   it), construct the remaining paths."
   [choices]
-  (let [available (reverse (sort-by :conf (set/difference
-                                           (set (:available (zip/node choices)))
-                                           (set (map :link (zip/lefts choices))))))]
-    (if (empty? (:available (zip/node choices))) choices
+  (let [available (subtract-from-available choices (zip/children choices))]
+    (if (empty? available) choices
         (recur (choose-next-link choices available)))))
 
 (defn maybe-backtrack
@@ -233,14 +272,11 @@
   choice exists, return nil; otherwise return the resulting 'choices'
   tree."
   [choices]
-  (let [attempted (map :link (zip/children choices))
-        remaining (reverse (sort-by :conf (set/difference
-                                           (set (:available (zip/node choices)))
-                                           (set attempted))))]
+  (let [available (subtract-from-available choices (zip/children choices))]
     ;; if no choices are remaining (children have exhausted all choices),
     ;; and if this is the top node, return nil; if this is not the top node,
     ;; go to the parent and try it again
-    (if (empty? remaining)
+    (if (empty? available)
       (if (nil? (zip/up choices)) nil
           (maybe-backtrack (zip/up choices)))
       ;; the remaining choices is not empty, so this position is acceptable
@@ -309,12 +345,23 @@
                    ep-state unique-spotted)]
     (update-in ep [:problem-data] assoc :choices choices)))
 
+(defn get-hyps
+  [ep-state]
+  (let [c (construct-remaining-path (:choices (:problem-data ep-state)))
+        c-seq (choices-to-seq c)
+        hyps (hyps-from-choices-seq c-seq (get-entities (:problem-data ep-state)))]
+    (update-in (reduce (fn [ep h] (add-hyp ep h)) ep-state hyps)
+               [:problem-data] assoc :choices c)))
+
 (defn get-more-hyps
-  [ep-state sensors params]
+  [ep-state sensors params lazy]
   (if-let [backtracked (maybe-backtrack (:choices (:problem-data ep-state)))]
-    (let [choices (construct-remaining-path backtracked)
-          choices-seq (choices-to-seq choices)
-          hyps (hyps-from-choices-seq choices-seq (get-entities (:problem-data ep-state)))]
-      (reduce (fn [ep h] (add-hyp ep h)) ep-state hyps))
+    (let [ep (update-in ep-state [:problem-data] assoc :choices backtracked)]
+      (if-not lazy (recur (get-hyps ep) sensors params lazy)
+              (get-hyps ep)))
     ;; we're here if we can't backtrack
-    ep-state))
+    (do
+      (comment (print-choices (:choices (:problem-data ep-state))))
+      (comment (println "nodes in choices tree: "
+                        (count (flatten-choices (:choices (:problem-data ep-state))))))
+      ep-state)))
