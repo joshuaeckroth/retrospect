@@ -11,10 +11,9 @@
   (:use [simulator.problem :only [get-headers run-simulation-step]])
   (:use [simulator.player.state])
   (:use [simulator.onerun :only [init-one-run-state]])
-  (:use [simulator.epistemicstates :only [draw-ep-state-tree list-ep-states
-                                          current-ep-state goto-ep-state
-                                          root-ep-state?
-                                          previous-ep-state]]))
+  (:use [simulator.epistemicstates :only
+         [draw-ep-state-tree list-ep-states current-ep-state goto-ep-state
+          goto-next-ep-state previous-ep-state]]))
 
 (def *mainframe* nil)
 (def *problem-headers* nil)
@@ -283,12 +282,11 @@
 (defn goto-ep-state-action
   []
   (let [id (re-find #"^[A-Z]+" (. *goto-ep-state-combobox* (getSelectedItem)))
-        ep-state-tree (goto-ep-state (:ep-state-tree *or-state*) id)]
-    (if-not (root-ep-state? ep-state-tree)
-      (update-everything
-       (-> *or-state*
-           (assoc :ep-state-tree ep-state-tree)
-           (assoc :ep-state (current-ep-state ep-state-tree)))))))
+        ep-state-tree (goto-next-ep-state (goto-ep-state (:ep-state-tree *or-state*) id))]
+    (update-everything
+     (-> *or-state*
+         (assoc :ep-state-tree ep-state-tree)
+         (assoc :ep-state (current-ep-state ep-state-tree))))))
 
 (defn add-step
   [results step]

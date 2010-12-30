@@ -89,6 +89,10 @@
   (let [up (zip/up ep-state-tree)]
     (if-not (root-ep-state? (zip/node up)) (zip/node up))))
 
+(defn goto-next-ep-state
+  [ep-state-tree]
+  (zip/next ep-state-tree))
+
 (defn left-ep-state
   [ep-state-tree]
   (zip/node (zip/left ep-state-tree)))
@@ -220,6 +224,6 @@
 
 (defn generate-hyps-and-explain
   [problem ep-state sensors params]
-  (let [ep-state-with-hyps ((:gen-hyps-fn problem) ep-state sensors params)
+  (let [ep-state-with-hyps ((:get-more-hyps-fn problem) ep-state sensors params)
         ws-explained (ws/explain (:workspace ep-state-with-hyps))]
     (assoc ep-state-with-hyps :workspace ws-explained)))

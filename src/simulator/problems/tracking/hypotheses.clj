@@ -227,6 +227,25 @@
     (if (empty? (:available (zip/node choices))) choices
         (recur (choose-next-link choices available)))))
 
+(defn maybe-backtrack
+  "Given a 'choices' tree, go up to the nearest choice whose
+  'available' set has not been exhausted in its children. If no such
+  choice exists, return nil; otherwise return the resulting 'choices'
+  tree."
+  [choices]
+  (let [attempted (map :link (zip/children choices))
+        remaining (reverse (sort-by :conf (set/difference
+                                           (set (:available (zip/node choices)))
+                                           (set attempted))))]
+    ;; if no choices are remaining (children have exhausted all choices),
+    ;; and if this is the top node, return nil; if this is not the top node,
+    ;; go to the parent and try it again
+    (if (empty? remaining)
+      (if (nil? (zip/up choices)) nil
+          (maybe-backtrack (zip/up choices)))
+      ;; the remaining choices is not empty, so this position is acceptable
+      choices)))
+
 (defn choices-to-seq
   "Walks up from the current choice to the root, building a sequence
   of choices as it goes. This represents a single consistent (if
@@ -253,7 +272,7 @@
           (if (nil? next) path
               (recur (conj (vec path) next)))))))
 
-(defn generate-hyps-from-choices
+(defn hyps-from-choices-seq
   "Given a seq of choices from the 'choices' tree, make hyps."
   [choices-seq entities]
   (let [es (concat entities (map :entity (filter :entity choices-seq)))
@@ -277,20 +296,25 @@
                      str-fn
                      {:entity e :events events})))))
 
-(defn generate-hypotheses
-  [ep-state sensors params]
-  (let [time (:time ep-state)
-        spotted-by-sensors (apply concat (map #(sensed-from % time) sensors))
+(defn prepare-hyps
+  [ep-state time-prev sensors params]
+  (let [spotted-by-sensors (apply concat (map #(sensed-from % time-prev) sensors))
         unique-spotted (vals (apply merge (map (fn [s] {(:id s) s}) spotted-by-sensors)))
         entities (get-entities (:problem-data ep-state))
         available-unsorted (generate-all-links entities unique-spotted)
         available (score-and-sort-links available-unsorted params)
-        choices (construct-remaining-path (init-choices available))
-        choices-seq (choices-to-seq choices)
-        hyps (generate-hyps-from-choices choices-seq entities)
-
+        choices (init-choices available)
         ;; hypothesize and state as fact the sensor detections
         ep (reduce (fn [ep s] (-> ep (add-hyp s) (force-acceptance s)))
                    ep-state unique-spotted)]
-    ;; add all the tracking hyps
-    (reduce (fn [ep h] (add-hyp ep h)) ep hyps)))
+    (update-in ep [:problem-data] assoc :choices choices)))
+
+(defn get-more-hyps
+  [ep-state sensors params]
+  (if-let [backtracked (maybe-backtrack (:choices (:problem-data ep-state)))]
+    (let [choices (construct-remaining-path backtracked)
+          choices-seq (choices-to-seq choices)
+          hyps (hyps-from-choices-seq choices-seq (get-entities (:problem-data ep-state)))]
+      (reduce (fn [ep h] (add-hyp ep h)) ep-state hyps))
+    ;; we're here if we can't backtrack
+    ep-state))

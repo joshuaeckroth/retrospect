@@ -5,7 +5,7 @@
   (:use [simulator.problems.tracking.truedata :only (generate-truedata)])
   (:use [simulator.problems.tracking.sensors :only (generate-sensors)])
   (:use [simulator.problems.tracking.hypotheses :only
-         (generate-hypotheses)])
+         (prepare-hyps get-more-hyps)])
   (:use [simulator.problems.tracking.player :only
          [player-get-params player-get-params-panel
           player-get-diagram player-get-stats-panel
@@ -75,7 +75,8 @@
 
 (def tracking-problem
   (Problem. "tracking"
-            generate-hypotheses
+            prepare-hyps
+            get-more-hyps
             {:get-params-fn player-get-params
              :get-params-panel-fn player-get-params-panel
              :get-diagram-fn player-get-diagram

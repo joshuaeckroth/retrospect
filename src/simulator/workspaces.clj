@@ -141,14 +141,16 @@
   "Add the hypothesis to the workspace. If the hyp has no :id field,
   then one is generated."
   [workspace hyp]
-  (-> workspace
-      (update-in [:hypothesized] conj (:id hyp))
-      (update-in [:hyps] assoc (:id hyp) hyp)
-      (add-abducer-log-msg
-       [(:id hyp)] (format "Adding hypothesis (apriori=%s; explains %s)."
-                           (confidence-str (:apriori hyp))
-                           (apply str (interpose "," (map name (:explains hyp))))))
-      (update-candidates-unexplained)))
+  ;; don't add an identical existing hyp
+  (if (get (:hyps workspace) (:id hyp)) workspace
+    (-> workspace
+        (update-in [:hypothesized] conj (:id hyp))
+        (update-in [:hyps] assoc (:id hyp) hyp)
+        (add-abducer-log-msg
+         [(:id hyp)] (format "Adding hypothesis (apriori=%s; explains %s)."
+                             (confidence-str (:apriori hyp))
+                             (apply str (interpose "," (map name (:explains hyp))))))
+        (update-candidates-unexplained))))
 
 (defn penalize-implausible
   [workspace hyps log-msg]

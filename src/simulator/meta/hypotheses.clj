@@ -7,7 +7,7 @@
           lookup-hyps update-candidates-unexplained]])
   (:use [simulator.epistemicstates :only
          [flatten-ep-state-tree current-ep-state generate-hyps-and-explain
-          new-branch-ep-state update-ep-state-tree left-ep-state]])
+          new-branch-ep-state update-ep-state-tree left-ep-state previous-ep-state]])
   (:use [simulator.confidences]))
 
 (defrecord EpistemicStateHypothesis [ep-state])
@@ -22,39 +22,46 @@
    likely incorrect) hypothesis is not accepted again, and something
    else is accepted instead."
   [ep-state]
-  (println "pre-mark: " (str ep-state) (:decision (:workspace ep-state))
-           (map :id (vals (:hyps (:workspace ep-state)))))
-  (let [ws (:workspace ep-state)
-        least-conf (first (sort-by :confidence (lookup-hyps ws (:accepted (:decision ws)))))
-        least-conf-impossible (assoc least-conf :confidence IMPOSSIBLE)]
-    (println "least-conf nil? " (nil? least-conf) "-" (str ep-state))
-    (assoc ep-state :workspace
-           (-> ws
-               (reset-confidences-to-apriori)
-               (clear-decision)
-               (update-hyps [least-conf-impossible])
-               (update-candidates-unexplained)))))
+  (comment
+    (println "pre-mark: " (str ep-state) (:decision (:workspace ep-state))
+             (map :id (vals (:hyps (:workspace ep-state)))))
+    (if (empty? (:accepted (:decision (:workspace ep-state))))
+      (do (println "empty decision: " (str ep-state)) ep-state)
+      (let [ws (:workspace ep-state)
+            least-conf (first (sort-by :confidence (lookup-hyps ws (:accepted (:decision ws)))))
+            least-conf-impossible (assoc least-conf :confidence IMPOSSIBLE)]
+        (println "least-conf nil? " (nil? least-conf) "-" (str ep-state))
+        (assoc ep-state :workspace
+               (-> ws
+                   (reset-confidences-to-apriori)
+                   (clear-decision)
+                   (update-hyps [least-conf-impossible])
+                   (update-candidates-unexplained))))))
+  ep-state)
 
 (defn branch-and-mark-impossible
   "A composite action that branches at the specified ep-state,
    then marks the least confident accepted hyp as IMPOSSIBLE and
    updates the OneRunState with all these changes."
   [ep-state-tree ep-state]
-  (println "pre-branch: " (str ep-state) (:decision (:workspace ep-state))
-           (map :id (vals (:hyps (:workspace ep-state)))))
+  (comment (println "pre-branch: " (str ep-state) (:decision (:workspace ep-state))
+                    (map :id (vals (:hyps (:workspace ep-state))))))
   (let [est (new-branch-ep-state ep-state-tree ep-state)
         ep (mark-least-conf-impossible (current-ep-state est))]
-    (println "post-branch: " (str ep) (:decision (:workspace ep))
+    (comment (println "post-branch: " (str ep) (:decision (:workspace ep)))
              (map :id (vals (:hyps (:workspace ep)))))
     (update-ep-state-tree est ep)))
 
 (defn score-by-explaining
   [problem ep-state-tree sensors params]
   (let [ep-state (current-ep-state ep-state-tree)]
-    (println "pre-score: " (str ep-state) (:decision (:workspace ep-state))
-             (map :id (vals (:hyps (:workspace ep-state))))))
-  (let [ep-state (generate-hyps-and-explain problem (current-ep-state ep-state-tree)
-                                            sensors params)
+    (comment (println "pre-score: " (str ep-state) (:decision (:workspace ep-state))
+                      (map :id (vals (:hyps (:workspace ep-state)))))))
+  (let [time-prev (if-let [time-prev (:time (previous-ep-state ep-state-tree))]
+                    (inc time-prev) (:time (current-ep-state ep-state-tree)))
+        ep-state-prepared ((:prepare-hyps-fn problem) (current-ep-state ep-state-tree)
+                           time-prev sensors params)
+        ep-state (generate-hyps-and-explain problem ep-state-prepared sensors params)
         score (measure-decision-confidence (:workspace ep-state))
         ep-state-updated-time (assoc ep-state :time (apply max (map :sensed-up-to sensors)))]
     {:score score :ep-state ep-state-updated-time}))
@@ -79,10 +86,11 @@
   (let [ep-states (flatten-ep-state-tree ep-state-tree)
         ests (take 3 (shuffle (map (partial branch-and-mark-impossible ep-state-tree)
                                    ep-states)))
-        make-id (fn [est] (keyword (format "MB-%s" (str (:id (left-ep-state est))))))
         make-hyp (fn [est] (let [{score :score ep :ep-state}
                                  (score-by-explaining problem est sensors params)]
-                             (Hypothesis. (make-id est) :meta
+                             (Hypothesis. (keyword
+                                           (format "MH%d" (hash [ep-state-hyp est ep score])))
+                                          :meta
                                           score score
                                           [(:id ep-state-hyp)] (constantly [])
                                           (partial impossible-fn ep-state-hyp)

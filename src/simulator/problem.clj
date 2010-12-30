@@ -1,7 +1,8 @@
 (ns simulator.problem
   (:use [simulator.onerun :only
          [init-one-run-states update-one-run-state proceed-one-run-state]])
-  (:use [simulator.epistemicstates :only [generate-hyps-and-explain]])
+  (:use [simulator.epistemicstates :only
+         [generate-hyps-and-explain previous-ep-state]])
   (:use [simulator.meta.explain :only [explain-meta]])
   (:use [simulator.sensors :only [update-sensors]]))
 
@@ -26,11 +27,15 @@
 
 (defn run-simulation-step
   [problem truedata or-state params]
-  (let [time (:time (:ep-state or-state))
-        sensors (update-sensors (:sensors or-state) (get truedata time) time)
+  (let [time-now (:time (:ep-state or-state))
+        time-prev (if-let [time-prev (:time (previous-ep-state (:ep-state-tree or-state)))]
+                    (inc time-prev) time-now)
+        sensors (update-sensors (:sensors or-state) (get truedata time-now) time-now)
         ors-sensors (assoc or-state :sensors sensors)
         start-time (. System (nanoTime))
-        ep-state (generate-hyps-and-explain problem (:ep-state ors-sensors) sensors params)
+        ep-state-prepared ((:prepare-hyps-fn problem) (:ep-state ors-sensors)
+                           time-prev sensors params)
+        ep-state (generate-hyps-and-explain problem ep-state-prepared sensors params)
         ors-explained (update-one-run-state ors-sensors ep-state)
         ors-meta (explain-meta problem ors-explained params)
         ep-state-meta (:ep-state ors-meta)
@@ -80,5 +85,5 @@
                                     (:avg-fields problem) (:non-avg-fields problem)))
 
 (defrecord Problem
-    [name gen-hyps-fn player-fns truedata-fn sensor-gen-fn evaluate-fn
-     initial-problem-data avg-fields non-avg-fields charts])
+    [name prepare-hyps-fn get-more-hyps-fn player-fns truedata-fn sensor-gen-fn
+     evaluate-fn initial-problem-data avg-fields non-avg-fields charts])
