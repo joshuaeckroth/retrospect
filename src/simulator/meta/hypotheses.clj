@@ -8,6 +8,7 @@
   (:use [simulator.epistemicstates :only
          [flatten-ep-state-tree current-ep-state generate-hyps-and-explain
           new-branch-ep-state update-ep-state-tree left-ep-state previous-ep-state]])
+  (:use [simulator.meta.meta :only [have-enough-meta-hyps]])
   (:use [simulator.confidences]))
 
 (defrecord EpistemicStateHypothesis [ep-state])
@@ -71,39 +72,53 @@
   (Hypothesis. :ep-state :meta VERY-PLAUSIBLE VERY-PLAUSIBLE
                [] (constantly []) (constantly []) identity
                (constantly false)
-               (constantly "ep-state") nil))
+               (constantly "ep-state")
+               {:ep-state ep-state}))
 
 (defn impossible-fn
   [ep-state-hyp hyp hyps]
-  (filter (fn [e] (some #(= % (:id ep-state-hyp)) (:explains e))) hyps))
+  (filter (fn [h] (and (not= (:id hyp) (:id h))
+                       (some #(= % (:id ep-state-hyp)) (:explains h)))) hyps))
 
-;; TODO: remove (take 3 (shuffle #))
-(defn add-revisit-ep-state-hyps
-  [workspace ep-state-hyp problem ep-state-tree sensors params lazy]
-  "For all existing ep-states, attempt to revisit them and apply each
-   of many possible actions to take on that ep-state (e.g., mark
-   IMPOSSIBLE least-confident hyp)."
-  (let [ep-states (flatten-ep-state-tree ep-state-tree)
-        ests (take 3 (shuffle (map (partial branch-and-mark-impossible ep-state-tree)
-                                   ep-states)))
-        make-hyp (fn [est] (let [{score :score ep :ep-state}
-                                 (score-by-explaining problem est sensors params lazy)]
-                             (Hypothesis. (keyword
-                                           (format "MH%d" (hash [ep-state-hyp est ep score])))
-                                          :meta
-                                          score score
-                                          [(:id ep-state-hyp)] (constantly [])
-                                          (partial impossible-fn ep-state-hyp)
-                                          (constantly (update-ep-state-tree est ep))
-                                          (fn [_ time] (not= time (:time ep-state-hyp)))
-                                          (fn [hyp] (name (:id hyp)))
-                                          nil)))
-        hyps (map make-hyp ests)]
-    (reduce add-hyp workspace hyps)))
+(defn add-branch-hyp
+  [workspace ep-state-hyp branchable problem ep-state-tree sensors params lazy]
+  (let [est (branch-and-mark-impossible ep-state-tree branchable)
+        hyp (let [{score :score ep :ep-state}
+                  (score-by-explaining problem est sensors params lazy)]
+              (Hypothesis. (keyword
+                            (format "MH%d" (hash [ep-state-hyp est ep score])))
+                           :meta
+                           score score
+                           [(:id ep-state-hyp)] (constantly [])
+                           (partial impossible-fn ep-state-hyp)
+                           (constantly (update-ep-state-tree est ep))
+                           (fn [_ time] (not= time (:time ep-state-hyp)))
+                           (fn [hyp] (name (:id hyp)))
+                           nil))]
+    (add-hyp workspace hyp)))
+
+(defn add-more-explainers-hyp
+  [workspace ep-state-hyp problem ep-state-tree sensors params]
+  (let [est (new-branch-ep-state ep-state-tree (:ep-state (:data ep-state-hyp)))
+        ep ((:get-more-hyps-fn problem) (current-ep-state est) sensors params true)
+        est2 (update-ep-state-tree est ep)
+        hyp (let [{score :score ep :ep-state}
+                  (score-by-explaining problem est2 sensors params true)]
+              (Hypothesis. (keyword
+                            (format "MH+%d" (hash [ep-state-hyp est2 score])))
+                           :meta
+                           score score
+                           [(:id ep-state-hyp)] (constantly [])
+                           (partial impossible-fn ep-state-hyp)
+                           (constantly (update-ep-state-tree est2 ep))
+                           (fn [_ time] (not= time (:time ep-state-hyp)))
+                           (fn [hyp] (name (:id hyp)))
+                           nil))]
+    (add-hyp workspace hyp)))
 
 (defn add-accurate-decision-hyp
   [workspace ep-state-hyp]
-  (let [apriori (measure-decision-confidence (:workspace (:ep-state ep-state-hyp)))
+  (let [apriori (measure-decision-confidence (:workspace (:ep-state (:data ep-state-hyp))))
         hyp (Hypothesis. :MH-dec-accurate :meta apriori apriori
                          [(:id ep-state-hyp)] (constantly [])
                          (partial impossible-fn ep-state-hyp)
@@ -113,9 +128,17 @@
 
 (defn generate-meta-hypotheses
   [workspace problem ep-state-tree sensors params lazy]
-  (let [ep-state-hyp (generate-ep-state-hyp (current-ep-state ep-state-tree))]
-    (-> workspace
-        (add-hyp ep-state-hyp)
-        (force-acceptance ep-state-hyp)
-        (add-accurate-decision-hyp ep-state-hyp)
-        (add-revisit-ep-state-hyps ep-state-hyp problem ep-state-tree sensors params lazy))))
+  (let [ep-state-hyp (generate-ep-state-hyp (current-ep-state ep-state-tree))
+        ws (-> workspace
+               (add-hyp ep-state-hyp)
+               (force-acceptance ep-state-hyp)
+               (add-accurate-decision-hyp ep-state-hyp))
+        ws2 (if lazy (add-more-explainers-hyp ws ep-state-hyp problem
+                                              ep-state-tree sensors params)
+                ws)]
+    (loop [ws ws2
+           branchable (flatten-ep-state-tree ep-state-tree)]
+      (if (or (empty? branchable) (and lazy (have-enough-meta-hyps (vals (:hyps ws))))) ws
+          (recur (add-branch-hyp ws ep-state-hyp (first branchable) problem
+                                 ep-state-tree sensors params lazy)
+                 (rest branchable))))))
