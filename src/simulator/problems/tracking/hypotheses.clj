@@ -351,6 +351,7 @@
         ;; hypothesize and state as fact the sensor detections
         ep (reduce (fn [ep s] (-> ep (add-hyp s) (force-acceptance s)))
                    ep-state unique-spotted)]
+    (comment (println "available: " (count available)))
     (update-in ep [:problem-data] assoc :choices choices)))
 
 (defn get-hyps
