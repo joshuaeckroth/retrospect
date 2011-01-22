@@ -327,6 +327,7 @@
       (let [events (sort-by :time (map :event (entity-map e)))
             spotted (set (map :id
                               (filter identity (concat (map :spotted (entity-map e))
+                                                       (map :spotted-start (entity-map e))
                                                        (map :spotted-end (entity-map e))))))
             apriori (score-path (entity-map e))]
         (Hypothesis. (keyword (format "TH%d" (hash [e events spotted])))
