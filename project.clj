@@ -18,5 +18,6 @@
   :library-path "lib"
   :resources-path "resources"
   :target-dir "target"
-  :keep-non-project-classes true
-  :jvm-opts ["-agentlib:jdwp=transport=dt_socket,address=8021,server=y,suspend=n"])
+  :keep-non-project-classes true)
+
+; :jvm-opts ["-agentlib:jdwp=transport=dt_socket,address=8021,server=y,suspend=n"]
