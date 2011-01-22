@@ -56,9 +56,9 @@
   [problem params]
   (let [truedata ((:truedata-fn problem) params)
         sensors ((:sensor-gen-fn problem) params)
-        or-states (init-one-run-states {:MetaAbduction [true false] :Lazy [true false]}
-                                       sensors
-                                       (:initial-problem-data problem))]
+        problem-data ((:gen-problem-data-fn problem) params sensors)
+        or-states (init-one-run-states {:MetaAbduction [true false] :Lazy [true]}
+                                       sensors problem-data)]
     (doall (for [ors or-states]
              ;; get last result set from each run
              (last (run-simulation problem truedata ors params))))))
@@ -70,7 +70,7 @@
 (defn average-runs
   [problem params n]
   (let [results (run-many problem params n)]
-    (doall (for [meta-abduction [true false] lazy [true false]]
+    (doall (for [meta-abduction [true false] lazy [true]]
              (let [rs (filter #(and (= meta-abduction (:MetaAbduction %))
                                     (= lazy (:Lazy %)))
                               results)
@@ -90,4 +90,4 @@
 
 (defrecord Problem
     [name prepare-hyps-fn get-more-hyps-fn player-fns truedata-fn sensor-gen-fn
-     evaluate-fn initial-problem-data avg-fields non-avg-fields charts])
+     evaluate-fn gen-problem-data-fn avg-fields non-avg-fields charts])

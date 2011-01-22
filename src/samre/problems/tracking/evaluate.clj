@@ -3,8 +3,6 @@
   (:use [samre.problems.tracking.entities :only (pair-snapshots)])
   (:use [samre.problems.tracking.eventlog :only (get-entities get-events)])
   (:use [samre.epistemicstates :only (current-ep-state)])
-  (:use [samre.problems.tracking.sensors :only
-         (measure-sensor-overlap measure-sensor-coverage)])
   (:use [samre.confidences])
   (:require [clojure.set :as set]))
 
@@ -74,8 +72,8 @@
    the current ep-state's time minus 1."
   (let [trueeventlog (:eventlog (get truedata (dec (:time ep-state))))
         pdata (:problem-data ep-state)
-        pevents (set (get-events pdata))
-        pentities (get-entities pdata)
+        pevents (set (get-events (:eventlog pdata)))
+        pentities (get-entities (:eventlog pdata))
         trueevents (set (get-events trueeventlog))
         trueentities (get-entities trueeventlog)
         events-correct (count (set/intersection trueevents pevents))
@@ -91,7 +89,5 @@
      (double (* 100 (/ identities-correct identities-total)))
      :AvgWalk (calc-average-walk trueentities)
      :PlausibilityAccuracy (measure-plausibility-accuracy (:workspace ep-state) trueevents)
-     :SensorCoverage (measure-sensor-coverage
-                      (:GridWidth params) (:GridHeight params) sensors)
-     :SensorOverlap (measure-sensor-overlap
-                     (:GridWidth params) (:GridHeight params) sensors)}))
+     :SensorCoverage (:sensor-coverage pdata)
+     :SensorOverlap (:sensor-overlap pdata)}))

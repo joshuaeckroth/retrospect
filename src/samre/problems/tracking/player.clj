@@ -159,11 +159,11 @@
   (dorun
    (for [x (range *grid-width*) y (range *grid-height*)]
      (when (sensors-see x y)
-       (fill-cell g x y (new Color 255 180 180 150)))))
+       (fill-cell g x y (new Color 255 140 140 120)))))
   (dorun
    (for [x (range *grid-width*) y (range *grid-height*)]
      (when-let [e (grid-at x y)]
-       (fill-cell g x y (new Color 150 150 150 150))
+       (fill-cell g x y (new Color 100 200 200 100))
        (draw-movements g e)))))
 
 (defn update-grid []
@@ -262,7 +262,7 @@
 
 (defn format-event
   [event]
-  (if (some #(= event %) (get-events (:problem-data (:ep-state *or-state*))))
+  (if (some #(= event %) (get-events (:eventlog (:problem-data (:ep-state *or-state*)))))
     (str event)
     (str "!" event)))
 

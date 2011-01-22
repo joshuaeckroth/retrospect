@@ -15,5 +15,9 @@
             accepted-hyps (lookup-hyps workspace (:accepted (:decision workspace)))
             new-est (reduce (fn [est action] (action est))
                             (:ep-state-tree ors)
-                            (map :update-fn accepted-hyps))]
-        (assoc ors :ep-state-tree new-est :ep-state (current-ep-state new-est)))))
+                            (map :update-fn accepted-hyps))
+            ors-resources (if (and (= 1 (count accepted-hyps))
+                                   (= :MH-dec-accurate (:id (first accepted-hyps))))
+                            ors
+                            (update-in or-state [:resources :meta-abductions] inc))]
+        (assoc ors-resources :ep-state-tree new-est :ep-state (current-ep-state new-est)))))

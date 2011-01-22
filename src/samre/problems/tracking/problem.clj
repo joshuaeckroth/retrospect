@@ -10,6 +10,8 @@
          [player-get-params player-get-params-panel
           player-get-diagram player-get-stats-panel
           player-update-stats player-update-truedata-log-box]])
+  (:use [samre.problems.tracking.sensors :only
+         (measure-sensor-overlap measure-sensor-coverage list-sensors-see)])
   (:use [samre.problems.tracking.eventlog :only (init-event-log)]))
 
 (def avg-fields [:PercentEventsCorrect :PercentEventsWrong :PercentIdentitiesCorrect
@@ -73,6 +75,15 @@
     :split-by :SensorCoverage :split-list (range 10 101 10) :split-delta 5
     :regression :linear}])
 
+(defn generate-problem-data
+  [params sensors]
+  {:eventlog (init-event-log)
+   :sensors-see (list-sensors-see (:GridWidth params) (:GridHeight params) sensors)
+   :sensor-coverage (measure-sensor-coverage (:GridWidth params) (:GridHeight params)
+                                             sensors)
+   :sensor-overlap (measure-sensor-overlap (:GridWidth params) (:GridHeight params)
+                                           sensors)})
+
 (def tracking-problem
   (Problem. "tracking"
             prepare-hyps
@@ -84,4 +95,4 @@
              :update-stats-fn player-update-stats
              :update-truedata-log-box-fn player-update-truedata-log-box}
             generate-truedata generate-sensors
-            evaluate (init-event-log) avg-fields non-avg-fields charts))
+            evaluate generate-problem-data avg-fields non-avg-fields charts))

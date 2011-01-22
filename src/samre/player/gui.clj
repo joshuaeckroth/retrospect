@@ -309,7 +309,7 @@
         sensors ((:sensor-gen-fn *problem*) params)
         truedata ((:truedata-fn *problem*) params)
         or-state (init-one-run-state meta-abduction lazy sensors
-                                     (:initial-problem-data *problem*))]
+                                     ((:gen-problem-data-fn *problem*) params sensors))]
     (update-params params)
     (update-sensors sensors)
     (update-truedata truedata)

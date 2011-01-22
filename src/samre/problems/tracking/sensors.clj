@@ -42,6 +42,12 @@
   (and (>= x (sens-left sensor)) (<= x (sens-right sensor))
        (>= y (sens-bottom sensor)) (<= y (sens-top sensor))))
 
+(defn list-sensors-see
+  [width height sensors]
+  (doall (filter identity
+                 (for [x (range width) y (range height)]
+                   (if (some #(sees % x y) sensors) (Position. x y))))))
+
 (defn find-spotted
   [sensor grid time]
   (doall (map #(Hypothesis. (make-sensorentity-id (pos %) time)

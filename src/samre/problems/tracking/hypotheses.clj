@@ -79,19 +79,20 @@
 
 (defn update-fn
   "Given an entity and events, update the event log."
-  [entity events eventlog]
-  (reduce (fn [el ev] (cond (= (type ev) samre.problems.tracking.events.EventNew)
-                            (-> el
-                                (add-event ev)
-                                (add-entity entity))
-                            (= (type ev) samre.problems.tracking.events.EventFrozen)
-                            (-> el
-                                (update-entity (:time ev) entity (:pos ev)))
-                            (= (type ev) samre.problems.tracking.events.EventMove)
-                            (-> el
-                                (add-event ev)
-                                (update-entity (:time ev) entity (:pos ev)))))
-          eventlog events))
+  [entity events pdata]
+  (assoc pdata :eventlog
+         (reduce (fn [el ev] (cond (= (type ev) samre.problems.tracking.events.EventNew)
+                                   (-> el
+                                       (add-event ev)
+                                       (add-entity entity))
+                                   (= (type ev) samre.problems.tracking.events.EventFrozen)
+                                   (-> el
+                                       (update-entity (:time ev) entity (:pos ev)))
+                                   (= (type ev) samre.problems.tracking.events.EventMove)
+                                   (-> el
+                                       (add-event ev)
+                                       (update-entity (:time ev) entity (:pos ev)))))
+                 (:eventlog pdata) events)))
 
 (def implausible-fn (constantly []))
 
@@ -344,8 +345,9 @@
   [ep-state time-prev sensors params]
   (let [spotted-by-sensors (apply concat (map #(sensed-from % time-prev) sensors))
         unique-spotted (vals (apply merge (map (fn [s] {(:id s) s}) spotted-by-sensors)))
-        entities (get-entities (:problem-data ep-state))
-        available-unsorted (generate-all-links entities unique-spotted params (:time ep-state))
+        entities (get-entities (:eventlog (:problem-data ep-state)))
+        available-unsorted (generate-all-links
+                            entities unique-spotted params (:time ep-state))
         available (score-and-sort-links available-unsorted params)
         choices (init-choices available)
         ;; hypothesize and state as fact the sensor detections
@@ -358,7 +360,8 @@
   [ep-state]
   (let [c (construct-remaining-path (:choices (:problem-data ep-state)))
         c-seq (choices-to-seq c)
-        hyps (hyps-from-choices-seq c-seq (get-entities (:problem-data ep-state)))]
+        hyps (hyps-from-choices-seq c-seq
+                                    (get-entities (:eventlog (:problem-data ep-state))))]
     (update-in (reduce (fn [ep h] (add-hyp ep h)) ep-state hyps)
                [:problem-data] assoc :choices c)))
 
