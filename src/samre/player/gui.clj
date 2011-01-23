@@ -71,6 +71,7 @@
 
 (def *param-spinners*
   {:Steps (JSpinner. (SpinnerNumberModel. 50 1 1000 1))
+   :StepsBetween (JSpinner. (SpinnerNumberModel. 1 1 1000 1))
    :SensorReportNoise (JSpinner. (SpinnerNumberModel. 0 0 100 10))
    :BeliefNoise (JSpinner. (SpinnerNumberModel. 0 0 100 10))})
 
@@ -322,7 +323,7 @@
 
 (defn next-step
   []
-  (when (< *time* (:Steps *params*))
+  (when (< *time* (- (:Steps *params*) (:StepsBetween *params*)))
     (step)))
 
 (def *nextbutton*
@@ -355,15 +356,20 @@
      (JLabel. "Steps:")
      :gridx 1, :gridy 2
      (:Steps *param-spinners*)
-     
+
      :gridx 0, :gridy 3
-     (JLabel. "SensorReportNoise:")
+     (JLabel. "StepsBetween:")
      :gridx 1, :gridy 3
-     (:SensorReportNoise *param-spinners*)
+     (:StepsBetween *param-spinners*)
      
      :gridx 0, :gridy 4
-     (JLabel. "BeliefNoise:")
+     (JLabel. "SensorReportNoise:")
      :gridx 1, :gridy 4
+     (:SensorReportNoise *param-spinners*)
+     
+     :gridx 0, :gridy 5
+     (JLabel. "BeliefNoise:")
+     :gridx 1, :gridy 5
      (:BeliefNoise *param-spinners*))))
 
 (def *stats-panel*

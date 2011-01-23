@@ -62,7 +62,7 @@
   "Create a new entity with a random (free) location."
   [grid time]
   (let [pos (rand-pos grid)]
-    (Entity. [(EntitySnapshot. time pos)])))
+    (Entity. (hash [time (:x pos) (:y pos)]) [(EntitySnapshot. time pos)])))
   
 (defn attempt-move
   "Try to move one step in a given direction; return new position."

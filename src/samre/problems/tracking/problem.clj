@@ -11,7 +11,8 @@
           player-get-diagram player-get-stats-panel
           player-update-stats player-update-truedata-log-box]])
   (:use [samre.problems.tracking.sensors :only
-         (measure-sensor-overlap measure-sensor-coverage list-sensors-see)])
+         [measure-sensor-overlap measure-sensor-coverage
+          list-sensors-seen list-sensors-unseen]])
   (:use [samre.problems.tracking.eventlog :only (init-event-log)]))
 
 (def avg-fields [:PercentEventsCorrect :PercentEventsWrong :PercentIdentitiesCorrect
@@ -78,7 +79,8 @@
 (defn generate-problem-data
   [params sensors]
   {:eventlog (init-event-log)
-   :sensors-see (list-sensors-see (:GridWidth params) (:GridHeight params) sensors)
+   :sensors-seen (list-sensors-seen (:GridWidth params) (:GridHeight params) sensors)
+   :sensors-unseen (list-sensors-unseen (:GridWidth params) (:GridHeight params) sensors)
    :sensor-coverage (measure-sensor-coverage (:GridWidth params) (:GridHeight params)
                                              sensors)
    :sensor-overlap (measure-sensor-overlap (:GridWidth params) (:GridHeight params)

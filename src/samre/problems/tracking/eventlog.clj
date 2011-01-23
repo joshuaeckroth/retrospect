@@ -21,7 +21,7 @@
   ;;eg: (let [m {:a :b :c :d}] (zipmap (vals m) (keys m)))
   [eventlog time entity pos]
   (assoc eventlog :entities
-	 (doall (map #(if (not= % entity) %
+	 (doall (map #(if (not= (:id %) (:id entity)) %
                           (add-snapshot % (EntitySnapshot. time pos)))
                      (:entities eventlog)))))
 

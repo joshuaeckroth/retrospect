@@ -26,19 +26,27 @@
                       :Milliseconds (:milliseconds (:resources or-state))
                       :Memory (:memory (:resources or-state))))))
 
+(defn proceed-n-steps
+  [n time truedata or-state params]
+  (loop [t time
+         ors or-state]
+    (if (= t (+ n time)) ors
+        (recur (inc t)
+         (update-in ors [:sensors] update-sensors (get truedata t) t)))))
+
 (defn run-simulation-step
   [problem truedata or-state params]
-  (let [time-now (:time (:ep-state or-state))
-        time-prev (if-let [time-prev (:time (previous-ep-state (:ep-state-tree or-state)))]
-                    (inc time-prev) time-now)
-        sensors (update-sensors (:sensors or-state) (get truedata time-now) time-now)
-        ors-sensors (assoc or-state :sensors sensors)
+  (let [ors (proceed-n-steps (:StepsBetween params) (:time (:ep-state or-state))
+                             truedata or-state params)
+        time-now (+ (dec (:StepsBetween params)) (:time (:ep-state ors)))
+        time-prev (if-let [time-prev (:time (previous-ep-state (:ep-state-tree ors)))]
+                    (inc time-prev) 0)
         start-time (. System (nanoTime))
-        ep-state-prepared ((:prepare-hyps-fn problem) (:ep-state ors-sensors)
-                           time-prev sensors params)
-        ep-state (generate-hyps-and-explain problem ep-state-prepared sensors params
-                                            (:lazy ors-sensors))
-        ors-explained (update-one-run-state ors-sensors ep-state)
+        ep-state-prepared ((:prepare-hyps-fn problem) (:ep-state ors)
+                           time-prev time-now (:sensors ors) params)
+        ep-state (generate-hyps-and-explain problem ep-state-prepared (:sensors ors) params
+                                            (:lazy ors))
+        ors-explained (update-one-run-state ors ep-state)
         ors-meta (explain-meta problem ors-explained params)
         ep-state-meta (:ep-state ors-meta)
         ors-next (proceed-one-run-state ors-meta ep-state-meta)
@@ -49,7 +57,7 @@
 (defn run-simulation
   [problem truedata or-state params]
   (loop [ors or-state]
-    (if (>= (:time (:ep-state ors)) (:Steps params)) (:results ors)
+    (if (>= (:time (:ep-state ors)) (- (:Steps params) (:StepsBetween params))) (:results ors)
         (recur (run-simulation-step problem truedata ors params)))))
 
 (defn run-comparative

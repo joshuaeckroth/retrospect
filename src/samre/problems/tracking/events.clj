@@ -12,3 +12,9 @@
 (defrecord EventFrozen [time pos]
   Object
   (toString [_] (format "EventFrozen: (%d,%d)@%d" (:x pos) (:y pos) time)))
+
+(defrecord EventDisappear [time oldtime pos oldpos]
+  Object
+  (toString [_] (format "EventDisappear: (%d,%d)%d->(?,?)->(%d,%d)@%d"
+                        (:x oldpos) (:y oldpos) oldtime
+                        (:x pos) (:y pos) time)))

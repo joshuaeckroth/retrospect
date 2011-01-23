@@ -242,19 +242,19 @@
 (defn player-update-stats
   []
   (if (>= *time* 0)
-    (do
+    (let [t (int (/ *time* (:StepsBetween *params*)))]
       (. *percent-events-correct-label*
          (setText
           (format "%.2f%%"
-                  (:PercentEventsCorrect (get (:results *or-state*) *time*)))))
+                  (:PercentEventsCorrect (get (:results *or-state*) t)))))
       (. *percent-events-wrong-label*
          (setText
           (format "%.2f%%"
-                  (:PercentEventsWrong (get (:results *or-state*) *time*)))))
+                  (:PercentEventsWrong (get (:results *or-state*) t)))))
       (. *percent-identities-correct-label*
          (setText
           (format "%.2f%%"
-                  (:PercentIdentitiesCorrect (get (:results *or-state*) *time*))))))
+                  (:PercentIdentitiesCorrect (get (:results *or-state*) t))))))
     (do
       (. *percent-events-correct-label* (setText "N/A"))
       (. *percent-events-wrong-label* (setText "N/A"))

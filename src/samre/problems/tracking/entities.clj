@@ -8,9 +8,9 @@
 
 (defrecord EntitySnapshot [time pos]
   Object
-  (toString [_] (str pos)))
+  (toString [_] (format "%s@%d" (str pos) time)))
 
-(defrecord Entity [snapshots]
+(defrecord Entity [id snapshots]
   SnapshotMethods
   (add-snapshot
    [this snapshot]
@@ -18,7 +18,7 @@
   EntityMethods
   (pos [_] (:pos (last snapshots)))
   Object
-  (toString [_] (format "Entity %s"
+  (toString [_] (format "Entity %s %s" id
                         (if (>= 3 (count snapshots))
                           (apply str (interpose "->" (map str snapshots)))
                           (format "%s->...->%s->%s"

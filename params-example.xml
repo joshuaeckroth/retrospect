@@ -4,6 +4,7 @@
     <problem name="tracking">
       <params>
         <Steps start="20" end="20" step="1" />
+        <StepsBetween start="2" end="2" step="1" />
         <NumberEntities start="1" end="20" step="5" />
         <MaxWalk start="1" end="11" step="5" />
         <ProbNewEntities start="0" end="0" step="10" />

@@ -3,7 +3,7 @@
   (:require [samre.problems.tracking events entities])
   (:import [samre.workspaces Hypothesis])
   (:import [samre.problems.tracking.entities Entity EntitySnapshot])
-  (:import [samre.problems.tracking.events EventNew EventMove EventFrozen])
+  (:import [samre.problems.tracking.events EventNew EventMove EventFrozen EventDisappear])
   (:use [samre.problems.tracking.positions :only [manhattan-distance]])
   (:use [samre.problems.tracking.entities :only [pos]])
   (:use [samre.problems.tracking.eventlog :only
@@ -80,6 +80,8 @@
 (defn update-fn
   "Given an entity and events, update the event log."
   [entity events pdata]
+  ;; TODO: allow multiple updates for same entity; note that the entity
+  ;; changes after the first update, so can't use "entity" again
   (assoc pdata :eventlog
          (reduce (fn [el ev] (cond (= (type ev) samre.problems.tracking.events.EventNew)
                                    (-> el
@@ -92,7 +94,7 @@
                                    (-> el
                                        (add-event ev)
                                        (update-entity (:time ev) entity (:pos ev)))))
-                 (:eventlog pdata) events)))
+                 (:eventlog pdata) (sort-by :time events))))
 
 (def implausible-fn (constantly []))
 
@@ -112,10 +114,13 @@
 
 (defn same-start-or-end
   [link1 link2]
-  (and (= (:end-time link1) (:end-time link2))
-       (or
-        (= (:start-pos link1) (:start-pos link2))
-        (= (:end-pos link1) (:end-pos link2)))))
+  (or
+   (and
+    (= (:start-time link1) (:start-time link2))
+    (= (:start-pos link1) (:start-pos link2)))
+   (and
+    (= (:end-time link1) (:end-time link2))
+    (= (:end-pos link1) (:end-pos link2)))))
 
 (defn score-event-new
   [event params]
@@ -137,6 +142,10 @@
           :else ;; equiv to <= dist (:MaxWalk params)
           VERY-IMPLAUSIBLE)))
 
+(defn score-event-disappear
+  [event params]
+  NEUTRAL)
+
 (defn score-and-sort-links
   "Score single links (which are tracking hypotheses each containing
   one of EventMove, EventNew, EventFrozen), and sort them."
@@ -148,7 +157,9 @@
                                      (= t samre.problems.tracking.events.EventFrozen)
                                      (score-event-frozen (:event a) params)
                                      (= t samre.problems.tracking.events.EventMove)
-                                     (score-event-move (:event a) params)))))]
+                                     (score-event-move (:event a) params)
+                                     (= t samre.problems.tracking.events.EventDisappear)
+                                     (score-event-disappear (:event a) params)))))]
     (reverse (sort-by :conf (map score available)))))
 
 (defn score-path
@@ -156,59 +167,107 @@
   [path]
   (apply min (map :conf path)))
 
-(defn in-range
+(defn in-range?
   [pos1 pos2 params]
   (<= (manhattan-distance pos1 pos2) (:MaxWalk params)))
+
+(defn generate-initial-movements
+  "Generate initial movements from existing entities (s = start, e = end)."
+  [entities nodes params]
+  (for [s entities e (filter (fn [n] (and (= (inc (:time (last (:snapshots s))))
+                                             (:time n))
+                                          (not= (pos s) (:pos n))
+                                          (in-range? (pos s) (:pos n) params))) nodes)]
+    {:id (hash [s (:time e) (:pos e)])
+     :event (EventMove. (:time e) (pos s) (:pos e))
+     :start-pos (pos s) :end-pos (:pos e)
+     :start-time (:time (last (:snapshots s))) :end-time (:time e)
+     :entity s :spotted (:spotted e)}))
+
+(defn generate-movements
+  "Generate movements between sensor entities."
+  [entities nodes params]
+  (for [s nodes e (filter (fn [n] (and (= (inc (:time s)) (:time n))
+                                       (not= (:pos s) (:pos n))
+                                       (in-range? (:pos s) (:pos n) params))) nodes)]
+    {:id (hash [(:time s) (:pos s) (:time e) (:pos e)])
+     :event (EventMove. (:time e) (:pos s) (:pos e))
+     :start-pos (:pos s) :end-pos (:pos e)
+     :start-time (:time s) :end-time (:time e)
+     :spotted-start (:spotted s) :spotted-end (:spotted e)}))
+
+(defn generate-new
+  "Generate new entity events."
+  [nodes params time]
+  (let [time-max (if (< 0 (:ProbNewEntities params)) time 0)]
+    (for [e (filter #(>= time-max (:time %)) nodes)]
+      {:id (hash [(:time e) (:pos e)])
+       :event (EventNew. (:time e) (:pos e))
+       :start-pos (:pos e) :end-pos (:pos e)
+       :start-time nil :end-time (:time e)
+       :entity (Entity. (hash [(:time e) (:x (:pos e)) (:y (:pos e))])
+                        [(EntitySnapshot. (:time e) (:pos e))])
+       :spotted (:spotted e)})))
+
+(defn generate-frozen
+  "Generate frozen entity events which occupy positions of existing entities."
+  [entities nodes]
+  (for [s entities e (filter (fn [n] (and (= (inc (:time (last (:snapshots s))))
+                                             (:time n))
+                                          (= (pos s) (:pos n)))) nodes)]
+    {:id (hash [s (:time e) (:pos e)])
+     :event (EventFrozen. (:time e) (:pos e))
+     :start-pos (:pos e) :end-pos (:pos e)
+     :start-time (:time (last (:snapshots s))) :end-time (:time e)
+     :entity s :spotted (:spotted e)}))
+
+(defn generate-detected-frozen
+  "Generate frozen entity events among sensor detections."
+  [nodes]
+  (for [s nodes e (filter (fn [n] (and (= (inc (:time s)) (:time n))
+                                       (= (:pos s) (:pos n)))) nodes)]
+    {:id (hash [(:time s) (:pos s) (:time e) (:pos e)])
+     :event (EventFrozen. (:time e) (:pos e))
+     :start-pos (:pos e) :end-pos (:pos e)
+     :start-time (:time s) :end-time (:time e)
+     :spotted-start (:spotted s) :spotted-end (:spotted e)}))
+
+(defn generate-disappearances
+  "Generate disappearance (and reappearances) when an old detection or entity
+   had enough time (2 time steps) and was within range of an unseen area to
+   have possibly disappeared and reappeared."
+  [entities nodes params pdata]
+  (let [ss (filter #(some (fn [p] (in-range? (pos %) p params)) (:sensors-unseen pdata))
+                   entities)
+        es (filter #(some (fn [p] (in-range? (:pos %) p params)) (:sensors-unseen pdata))
+                   nodes)]
+    (concat
+     ;; s = start, e = end
+     ;; from entities to unseen to detected
+     (for [s ss e (filter #(<= 2 (- (:time %) (:time (last (:snapshots s))))) es)]
+       {:id (hash [s (:time e) (:pos e)])
+        :event (EventDisappear. (:time e) (:time (last (:snapshots s))) (:pos e) (pos s))
+        :start-pos (pos s) :end-pos (:pos e)
+        :start-time (:time (last (:snapshots s))) :end-time (:time e)
+        :entity s :spotted (:spotted s)})
+     ;; from detected to unseen to detected
+     [])))
 
 (defn generate-all-links
   "For each existing entity and each sensor detection, generate the
   following events: a movement event to every sensor detection that is
   one time step ahead; a frozen event at the existing location; and a
   new event at the existing location."
-  [entities spotted params time]
+  [entities spotted params time pdata]
   (let [nodes (map (fn [s] {:time (:time (:data s)) :pos (:pos (:data s))
                             :spotted s}) spotted)]
     (concat
-     ;; generate initial movements from existing entities (s = start, e = end)
-     (for [s entities e (filter (fn [n] (and (= (inc (:time (last (:snapshots s))))
-                                                (:time n))
-                                             (not= (pos s) (:pos n))
-                                             (in-range (pos s) (:pos n) params))) nodes)]
-       {:id (hash [s (:time e) (:pos e)])
-        :event (EventMove. (:time e) (pos s) (:pos e))
-        :start-pos (pos s) :end-pos (:pos e) :end-time (:time e)
-        :entity s :spotted (:spotted e)})
-     ;; generate movements between sensor detections
-     (for [s nodes e (filter (fn [n] (and (= (inc (:time s)) (:time n))
-                                          (not= (:pos s) (:pos n))
-                                          (in-range (:pos s) (:pos n) params))) nodes)]
-       {:id (hash [(:time s) (:pos s) (:time e) (:pos e)])
-        :event (EventMove. (:time e) (:pos s) (:pos e))
-        :start-pos (:pos s) :end-pos (:pos e) :end-time (:time e)
-        :spotted-start (:spotted s) :spotted-end (:spotted e)})
-     ;; generate new entity events
-     (if-not (or (< 0 (:ProbNewEntities params)) (= time 0)) []
-             (for [e nodes]
-               {:id (hash [(:time e) (:pos e)])
-                :event (EventNew. (:time e) (:pos e))
-                :start-pos (:pos e) :end-pos (:pos e) :end-time (:time e)
-                :entity (Entity. [(EntitySnapshot. (:time e) (:pos e))])
-                :spotted (:spotted e)}))
-     ;; generate frozen entity events which occupy positions of existing entities
-     (for [s entities e (filter (fn [n] (and (= (inc (:time (last (:snapshots s))))
-                                                (:time n))
-                                             (= (pos s) (:pos n)))) nodes)]
-       {:id (hash [s (:time e) (:pos e)])
-        :event (EventFrozen. (:time e) (:pos e))
-        :start-pos (:pos e) :end-pos (:pos e) :end-time (:time e)
-        :entity s :spotted (:spotted e)})
-     ;; generate frozen entity events among sensor detections
-     (for [s nodes e (filter (fn [n] (and (= (inc (:time s)) (:time n))
-                                          (= (:pos s) (:pos n)))) nodes)]
-       {:id (hash [(:time s) (:pos s) (:time e) (:pos e)])
-        :event (EventFrozen. (:time e) (:pos e))
-        :start-pos (:pos e) :end-pos (:pos e) :end-time (:time e)
-        :spotted-start (:spotted s) :spotted-end (:spotted e)}))))
+     (generate-initial-movements entities nodes params)
+     (generate-movements entities nodes params)
+     (generate-new nodes params time)
+     (generate-frozen entities nodes)
+     (generate-detected-frozen nodes)
+     (generate-disappearances entities nodes params pdata))))
 
 (def choices-branch? (constantly true))
 
@@ -218,7 +277,7 @@
 
 (defn choice-to-str
   [choice]
-  (format "%d (A=%d)" (:id (:link choice)) (count (:available choice))))
+  (format "%s (A=%d)" (str (:event (:link choice))) (count (:available choice))))
 
 (defn choices-to-nested-helper
   [choice]
@@ -298,7 +357,7 @@
   [choices]
   (loop [c choices
          s []]
-    (if c (recur (zip/prev c) (conj s (:link (zip/node c))))
+    (if c (recur (zip/up c) (conj s (:link (zip/node c))))
         s)))
 
 (defn obtain-path-for-entity
@@ -307,13 +366,15 @@
   sequence of choices for that entity."
   [choices-seq entity]
   (loop [;; initialize 'path' as the vec containing only the entity's first link
-         path (filter #(and % (= (:entity %) entity)) choices-seq)]
+         path (filter #(and % (= (:id (:entity %)) (:id entity))) choices-seq)]
     (if (empty? path) path
         (let [{end-time :end-time end-pos :end-pos} (last path)
-              ;; 'next' is whatever link starts at end-pos and has :endtime=endtime+1
-              next (first (filter #(and (= (:start-pos %) end-pos)
-                                        (= (:end-time %) (inc end-time)))
-                                  choices-seq))]
+              same-start (filter #(and (= (:start-pos %) end-pos)
+                                       (= (:start-time %) end-time))
+                                 choices-seq)
+              ;; 'next' is whatever link starts at end-pos and end-time
+              ;; and has endtime is least time of those available
+              next (first (sort-by :end-time same-start))]
           (if (nil? next) path
               (recur (conj (vec path) next)))))))
 
@@ -342,19 +403,19 @@
                      {:entity e :events events})))))
 
 (defn prepare-hyps
-  [ep-state time-prev sensors params]
+  [ep-state time-prev time-now sensors params]
   (let [spotted-by-sensors (apply concat (map #(sensed-from % time-prev) sensors))
         unique-spotted (vals (apply merge (map (fn [s] {(:id s) s}) spotted-by-sensors)))
         entities (get-entities (:eventlog (:problem-data ep-state)))
-        available-unsorted (generate-all-links
-                            entities unique-spotted params (:time ep-state))
+        available-unsorted (generate-all-links entities unique-spotted
+                                               params time-now (:problem-data ep-state))
         available (score-and-sort-links available-unsorted params)
         choices (init-choices available)
         ;; hypothesize and state as fact the sensor detections
         ep (reduce (fn [ep s] (-> ep (add-hyp s) (force-acceptance s)))
-                   ep-state unique-spotted)]
-    (comment (println "available: " (count available)))
-    (update-in ep [:problem-data] assoc :choices choices)))
+                   ep-state unique-spotted)
+        ep-time (assoc ep :time time-now)]
+    (update-in ep-time [:problem-data] assoc :choices choices)))
 
 (defn get-hyps
   [ep-state]
