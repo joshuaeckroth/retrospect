@@ -66,7 +66,8 @@
 
 (defn event-seen
   [event sensors-seen]
-  (some #(or (= % (:pos event)) (= % (:oldpos event))) sensors-seen))
+  (and (some #(= % (:pos event)) sensors-seen)
+       (if (:oldpos event) (some #(= % (:oldpos event)) sensors-seen) true)))
 
 (defn evaluate
   [ep-state sensors truedata params]
@@ -76,7 +77,11 @@
    the current ep-state's time minus 1."
   (let [trueeventlog (:eventlog (get truedata (dec (:time ep-state))))
         pdata (:problem-data ep-state)
-        pevents (set (get-events (:eventlog pdata)))
+        ;; don't penalize (as "wrong") frozen and disappear events
+        pevents (set (filter
+                      #(and (not= samre.problems.tracking.events.EventFrozen (type %))
+                            (not= samre.problems.tracking.events.EventDisappear (type %)))
+                      (get-events (:eventlog pdata))))
         pentities (get-entities (:eventlog pdata))
         trueevents (set (filter #(event-seen % (:sensors-seen (:problem-data ep-state)))
                                 (get-events trueeventlog)))

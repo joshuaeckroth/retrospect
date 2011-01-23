@@ -27,18 +27,17 @@
                       :Memory (:memory (:resources or-state))))))
 
 (defn proceed-n-steps
-  [n time truedata or-state params]
+  [n time truedata or-state]
   (loop [t time
          ors or-state]
     (if (= t (+ n time)) ors
         (recur (inc t)
-               (update-in ors [:sensors] update-sensors (get truedata t) t
-                          (:StepsBetween params))))))
+               (update-in ors [:sensors] update-sensors (get truedata t) t)))))
 
 (defn run-simulation-step
   [problem truedata or-state params]
   (let [ors (proceed-n-steps (:StepsBetween params) (:time (:ep-state or-state))
-                             truedata or-state params)
+                             truedata or-state)
         time-now (+ (dec (:StepsBetween params)) (:time (:ep-state ors)))
         time-prev (if-let [time-prev (:time (previous-ep-state (:ep-state-tree ors)))]
                     (inc time-prev) 0)
@@ -50,7 +49,7 @@
         ors-explained (update-one-run-state ors ep-state)
         ors-meta (explain-meta problem ors-explained params)
         ep-state-meta (:ep-state ors-meta)
-        ors-next (proceed-one-run-state ors-meta ep-state-meta)
+        ors-next (proceed-one-run-state ors-meta ep-state-meta params)
         milliseconds (/ (- (. System (nanoTime)) start-time) 1000000.0)
         ors-final (update-in ors-next [:resources] assoc :milliseconds milliseconds)]
     (evaluate problem truedata ors-final params)))

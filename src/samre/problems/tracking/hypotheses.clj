@@ -74,8 +74,8 @@
           (apply str (interpose "," (sort (map name (:explains hyp)))))))
 
 (defn ancient-fn
-  [old-time hyp new-time]
-  (< 3 (- new-time old-time)))
+  [old-time hyp new-time sb]
+  (> (- new-time old-time) sb))
 
 (defn update-fn
   "Given an entity and events, update the event log."
@@ -203,15 +203,14 @@
 (defn generate-new
   "Generate new entity events."
   [nodes params time]
-  (let [time-max (if (< 0 (:ProbNewEntities params)) time 0)]
-    (for [e (filter #(>= time-max (:time %)) nodes)]
-      {:id (hash [(:time e) (:pos e)])
-       :event (EventNew. (:time e) (:pos e))
-       :start-pos (:pos e) :end-pos (:pos e)
-       :start-time nil :end-time (:time e)
-       :entity (Entity. (hash [(:time e) (:x (:pos e)) (:y (:pos e))])
-                        [(EntitySnapshot. (:time e) (:pos e))])
-       :spotted (:spotted e)})))
+  (for [e nodes]
+    {:id (hash [(:time e) (:pos e)])
+     :event (EventNew. (:time e) (:pos e))
+     :start-pos (:pos e) :end-pos (:pos e)
+     :start-time (dec (:time e)) :end-time (:time e)
+     :entity (Entity. (hash [(:time e) (:x (:pos e)) (:y (:pos e))])
+                      [(EntitySnapshot. (:time e) (:pos e))])
+     :spotted (:spotted e)}))
 
 (defn generate-frozen
   "Generate frozen entity events which occupy positions of existing entities."

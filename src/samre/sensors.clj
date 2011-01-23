@@ -22,9 +22,9 @@
       (assoc :sensed-up-to time)))
 
 (defn update-sensors
-  [sensors moment time steps-between]
+  [sensors moment time]
   "Don't resense already sensed time steps."
   (doall (map (fn [s] (if (<= time (:sensed-up-to s)) s
-                          ((:sense-fn s) s moment time steps-between)))
+                          ((:sense-fn s) s moment time)))
               sensors)))
 

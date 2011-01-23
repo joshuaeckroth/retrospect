@@ -57,13 +57,13 @@
                        (if-not (some #(= % p) seen) p)))))))
 
 (defn find-spotted
-  [sensor grid time steps-between]
+  [sensor grid time]
   (doall (map #(Hypothesis. (make-sensorentity-id (pos %) time)
                             :sensor-entity
                             VERY-PLAUSIBLE VERY-PLAUSIBLE
                             [] (constantly []) (constantly [])
                             identity
-                            (fn [h t] (> (- t time) steps-between))
+                            (fn [h t sb] (> (- t time) sb))
                             sensor-entity-to-str
                             {:time time :pos (pos %)})
               (filter #(not (nil? %))
@@ -72,8 +72,8 @@
                                (entity-at grid (Position. x y))))))))
 
 (defn sense
-  [sensor {grid :grid} time steps-between]
-  (let [spotted (find-spotted sensor grid time steps-between)]
+  [sensor {grid :grid} time]
+  (let [spotted (find-spotted sensor grid time)]
     (add-sensed sensor time spotted)))
 
 (defn new-sensor

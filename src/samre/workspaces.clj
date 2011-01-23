@@ -63,8 +63,9 @@
 
 (defn delete-ancient-hyps
   "Called by new-child-ep-state in epistemicstates.clj"
-  [workspace time]
-  (let [ancient (set (map :id (filter #((:ancient-fn %) % time) (vals (:hyps workspace)))))
+  [workspace time params]
+  (let [ancient (set (map :id (filter #((:ancient-fn %) % time (:StepsBetween params))
+                                      (vals (:hyps workspace)))))
         new-hyps (apply dissoc (:hyps workspace) ancient)
         new-accepted (set/difference (set (:accepted workspace)) ancient)
         new-rejected (set/difference (set (:rejected workspace)) ancient)
