@@ -7,7 +7,8 @@
   (:use [samre.sensors :only [update-sensors]]))
 
 (def avg-fields
-  [:Steps :MetaAbductions :Compute :Milliseconds :Memory :SensorReportNoise :BeliefNoise])
+  [:Steps :StepsBetween :MetaAbductions :Compute :Milliseconds :Memory
+   :SensorReportNoise :BeliefNoise])
 
 (def non-avg-fields
   [:MetaAbduction :Lazy])

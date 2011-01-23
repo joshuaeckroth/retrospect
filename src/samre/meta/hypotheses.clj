@@ -58,11 +58,12 @@
                       (map :id (vals (:hyps (:workspace ep-state)))))))
   (let [time-prev (if-let [time-prev (:time (previous-ep-state ep-state-tree))]
                     (inc time-prev) (:time (current-ep-state ep-state-tree)))
+        time-now (apply max (map :sensed-up-to sensors))
         ep-state-prepared ((:prepare-hyps-fn problem) (current-ep-state ep-state-tree)
-                           time-prev sensors params)
+                           time-prev time-now sensors params)
         ep-state (generate-hyps-and-explain problem ep-state-prepared sensors params lazy)
         score (measure-decision-confidence (:workspace ep-state))
-        ep-state-updated-time (assoc ep-state :time (apply max (map :sensed-up-to sensors)))]
+        ep-state-updated-time (assoc ep-state :time time-now)]
     {:score score :ep-state ep-state-updated-time}))
 
 (defn generate-ep-state-hyp

@@ -23,7 +23,12 @@
 (def non-avg-fields [])
 
 (def charts
-  [{:x :PlausibilityAccuracy :y :PercentEventsCorrect :name "pl-acc-events-correct"
+  [{:x :StepsBetween :y :PercentEventsCorrect :name "stepsbetween-events-correct"
+    :each-reg :linear}
+   {:x :StepsBetween :y :PercentEventsCorrect :name "stepsbetween-events-correct"
+    :each-reg :linear
+    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 10}
+   {:x :PlausibilityAccuracy :y :PercentEventsCorrect :name "pl-acc-events-correct"
     :each-reg :linear}
    {:x :NumberEntities :y :PlausibilityAccuracy :name "numes-pl-acc"
     :each-reg :linear}
