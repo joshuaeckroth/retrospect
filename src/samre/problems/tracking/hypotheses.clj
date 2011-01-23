@@ -93,6 +93,10 @@
                                    (= (type ev) samre.problems.tracking.events.EventMove)
                                    (-> el
                                        (add-event ev)
+                                       (update-entity (:time ev) entity (:pos ev)))
+                                   (= (type ev) samre.problems.tracking.events.EventDisappear)
+                                   (-> el
+                                       (add-event ev)
                                        (update-entity (:time ev) entity (:pos ev)))))
                  (:eventlog pdata) (sort-by :time events))))
 
@@ -249,7 +253,7 @@
         :event (EventDisappear. (:time e) (:time (last (:snapshots s))) (:pos e) (pos s))
         :start-pos (pos s) :end-pos (:pos e)
         :start-time (:time (last (:snapshots s))) :end-time (:time e)
-        :entity s :spotted (:spotted s)})
+        :entity s :spotted (:spotted e)})
      ;; from detected to unseen to detected
      [])))
 

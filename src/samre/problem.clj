@@ -32,7 +32,8 @@
          ors or-state]
     (if (= t (+ n time)) ors
         (recur (inc t)
-         (update-in ors [:sensors] update-sensors (get truedata t) t)))))
+               (update-in ors [:sensors] update-sensors (get truedata t) t
+                          (:StepsBetween params))))))
 
 (defn run-simulation-step
   [problem truedata or-state params]

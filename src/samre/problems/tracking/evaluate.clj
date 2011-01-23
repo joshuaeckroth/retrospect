@@ -64,6 +64,10 @@
     (if (empty? (concat hyps-correct hyps-wrong)) 0.0
         (double (/ (+ positive negative) (count (concat hyps-correct hyps-wrong)))))))
 
+(defn event-seen
+  [event sensors-seen]
+  (some #(or (= % (:pos event)) (= % (:oldpos event))) sensors-seen))
+
 (defn evaluate
   [ep-state sensors truedata params]
   "The current ep-state has accepted the decision of the previous ep-state;
@@ -74,7 +78,8 @@
         pdata (:problem-data ep-state)
         pevents (set (get-events (:eventlog pdata)))
         pentities (get-entities (:eventlog pdata))
-        trueevents (set (get-events trueeventlog))
+        trueevents (set (filter #(event-seen % (:sensors-seen (:problem-data ep-state)))
+                                (get-events trueeventlog)))
         trueentities (get-entities trueeventlog)
         events-correct (count (set/intersection trueevents pevents))
         events-wrong (count (set/difference pevents trueevents))
@@ -82,9 +87,11 @@
         identities-correct (count (find-correct-identities trueentities pentities))
         identities-total (count trueentities)]
     {:PercentEventsCorrect
-     (double (* 100 (/ events-correct events-total)))
+     (if (= 0 events-total) 100.0
+         (double (* 100 (/ events-correct events-total))))
      :PercentEventsWrong
-     (double (* 100 (/ events-wrong events-total)))
+     (if (= 0 events-total) 0.0
+         (double (* 100 (/ events-wrong events-total))))
      :PercentIdentitiesCorrect
      (double (* 100 (/ identities-correct identities-total)))
      :AvgWalk (calc-average-walk trueentities)
