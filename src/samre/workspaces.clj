@@ -98,13 +98,15 @@
                                               (lookup-hyps workspace unexplained))))
         essentials-vp (map #(assoc % :confidence VERY-PLAUSIBLE)
                            (filter #(not= VERY-PLAUSIBLE (:confidence %)) essentials))
-        workspace-essentials (if (empty? essentials-vp) workspace
-                               (add-abducer-log-msg (update-hyps workspace essentials-vp)
-                                                    (map :id essentials-vp)
-                                                    "Marking essentials VP."))]
+        workspace-essentials workspace]
     (-> workspace-essentials
         (assoc :candidates non-accepted-ids)
         (assoc :unexplained unexplained))))
+
+(comment (if (empty? essentials-vp) workspace
+             (add-abducer-log-msg (update-hyps workspace essentials-vp)
+                                  (map :id essentials-vp)
+                                  "Marking essentials VP.")))
 
 (defn accept-workspace-decision
   [workspace]

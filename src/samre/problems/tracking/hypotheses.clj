@@ -172,8 +172,10 @@
   (apply min (map :conf path)))
 
 (defn in-range?
-  [pos1 pos2 params]
-  (<= (manhattan-distance pos1 pos2) (:MaxWalk params)))
+  ([pos1 pos2 n params]
+     (<= (manhattan-distance pos1 pos2) (* n (:MaxWalk params))))
+  ([pos1 pos2 params]
+     (<= (manhattan-distance pos1 pos2) (:MaxWalk params))))
 
 (defn generate-initial-movements
   "Generate initial movements from existing entities (s = start, e = end)."
@@ -243,18 +245,27 @@
   (let [ss (filter #(some (fn [p] (in-range? (pos %) p params)) (:sensors-unseen pdata))
                    entities)
         es (filter #(some (fn [p] (in-range? (:pos %) p params)) (:sensors-unseen pdata))
-                   nodes)]
+                   nodes)
+        close-entity (fn [s e] (let [dt (- (:time e) (:time (last (:snapshots s))))]
+                                 (and (<= 2 dt) (in-range? (pos s) (:pos e) dt params))))
+        close-spotted (fn [s e] (let [dt (- (:time e) (:time s))]
+                                  (and (<= 2 dt) (in-range? (:pos s) (:pos e) dt params))))]
     (concat
      ;; s = start, e = end
      ;; from entities to unseen to detected
-     (for [s ss e (filter #(<= 2 (- (:time %) (:time (last (:snapshots s))))) es)]
+     (for [s ss e (filter #(close-entity s %) es)]
        {:id (hash [s (:time e) (:pos e)])
         :event (EventDisappear. (:time e) (:time (last (:snapshots s))) (:pos e) (pos s))
         :start-pos (pos s) :end-pos (:pos e)
         :start-time (:time (last (:snapshots s))) :end-time (:time e)
         :entity s :spotted (:spotted e)})
      ;; from detected to unseen to detected
-     [])))
+     (for [s es e (filter #(close-spotted s %) es)]
+       {:id (hash [(:time s) (:pos s) (:time e) (:pos e)])
+        :event (EventDisappear. (:time e) (:time s) (:pos e) (:pos s))
+        :start-pos (:pos s) :end-pos (:pos e)
+        :start-time (:time s) :end-time (:time e)
+        :spotted-start (:spotted s) :spotted-end (:spotted e)}))))
 
 (defn generate-all-links
   "For each existing entity and each sensor detection, generate the
