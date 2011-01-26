@@ -43,14 +43,12 @@
         time-prev (if-let [time-prev (:time (previous-ep-state (:ep-state-tree ors)))]
                     (inc time-prev) 0)
         start-time (. System (nanoTime))
-        ep-state-prepared ((:prepare-hyps-fn problem) (:ep-state ors)
-                           time-prev time-now (:sensors ors) params)
-        ep-state (generate-hyps-and-explain problem ep-state-prepared (:sensors ors) params
-                                            (:lazy ors))
+        ep-state (generate-hyps-and-explain problem (:ep-state ors) time-prev time-now
+                                            (:sensors ors) params (:lazy ors))
         ors-explained (update-one-run-state ors ep-state)
         ors-meta (explain-meta problem ors-explained params)
         ep-state-meta (:ep-state ors-meta)
-        ors-next (proceed-one-run-state ors-meta ep-state-meta params)
+        ors-next (proceed-one-run-state ors-meta ep-state-meta problem params)
         milliseconds (/ (- (. System (nanoTime)) start-time) 1000000.0)
         ors-final (update-in ors-next [:resources] assoc :milliseconds milliseconds)]
     (evaluate problem truedata ors-final params)))
@@ -66,7 +64,7 @@
   (let [truedata ((:truedata-fn problem) params)
         sensors ((:sensor-gen-fn problem) params)
         problem-data ((:gen-problem-data-fn problem) params sensors)
-        or-states (init-one-run-states {:MetaAbduction [true false] :Lazy [true]}
+        or-states (init-one-run-states {:MetaAbduction [false] :Lazy [true]}
                                        sensors problem-data)]
     (doall (for [ors or-states]
              ;; get last result set from each run
@@ -79,7 +77,7 @@
 (defn average-runs
   [problem params n]
   (let [results (run-many problem params n)]
-    (doall (for [meta-abduction [true false] lazy [true]]
+    (doall (for [meta-abduction [false] lazy [true]]
              (let [rs (filter #(and (= meta-abduction (:MetaAbduction %))
                                     (= lazy (:Lazy %)))
                               results)
@@ -98,5 +96,5 @@
                                     (:avg-fields problem) (:non-avg-fields problem)))
 
 (defrecord Problem
-    [name prepare-hyps-fn get-more-hyps-fn player-fns truedata-fn sensor-gen-fn
-     evaluate-fn gen-problem-data-fn avg-fields non-avg-fields charts])
+    [name get-more-hyps-fn player-fns truedata-fn sensor-gen-fn
+     evaluate-fn gen-problem-data-fn accept-decision-fn avg-fields non-avg-fields charts])

@@ -12,7 +12,6 @@
      explains
      implausible-fn
      impossible-fn
-     update-fn
      ancient-fn
      str-fn
      data])
@@ -91,22 +90,10 @@
         non-accepted (lookup-hyps workspace non-accepted-ids)
         is-unexplained #(and (empty? (find-explainers % accepted))
                              (not-empty (find-explainers % non-accepted)))
-        unexplained (map :id (filter is-unexplained accepted))
-        essentials (apply concat (filter #(= 1 (count %))
-                                         (map #(find-explainers
-                                                % (lookup-hyps workspace non-accepted-ids))
-                                              (lookup-hyps workspace unexplained))))
-        essentials-vp (map #(assoc % :confidence VERY-PLAUSIBLE)
-                           (filter #(not= VERY-PLAUSIBLE (:confidence %)) essentials))
-        workspace-essentials workspace]
-    (-> workspace-essentials
+        unexplained (map :id (filter is-unexplained accepted))]
+    (-> workspace
         (assoc :candidates non-accepted-ids)
         (assoc :unexplained unexplained))))
-
-(comment (if (empty? essentials-vp) workspace
-             (add-abducer-log-msg (update-hyps workspace essentials-vp)
-                                  (map :id essentials-vp)
-                                  "Marking essentials VP.")))
 
 (defn accept-workspace-decision
   [workspace]
@@ -163,8 +150,7 @@
         (add-abducer-log-msg
          [(:id hyp)] (format "Adding hypothesis (apriori=%s; explains %s)."
                              (confidence-str (:apriori hyp))
-                             (apply str (interpose "," (map name (:explains hyp))))))
-        (update-candidates-unexplained))))
+                             (apply str (interpose "," (map name (:explains hyp)))))))))
 
 (defn penalize-implausible
   [workspace hyps log-msg]
@@ -186,8 +172,7 @@
   (let [impossible (filter #(= (:confidence %) IMPOSSIBLE)
                            (lookup-hyps workspace (:candidates workspace)))]
     (-> workspace
-        (reject-impossible impossible "Rejecting due to IMPOSSIBLE confidence.")
-        (update-candidates-unexplained))))
+        (reject-impossible impossible "Rejecting due to IMPOSSIBLE confidence."))))
 
 (defn accept-hyp
   [workspace hyp]
@@ -200,16 +185,14 @@
          (format "Penalizing because accepting %s." (name (:id hyp))))
         (reject-impossible
          impossible
-         (format "Rejecting because accepting %s." (name (:id hyp))))
-        (update-candidates-unexplained))))
+         (format "Rejecting because accepting %s." (name (:id hyp)))))))
 
 (defn force-acceptance
   [workspace hyp]
   (-> workspace
       (update-in [:decision :forced] conj (:id hyp))
       (add-abducer-log-msg
-       [(:id hyp)] (format "Forcing acceptance of %s." (name (:id hyp))))
-      (update-candidates-unexplained)))
+       [(:id hyp)] (format "Forcing acceptance of %s." (name (:id hyp))))))
 
 (defn find-best
   [workspace]
@@ -232,11 +215,12 @@
 
 (defn explain
   [workspace]
-  (let [ws (reject-all-impossible workspace)]
-    (if (empty? (:unexplained ws)) ws
-        (let [best (find-best ws)]
-          (if (nil? best) ws
-              (recur (-> ws
+  (let [ws (update-candidates-unexplained workspace)
+        ws2 (reject-all-impossible ws)]
+    (if (empty? (:unexplained ws2)) ws2
+        (let [best (find-best ws2)]
+          (if (nil? best) ws2
+              (recur (-> ws2
                          (add-abducer-log-msg
                           (conj (:explains best) (:id best))
                           (format "Accepting %s as explainer of %s." (name (:id best))

@@ -62,7 +62,6 @@
                             :sensor-entity
                             VERY-PLAUSIBLE VERY-PLAUSIBLE
                             [] (constantly []) (constantly [])
-                            identity
                             (fn [h t sb] (> (- t time) sb))
                             sensor-entity-to-str
                             {:time time :pos (pos %)})

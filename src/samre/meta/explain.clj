@@ -13,9 +13,7 @@
                           (explain))
             ors (update-in or-state [:meta-log] conj (:abducer-log workspace))
             accepted-hyps (lookup-hyps workspace (:accepted (:decision workspace)))
-            new-est (reduce (fn [est action] (action est))
-                            (:ep-state-tree ors)
-                            (map :update-fn accepted-hyps))
+            new-est (:ep-state-tree ors) ;; TODO: fix to apply updating func
             ors-resources (if (and (= 1 (count accepted-hyps))
                                    (= :MH-dec-accurate (:id (first accepted-hyps))))
                             ors

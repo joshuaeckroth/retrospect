@@ -38,8 +38,8 @@
         (assoc :ep-state (current-ep-state ep-state-tree)))))
 
 (defn proceed-one-run-state
-  [or-state ep-state params]
-  (let [ep-state-tree (new-child-ep-state (:ep-state-tree or-state) ep-state params)]
+  [or-state ep-state problem params]
+  (let [ep-state-tree (new-child-ep-state (:ep-state-tree or-state) ep-state problem params)]
     (-> or-state
         (assoc :ep-state-tree ep-state-tree)
         (assoc :ep-state (current-ep-state ep-state-tree)))))

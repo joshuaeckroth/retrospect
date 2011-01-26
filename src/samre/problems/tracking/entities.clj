@@ -26,6 +26,10 @@
                                   (str (second (reverse snapshots)))
                                   (str (last snapshots)))))))
 
+(defn new-entity
+  [time pos]
+  (Entity. (hash [time pos]) [(EntitySnapshot. time pos)]))
+
 (defn print-entities
   [entities]
   (map #(println (str %)) entities))

@@ -59,9 +59,8 @@
   (let [time-prev (if-let [time-prev (:time (previous-ep-state ep-state-tree))]
                     (inc time-prev) (:time (current-ep-state ep-state-tree)))
         time-now (apply max (map :sensed-up-to sensors))
-        ep-state-prepared ((:prepare-hyps-fn problem) (current-ep-state ep-state-tree)
-                           time-prev time-now sensors params)
-        ep-state (generate-hyps-and-explain problem ep-state-prepared sensors params lazy)
+        ep-state (generate-hyps-and-explain problem (current-ep-state ep-state-tree)
+                                            time-prev time-now sensors params lazy)
         score (measure-decision-confidence (:workspace ep-state))
         ep-state-updated-time (assoc ep-state :time time-now)]
     {:score score :ep-state ep-state-updated-time}))
@@ -69,7 +68,7 @@
 (defn generate-ep-state-hyp
   [ep-state]
   (Hypothesis. :ep-state :meta VERY-PLAUSIBLE VERY-PLAUSIBLE
-               [] (constantly []) (constantly []) identity
+               [] (constantly []) (constantly [])
                (constantly false)
                (constantly "ep-state")
                {:ep-state ep-state}))
@@ -90,7 +89,6 @@
                            score score
                            [(:id ep-state-hyp)] (constantly [])
                            (partial impossible-fn ep-state-hyp)
-                           (constantly (update-ep-state-tree est ep))
                            (fn [_ time] (not= time (:time ep-state-hyp)))
                            (fn [hyp] (name (:id hyp)))
                            nil))]
@@ -114,7 +112,6 @@
                            score score
                            [(:id ep-state-hyp)] (constantly [])
                            (partial impossible-fn ep-state-hyp)
-                           (constantly (update-ep-state-tree est2 ep))
                            (fn [_ time] (not= time (:time ep-state-hyp)))
                            (fn [hyp] (name (:id hyp)))
                            nil))]
@@ -126,7 +123,7 @@
         hyp (Hypothesis. :MH-dec-accurate :meta apriori apriori
                          [(:id ep-state-hyp)] (constantly [])
                          (partial impossible-fn ep-state-hyp)
-                         identity (constantly false)
+                         (constantly false)
                          (constantly "Decision is accurate") nil)]
     (add-hyp workspace hyp)))
 

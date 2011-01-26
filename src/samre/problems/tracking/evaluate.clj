@@ -36,23 +36,28 @@
         strat-starts-ends (get-starts-ends pentities)]
     (set/intersection true-starts-ends strat-starts-ends)))
 
-;; TODO: update so that it handles hyps with many events
+;; TODO: handle disappear events properly
 (defn measure-plausibility-accuracy
   [workspace trueevents]
-  (let [accepted (doall (filter #(or (= (:type %) :tracking-new)
-                                     (= (:type %) :tracking-move)
-                                     (= (:type %) :tracking-frozen))
-                                (:accepted workspace)))
-        correct-event (fn [h] (if (= (:type h) :tracking-frozen) false
-                                  (some #(= % (:event (:data h))) trueevents)))
-        correct-frozen (fn [h] (if (not (= (:type h) :tracking-frozen)) false
-                                   (not-any? (fn [e] (and (= (:time e)
-                                                             (:time (:event (:data h))))
-                                                          (or (= (:oldpos e)
-                                                                 (:pos (:event (:data h))))
-                                                              (= (:pos e)
-                                                                 (:pos (:event (:data h)))))))
-                                             trueevents)))
+  (let [accepted (doall (filter #(= (:type %) :tracking) (:accepted workspace)))
+        correct-event (fn [h] (if (or (= (type (:event (:data h)))
+                                         samre.problems.tracking.events.EventFrozen)
+                                      (= (type (:event (:data h)))
+                                         samre.problems.tracking.events.EventDisappear))
+                                false
+                                (some #(= % (:event (:data h))) trueevents)))
+        correct-frozen (fn [h] (if (not (or (= (type (:event (:data h)))
+                                               samre.problems.tracking.events.EventFrozen)
+                                            (= (type (:event (:data h)))
+                                               samre.problems.tracking.events.EventDisappear)))
+                                 false
+                                 (not-any? (fn [e] (and (= (:time e)
+                                                           (:time (:event (:data h))))
+                                                        (or (= (:oldpos e)
+                                                               (:pos (:event (:data h))))
+                                                            (= (:pos e)
+                                                               (:pos (:event (:data h)))))))
+                                           trueevents)))
         hyps-correct (doall (filter (fn [h] (or (correct-event h) (correct-frozen h)))
                                     accepted))
         hyps-wrong (set/difference (set accepted) (set hyps-correct))

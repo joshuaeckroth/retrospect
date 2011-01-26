@@ -158,7 +158,7 @@
   (update-in ep-state [:workspace] ws/force-acceptance hyp))
 
 (defn accept-decision
-  [ep-state id]
+  [ep-state id problem]
   (let [workspace (:workspace ep-state)
         accepted-hyps (ws/lookup-hyps workspace (:accepted (:decision workspace)))]
     (EpistemicState.
@@ -167,9 +167,7 @@
      (inc (:time ep-state))
      (ws/accept-workspace-decision workspace)
      []
-     (doall (reduce (fn [pdata action] (action pdata))
-                    (:problem-data ep-state)
-                    (map :update-fn accepted-hyps)) ))))
+     ((:accept-decision-fn problem) (:problem-data ep-state) accepted-hyps))))
 
 (defn find-least-confident-decision
   [ep-state-tree]
@@ -212,10 +210,10 @@
     ep-tree-branch))
 
 (defn new-child-ep-state
-  [ep-state-tree ep-state params]
+  [ep-state-tree ep-state problem params]
   (let [ep-with-log (update-in ep-state [:workspace] ws/log-final-accepted-rejected-hyps)
         ep-tree (update-decision ep-state-tree ep-with-log)
-        ep-child (accept-decision ep-with-log (make-ep-state-id ep-tree))
+        ep-child (accept-decision ep-with-log (make-ep-state-id ep-tree) problem)
         ep-child-fresh (update-in ep-child [:workspace]
                                   ws/delete-ancient-hyps (:time ep-child) params)
         ep-tree-child (goto-ep-state (zip/append-child ep-tree ep-child-fresh)
@@ -223,7 +221,8 @@
     ep-tree-child))
 
 (defn generate-hyps-and-explain
-  [problem ep-state sensors params lazy]
-  (let [ep-state-with-hyps ((:get-more-hyps-fn problem) ep-state sensors params lazy)
+  [problem ep-state time-prev time-now sensors params lazy]
+  (let [ep-state-with-hyps ((:get-more-hyps-fn problem) ep-state time-prev time-now
+                            sensors params lazy)
         ws-explained (ws/explain (:workspace ep-state-with-hyps))]
     (assoc ep-state-with-hyps :workspace ws-explained)))

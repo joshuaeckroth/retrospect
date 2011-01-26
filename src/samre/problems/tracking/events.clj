@@ -4,17 +4,17 @@
   Object
   (toString [_] (format "EventNew: (%d,%d)@%d" (:x pos) (:y pos) time)))
 
-(defrecord EventMove [time oldpos pos]
+(defrecord EventMove [time oldtime pos oldpos]
   Object
-  (toString [_] (format "EventMove: (%d,%d)->(%d,%d)@%d"
-			(:x oldpos) (:y oldpos) (:x pos) (:y pos) time)))
+  (toString [_] (format "EventMove: (%d,%d)@%d->(%d,%d)@%d"
+			(:x oldpos) (:y oldpos) oldtime (:x pos) (:y pos) time)))
 
-(defrecord EventFrozen [time pos]
+(defrecord EventFrozen [time oldtime pos oldpos]
   Object
-  (toString [_] (format "EventFrozen: (%d,%d)@%d" (:x pos) (:y pos) time)))
+  (toString [_] (format "EventFrozen: (%d,%d)@%d-%d" (:x pos) (:y pos) oldtime time)))
 
 (defrecord EventDisappear [time oldtime pos oldpos]
   Object
-  (toString [_] (format "EventDisappear: (%d,%d)%d->(?,?)->(%d,%d)@%d"
+  (toString [_] (format "EventDisappear: (%d,%d)@%d->(?,?)->(%d,%d)@%d"
                         (:x oldpos) (:y oldpos) oldtime
                         (:x pos) (:y pos) time)))

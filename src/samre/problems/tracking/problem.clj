@@ -5,7 +5,7 @@
   (:use [samre.problems.tracking.truedata :only (generate-truedata)])
   (:use [samre.problems.tracking.sensors :only (generate-sensors)])
   (:use [samre.problems.tracking.hypotheses :only
-         (prepare-hyps get-more-hyps)])
+         (get-more-hyps accept-decision)])
   (:use [samre.problems.tracking.player :only
          [player-get-params player-get-params-panel
           player-get-diagram player-get-stats-panel
@@ -23,7 +23,13 @@
 (def non-avg-fields [])
 
 (def charts
-  [{:x :StepsBetween :y :PercentEventsCorrect :name "stepsbetween-events-correct"
+  [{:x :ProbNewEntities :y :PercentEventsCorrect :name "probnew-events-correct"
+    :each-reg :linear}
+   {:x :GridWidth :y :PercentEventsCorrect :name "width-events-correct"
+    :each-reg :linear}
+   {:x :GridHeight :y :PercentEventsCorrect :name "height-events-correct"
+    :each-reg :linear}
+   {:x :StepsBetween :y :PercentEventsCorrect :name "stepsbetween-events-correct"
     :each-reg :linear}
    {:x :StepsBetween :y :PercentEventsCorrect :name "stepsbetween-events-correct"
     :each-reg :linear
@@ -93,7 +99,6 @@
 
 (def tracking-problem
   (Problem. "tracking"
-            prepare-hyps
             get-more-hyps
             {:get-params-fn player-get-params
              :get-params-panel-fn player-get-params-panel
@@ -101,5 +106,9 @@
              :get-stats-panel-fn player-get-stats-panel
              :update-stats-fn player-update-stats
              :update-truedata-log-box-fn player-update-truedata-log-box}
-            generate-truedata generate-sensors
-            evaluate generate-problem-data avg-fields non-avg-fields charts))
+            generate-truedata
+            generate-sensors
+            evaluate
+            generate-problem-data
+            accept-decision
+            avg-fields non-avg-fields charts))
