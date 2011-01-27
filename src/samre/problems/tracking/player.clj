@@ -1,5 +1,5 @@
 (ns samre.problems.tracking.player
-  (:import (java.awt Color Graphics2D Dimension GridBagLayout
+  (:import (java.awt Graphics2D Dimension GridBagLayout
                      Insets RenderingHints BasicStroke))
   (:import (java.awt.image BufferedImage))
   (:import (javax.swing JPanel JFrame JButton JTextField JTextArea
@@ -10,6 +10,7 @@
   (:use [samre.problems.tracking.sensors :only (sees)])
   (:use [samre.problems.tracking.eventlog :only (get-events get-entities)])
   (:use [samre.problems.tracking.entities :only (pair-snapshots)])
+  (:use [samre.colors])
   (:use [samre.player.state]))
 
 (def *grid* nil)
@@ -145,25 +146,25 @@
         pairs (filter #(in-range (second %))
                       (pair-snapshots entity))]
     (doseq [p pairs]
-      (let [gray (int (* 255 (/ (- *time* (:time (second p))) (- *time* *time-prev*))))
-            width (double (+ 2 (* 5 (/ gray 255))))]
+      (let [degree (int (* 255 (/ (- *time* (:time (second p))) (- *time* *time-prev*))))
+            width (double (+ 2 (* 5 (/ degree 255))))]
         (draw-move g (:x (:pos (first p))) (:y (:pos (first p)))
                    (:x (:pos (second p))) (:y (:pos (second p)))
-                   (new Color gray gray gray)
+                   (var-color degree)
                    width)))))
 
 (defn draw-grid [g]
   (dorun
    (for [x (range *grid-width*) y (range *grid-height*)]
-     (fill-cell g x y (new Color 255 255 255))))
+     (fill-cell g x y white)))
   (dorun
    (for [x (range *grid-width*) y (range *grid-height*)]
      (when (sensors-see x y)
-       (fill-cell g x y (new Color 255 140 140 120)))))
+       (fill-cell g x y gray))))
   (dorun
    (for [x (range *grid-width*) y (range *grid-height*)]
      (when-let [e (grid-at x y)]
-       (fill-cell g x y (new Color 100 200 200 100))
+       (fill-cell g x y (:color e))
        (draw-movements g e)))))
 
 (defn update-grid []
@@ -188,7 +189,7 @@
     (doto bg
       (.setRenderingHint (. RenderingHints KEY_ANTIALIASING)
                          (. RenderingHints VALUE_ANTIALIAS_ON))
-      (.setColor (. Color white))
+      (.setColor white)
       (.fillRect 0 0 *diagram-width* *diagram-height*))
     (update-grid)
     (draw-grid bg)

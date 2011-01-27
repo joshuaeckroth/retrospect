@@ -2,7 +2,7 @@
   (:require [samre.problems.tracking positions entities])
   (:import [samre.problems.tracking.positions Position])
   (:import [samre.problems.tracking.entities Entity EntitySnapshot])
-  (:use [samre.problems.tracking.entities :only (pos add-snapshot)]))
+  (:use [samre.problems.tracking.entities :only (pos add-snapshot new-entity)]))
 
 ;; top-left is (0, 0); bottom-right is (width-1, height-1)
 
@@ -58,11 +58,11 @@
 	(recur (rand-posx) (rand-posy))
 	(Position. posx posy)))))
 
-(defn new-entity
+(defn new-grid-entity
   "Create a new entity with a random (free) location."
   [grid time]
   (let [pos (rand-pos grid)]
-    (Entity. (hash [time (:x pos) (:y pos)]) [(EntitySnapshot. time pos)])))
+    (new-entity time (Position. (:x pos) (:y pos)))))
   
 (defn attempt-move
   "Try to move one step in a given direction; return new position."

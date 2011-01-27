@@ -3,6 +3,7 @@
   (:use [samre.problems.tracking.entities :only (pair-snapshots)])
   (:use [samre.problems.tracking.eventlog :only (get-entities get-events)])
   (:use [samre.epistemicstates :only (current-ep-state)])
+  (:use [samre.workspaces :only [lookup-hyps]])
   (:use [samre.confidences])
   (:require [clojure.set :as set]))
 
@@ -39,20 +40,21 @@
 ;; TODO: handle disappear events properly
 (defn measure-plausibility-accuracy
   [workspace trueevents]
-  (let [accepted (doall (filter #(= (:type %) :tracking) (:accepted workspace)))
+  (let [accepted (doall (filter #(= (:type %) :tracking)
+                                (lookup-hyps workspace (:accepted workspace))))
         correct-event (fn [h] (if (or (= (type (:event (:data h)))
                                          samre.problems.tracking.events.EventFrozen)
                                       (= (type (:event (:data h)))
                                          samre.problems.tracking.events.EventDisappear))
                                 false
                                 (some #(= % (:event (:data h))) trueevents)))
-        correct-frozen (fn [h] (if (not (or (= (type (:event (:data h)))
-                                               samre.problems.tracking.events.EventFrozen)
-                                            (= (type (:event (:data h)))
-                                               samre.problems.tracking.events.EventDisappear)))
+        correct-frozen (fn [h] (if (not= (type (:event (:data h)))
+                                         samre.problems.tracking.events.EventFrozen)
                                  false
                                  (not-any? (fn [e] (and (= (:time e)
                                                            (:time (:event (:data h))))
+                                                        ;; no event started from this pos
+                                                        ;; nor ended at this pos
                                                         (or (= (:oldpos e)
                                                                (:pos (:event (:data h))))
                                                             (= (:pos e)

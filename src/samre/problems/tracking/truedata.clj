@@ -1,6 +1,6 @@
 (ns samre.problems.tracking.truedata
   (:use [samre.problems.tracking.grid :only
-         (new-grid new-entity replace-grid-entity walk1)])
+         (new-grid new-grid-entity replace-grid-entity walk1)])
   (:use [samre.problems.tracking.eventlog :only
          (init-event-log add-entity add-event
                          add-event-new add-event-move update-entity
@@ -17,7 +17,7 @@
 	    (= (* (:width g) (:height g))
 	       (count (get-entities el))))
       [el g]
-      (let [entity (new-entity g time)]
+      (let [entity (new-grid-entity g time)]
 	(recur (inc i)
 	       (-> el
 		   (add-entity entity)

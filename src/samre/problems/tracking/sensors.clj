@@ -5,6 +5,7 @@
   (:import [samre.sensors Sensor])
   (:import [samre.workspaces Hypothesis])
   (:use [samre.confidences])
+  (:use [samre.colors :only [color-str]])
   (:use [samre.problems.tracking.entities :only (EntityMethods pos)])
   (:use [samre.problems.tracking.grid :only (entity-at)])
   (:use [samre.problems.tracking.eventlog :only (get-entities)])
@@ -12,8 +13,9 @@
 
 (defn sensor-entity-to-str
   [hyp]
-  (format "SensorEntity %s (a=%s, c=%s) %s@%d"
-          (name (:id hyp)) (confidence-str (:apriori hyp))
+  (format "SensorEntity %s %s (a=%s, c=%s) %s@%d"
+          (name (:id hyp)) (color-str (:color (:data hyp)))
+          (confidence-str (:apriori hyp))
           (confidence-str (:confidence hyp)) (str (:pos (:data hyp)))
           (:time (:data hyp))))
 
@@ -64,7 +66,7 @@
                             [] (constantly []) (constantly [])
                             (fn [h t sb] (> (- t time) sb))
                             sensor-entity-to-str
-                            {:time time :pos (pos %)})
+                            {:time time :pos (pos %) :color (:color %)})
               (filter #(not (nil? %))
                       (doall (for [x (range (sens-left sensor) (inc (sens-right sensor)))
                                    y (range (sens-bottom sensor) (inc (sens-top sensor)))]

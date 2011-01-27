@@ -7,7 +7,7 @@
           lookup-hyps update-candidates-unexplained]])
   (:use [samre.epistemicstates :only
          [flatten-ep-state-tree current-ep-state generate-hyps-and-explain
-          new-branch-ep-state update-ep-state-tree left-ep-state previous-ep-state]])
+          new-branch-ep-state left-ep-state previous-ep-state update-ep-state-tree]])
   (:use [samre.meta.meta :only [have-enough-meta-hyps]])
   (:use [samre.confidences]))
 
@@ -91,7 +91,7 @@
                            (partial impossible-fn ep-state-hyp)
                            (fn [_ time] (not= time (:time ep-state-hyp)))
                            (fn [hyp] (name (:id hyp)))
-                           nil))]
+                           {:ep-state-tree est :ep-state ep}))]
     (add-hyp workspace hyp)))
 
 (defn add-more-explainers-hyp
