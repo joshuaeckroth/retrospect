@@ -22,20 +22,24 @@
                     entities))]
     (double (/ (reduce + 0 walk-avgs) (count walk-avgs)))))
 
+(defn match-entity-start
+  [entity trueentities]
+  (let [snapshot (first (:snapshots entity))]
+    (first (filter (fn [e] (some (fn [s] (= s snapshot)) (:snapshots e))) trueentities))))
+
 (defn find-correct-identities
-  [trueentities pentities]
-  "An 'identity' of an entity is its starting position (at a specific
+   "An 'identity' of an entity is its starting position (at a specific
    time). Here we compare starting positions with ending positions to
    see if the believed entities can also match start-end
    positions. This means a believed 'identity' is correct even when
    the inner path is wrong; only the beginning and end must match up
    with the true entities."
-  (let [get-starts-ends (fn [es] (set (doall (map (fn [e] {:start (first (:snapshots e))
-                                                           :end (last (:snapshots e))})
-                                                  es))))
-        true-starts-ends (get-starts-ends trueentities)
-        strat-starts-ends (get-starts-ends pentities)]
-    (set/intersection true-starts-ends strat-starts-ends)))
+  [trueentities pentities]
+  (let [starts (map (fn [e] {:entity e :trueentity (match-entity-start e trueentities)})
+                    pentities)]
+    (filter (fn [{e :entity te :trueentity}]
+              (some (fn [s] (= (last (:snapshots e)) s)) (:snapshots te)))
+            starts)))
 
 ;; TODO: handle disappear events properly
 (defn measure-plausibility-accuracy
@@ -77,11 +81,11 @@
        (if (:oldpos event) (some #(= % (:oldpos event)) sensors-seen) true)))
 
 (defn evaluate
-  [ep-state sensors truedata params]
   "The current ep-state has accepted the decision of the previous ep-state;
    however, the current ep-state has a time 1+ the previous, in which the
    events occurred and were explained; thus, we must get the 'truedata' from
    the current ep-state's time minus 1."
+  [ep-state sensors truedata params]
   (let [trueeventlog (:eventlog (get truedata (dec (:time ep-state))))
         pdata (:problem-data ep-state)
         ;; don't penalize (as "wrong") frozen and disappear events
