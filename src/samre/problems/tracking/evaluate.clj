@@ -38,7 +38,13 @@
   (let [starts (map (fn [e] {:entity e :trueentity (match-entity-start e trueentities)})
                     pentities)]
     (filter (fn [{e :entity te :trueentity}]
-              (some (fn [s] (= (last (:snapshots e)) s)) (:snapshots te)))
+              (and
+               ;; the trueentity that matches at the start also matches at the end
+               (some (fn [s] (= (last (:snapshots e)) s)) (:snapshots te))
+               ;; and this trueentity is not associated with any other entity
+               (every? (fn [pe] (empty? (set/intersection (set (:snapshots te))
+                                                          (set (:snapshots pe)))))
+                       (remove #(= (:id e) (:id %)) pentities))))
             starts)))
 
 ;; TODO: handle disappear events properly

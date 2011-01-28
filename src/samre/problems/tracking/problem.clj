@@ -36,6 +36,8 @@
     :each-reg :linear}
    {:x :NumberEntities :y :PlausibilityAccuracy :name "numes-pl-acc"
     :each-reg :linear}
+   {:x :PercentEventsCorrect :y :PercentIdentitiesCorrect :name "events-identities-correct"
+    :each-reg :linear}
    {:x :MetaAbductions :y :PlausibilityAccuracy :name "meta-abductions-pl-acc"
     :each-reg :linear}
    {:x :PercentEventsCorrect :y :MetaAbductions :name "events-correct-meta-abductions"
