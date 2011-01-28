@@ -113,4 +113,6 @@
      :AvgWalk (calc-average-walk trueentities)
      :PlausibilityAccuracy (measure-plausibility-accuracy (:workspace ep-state) trueevents)
      :SensorCoverage (:sensor-coverage pdata)
-     :SensorOverlap (:sensor-overlap pdata)}))
+     :SensorOverlap (:sensor-overlap pdata)
+     :EntityDensity (double (/ (count trueentities)
+                               (* (:GridHeight params) (:GridWidth params))))}))

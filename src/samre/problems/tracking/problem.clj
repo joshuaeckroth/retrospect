@@ -18,16 +18,14 @@
 (def avg-fields [:PercentEventsCorrect :PercentEventsWrong :PercentIdentitiesCorrect
 		 :NumberEntities :MaxWalk :AvgWalk :PlausibilityAccuracy
 		 :ProbNewEntities :GridWidth :GridHeight
-                 :SensorCoverage :SensorOverlap])
+                 :SensorCoverage :SensorOverlap :EntityDensity])
 
 (def non-avg-fields [])
 
 (def charts
   [{:x :ProbNewEntities :y :PercentEventsCorrect :name "probnew-events-correct"
     :each-reg :linear}
-   {:x :GridWidth :y :PercentEventsCorrect :name "width-events-correct"
-    :each-reg :linear}
-   {:x :GridHeight :y :PercentEventsCorrect :name "height-events-correct"
+   {:x :EntityDensity :y :PercentEventsCorrect :name "density-events-correct"
     :each-reg :linear}
    {:x :StepsBetween :y :PercentEventsCorrect :name "stepsbetween-events-correct"
     :each-reg :linear}
