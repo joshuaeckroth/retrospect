@@ -88,8 +88,11 @@
                                    (:rejected (:decision workspace)))))
         accepted (lookup-hyps workspace accepted-ids)
         non-accepted (lookup-hyps workspace non-accepted-ids)
+        ;; a hyp is unexplained if it could be explained or it's forced
+        ;; but, in either case, is not yet explained
         is-unexplained #(and (empty? (find-explainers % accepted))
-                             (not-empty (find-explainers % non-accepted)))
+                             (or (some (fn [h] (= h (:id %))) (:forced (:decision workspace)))
+                                 (not-empty (find-explainers % non-accepted))))
         unexplained (map :id (filter is-unexplained accepted))]
     (-> workspace
         (assoc :candidates non-accepted-ids)
@@ -201,8 +204,10 @@
         explainers (map #(find-explainers % candidates) unexplained)
         essentials (filter #(= 1 (count %)) explainers)]
     (if (not-empty essentials)
-      ;; choose random essential
-      (rand-nth (apply concat essentials))
+      ;; choose random most-confident essential
+      (let [es (apply concat essentials)
+            max-conf (:confidence (first (reverse (sort-by :confidence es))))]
+        (rand-nth (vec (filter #(= max-conf (:confidence %)) es))))
 
       ;; otherwise choose random most confident / most explanatory
       (let [sorted (reverse (sort-by :confidence (apply concat explainers)))

@@ -47,7 +47,7 @@
                        (remove #(= (:id e) (:id %)) pentities))))
             starts)))
 
-;; TODO: handle disappear events properly
+;; TODO: handle disappear/appear events properly
 (defn measure-plausibility-accuracy
   [workspace trueevents]
   (let [accepted (doall (filter #(= (:type %) :tracking)
@@ -55,7 +55,9 @@
         correct-event (fn [h] (if (or (= (type (:event (:data h)))
                                          samre.problems.tracking.events.EventFrozen)
                                       (= (type (:event (:data h)))
-                                         samre.problems.tracking.events.EventDisappear))
+                                         samre.problems.tracking.events.EventDisappear)
+                                      (= (type (:event (:data h)))
+                                         samre.problems.tracking.events.EventAppear))
                                 false
                                 (some #(= % (:event (:data h))) trueevents)))
         correct-frozen (fn [h] (if (not= (type (:event (:data h)))
@@ -94,9 +96,10 @@
   [ep-state sensors truedata params]
   (let [trueeventlog (:eventlog (get truedata (dec (:time ep-state))))
         pdata (:problem-data ep-state)
-        ;; don't penalize (as "wrong") frozen and disappear events
+        ;; don't penalize (as "wrong") frozen/disappear/appear events
         pevents (set (filter
                       #(and (not= samre.problems.tracking.events.EventFrozen (type %))
+                            (not= samre.problems.tracking.events.EventAppear (type %))
                             (not= samre.problems.tracking.events.EventDisappear (type %)))
                       (get-events (:eventlog pdata))))
         pentities (get-entities (:eventlog pdata))

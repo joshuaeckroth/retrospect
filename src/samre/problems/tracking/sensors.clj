@@ -23,6 +23,10 @@
   [pos time]
   (keyword (format "SE%d-%d-%d" time (:x pos) (:y pos))))
 
+(defn make-sensorentity-whereto-id
+  [pos time]
+  (keyword (format "SW%d-%d-%d" time (:x pos) (:y pos))))
+
 (defn sens-left
   [sensor]
   (:left (:attributes sensor)))
@@ -57,6 +61,21 @@
                    (for [x (range width) y (range height)]
                      (let [p (Position. x y)]
                        (if-not (some #(= % p) seen) p)))))))
+
+(defn make-spotted-whereto-hyps
+  [spotted time-now]
+  (let [mk-hyp (fn [s] (Hypothesis.
+                        (make-sensorentity-whereto-id (:pos (:data s)) (:time (:data s)))
+                        :spotted-whereto
+                        VERY-PLAUSIBLE VERY-PLAUSIBLE
+                        [] (constantly []) (constantly [])
+                        (fn [h t sb] (> (- t (:time (:data s))) sb))
+                        sensor-entity-to-str
+                        {:time (:time (:data s)) :pos (:pos (:data s))
+                         :color (:color (:data s)) :spotted s}))]
+    (map (fn [s] {:spotted s
+                  :hyp (if (> time-now (:time (:data s))) (mk-hyp s))})
+         spotted)))
 
 (defn find-spotted
   [sensor grid time]
