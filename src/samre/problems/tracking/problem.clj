@@ -25,6 +25,10 @@
 (def charts
   [{:x :ProbNewEntities :y :PercentEventsCorrect :name "probnew-events-correct"
     :each-reg :linear}
+   {:x :SensorCoverage :y :Unexplained :name "coverage-unexplained"
+    :each-reg :linear}
+   {:x :NumberEntities :y :Unexplained :name "numes-unexplained"
+    :each-reg :linear}
    {:x :EntityDensity :y :PercentEventsCorrect :name "density-events-correct"
     :each-reg :linear}
    {:x :StepsBetween :y :PercentEventsCorrect :name "stepsbetween-events-correct"

@@ -8,24 +8,27 @@
 
 (def avg-fields
   [:Steps :StepsBetween :MetaAbductions :Compute :Milliseconds :Memory
-   :SensorReportNoise :BeliefNoise])
+   :SensorReportNoise :BeliefNoise :Unexplained])
 
 (def non-avg-fields
   [:MetaAbduction :Lazy])
 
 (defn evaluate
   [problem truedata or-state params]
-  (update-in or-state [:results] conj
-             (merge ((:evaluate-fn problem)
-                     (:ep-state or-state)
-                     (:sensors or-state) truedata params)
-                    (assoc params
-                      :MetaAbduction (:meta-abduction or-state)
-                      :Lazy (:lazy or-state)
-                      :MetaAbductions (:meta-abductions (:resources or-state))
-                      :Compute (:compute (:resources or-state))
-                      :Milliseconds (:milliseconds (:resources or-state))
-                      :Memory (:memory (:resources or-state))))))
+  (let [prev-ep (previous-ep-state (:ep-state-tree or-state))]
+    (update-in or-state [:results] conj
+               (merge ((:evaluate-fn problem)
+                       (:ep-state or-state)
+                       (:sensors or-state) truedata params)
+                      (assoc params
+                        :MetaAbduction (:meta-abduction or-state)
+                        :Lazy (:lazy or-state)
+                        :MetaAbductions (:meta-abductions (:resources or-state))
+                        :Compute (:compute (:resources or-state))
+                        :Milliseconds (:milliseconds (:resources or-state))
+                        :Memory (:memory (:resources or-state))
+                        :Unexplained
+                        (if prev-ep (count (:unexplained (:workspace prev-ep))) 0))))))
 
 (defn proceed-n-steps
   [n time truedata or-state]
@@ -64,7 +67,7 @@
   (let [truedata ((:truedata-fn problem) params)
         sensors ((:sensor-gen-fn problem) params)
         problem-data ((:gen-problem-data-fn problem) params sensors)
-        or-states (init-one-run-states {:MetaAbduction [true false] :Lazy [false]}
+        or-states (init-one-run-states {:MetaAbduction [false] :Lazy [false]}
                                        sensors problem-data)]
     (doall (for [ors or-states]
              ;; get last result set from each run
@@ -77,7 +80,7 @@
 (defn average-runs
   [problem params n]
   (let [results (run-many problem params n)]
-    (doall (for [meta-abduction [true false] lazy [false]]
+    (doall (for [meta-abduction [false] lazy [false]]
              (let [rs (filter #(and (= meta-abduction (:MetaAbduction %))
                                     (= lazy (:Lazy %)))
                               results)
