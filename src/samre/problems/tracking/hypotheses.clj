@@ -95,12 +95,13 @@
                  (not= hyp h)
                  (= (:type h) :tracking)
                  (or
-                  ;; same oldpos (ignoring EventNew)?
+                  ;; same oldpos/oldtime (ignoring EventNew)?
                   (and (not (nil? (:oldpos event)))
                        (not (nil? (:oldpos event-h)))
                        (= (:x (:oldpos event)) (:x (:oldpos event-h)))
-                       (= (:y (:oldpos event)) (:y (:oldpos event-h))))
-                  ;; explain at least one same detection
+                       (= (:y (:oldpos event)) (:y (:oldpos event-h)))
+                       (= (:oldtime event) (:oldtime event-h)))
+                  ;; have at least one common explainer
                   (not-empty (set/intersection (set (:explains h)) explains))))))
             hyps)))
 
