@@ -67,7 +67,8 @@
       :ProbMovement (JSpinner. (SpinnerNumberModel. 50 0 100 10))
       :GridWidth (JSpinner. (SpinnerNumberModel. 10 1 100 1))
       :GridHeight (JSpinner. (SpinnerNumberModel. 10 1 100 1))
-      :SensorCoverage (JSpinner. (SpinnerNumberModel. 100 0 100 10))})
+      :SensorCoverage (JSpinner. (SpinnerNumberModel. 100 0 100 10))
+      :SensorSeesColor (JSpinner. (SpinnerNumberModel. 100 0 100 10))})
 
 (defn player-get-params
   []
@@ -114,10 +115,12 @@
      :gridx 0, :gridy 6
      (JLabel. "SensorCoverage:")
      :gridx 1, :gridy 6
-     (:SensorCoverage *problem-param-spinners*))))
+     (:SensorCoverage *problem-param-spinners*)
 
-(defn sensors-see [x y]
-  (some #(sees % x y) *sensors*))
+     :gridx 0, :gridy 7
+     (JLabel. "SensorSeesColor:")
+     :gridx 1, :gridy 7
+     (:SensorSeesColor *problem-param-spinners*))))
 
 (defn get-grid-from-xy [x y]
   [(floor (/ x *grid-cell-width*)) (floor (/ y *grid-cell-height*))])
@@ -159,8 +162,11 @@
      (fill-cell g x y white)))
   (dorun
    (for [x (range *grid-width*) y (range *grid-height*)]
-     (when (sensors-see x y)
-       (fill-cell g x y gray))))
+     (doseq [sensor *sensors*]
+       (when (sees sensor x y)
+         (if (:sees-color (:attributes sensor))
+           (fill-cell g x y yellow-alpha)
+           (fill-cell g x y gray-alpha))))))
   (dorun
    (for [x (range *grid-width*) y (range *grid-height*)]
      (when-let [e (grid-at x y)]

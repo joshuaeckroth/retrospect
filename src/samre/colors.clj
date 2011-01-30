@@ -3,11 +3,17 @@
 
 (def red (Color. 204 0 0))
 
-(def red-alpha (Color. 204 0 0 150))
+(def red-alpha (Color. 204 0 0 100))
 
 (def blue (Color. 52 101 164))
 
 (def gray (Color. 211 215 207))
+
+(def gray-alpha (Color. 211 215 207 100))
+
+(def yellow (Color. 252 233 79))
+
+(def yellow-alpha (Color. 252 233 79 100))
 
 (def green (Color. 115 210 22))
 
@@ -20,6 +26,7 @@
   (cond (. c equals red) "red"
         (. c equals blue) "blue"
         (. c equals green) "green"
+        (. c equals gray) "gray"
         :else "color?"))
 
 (defn match-color?

@@ -18,7 +18,7 @@
 (def avg-fields [:PercentEventsCorrect :PercentEventsWrong :PercentIdentitiesCorrect
 		 :NumberEntities :MaxWalk :AvgWalk :PlausibilityAccuracy
 		 :ProbNewEntities :GridWidth :GridHeight
-                 :SensorCoverage :SensorOverlap :EntityDensity])
+                 :SensorCoverage :SensorSeesColor :SensorOverlap :EntityDensity])
 
 (def non-avg-fields [])
 

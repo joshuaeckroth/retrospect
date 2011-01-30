@@ -2,7 +2,8 @@
   (:require [samre.problems.tracking entities events])
   (:import [samre.problems.tracking.entities Entity EntitySnapshot])
   (:import [samre.problems.tracking.events EventNew EventMove])
-  (:use [samre.problems.tracking.entities :only (add-snapshot pos)]))
+  (:use [samre.problems.tracking.entities :only (add-snapshot pos)])
+  (:use [samre.colors]))
 
 (defrecord EventLog [events entities])
 
@@ -19,11 +20,15 @@
 (defn update-entity
   ;;possibly use a reverse-lookup map in the future, to get entity keys
   ;;eg: (let [m {:a :b :c :d}] (zipmap (vals m) (keys m)))
-  [eventlog time entity pos]
-  (assoc eventlog :entities
-	 (doall (map #(if (not= (:id %) (:id entity)) %
-                          (add-snapshot % (EntitySnapshot. time pos)))
-                     (:entities eventlog)))))
+  ([eventlog time entity pos]
+     (update-entity eventlog time entity pos (:color entity)))
+  ([eventlog time entity pos color]
+     (assoc eventlog :entities
+            (doall (map #(if (not= (:id %) (:id entity)) %
+                             (add-snapshot (assoc % :color
+                                                  (if (not= color gray) color (:color %)))
+                                           (EntitySnapshot. time pos)))
+                        (:entities eventlog))))))
 
 (defn add-event
   [eventlog event]

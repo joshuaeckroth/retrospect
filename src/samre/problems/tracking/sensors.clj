@@ -5,7 +5,7 @@
   (:import [samre.sensors Sensor])
   (:import [samre.workspaces Hypothesis])
   (:use [samre.confidences])
-  (:use [samre.colors :only [color-str]])
+  (:use [samre.colors])
   (:use [samre.problems.tracking.entities :only (EntityMethods pos)])
   (:use [samre.problems.tracking.grid :only (entity-at)])
   (:use [samre.problems.tracking.eventlog :only (get-entities)])
@@ -85,7 +85,9 @@
                             [] (constantly []) (constantly [])
                             (fn [h t sb] (> (- t time) sb))
                             sensor-entity-to-str
-                            {:time time :pos (pos %) :color (:color %)})
+                            {:time time :pos (pos %)
+                             :color
+                             (if (:sees-color (:attributes sensor)) (:color %) gray)})
               (filter #(not (nil? %))
                       (doall (for [x (range (sens-left sensor) (inc (sens-right sensor)))
                                    y (range (sens-bottom sensor) (inc (sens-top sensor)))]
@@ -98,8 +100,9 @@
 
 (defn new-sensor
   "Generate a new sensor with provided values and an empty 'spotted' vector."
-  [id left right bottom top]
-  (init-sensor sense {:id id :left left :right right :bottom bottom :top top}))
+  [id left right bottom top sees-color]
+  (init-sensor sense {:id id :left left :right right :bottom bottom :top top
+                      :sees-color sees-color}))
 
 (defn measure-sensor-coverage
   [width height sensors]
@@ -115,24 +118,38 @@
                  (count (filter identity (map (fn [s] (sees s x y)) sensors)))))]
     (double (/ (reduce + count-xy) (* width height)))))
 
+(defn sensor-inside-another?
+  [sensor sensors]
+  (let [inside? (fn [s] (and
+                         (not= (:id (:attributes sensor)) (:id (:attributes s)))
+                         (>= (sens-left sensor) (sens-left s))
+                         (<= (sens-right sensor) (sens-right s))
+                         (>= (sens-bottom sensor) (sens-bottom s))
+                         (<= (sens-top sensor) (sens-top s))))]
+    (some inside? sensors)))
+
 (defn generate-sensors-sample
-  [width height]
+  [width height sees-color-prob]
   (doall (for [i (range (rand-int (* width height)))]
            (let [left (rand-int width)
                  right (+ left (rand-int (- width left)))
                  bottom (rand-int height)
                  top (+ bottom (rand-int (- height bottom)))]
-             (new-sensor "sensorid" left right bottom top)))))
+             (new-sensor (keyword (format "Sensor%d" (hash (rand))))
+                         left right bottom top
+                         (> (double (/ sees-color-prob 100)) (rand)))))))
 
 (defn generate-sensors-with-coverage
-  [width height coverage]
-  (loop [sensors (generate-sensors-sample width height)]
+  [width height coverage sees-color-prob]
+  (loop [sensors (generate-sensors-sample width height sees-color-prob)]
     (let [measured (measure-sensor-coverage width height sensors)]
-      (if (and (> measured (- coverage 5.0)) (< measured (+ coverage 5.0))) sensors
-	  (recur (generate-sensors-sample width height))))))
+      (if (and (> measured (- coverage 5.0)) (< measured (+ coverage 5.0)))
+        (filter #(not (sensor-inside-another? % sensors)) sensors)
+        (recur (generate-sensors-sample width height sees-color-prob))))))
 
 (defn generate-sensors
   [params]
   (generate-sensors-with-coverage
-    (:GridWidth params) (:GridHeight params) (:SensorCoverage params)))
+    (:GridWidth params) (:GridHeight params)
+    (:SensorCoverage params) (:SensorSeesColor params)))
 

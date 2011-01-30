@@ -14,6 +14,7 @@
         <GridWidth start="10" end="10" step="1" />
         <GridHeight start="10" end="10" step="1" />
         <SensorCoverage start="60" end="100" step="20" />
+        <SensorSeesColor start="60" end="100" step="20" />
       </params>
     </problem>
     <problem name="circuit">
