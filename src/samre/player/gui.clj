@@ -133,7 +133,12 @@
   []
   (if-let [hyp (get (:hyps (:workspace (:ep-state *or-state*)))
                     (keyword (.getSelectedItem *hyp-choice*)))]
-    (. *hyp-box* setText ((:str-fn hyp) hyp))
+    (. *hyp-box* setText
+       (apply str ((:str-fn hyp) hyp) "\n\n"
+              (if-let [ep (previous-ep-state (:ep-state-tree *or-state*))]
+                (interpose
+                 "\n" (map str (filter (fn [l] (some #(= % (:id hyp)) (:hyp-ids l)))
+                                       (:abducer-log (:workspace ep))))))))
     (. *hyp-box* setText "")))
 
 (defn update-hyp-choice-dropdown
