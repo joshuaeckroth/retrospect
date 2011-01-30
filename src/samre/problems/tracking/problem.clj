@@ -7,13 +7,14 @@
   (:use [samre.problems.tracking.hypotheses :only
          (get-more-hyps accept-decision)])
   (:use [samre.problems.tracking.player :only
-         [player-get-params player-get-params-panel
+         [player-get-params player-set-params player-get-params-panel
           player-get-diagram player-get-stats-panel
           player-update-stats player-update-truedata-log-box]])
   (:use [samre.problems.tracking.sensors :only
          [measure-sensor-overlap measure-sensor-coverage
           list-sensors-seen list-sensors-unseen]])
-  (:use [samre.problems.tracking.eventlog :only (init-event-log)]))
+  (:use [samre.problems.tracking.eventlog :only (init-event-log)])
+  (:use [samre.problems.tracking.monitor :only (monitor)]))
 
 (def avg-fields [:PercentEventsCorrect :PercentEventsWrong :PercentIdentitiesCorrect
 		 :NumberEntities :MaxWalk :AvgWalk :PlausibilityAccuracy
@@ -103,8 +104,10 @@
 
 (def tracking-problem
   (Problem. "tracking"
+            monitor
             get-more-hyps
             {:get-params-fn player-get-params
+             :set-params-fn player-set-params
              :get-params-panel-fn player-get-params-panel
              :get-diagram-fn player-get-diagram
              :get-stats-panel-fn player-get-stats-panel

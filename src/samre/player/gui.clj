@@ -91,6 +91,14 @@
            (for [k (keys *param-checkbox*)]
              [k (.getState (k *param-checkbox*))])))))
 
+(defn set-params
+  []
+  ((:set-params-fn (:player-fns *problem*)))
+  (doseq [k (keys *param-spinners*)]
+    (. (k *param-spinners*) setValue (k *params*)))
+  (. (:MetaAbduction *param-checkbox*) setState (:meta-abduction *or-state*))
+  (. (:Lazy *param-checkbox*) setState (:lazy *or-state*)))
+
 (defn get-ep-tree-viewport
   []
   (doto (JViewport.)
@@ -295,17 +303,10 @@
          (assoc :ep-state-tree ep-state-tree)
          (assoc :ep-state (current-ep-state ep-state-tree))))))
 
-(defn add-step
-  [results step]
-  (let [result (assoc (last results) :Step step)]
-    (vec (reverse (cons result (rest (reverse results)))))))
-
 (defn step
   []
-  (let [or-state (run-simulation-step *problem* *truedata* *or-state* *params*)
-        or-state-with-step (update-in or-state [:results]
-                                      add-step (:time (:ep-state or-state)))]
-    (update-everything or-state-with-step)))
+  (let [or-state (run-simulation-step *problem* *truedata* *or-state* *params* true)]
+    (update-everything or-state)))
 
 (defn new-simulation
   []
@@ -480,6 +481,12 @@
   (def *mainframe* (get-mainframe))
 
   (let [options (apply hash-map opts)]
+    (when (:monitor options)
+      (update-params (:params options))
+      (update-sensors (:sensors options))
+      (update-truedata (:truedata options))
+      (update-everything (:or-state options))
+      (set-params))
     (when (not (:interactive options))
       (doto *mainframe*
         (.setDefaultCloseOperation JFrame/EXIT_ON_CLOSE)))
@@ -487,7 +494,7 @@
       (.setResizable true)
       (.pack)
       (.setSize 900 700)
-      (.show)))
-
-  (new-simulation))
+      (.show))
+    (when (not (:monitor options))
+      (new-simulation))))
 

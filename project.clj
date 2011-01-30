@@ -7,7 +7,8 @@
                  [org.clojars.overtone/vijual "0.2.1"]]
   :dev-dependencies [[swank-clojure "1.2.1"]
                      [org.clojars.rayne/autodoc "0.8.0-SNAPSHOT"]
-                     [marginalia "0.2.2"]]
+                     [marginalia "0.3.2"]
+                     [clj-stacktrace "0.2.1"]]
   :autodoc {:name "SAMRE" :page-title "SAMRE API Documentation"
             :web-home "http://joshuaeckroth.github.com/SAMRE/"
             :copyright "Copyright 2010-2011 Joshua Eckroth. All rights reserved."

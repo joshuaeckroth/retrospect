@@ -7,7 +7,7 @@
   (:use [samre.sensors :only [update-sensors]]))
 
 (def avg-fields
-  [:Steps :StepsBetween :MetaAbductions :Compute :Milliseconds :Memory
+  [:Steps :Step :StepsBetween :MetaAbductions :Compute :Milliseconds :Memory
    :SensorReportNoise :BeliefNoise :Unexplained])
 
 (def non-avg-fields
@@ -21,6 +21,7 @@
                        (:ep-state or-state)
                        (:sensors or-state) truedata params)
                       (assoc params
+                        :Step (:time (:ep-state or-state))
                         :MetaAbduction (:meta-abduction or-state)
                         :Lazy (:lazy or-state)
                         :MetaAbductions (:meta-abductions (:resources or-state))
@@ -39,7 +40,7 @@
                (update-in ors [:sensors] update-sensors (get truedata t) t)))))
 
 (defn run-simulation-step
-  [problem truedata or-state params]
+  [problem truedata or-state params player]
   (let [ors (proceed-n-steps (:StepsBetween params) (:time (:ep-state or-state))
                              truedata or-state)
         time-now (+ (dec (:StepsBetween params)) (:time (:ep-state ors)))
@@ -53,21 +54,24 @@
         ep-state-meta (:ep-state ors-meta)
         ors-next (proceed-one-run-state ors-meta ep-state-meta problem params)
         milliseconds (/ (- (. System (nanoTime)) start-time) 1000000.0)
-        ors-final (update-in ors-next [:resources] assoc :milliseconds milliseconds)]
-    (evaluate problem truedata ors-final params)))
+        ors-milli (update-in ors-next [:resources] assoc :milliseconds milliseconds)
+        ors-results (evaluate problem truedata ors-milli params)]
+    (if (not player) ((:monitor-fn problem) problem truedata
+                      (:sensors ors-results) ors-results params)
+        ors-results)))
 
 (defn run-simulation
   [problem truedata or-state params]
   (loop [ors or-state]
     (if (>= (:time (:ep-state ors)) (- (:Steps params) (:StepsBetween params))) (:results ors)
-        (recur (run-simulation-step problem truedata ors params)))))
+        (recur (run-simulation-step problem truedata ors params false)))))
 
 (defn run-comparative
   [problem params]
   (let [truedata ((:truedata-fn problem) params)
         sensors ((:sensor-gen-fn problem) params)
         problem-data ((:gen-problem-data-fn problem) params sensors)
-        or-states (init-one-run-states {:MetaAbduction [false] :Lazy [false]}
+        or-states (init-one-run-states {:MetaAbduction [false] :Lazy [true]}
                                        sensors problem-data)]
     (doall (for [ors or-states]
              ;; get last result set from each run
@@ -80,7 +84,7 @@
 (defn average-runs
   [problem params n]
   (let [results (run-many problem params n)]
-    (doall (for [meta-abduction [false] lazy [false]]
+    (doall (for [meta-abduction [false] lazy [true]]
              (let [rs (filter #(and (= meta-abduction (:MetaAbduction %))
                                     (= lazy (:Lazy %)))
                               results)
@@ -99,5 +103,5 @@
                                     (:avg-fields problem) (:non-avg-fields problem)))
 
 (defrecord Problem
-    [name get-more-hyps-fn player-fns truedata-fn sensor-gen-fn
+    [name monitor-fn get-more-hyps-fn player-fns truedata-fn sensor-gen-fn
      evaluate-fn gen-problem-data-fn accept-decision-fn avg-fields non-avg-fields charts])

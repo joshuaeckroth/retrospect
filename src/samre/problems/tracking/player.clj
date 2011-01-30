@@ -76,6 +76,11 @@
     [k (->> (k *problem-param-spinners*)
             .getModel .getNumber .intValue)]))
 
+(defn player-set-params
+  []
+  (doseq [k (keys *problem-param-spinners*)]
+    (. (k *problem-param-spinners*) setValue (k *params*))))
+
 (defn player-get-params-panel
   []
   (doto (JPanel. (GridBagLayout.))

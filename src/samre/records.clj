@@ -9,8 +9,8 @@
   (:use [clojure.java.io :as io :only (writer reader copy)])
   (:use [clojure.string :only (split)])
   (:use [samre.runners.local :only (run-local)])
-  (:use [samre.charts :only (save-plots)])
-  (:use [samre.problem :only (get-headers)]))
+  (:use [samre.problem :only (get-headers)])
+  (:use [samre.charts :only (save-plots)]))
 
 (defn get-gitcommit []
   (first (split (sh "git" "rev-list" "HEAD") #"\n")))
@@ -72,9 +72,7 @@
     (println "done.")
     (println (format "Running %d parameter combinations..." (count params)))
     (run-local problem params dir nthreads)
-    (print "Saving charts...")
-    (save-plots dir problem)
-    (println "done.")))
+    (println "Done.")))
 
 (defn write-input
   [params input]
@@ -92,9 +90,7 @@
 	      writer (io/writer file2)]
     (.write writer (apply str (concat (interpose "," (map name (get-headers problem))))))
     (doseq [line (line-seq reader)]
-      (.write writer (str (clojure.string/replace line #"^\d+\s+" "") \newline))))
-  (println "Saving charts...")
-  (save-plots dir))
+      (.write writer (str (clojure.string/replace line #"^\d+\s+" "") \newline)))))
 
 (defn record-str
   [id date commit params]

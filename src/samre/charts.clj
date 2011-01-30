@@ -6,15 +6,16 @@
 
 (defn get-regression
   [series meta-abduction data x y type]
-  (case type
-        :linear
-        (merge
-         {:series series :meta-abduction meta-abduction :reg-type "linear"
-          :xs (sel ($where {:MetaAbduction meta-abduction} data) :cols x)}
-         (try (stats/linear-model
-               (sel ($where {:MetaAbduction meta-abduction} data) :cols y)
-               (sel ($where {:MetaAbduction meta-abduction} data) :cols x))
-              (catch Exception e {})))))
+  (let [xs (sel ($where {:MetaAbduction meta-abduction} data) :cols x)
+        ys (sel ($where {:MetaAbduction meta-abduction} data) :cols y)]
+    (case type
+          :linear
+          (merge
+           {:series series :meta-abduction meta-abduction :reg-type "linear" :xs xs}
+           (if (or (>= 3 (count xs)) (>= 3 (count ys))) {}
+               (try
+                 (stats/linear-model ys xs)
+                 (catch Exception e {})))))))
 
 (defn make-series-label
   [meta-abduction regression]
@@ -43,7 +44,7 @@
               (if (nil? each-regression) {}
                   (reduce (fn [m {i :series meta-abduction :meta-abduction}]
                             (assoc
-                                m [meta-abduction] ;; the key pf the map is a vector
+                                m [meta-abduction] ;; the key of the map is a vector
                                 (get-regression i meta-abduction data x y each-regression)))
                           {} plots))
               plot (clear-background
@@ -93,26 +94,29 @@
 
 (defn save-plots
   [recordsdir problem]
-  (let [results (read-results (str recordsdir "/results.csv"))]
-    (doseq [c (:charts problem)]
-      (if (:split-by c)
-        (doseq [split (:split-list c)]
-          (let [data ($where (merge (:filter c)
-                                    {(:split-by c) {:$gt (- split (:split-delta c))
-                                                    :$lt (+ split (:split-delta c))}})
-                             results)]
-            (when (not-empty (sel results :cols (:x c))) 
-              (if-let [p (plot data (:x c) (:y c) (:y-range c)
-                               (:regression c) (:each-reg c))]
-                (save p
-                 (format "%s/%s-%s--%s-%s.png" recordsdir
-                         (:name problem) (:name c)
-                         (name (:split-by c)) (str split))
-                 :width 500 :height 500)))))
-        (if-let [p (plot (if (:filter c) ($where (:filter c) results) results)
-                         (:x c) (:y c) (:y-range c)
-                         (:regression c) (:each-reg c))]
-          (save p
-                (format "%s/%s-%s.png" recordsdir
-                        (:name problem) (:name c))
-                :width 500 :height 500))))))
+  (try
+    (let [results (read-results (str recordsdir "/results-copy.csv"))]
+      (doseq [c (:charts problem)]
+        (if (:split-by c)
+          (doseq [split (:split-list c)]
+            (let [data ($where (merge (:filter c)
+                                      {(:split-by c) {:$gt (- split (:split-delta c))
+                                                      :$lt (+ split (:split-delta c))}})
+                               results)
+                  rs (sel results :cols (:x c))]
+              (when (and (seq? rs) (< 1 (count rs)))
+                (if-let [p (plot data (:x c) (:y c) (:y-range c)
+                                 (:regression c) (:each-reg c))]
+                  (save p
+                        (format "%s/%s-%s--%s-%s.png" recordsdir
+                                (:name problem) (:name c)
+                                (name (:split-by c)) (str split))
+                        :width 500 :height 500)))))
+          (if-let [p (plot (if (:filter c) ($where (:filter c) results) results)
+                           (:x c) (:y c) (:y-range c)
+                           (:regression c) (:each-reg c))]
+            (save p
+                  (format "%s/%s-%s.png" recordsdir
+                          (:name problem) (:name c))
+                  :width 500 :height 500)))))
+    (catch Exception e)))
