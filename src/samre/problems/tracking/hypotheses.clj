@@ -3,7 +3,7 @@
   (:require [samre.problems.tracking events entities])
   (:import [samre.workspaces Hypothesis])
   (:import [samre.problems.tracking.events
-            EventNew EventMove EventFrozen EventDisappear EventAppear])
+            EventNew EventMove EventFrozen EventDisReappear EventDisappear EventAppear])
   (:use [samre.problems.tracking.positions :only [manhattan-distance]])
   (:use [samre.problems.tracking.entities :only [new-entity pos]])
   (:use [samre.problems.tracking.eventlog :only
@@ -139,6 +139,10 @@
   [event params]
   NEUTRAL)
 
+(defn score-event-disreappear
+  [event params]
+  NEUTRAL)
+
 (defn score-event
   [event params]
   (let [t (type event)]
@@ -146,12 +150,14 @@
           (score-event-new event params)
           (= t samre.problems.tracking.events.EventAppear)
           (score-event-appear event params)
+          (= t samre.problems.tracking.events.EventDisappear)
+          (score-event-disappear event params)
           (= t samre.problems.tracking.events.EventFrozen)
           (score-event-frozen event params)
           (= t samre.problems.tracking.events.EventMove)
           (score-event-move event params)
-          (= t samre.problems.tracking.events.EventDisappear)
-          (score-event-disappear event params))))
+          (= t samre.problems.tracking.events.EventDisReappear)
+          (score-event-disreappear event params))))
 
 (defn make-hyp
   [h entity event explains params]
@@ -210,7 +216,7 @@
       (make-hyp [(:time e) (:pos e) "new"] (new-entity (:time e) (:pos e) (:color e))
                 event [(:spotted e)] params))))
 
-(defn generate-appear
+(defn generate-appearances
   "Generate entity appearances."
   [nodes params pdata]
   (for [e (filter #(some (fn [p] (in-range? (:pos %) p params))
@@ -243,6 +249,17 @@
                 nil event [(:spotted e) (:hyp s)] params))))
 
 (defn generate-disappearances
+  [es-with-hyps nodes params pdata]
+  (let [ss (filter #(some (fn [p] (in-range? (pos (:entity %)) p params))
+                          (:sensors-unseen pdata))
+                   es-with-hyps)]
+    (for [s ss]
+      (let [last-time (:time (last (:snapshots (:entity s))))
+            event (EventDisappear. (inc last-time) last-time (pos (:entity s)))]
+        (make-hyp [(:entity s) last-time (pos (:entity s)) "disappear"]
+                  (:entity s) event [(:hyp s)] params)))))
+
+(defn generate-disreappearances
   "Generate disappearance (and reappearances) when an old detection or entity
    had enough time (2 time steps) and was within range of an unseen area to
    have possibly disappeared and reappeared."
@@ -262,13 +279,13 @@
      ;; s = start, e = end
      ;; from entities to unseen to detected
      (for [s ss e (filter #(close-entity (:entity s) %) es)]
-       (let [event (EventDisappear. (:time e) (:time (last (:snapshots (:entity s))))
+       (let [event (EventDisReappear. (:time e) (:time (last (:snapshots (:entity s))))
                                     (:pos e) (pos (:entity s)))]
          (make-hyp [(:entity s) (:time e) (:pos e)]
                    (:entity s) event [(:hyp s) (:spotted e)] params)))
      ;; from detected to unseen to detected
      (for [s es e (filter #(close-spotted s %) es)]
-       (let [event (EventDisappear. (:time e) (:time s) (:pos e) (:pos s))]
+       (let [event (EventDisReappear. (:time e) (:time s) (:pos e) (:pos s))]
          (make-hyp [(:time s) (:pos s) (:time e) (:pos e)]
                    nil event [(:spotted e) (:hyp s)] params))))))
 
@@ -285,10 +302,11 @@
      (generate-initial-movements es-with-hyps nodes params)
      (generate-movements nodes params)
      (generate-new nodes params)
-     (generate-appear nodes params pdata)
+     (generate-appearances nodes params pdata)
+     (generate-disappearances es-with-hyps nodes params pdata)
      (generate-frozen es-with-hyps nodes params)
      (generate-detected-frozen nodes params)
-     (generate-disappearances es-with-hyps nodes params pdata))))
+     (generate-disreappearances es-with-hyps nodes params pdata))))
 
 (defn get-hyps
   [ep-state time-prev time-now sensors params]
@@ -332,6 +350,8 @@
                       (-> el
                           (add-event ev)
                           (add-entity e))
+                      (= (type ev) samre.problems.tracking.events.EventDisappear)
+                      el ;; do nothing
                       (= (type ev) samre.problems.tracking.events.EventFrozen)
                       (-> el
                           (update-entity (:time ev) entity (:pos ev)))
@@ -339,7 +359,7 @@
                       (-> el
                           (add-event ev)
                           (update-entity (:time ev) entity (:pos ev)))
-                      (= (type ev) samre.problems.tracking.events.EventDisappear)
+                      (= (type ev) samre.problems.tracking.events.EventDisReappear)
                       (-> el
                           (add-event ev)
                           (update-entity (:time ev) entity (:pos ev))))))

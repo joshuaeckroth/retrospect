@@ -55,9 +55,11 @@
         correct-event (fn [h] (if (or (= (type (:event (:data h)))
                                          samre.problems.tracking.events.EventFrozen)
                                       (= (type (:event (:data h)))
-                                         samre.problems.tracking.events.EventDisappear)
+                                         samre.problems.tracking.events.EventDisReappear)
                                       (= (type (:event (:data h)))
-                                         samre.problems.tracking.events.EventAppear))
+                                         samre.problems.tracking.events.EventAppear)
+                                      (= (type (:event (:data h)))
+                                         samre.problems.tracking.events.EventDisappear))
                                 false
                                 (some #(= % (:event (:data h))) trueevents)))
         correct-frozen (fn [h] (if (not= (type (:event (:data h)))
@@ -100,7 +102,8 @@
         pevents (set (filter
                       #(and (not= samre.problems.tracking.events.EventFrozen (type %))
                             (not= samre.problems.tracking.events.EventAppear (type %))
-                            (not= samre.problems.tracking.events.EventDisappear (type %)))
+                            (not= samre.problems.tracking.events.EventDisappear (type %))
+                            (not= samre.problems.tracking.events.EventDisReappear (type %)))
                       (get-events (:eventlog pdata))))
         pentities (get-entities (:eventlog pdata))
         trueevents (set (filter #(event-seen % (:sensors-seen (:problem-data ep-state)))
