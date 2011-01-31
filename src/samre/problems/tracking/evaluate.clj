@@ -47,34 +47,41 @@
                        (remove #(= (:id e) (:id %)) pentities))))
             starts)))
 
+(defn correct-event
+  [trueevents hyp]
+  (if (or (= (type (:event (:data hyp)))
+             samre.problems.tracking.events.EventFrozen)
+          (= (type (:event (:data hyp)))
+             samre.problems.tracking.events.EventDisReappear)
+          (= (type (:event (:data hyp)))
+             samre.problems.tracking.events.EventAppear)
+          (= (type (:event (:data hyp)))
+             samre.problems.tracking.events.EventDisappear))
+    false
+    (some #(= % (:event (:data hyp))) trueevents)))
+
+(defn correct-frozen
+  [trueevents hyp]
+  (if (not= (type (:event (:data hyp)))
+            samre.problems.tracking.events.EventFrozen)
+    false
+    (not-any? (fn [e] (and (= (:time e)
+                              (:time (:event (:data hyp))))
+                           ;; no event started from this pos
+                           ;; nor ended at this pos
+                           (or (= (:oldpos e)
+                                  (:pos (:event (:data hyp))))
+                               (= (:pos e)
+                                  (:pos (:event (:data hyp)))))))
+              trueevents)))
+
 ;; TODO: handle disappear/appear events properly
 (defn measure-plausibility-accuracy
   [workspace trueevents]
   (let [accepted (doall (filter #(= (:type %) :tracking)
                                 (lookup-hyps workspace (:accepted workspace))))
-        correct-event (fn [h] (if (or (= (type (:event (:data h)))
-                                         samre.problems.tracking.events.EventFrozen)
-                                      (= (type (:event (:data h)))
-                                         samre.problems.tracking.events.EventDisReappear)
-                                      (= (type (:event (:data h)))
-                                         samre.problems.tracking.events.EventAppear)
-                                      (= (type (:event (:data h)))
-                                         samre.problems.tracking.events.EventDisappear))
-                                false
-                                (some #(= % (:event (:data h))) trueevents)))
-        correct-frozen (fn [h] (if (not= (type (:event (:data h)))
-                                         samre.problems.tracking.events.EventFrozen)
-                                 false
-                                 (not-any? (fn [e] (and (= (:time e)
-                                                           (:time (:event (:data h))))
-                                                        ;; no event started from this pos
-                                                        ;; nor ended at this pos
-                                                        (or (= (:oldpos e)
-                                                               (:pos (:event (:data h))))
-                                                            (= (:pos e)
-                                                               (:pos (:event (:data h)))))))
-                                           trueevents)))
-        hyps-correct (doall (filter (fn [h] (or (correct-event h) (correct-frozen h)))
+        hyps-correct (doall (filter (fn [h] (or (correct-event trueevents h)
+                                                (correct-frozen trueevents h)))
                                     accepted))
         hyps-wrong (set/difference (set accepted) (set hyps-correct))
         value (fn [h op] (cond (op NEUTRAL (:confidence h)) 1
@@ -88,7 +95,14 @@
 (defn event-seen
   [event sensors-seen]
   (and (some #(= % (:pos event)) sensors-seen)
-       (if (:oldpos event) (some #(= % (:oldpos event)) sensors-seen) true)))
+       (if (nil? (:oldpos event)) true (some #(= % (:oldpos event)) sensors-seen))))
+
+(defn interesting-event
+  [event]
+  (and (not= samre.problems.tracking.events.EventFrozen (type event))
+       (not= samre.problems.tracking.events.EventAppear (type event))
+       (not= samre.problems.tracking.events.EventDisappear (type event))
+       (not= samre.problems.tracking.events.EventDisReappear (type event))))
 
 (defn evaluate
   "The current ep-state has accepted the decision of the previous ep-state;
@@ -99,12 +113,7 @@
   (let [trueeventlog (:eventlog (get truedata (dec (:time ep-state))))
         pdata (:problem-data ep-state)
         ;; don't penalize (as "wrong") frozen/disappear/appear events
-        pevents (set (filter
-                      #(and (not= samre.problems.tracking.events.EventFrozen (type %))
-                            (not= samre.problems.tracking.events.EventAppear (type %))
-                            (not= samre.problems.tracking.events.EventDisappear (type %))
-                            (not= samre.problems.tracking.events.EventDisReappear (type %)))
-                      (get-events (:eventlog pdata))))
+        pevents (set (filter interesting-event (get-events (:eventlog pdata))))
         pentities (get-entities (:eventlog pdata))
         trueevents (set (filter #(event-seen % (:sensors-seen (:problem-data ep-state)))
                                 (get-events trueeventlog)))

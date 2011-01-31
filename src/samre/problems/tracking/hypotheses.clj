@@ -210,11 +210,12 @@
 
 (defn generate-new
   "Generate new entity events."
-  [nodes params]
-  (for [e nodes]
-    (let [event (EventNew. (:time e) (:pos e))]
-      (make-hyp [(:time e) (:pos e) "new"] (new-entity (:time e) (:pos e) (:color e))
-                event (:color e) [(:spotted e)] params))))
+  [nodes time params]
+  (if (not (or (= time 0) (< 0 (:ProbNewEntities params)))) []
+      (for [e nodes]
+        (let [event (EventNew. (:time e) (:pos e))]
+          (make-hyp [(:time e) (:pos e) "new"] (new-entity (:time e) (:pos e) (:color e))
+                    event (:color e) [(:spotted e)] params)))))
 
 (defn generate-appearances
   "Generate entity appearances."
@@ -301,7 +302,7 @@
     (concat
      (generate-initial-movements es-with-hyps nodes params)
      (generate-movements nodes params)
-     (generate-new nodes params)
+     (generate-new nodes time params)
      (generate-appearances nodes params pdata)
      (generate-disappearances es-with-hyps nodes params pdata)
      (generate-frozen es-with-hyps nodes params)
