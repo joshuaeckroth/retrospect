@@ -2,6 +2,7 @@
   (:use [incanter.io :only (read-dataset)])
   (:import (java.util Date))
   (:use [clojure.java.io :as io :only (writer copy file)])
+  (:use [clojure.stacktrace :only [print-cause-trace]])
   (:use [samre.problem :only (average-runs get-headers)])
   (:use [samre.charts :only (save-plots)]))
 
@@ -67,9 +68,11 @@
 
 (defn run-local
   [problem params dir nthreads monitor]
-  (try
-    (run-partitions dir problem (str dir "/results.csv") params nthreads monitor)
+  (run-partitions dir problem (str dir "/results.csv") params nthreads monitor)
+  #_(try
+
     (catch Exception e
+      (print-cause-trace e)
       (println "Quitting early.")
       ;; indicate maximum progress so check-progress agent stops
       (send-off write-agent (constantly (count params))))))
