@@ -211,6 +211,7 @@
     (str
      "digraph G {\n"
      "rankdir=\"LR\";\n"
+     "node [shape=\"plaintext\"];\n"
      (apply str (for [h (vals (:hyps workspace))]
                   (str (apply str (map #(format "\"%s\" -> \"%s\";\n" (id h) (id %))
                                        (lookup-hyps workspace (:explains h)))))))
@@ -227,36 +228,40 @@
                       (format "\"%s\" [color=\"orange\", fontcolor=\"orange\"];\n"
                               (id h)))))
      "subgraph cluster {\n"
-     (if (< 0 (count boxed))
-       (apply str (map #(format "\"%s\";\n" (id %)) boxed))
-       (format "\"%s\";\n" (id (first boxed))))
+     (if (= 0 (count boxed)) ""
+       (if (< 0 (count boxed))
+         (apply str (map #(format "\"%s\";\n" (id %)) boxed))
+         (format "\"%s\";\n" (id (first boxed)))))
      "}\n"
      (apply str (for [h (vals (:hyps workspace))]
                   (format "\"%s\";\n" (id h))))
-     (format "\"%s\" [color=\"blue\", fontcolor=\"blue\", shape=\"box\"];"
-             (id acc))
-     (let [implausible ((:implausible-fn acc) acc (vals (:hyps workspace)))]
-       (if (empty? implausible) ""
-           (if (< 0 (count implausible))
-             (apply str (concat
-                         (map #(format "\"%s\" -> \"%s\" [arrowhead=\"box\"];\n"
-                                       (id acc) (id %)) implausible)
-                         (map #(format "\"%s\" [color=\"red\", fontcolor=\"red\"];\n"
-                                       (id %))
-                              implausible)))
-             (format "\"%s\" -> \"%s\" [arrowhead=\"dot\", color=\"red\"];\n"
-                     (id acc) (id (first implausible))))))
-     (let [impossible ((:impossible-fn acc) acc (vals (:hyps workspace)))]
-       (if (empty? impossible) ""
-           (if (< 0 (count impossible))
-             (apply str (concat
-                         (map #(format "\"%s\" -> \"%s\" [arrowhead=\"box\"];\n"
-                                       (id acc) (id %)) impossible)
-                         (map #(format "\"%s\" [color=\"red\", fontcolor=\"red\"];\n"
-                                       (id %))
-                              impossible)))
-             (format "\"%s\" -> \"%s\" [arrowhead=\"box\"];\n"
-                     (id acc) (id (first impossible))))))
+     (if (nil? acc) ""
+         (format "\"%s\" [color=\"blue\", fontcolor=\"blue\", shape=\"box\"];"
+                 (id acc)))
+     (if (nil? acc) ""
+         (let [implausible ((:implausible-fn acc) acc (vals (:hyps workspace)))]
+           (if (empty? implausible) ""
+               (if (< 0 (count implausible))
+                 (apply str (concat
+                             (map #(format "\"%s\" -> \"%s\" [arrowhead=\"box\"];\n"
+                                           (id acc) (id %)) implausible)
+                             (map #(format "\"%s\" [color=\"red\", fontcolor=\"red\"];\n"
+                                           (id %))
+                                  implausible)))
+                 (format "\"%s\" -> \"%s\" [arrowhead=\"dot\", color=\"red\"];\n"
+                         (id acc) (id (first implausible)))))))
+     (if (nil? acc) ""
+         (let [impossible ((:impossible-fn acc) acc (vals (:hyps workspace)))]
+           (if (empty? impossible) ""
+               (if (< 0 (count impossible))
+                 (apply str (concat
+                             (map #(format "\"%s\" -> \"%s\" [arrowhead=\"box\"];\n"
+                                           (id acc) (id %)) impossible)
+                             (map #(format "\"%s\" [color=\"red\", fontcolor=\"red\"];\n"
+                                           (id %))
+                                  impossible)))
+                 (format "\"%s\" -> \"%s\" [arrowhead=\"box\"];\n"
+                         (id acc) (id (first impossible)))))))
      "}\n")))
 
 (defn find-best
@@ -277,18 +282,18 @@
             max-conf (:confidence (first sorted))
             most-conf (filter #(= max-conf (:confidence %)) sorted)
             expl-sorted (reverse (sort-by (comp count :explains) most-conf))
-            max-expl (count (:explains (first expl-sorted)))
-            acc (rand-nth (vec (filter #(= max-expl (count (:explains %))) most-conf)))]
+            max-expl (count (:explains (first expl-sorted)))]
         (when (not-empty most-conf)
-          {:hyp acc :dot (dot-format workspace most-conf acc)})))))
+          (let [acc (rand-nth (vec (filter #(= max-expl (count (:explains %))) most-conf)))]
+            {:hyp acc :dot (dot-format workspace most-conf acc)}))))))
 
 (defn explain
   [workspace]
   (let [ws (update-candidates-unexplained workspace)
         ws2 (reject-all-impossible ws)]
-    (if (empty? (:unexplained ws2)) ws2
+    (if (empty? (:unexplained ws2)) (update-in ws2 [:dot] conj (dot-format ws2 [] nil))
         (let [best (find-best ws2)]
-          (if (nil? best) ws2
+          (if (nil? best) (update-in ws2 [:dot] conj (dot-format ws2 [] nil))
               (recur
                (-> (update-in ws2 [:dot] conj (:dot best))
                    (add-abducer-log-msg

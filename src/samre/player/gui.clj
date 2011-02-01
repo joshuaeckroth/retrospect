@@ -27,7 +27,11 @@
 
 (def *ep-tree* (BufferedImage. 1 1 (. BufferedImage TYPE_4BYTE_ABGR)))
 (def *explains-graph-index* 0)
+(def *explains-graph-count* 0)
 (def *explains-graph* nil)
+(def *prev-explains-graph-button* nil)
+(def *next-explains-graph-button* nil)
+(def *explains-graph-label* (JLabel.))
 (def *truedata-log-box* (JTextArea.))
 (def *abduction-log-label* (JLabel. "Abduction log"))
 (def *abduction-log-box* (JTextArea.))
@@ -117,12 +121,16 @@
   (. *ep-tree-scrollpane* setViewport (get-ep-tree-viewport)))
 
 (defn draw-explains-graph
-  [dot]
-  (let [filename (str "explains-graphs/" *explains-graph-index*)]
-    (spit (str filename ".dot") (nth dot *explains-graph-index*))
-    (sh "dot" "-Tpng" (str "-o" filename ".png") (str filename ".dot"))
-    (sh "mogrify" "-resize" "50%" (str filename ".png"))
-    (str filename ".png")))
+  []
+  (if-let [prev-ep (previous-ep-state (:ep-state-tree *or-state*))]
+    (let [dot (:dot (:workspace prev-ep))
+          filename (str "explains-graphs/" *explains-graph-index*)]
+      (. *explains-graph-label* setText
+         (format "Cycle %d of %d" (inc *explains-graph-index*) *explains-graph-count*))
+      (spit (str filename ".dot") (nth dot *explains-graph-index*))
+      (sh "dot" "-Tpng" (str "-o" filename ".png") (str filename ".dot"))
+      (sh "mogrify" "-resize" "50%" (str filename ".png"))
+      (str filename ".png"))))
 
 (defn get-explains-graph-viewport
   []
@@ -137,12 +145,73 @@
 (def *explains-graph-scrollpane*
   (JScrollPane. (get-explains-graph-viewport)))
 
+(defn prev-explains-graph
+  []
+  (when (> *explains-graph-index* 0)
+    (def *explains-graph-index* (dec *explains-graph-index*))
+    (when (= 0 *explains-graph-index*)
+      (. *prev-explains-graph-button* setEnabled false))
+    (. *next-explains-graph-button* setEnabled true)
+    (def *explains-graph* (draw-explains-graph))
+    (. *explains-graph-scrollpane* setViewport (get-explains-graph-viewport))))
+
+(defn next-explains-graph
+  []
+  (when (< *explains-graph-index* (dec *explains-graph-count*))
+    (def *explains-graph-index* (inc *explains-graph-index*))
+    (. *prev-explains-graph-button* setEnabled true)
+    (when (= (dec *explains-graph-count*) *explains-graph-index*)
+      (. *next-explains-graph-button* setEnabled false))
+    (def *explains-graph* (draw-explains-graph))
+    (. *explains-graph-scrollpane* setViewport (get-explains-graph-viewport))))
+
 (defn update-explains-graph-diagram
   []
   (if-let [prev-ep (previous-ep-state (:ep-state-tree *or-state*))]
     (do
-      (def *explains-graph* (draw-explains-graph (:dot (:workspace prev-ep))))
-      (. *explains-graph-scrollpane* setViewport (get-explains-graph-viewport)))))
+      (def *explains-graph-index* 0)
+      (def *explains-graph-count* (count (:dot (:workspace prev-ep))))
+      (def *explains-graph* (draw-explains-graph))
+      (. *explains-graph-scrollpane* setViewport (get-explains-graph-viewport))
+      (. *prev-explains-graph-button* setEnabled false)
+      (if (< 1 *explains-graph-count*)
+        (. *next-explains-graph-button* setEnabled true)
+        (. *next-explains-graph-button* setEnabled false)))
+    (do
+      (def *explains-graph-index* 0)
+      (def *explains-graph-count* 0)
+      (def *explains-graph* nil)
+      (. *prev-explains-graph-button* setEnabled false)
+      (. *next-explains-graph-button* setEnabled false)
+      (. *explains-graph-scrollpane* setViewport (get-explains-graph-viewport))
+      (. *explains-graph-label* setText ""))))
+
+(defn get-explains-graph-tab
+  []
+  (doto (JPanel. (GridBagLayout.))
+    (grid-bag-layout
+     :fill :BOTH, :insets (Insets. 5 5 5 5)
+
+     :gridx 0, :gridy 0, :weightx 1.0, :weighty 1.0, :gridwidth 6
+     *explains-graph-scrollpane*
+
+     :gridx 0, :gridy 1, :weightx 0.0, :weighty 0.0, :gridwidth 1
+     *prev-explains-graph-button*
+
+     :gridx 1
+     *next-explains-graph-button*
+
+     :gridx 2, :weightx 1.0
+     *explains-graph-label*
+
+     :gridx 3, :weightx 0.0
+     (doto (JLabel. " unexplained ") (.setForeground Color/orange))
+     
+     :gridx 4, :weightx 0.0
+     (doto (JLabel. " accepted ") (.setForeground Color/blue))
+
+     :gridx 5, :weightx 0.0
+     (doto (JLabel. " rejected ") (.setForeground Color/red)))))
 
 (defn update-goto-ep-state-combobox
   []
@@ -464,7 +533,7 @@
        (.addTab "Problem diagram" *problem-diagram*)
        (.addTab "Epistemic state tree" *ep-tree-scrollpane*)
        (.addTab "Logs" *logs-tab*)
-       (.addTab "Explains graph" *explains-graph-scrollpane*)
+       (.addTab "Explains graph" (get-explains-graph-tab))
        (.addTab "Results" (get-results-tab))
        (.setSelectedIndex 0))
      
@@ -504,6 +573,16 @@
 
   (get-results-graph-x-dropdown)
   (get-results-graph-y-dropdown)
+
+  (def *prev-explains-graph-button*
+    (let [b (JButton. "Prev")]
+      (with-action b e (prev-explains-graph))
+      (doto b (.setEnabled false))))
+  
+  (def *next-explains-graph-button*
+    (let [b (JButton. "Next")]
+      (with-action b e (next-explains-graph))
+      (doto b (.setEnabled false))))
 
   (def *problem-diagram* ((:get-diagram-fn (:player-fns problem))))
   (def *problem-params-panel* ((:get-params-panel-fn (:player-fns problem))))
