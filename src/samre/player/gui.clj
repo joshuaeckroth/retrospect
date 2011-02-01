@@ -6,6 +6,7 @@
 			JLabel JScrollPane JSpinner SpinnerNumberModel JComboBox
                         ImageIcon JViewport Scrollable JTabbedPane JTable))
   (:import (java.util Vector))
+  (:use [clojure.java.shell :only [sh]])
   (:use [incanter.core :only [to-list with-data dataset nrow]])
   (:use [incanter.charts :only [scatter-plot]])
   (:use [samre.problem :only [get-headers run-simulation-step]])
@@ -25,7 +26,8 @@
 (def *goto-ep-state-combobox* (JComboBox. (to-array "")))
 
 (def *ep-tree* (BufferedImage. 1 1 (. BufferedImage TYPE_4BYTE_ABGR)))
-(def *explains-graph* (BufferedImage. 1 1 (. BufferedImage TYPE_4BYTE_ABGR)))
+(def *explains-graph-index* 0)
+(def *explains-graph* nil)
 (def *truedata-log-box* (JTextArea.))
 (def *abduction-log-label* (JLabel. "Abduction log"))
 (def *abduction-log-box* (JTextArea.))
@@ -112,17 +114,25 @@
 (defn update-ep-tree-diagram
   []
   (def *ep-tree* (draw-ep-state-tree (:ep-state-tree *or-state*)))
-  (. *ep-tree-scrollpane* (setViewport (get-ep-tree-viewport))))
+  (. *ep-tree-scrollpane* setViewport (get-ep-tree-viewport)))
 
 (defn draw-explains-graph
   [dot]
-  (BufferedImage. 1 1 (. BufferedImage TYPE_4BYTE_ABGR)))
+  (let [filename (str "explains-graphs/" *explains-graph-index*)]
+    (spit (str filename ".dot") (nth dot *explains-graph-index*))
+    (sh "dot" "-Tpng" (str "-o" filename ".png") (str filename ".dot"))
+    (sh "mogrify" "-resize" "50%" (str filename ".png"))
+    (str filename ".png")))
 
 (defn get-explains-graph-viewport
   []
-  (doto (JViewport.)
-    (.setBackground Color/white)
-    (.setView (JLabel. (ImageIcon. *explains-graph*)))))
+  (if *explains-graph*
+    (let [imageicon (ImageIcon. *explains-graph*)]
+      (.. imageicon getImage flush)
+      (doto (JViewport.)
+        (.setBackground Color/white)
+        (.setView (JLabel. imageicon))))
+    (doto (JViewport.) (.setBackground Color/white))))
 
 (def *explains-graph-scrollpane*
   (JScrollPane. (get-explains-graph-viewport)))
@@ -130,8 +140,9 @@
 (defn update-explains-graph-diagram
   []
   (if-let [prev-ep (previous-ep-state (:ep-state-tree *or-state*))]
-    (def *explains-graph* (draw-explains-graph (:dot (:workspace prev-ep))))
-    (. *explains-graph-scrollpane* (setViewport (get-explains-graph-viewport)))))
+    (do
+      (def *explains-graph* (draw-explains-graph (:dot (:workspace prev-ep))))
+      (. *explains-graph-scrollpane* setViewport (get-explains-graph-viewport)))))
 
 (defn update-goto-ep-state-combobox
   []
@@ -306,6 +317,7 @@
                                   (format "Step: N/A->%d" time-now))))))
   (update-goto-ep-state-combobox)
   (update-ep-tree-diagram)
+  (update-explains-graph-diagram)
   (update-hyp-choice-dropdown)
   (update-hyp-box)
   (update-results)
