@@ -277,15 +277,23 @@
             acc (rand-nth (vec (filter #(= max-conf (:confidence %)) es)))]
         {:hyp acc :dot (dot-format workspace es acc)})
 
-      ;; otherwise choose random most confident / most explanatory
+      ;; otherwise choose random most confident / most explanatory / hyp with
+      ;; most of its "impossible" hyps already marked impossible
       (let [sorted (reverse (sort-by :confidence (apply concat explainers)))
             max-conf (:confidence (first sorted))
             most-conf (filter #(= max-conf (:confidence %)) sorted)
             expl-sorted (reverse (sort-by (comp count :explains) most-conf))
-            max-expl (count (:explains (first expl-sorted)))]
-        (when (not-empty most-conf)
-          (let [acc (rand-nth (vec (filter #(= max-expl (count (:explains %))) most-conf)))]
-            {:hyp acc :dot (dot-format workspace most-conf acc)}))))))
+            max-expl (count (:explains (first expl-sorted)))
+            most-expl (filter #(= max-expl (count (:explains %))) most-conf)
+            count-imp (fn [h] (count (filter #(= IMPOSSIBLE (:confidence %))
+                                             (lookup-hyps workspace
+                                                          ((:impossible-fn h) h
+                                                           (vals (:hyps workspace)))))))
+            max-imp (apply max (conj (map count-imp most-expl) 0))
+            most-imp (filter #(= max-imp (count-imp %)) most-expl)]
+        (when (not-empty most-imp)
+          (let [acc (rand-nth most-imp)]
+            {:hyp acc :dot (dot-format workspace most-imp acc)}))))))
 
 (defn explain
   [workspace]
