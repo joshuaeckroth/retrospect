@@ -25,6 +25,7 @@
 (def *goto-ep-state-combobox* (JComboBox. (to-array "")))
 
 (def *ep-tree* (BufferedImage. 1 1 (. BufferedImage TYPE_4BYTE_ABGR)))
+(def *explains-graph* (BufferedImage. 1 1 (. BufferedImage TYPE_4BYTE_ABGR)))
 (def *truedata-log-box* (JTextArea.))
 (def *abduction-log-label* (JLabel. "Abduction log"))
 (def *abduction-log-box* (JTextArea.))
@@ -112,6 +113,25 @@
   []
   (def *ep-tree* (draw-ep-state-tree (:ep-state-tree *or-state*)))
   (. *ep-tree-scrollpane* (setViewport (get-ep-tree-viewport))))
+
+(defn draw-explains-graph
+  [dot]
+  (BufferedImage. 1 1 (. BufferedImage TYPE_4BYTE_ABGR)))
+
+(defn get-explains-graph-viewport
+  []
+  (doto (JViewport.)
+    (.setBackground Color/white)
+    (.setView (JLabel. (ImageIcon. *explains-graph*)))))
+
+(def *explains-graph-scrollpane*
+  (JScrollPane. (get-explains-graph-viewport)))
+
+(defn update-explains-graph-diagram
+  []
+  (if-let [prev-ep (previous-ep-state (:ep-state-tree *or-state*))]
+    (def *explains-graph* (draw-explains-graph (:dot (:workspace prev-ep))))
+    (. *explains-graph-scrollpane* (setViewport (get-explains-graph-viewport)))))
 
 (defn update-goto-ep-state-combobox
   []
@@ -432,6 +452,7 @@
        (.addTab "Problem diagram" *problem-diagram*)
        (.addTab "Epistemic state tree" *ep-tree-scrollpane*)
        (.addTab "Logs" *logs-tab*)
+       (.addTab "Explains graph" *explains-graph-scrollpane*)
        (.addTab "Results" (get-results-tab))
        (.setSelectedIndex 0))
      

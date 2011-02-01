@@ -2,7 +2,8 @@
   (:require [samre logs])
   (:import [samre.logs AbducerLogEntry])
   (:use [samre.confidences])
-  (:require [clojure.set :as set]))
+  (:require [clojure.set :as set])
+  (:require [clojure.string :as string]))
 
 (defrecord Hypothesis
     [id ;; a keyword
@@ -24,11 +25,12 @@
      unexplained ;; hyp-ids
      candidates ;; hyp-ids
      abducer-log
+     dot ;; graph vector
      decision]) ;; {:confidence :accepted (hyp-ids) :rejected (hyp-ids) :forced (hyp-ids)}
 
 (defn init-workspace
   []
-  (Workspace. {} [] [] [] [] [] []
+  (Workspace. {} [] [] [] [] [] [] []
               {:confidence nil :accepted [] :rejected [] :forced []}))
 
 (defn update-hyps
@@ -70,6 +72,7 @@
         new-rejected (set/difference (set (:rejected workspace)) ancient)
         new-candidates (set/difference (set (:candidates workspace)) ancient)]
     (-> workspace
+        (assoc :dot [])
         (assoc :hyps new-hyps)
         (assoc :accepted new-accepted)
         (assoc :rejected new-rejected)
@@ -197,6 +200,65 @@
       (add-abducer-log-msg
        [(:id hyp)] (format "Forcing acceptance of %s." (name (:id hyp))))))
 
+(defn dot-format
+  [workspace boxed acc]
+  (let [id #(format "%s %s" (name (:id %)) (confidence-str (:confidence %)))
+        all-acc (lookup-hyps workspace (concat (:accepted (:decision workspace))
+                                               (:forced (:decision workspace))
+                                               (:accepted workspace)))
+        all-rej (lookup-hyps workspace (concat (:rejected (:decision workspace))
+                                               (:rejected workspace)))]
+    (str
+     "digraph G {\n"
+     "rankdir=\"LR\";\n"
+     (apply str (for [h (vals (:hyps workspace))]
+                  (str (apply str (map #(format "\"%s\" -> \"%s\";\n" (id h) (id %))
+                                       (lookup-hyps workspace (:explains h)))))))
+     (if (empty? all-acc) ""
+         (apply str (for [h all-acc]
+                      (format "\"%s\" [color=\"blue\", fontcolor=\"blue\"];\n"
+                              (id h)))))
+     (if (empty? all-rej) ""
+         (apply str (for [h all-rej]
+                      (format "\"%s\" [color=\"red\", fontcolor=\"red\"];\n"
+                              (id h)))))
+     (if (empty? (:unexplained workspace)) ""
+         (apply str (for [h (lookup-hyps workspace (:unexplained workspace))]
+                      (format "\"%s\" [color=\"orange\", fontcolor=\"orange\"];\n"
+                              (id h)))))
+     "subgraph cluster {\n"
+     (if (< 0 (count boxed))
+       (apply str (map #(format "\"%s\";\n" (id %)) boxed))
+       (format "\"%s\";\n" (id (first boxed))))
+     "}\n"
+     (apply str (for [h (vals (:hyps workspace))]
+                  (format "\"%s\";\n" (id h))))
+     (format "\"%s\" [color=\"blue\", fontcolor=\"blue\", shape=\"box\"];"
+             (id acc))
+     (let [implausible ((:implausible-fn acc) acc (vals (:hyps workspace)))]
+       (if (empty? implausible) ""
+           (if (< 0 (count implausible))
+             (apply str (concat
+                         (map #(format "\"%s\" -> \"%s\" [arrowhead=\"box\"];\n"
+                                       (id acc) (id %)) implausible)
+                         (map #(format "\"%s\" [color=\"red\", fontcolor=\"red\"];\n"
+                                       (id %))
+                              implausible)))
+             (format "\"%s\" -> \"%s\" [arrowhead=\"dot\", color=\"red\"];\n"
+                     (id acc) (id (first implausible))))))
+     (let [impossible ((:impossible-fn acc) acc (vals (:hyps workspace)))]
+       (if (empty? impossible) ""
+           (if (< 0 (count impossible))
+             (apply str (concat
+                         (map #(format "\"%s\" -> \"%s\" [arrowhead=\"box\"];\n"
+                                       (id acc) (id %)) impossible)
+                         (map #(format "\"%s\" [color=\"red\", fontcolor=\"red\"];\n"
+                                       (id %))
+                              impossible)))
+             (format "\"%s\" -> \"%s\" [arrowhead=\"box\"];\n"
+                     (id acc) (id (first impossible))))))
+     "}\n")))
+
 (defn find-best
   [workspace]
   (let [unexplained (lookup-hyps workspace (:unexplained workspace))
@@ -206,17 +268,19 @@
     (if (not-empty essentials)
       ;; choose random most-confident essential
       (let [es (apply concat essentials)
-            max-conf (:confidence (first (reverse (sort-by :confidence es))))]
-        (rand-nth (vec (filter #(= max-conf (:confidence %)) es))))
+            max-conf (:confidence (first (reverse (sort-by :confidence es))))
+            acc (rand-nth (vec (filter #(= max-conf (:confidence %)) es)))]
+        {:hyp acc :dot (dot-format workspace es acc)})
 
       ;; otherwise choose random most confident / most explanatory
       (let [sorted (reverse (sort-by :confidence (apply concat explainers)))
             max-conf (:confidence (first sorted))
             most-conf (filter #(= max-conf (:confidence %)) sorted)
             expl-sorted (reverse (sort-by (comp count :explains) most-conf))
-            max-expl (count (:explains (first expl-sorted)))]
-        (if (not-empty most-conf)
-          (rand-nth (vec (filter #(= max-expl (count (:explains %))) most-conf))))))))
+            max-expl (count (:explains (first expl-sorted)))
+            acc (rand-nth (vec (filter #(= max-expl (count (:explains %))) most-conf)))]
+        (when (not-empty most-conf)
+          {:hyp acc :dot (dot-format workspace most-conf acc)})))))
 
 (defn explain
   [workspace]
@@ -225,10 +289,11 @@
     (if (empty? (:unexplained ws2)) ws2
         (let [best (find-best ws2)]
           (if (nil? best) ws2
-              (recur (-> ws2
-                         (add-abducer-log-msg
-                          (conj (:explains best) (:id best))
-                          (format "Accepting %s as explainer of %s." (name (:id best))
-                                  (apply str (interpose ", " (map name (:explains best))))))
-                         (accept-hyp best))))))))
+              (recur
+               (-> (update-in ws2 [:dot] conj (:dot best))
+                   (add-abducer-log-msg
+                    (conj (:explains (:hyp best)) (:id (:hyp best)))
+                    (format "Accepting %s as explainer of %s." (name (:id (:hyp best)))
+                            (apply str (interpose ", " (map name (:explains (:hyp best)))))))
+                   (accept-hyp (:hyp best)))))))))
 
