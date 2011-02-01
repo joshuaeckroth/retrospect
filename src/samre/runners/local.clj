@@ -39,11 +39,11 @@
   (inc progress))
 
 (defn run-partition
-  [problem filename params]
+  [problem monitor filename params]
   (when (not-empty params)
     (send-off write-agent write-csv filename problem
-              (average-runs problem (first params) 10))
-    (recur problem filename (rest params))))
+              (average-runs problem monitor (first params) 10))
+    (recur problem monitor filename (rest params))))
 
 (defn check-progress
   [remaining dir problem total start-time]
@@ -58,15 +58,18 @@
       (- total progress))))
 
 (defn run-partitions
-  [dir problem filename params nthreads]
+  [dir problem filename params nthreads monitor]
   (with-open [writer (io/writer filename)]
     (.write writer (format-csv-row (map name (get-headers problem)))))
   (send (agent (count params)) check-progress dir problem (count params) (.getTime (Date.)))
   (let [partitions (partition (int (/ (count params) nthreads)) (shuffle params))]
-    (doall (pmap (partial run-partition problem filename) partitions))))
+    (doall (pmap (partial run-partition problem monitor filename) partitions))))
 
 (defn run-local
-  [problem params dir nthreads]
+  [problem params dir nthreads monitor]
   (try
-    (run-partitions dir problem (str dir "/results.csv") params nthreads)
-    (catch Exception e (println "Quitting early."))))
+    (run-partitions dir problem (str dir "/results.csv") params nthreads monitor)
+    (catch Exception e
+      (println "Quitting early.")
+      ;; indicate maximum progress so check-progress agent stops
+      (send-off write-agent (constantly (count params))))))

@@ -55,7 +55,7 @@
 		      [:git-commit (get-gitcommit)]])))))
 
 (defn run-with-new-record
-  [problem paramsfile recordsdir nthreads]
+  [problem paramsfile recordsdir nthreads monitor]
   "Create a new folder for storing run data and execute the run. Then,
   depending on whether hadoop is true or false, execute a hadoop job
   control process or a local (this machine) runner."
@@ -71,7 +71,7 @@
     (copy-params-file (str dir "/params.xml") paramsfile)
     (println "done.")
     (println (format "Running %d parameter combinations..." (count params)))
-    (run-local problem params dir nthreads)
+    (run-local problem params dir nthreads monitor)
     (println "Done.")))
 
 (defn write-input

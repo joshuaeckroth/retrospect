@@ -33,9 +33,9 @@
                                  {:wrong h :better better})))
                      wrong))]
     (when (< 0 (count wrong-choices))
-      (doseq [w wrong-choices] (println (format "%s: %s" (name (:id (:wrong w)))
-                                                (apply str (map (comp name :id)
-                                                                (:better w)))))))
+      (doseq [w wrong-choices]
+        (println (format "%s: %s" (name (:id (:wrong w)))
+                         (apply str (interpose "," (map (comp name :id) (:better w))))))))
     wrong-choices))
 
 (defn monitor

@@ -19,15 +19,17 @@
      [recordsdir "Records directory" "records"]
      [record "Record" ""]
      [nthreads "Number of threads" "8"]
+     [monitor "Activate monitor?" "false"]
      [input "Hadoop input" ""]
      [output "Hadoop output" ""]]
     (let [nthreads (Integer/parseInt nthreads)
+          monitor (Boolean/parseBoolean monitor)
           prob (cond (= problem "tracking") tracking-problem
                      ;(= problem "circuit") circuit-problem
                      :else nil)]
       (case action
             "run"
-            (run-with-new-record prob paramsfile recordsdir nthreads)
+            (run-with-new-record prob paramsfile recordsdir nthreads monitor)
             "prepare-hadoop"
             (prepare-hadoop prob paramsfile recordsdir)
             "hadoop"

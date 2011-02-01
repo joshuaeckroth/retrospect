@@ -40,7 +40,7 @@
                (update-in ors [:sensors] update-sensors (get truedata t) t)))))
 
 (defn run-simulation-step
-  [problem truedata or-state params player]
+  [problem monitor truedata or-state params player]
   (let [ors (proceed-n-steps (:StepsBetween params) (:time (:ep-state or-state))
                              truedata or-state)
         time-now (+ (dec (:StepsBetween params)) (:time (:ep-state ors)))
@@ -56,18 +56,19 @@
         milliseconds (/ (- (. System (nanoTime)) start-time) 1000000.0)
         ors-milli (update-in ors-next [:resources] assoc :milliseconds milliseconds)
         ors-results (evaluate problem truedata ors-milli params)]
-    (if (not player) ((:monitor-fn problem) problem truedata
-                      (:sensors ors-results) ors-results params)
-        ors-results)))
+    (if (and (not player) monitor)
+      ((:monitor-fn problem) problem truedata
+       (:sensors ors-results) ors-results params)
+      ors-results)))
 
 (defn run-simulation
-  [problem truedata or-state params]
+  [problem monitor truedata or-state params]
   (loop [ors or-state]
     (if (>= (:time (:ep-state ors)) (- (:Steps params) (:StepsBetween params))) (:results ors)
-        (recur (run-simulation-step problem truedata ors params false)))))
+        (recur (run-simulation-step problem monitor truedata ors params false)))))
 
 (defn run-comparative
-  [problem params]
+  [problem monitor params]
   (let [truedata ((:truedata-fn problem) params)
         sensors ((:sensor-gen-fn problem) params)
         problem-data ((:gen-problem-data-fn problem) params sensors)
@@ -75,15 +76,15 @@
                                        sensors problem-data)]
     (doall (for [ors or-states]
              ;; get last result set from each run
-             (last (run-simulation problem truedata ors params))))))
+             (last (run-simulation problem monitor truedata ors params))))))
 
 (defn run-many
-  [problem params n]
-  (apply concat (for [i (range n)] (run-comparative problem params))))
+  [problem monitor params n]
+  (apply concat (for [i (range n)] (run-comparative problem monitor params))))
 
 (defn average-runs
-  [problem params n]
-  (let [results (run-many problem params n)]
+  [problem monitor params n]
+  (let [results (run-many problem monitor params n)]
     (doall (for [meta-abduction [false] lazy [true]]
              (let [rs (filter #(and (= meta-abduction (:MetaAbduction %))
                                     (= lazy (:Lazy %)))
