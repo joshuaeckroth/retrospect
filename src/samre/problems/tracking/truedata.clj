@@ -1,92 +1,29 @@
 (ns samre.problems.tracking.truedata
-  (:use [samre.problems.tracking.grid :only
-         (new-grid new-grid-entity replace-grid-entity walk1)])
-  (:use [samre.problems.tracking.eventlog :only
-         (init-event-log add-entity add-event
-                         add-event-new add-event-move update-entity
-                         get-entities get-events)])
-  (:use [samre.problems.tracking.entities :only (pos pair-snapshots)])
-  (:use [clojure.set :only [difference]]))
+  (:use [samre.problems.tracking.grid]))
 
 (defn add-new-entities
-  [eventlog grid numes time]
-  (loop [i 0
-         el eventlog
-	 g grid]
-    (if (or (= i numes) ; stop if reached numes or if there's no more space in grid
-	    (= (* (:width g) (:height g))
-	       (count (get-entities el))))
-      [el g]
-      (let [entity (new-grid-entity g time)]
-	(recur (inc i)
-	       (-> el
-		   (add-entity entity)
-		   (add-event-new time (pos entity)))
-	       (replace-grid-entity g nil entity))))))
+  [grid numes]
+  (reduce (fn [g _] (grid-new-entity g 0)) grid (range numes)))
 
 (defn random-walks
-  [eventlog grid params time]
-  (let [all-entities
-        (get-entities eventlog)
-        
-        moving-entities
-        (doall (filter (fn [_] (<= (rand) (double (/ (:ProbMovement params) 100))))
-                       (shuffle all-entities)))
-        
-        non-moving-entities
-        (difference (set all-entities) (set moving-entities))
-        
-        frozen-eventlog
-        (doall (reduce (fn [te olde] (update-entity te time olde (pos olde)))
-                       eventlog non-moving-entities))
-        
-        entities-map
-        (if (empty? moving-entities) {}
-            (apply assoc {} (interleave moving-entities moving-entities)))
-        
-        entity-walks
-        (if (empty? moving-entities) []
-            (shuffle (apply concat (map #(repeat (inc (rand-int (:MaxWalk params))) %)
-                                        moving-entities))))]
-    (loop [em entities-map
-           g grid
-           ew entity-walks]
-      (if (empty? ew)
-        [(doall (reduce (fn [fe olde]
-                          (if (= (pos olde) (pos (get em olde)))
-                            ;; entity didn't move afterall
-                            (-> fe (update-entity time olde (pos olde)))
-                            ;; entity moved
-                            (-> fe
-                                (update-entity time olde (pos (get em olde)))
-                                (add-event-move time (pos olde) (pos (get em olde))))))
-                        frozen-eventlog (keys em)))
-         g]
-        (let [e (first ew)
-              olde (get em e)
-              newe (walk1 olde g time)]
-          (if newe
-            (recur (assoc em e newe)
-                   (replace-grid-entity g olde newe)
-                   (rest ew))
-            (recur em g (rest ew))))))))
+  [grid params]
+  (let [es (filter (fn [_] (<= (rand) (double (/ (:ProbMovement params) 100))))
+                   (shuffle (grid-entities grid)))]
+    (reduce (fn [g e] (walk1 g e)) grid es)))
 
-(defn possibly-add-new-entities
-  [eventlog grid params time]
+(defn possibly-add-new-entity
+  [grid time params]
   (if (>= (double (/ (:ProbNewEntities params) 100)) (rand))
-    (add-new-entities eventlog grid 1 time)
-    [eventlog grid]))
+    (grid-new-entity grid time)))
 
 (defn generate-truedata
   [params]
-  (let [[el grid]
-        (add-new-entities (init-event-log) (new-grid params)
-                          (:NumberEntities params) 0)]
-    (loop [time 0
-           truedata [{:eventlog el :grid grid}]]
+  (let [grid (add-new-entities (new-grid (:GridWidth params) (:GridHeight params))
+                               (:NumberEntities params))]
+    (loop [time 1
+           truedata [grid]]
       (if (> time (:Steps params)) truedata
-          (let [[el2 g2] (random-walks (:eventlog (last truedata))
-                                       (:grid (last truedata))
-                                       params (inc time))
-                [el3 g3] (possibly-add-new-entities el2 g2 params (inc time))]
-            (recur (inc time) (conj truedata {:eventlog el3 :grid g3})))))))
+          (let [newgrid (-> (last truedata)
+                            (random-walks params)
+                            (possibly-add-new-entity time params))]
+            (recur (inc time) (conj truedata newgrid)))))))

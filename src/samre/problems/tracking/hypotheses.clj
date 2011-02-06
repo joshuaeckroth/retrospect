@@ -1,70 +1,26 @@
-(ns samre.problems.tracking.hypotheses
-  (:require [samre workspaces])
-  (:require [samre.problems.tracking events entities])
-  (:import [samre.workspaces Hypothesis])
-  (:import [samre.problems.tracking.events
-            EventNew EventMove EventFrozen EventDisReappear EventDisappear EventAppear])
-  (:use [samre.problems.tracking.positions :only [manhattan-distance]])
-  (:use [samre.problems.tracking.entities :only [new-entity pos]])
-  (:use [samre.problems.tracking.eventlog :only
-	 [get-entities add-entity add-event update-entity]])
-  (:use [samre.problems.tracking.sensors :only [make-spotted-whereto-hyps]])
-  (:use [samre.confidences])
-  (:use [samre.epistemicstates :only
-         [add-hyp force-acceptance]])
-  (:use [samre.sensors :only [sensed-from]])
-  (:use [samre.colors :only [match-color?]])
-  (:use [clojure.set :as set :only [intersection difference]])
-  (:require [clojure.zip :as zip])
-  (:use [clojure.contrib.math :as math :only [ceil]])
-  (:require [vijual :as vijual]))
+(ns samre.problems.tracking.hypotheses)
 
-;; The technique for generating tracking hypothesis is the following.
-;;
-;; The hypothesis generation function is tasked with generating
-;; hypotheses linking existing entities with sensor detections
-;; (locations of entities); these sensor detections may span multiple
-;; time steps. The hypotheses that are generated represent paths from
-;; existing believed entity locations through several sensor
-;; detections. No path can represent more than one location at a
-;; single time step, and no path can skip a time step. The paths are
-;; made up of 'Events' so possible events in the path are EventNew,
-;; EventMove, and EventFrozen.
-;;
-;; There may be many possible paths each entity may have followed; we
-;; want to generate the most plausible paths first. The method
-;; implemented here is the 'islands of confidence' technique where the
-;; most plausible events are secured first and restrict choices for
-;; the remaining links. The algorithm is basically as follows: First
-;; score all possible linkages (links are only forward in time unless
-;; they are EventFrozen). Then pick the most confident link (or a
-;; random link among the set of equally most confident), and add this
-;; choice to a tree data structure representing the progression of
-;; choices made. Then, reduce the set of available links by filtering
-;; out all links that have the same start or end of already-chosen
-;; links. Repeat the process by choosing the most confident link in
-;; the remaining set.
-;;
-;; The tree data structure that is built contains all of the choices;
-;; a leaf node in the tree is reached when the set of available
-;; linkages is empty. This only occurs when all sensor detections have
-;; been associated to paths from each entity; every entity will have a
-;; complete path, no entities will share paths, and no path will loop
-;; or go backwards in time. If more hypotheses need to be generated at
-;; a later time, this tree can be used in a backtracking approach,
-;; where the next most likely configuration (set of hypotheses; that
-;; is, set of complete entity paths) is obtained by a minimal
-;; backtracking (take back a decision, make a different decision if
-;; one is available; otherwise, take back another decision,
-;; etc.). Each node in the tree contains the choice and the set of
-;; available linkages after the choice is made.
-;;
-;; The runtime complexity of this approach should be (with n = number
-;; of sensor detections) O(n^2) to generate the initial confidence
-;; scores (which are not recalculated), and O(n) to build a set of
-;; paths (the tree would have no branching since no backtracking has
-;; been performed yet). The set of available linkages need not be
-;; sorted more than once (which takes O(n*log(n)).
+(defn sensors-to-spotted
+  [sensors time sensors-seen-grid]
+  (let [width (:width (meta sensors-seen-grid))
+        height (:height (meta sensors-seen-grid))]
+    (with-meta
+      (for [x (range width) y (range height)]
+        (apply concat (map (fn [s] (filter (fn [e] (and (= x (:x (meta e)))
+                                                        (= y (:y (meta e)))
+                                                        (= time (:time (meta e)))))
+                                           (sensed-from s time)))
+                           sensors)))
+      {:width width :height height})))
+
+(defn process
+  [ep-state sensors]
+  (update-in ep-state [:spotted-grid :problem-data]
+             conj (sensors-to-spotted sensors (:time ep-state)
+                                      (:sensors-seen-grid (:problem-data ep-state)))))
+
+(defn commit
+  [ep-state time])
 
 (defn str-fn
   [hyp]

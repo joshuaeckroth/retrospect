@@ -1,14 +1,14 @@
 (ns samre.sensors)
 
 (defrecord Sensor
-    [sense-fn
+    [id
+     sense-fn
      sensed
-     sensed-up-to
-     attributes])
+     sensed-up-to])
 
 (defn init-sensor
-  [sense-fn attributes]
-  (Sensor. sense-fn {} -1 attributes))
+  [id sense-fn meta]
+  (with-meta (Sensor. id sense-fn {} -1) meta))
 
 (defn sensed-from
   [sensor time]
@@ -27,4 +27,3 @@
   (doall (map (fn [s] (if (<= time (:sensed-up-to s)) s
                           ((:sense-fn s) s moment time)))
               sensors)))
-

@@ -1,19 +1,18 @@
 (ns samre.problems.tracking.problem
   (:require [samre problem])
   (:import [samre.problem Problem])
-  (:use [samre.problems.tracking.evaluate :only (evaluate)])
-  (:use [samre.problems.tracking.truedata :only (generate-truedata)])
-  (:use [samre.problems.tracking.sensors :only (generate-sensors)])
+  (:use [samre.problems.tracking.evaluate :only [evaluate]])
+  (:use [samre.problems.tracking.truedata :only [generate-truedata]])
+  (:use [samre.problems.tracking.sensors :only [ generate-sensors]])
   (:use [samre.problems.tracking.hypotheses :only
-         (get-more-hyps accept-decision)])
+         [get-more-hyps process commit accept-decision]])
   (:use [samre.problems.tracking.player :only
          [player-get-params player-set-params player-get-params-panel
           player-get-diagram player-get-stats-panel
           player-update-stats player-update-truedata-log-box]])
   (:use [samre.problems.tracking.sensors :only
          [measure-sensor-overlap measure-sensor-coverage
-          list-sensors-seen list-sensors-unseen]])
-  (:use [samre.problems.tracking.eventlog :only (init-event-log)])
+          list-sensors-seen list-sensors-unseen sensors-seen-grid]])
   (:use [samre.problems.tracking.monitor :only (monitor)]))
 
 (def avg-fields [:PercentEventsCorrect :PercentEventsWrong :PercentIdentitiesCorrect
@@ -93,19 +92,22 @@
     :regression :linear}])
 
 (defn generate-problem-data
-  [params sensors]
-  {:eventlog (init-event-log)
-   :sensors-seen (list-sensors-seen (:GridWidth params) (:GridHeight params) sensors)
-   :sensors-unseen (list-sensors-unseen (:GridWidth params) (:GridHeight params) sensors)
-   :sensor-coverage (measure-sensor-coverage (:GridWidth params) (:GridHeight params)
-                                             sensors)
-   :sensor-overlap (measure-sensor-overlap (:GridWidth params) (:GridHeight params)
-                                           sensors)})
+  [sensors params]
+  {:entities []
+   :sensors-seen-grid (sensors-seen-grid sensors params)
+   :spotted-grid []
+   :sensors-seen
+   (list-sensors-seen (:GridWidth params) (:GridHeight params) sensors)
+   :sensors-unseen
+   (list-sensors-unseen (:GridWidth params) (:GridHeight params) sensors)
+   :sensor-coverage
+   (measure-sensor-coverage (:GridWidth params) (:GridHeight params) sensors)
+   :sensor-overlap
+   (measure-sensor-overlap (:GridWidth params) (:GridHeight params) sensors)})
 
 (def tracking-problem
   (Problem. "tracking"
             monitor
-            get-more-hyps
             {:get-params-fn player-get-params
              :set-params-fn player-set-params
              :get-params-panel-fn player-get-params-panel
@@ -115,7 +117,10 @@
              :update-truedata-log-box-fn player-update-truedata-log-box}
             generate-truedata
             generate-sensors
-            evaluate
+            get-more-hyps
             generate-problem-data
+            process
+            commit
             accept-decision
+            evaluate
             avg-fields non-avg-fields charts))
