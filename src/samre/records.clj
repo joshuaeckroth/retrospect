@@ -55,24 +55,27 @@
 		      [:git-commit (get-gitcommit)]])))))
 
 (defn run-with-new-record
-  [problem paramsfile recordsdir nthreads monitor]
   "Create a new folder for storing run data and execute the run. Then,
   depending on whether hadoop is true or false, execute a hadoop job
   control process or a local (this machine) runner."
-  (let [dir (str recordsdir "/" (. System (currentTimeMillis)))
-	params (explode-params (read-params problem paramsfile))]
-    (print (format "Making new directory %s..." dir))
-    (.mkdir (File. dir))
-    (println "done.")
-    (print "Writing meta.xml...")
-    (write-xml (str dir "/meta.xml"))
-    (println "done.")
-    (print "Copying params file...")
-    (copy-params-file (str dir "/params.xml") paramsfile)
-    (println "done.")
-    (println (format "Running %d parameter combinations..." (count params)))
-    (run-local problem params dir nthreads monitor)
-    (println "Done.")))
+  [problem paramsfile recordsdir nthreads monitor]
+  (try
+    (let [dir (str recordsdir "/" (. System (currentTimeMillis)))
+          params (explode-params (read-params problem paramsfile))]
+      (print (format "Making new directory %s..." dir))
+      (.mkdir (File. dir))
+      (println "done.")
+      (print "Writing meta.xml...")
+      (write-xml (str dir "/meta.xml"))
+      (println "done.")
+      (print "Copying params file...")
+      (copy-params-file (str dir "/params.xml") paramsfile)
+      (println "done.")
+      (println (format "Running %d parameter combinations..." (count params)))
+      (run-local problem params dir nthreads monitor)
+      (println "Done."))
+    (catch java.util.concurrent.ExecutionException e
+      (println "Quitting early."))))
 
 (defn write-input
   [params input]

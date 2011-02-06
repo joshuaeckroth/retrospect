@@ -1,4 +1,5 @@
 (ns samre.problem
+  (:import (java.util.concurrent ExecutionException))
   (:use [samre.onerun :only
          [init-one-run-states update-one-run-state proceed-one-run-state]])
   (:use [samre.epistemicstates :only
@@ -64,8 +65,11 @@
 (defn run-simulation
   [problem monitor truedata or-state params]
   (loop [ors or-state]
-    (if (>= (:time (:ep-state ors)) (- (:Steps params) (:StepsBetween params))) (:results ors)
-        (recur (run-simulation-step problem monitor truedata ors params false)))))
+    (when (nil? ors) (throw (ExecutionException. "Monitor took control." (Throwable.))))
+    (if (>= (:time (:ep-state ors))
+            (- (:Steps params) (:StepsBetween params)))
+      (:results ors)
+      (recur (run-simulation-step problem monitor truedata ors params false)))))
 
 (defn run-comparative
   [problem monitor params]
@@ -75,7 +79,6 @@
         or-states (init-one-run-states {:MetaAbduction [false] :Lazy [true]}
                                        sensors problem-data)]
     (doall (for [ors or-states]
-             ;; get last result set from each run
              (last (run-simulation problem monitor truedata ors params))))))
 
 (defn run-many

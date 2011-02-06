@@ -68,11 +68,4 @@
 
 (defn run-local
   [problem params dir nthreads monitor]
-  (run-partitions dir problem (str dir "/results.csv") params nthreads monitor)
-  #_(try
-
-    (catch Exception e
-      (print-cause-trace e)
-      (println "Quitting early.")
-      ;; indicate maximum progress so check-progress agent stops
-      (send-off write-agent (constantly (count params))))))
+  (run-partitions dir problem (str dir "/results.csv") params nthreads monitor))

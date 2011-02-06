@@ -18,7 +18,7 @@
      [paramsfile "Parameters XML file" "params.xml"]
      [recordsdir "Records directory" "records"]
      [record "Record" ""]
-     [nthreads "Number of threads" "8"]
+     [nthreads "Number of threads" "1"]
      [monitor "Activate monitor?" "false"]
      [input "Hadoop input" ""]
      [output "Hadoop output" ""]]
