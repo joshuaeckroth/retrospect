@@ -15,7 +15,14 @@
      impossible-fn
      ancient-fn
      str-fn
-     data])
+     data]
+  Object
+  (toString [this] (str-fn this)))
+
+(defn new-hyp
+  [id type apriori explains implausible-fn impossible-fn ancient-fn str-fn data]
+  (Hypothesis. id type apriori apriori
+               explains implausible-fn impossible-fn ancient-fn str-fn data))
 
 (defrecord Workspace
     [hyps ;; this is a map keyed by hyp-id

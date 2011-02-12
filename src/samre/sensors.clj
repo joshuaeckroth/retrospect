@@ -10,10 +10,9 @@
   [id sense-fn meta]
   (with-meta (Sensor. id sense-fn {} -1) meta))
 
-(defn sensed-from
+(defn sensed-at
   [sensor time]
-  (apply concat (map (fn [t] (get (:sensed sensor) t))
-                     (range time (inc (:sensed-up-to sensor))))))
+  (get (:sensed sensor) t))
 
 (defn add-sensed
   [sensor time data]

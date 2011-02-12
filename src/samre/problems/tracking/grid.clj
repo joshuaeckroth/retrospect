@@ -53,7 +53,8 @@
     grid
     (let [{x :x y :y} (rand-pos grid)
           c (rand-nth [red blue])
-          e (with-meta (str (grid-count)) {:x x :y y :color c :time time})]
+          e (with-meta (str (grid-count))
+              {:id (hash [x y time]) :x x :y y :color c :time time})]
       (grid-put grid x y e))))
 
 (defn walk1

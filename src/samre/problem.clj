@@ -3,7 +3,7 @@
   (:use [samre.onerun :only
          [init-one-run-states update-one-run-state proceed-one-run-state]])
   (:use [samre.epistemicstates :only
-         [generate-hyps-and-explain previous-ep-state]])
+         [explain previous-ep-state]])
   (:use [samre.meta.explain :only [explain-meta]])
   (:use [samre.sensors :only [update-sensors]]))
 
@@ -32,26 +32,32 @@
                         :Unexplained
                         (if prev-ep (count (:unexplained (:workspace prev-ep))) 0))))))
 
-(defn do-process
-  [problem or-state]
-  (update-one-run-state or-state
-   ((:process-fn problem) (:ep-state or-state) (:sensors or-state))))
+(defn proceed-n-steps
+  [n time truedata or-state]
+  (loop [t time
+         ors or-state]
+    (if (= t (+ n time)) ors
+        (recur (inc t) (update-in ors [:sensors] update-sensors (get truedata t) t)))))
 
-(defn do-commit
-  [problem or-state time params]
-  (proceed-one-run-state or-state ((:commit-fn problem) (:ep-state or-state) time)
-                         problem params))
+(defn hypothesize
+  [problem or-state time-now params]
+  (update-one-run-state or-state
+   ((:hypothesize-fn problem) (:ep-state or-state) (:sensors or-state) time-now params)))
+
+(defn commit
+  [problem or-state params]
+  (update-one-run-state or-state ((:commit-fn problem) (:ep-state or-state))))
 
 (defn run-simulation-step
   [problem truedata or-state time params monitor player]
-  (let [commit (= 0 (mod time (:CommitDelay params)))
-        ors-sensors (update-in or-state [:sensors] update-sensors (get truedata time) time)
-        ors-processed (do-process problem ors-sensors)
-        start-time (. System (nanoTime))
-        ors-committed (if-not commit ors-processed (do-commit problem ors-processed time))
-        milliseconds (/ (- (. System (nanoTime)) start-time) 1000000.0)
-        ors-resources (update-in ors-committed [:resources]
-                                 assoc :milliseconds milliseconds)
+  (let [ors-sensors (proceed-n-steps (:StepsBetween params) time truedata or-state)
+        time-now (+ (dec (:StepsBetween params)) time)
+        start-time (. System (nanoTime)) ;; start the clock
+        ors-hyps (hypothesize problem ors-sensors time-now params)
+        ep-explained (explain (:ep-state ors-hyps) params)
+        ors-expl (proceed-one-run-state ors-hyps ep-explained problem params)
+        ms (/ (- (. System (nanoTime)) start-time) 1000000.0) ;; stop the clock
+        ors-resources (update-in ors-expl [:resources] assoc :milliseconds ms)
         ors-results (evaluate problem truedata ors-resources params)]
     (if (and (not player) monitor)
       ((:monitor-fn problem) problem truedata (:sensors ors-results) ors-results params)
@@ -104,5 +110,5 @@
 
 (defrecord Problem
     [name monitor-fn player-fns truedata-fn sensor-gen-fn
-     get-more-hyps-fn gen-problem-data-fn process-fn commit-fn accept-decision-fn
+     hypothesize-fn commit-fn gen-problem-data-fn
      evaluate-fn avg-fields non-avg-fields charts])

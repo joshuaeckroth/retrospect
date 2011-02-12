@@ -4,12 +4,8 @@
   (:import (java.awt.image BufferedImage))
   (:import (javax.swing JPanel JFrame JButton JTextField JTextArea
 			JLabel JScrollPane JSpinner SpinnerNumberModel JComboBox))
-  (:require [samre.problems.tracking eventlog])
-  (:import [samre.problems.tracking.eventlog EventLog])
   (:use [clojure.contrib.math :only [floor]])
   (:use [samre.problems.tracking.sensors :only (sees)])
-  (:use [samre.problems.tracking.eventlog :only (get-events get-entities)])
-  (:use [samre.problems.tracking.entities :only (pair-snapshots)])
   (:use [samre.colors])
   (:use [samre.player.state]))
 

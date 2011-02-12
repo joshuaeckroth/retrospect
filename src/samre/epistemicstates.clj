@@ -220,9 +220,7 @@
                                      (:id ep-child-fresh))]
     ep-tree-child))
 
-(defn generate-hyps-and-explain
-  [problem ep-state time-prev time-now sensors params lazy]
-  (let [ep-state-with-hyps ((:get-more-hyps-fn problem) ep-state time-prev time-now
-                            sensors params lazy)
-        ws-explained (ws/explain (:workspace ep-state-with-hyps))]
-    (assoc ep-state-with-hyps :workspace ws-explained)))
+(defn explain
+  [ep-state params]
+  (let [ws-explained (ws/explain (:workspace ep-state))]
+    (assoc ep-state :workspace ws-explained)))

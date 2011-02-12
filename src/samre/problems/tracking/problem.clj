@@ -5,7 +5,7 @@
   (:use [samre.problems.tracking.truedata :only [generate-truedata]])
   (:use [samre.problems.tracking.sensors :only [ generate-sensors]])
   (:use [samre.problems.tracking.hypotheses :only
-         [get-more-hyps process commit accept-decision]])
+         [hypothesize accept-decision]])
   (:use [samre.problems.tracking.player :only
          [player-get-params player-set-params player-get-params-panel
           player-get-diagram player-get-stats-panel
@@ -93,7 +93,7 @@
 
 (defn generate-problem-data
   [sensors params]
-  {:entities []
+  {:labels []
    :sensors-seen-grid (sensors-seen-grid sensors params)
    :spotted-grid []
    :sensors-seen
@@ -117,10 +117,8 @@
              :update-truedata-log-box-fn player-update-truedata-log-box}
             generate-truedata
             generate-sensors
-            get-more-hyps
-            generate-problem-data
-            process
-            commit
+            hypothesize
             accept-decision
+            generate-problem-data
             evaluate
             avg-fields non-avg-fields charts))
