@@ -12,7 +12,7 @@
 
 (defn sensed-at
   [sensor time]
-  (get (:sensed sensor) t))
+  (get (:sensed sensor) time))
 
 (defn add-sensed
   [sensor time data]

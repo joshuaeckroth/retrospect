@@ -19,6 +19,8 @@
 
 (def white (Color. 255 255 255))
 
+(def black (Color. 0 0 0))
+
 (defn var-color [x] (Color. x x x))
 
 (defn color-str

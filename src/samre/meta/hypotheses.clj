@@ -6,7 +6,7 @@
           clear-decision reset-confidences-to-apriori update-hyps
           lookup-hyps update-candidates-unexplained]])
   (:use [samre.epistemicstates :only
-         [flatten-ep-state-tree current-ep-state generate-hyps-and-explain
+         [flatten-ep-state-tree current-ep-state explain
           new-branch-ep-state left-ep-state previous-ep-state update-ep-state-tree]])
   (:use [samre.meta.meta :only [have-enough-meta-hyps]])
   (:use [samre.confidences]))
@@ -59,8 +59,9 @@
   (let [time-prev (if-let [time-prev (:time (previous-ep-state ep-state-tree))]
                     (inc time-prev) (:time (current-ep-state ep-state-tree)))
         time-now (apply max (map :sensed-up-to sensors))
-        ep-state (generate-hyps-and-explain problem (current-ep-state ep-state-tree)
-                                            time-prev time-now sensors params lazy)
+        ep-state (current-ep-state ep-state-tree)
+        #_(generate-hyps-and-explain problem (current-ep-state ep-state-tree)
+                                     time-prev time-now sensors params lazy)
         score (measure-decision-confidence (:workspace ep-state))
         ep-state-updated-time (assoc ep-state :time time-now)]
     {:score score :ep-state ep-state-updated-time}))

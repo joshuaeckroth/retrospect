@@ -30,19 +30,21 @@
   (assoc grid (grid-pos grid x y) e))
 
 (defn grid-move
+  "Move the entity in the grid and update the entity's meta content."
   [grid e x y]
-  (let [{ox :x oy :y} (meta e)]
+  (let [{ox :x oy :y} (meta e)
+        new-e (with-meta e (merge (meta e) {:x x :y y}))]
     (-> grid
         (grid-put ox oy nil)
-        (grid-put x y e))))
+        (grid-put x y new-e))))
 
 (defn rand-pos
   "Generate a random position for a new entity. Returns a map {:x x :y y}."
   [grid]
   (let [rand-x #(rand-int (:width (meta grid)))
 	rand-y #(rand-int (:height (meta grid)))]
-    (loop [px (rand-x)
-	   py (rand-y)]
+    (loop [x (rand-x)
+	   y (rand-y)]
       (if (nil? (grid-at grid x y)) {:x x :y y}
 	(recur (rand-x) (rand-y))))))
 
@@ -53,22 +55,30 @@
     grid
     (let [{x :x y :y} (rand-pos grid)
           c (rand-nth [red blue])
-          e (with-meta (str (grid-count))
-              {:id (hash [x y time]) :x x :y y :color c :time time})]
+          e (with-meta (symbol (str (grid-count grid)))
+              {:x x :y y :color c :time time})]
       (grid-put grid x y e))))
+
+(defn find-entity
+  [grid entity]
+  (first (filter (fn [e] (= e entity)) (filter identity grid))))
 
 (defn walk1
   "Move an entity one step in a random (free) direction; try to move 4
    times, but give up if no move comes out by that point."
-  [grid e]
-  (loop [attempts 0]
-    (if (< attempts 4)
-      (let [{ox :x oy :y} (meta e)
-            pos (rand-nth [{:x (dec ox) :y oy}
-                           {:x (inc ox) :y oy}
-                           {:x ox :y (inc oy)}
-                           {:x ox :y (dec oy)}])]
-        (if (nil? (grid-at grid (:x pos) (:y pos)))
-          (grid-move e (:x pos) (:y pos))
-          (recur (inc attempts)))))))
-
+  [grid entity]
+  (let [e (find-entity grid entity)]
+    (loop [attempts 0]
+      (if (>= attempts 4) grid
+        (let [{ox :x oy :y} (meta e)
+              {x :x y :y} (rand-nth [{:x (dec ox) :y oy}
+                                     {:x (inc ox) :y oy}
+                                     {:x ox :y (inc oy)}
+                                     {:x ox :y (dec oy)}])]
+          (if (and (< x (:width (meta grid)))
+                   (>= x 0)
+                   (< y (:height (meta grid)))
+                   (>= y 0)
+                   (nil? (grid-at grid x y)))
+            (grid-move grid e x y)
+            (recur (inc attempts))))))))

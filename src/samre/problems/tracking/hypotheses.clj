@@ -50,7 +50,8 @@
         ep (process-sensors ep-state sensors time-now)
         spotted-grid (:spotted-grid (:problem-data ep))
         maxwalk (:MaxWalk params)]
-    (map (fn [l] {:label l :path (label-path l [] spotted-grid maxwalk)}) labels)))
+    (map (fn [l] {:label l :path (label-path l [] spotted-grid maxwalk)}) labels)
+    ep-state))
 
 (defn accept-decision
   [pdata accepted]

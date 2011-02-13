@@ -406,7 +406,8 @@
 
 (defn step
   []
-  (let [or-state (run-simulation-step *problem* false *truedata* *or-state* *params* true)]
+  (let [or-state (run-simulation-step *problem* *truedata* *or-state*
+                                      *time* *params* false true)]
     (update-everything or-state)))
 
 (defn new-simulation

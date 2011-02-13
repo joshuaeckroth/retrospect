@@ -1,11 +1,12 @@
 (ns samre.problems.tracking.player
   (:import (java.awt Graphics2D Dimension GridBagLayout
-                     Insets RenderingHints BasicStroke))
+                     Insets RenderingHints BasicStroke Font))
   (:import (java.awt.image BufferedImage))
   (:import (javax.swing JPanel JFrame JButton JTextField JTextArea
 			JLabel JScrollPane JSpinner SpinnerNumberModel JComboBox))
   (:use [clojure.contrib.math :only [floor]])
   (:use [samre.problems.tracking.sensors :only (sees)])
+  (:use [samre.problems.tracking.grid :only [grid-at find-entity]])
   (:use [samre.colors])
   (:use [samre.player.state]))
 
@@ -54,7 +55,6 @@
                  (recur (cons `(.add ~cntr ~expr ~c)
                               result)
                         (next body)))))))))
-
 
 (def *problem-param-spinners*
      {:NumberEntities (JSpinner. (SpinnerNumberModel. 1 1 100 1))
@@ -126,14 +126,19 @@
 (defn get-grid-from-xy [x y]
   [(floor (/ x *grid-cell-width*)) (floor (/ y *grid-cell-height*))])
 
-(defn grid-at [x y]
-  (nth *grid* (+ (* y *grid-width*) x)))
-
 (defn fill-cell [#^Graphics2D g x y c]
   (doto g
     (.setColor c)
     (.fillRect (* x *grid-cell-width*) (* y *grid-cell-height*)
 	       *grid-cell-width* *grid-cell-height*)))
+
+(defn draw-entity-id [#^Graphics2D g e]
+  (doto g
+    (.setColor white)
+    (.setFont (.. g getFont (deriveFont Font/BOLD (float 14.0))))
+    (.drawString (str e)
+                 (+ 3 (int (* (:x (meta e)) *grid-cell-width*)))
+                 (+ 20 (int (* (:y (meta e)) *grid-cell-height*))))))
 
 (defn draw-move [#^Graphics2D g oldx oldy newx newy color width]
   (let [oldpx (+ (* oldx *grid-cell-width*) (/ *grid-cell-width* 2))
@@ -146,16 +151,15 @@
       (.drawLine oldpx oldpy newpx newpy))))
 
 (defn draw-movements [#^Graphics2D g entity]
-  (let [in-range (fn [s] (and (<= (:time s) *time*) (> (:time s) *time-prev*)))
-        pairs (filter #(in-range (second %))
-                      (pair-snapshots entity))]
-    (doseq [p pairs]
-      (let [degree (int (* 255 (/ (- *time* (:time (second p))) (- *time* *time-prev*))))
-            width (double (+ 2 (* 5 (/ degree 255))))]
-        (draw-move g (:x (:pos (first p))) (:y (:pos (first p)))
-                   (:x (:pos (second p))) (:y (:pos (second p)))
-                   (var-color degree)
-                   width)))))
+  (let [entity-at (fn [t] (find-entity (nth *truedata* t) entity))]
+    (doseq [t (range *time-prev* *time*)]
+      (when-let [old-e (if (> t -1) (entity-at t))]
+        (let [new-e (entity-at (inc t))
+              {ox :x oy :y} (meta old-e)
+              {x :x y :y} (meta new-e)
+              degree (int (* 255 (/ (- *time* t) (- *time* *time-prev*))))
+              width (double (+ 2 (* 5 (/ degree 255))))]
+          (draw-move g ox oy x y (var-color degree) width))))))
 
 (defn draw-grid [g]
   (dorun
@@ -165,23 +169,16 @@
    (for [x (range *grid-width*) y (range *grid-height*)]
      (doseq [sensor *sensors*]
        (when (sees sensor x y)
-         (if (:sees-color (:attributes sensor))
+         (if (:sees-color (meta sensor))
            (fill-cell g x y yellow-alpha)
            (fill-cell g x y gray-alpha))))))
-  (dorun
-   (for [x (range *grid-width*) y (range *grid-height*)]
-     (when-let [e (grid-at x y)]
-       (fill-cell g x y (:color e))
-       (draw-movements g e)))))
-
-(defn update-grid []
-  (def *grid* (vec (repeat (* *grid-width* *grid-height*) nil)))
-  (let [true-entities (get-entities (:eventlog (get *truedata* *time*)))]
-    (when true-entities
-      (dorun (for [e (filter #(<= (:time (first (:snapshots %))) *time*) true-entities)]
-               (let [{x :x y :y} (:pos (last (filter #(<= (:time %) *time*)
-                                                     (:snapshots e))))]
-                 (def *grid* (assoc *grid* (+ (* y *grid-width*) x) e))))))))
+  (when (and *truedata* (>= *time* 0))
+    (dorun
+     (for [x (range *grid-width*) y (range *grid-height*)]
+       (when-let [e (grid-at (nth *truedata* *time*) x y)]
+         (fill-cell g x y (:color (meta e)))
+         (draw-entity-id g e)
+         (draw-movements g e))))))
 
 (defn render [g]
   (def *diagram-width* (.. g (getClipBounds) width))
@@ -198,7 +195,6 @@
                          (. RenderingHints VALUE_ANTIALIAS_ON))
       (.setColor white)
       (.fillRect 0 0 *diagram-width* *diagram-height*))
-    (update-grid)
     (draw-grid bg)
     (. g (drawImage img 0 0 nil))
     (. bg (dispose))))
@@ -268,14 +264,6 @@
       (. *percent-events-wrong-label* (setText "N/A"))
       (. *percent-identities-correct-label* (setText "N/A")))))
 
-(defn format-event
-  [event]
-  (if (some #(= event %) (get-events (:eventlog (:problem-data (:ep-state *or-state*)))))
-    (str event)
-    (str "!" event)))
-
 (defn player-update-truedata-log-box
   []
-  (let [events (filter #(and (<= (:time %) *time*) (> (:time %) *time-prev*))
-                       (get-events (:eventlog (get *truedata* *time*))))]
-    (apply str (interpose "\n" (map format-event events)))))
+  "")

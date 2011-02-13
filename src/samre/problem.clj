@@ -110,5 +110,5 @@
 
 (defrecord Problem
     [name monitor-fn player-fns truedata-fn sensor-gen-fn
-     hypothesize-fn commit-fn gen-problem-data-fn
+     hypothesize-fn accept-decision-fn gen-problem-data-fn
      evaluate-fn avg-fields non-avg-fields charts])

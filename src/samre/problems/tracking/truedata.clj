@@ -7,14 +7,17 @@
 
 (defn random-walks
   [grid params]
-  (let [es (filter (fn [_] (<= (rand) (double (/ (:ProbMovement params) 100))))
-                   (shuffle (grid-entities grid)))]
-    (reduce (fn [g e] (walk1 g e)) grid es)))
+  (let [maxwalk (:MaxWalk params)
+        es (filter (fn [_] (<= (rand) (double (/ (:ProbMovement params) 100))))
+                   (grid-entities grid))
+        es-walk (shuffle (flatten (map (fn [e] (repeat (inc (rand-int maxwalk)) e)) es)))]
+    (reduce (fn [g e] (walk1 g e)) grid es-walk)))
 
 (defn possibly-add-new-entity
   [grid time params]
   (if (>= (double (/ (:ProbNewEntities params) 100)) (rand))
-    (grid-new-entity grid time)))
+    (grid-new-entity grid time)
+    grid))
 
 (defn generate-truedata
   [params]
