@@ -10,9 +10,9 @@
 (defn add-sensor-hyp
   [sensor e]
   (let [hyp (new-hyp (keyword (format "SH%d" (hash [sensor (meta e)])))
-           :sensor NEUTRAL [] (constantly []) (constantly []) (constantly false)
-           (fn [h] (format "%s" (str (meta (:entity (:data h))))))
-           {:sensor sensor :entity e})]
+                     :sensor NEUTRAL [] (constantly []) (constantly [])
+                     (fn [h] (format "%s" (str (meta (:entity (:data h))))))
+                     {:sensor sensor :entity e})]
     (with-meta e (merge (meta e) {:hyp hyp}))))
 
 (defn sensors-to-spotted
@@ -152,8 +152,9 @@
 (defn make-hyp
   [path label]
   (new-hyp (keyword (format "TH%d" (hash [label path])))
-           :tracking NEUTRAL (map (comp :id :hyp meta) (flatten path))
-           (constantly []) (constantly []) (constantly false)
+           :tracking NEUTRAL
+           (map :id (filter identity (map (comp :hyp meta) (flatten path))))
+           (constantly []) (constantly [])
            str-fn {:label label :path path}))
 
 (defn hypothesize
@@ -175,6 +176,9 @@
 
 (defn accept-decision
   [pdata accepted]
-  (print-paths (:paths pdata))
+  (println "existing")
+  #_(print-paths (:paths pdata))
+  (println "accepted")
+  #_(println (map (comp path-str :path :data) accepted))
   pdata)
 

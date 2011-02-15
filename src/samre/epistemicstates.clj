@@ -216,12 +216,11 @@
     ep-tree-branch))
 
 (defn new-child-ep-state
-  [ep-state-tree ep-state time-now problem params]
+  [ep-state-tree ep-state time-now problem]
   (let [ep-with-log (update-in ep-state [:workspace] ws/log-final-accepted-rejected-hyps)
         ep-tree (update-decision ep-state-tree ep-with-log)
         ep-child (accept-decision ep-with-log (make-ep-state-id ep-tree) time-now problem)
-        ep-child-fresh (update-in ep-child [:workspace]
-                                  ws/delete-ancient-hyps (:time ep-child) params)
+        ep-child-fresh (update-in ep-child [:workspace] ws/delete-ancient-hyps)
         ep-tree-child (goto-ep-state (zip/append-child ep-tree ep-child-fresh)
                                      (:id ep-child-fresh))]
     ep-tree-child))

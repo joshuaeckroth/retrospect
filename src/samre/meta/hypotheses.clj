@@ -70,7 +70,6 @@
   [ep-state]
   (Hypothesis. :ep-state :meta VERY-PLAUSIBLE VERY-PLAUSIBLE
                [] (constantly []) (constantly [])
-               (constantly false)
                (constantly "ep-state")
                {:ep-state ep-state}))
 
@@ -90,7 +89,6 @@
                            score score
                            [(:id ep-state-hyp)] (constantly [])
                            (partial impossible-fn ep-state-hyp)
-                           (fn [_ time] (not= time (:time ep-state-hyp)))
                            (fn [hyp] (name (:id hyp)))
                            {:ep-state-tree est :ep-state ep}))]
     (add-hyp workspace hyp)))
@@ -113,7 +111,6 @@
                            score score
                            [(:id ep-state-hyp)] (constantly [])
                            (partial impossible-fn ep-state-hyp)
-                           (fn [_ time] (not= time (:time ep-state-hyp)))
                            (fn [hyp] (name (:id hyp)))
                            nil))]
     (add-hyp workspace hyp)))
@@ -124,7 +121,6 @@
         hyp (Hypothesis. :MH-dec-accurate :meta apriori apriori
                          [(:id ep-state-hyp)] (constantly [])
                          (partial impossible-fn ep-state-hyp)
-                         (constantly false)
                          (constantly "Decision is accurate") nil)]
     (add-hyp workspace hyp)))
 

@@ -13,16 +13,15 @@
      explains
      implausible-fn
      impossible-fn
-     ancient-fn
      str-fn
      data]
   Object
   (toString [this] (str-fn this)))
 
 (defn new-hyp
-  [id type apriori explains implausible-fn impossible-fn ancient-fn str-fn data]
+  [id type apriori explains implausible-fn impossible-fn str-fn data]
   (Hypothesis. id type apriori apriori
-               explains implausible-fn impossible-fn ancient-fn str-fn data))
+               explains implausible-fn impossible-fn str-fn data))
 
 (defrecord Workspace
     [hyps ;; this is a map keyed by hyp-id
@@ -69,11 +68,21 @@
   [hyp hyps]
   (doall (filter (fn [h] (some #(= (:id hyp) %) (:explains h))) hyps)))
 
+(defn find-ancient-hyps
+  "An 'ancient' hyp is one that has been either accepted or
+   rejected (officially, not as part of a decision), and is not
+   explained by something currently hypothesized or unexplained."
+  [workspace]
+  (let [active-hyps (lookup-hyps workspace (concat (:hypothesized workspace)
+                                                   (:unexplained workspace)))
+        explains (flatten (map :explains active-hyps))]
+    (filter (fn [hid] (not-any? #(= hid (:id %)) explains))
+            (concat (:accepted workspace) (:rejected workspace)))))
+
 (defn delete-ancient-hyps
   "Called by new-child-ep-state in epistemicstates.clj"
-  [workspace time params]
-  (let [ancient (set (map :id (filter #((:ancient-fn %) % time (:StepsBetween params))
-                                      (vals (:hyps workspace)))))
+  [workspace]
+  (let [ancient (set (find-ancient-hyps workspace))
         new-hyps (apply dissoc (:hyps workspace) ancient)
         new-accepted (set/difference (set (:accepted workspace)) ancient)
         new-rejected (set/difference (set (:rejected workspace)) ancient)
@@ -152,18 +161,23 @@
                            "Resetting confidences back to apriori values.")))
 
 (defn add-hyp
-  "Add the hypothesis to the workspace. If the hyp has no :id field,
-  then one is generated."
+  "Add the hypothesis to the workspace. Any hyp ids in the :explains
+   field that no longer exist (deleted from (delete-ancient-hyps)) will
+   be removed from the :explains field."
   [workspace hyp]
   ;; don't add an identical existing hyp
   (if (get (:hyps workspace) (:id hyp)) workspace
-    (-> workspace
-        (update-in [:hypothesized] conj (:id hyp))
-        (update-in [:hyps] assoc (:id hyp) hyp)
-        (add-abducer-log-msg
-         [(:id hyp)] (format "Adding hypothesis (apriori=%s; explains %s)."
-                             (confidence-str (:apriori hyp))
-                             (apply str (interpose "," (map name (:explains hyp)))))))))
+      ;; first clean up the hyp's 'explains' list; remove those that
+      ;; are no longer hyps (removed because they were 'ancient')
+      (let [hyp-expl (assoc hyp :explains (filter #(% (:hyps workspace)) (:explains hyp)))]
+        (-> workspace
+            (update-in [:hypothesized] conj (:id hyp-expl))
+            (update-in [:hyps] assoc (:id hyp-expl) hyp-expl)
+            (add-abducer-log-msg
+             [(:id hyp-expl)]
+             (format "Adding hypothesis (apriori=%s; explains %s)."
+                     (confidence-str (:apriori hyp-expl))
+                     (apply str (interpose "," (map name (:explains hyp-expl))))))))))
 
 (defn penalize-implausible
   [workspace hyps log-msg]

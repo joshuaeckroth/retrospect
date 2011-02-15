@@ -92,7 +92,9 @@
   [width height coverage sees-color-prob]
   (loop [sensors (generate-sensors-sample width height sees-color-prob)]
     (let [measured (measure-sensor-coverage width height sensors)]
-      (if (and (> measured (- coverage 5.0)) (< measured (+ coverage 5.0)))
+      (if (and
+           (> 4.0 (measure-sensor-overlap width height sensors))
+           (> measured (- coverage 5.0)) (< measured (+ coverage 5.0)))
         (filter #(not (sensor-inside-another? % sensors)) sensors)
         (recur (generate-sensors-sample width height sees-color-prob))))))
 
