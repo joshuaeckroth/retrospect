@@ -42,7 +42,6 @@
         color-adjusted (if (:sees-color (meta sensor)) id-adjusted
                            (map (fn [e] (with-meta e (assoc (meta e) :color gray)))
                                 id-adjusted))]
-    (println (map meta spotted))
     (add-sensed sensor time color-adjusted)))
 
 (defn new-sensor

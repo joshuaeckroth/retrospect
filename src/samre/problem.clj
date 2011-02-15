@@ -45,10 +45,9 @@
    ((:hypothesize-fn problem) (:ep-state or-state) (:sensors or-state) time-now params)))
 
 (defn run-simulation-step
-  [problem truedata or-state time params monitor player]
-  (println "X" (:time (:ep-state or-state)))
-  (println "time=" time)
-  (let [ors-sensors (proceed-n-steps (:StepsBetween params) time truedata or-state)
+  [problem truedata or-state params monitor player]
+  (let [time (:time (:ep-state or-state))
+        ors-sensors (proceed-n-steps (:StepsBetween params) time truedata or-state)
         time-now (+ (dec (:StepsBetween params)) time)
         start-time (. System (nanoTime)) ;; start the clock
         ors-hyps (hypothesize problem ors-sensors time-now params)
@@ -63,12 +62,10 @@
 
 (defn run-simulation
   [problem truedata or-state monitor params]
-  (loop [time 0
-         ors or-state]
+  (loop [ors or-state]
     (when (nil? ors) (throw (ExecutionException. "Monitor took control." (Throwable.))))
-    (if (>= time (:Steps params)) (:results ors)
-        (recur (inc time)
-               (run-simulation-step problem truedata ors time params monitor false)))))
+    (if (>= (:time (:ep-state ors)) (:Steps params)) (:results ors)
+        (recur (run-simulation-step problem truedata ors params monitor false)))))
 
 (defn run-comparative
   [problem monitor params]

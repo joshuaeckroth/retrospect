@@ -57,6 +57,11 @@
   (let [fmt #(format "%d,%d@%d " (:x (meta %)) (:y (meta %)) (:time (meta %)))]
     (str "[" (apply str (map (fn [es] (fmt (first es))) path)) "]")))
 
+(defn print-paths
+  [paths]
+  (println "paths " (apply str (map (fn [k] (apply str k ": " (map path-str (k paths))))
+                                    (keys paths)))))
+
 (defn covered?
   [paths x y time]
   (some (fn [e] (and (= (:time (meta e)) time)
@@ -126,7 +131,6 @@
   [label paths spotted-grid maxwalk]
   (if (empty? spotted-grid) paths
       (let [ex-paths (extend-paths label paths spotted-grid maxwalk)]
-        (println "ex-paths" (map path-str ex-paths))
         (if (empty? ex-paths) paths
             (recur label ex-paths spotted-grid maxwalk)))))
 
@@ -147,8 +151,7 @@
     (loop [labels (:labels (:problem-data ep-state))
            paths (reduce mk-label-path {} labels)]
       (let [uncovered (find-uncovered-pos paths spotted-grid)]
-        (println "paths " (apply str (map (fn [k] (apply str k ": " (map path-str (k paths))))
-                                          (keys paths))))
+        (print-paths paths)
         (if (empty? uncovered)
           (reduce add-hyp (update-in ep [:problem-data] assoc :labels labels)
                   (map #(make-hyp paths %) (keys paths)))

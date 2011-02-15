@@ -376,10 +376,8 @@
       (update-time -1)
       (. *steplabel* (setText "Step: N/A")))
     (let [prev-ep (previous-ep-state (:ep-state-tree *or-state*))
-          prev-prev-ep (previous-ep-state (goto-ep-state (:ep-state-tree *or-state*)
-                                                         (:id prev-ep)))
-          time-now (:time prev-ep)
-          time-prev (:time prev-prev-ep)]
+          time-now (dec (:time (:ep-state or-state)))
+          time-prev (dec (:time prev-ep))]
       (update-time time-now)
       (update-time-prev time-prev)
       (. *steplabel* (setText (if time-prev (format "Step: %d->%d" time-prev time-now)
@@ -406,9 +404,8 @@
 
 (defn step
   []
-  (when (= *time* -1) (update-time 0))
   (let [or-state (run-simulation-step *problem* *truedata* *or-state*
-                                      *time* *params* false true)]
+                                      *params* false true)]
     (update-everything or-state)))
 
 (defn new-simulation
