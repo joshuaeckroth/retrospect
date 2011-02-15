@@ -93,7 +93,7 @@
 
 (defn generate-problem-data
   [sensors params]
-  {:labels []
+  {:paths {}
    :sensors-seen-grid (sensors-seen-grid sensors params)
    :spotted-grid []
    :sensors-seen

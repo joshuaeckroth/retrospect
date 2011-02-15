@@ -162,20 +162,19 @@
         spotted-grid (:spotted-grid (:problem-data ep))
         maxwalk (:MaxWalk params)
         mk-label-path (fn [p l] (assoc p l (label-path l (l p) spotted-grid maxwalk)))
-        spotted-at (fn [{x :x y :y t :time}] (grid-at (nth spotted-grid t) x y))]
-    (loop [labels (:labels (:problem-data ep-state))
-           paths (reduce mk-label-path {} labels)]
+        spotted-at (fn [{x :x y :y t :time}] (grid-at (nth spotted-grid t) x y))
+        oldpaths (:paths (:problem-data ep-state))]
+    (loop [paths (reduce mk-label-path oldpaths (keys oldpaths))]
       (let [uncovered (find-uncovered-pos paths spotted-grid)]
-        (print-paths paths)
         (if (empty? uncovered)
-          (reduce add-hyp (update-in ep [:problem-data] assoc :labels labels)
+          (reduce add-hyp (update-in ep [:problem-data] assoc :paths paths)
                   (apply concat (map (fn [l] (map #(make-hyp % l) (l paths))) (keys paths))))
-          (let [label (new-label labels (spotted-at (first uncovered)))
-                newpaths (assoc paths label [[(spotted-at (first uncovered))]])
-                ls (conj labels label)]
-            (recur ls (mk-label-path newpaths label))))))))
+          (let [label (new-label (keys paths) (spotted-at (first uncovered)))
+                newpaths (assoc paths label [[(spotted-at (first uncovered))]])]
+            (recur (mk-label-path newpaths label))))))))
 
 (defn accept-decision
   [pdata accepted]
+  (print-paths (:paths pdata))
   pdata)
 
