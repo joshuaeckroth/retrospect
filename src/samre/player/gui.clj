@@ -239,11 +239,11 @@
 
 (defn update-hyp-box
   []
-  (if-let [hyp (get (:hyps (:workspace (:ep-state *or-state*)))
-                    (keyword (.getSelectedItem *hyp-choice*)))]
-    (. *hyp-box* setText
-       (apply str ((:str-fn hyp) hyp) "\n\n"
-              (if-let [ep (previous-ep-state (:ep-state-tree *or-state*))]
+  (if-let [ep (previous-ep-state (:ep-state-tree *or-state*))]
+    (if-let [hyp (get (:hyps (:workspace ep))
+                      (keyword (.getSelectedItem *hyp-choice*)))]
+      (. *hyp-box* setText
+         (apply str ((:str-fn hyp) hyp) "\n\n"
                 (interpose
                  "\n" (map str (filter (fn [l] (some #(= % (:id hyp)) (:hyp-ids l)))
                                        (:abducer-log (:workspace ep))))))))
@@ -252,8 +252,9 @@
 (defn update-hyp-choice-dropdown
   []
   (.removeAllItems *hyp-choice*)
-  (doseq [i (sort (map name (keys (:hyps (:workspace (:ep-state *or-state*))))))]
-    (.addItem *hyp-choice* i)))
+  (when-let [ep (previous-ep-state (:ep-state-tree *or-state*))]
+    (doseq [i (sort (map name (keys (:hyps (:workspace ep)))))]
+      (.addItem *hyp-choice* i))))
 
 (defn get-results-viewport
   []

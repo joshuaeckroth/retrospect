@@ -5,7 +5,8 @@
   (:use [samre.colors])
   (:use [samre.confidences])
   (:use [samre.problems.tracking.grid :only [grid-at]])
-  (:require [clojure.contrib.math :as math :only [abs ceil]]))
+  (:require [clojure.contrib.math :as math :only [abs ceil]])
+  (:require [clojure.set :as set :only [intersection]]))
 
 (defn add-sensor-hyp
   [sensor e]
@@ -149,12 +150,17 @@
   [hyp]
   (format "%s" (path-str (:path (:data hyp)))))
 
+(defn impossible-fn
+  [hyp hyps]
+  (let [explains (set (:explains hyp))]
+    (filter (fn [h] (not-empty (set/intersection explains (set (:explains h))))) hyps)))
+
 (defn make-hyp
   [path label]
   (new-hyp (keyword (format "TH%d" (hash [label path])))
            :tracking NEUTRAL
            (map :id (filter identity (map (comp :hyp meta) (flatten path))))
-           (constantly []) (constantly [])
+           (constantly []) impossible-fn
            str-fn {:label label :path path}))
 
 (defn hypothesize
@@ -164,21 +170,24 @@
         maxwalk (:MaxWalk params)
         mk-label-path (fn [p l] (assoc p l (label-path l (l p) spotted-grid maxwalk)))
         spotted-at (fn [{x :x y :y t :time}] (grid-at (nth spotted-grid t) x y))
-        oldpaths (:paths (:problem-data ep-state))]
+        ;; put all existing paths into vectors so that alt paths can be added
+        oldpaths (reduce (fn [paths l] (assoc paths l [(l paths)]))
+                         (:paths (:problem-data ep-state))
+                         (keys (:paths (:problem-data ep-state))))]
     (loop [paths (reduce mk-label-path oldpaths (keys oldpaths))]
       (let [uncovered (find-uncovered-pos paths spotted-grid)]
         (if (empty? uncovered)
-          (reduce add-hyp (update-in ep [:problem-data] assoc :paths paths)
-                  (apply concat (map (fn [l] (map #(make-hyp % l) (l paths))) (keys paths))))
+          (reduce add-hyp ep (apply concat (map (fn [l] (map #(make-hyp % l) (l paths)))
+                                                (keys paths))))
           (let [label (new-label (keys paths) (spotted-at (first uncovered)))
                 newpaths (assoc paths label [[(spotted-at (first uncovered))]])]
             (recur (mk-label-path newpaths label))))))))
 
+;; TODO: check for ambiguity (unexplained), make new label for each alternative
+
 (defn accept-decision
   [pdata accepted]
-  (println "existing")
-  #_(print-paths (:paths pdata))
-  (println "accepted")
-  #_(println (map (comp path-str :path :data) accepted))
-  pdata)
+  (reduce (fn [pd hyp] (let [l (:label (:data hyp)) path (:path (:data hyp))]
+                         (update-in pd [:paths] assoc l path)))
+          pdata accepted))
 
