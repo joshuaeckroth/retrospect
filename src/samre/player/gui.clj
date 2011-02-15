@@ -406,6 +406,7 @@
 
 (defn step
   []
+  (when (= *time* -1) (update-time 0))
   (let [or-state (run-simulation-step *problem* *truedata* *or-state*
                                       *time* *params* false true)]
     (update-everything or-state)))

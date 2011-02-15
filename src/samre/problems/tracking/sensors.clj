@@ -38,8 +38,11 @@
 (defn sense
   [sensor grid time]
   (let [spotted (find-spotted sensor grid time)
-        color-adjusted (if (:sees-color (meta sensor)) spotted
-                           (map (fn [e] (with-meta e (assoc (meta e) :color gray))) spotted))]
+        id-adjusted (map (fn [e] (with-meta (symbol (str "X")) (meta e))) spotted)
+        color-adjusted (if (:sees-color (meta sensor)) id-adjusted
+                           (map (fn [e] (with-meta e (assoc (meta e) :color gray)))
+                                id-adjusted))]
+    (println (map meta spotted))
     (add-sensed sensor time color-adjusted)))
 
 (defn new-sensor

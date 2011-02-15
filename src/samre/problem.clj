@@ -44,18 +44,16 @@
   (update-one-run-state or-state
    ((:hypothesize-fn problem) (:ep-state or-state) (:sensors or-state) time-now params)))
 
-(defn commit
-  [problem or-state params]
-  (update-one-run-state or-state ((:commit-fn problem) (:ep-state or-state))))
-
 (defn run-simulation-step
   [problem truedata or-state time params monitor player]
+  (println "X" (:time (:ep-state or-state)))
+  (println "time=" time)
   (let [ors-sensors (proceed-n-steps (:StepsBetween params) time truedata or-state)
         time-now (+ (dec (:StepsBetween params)) time)
         start-time (. System (nanoTime)) ;; start the clock
         ors-hyps (hypothesize problem ors-sensors time-now params)
         ep-explained (explain (:ep-state ors-hyps) params)
-        ors-expl (proceed-one-run-state ors-hyps ep-explained problem params)
+        ors-expl (proceed-one-run-state ors-hyps ep-explained time-now problem params)
         ms (/ (- (. System (nanoTime)) start-time) 1000000.0) ;; stop the clock
         ors-resources (update-in ors-expl [:resources] assoc :milliseconds ms)
         ors-results (evaluate problem truedata ors-resources params)]

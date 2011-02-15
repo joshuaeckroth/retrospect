@@ -19,6 +19,11 @@
     (grid-new-entity grid time)
     grid))
 
+(defn update-all-entity-times
+  [grid time]
+  (with-meta (vec (map (fn [e] (if e (with-meta e (merge (meta e) {:time time})))) grid))
+    (meta grid)))
+
 (defn generate-truedata
   [params]
   (let [grid (add-new-entities (new-grid (:GridWidth params) (:GridHeight params))
@@ -28,5 +33,6 @@
       (if (> time (:Steps params)) truedata
           (let [newgrid (-> (last truedata)
                             (random-walks params)
-                            (possibly-add-new-entity time params))]
+                            (possibly-add-new-entity time params)
+                            (update-all-entity-times time))]
             (recur (inc time) (conj truedata newgrid)))))))
