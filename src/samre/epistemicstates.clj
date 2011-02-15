@@ -153,6 +153,12 @@
   [ep-state hyp]
   (update-in ep-state [:workspace] ws/add-hyp hyp))
 
+(defn add-fact
+  [ep-state hyp]
+  (assoc ep-state :workspace (-> (:workspace ep-state)
+                                 (ws/add-hyp hyp)
+                                 (ws/force-acceptance hyp))))
+
 (defn force-acceptance
   [ep-state hyp]
   (update-in ep-state [:workspace] ws/force-acceptance hyp))

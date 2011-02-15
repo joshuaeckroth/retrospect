@@ -1,5 +1,5 @@
 (ns samre.problems.tracking.hypotheses
-  (:use [samre.epistemicstates :only [add-hyp]])
+  (:use [samre.epistemicstates :only [add-hyp add-fact]])
   (:use [samre.workspaces :only [new-hyp]])
   (:use [samre.sensors :only [sensed-at]])
   (:use [samre.colors])
@@ -7,28 +7,39 @@
   (:use [samre.problems.tracking.grid :only [grid-at]])
   (:require [clojure.contrib.math :as math :only [abs ceil]]))
 
+(defn add-sensor-hyp
+  [sensor e]
+  (let [hyp (new-hyp (keyword (format "SH%d" (hash [sensor (meta e)])))
+           :sensor NEUTRAL [] (constantly []) (constantly []) (constantly false)
+           (fn [h] (format "%s" (str (meta (:entity (:data h))))))
+           {:sensor sensor :entity e})]
+    (with-meta e (merge (meta e) {:hyp hyp}))))
+
 (defn sensors-to-spotted
   [sensors time sensors-seen-grid]
   (let [width (:width (meta sensors-seen-grid))
         height (:height (meta sensors-seen-grid))]
     (with-meta
       (for [y (range height) x (range width)] ;; need height followed by width
-        (apply concat (map (fn [s] (filter (fn [e] (and (= x (:x (meta e)))
-                                                        (= y (:y (meta e)))))
-                                           (sensed-at s time)))
+        (apply concat (map (fn [s]
+                             (map #(add-sensor-hyp s %)
+                                  (filter (fn [e] (and (= x (:x (meta e)))
+                                                       (= y (:y (meta e)))))
+                                          (sensed-at s time))))
                            sensors)))
       {:width width :height height :time time})))
 
 (defn process-sensors
   [ep-state sensors time-now]
-  (let [sensors-seen-grid (:sensors-seen-grid (:problem-data ep-state))
-        spotted-grid
-        (loop [t (:time ep-state)
-               sg (:spotted-grid (:problem-data ep-state))]
-          (if (> t time-now) sg
-              (recur (inc t)
-                     (conj sg (sensors-to-spotted sensors t sensors-seen-grid)))))]
-    (update-in ep-state [:problem-data] assoc :spotted-grid spotted-grid)))
+  (let [sensors-seen-grid (:sensors-seen-grid (:problem-data ep-state))]
+    (loop [t (:time ep-state)
+           sg (:spotted-grid (:problem-data ep-state))
+           ep ep-state]
+      (if (> t time-now)
+        (update-in ep [:problem-data] assoc :spotted-grid sg)
+        (let [spotted (sensors-to-spotted sensors t sensors-seen-grid)]
+          (recur (inc t) (conj sg spotted)
+                 (reduce add-fact ep (map (comp :hyp meta) (flatten spotted)))))))))
 
 (defn man-dist
   [x1 y1 x2 y2]
@@ -134,12 +145,16 @@
         (if (empty? ex-paths) paths
             (recur label ex-paths spotted-grid maxwalk)))))
 
+(defn str-fn
+  [hyp]
+  (format "%s" (path-str (:path (:data hyp)))))
+
 (defn make-hyp
-  [paths label]
-  (let [path (label paths)]
-    (new-hyp (keyword (format "TH%d" (hash [label path])))
-             :tracking NEUTRAL [] (constantly []) (constantly []) (constantly false)
-             (fn [h] (name (:id h))) {:label label :path path})))
+  [path label]
+  (new-hyp (keyword (format "TH%d" (hash [label path])))
+           :tracking NEUTRAL (map (comp :id :hyp meta) (flatten path))
+           (constantly []) (constantly []) (constantly false)
+           str-fn {:label label :path path}))
 
 (defn hypothesize
   [ep-state sensors time-now params]
@@ -154,7 +169,7 @@
         (print-paths paths)
         (if (empty? uncovered)
           (reduce add-hyp (update-in ep [:problem-data] assoc :labels labels)
-                  (map #(make-hyp paths %) (keys paths)))
+                  (apply concat (map (fn [l] (map #(make-hyp % l) (l paths))) (keys paths))))
           (let [label (new-label labels (spotted-at (first uncovered)))
                 newpaths (assoc paths label [[(spotted-at (first uncovered))]])
                 ls (conj labels label)]
