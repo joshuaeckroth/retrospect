@@ -153,7 +153,6 @@
   [label paths prior-covered spotted-grid maxwalk]
   (if (empty? spotted-grid) paths
       (let [ex-paths (extend-paths label paths prior-covered spotted-grid maxwalk)]
-        (println (map path-str ex-paths))
         ;; check for count=1 (rather than 0) because existing path is always included
         (if (= 1 (count ex-paths)) paths
             (recur label ex-paths prior-covered (rest spotted-grid) maxwalk)))))
@@ -184,9 +183,6 @@
            (constantly []) impossible-fn
            str-fn {:label label :path path}))
 
-;;; TODO: keep around non-extended paths as alternative hyps, so that
-;;; if an extension is rejected, the unextended version still remains
-
 (defn hypothesize
   [ep-state sensors time-now params]
   (let [ep (process-sensors ep-state sensors time-now)
@@ -206,8 +202,6 @@
                                                 (keys paths))))
           (let [label (new-label (keys paths) (spotted-at (first uncovered)))
                 newpaths (assoc paths label [[(spotted-at (first uncovered))]])]
-            (println "uncovered" uncovered)
-            (println "new label" label "for" (first uncovered))
             (recur (assoc-label-path label newpaths prior-covered spotted-grid maxwalk))))))))
 
 ;; TODO: check for ambiguity (unexplained), make new label for each alternative
@@ -215,14 +209,12 @@
 (defn commit-rejected
   [pdata rejected]
   (reduce (fn [pd hyp] (let [l (:label (:data hyp))]
-                         (println "rejecting" l (path-str (l (:paths pdata))))
                          (update-in pd [:paths] dissoc l)))
           pdata rejected))
 
 (defn commit-accepted
   [pdata accepted]
   (reduce (fn [pd hyp] (let [l (:label (:data hyp)) path (:path (:data hyp))]
-                         (println "accepting" l (path-str path))
                          (update-in pd [:paths] assoc l path)))
           pdata accepted))
 

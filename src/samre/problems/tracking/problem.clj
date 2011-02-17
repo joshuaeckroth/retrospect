@@ -15,7 +15,8 @@
           list-sensors-seen list-sensors-unseen sensors-seen-grid]])
   (:use [samre.problems.tracking.monitor :only (monitor)]))
 
-(def avg-fields [:PercentEventsCorrect :PercentEventsWrong :PercentIdentitiesCorrect
+(def avg-fields [:PercentEventsCorrect :MeanTimeWithLabel :MaxTimeWithLabel
+                 :MinTimeWithLabel :MeanCountAlternatives :MeanLabelCounts
 		 :NumberEntities :MaxWalk :AvgWalk :PlausibilityAccuracy
 		 :ProbNewEntities :GridWidth :GridHeight
                  :SensorCoverage :SensorSeesColor :SensorOverlap :EntityDensity])
