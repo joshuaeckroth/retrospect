@@ -46,7 +46,7 @@
 
 (defn lookup-hyps
   [workspace hyp-ids]
-  (doall (map #((:hyps workspace) %) hyp-ids)))
+  (doall (filter identity (map #((:hyps workspace) %) hyp-ids))))
 
 (defn add-abducer-log-msg
   [workspace hyps msg]
@@ -75,7 +75,7 @@
   [workspace]
   (let [active-hyps (lookup-hyps workspace (concat (:hypothesized workspace)
                                                    (:unexplained workspace)))
-        explains (flatten (map :explains active-hyps))]
+        explains (filter #(% (:hyps workspace)) (flatten (map :explains active-hyps)))]
     (filter (fn [hid] (not-any? #(= hid (:id %)) explains))
             (concat (:accepted workspace) (:rejected workspace)))))
 
@@ -161,23 +161,19 @@
                            "Resetting confidences back to apriori values.")))
 
 (defn add-hyp
-  "Add the hypothesis to the workspace. Any hyp ids in the :explains
-   field that no longer exist (deleted from (delete-ancient-hyps)) will
-   be removed from the :explains field."
+  "Add the hypothesis to the workspace."
   [workspace hyp]
   ;; don't add an identical existing hyp
   (if (get (:hyps workspace) (:id hyp)) workspace
-      ;; first clean up the hyp's 'explains' list; remove those that
-      ;; are no longer hyps (removed because they were 'ancient')
-      (let [hyp-expl (assoc hyp :explains (filter #(% (:hyps workspace)) (:explains hyp)))]
+      (let [explains (map name (filter #(% (:hyps workspace)) (:explains hyp)))]
         (-> workspace
-            (update-in [:hypothesized] conj (:id hyp-expl))
-            (update-in [:hyps] assoc (:id hyp-expl) hyp-expl)
+            (update-in [:hypothesized] conj (:id hyp))
+            (update-in [:hyps] assoc (:id hyp) hyp)
             (add-abducer-log-msg
-             [(:id hyp-expl)]
+             [(:id hyp)]
              (format "Adding hypothesis (apriori=%s; explains %s)."
-                     (confidence-str (:apriori hyp-expl))
-                     (apply str (interpose "," (map name (:explains hyp-expl))))))))))
+                     (confidence-str (:apriori hyp))
+                     (apply str (interpose "," explains))))))))
 
 (defn penalize-implausible
   [workspace hyps log-msg]
@@ -188,7 +184,9 @@
 (defn reject-impossible
   [workspace hyps log-msg]
   (if (empty? hyps) workspace
-      (let [rejected (doall (map #(assoc % :confidence IMPOSSIBLE) hyps))]
+      ;; only reject those that are not already rejected
+      (let [rejected (doall (map #(assoc % :confidence IMPOSSIBLE)
+                                 (filter #(not= IMPOSSIBLE (:confidence %)) hyps)))]
         (-> workspace
             (update-hyps rejected)
             (update-in [:decision :rejected] concat (map :id rejected))
@@ -307,9 +305,8 @@
             max-expl (count (:explains (first expl-sorted)))
             most-expl (filter #(= max-expl (count (:explains %))) most-conf)
             count-imp (fn [h] (count (filter #(= IMPOSSIBLE (:confidence %))
-                                             (lookup-hyps workspace
-                                                          ((:impossible-fn h) h
-                                                           (vals (:hyps workspace)))))))
+                                             ((:impossible-fn h) h
+                                              (vals (:hyps workspace))))))
             max-imp (apply max (conj (map count-imp most-expl) 0))
             most-imp (filter #(= max-imp (count-imp %)) most-expl)]
         (when (not-empty most-imp)
@@ -323,11 +320,12 @@
     (if (empty? (:unexplained ws2)) (update-in ws2 [:dot] conj (dot-format ws2 [] nil))
         (let [best (find-best ws2)]
           (if (nil? best) (update-in ws2 [:dot] conj (dot-format ws2 [] nil))
-              (recur
-               (-> (update-in ws2 [:dot] conj (:dot best))
-                   (add-abducer-log-msg
-                    (conj (:explains (:hyp best)) (:id (:hyp best)))
-                    (format "Accepting %s as explainer of %s." (name (:id (:hyp best)))
-                            (apply str (interpose ", " (map name (:explains (:hyp best)))))))
-                   (accept-hyp (:hyp best)))))))))
+              (let [explains (filter #(% (:hyps workspace)) (:explains (:hyp best)))]
+                (recur
+                 (-> (update-in ws2 [:dot] conj (:dot best))
+                     (add-abducer-log-msg
+                      (conj explains (:id (:hyp best)))
+                      (format "Accepting %s as explainer of %s." (name (:id (:hyp best)))
+                              (apply str (interpose ", " (map name explains)))))
+                     (accept-hyp (:hyp best))))))))))
 

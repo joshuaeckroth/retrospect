@@ -10,7 +10,7 @@
 
 (defn add-sensor-hyp
   [sensor e]
-  (let [hyp (new-hyp (keyword (format "SH%d" (hash [sensor (meta e)])))
+  (let [hyp (new-hyp (keyword (format "SH%d" (hash (rand))))
                      :sensor NEUTRAL [] (constantly []) (constantly [])
                      (fn [h] (format "%s" (str (meta (:entity (:data h))))))
                      {:sensor sensor :entity e})]
@@ -99,15 +99,16 @@
 
 (defn new-label
   [labels spotted]
-  (let [sym
+  (let [nth (inc (apply max -1 (map (comp :nth meta) labels)))
+        sym
         (if (empty? labels) (symbol "A")
-            (loop [i (count labels) id ""]
+            (loop [i nth id ""]
               (if (<= i 25) (symbol (str id (char (+ 65 i))))
                   (recur (int (- i 26)) (str id (char (+ 65 (mod i 26))))))))
         color (if (not-any? (fn [s] (not= gray (:color (meta s)))) spotted) gray
                   (:color (meta (first (filter (fn [s] (not= gray (:color (meta s))))
                                                spotted)))))]
-    (with-meta sym {:color color})))
+    (with-meta sym {:color color :nth nth})))
 
 ;; TODO: Does not support sensor noise: e.g., one sensor reporting
 ;; red, another blue, for same position/time
@@ -136,7 +137,7 @@
   [label paths spotted-grid maxwalk]
   (apply concat (map (fn [p] (extend-path label p spotted-grid maxwalk)) paths)))
 
-(defn label-path
+(defn make-label-path
   "The first grid in spotted-grid is the time step that should be
   connected; on the recur, strip off the first grid; if spotted-grid
   has no more grids, we're done."
@@ -146,6 +147,13 @@
         (if (empty? ex-paths) paths
             (recur label ex-paths spotted-grid maxwalk)))))
 
+(defn assoc-label-path
+  [spotted-grid maxwalk paths label]
+  (let [prior-paths (label paths)
+        last-time (apply min (map (comp :time meta) (flatten prior-paths)))
+        sg (if-not prior-paths spotted-grid (subvec spotted-grid last-time))]
+    (assoc paths label (make-label-path label prior-paths sg maxwalk))))
+
 (defn str-fn
   [hyp]
   (format "%s" (path-str (:path (:data hyp)))))
@@ -153,11 +161,13 @@
 (defn impossible-fn
   [hyp hyps]
   (let [explains (set (:explains hyp))]
-    (filter (fn [h] (not-empty (set/intersection explains (set (:explains h))))) hyps)))
+    (filter (fn [h] (and (not= (:id hyp) (:id h))
+                         (not-empty (set/intersection explains (set (:explains h))))))
+            hyps)))
 
 (defn make-hyp
   [path label]
-  (new-hyp (keyword (format "TH%d" (hash [label path])))
+  (new-hyp (keyword (format "TH%d" (hash (rand))))
            :tracking NEUTRAL
            (map :id (filter identity (map (comp :hyp meta) (flatten path))))
            (constantly []) impossible-fn
@@ -168,26 +178,37 @@
   (let [ep (process-sensors ep-state sensors time-now)
         spotted-grid (:spotted-grid (:problem-data ep))
         maxwalk (:MaxWalk params)
-        mk-label-path (fn [p l] (assoc p l (label-path l (l p) spotted-grid maxwalk)))
         spotted-at (fn [{x :x y :y t :time}] (grid-at (nth spotted-grid t) x y))
         ;; put all existing paths into vectors so that alt paths can be added
         oldpaths (reduce (fn [paths l] (assoc paths l [(l paths)]))
                          (:paths (:problem-data ep-state))
                          (keys (:paths (:problem-data ep-state))))]
-    (loop [paths (reduce mk-label-path oldpaths (keys oldpaths))]
+    (loop [paths (reduce (partial assoc-label-path spotted-grid maxwalk)
+                         oldpaths (keys oldpaths))]
       (let [uncovered (find-uncovered-pos paths spotted-grid)]
         (if (empty? uncovered)
           (reduce add-hyp ep (apply concat (map (fn [l] (map #(make-hyp % l) (l paths)))
                                                 (keys paths))))
           (let [label (new-label (keys paths) (spotted-at (first uncovered)))
                 newpaths (assoc paths label [[(spotted-at (first uncovered))]])]
-            (recur (mk-label-path newpaths label))))))))
+            (recur (assoc-label-path spotted-grid maxwalk newpaths label))))))))
 
 ;; TODO: check for ambiguity (unexplained), make new label for each alternative
 
-(defn accept-decision
+(defn commit-rejected
+  [pdata rejected]
+  (reduce (fn [pd hyp] (let [l (:label (:data hyp))]
+                         (update-in pd [:paths] dissoc l)))
+          pdata rejected))
+
+(defn commit-accepted
   [pdata accepted]
   (reduce (fn [pd hyp] (let [l (:label (:data hyp)) path (:path (:data hyp))]
                          (update-in pd [:paths] assoc l path)))
           pdata accepted))
+
+(defn commit-decision
+  "Commit rejected first, then accepted."
+  [pdata accepted rejected]
+  (commit-accepted (commit-rejected pdata rejected) accepted))
 

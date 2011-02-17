@@ -5,7 +5,7 @@
   (:use [samre.problems.tracking.truedata :only [generate-truedata]])
   (:use [samre.problems.tracking.sensors :only [ generate-sensors]])
   (:use [samre.problems.tracking.hypotheses :only
-         [hypothesize accept-decision]])
+         [hypothesize commit-decision]])
   (:use [samre.problems.tracking.player :only
          [player-get-params player-set-params player-get-params-panel
           player-get-diagram player-get-stats-panel
@@ -118,7 +118,7 @@
             generate-truedata
             generate-sensors
             hypothesize
-            accept-decision
+            commit-decision
             generate-problem-data
             evaluate
             avg-fields non-avg-fields charts))

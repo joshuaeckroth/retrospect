@@ -163,17 +163,18 @@
   [ep-state hyp]
   (update-in ep-state [:workspace] ws/force-acceptance hyp))
 
-(defn accept-decision
+(defn commit-decision
   [ep-state id time-now problem]
   (let [workspace (:workspace ep-state)
-        accepted-hyps (ws/lookup-hyps workspace (:accepted (:decision workspace)))]
+        accepted-hyps (ws/lookup-hyps workspace (:accepted (:decision workspace)))
+        rejected-hyps (ws/lookup-hyps workspace (:rejected (:decision workspace)))]
     (EpistemicState.
      id
      []
      (inc time-now)
      (ws/accept-workspace-decision workspace)
      []
-     ((:accept-decision-fn problem) (:problem-data ep-state) accepted-hyps))))
+     ((:commit-decision-fn problem) (:problem-data ep-state) accepted-hyps rejected-hyps))))
 
 (defn find-least-confident-decision
   [ep-state-tree]
@@ -219,7 +220,7 @@
   [ep-state-tree ep-state time-now problem]
   (let [ep-with-log (update-in ep-state [:workspace] ws/log-final-accepted-rejected-hyps)
         ep-tree (update-decision ep-state-tree ep-with-log)
-        ep-child (accept-decision ep-with-log (make-ep-state-id ep-tree) time-now problem)
+        ep-child (commit-decision ep-with-log (make-ep-state-id ep-tree) time-now problem)
         ep-child-fresh (update-in ep-child [:workspace] ws/delete-ancient-hyps)
         ep-tree-child (goto-ep-state (zip/append-child ep-tree ep-child-fresh)
                                      (:id ep-child-fresh))]
