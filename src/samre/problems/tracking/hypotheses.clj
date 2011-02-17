@@ -118,41 +118,52 @@
   (or (= (:color (meta label)) gray) (= (:color (meta spotted)) gray)
       (= (:color (meta label)) (:color (meta spotted)))))
 
+(defn matched-and-in-range?
+  [label e x y time prior-covered maxwalk]
+  (and (label-matches? label e)
+       (= (inc time) (:time (meta e)))
+       (not-any? #(and (= (:time (meta %)) (:time (meta e)))
+                       (= (:x (meta %)) (:x (meta e)))
+                       (= (:y (meta %)) (:y (meta e))))
+                 prior-covered)
+       (>= maxwalk (man-dist x y (:x (meta e))
+                             (:y (meta e))))))
+
 (defn spotted-in-range
-  [label path spotted-grid maxwalk]
-  (let [{x :x y :y t :time} (meta (first (last path)))]
-    (if (>= (inc t) (count spotted-grid)) [] ;; if spotted-grid has no more recent stuff
-        (let [grid (nth spotted-grid (inc t))
-              matched-and-in-range?
-              (fn [e] (and (label-matches? label e)
-                           (>= maxwalk (man-dist x y (:x (meta e)) (:y (meta e))))))]
-          (filter #(some matched-and-in-range? %) grid)))))
+  [label path prior-covered spotted-grid maxwalk]
+  (let [{x :x y :y t :time} (meta (first (last path)))
+        grid (first spotted-grid)]
+    (filter (fn [es] (some #(matched-and-in-range? label % x y t prior-covered maxwalk)
+                           es)) grid)))
 
 (defn extend-path
-  [label path spotted-grid maxwalk]
-  (let [in-range (spotted-in-range label path spotted-grid maxwalk)]
+  [label path prior-covered spotted-grid maxwalk]
+  (let [in-range (spotted-in-range label path prior-covered spotted-grid maxwalk)]
     (map (fn [e] (conj path e)) in-range)))
 
 (defn extend-paths
-  [label paths spotted-grid maxwalk]
-  (apply concat (map (fn [p] (extend-path label p spotted-grid maxwalk)) paths)))
+  [label paths prior-covered spotted-grid maxwalk]
+  (apply concat paths (map (fn [p] (extend-path label p prior-covered spotted-grid maxwalk))
+                           paths)))
 
 (defn make-label-path
   "The first grid in spotted-grid is the time step that should be
   connected; on the recur, strip off the first grid; if spotted-grid
   has no more grids, we're done."
-  [label paths spotted-grid maxwalk]
+  [label paths prior-covered spotted-grid maxwalk]
   (if (empty? spotted-grid) paths
-      (let [ex-paths (extend-paths label paths spotted-grid maxwalk)]
-        (if (empty? ex-paths) paths
-            (recur label ex-paths spotted-grid maxwalk)))))
+      (let [ex-paths (extend-paths label paths prior-covered spotted-grid maxwalk)]
+        (println (map path-str ex-paths))
+        ;; check for count=1 (rather than 0) because existing path is always included
+        (if (= 1 (count ex-paths)) paths
+            (recur label ex-paths prior-covered (rest spotted-grid) maxwalk)))))
 
 (defn assoc-label-path
-  [spotted-grid maxwalk paths label]
+  [label paths prior-covered spotted-grid maxwalk]
   (let [prior-paths (label paths)
-        last-time (apply min (map (comp :time meta) (flatten prior-paths)))
-        sg (if-not prior-paths spotted-grid (subvec spotted-grid last-time))]
-    (assoc paths label (make-label-path label prior-paths sg maxwalk))))
+        last-time (apply min (map (comp :time meta first last) prior-paths))
+        sg (if-not prior-paths spotted-grid (subvec spotted-grid (inc last-time)))]
+    (assoc paths label (make-label-path label prior-paths prior-covered sg maxwalk))))
 
 (defn str-fn
   [hyp]
@@ -173,6 +184,9 @@
            (constantly []) impossible-fn
            str-fn {:label label :path path}))
 
+;;; TODO: keep around non-extended paths as alternative hyps, so that
+;;; if an extension is rejected, the unextended version still remains
+
 (defn hypothesize
   [ep-state sensors time-now params]
   (let [ep (process-sensors ep-state sensors time-now)
@@ -182,8 +196,9 @@
         ;; put all existing paths into vectors so that alt paths can be added
         oldpaths (reduce (fn [paths l] (assoc paths l [(l paths)]))
                          (:paths (:problem-data ep-state))
-                         (keys (:paths (:problem-data ep-state))))]
-    (loop [paths (reduce (partial assoc-label-path spotted-grid maxwalk)
+                         (keys (:paths (:problem-data ep-state))))
+        prior-covered (flatten (vals oldpaths))]
+    (loop [paths (reduce (fn [p l] (assoc-label-path l p prior-covered spotted-grid maxwalk))
                          oldpaths (keys oldpaths))]
       (let [uncovered (find-uncovered-pos paths spotted-grid)]
         (if (empty? uncovered)
@@ -191,19 +206,23 @@
                                                 (keys paths))))
           (let [label (new-label (keys paths) (spotted-at (first uncovered)))
                 newpaths (assoc paths label [[(spotted-at (first uncovered))]])]
-            (recur (assoc-label-path spotted-grid maxwalk newpaths label))))))))
+            (println "uncovered" uncovered)
+            (println "new label" label "for" (first uncovered))
+            (recur (assoc-label-path label newpaths prior-covered spotted-grid maxwalk))))))))
 
 ;; TODO: check for ambiguity (unexplained), make new label for each alternative
 
 (defn commit-rejected
   [pdata rejected]
   (reduce (fn [pd hyp] (let [l (:label (:data hyp))]
+                         (println "rejecting" l (path-str (l (:paths pdata))))
                          (update-in pd [:paths] dissoc l)))
           pdata rejected))
 
 (defn commit-accepted
   [pdata accepted]
   (reduce (fn [pd hyp] (let [l (:label (:data hyp)) path (:path (:data hyp))]
+                         (println "accepting" l (path-str path))
                          (update-in pd [:paths] assoc l path)))
           pdata accepted))
 

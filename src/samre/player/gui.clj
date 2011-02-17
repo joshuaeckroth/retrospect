@@ -128,8 +128,8 @@
       (. *explains-graph-label* setText
          (format "Cycle %d of %d" (inc *explains-graph-index*) *explains-graph-count*))
       (spit (str filename ".dot") (nth dot *explains-graph-index*))
-      (sh "dot" "-Tpng" (str "-o" filename ".png") (str filename ".dot"))
-      (sh "mogrify" "-resize" "50%" (str filename ".png"))
+      #_(sh "dot" "-Tpng" (str "-o" filename ".png") (str filename ".dot"))
+      #_(sh "mogrify" "-resize" "50%" (str filename ".png"))
       (str filename ".png"))))
 
 (defn get-explains-graph-viewport

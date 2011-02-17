@@ -69,15 +69,14 @@
   (doall (filter (fn [h] (some #(= (:id hyp) %) (:explains h))) hyps)))
 
 (defn find-ancient-hyps
-  "An 'ancient' hyp is one that has been either accepted or
-   rejected (officially, not as part of a decision), and is not
-   explained by something currently hypothesized or unexplained."
+  "An 'ancient' hyp is one that is not explained by something
+   currently unexplained or a candidate hyp."
   [workspace]
-  (let [active-hyps (lookup-hyps workspace (concat (:hypothesized workspace)
+  (let [active-hyps (lookup-hyps workspace (concat (:candidates workspace)
                                                    (:unexplained workspace)))
         explains (filter #(% (:hyps workspace)) (flatten (map :explains active-hyps)))]
     (filter (fn [hid] (not-any? #(= hid (:id %)) explains))
-            (concat (:accepted workspace) (:rejected workspace)))))
+            (keys (:hyps workspace)))))
 
 (defn delete-ancient-hyps
   "Called by new-child-ep-state in epistemicstates.clj"
@@ -312,6 +311,8 @@
         (when (not-empty most-imp)
           (let [acc (rand-nth most-imp)]
             {:hyp acc :dot (dot-format workspace most-imp acc)}))))))
+
+;;; TODO: add measure of how many iterations are used (for "compute" measure)
 
 (defn explain
   [workspace]
