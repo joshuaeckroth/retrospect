@@ -56,13 +56,18 @@
      :else ;; equivalent to (<= dist maxwalk)
      VERY-IMPLAUSIBLE)))
 
-(defn match-score
+(defn score-path
   "spotted is a collection of sensor detections; count-seen is how
   many sensors should have seen the same thing."
-  [label spotted count-seen maxwalk]
-  (cond
-   (= (:color label) gray) NEUTRAL
-   :else NEUTRAL))
+  [path label maxwalk]
+  (let [move-pairs (partition 2 (interleave path (rest path)))]
+    (if (empty? move-pairs) NEUTRAL
+        (apply min (map (fn [[a b]] (score-distance (:x (meta (first a)))
+                                                    (:y (meta (first a)))
+                                                    (:x (meta (first b)))
+                                                    (:y (meta (first b)))
+                                                    maxwalk))
+                        move-pairs)))))
 
 (defn path-str
   [path]
@@ -176,9 +181,9 @@
             hyps)))
 
 (defn make-hyp
-  [path label]
+  [path label maxwalk]
   (new-hyp (keyword (format "TH%d" (hash (rand))))
-           :tracking NEUTRAL
+           :tracking (score-path path label maxwalk)
            (map :id (filter identity (map (comp :hyp meta) (flatten path))))
            (constantly []) impossible-fn
            str-fn {:label label :path path}))
@@ -198,7 +203,8 @@
                          oldpaths (keys oldpaths))]
       (let [uncovered (find-uncovered-pos paths spotted-grid)]
         (if (empty? uncovered)
-          (reduce add-hyp ep (apply concat (map (fn [l] (map #(make-hyp % l) (l paths)))
+          (reduce add-hyp ep (apply concat (map (fn [l] (map #(make-hyp % l maxwalk)
+                                                             (l paths)))
                                                 (keys paths))))
           (let [label (new-label (keys paths) (spotted-at (first uncovered)))
                 newpaths (assoc paths label [[(spotted-at (first uncovered))]])]

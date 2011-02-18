@@ -164,15 +164,14 @@
   [workspace hyp]
   ;; don't add an identical existing hyp
   (if (get (:hyps workspace) (:id hyp)) workspace
-      (let [explains (map name (filter #(% (:hyps workspace)) (:explains hyp)))]
-        (-> workspace
-            (update-in [:hypothesized] conj (:id hyp))
-            (update-in [:hyps] assoc (:id hyp) hyp)
-            (add-abducer-log-msg
-             [(:id hyp)]
-             (format "Adding hypothesis (apriori=%s; explains %s)."
-                     (confidence-str (:apriori hyp))
-                     (apply str (interpose "," explains))))))))
+      (-> workspace
+          (update-in [:hypothesized] conj (:id hyp))
+          (update-in [:hyps] assoc (:id hyp) hyp)
+          (add-abducer-log-msg
+           [(:id hyp)]
+           (format "Adding hypothesis (apriori=%s; explains %s)."
+                   (confidence-str (:apriori hyp))
+                   (apply str (interpose "," (map name (:explains hyp)))))))))
 
 (defn penalize-implausible
   [workspace hyps log-msg]
@@ -308,8 +307,8 @@
                                               (vals (:hyps workspace))))))
             max-imp (apply max (conj (map count-imp most-expl) 0))
             most-imp (filter #(= max-imp (count-imp %)) most-expl)]
-        (when (not-empty most-imp)
-          (let [acc (rand-nth most-imp)]
+        (when (= (count most-imp) 1)
+          (let [acc (first most-imp)]
             {:hyp acc :dot (dot-format workspace most-imp acc)}))))))
 
 ;;; TODO: add measure of how many iterations are used (for "compute" measure)
