@@ -240,8 +240,8 @@
 (defn update-hyp-box
   []
   (if-let [ep (previous-ep-state (:ep-state-tree *or-state*))]
-    (if-let [hyp (get (:hyps (:workspace ep))
-                      (keyword (.getSelectedItem *hyp-choice*)))]
+    (if-let [hyp (first (filter #(= (:pid %) (.getSelectedItem *hyp-choice*))
+                                (vals (:hyps (:workspace ep)))))]
       (. *hyp-box* setText
          (apply str ((:str-fn hyp) hyp) "\n\n"
                 (interpose
