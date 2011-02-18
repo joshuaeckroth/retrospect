@@ -14,7 +14,8 @@
   (:use [samre.onerun :only [init-one-run-state]])
   (:use [samre.epistemicstates :only
          [draw-ep-state-tree list-ep-states current-ep-state goto-ep-state
-          goto-next-ep-state previous-ep-state]]))
+          goto-next-ep-state previous-ep-state]])
+  (:require [samre.problems.tracking.prepared :as prepared]))
 
 (def *mainframe* nil)
 (def *problem-headers* nil)
@@ -411,11 +412,12 @@
 
 (defn new-simulation
   []
-  (let [params (get-params)
+  (let [prepared prepared/simple-disappearance
+        params (if true (:params prepared) (get-params))
         meta-abduction (:MetaAbduction params)
         lazy (:Lazy params)
-        sensors ((:sensor-gen-fn *problem*) params)
-        truedata ((:truedata-fn *problem*) params)
+        sensors (if true (:sensors prepared) ((:sensor-gen-fn *problem*) params))
+        truedata (if true (:truedata prepared) ((:truedata-fn *problem*) params))
         or-state (init-one-run-state meta-abduction lazy sensors
                                      ((:gen-problem-data-fn *problem*) sensors params))]
     (update-params params)

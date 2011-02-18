@@ -9,7 +9,7 @@
   (let [paths (:paths (:problem-data ep-state))]
     (loop [elmap {}
            time 0]
-      (if (> time (:time ep-state)) elmap
+      (if (>= time (:time ep-state)) elmap
           (let [grid (nth truedata time)
                 es (filter identity grid)
                 ;; does the path explain the entity?

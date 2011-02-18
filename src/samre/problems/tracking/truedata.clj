@@ -1,5 +1,6 @@
 (ns samre.problems.tracking.truedata
-  (:use [samre.problems.tracking.grid]))
+  (:use [samre.problems.tracking.grid])
+  (:use [samre.problems.tracking.prepared]))
 
 (defn add-new-entities
   [grid numes]
@@ -18,11 +19,6 @@
   (if (>= (double (/ (:ProbNewEntities params) 100)) (rand))
     (grid-new-entity grid time)
     grid))
-
-(defn update-all-entity-times
-  [grid time]
-  (with-meta (vec (map (fn [e] (if e (with-meta e (merge (meta e) {:time time})))) grid))
-    (meta grid)))
 
 (defn generate-truedata
   [params]

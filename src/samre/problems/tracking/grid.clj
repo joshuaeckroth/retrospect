@@ -82,3 +82,8 @@
                    (nil? (grid-at grid x y)))
             (grid-move grid e x y)
             (recur (inc attempts))))))))
+
+(defn update-all-entity-times
+  [grid time]
+  (with-meta (vec (map (fn [e] (if e (with-meta e (merge (meta e) {:time time})))) grid))
+    (meta grid)))
