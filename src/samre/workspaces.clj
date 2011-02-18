@@ -6,7 +6,9 @@
   (:require [clojure.string :as string]))
 
 (defrecord Hypothesis
-    [id ;; a keyword
+    [id ;; an integer
+     pid ;; a keyword (public id)
+     prefix ;; a string
      type ;; a keyword
      apriori
      confidence
@@ -19,8 +21,8 @@
   (toString [this] (str-fn this)))
 
 (defn new-hyp
-  [id type apriori explains implausible-fn impossible-fn str-fn data]
-  (Hypothesis. id type apriori apriori
+  [prefix type apriori explains implausible-fn impossible-fn str-fn data]
+  (Hypothesis. (hash (rand)) nil prefix type apriori apriori
                explains implausible-fn impossible-fn str-fn data))
 
 (defrecord Workspace
@@ -32,11 +34,12 @@
      candidates ;; hyp-ids
      abducer-log
      dot ;; graph vector
+     last-pid ;; integer
      decision]) ;; {:confidence :accepted (hyp-ids) :rejected (hyp-ids) :forced (hyp-ids)}
 
 (defn init-workspace
   []
-  (Workspace. {} [] [] [] [] [] [] []
+  (Workspace. {} [] [] [] [] [] [] [] 0
               {:confidence nil :accepted [] :rejected [] :forced []}))
 
 (defn update-hyps
@@ -48,6 +51,10 @@
   [workspace hyp-ids]
   (doall (filter identity (map #((:hyps workspace) %) hyp-ids))))
 
+(defn map-pids
+  [workspace hyp-ids]
+  (doall (map :pid (lookup-hyps workspace hyp-ids))))
+
 (defn add-abducer-log-msg
   [workspace hyps msg]
   (update-in workspace [:abducer-log] conj (AbducerLogEntry. hyps msg)))
@@ -55,14 +62,17 @@
 (defn log-final-accepted-rejected-hyps
   [workspace]
   (let [id-to-str
-        (fn [t] (apply str (interpose ", " (sort (map name (t (:decision workspace)))))))]
+        (fn [t] (apply str (interpose ", " (sort (map-pids workspace
+                                                           (t (:decision workspace)))))))]
     (add-abducer-log-msg
      workspace
-     (concat (:accepted (:decision workspace))
-             (:rejected (:decision workspace)))
+     (map-pids workspace
+               (concat (:accepted (:decision workspace))
+                       (:rejected (:decision workspace))))
      (format "Final accepted: %s\n\tFinal rejected: %s\n\tFinal unexplained: %s"
              (id-to-str :accepted) (id-to-str :rejected)
-             (apply str (interpose ", " (sort (map name (:unexplained workspace)))))))))
+             (apply str (interpose ", " (sort (map-pids workspace
+                                                        (:unexplained workspace)))))))))
 
 (defn find-explainers
   [hyp hyps]
@@ -74,7 +84,7 @@
   [workspace]
   (let [active-hyps (lookup-hyps workspace (concat (:candidates workspace)
                                                    (:unexplained workspace)))
-        explains (filter #(% (:hyps workspace)) (flatten (map :explains active-hyps)))]
+        explains (filter #((:hyps workspace) %) (flatten (map :explains active-hyps)))]
     (filter (fn [hid] (not-any? #(= hid (:id %)) explains))
             (keys (:hyps workspace)))))
 
@@ -124,6 +134,7 @@
         rejected (concat (:rejected workspace)
                          (:rejected (:decision workspace)))]
     (-> (init-workspace)
+        (assoc :last-pid (:last-pid workspace))
         (assoc :hyps (:hyps workspace))
         (assoc :accepted accepted)
         (assoc :rejected rejected)
@@ -147,8 +158,8 @@
   (:confidence (:decision workspace)))
 
 (defn clear-decision
-  [workspace]
   "Clear the decision, except for what was 'forced'."
+  [workspace]
   (update-in workspace [:decision]
              assoc :confidence nil :accepted [] :rejected []))
 
@@ -156,7 +167,7 @@
   [workspace]
   (-> workspace
       (update-hyps (doall (map #(assoc % :confidence (:apriori %)) (vals (:hyps workspace)))))
-      (add-abducer-log-msg (keys (:hyps workspace))
+      (add-abducer-log-msg (map :pid (vals (:hyps workspace)))
                            "Resetting confidences back to apriori values.")))
 
 (defn add-hyp
@@ -164,20 +175,25 @@
   [workspace hyp]
   ;; don't add an identical existing hyp
   (if (get (:hyps workspace) (:id hyp)) workspace
-      (-> workspace
-          (update-in [:hypothesized] conj (:id hyp))
-          (update-in [:hyps] assoc (:id hyp) hyp)
-          (add-abducer-log-msg
-           [(:id hyp)]
-           (format "Adding hypothesis (apriori=%s; explains %s)."
-                   (confidence-str (:apriori hyp))
-                   (apply str (interpose "," (map name (:explains hyp)))))))))
+      (let [pid (:last-pid workspace)
+            hyp-pid (assoc hyp :pid (str (:prefix hyp) pid))]
+        (-> workspace
+            (update-in [:last-pid] inc)
+            (update-in [:hypothesized] conj (:id hyp-pid))
+            (update-in [:hyps] assoc (:id hyp-pid) hyp-pid)
+            (add-abducer-log-msg
+             [(:pid hyp-pid)]
+             (format "Adding hypothesis (apriori=%s; explains %s)."
+                     (confidence-str (:apriori hyp-pid))
+                     (apply str (interpose "," (map-pids workspace
+                                                         (:explains hyp-pid))))))))))
 
 (defn penalize-implausible
   [workspace hyps log-msg]
   (if (empty? hyps) workspace
       (let [penalized (doall (map #(update-in % [:confidence] penalize) hyps))]
-        (add-abducer-log-msg (update-hyps workspace penalized) (map :id penalized) log-msg))))
+        (add-abducer-log-msg (update-hyps workspace penalized)
+                             (map-pids workspace penalized) log-msg))))
 
 (defn reject-impossible
   [workspace hyps log-msg]
@@ -188,7 +204,7 @@
         (-> workspace
             (update-hyps rejected)
             (update-in [:decision :rejected] concat (map :id rejected))
-            (add-abducer-log-msg (map :id rejected) log-msg)))))
+            (add-abducer-log-msg (map-pids workspace rejected) log-msg)))))
 
 (defn reject-all-impossible
   [workspace]
@@ -205,21 +221,22 @@
         (update-in [:decision :accepted] conj (:id hyp))
         (penalize-implausible
          implausible
-         (format "Penalizing because accepting %s." (name (:id hyp))))
+         (format "Penalizing because accepting %s." (name (:pid hyp))))
         (reject-impossible
          impossible
-         (format "Rejecting because accepting %s." (name (:id hyp)))))))
+         (format "Rejecting because accepting %s." (name (:pid hyp)))))))
 
 (defn force-acceptance
   [workspace hyp]
-  (-> workspace
-      (update-in [:decision :forced] conj (:id hyp))
-      (add-abducer-log-msg
-       [(:id hyp)] (format "Forcing acceptance of %s." (name (:id hyp))))))
+  (let [hyp-pid ((:hyps workspace) (:id hyp))]
+    (-> workspace
+        (update-in [:decision :forced] conj (:id hyp-pid))
+        (add-abducer-log-msg
+         [(:pid hyp-pid)] (format "Forcing acceptance of %s." (:pid hyp-pid))))))
 
 (defn dot-format
   [workspace boxed acc]
-  (let [id #(format "%s %s" (name (:id %)) (confidence-str (:confidence %)))
+  (let [pid #(format "%s %s" (name (:pid %)) (confidence-str (:confidence %)))
         all-acc (lookup-hyps workspace (concat (:accepted (:decision workspace))
                                                (:forced (:decision workspace))
                                                (:accepted workspace)))
@@ -230,55 +247,55 @@
      "rankdir=\"LR\";\n"
      "node [shape=\"plaintext\"];\n"
      (apply str (for [h (vals (:hyps workspace))]
-                  (str (apply str (map #(format "\"%s\" -> \"%s\";\n" (id h) (id %))
+                  (str (apply str (map #(format "\"%s\" -> \"%s\";\n" (pid h) (pid %))
                                        (lookup-hyps workspace (:explains h)))))))
      (if (empty? all-acc) ""
          (apply str (for [h all-acc]
                       (format "\"%s\" [color=\"blue\", fontcolor=\"blue\"];\n"
-                              (id h)))))
+                              (pid h)))))
      (if (empty? all-rej) ""
          (apply str (for [h all-rej]
                       (format "\"%s\" [color=\"red\", fontcolor=\"red\"];\n"
-                              (id h)))))
+                              (pid h)))))
      (if (empty? (:unexplained workspace)) ""
          (apply str (for [h (lookup-hyps workspace (:unexplained workspace))]
                       (format "\"%s\" [color=\"orange\", fontcolor=\"orange\"];\n"
-                              (id h)))))
+                              (pid h)))))
      "subgraph cluster {\n"
      (if (= 0 (count boxed)) ""
        (if (< 0 (count boxed))
-         (apply str (map #(format "\"%s\";\n" (id %)) boxed))
-         (format "\"%s\";\n" (id (first boxed)))))
+         (apply str (map #(format "\"%s\";\n" (pid %)) boxed))
+         (format "\"%s\";\n" (pid (first boxed)))))
      "}\n"
      (apply str (for [h (vals (:hyps workspace))]
-                  (format "\"%s\";\n" (id h))))
+                  (format "\"%s\";\n" (pid h))))
      (if (nil? acc) ""
          (format "\"%s\" [color=\"blue\", fontcolor=\"blue\", shape=\"box\"];"
-                 (id acc)))
+                 (pid acc)))
      (if (nil? acc) ""
          (let [implausible ((:implausible-fn acc) acc (vals (:hyps workspace)))]
            (if (empty? implausible) ""
                (if (< 0 (count implausible))
                  (apply str (concat
                              (map #(format "\"%s\" -> \"%s\" [arrowhead=\"box\"];\n"
-                                           (id acc) (id %)) implausible)
+                                           (pid acc) (pid %)) implausible)
                              (map #(format "\"%s\" [color=\"red\", fontcolor=\"red\"];\n"
-                                           (id %))
+                                           (pid %))
                                   implausible)))
                  (format "\"%s\" -> \"%s\" [arrowhead=\"dot\", color=\"red\"];\n"
-                         (id acc) (id (first implausible)))))))
+                         (pid acc) (pid (first implausible)))))))
      (if (nil? acc) ""
          (let [impossible ((:impossible-fn acc) acc (vals (:hyps workspace)))]
            (if (empty? impossible) ""
                (if (< 0 (count impossible))
                  (apply str (concat
                              (map #(format "\"%s\" -> \"%s\" [arrowhead=\"box\"];\n"
-                                           (id acc) (id %)) impossible)
+                                           (pid acc) (pid %)) impossible)
                              (map #(format "\"%s\" [color=\"red\", fontcolor=\"red\"];\n"
-                                           (id %))
+                                           (pid %))
                                   impossible)))
                  (format "\"%s\" -> \"%s\" [arrowhead=\"box\"];\n"
-                         (id acc) (id (first impossible)))))))
+                         (pid acc) (pid (first impossible)))))))
      "}\n")))
 
 (defn find-best
@@ -320,12 +337,12 @@
     (if (empty? (:unexplained ws2)) (update-in ws2 [:dot] conj (dot-format ws2 [] nil))
         (let [best (find-best ws2)]
           (if (nil? best) (update-in ws2 [:dot] conj (dot-format ws2 [] nil))
-              (let [explains (filter #(% (:hyps workspace)) (:explains (:hyp best)))]
+              (let [explains (filter #((:hyps workspace) %) (:explains (:hyp best)))]
                 (recur
                  (-> (update-in ws2 [:dot] conj (:dot best))
                      (add-abducer-log-msg
-                      (conj explains (:id (:hyp best)))
-                      (format "Accepting %s as explainer of %s." (name (:id (:hyp best)))
-                              (apply str (interpose ", " (map name explains)))))
+                      (map-pids workspace (conj explains (:id (:hyp best))))
+                      (format "Accepting %s as explainer of %s." (name (:pid (:hyp best)))
+                              (apply str (interpose ", " (map-pids workspace explains)))))
                      (accept-hyp (:hyp best))))))))))
 

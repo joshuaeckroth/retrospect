@@ -1,8 +1,6 @@
 (ns samre.meta.hypotheses
-  (:require [samre workspaces])
-  (:import [samre.workspaces Hypothesis])
   (:use [samre.workspaces :only
-         [add-hyp measure-decision-confidence force-acceptance
+         [new-hyp add-hyp measure-decision-confidence force-acceptance
           clear-decision reset-confidences-to-apriori update-hyps
           lookup-hyps update-candidates-unexplained]])
   (:use [samre.epistemicstates :only
@@ -10,10 +8,6 @@
           new-branch-ep-state left-ep-state previous-ep-state update-ep-state-tree]])
   (:use [samre.meta.meta :only [have-enough-meta-hyps]])
   (:use [samre.confidences]))
-
-(defrecord EpistemicStateHypothesis [ep-state])
-
-(defrecord MetaHypothesis [id apriori action])
 
 (defn mark-least-conf-impossible
   "Given an ep-state (to go back to), mark the least confident
@@ -68,10 +62,8 @@
 
 (defn generate-ep-state-hyp
   [ep-state]
-  (Hypothesis. :ep-state :meta VERY-PLAUSIBLE VERY-PLAUSIBLE
-               [] (constantly []) (constantly [])
-               (constantly "ep-state")
-               {:ep-state ep-state}))
+  (new-hyp "EP" :meta VERY-PLAUSIBLE [] (constantly []) (constantly [])
+           (constantly "ep-state" {:ep-state ep-state})))
 
 (defn impossible-fn
   [ep-state-hyp hyp hyps]
@@ -83,14 +75,10 @@
   (let [est (branch-and-mark-impossible ep-state-tree branchable)
         hyp (let [{score :score ep :ep-state}
                   (score-by-explaining problem est sensors params lazy)]
-              (Hypothesis. (keyword
-                            (format "MH%d" (hash [ep-state-hyp est ep score])))
-                           :meta
-                           score score
-                           [(:id ep-state-hyp)] (constantly [])
-                           (partial impossible-fn ep-state-hyp)
-                           (fn [hyp] (name (:id hyp)))
-                           {:ep-state-tree est :ep-state ep}))]
+              (new-hyp "MH" :meta score [(:id ep-state-hyp)]
+                       (constantly []) (partial impossible-fn ep-state-hyp)
+                       (fn [hyp] (:pid hyp))
+                       {:ep-state-tree est :ep-state ep}))]
     (add-hyp workspace hyp)))
 
 (defn add-more-explainers-hyp
@@ -105,23 +93,18 @@
         est2 (update-ep-state-tree est ep2)
         hyp (let [{score :score ep :ep-state}
                   (score-by-explaining problem est2 sensors params true)]
-              (Hypothesis. (keyword
-                            (format "MH+%d" (hash [ep-state-hyp est2 score])))
-                           :meta
-                           score score
-                           [(:id ep-state-hyp)] (constantly [])
-                           (partial impossible-fn ep-state-hyp)
-                           (fn [hyp] (name (:id hyp)))
-                           nil))]
+              (new-hyp "MH+" :meta score [(:id ep-state-hyp)] (constantly [])
+                       (partial impossible-fn ep-state-hyp)
+                       (fn [hyp] (:pid hyp)) nil))]
     (add-hyp workspace hyp)))
 
 (defn add-accurate-decision-hyp
   [workspace ep-state-hyp]
   (let [apriori (measure-decision-confidence (:workspace (:ep-state (:data ep-state-hyp))))
-        hyp (Hypothesis. :MH-dec-accurate :meta apriori apriori
-                         [(:id ep-state-hyp)] (constantly [])
-                         (partial impossible-fn ep-state-hyp)
-                         (constantly "Decision is accurate") nil)]
+        hyp (new-hyp "MHA" :meta apriori
+                     [(:id ep-state-hyp)] (constantly [])
+                     (partial impossible-fn ep-state-hyp)
+                     (constantly "Decision is accurate") nil)]
     (add-hyp workspace hyp)))
 
 (defn generate-meta-hypotheses

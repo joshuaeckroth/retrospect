@@ -10,8 +10,7 @@
 
 (defn add-sensor-hyp
   [sensor e]
-  (let [hyp (new-hyp (keyword (format "SH%d" (hash (rand))))
-                     :sensor NEUTRAL [] (constantly []) (constantly [])
+  (let [hyp (new-hyp "SH" :sensor NEUTRAL [] (constantly []) (constantly [])
                      (fn [h] (format "%s" (str (meta (:entity (:data h))))))
                      {:sensor sensor :entity e})]
     (with-meta e (merge (meta e) {:hyp hyp}))))
@@ -182,8 +181,7 @@
 
 (defn make-hyp
   [path label maxwalk]
-  (new-hyp (keyword (format "TH%d" (hash (rand))))
-           :tracking (score-path path label maxwalk)
+  (new-hyp "TH" :tracking (score-path path label maxwalk)
            (map :id (filter identity (map (comp :hyp meta) (flatten path))))
            (constantly []) impossible-fn
            str-fn {:label label :path path}))
@@ -226,6 +224,7 @@
 
 (defn commit-decision
   "Commit rejected first, then accepted."
-  [pdata accepted rejected]
+  [pdata accepted rejected candidates]
+  (println (map :pid candidates))
   (commit-accepted (commit-rejected pdata rejected) accepted))
 

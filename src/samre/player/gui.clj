@@ -128,8 +128,8 @@
       (. *explains-graph-label* setText
          (format "Cycle %d of %d" (inc *explains-graph-index*) *explains-graph-count*))
       (spit (str filename ".dot") (nth dot *explains-graph-index*))
-      #_(sh "dot" "-Tpng" (str "-o" filename ".png") (str filename ".dot"))
-      #_(sh "mogrify" "-resize" "50%" (str filename ".png"))
+      (sh "dot" "-Tpng" (str "-o" filename ".png") (str filename ".dot"))
+      (sh "mogrify" "-resize" "50%" (str filename ".png"))
       (str filename ".png"))))
 
 (defn get-explains-graph-viewport
@@ -253,7 +253,7 @@
   []
   (.removeAllItems *hyp-choice*)
   (when-let [ep (previous-ep-state (:ep-state-tree *or-state*))]
-    (doseq [i (sort (map name (keys (:hyps (:workspace ep)))))]
+    (doseq [i (sort (map :pid (vals (:hyps (:workspace ep)))))]
       (.addItem *hyp-choice* i))))
 
 (defn get-results-viewport

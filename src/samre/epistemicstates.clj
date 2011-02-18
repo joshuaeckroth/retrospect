@@ -159,22 +159,20 @@
                                  (ws/add-hyp hyp)
                                  (ws/force-acceptance hyp))))
 
-(defn force-acceptance
-  [ep-state hyp]
-  (update-in ep-state [:workspace] ws/force-acceptance hyp))
-
 (defn commit-decision
   [ep-state id time-now problem]
   (let [workspace (:workspace ep-state)
         accepted-hyps (ws/lookup-hyps workspace (:accepted (:decision workspace)))
-        rejected-hyps (ws/lookup-hyps workspace (:rejected (:decision workspace)))]
+        rejected-hyps (ws/lookup-hyps workspace (:rejected (:decision workspace)))
+        candidate-hyps (ws/lookup-hyps workspace (:candidates workspace))]
     (EpistemicState.
      id
      []
      (inc time-now)
      (ws/accept-workspace-decision workspace)
      []
-     ((:commit-decision-fn problem) (:problem-data ep-state) accepted-hyps rejected-hyps))))
+     ((:commit-decision-fn problem) (:problem-data ep-state)
+      accepted-hyps rejected-hyps candidate-hyps))))
 
 (defn find-least-confident-decision
   [ep-state-tree]
