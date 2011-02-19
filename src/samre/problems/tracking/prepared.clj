@@ -57,3 +57,5 @@
                              (entity-paths [0 red 0 4,5 6,7 7,3]
                                            [1 red 2 2,2]))})
 
+(def prepared-map
+  {"simple-dis" simple-disappearance})

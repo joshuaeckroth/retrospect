@@ -14,14 +14,15 @@
   (:use [samre.onerun :only [init-one-run-state]])
   (:use [samre.epistemicstates :only
          [draw-ep-state-tree list-ep-states current-ep-state goto-ep-state
-          goto-next-ep-state previous-ep-state]])
-  (:require [samre.problems.tracking.prepared :as prepared]))
+          goto-next-ep-state previous-ep-state]]))
 
 (def *mainframe* nil)
 (def *problem-headers* nil)
 (def *problem-diagram* nil)
 (def *problem-params-panel* nil)
 (def *problem-stats-panel* nil)
+
+(def *prepared-list* (JComboBox.))
 
 (def *steplabel* (JLabel. "Step: "))
 (def *goto-ep-state-combobox* (JComboBox. (to-array "")))
@@ -106,6 +107,13 @@
     (. (k *param-spinners*) setValue (k *params*)))
   (. (:MetaAbduction *param-checkbox*) setState (:meta-abduction *or-state*))
   (. (:Lazy *param-checkbox*) setState (:lazy *or-state*)))
+
+(defn get-prepared-list
+  []
+  (let [prepared-map (:prepared-map *problem*)]
+    (.addItem *prepared-list* "None")
+    (doseq [p (keys prepared-map)]
+      (.addItem *prepared-list* p))))
 
 (defn get-ep-tree-viewport
   []
@@ -412,18 +420,21 @@
 
 (defn new-simulation
   []
-  (let [prepared prepared/simple-disappearance
-        params (if true (:params prepared) (get-params))
+  (let [prepared-choice (.getSelectedItem *prepared-list*)
+        prepared (if (not= "None" prepared-choice) (get (:prepared-map *problem*)
+                                                        prepared-choice))
+        params (if prepared (:params prepared) (get-params))
         meta-abduction (:MetaAbduction params)
         lazy (:Lazy params)
-        sensors (if true (:sensors prepared) ((:sensor-gen-fn *problem*) params))
-        truedata (if true (:truedata prepared) ((:truedata-fn *problem*) params))
+        sensors (if prepared (:sensors prepared) ((:sensor-gen-fn *problem*) params))
+        truedata (if prepared (:truedata prepared) ((:truedata-fn *problem*) params))
         or-state (init-one-run-state meta-abduction lazy sensors
                                      ((:gen-problem-data-fn *problem*) sensors params))]
     (update-params params)
     (update-sensors sensors)
     (update-truedata truedata)
-    (update-everything or-state)))
+    (update-everything or-state)
+    (when prepared-choice (set-params))))
 
 (def *newbutton*
   (let [b (JButton. "New")]
@@ -450,35 +461,40 @@
     (grid-bag-layout
      :fill :BOTH, :insets (Insets. 5 5 5 5)
      :gridwidth 1
-     
+
      :gridx 0, :gridy 0
-     (JLabel. "MetaAbduction:")
+     (JLabel. "Prepared:")
      :gridx 1, :gridy 0
+     *prepared-list*
+     
+     :gridx 0, :gridy 1
+     (JLabel. "MetaAbduction:")
+     :gridx 1, :gridy 1
      (:MetaAbduction *param-checkbox*)
 
-     :gridx 0, :gridy 1
+     :gridx 0, :gridy 2
      (JLabel. "Lazy:")
-     :gridx 1, :gridy 1
+     :gridx 1, :gridy 2
      (:Lazy *param-checkbox*)
 
-     :gridx 0, :gridy 2
+     :gridx 0, :gridy 3
      (JLabel. "Steps:")
-     :gridx 1, :gridy 2
+     :gridx 1, :gridy 3
      (:Steps *param-spinners*)
 
-     :gridx 0, :gridy 3
+     :gridx 0, :gridy 4
      (JLabel. "StepsBetween:")
-     :gridx 1, :gridy 3
+     :gridx 1, :gridy 4
      (:StepsBetween *param-spinners*)
      
-     :gridx 0, :gridy 4
+     :gridx 0, :gridy 5
      (JLabel. "SensorReportNoise:")
-     :gridx 1, :gridy 4
+     :gridx 1, :gridy 5
      (:SensorReportNoise *param-spinners*)
      
-     :gridx 0, :gridy 5
+     :gridx 0, :gridy 6
      (JLabel. "BeliefNoise:")
-     :gridx 1, :gridy 5
+     :gridx 1, :gridy 6
      (:BeliefNoise *param-spinners*))))
 
 (def *stats-panel*
@@ -592,6 +608,8 @@
   (def *results-checkboxes* (get-results-checkboxes))
   (def *results-checkboxes-panel* (get-results-checkboxes-panel))
 
+  (get-prepared-list)
+
   (def *mainframe* (get-mainframe))
 
   (let [options (apply hash-map opts)]
@@ -607,7 +625,7 @@
     (doto *mainframe*
       (.setResizable true)
       (.pack)
-      (.setSize 900 700)
+      (.setSize 900 750)
       (.show))
     (when (not (:monitor options))
       (new-simulation))))

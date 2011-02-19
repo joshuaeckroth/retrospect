@@ -13,7 +13,8 @@
   (:use [samre.problems.tracking.sensors :only
          [measure-sensor-overlap measure-sensor-coverage
           list-sensors-seen list-sensors-unseen sensors-seen-grid]])
-  (:use [samre.problems.tracking.monitor :only (monitor)]))
+  (:use [samre.problems.tracking.monitor :only [monitor]])
+  (:use [samre.problems.tracking.prepared :only [prepared-map]]))
 
 (def avg-fields [:PercentEventsCorrect :MeanTimeWithLabel :MaxTimeWithLabel
                  :MinTimeWithLabel :MeanCountAlternatives :MeanLabelCounts
@@ -118,6 +119,7 @@
              :update-truedata-log-box-fn player-update-truedata-log-box}
             generate-truedata
             generate-sensors
+            prepared-map
             hypothesize
             commit-decision
             generate-problem-data
