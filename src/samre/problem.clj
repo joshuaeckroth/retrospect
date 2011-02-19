@@ -8,8 +8,9 @@
   (:use [samre.sensors :only [update-sensors]]))
 
 (def avg-fields
-  [:Steps :Step :StepsBetween :MetaAbductions :Compute :Milliseconds :Memory
-   :SensorReportNoise :BeliefNoise :Unexplained])
+  [:Steps :Step :StepsBetween :MetaAbductions :Milliseconds
+   :SensorReportNoise :BeliefNoise :Unexplained :ExplainCycles
+   :HypothesisCount :HypothesesNew])
 
 (def non-avg-fields
   [:MetaAbduction :Lazy])
@@ -26,11 +27,15 @@
                         :MetaAbduction (:meta-abduction or-state)
                         :Lazy (:lazy or-state)
                         :MetaAbductions (:meta-abductions (:resources or-state))
-                        :Compute (:compute (:resources or-state))
                         :Milliseconds (:milliseconds (:resources or-state))
-                        :Memory (:memory (:resources or-state))
                         :Unexplained
-                        (if prev-ep (count (:unexplained (:workspace prev-ep))) 0))))))
+                        (if prev-ep (count (:unexplained (:workspace prev-ep))) 0)
+                        :ExplainCycles
+                        (:explain-cycles (:resources (:workspace prev-ep)))
+                        :HypothesisCount
+                        (:hyp-count (:resources (:workspace prev-ep)))
+                        :HypothesesNew
+                        (:hyps-new (:resources (:workspace prev-ep))))))))
 
 (defn proceed-n-steps
   [n time truedata or-state]
@@ -75,7 +80,7 @@
         or-states (init-one-run-states {:MetaAbduction [false] :Lazy [true]}
                                        sensors problem-data)]
     (doall (for [ors or-states]
-             (last (run-simulation problem monitor truedata ors params))))))
+             (last (run-simulation problem truedata ors monitor params))))))
 
 (defn run-many
   [problem monitor params n]

@@ -35,11 +35,13 @@
      abducer-log
      dot ;; graph vector
      last-pid ;; integer
+     resources ;; map
      decision]) ;; {:confidence :accepted (hyp-ids) :rejected (hyp-ids) :forced (hyp-ids)}
 
 (defn init-workspace
   []
   (Workspace. {} [] [] [] [] [] [] [] 0
+              {:explain-cycles 0 :hyp-count 0 :hyps-new 0}
               {:confidence nil :accepted [] :rejected [] :forced []}))
 
 (defn update-hyps
@@ -328,21 +330,23 @@
           (let [acc (first most-imp)]
             {:hyp acc :dot (dot-format workspace most-imp acc)}))))))
 
-;;; TODO: add measure of how many iterations are used (for "compute" measure)
-
 (defn explain
   [workspace]
-  (let [ws (update-candidates-unexplained workspace)
-        ws2 (reject-all-impossible ws)]
-    (if (empty? (:unexplained ws2)) (update-in ws2 [:dot] conj (dot-format ws2 [] nil))
-        (let [best (find-best ws2)]
-          (if (nil? best) (update-in ws2 [:dot] conj (dot-format ws2 [] nil))
+  (let [ws (-> (update-candidates-unexplained workspace)
+               (reject-all-impossible)
+               (update-in [:resources] assoc :hyp-count (count (:hyps workspace)))
+               (update-in [:resources] assoc :hyps-new (count (:hypothesized workspace))))]
+    (if (empty? (:unexplained ws)) (update-in ws [:dot] conj (dot-format ws [] nil))
+        (let [best (find-best ws)]
+          (if (nil? best) (update-in ws [:dot] conj (dot-format ws [] nil))
               (let [explains (filter #((:hyps workspace) %) (:explains (:hyp best)))]
                 (recur
-                 (-> (update-in ws2 [:dot] conj (:dot best))
+                 (-> ws
+                     (update-in [:dot] conj (:dot best))
+                     (update-in [:resources :explain-cycles] inc)
                      (add-abducer-log-msg
-                      (map-pids workspace (conj explains (:id (:hyp best))))
+                      (map-pids ws (conj explains (:id (:hyp best))))
                       (format "Accepting %s as explainer of %s." (name (:pid (:hyp best)))
-                              (apply str (interpose ", " (map-pids workspace explains)))))
+                              (apply str (interpose ", " (map-pids ws explains)))))
                      (accept-hyp (:hyp best))))))))))
 

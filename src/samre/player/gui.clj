@@ -285,7 +285,7 @@
 
 (defn get-results-checkboxes
   []
-  (reduce (fn [m h] (let [cb (Checkbox. (name h) true)]
+  (reduce (fn [m h] (let [cb (Checkbox. (name h) false)]
                       (. cb addItemListener
                          (proxy [java.awt.event.ItemListener] []
                            (itemStateChanged [_] (update-results))))
@@ -585,7 +585,7 @@
   [problem & opts]
 
   (update-problem problem)
-  (def *problem-headers* (cons :Step (get-headers *problem*)))
+  (def *problem-headers* (get-headers *problem*))
 
   (update-params (get-params))
 

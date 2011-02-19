@@ -44,5 +44,9 @@
      :MinTimeWithLabel (double (apply min (flatten (vals twl))))
      :MeanCountAlternatives 0
      :MeanLabelCounts (double (/ (reduce + 0 (map #(count (set (elmap %))) (keys elmap)))
-                                 (count (keys elmap))))}))
+                                 (count (keys elmap))))
+     :AvgWalk 0
+     :PlausibilityAccuracy 0
+     :SensorOverlap 0
+     :EntityDensity 0}))
 

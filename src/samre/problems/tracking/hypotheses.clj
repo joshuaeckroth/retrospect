@@ -206,7 +206,6 @@
                                                 (keys paths))))
           (let [label (new-label (keys paths) (spotted-at (first uncovered)))
                 newpaths (assoc paths label [[(spotted-at (first uncovered))]])]
-            (print-paths newpaths)
             (recur (assoc-label-path label newpaths prior-covered spotted-grid maxwalk))))))))
 
 ;; TODO: check for ambiguity (unexplained), make new label for each alternative
@@ -226,7 +225,7 @@
 (defn commit-decision
   "Commit rejected first, then accepted."
   [pdata accepted rejected candidates]
-  (println (map :pid candidates))
-  (println (map (comp path-str :path :data) candidates))
+  #_(println (map :pid candidates))
+  #_(println (map (comp path-str :path :data) candidates))
   (commit-accepted (commit-rejected pdata rejected) accepted))
 
