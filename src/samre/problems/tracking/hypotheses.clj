@@ -49,11 +49,10 @@
   [x1 y1 x2 y2 maxwalk]
   (let [dist (man-dist x1 y1 x2 y2)]
     (cond
-     (<= dist (math/ceil (/ maxwalk 4))) PLAUSIBLE
-     (<= dist (math/ceil (/ maxwalk 3))) NEUTRAL
-     (<= dist (math/ceil (/ maxwalk 2))) IMPLAUSIBLE
-     :else ;; equivalent to (<= dist maxwalk)
-     VERY-IMPLAUSIBLE)))
+     (<= dist (math/ceil (/ maxwalk 4))) VERY-PLAUSIBLE
+     (<= dist (math/ceil (/ maxwalk 2))) PLAUSIBLE
+     ;; last case is same as :else due to physical constraints
+     (<= dist maxwalk) NEUTRAL))) 
 
 (defn score-path
   "spotted is a collection of sensor detections; count-seen is how
@@ -201,9 +200,12 @@
                          oldpaths (keys oldpaths))]
       (let [uncovered (find-uncovered-pos paths spotted-grid)]
         (if (empty? uncovered)
-          (reduce add-hyp ep (apply concat (map (fn [l] (map #(make-hyp % l maxwalk)
-                                                             (l paths)))
-                                                (keys paths))))
+          (do
+            (println (map (fn [l] (format "%s (%s)" (str l) (str (meta l)))) (keys paths)))
+            (print-paths paths)
+            (reduce add-hyp ep (apply concat (map (fn [l] (map #(make-hyp % l maxwalk)
+                                                               (l paths)))
+                                                  (keys paths)))))
           (let [label (new-label (keys paths) (spotted-at (first uncovered)))
                 newpaths (assoc paths label [[(spotted-at (first uncovered))]])]
             (recur (assoc-label-path label newpaths prior-covered spotted-grid maxwalk))))))))

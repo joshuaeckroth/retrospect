@@ -61,13 +61,13 @@
                                                     ["2" blue 0 5,5 5,4]))}))
 
 (def intersection-ambiguity
-  (let [params (merge basic-params {:Steps 3 :SensorSeesColor 70 :MaxWalk 5})]
+  (let [params (merge basic-params {:Steps 3 :SensorSeesColor 80 :MaxWalk 5})]
     {:params params
      :sensors [(new-sensor (keyword "left") 0 2 0 9 true)
-               (new-sensor (keyword "middle") 3 5 0 9 false)
-               (new-sensor (keyword "right") 6 9 0 9 true)]
-     :truedata (build-truedata params (entity-paths ["1" red  0 7,5 4,5 2,3]
-                                                    ["2" blue 0 7,6 4,6 2,8]))}))
+               (new-sensor (keyword "middle") 3 4 0 9 false)
+               (new-sensor (keyword "right") 5 9 0 9 true)]
+     :truedata (build-truedata params (entity-paths ["1" red  0 5,5 4,5 2,2]
+                                                    ["2" blue 0 5,6 4,6 2,9]))}))
 
 (def prepared-map
   {"simple-dis" simple-disappearance

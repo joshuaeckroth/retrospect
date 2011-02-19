@@ -34,13 +34,14 @@
      candidates ;; hyp-ids
      abducer-log
      dot ;; graph vector
+     marked-ancient ;; vector
      last-pid ;; integer
      resources ;; map
      decision]) ;; {:confidence :accepted (hyp-ids) :rejected (hyp-ids) :forced (hyp-ids)}
 
 (defn init-workspace
   []
-  (Workspace. {} [] [] [] [] [] [] [] 0
+  (Workspace. {} [] [] [] [] [] [] [] [] 0
               {:explain-cycles 0 :hyp-count 0 :hyps-new 0}
               {:confidence nil :accepted [] :rejected [] :forced []}))
 
@@ -94,11 +95,13 @@
   "Called by new-child-ep-state in epistemicstates.clj"
   [workspace]
   (let [ancient (set (find-ancient-hyps workspace))
-        new-hyps (apply dissoc (:hyps workspace) ancient)
-        new-accepted (set/difference (set (:accepted workspace)) ancient)
-        new-rejected (set/difference (set (:rejected workspace)) ancient)
-        new-candidates (set/difference (set (:candidates workspace)) ancient)]
+        marked (:marked-ancient workspace)
+        new-hyps (apply dissoc (:hyps workspace) marked)
+        new-accepted (set/difference (set (:accepted workspace)) marked)
+        new-rejected (set/difference (set (:rejected workspace)) marked)
+        new-candidates (set/difference (set (:candidates workspace)) marked)]
     (-> workspace
+        (assoc :marked-ancient ancient)
         (assoc :dot [])
         (assoc :hyps new-hyps)
         (assoc :accepted new-accepted)
@@ -140,6 +143,7 @@
         (assoc :hyps (:hyps workspace))
         (assoc :accepted accepted)
         (assoc :rejected rejected)
+        (assoc :marked-ancient (:marked-ancient workspace))
         (update-candidates-unexplained))))
 
 (defn measure-decision-confidence
@@ -278,24 +282,16 @@
          (let [implausible ((:implausible-fn acc) acc (vals (:hyps workspace)))]
            (if (empty? implausible) ""
                (if (< 0 (count implausible))
-                 (apply str (concat
-                             (map #(format "\"%s\" -> \"%s\" [arrowhead=\"box\"];\n"
-                                           (pid acc) (pid %)) implausible)
-                             (map #(format "\"%s\" [color=\"red\", fontcolor=\"red\"];\n"
-                                           (pid %))
-                                  implausible)))
+                 (apply str (map #(format "\"%s\" -> \"%s\" [arrowhead=\"box\"];\n"
+                                          (pid acc) (pid %)) implausible))
                  (format "\"%s\" -> \"%s\" [arrowhead=\"dot\", color=\"red\"];\n"
                          (pid acc) (pid (first implausible)))))))
      (if (nil? acc) ""
          (let [impossible ((:impossible-fn acc) acc (vals (:hyps workspace)))]
            (if (empty? impossible) ""
                (if (< 0 (count impossible))
-                 (apply str (concat
-                             (map #(format "\"%s\" -> \"%s\" [arrowhead=\"box\"];\n"
-                                           (pid acc) (pid %)) impossible)
-                             (map #(format "\"%s\" [color=\"red\", fontcolor=\"red\"];\n"
-                                           (pid %))
-                                  impossible)))
+                 (apply str (map #(format "\"%s\" -> \"%s\" [arrowhead=\"box\"];\n"
+                                          (pid acc) (pid %)) impossible))
                  (format "\"%s\" -> \"%s\" [arrowhead=\"box\"];\n"
                          (pid acc) (pid (first impossible)))))))
      "}\n")))
@@ -326,7 +322,7 @@
                                               (vals (:hyps workspace))))))
             max-imp (apply max (conj (map count-imp most-expl) 0))
             most-imp (filter #(= max-imp (count-imp %)) most-expl)]
-        (when (= (count most-imp) 1)
+        (when (>= (count most-imp) 1)
           (let [acc (first most-imp)]
             {:hyp acc :dot (dot-format workspace most-imp acc)}))))))
 
