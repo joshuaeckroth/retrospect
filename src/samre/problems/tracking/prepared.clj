@@ -66,8 +66,8 @@
      :sensors [(new-sensor (keyword "left") 0 2 0 9 true)
                (new-sensor (keyword "middle") 3 4 0 9 false)
                (new-sensor (keyword "right") 5 9 0 9 true)]
-     :truedata (build-truedata params (entity-paths ["1" red  0 5,5 4,5 2,2]
-                                                    ["2" blue 0 5,6 4,6 2,9]))}))
+     :truedata (build-truedata params (entity-paths ["1" red  0 5,5 4,6 2,9]
+                                                    ["2" blue 0 5,6 4,5 2,2]))}))
 
 (def prepared-map
   {"simple-dis" simple-disappearance
