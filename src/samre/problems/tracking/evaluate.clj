@@ -2,7 +2,33 @@
   (:use [samre.epistemicstates :only (current-ep-state)])
   (:use [samre.workspaces :only [lookup-hyps]])
   (:use [samre.confidences])
+  (:use [samre.problems.tracking.hypotheses :only [path-to-movements]])
   (:require [clojure.set :as set]))
+
+(defn find-grid-movements
+  [truedata maxtime]
+  (if (< maxtime 0) []
+      (flatten
+       (for [time (range (inc maxtime))]
+         (let [grid-before (nth truedata time)
+               grid-after (nth truedata (inc time))]
+           (map (fn [e] (let [e2 (first (filter #(= e %) grid-after))]
+                          {:ox (:x (meta e)) :oy (:y (meta e)) :ot (:time (meta e))
+                           :x (:x (meta e2)) :y (:y (meta e2)) :t (:time (meta e2))}))
+                (filter identity grid-before)))))))
+
+(defn believed-movements
+  [pdata]
+  (let [paths (:paths pdata)]
+    (flatten (map path-to-movements (vals paths)))))
+
+(defn percent-events-correct
+  [truedata pdata maxtime]
+  (let [grid-movements (set (find-grid-movements truedata maxtime))
+        bel-movements (set (believed-movements pdata))]
+    (if (empty? grid-movements) 100.0
+        (double (* 100.0 (/ (count (set/intersection grid-movements bel-movements))
+                            (count grid-movements)))))))
 
 (defn assoc-es-ls
   [ep-state truedata]
@@ -48,7 +74,8 @@
   [ep-state sensors truedata params]
   (let [elmap (assoc-es-ls ep-state truedata)
         twl (reduce (partial assoc-es-twl elmap) {} (keys elmap))]
-    {:PercentEventsCorrect 0.0
+    {:PercentEventsCorrect (percent-events-correct truedata (:problem-data ep-state)
+                                                   (dec (dec (:time ep-state))))
      :MeanTimeWithLabel (double (/ (reduce + 0 (flatten (vals twl))) (count (keys twl))))
      :MaxTimeWithLabel (double (apply max (flatten (vals twl))))
      :MinTimeWithLabel (double (apply min (flatten (vals twl))))

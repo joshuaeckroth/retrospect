@@ -67,6 +67,12 @@
                                                     maxwalk))
                         move-pairs)))))
 
+(defn path-to-movements
+  [path]
+  (map (fn [[e1 e2]] {:ox (:x (meta e1)) :oy (:y (meta e1)) :ot (:time (meta e1))
+                      :x (:x (meta e2)) :y (:y (meta e2)) :t (:time (meta e2))})
+       (partition 2 (interleave (butlast (map first path)) (rest (map first path))))))
+
 (defn path-str
   [path]
   (let [fmt #(format "%d,%d@%d " (:x (meta %)) (:y (meta %)) (:time (meta %)))]
