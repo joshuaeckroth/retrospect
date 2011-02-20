@@ -4,10 +4,10 @@
   Object
   (toString [_] (format "%s" msg)))
 
-(defrecord AbducerLogEntry [hyp-pids msg]
+(defrecord AbducerLogEntry [hyp-ids msg]
   Object
   (toString [_] (format "Hypotheses: %s\n\t%s"
-			(apply str (interpose ", " hyp-pids)) msg)))
+			(apply str (interpose ", " (map str hyp-ids))) msg)))
 
 (defrecord MetaLogEntry [ep-state ep-state-revisit msg]
   Object

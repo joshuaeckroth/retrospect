@@ -78,15 +78,15 @@
                                     (keys paths)))))
 
 (defn covered?
-  [paths x y time]
+  [es x y time]
   (some (fn [e] (and (= (:time (meta e)) time)
                      (= (:x (meta e)) x)
                      (= (:y (meta e)) y)))
-        (flatten paths)))
+        es))
 
 (defn find-uncovered-pos
   "Finds the earliest spotted positions that have not been covered."
-  [paths spotted-grid]
+  [es spotted-grid]
   (if (empty? spotted-grid) []
       (let [grid (first spotted-grid)
             time (:time (meta grid))
@@ -95,10 +95,10 @@
                     (for [y (range (:height (meta grid))) ;; need height followed by width
                           x (range (:width (meta grid)))]
                       (if (and (not-empty (grid-at grid x y))
-                               (not (covered? (vals paths) x y time)))
+                               (not (covered? es x y time)))
                         {:x x :y y :time time})))]
         (if (not-empty uncovered) uncovered
-            (recur paths (rest spotted-grid))))))
+            (recur es (rest spotted-grid))))))
 
 (defn new-label
   [labels spotted]
@@ -146,8 +146,8 @@
 
 (defn extend-paths
   [label paths prior-covered spotted-grid maxwalk]
-  (apply concat paths (map (fn [p] (extend-path label p prior-covered spotted-grid maxwalk))
-                           paths)))
+  (apply concat (map (fn [p] (extend-path label p prior-covered spotted-grid maxwalk))
+                     paths)))
 
 (defn make-label-path
   "The first grid in spotted-grid is the time step that should be
@@ -156,16 +156,20 @@
   [label paths prior-covered spotted-grid maxwalk]
   (if (empty? spotted-grid) paths
       (let [ex-paths (extend-paths label paths prior-covered spotted-grid maxwalk)]
-        ;; check for count=1 (rather than 0) because existing path is always included
-        (if (= 1 (count ex-paths)) paths
+        (if (empty? ex-paths) paths
             (recur label ex-paths prior-covered (rest spotted-grid) maxwalk)))))
 
 (defn assoc-label-path
   [label paths prior-covered spotted-grid maxwalk]
   (let [prior-paths (label paths)
         last-time (apply min (map (comp :time meta first last) prior-paths))
-        sg (if-not prior-paths spotted-grid (subvec spotted-grid (inc last-time)))]
-    (assoc paths label (make-label-path label prior-paths prior-covered sg maxwalk))))
+        sg (if-not prior-paths spotted-grid (subvec spotted-grid (inc last-time)))
+        new-paths (make-label-path label prior-paths prior-covered sg maxwalk)]
+    ;; check if no progress was made in extending the paths;
+    ;; if there was no progress, forget about the label
+    (if (= new-paths prior-paths)
+      (dissoc paths label)
+      (assoc paths label new-paths))))
 
 (defn str-fn
   [hyp]
@@ -198,17 +202,29 @@
         prior-covered (flatten (vals oldpaths))]
     (loop [paths (reduce (fn [p l] (assoc-label-path l p prior-covered spotted-grid maxwalk))
                          oldpaths (keys oldpaths))]
-      (let [uncovered (find-uncovered-pos paths spotted-grid)]
+      (let [uncovered (find-uncovered-pos (concat (flatten (vals paths)) prior-covered)
+                                          spotted-grid)]
+        #_(println uncovered)
         (if (empty? uncovered)
           (do
-            (println (map (fn [l] (format "%s (%s)" (str l) (str (meta l)))) (keys paths)))
-            (print-paths paths)
+            #_(print-paths paths)
             (reduce add-hyp ep (apply concat (map (fn [l] (map #(make-hyp % l maxwalk)
                                                                (l paths)))
                                                   (keys paths)))))
-          (let [label (new-label (keys paths) (spotted-at (first uncovered)))
-                newpaths (assoc paths label [[(spotted-at (first uncovered))]])]
-            (recur (assoc-label-path label newpaths prior-covered spotted-grid maxwalk))))))))
+          ;; when making a new label, consider oldpaths labels plus newpaths labels,
+          ;; since the newpaths (called 'paths' here) may have dissoc'd some labels
+          ;; that could not be extended
+          (let [label (new-label (concat (keys oldpaths) (keys paths))
+                                 (spotted-at (first uncovered)))
+                newpaths (assoc paths label [[(spotted-at (first uncovered))]])
+                ;; do a merge because the assoc-label-path func may dissoc the label
+                ;; if no extension progress is made; since we just created
+                ;; a new label we want to be sure to save the new label even if
+                ;; no extension was made
+                expaths (merge newpaths
+                               (assoc-label-path label newpaths prior-covered
+                                                 spotted-grid maxwalk))]
+            (recur expaths)))))))
 
 ;; TODO: check for ambiguity (unexplained), make new label for each alternative
 
@@ -221,6 +237,7 @@
 (defn commit-accepted
   [pdata accepted]
   (reduce (fn [pd hyp] (let [l (:label (:data hyp)) path (:path (:data hyp))]
+                         #_(println "accepted: " (:pid hyp) (str l) (path-str path))
                          (update-in pd [:paths] assoc l path)))
           pdata accepted))
 
@@ -229,5 +246,10 @@
   [pdata accepted rejected candidates]
   #_(println (map :pid candidates))
   #_(println (map (comp path-str :path :data) candidates))
-  (commit-accepted (commit-rejected pdata rejected) accepted))
+  #_(commit-rejected pdata rejected)
+  (let [pd (commit-accepted pdata accepted)]
+    #_(println "final paths:")
+    (doseq [l (keys (:paths pd))]
+      #_(println (str l) (path-str ((:paths pd) l))))
+    pd))
 

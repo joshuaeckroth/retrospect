@@ -34,6 +34,16 @@
         label-counts (map count (for [l labels] (filter #(= l %) (elmap e))))]
     (assoc twl e (if (empty? label-counts) [0] label-counts))))
 
+(defn mean-count-alts
+  [workspace type]
+  (let [hyp-map-empty (reduce (fn [m hyp] (assoc m (:id hyp) 0))
+                              {} (filter #(= type (:type %)) (vals (:hyps workspace))))
+        hyp-map (reduce (fn [m hyp-id] (if (nil? (hyp-id m)) m
+                                            (update-in m [hyp-id] inc)))
+                        hyp-map-empty (flatten (map :explains (vals (:hyps workspace)))))]
+    (if (empty? hyp-map) 0.0
+        (double (/ (reduce + 0 (vals hyp-map)) (count hyp-map))))))
+
 (defn evaluate
   [ep-state sensors truedata params]
   (let [elmap (assoc-es-ls ep-state truedata)
@@ -42,7 +52,7 @@
      :MeanTimeWithLabel (double (/ (reduce + 0 (flatten (vals twl))) (count (keys twl))))
      :MaxTimeWithLabel (double (apply max (flatten (vals twl))))
      :MinTimeWithLabel (double (apply min (flatten (vals twl))))
-     :MeanCountAlternatives 0
+     :MeanCountAlternatives (mean-count-alts (:workspace ep-state) :sensor)
      :MeanLabelCounts (double (/ (reduce + 0 (map #(count (set (elmap %))) (keys elmap)))
                                  (count (keys elmap))))
      :AvgWalk 0

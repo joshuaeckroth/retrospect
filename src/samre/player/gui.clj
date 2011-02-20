@@ -249,8 +249,8 @@
 (defn update-hyp-box
   []
   (if-let [ep (previous-ep-state (:ep-state-tree *or-state*))]
-    (if-let [hyp (first (filter #(= (:pid %) (.getSelectedItem *hyp-choice*))
-                                (vals (:hyps (:workspace ep)))))]
+    (if-let [hyp (if-let [choice (.getSelectedItem *hyp-choice*)]
+                   (get (:hyps (:workspace ep)) (symbol choice)))]
       (. *hyp-box* setText
          (apply str ((:str-fn hyp) hyp) "\n\n"
                 (interpose
@@ -262,7 +262,7 @@
   []
   (.removeAllItems *hyp-choice*)
   (when-let [ep (previous-ep-state (:ep-state-tree *or-state*))]
-    (doseq [i (sort (map :pid (vals (:hyps (:workspace ep)))))]
+    (doseq [i (sort (map str (keys (:hyps (:workspace ep)))))]
       (.addItem *hyp-choice* i))))
 
 (defn get-results-viewport
