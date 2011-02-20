@@ -8,6 +8,7 @@
   (:use [samre.problems.tracking.sensors :only (sees)])
   (:use [samre.problems.tracking.grid :only [grid-at find-entity]])
   (:use [samre.problems.tracking.truedata :only [get-grid-movements]])
+  (:use [samre.problems.tracking.hypotheses :only [paths-str]])
   (:use [samre.colors])
   (:use [samre.player.state]))
 
@@ -271,4 +272,9 @@
     (apply str (interpose
                 "\n" (map #(format "%s: %d,%d->%d,%d"
                                    (str (:e %)) (:ox %) (:oy %)(:x %) (:y %))
-                          (get-grid-movements *truedata* (dec *time*) (dec *time*)))))))
+                          (sort-by :e (get-grid-movements *truedata*
+                                                          (dec *time*) (dec *time*))))))))
+
+(defn player-update-problem-log-box
+  []
+  (str "Paths:\n" (paths-str (:paths (:problem-data (:ep-state *or-state*))))))

@@ -78,10 +78,10 @@
   (let [fmt #(format "%d,%d@%d " (:x (meta %)) (:y (meta %)) (:time (meta %)))]
     (str "[" (apply str (map (fn [es] (fmt (first es))) path)) "]")))
 
-(defn print-paths
+(defn paths-str
   [paths]
-  (println "paths " (apply str (map (fn [k] (apply str k ": " (map path-str (k paths))))
-                                    (keys paths)))))
+  (apply str (interpose "\n" (map (fn [k] (str k ":" (path-str (k paths))))
+                                  (sort (keys paths))))))
 
 (defn covered?
   [es x y time]
@@ -212,11 +212,9 @@
                                           spotted-grid)]
         #_(println uncovered)
         (if (empty? uncovered)
-          (do
-            #_(print-paths paths)
-            (reduce add-hyp ep (apply concat (map (fn [l] (map #(make-hyp % l maxwalk)
-                                                               (l paths)))
-                                                  (keys paths)))))
+          (reduce add-hyp ep (apply concat (map (fn [l] (map #(make-hyp % l maxwalk)
+                                                             (l paths)))
+                                                (keys paths))))
           ;; when making a new label, consider oldpaths labels plus newpaths labels,
           ;; since the newpaths (called 'paths' here) may have dissoc'd some labels
           ;; that could not be extended
@@ -254,8 +252,5 @@
   #_(println (map (comp path-str :path :data) candidates))
   #_(commit-rejected pdata rejected)
   (let [pd (commit-accepted pdata accepted)]
-    #_(println "final paths:")
-    (doseq [l (keys (:paths pd))]
-      #_(println (str l) (path-str ((:paths pd) l))))
     pd))
 

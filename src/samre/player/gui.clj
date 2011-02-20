@@ -234,10 +234,9 @@
 (defn update-logs
   []
   (. *truedata-log-box* setText ((:update-truedata-log-box-fn (:player-fns *problem*))))
+  (. *problem-log-box* setText ((:update-problem-log-box-fn (:player-fns *problem*))))
   (let [ep-state (previous-ep-state (:ep-state-tree *or-state*))]
     (. *problem-log-label* setText (format "Problem log for: %s" (str ep-state)))
-    (. *problem-log-box* setText
-       (apply str (interpose "\n" (map str (:log ep-state)))))
     (. *abduction-log-label* setText (format "Abduction log for: %s" (str ep-state)))
     (. *abduction-log-box* setText
        (apply str (interpose "\n" (map str (:abducer-log (:workspace ep-state))))))

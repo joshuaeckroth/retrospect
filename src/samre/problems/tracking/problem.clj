@@ -9,7 +9,8 @@
   (:use [samre.problems.tracking.player :only
          [player-get-params player-set-params player-get-params-panel
           player-get-diagram player-get-stats-panel
-          player-update-stats player-update-truedata-log-box]])
+          player-update-stats player-update-truedata-log-box
+          player-update-problem-log-box]])
   (:use [samre.problems.tracking.sensors :only
          [measure-sensor-overlap measure-sensor-coverage
           list-sensors-seen list-sensors-unseen sensors-seen-grid]])
@@ -116,7 +117,8 @@
              :get-diagram-fn player-get-diagram
              :get-stats-panel-fn player-get-stats-panel
              :update-stats-fn player-update-stats
-             :update-truedata-log-box-fn player-update-truedata-log-box}
+             :update-truedata-log-box-fn player-update-truedata-log-box
+             :update-problem-log-box-fn player-update-problem-log-box}
             generate-truedata
             generate-sensors
             prepared-map
