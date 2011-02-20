@@ -7,6 +7,7 @@
   (:use [clojure.contrib.math :only [floor]])
   (:use [samre.problems.tracking.sensors :only (sees)])
   (:use [samre.problems.tracking.grid :only [grid-at find-entity]])
+  (:use [samre.problems.tracking.truedata :only [get-grid-movements]])
   (:use [samre.colors])
   (:use [samre.player.state]))
 
@@ -266,4 +267,8 @@
 
 (defn player-update-truedata-log-box
   []
-  "")
+  (if (<= *time* 0) ""
+    (apply str (interpose
+                "\n" (map #(format "%s: %d,%d->%d,%d"
+                                   (str (:e %)) (:ox %) (:oy %)(:x %) (:y %))
+                          (get-grid-movements *truedata* (dec *time*) (dec *time*)))))))

@@ -87,3 +87,5 @@
   [grid time]
   (with-meta (vec (map (fn [e] (if e (with-meta e (merge (meta e) {:time time})))) grid))
     (meta grid)))
+
+

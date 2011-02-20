@@ -32,3 +32,16 @@
                             (possibly-add-new-entity time params)
                             (update-all-entity-times time))]
             (recur (inc time) (conj truedata newgrid)))))))
+
+(defn get-grid-movements
+  [truedata mintime maxtime]
+  (if (< maxtime 0) []
+      (flatten
+       (for [time (range mintime (inc maxtime))]
+         (let [grid-before (nth truedata time)
+               grid-after (nth truedata (inc time))]
+           (map (fn [e] (let [e2 (first (filter #(= e %) grid-after))]
+                          {:e e :ox (:x (meta e)) :oy (:y (meta e)) :ot (:time (meta e))
+                           :x (:x (meta e2)) :y (:y (meta e2)) :t (:time (meta e2))}))
+                (filter identity grid-before)))))))
+

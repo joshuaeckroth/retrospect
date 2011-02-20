@@ -3,19 +3,8 @@
   (:use [samre.workspaces :only [lookup-hyps]])
   (:use [samre.confidences])
   (:use [samre.problems.tracking.hypotheses :only [path-to-movements]])
+  (:use [samre.problems.tracking.truedata :only [get-grid-movements]])
   (:require [clojure.set :as set]))
-
-(defn find-grid-movements
-  [truedata maxtime]
-  (if (< maxtime 0) []
-      (flatten
-       (for [time (range (inc maxtime))]
-         (let [grid-before (nth truedata time)
-               grid-after (nth truedata (inc time))]
-           (map (fn [e] (let [e2 (first (filter #(= e %) grid-after))]
-                          {:ox (:x (meta e)) :oy (:y (meta e)) :ot (:time (meta e))
-                           :x (:x (meta e2)) :y (:y (meta e2)) :t (:time (meta e2))}))
-                (filter identity grid-before)))))))
 
 (defn believed-movements
   [pdata]
@@ -24,7 +13,7 @@
 
 (defn percent-events-correct
   [truedata pdata maxtime]
-  (let [grid-movements (set (find-grid-movements truedata maxtime))
+  (let [grid-movements (set (map #(dissoc % :e) (get-grid-movements truedata 0 maxtime)))
         bel-movements (set (believed-movements pdata))]
     (if (empty? grid-movements) 100.0
         (double (* 100.0 (/ (count (set/intersection grid-movements bel-movements))
