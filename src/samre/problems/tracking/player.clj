@@ -19,8 +19,8 @@
 (def *grid-cell-height* nil)
 
 (def *percent-events-correct-label* (JLabel.))
-(def *percent-events-wrong-label* (JLabel.))
-(def *percent-identities-correct-label* (JLabel.))
+(def *mean-time-with-label-label* (JLabel.))
+(def *mean-label-counts-label* (JLabel.))
 (def *mouse-xy* (JLabel. "Grid ?, ?"))
 
 ;; from http://stuartsierra.com/2010/01/08/agents-of-swing
@@ -231,14 +231,14 @@
      *percent-events-correct-label*
 
      :gridx 0, :gridy 1
-     (JLabel. "PercentEventsWrong:")
+     (JLabel. "MeanTimeWithLabel:")
      :gridx 1, :gridy 1
-     *percent-events-wrong-label*
+     *mean-time-with-label-label*
      
      :gridx 0, :gridy 2
-     (JLabel. "PercentIdentitiesCorrect:")
+     (JLabel. "MeanLabelCounts:")
      :gridx 1, :gridy 2
-     *percent-identities-correct-label*
+     *mean-label-counts-label*
 
      :gridx 0, :gridy 3
      *mouse-xy*)))
@@ -251,18 +251,18 @@
          (setText
           (format "%.2f%%"
                   (:PercentEventsCorrect (get (:results *or-state*) t)))))
-      (. *percent-events-wrong-label*
+      (. *mean-time-with-label-label*
          (setText
-          (format "%.2f%%"
-                  (:PercentEventsWrong (get (:results *or-state*) t)))))
-      (. *percent-identities-correct-label*
+          (format "%.2f"
+                  (:MeanTimeWithLabel (get (:results *or-state*) t)))))
+      (. *mean-label-counts-label*
          (setText
-          (format "%.2f%%"
-                  (:PercentIdentitiesCorrect (get (:results *or-state*) t))))))
+          (format "%.2f"
+                  (:MeanLabelCounts (get (:results *or-state*) t))))))
     (do
       (. *percent-events-correct-label* (setText "N/A"))
-      (. *percent-events-wrong-label* (setText "N/A"))
-      (. *percent-identities-correct-label* (setText "N/A")))))
+      (. *mean-time-with-label-label* (setText "N/A"))
+      (. *mean-label-counts-label* (setText "N/A")))))
 
 (defn player-update-truedata-log-box
   []
