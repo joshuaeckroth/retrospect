@@ -232,19 +232,45 @@
 
 ;; TODO: check for ambiguity (unexplained), make new label for each alternative
 
-(defn subpaths-not-shared
+(defn path-meta-fn
+  [es]
+  (map (comp #(select-keys % [:x :y :time]) meta) es))
+
+(defn find-label-splits
   "Extract the terminating subpaths that are not shared among all the paths"
   [paths]
-  (let [get-meta-fn (fn [es] (map (comp #(select-keys % [:x :y :time]) meta) es))]    
-    (cond (some #(empty? %) paths) paths
-          (< 1 (count (distinct (flatten (map (comp get-meta-fn first) paths))))) paths
-          :else (recur (map rest paths)))))
+  (cond (or (empty? paths) (some #(empty? %) paths)) paths
+        (< 1 (count (distinct (flatten (map (comp path-meta-fn first) paths))))) paths
+        :else (recur (map rest paths))))
+
+(defn find-merges
+  [paths]
+  (if (= 1 (count paths)) []
+      (loop [ps paths
+             shared []]
+        (cond (or (empty? ps) (some #(empty? %) ps)) shared
+              (< 1 (count (distinct (flatten (map (comp path-meta-fn last) ps))))) shared
+              :else (recur (map butlast paths) (distinct (concat shared (map last ps))))))))
 
 (defn new-label-from-candidates
-  [labels label candidates]
-  (let [alts (map (comp :path :data) (filter #(= label (:label (:data %))) candidates))
-        non-shared (subpaths-not-shared alts)]
-    (println label (map path-str non-shared)))
+  [candidates labels]
+  (let [get-paths (fn [hyps] (map (comp :path :data) hyps))
+        splits
+        (filter not-empty
+                (for [l labels]
+                  (filter not-empty
+                          (find-label-splits
+                           (get-paths (filter #(= l (:label (:data %))) candidates))))))
+        merges
+        (filter not-empty
+                (for [last-pos (distinct (flatten (map (comp path-meta-fn last)
+                                                       (get-paths candidates))))]
+                  (find-merges (filter (fn [path] (some #(= last-pos %)
+                                                        (path-meta-fn (last path))))
+                                       (get-paths candidates)))))]
+    (println "splits" (map #(map path-str %) splits))
+    (println "merges" (map path-str merges)))
+  
   #_(new-label labels spotted))
 
 (defn commit-accepted
@@ -259,7 +285,7 @@
   (doseq [c (sort-by (comp :label :data) candidates)]
     (println "candidate: " (:id c) (str (:label (:data c))) (path-str (:path (:data c)))))
   (doseq [l (set (map (comp :label :data) candidates))]
-    (new-label-from-candidates (keys (:paths pdata)) l candidates))
+    (new-label-from-candidates candidates (keys (:paths pdata))))
   (let [pd (commit-accepted pdata accepted)]
     pd))
 
