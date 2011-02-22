@@ -232,8 +232,6 @@
                                                  spotted-grid maxwalk))]
             (recur expaths)))))))
 
-;; TODO: check for ambiguity (unexplained), make new label for each alternative
-
 (defn entity-meta
   [e]
   (select-keys (meta e) [:x :y :time]))

@@ -2,10 +2,12 @@
   (:use [samre.workspaces :only
          [new-hyp add-hyp measure-decision-confidence force-acceptance
           clear-decision reset-confidences-to-apriori update-hyps
-          lookup-hyps update-candidates-unexplained find-explainers]])
+          lookup-hyps update-candidates-unexplained find-explainers
+          reject-impossible]])
   (:use [samre.epistemicstates :only
          [flatten-ep-state-tree current-ep-state explain goto-ep-state
-          new-branch-ep-state left-ep-state previous-ep-state update-ep-state-tree]])
+          new-branch-ep-state left-ep-state previous-ep-state update-ep-state-tree
+          new-child-ep-state]])
   (:use [samre.meta.meta :only [have-enough-meta-hyps]])
   (:use [samre.confidences]))
 
@@ -30,13 +32,13 @@
   [ep-state]
   (if (empty? (:accepted (:decision (:workspace ep-state)))) ep-state
     (let [ws (:workspace ep-state)
-          least-conf (first (sort-by :confidence (lookup-hyps ws (:accepted (:decision ws)))))
-          least-conf-impossible (assoc least-conf :confidence IMPOSSIBLE)]
+          least-conf (first (sort-by :confidence (lookup-hyps ws (:accepted (:decision ws)))))]
       (assoc ep-state :workspace
              (-> ws
                  (reset-confidences-to-apriori)
                  (clear-decision)
-                 (update-hyps [least-conf-impossible])
+                 (reject-impossible
+                  [least-conf] "Rejecting in meta-abduction because least confident.")
                  (update-candidates-unexplained))))))
 
 (defn branch-and-mark-impossible
@@ -55,7 +57,21 @@
         time-now (apply max (map :sensed-up-to sensors))
         ep-state (explain (current-ep-state ep-state-tree) params)
         score (measure-decision-confidence (:workspace ep-state))]
-    {:score score :ep-state ep-state}))
+    {:score score :ep-state-tree ep-state-tree}))
+
+(defn score-by-replaying
+  [problem ep-state-tree sensors params lazy]
+  (let [time-now (apply max (map :sensed-up-to sensors))]
+    (loop [est ep-state-tree]
+      (if (< (:time (current-ep-state est)) time-now)
+        (let [ep-state (current-ep-state est)
+              est-child (new-child-ep-state est ep-state (:time ep-state) problem)
+              ep-child (current-ep-state est-child)
+              ep-hyps ((:hypothesize-fn problem) ep-child sensors (:time ep-child) params)
+              ep-expl (explain ep-hyps params)]
+          (recur (update-ep-state-tree est-child ep-expl)))
+        {:ep-state-tree est
+         :score (measure-decision-confidence (:workspace (current-ep-state est)))}))))
 
 (defn generate-ep-state-hyp
   [ep-state]
@@ -70,12 +86,15 @@
 (defn add-branch-hyp
   [workspace ep-state-hyp branchable problem ep-state-tree sensors params lazy]
   (let [est (branch-and-mark-impossible ep-state-tree branchable)
-        hyp (let [{score :score ep :ep-state}
-                  (score-by-explaining problem est sensors params lazy)]
+        ep-state (current-ep-state est)
+        ep-expl (explain ep-state params)
+        est-new (update-ep-state-tree est ep-expl)
+        hyp (let [{score :score est-replayed :ep-state-tree}
+                  (score-by-replaying problem est-new sensors params lazy)]
               (new-hyp "MH" :meta score [(:id ep-state-hyp)]
                        (constantly []) (partial impossible-fn ep-state-hyp)
                        (fn [hyp] (:id hyp))
-                       {:ep-state-tree est :ep-state ep}))]
+                       {:ep-state-tree est-replayed}))]
     (add-hyp workspace hyp)))
 
 (defn add-more-explainers-hyp
@@ -88,8 +107,7 @@
                        (clear-decision)
                        (update-candidates-unexplained)))
         est2 (update-ep-state-tree est ep2)
-        hyp (let [{score :score ep :ep-state}
-                  (score-by-explaining problem est2 sensors params true)]
+        hyp (let [{score :score} (score-by-explaining problem est2 sensors params true)]
               (new-hyp "MH+" :meta score [(:id ep-state-hyp)] (constantly [])
                        (partial impossible-fn ep-state-hyp)
                        (fn [hyp] (:pid hyp)) nil))]

@@ -43,18 +43,20 @@
     :each-reg :linear}
    {:x :NumberEntities :y :PlausibilityAccuracy :name "numes-pl-acc"
     :each-reg :linear}
-   {:x :PercentEventsCorrect :y :PercentIdentitiesCorrect :name "events-identities-correct"
+   {:x :PercentEventsCorrect :y :MeanTimeWithLabel :name "mean-time-label-events-correct"
+    :split-by :SensorSeesColor :split-list (range 0 101 10) :split-delta 10
     :each-reg :linear}
-   {:x :MetaAbductions :y :PlausibilityAccuracy :name "meta-abductions-pl-acc"
+   {:x :MetaAbductions :y :PercentEventsCorrect :name "meta-abductions-events-correct"
+    :split-by :SensorSeesColor :split-list (range 0 101 10) :split-delta 10
+    :each-reg :linear}
+   {:x :MetaAbductions :y :MeanTimeWithLabel :name "meta-abductions-mean-time-label"
+    :split-by :SensorSeesColor :split-list (range 0 101 10) :split-delta 10
+    :each-reg :linear}
+   {:x :MetaAbductions :y :MeanCountAlternatives :name "meta-abductions-mean-count-alts"
+    :split-by :SensorSeesColor :split-list (range 0 101 10) :split-delta 10
     :each-reg :linear}
    {:x :PercentEventsCorrect :y :MetaAbductions :name "events-correct-meta-abductions"
-    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 10
-    :each-reg :linear}
-   {:x :PercentEventsWrong :y :MetaAbductions :name "events-wrong-meta-abductions"
-    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 10
-    :each-reg :linear}
-   {:x :PercentIdentitiesCorrect :y :MetaAbductions :name "ids-wrong-meta-abductions"
-    :split-by :SensorCoverage :split-list (range 0 101 10) :split-delta 10
+    :split-by :SensorSeesColor :split-list (range 0 101 10) :split-delta 10
     :each-reg :linear}
    {:x :MetaAbductions :y :Milliseconds :name "meta-abductions-milliseconds"
     :each-reg :linear}
@@ -86,13 +88,7 @@
     :each-reg :linear}
    {:x :SensorCoverage :y :PercentEventsCorrect :name "coverage-events-correct"
     :regression :linear
-    :each-reg :linear}
-   {:x :SensorCoverage :y :PercentEventsWrong :name "coverage-events-wrong"
-    :regression :linear
-    :each-reg :linear}
-   {:x :PercentEventsCorrect :y :PercentIdentitiesCorrect :name "events-correct-identities"
-    :split-by :SensorCoverage :split-list (range 10 101 10) :split-delta 5
-    :regression :linear}])
+    :each-reg :linear}])
 
 (defn generate-problem-data
   [sensors params]

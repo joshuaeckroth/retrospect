@@ -42,6 +42,8 @@
             (list-records recordsdir)
             "chart"
             (chart recordsdir record prob)
+            "charts"
+            (chart recordsdir record prob)
             "player"
             (do
               (swank.swank/start-repl 4006)

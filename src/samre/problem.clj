@@ -57,7 +57,7 @@
         start-time (. System (nanoTime)) ;; start the clock
         ors-hyps (hypothesize problem ors-sensors time-now params)
         ep-explained (explain (:ep-state ors-hyps) params)
-        ors-expl (update-one-run-state or-state ep-explained)
+        ors-expl (update-one-run-state ors-sensors ep-explained)
         ors-meta (explain-meta problem ors-expl params)
         ep-meta (current-ep-state (:ep-state-tree ors-meta))
         ors-next (proceed-one-run-state ors-meta ep-meta time-now problem)
@@ -80,7 +80,7 @@
   (let [truedata ((:truedata-fn problem) params)
         sensors ((:sensor-gen-fn problem) params)
         problem-data ((:gen-problem-data-fn problem) sensors params)
-        or-states (init-one-run-states {:MetaAbduction [false] :Lazy [true]}
+        or-states (init-one-run-states {:MetaAbduction [true false] :Lazy [true]}
                                        sensors problem-data)]
     (doall (for [ors or-states]
              (last (run-simulation problem truedata ors monitor params))))))
@@ -92,7 +92,7 @@
 (defn average-runs
   [problem monitor params n]
   (let [results (run-many problem monitor params n)]
-    (doall (for [meta-abduction [false] lazy [true]]
+    (doall (for [meta-abduction [true false] lazy [true]]
              (let [rs (filter #(and (= meta-abduction (:MetaAbduction %))
                                     (= lazy (:Lazy %)))
                               results)
