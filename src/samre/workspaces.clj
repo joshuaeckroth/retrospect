@@ -93,17 +93,15 @@
   [workspace]
   (let [ancient (set (find-ancient-hyps workspace))
         marked (:marked-ancient workspace)
-        new-hyps (apply dissoc (:hyps workspace) marked)
+        new-hyps (apply dissoc (:hyps workspace) (concat marked (:candidates workspace)))
         new-accepted (set/difference (set (:accepted workspace)) marked)
-        new-rejected (set/difference (set (:rejected workspace)) marked)
-        new-candidates (set/difference (set (:candidates workspace)) marked)]
+        new-rejected (set/difference (set (:rejected workspace)) marked)]
     (-> workspace
         (assoc :marked-ancient ancient)
         (assoc :dot [])
         (assoc :hyps new-hyps)
         (assoc :accepted new-accepted)
-        (assoc :rejected new-rejected)
-        (assoc :candidates new-candidates))))
+        (assoc :rejected new-rejected))))
 
 (defn update-candidates-unexplained
   [workspace]
@@ -121,7 +119,6 @@
         is-unexplained #(and (empty? (find-explainers % accepted))
                              (not-empty (find-explainers % (vals (:hyps workspace)))))
         unexplained-ids (map :id (filter is-unexplained accepted))]
-    (println "candidates" non-accepted-ids)
     (-> workspace
         (assoc :candidates non-accepted-ids)
         (assoc :unexplained unexplained-ids))))
@@ -137,6 +134,7 @@
         (assoc :hyps (:hyps workspace))
         (assoc :accepted accepted)
         (assoc :rejected rejected)
+        (assoc :candidates (:candidates workspace))
         (assoc :unexplained (:unexplained workspace))
         (assoc :marked-ancient (:marked-ancient workspace)))))
 
