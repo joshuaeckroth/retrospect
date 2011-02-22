@@ -250,17 +250,18 @@
              shared []]
         (cond (or (empty? ps) (some #(empty? %) ps)) shared
               (< 1 (count (distinct (flatten (map (comp path-meta-fn last) ps))))) shared
-              :else (recur (map butlast paths) (distinct (concat shared (map last ps))))))))
+              :else (recur (map butlast ps) (distinct (concat shared (map last ps))))))))
 
 (defn new-label-from-candidates
   [candidates labels]
   (let [get-paths (fn [hyps] (map (comp :path :data) hyps))
+        maybe-splits (for [l labels] (filter not-empty
+                                             (find-label-splits
+                                              (get-paths (filter #(= l (:label (:data %)))
+                                                                 candidates)))))
         splits
-        (filter not-empty
-                (for [l labels]
-                  (filter not-empty
-                          (find-label-splits
-                           (get-paths (filter #(= l (:label (:data %))) candidates))))))
+        (distinct (sort-by #(apply str (sort (map path-str %)))
+                           (filter not-empty maybe-splits)))
         merges
         (filter not-empty
                 (for [last-pos (distinct (flatten (map (comp path-meta-fn last)
@@ -284,8 +285,7 @@
   [pdata accepted rejected candidates]
   (doseq [c (sort-by (comp :label :data) candidates)]
     (println "candidate: " (:id c) (str (:label (:data c))) (path-str (:path (:data c)))))
-  (doseq [l (set (map (comp :label :data) candidates))]
-    (new-label-from-candidates candidates (keys (:paths pdata))))
+  (new-label-from-candidates candidates (keys (:paths pdata)))
   (let [pd (commit-accepted pdata accepted)]
     pd))
 
