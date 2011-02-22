@@ -3,7 +3,7 @@
   (:use [samre.onerun :only
          [init-one-run-states update-one-run-state proceed-one-run-state]])
   (:use [samre.epistemicstates :only
-         [explain previous-ep-state]])
+         [explain previous-ep-state current-ep-state]])
   (:use [samre.meta.explain :only [explain-meta]])
   (:use [samre.sensors :only [update-sensors]]))
 
@@ -57,9 +57,12 @@
         start-time (. System (nanoTime)) ;; start the clock
         ors-hyps (hypothesize problem ors-sensors time-now params)
         ep-explained (explain (:ep-state ors-hyps) params)
-        ors-expl (proceed-one-run-state ors-hyps ep-explained time-now problem)
+        ors-expl (update-one-run-state or-state ep-explained)
+        ors-meta (explain-meta problem ors-expl params)
+        ep-meta (current-ep-state (:ep-state-tree ors-meta))
+        ors-next (proceed-one-run-state ors-meta ep-meta time-now problem)
         ms (/ (- (. System (nanoTime)) start-time) 1000000.0) ;; stop the clock
-        ors-resources (update-in ors-expl [:resources] assoc :milliseconds ms)
+        ors-resources (update-in ors-next [:resources] assoc :milliseconds ms)
         ors-results (evaluate problem truedata ors-resources params)]
     (if (and (not player) monitor)
       ((:monitor-fn problem) problem truedata (:sensors ors-results) ors-results params)

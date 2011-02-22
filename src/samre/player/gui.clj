@@ -12,6 +12,7 @@
   (:use [samre.problem :only [get-headers run-simulation-step]])
   (:use [samre.player.state])
   (:use [samre.onerun :only [init-one-run-state]])
+  (:use [samre.workspaces :only [last-id]])
   (:use [samre.epistemicstates :only
          [draw-ep-state-tree list-ep-states current-ep-state goto-ep-state
           goto-next-ep-state previous-ep-state]]))
@@ -429,6 +430,7 @@
         truedata (if prepared (:truedata prepared) ((:truedata-fn *problem*) params))
         or-state (init-one-run-state meta-abduction lazy sensors
                                      ((:gen-problem-data-fn *problem*) sensors params))]
+    (dosync (alter last-id (constantly 0)))
     (update-params params)
     (update-sensors sensors)
     (update-truedata truedata)

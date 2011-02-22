@@ -210,8 +210,10 @@
                          oldpaths (keys oldpaths))]
       (let [uncovered (find-uncovered-pos (concat (flatten (vals paths)) prior-covered)
                                           spotted-grid)]
-        #_(println uncovered)
-        (if (empty? uncovered)
+        ;; if nothing's uncovered or we should not be creating new labels
+        (if (or (empty? uncovered)
+                (and (= 0 (:ProbNewEntities params)) (= 100 (:SensorCoverage params))
+                     (not= 0 time-now)))
           (reduce add-hyp ep (apply concat (map (fn [l] (map #(make-hyp % l maxwalk)
                                                              (l paths)))
                                                 (keys paths))))
@@ -249,7 +251,6 @@
 
 (defn find-merges
   [paths]
-  (println "find-merges:" (map path-str paths))
   (if (= 1 (count paths)) []
       (loop [ps paths
              shared []]
@@ -286,11 +287,6 @@
                                                 (entity-metas (last path))))
                                (map unlabeled-path candidates))))
         merges (sort sort-paths (filter not-empty maybe-merges))]
-    (println "prior paths")
-    (println (paths-str paths))
-    (println "unlabeled paths" (map path-str (map unlabeled-path candidates)))
-    (println "splits" (map #(map path-str %) splits))
-    (println "merges" (map path-str merges))
     ;; always attempt to incorporate a split first
     (if (not-empty splits)
       (let [split (first splits)]
@@ -310,13 +306,11 @@
 (defn commit-decision
   "Commit rejected first, then accepted."
   [pdata accepted rejected candidates]
-  (doseq [c (sort-by (comp :label :data) candidates)]
-    (println "candidate: " (:id c) (str (:label (:data c))) (path-str (:path (:data c)))))
   (let [pd (commit-accepted pdata accepted)]
     ;; add labels for merges/splits as long as there are any
     (loop [paths (:paths pd)]
       (let [ps (new-label-from-candidates candidates paths)]
         (if (empty? (set/difference (set (keys ps)) (set (keys paths))))
-          (do (println (paths-str paths)) (assoc pd :paths paths))
+          (assoc pd :paths paths)
           (recur ps))))))
 

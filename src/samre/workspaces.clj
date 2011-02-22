@@ -57,8 +57,8 @@
   (doall (filter identity (map #((:hyps workspace) %) hyp-ids))))
 
 (defn add-abducer-log-msg
-  [workspace hyps msg]
-  (update-in workspace [:abducer-log] conj (AbducerLogEntry. hyps msg)))
+  [workspace hyp-ids msg]
+  (update-in workspace [:abducer-log] conj (AbducerLogEntry. hyp-ids msg)))
 
 (defn log-final-accepted-rejected-hyps
   [workspace]
@@ -115,9 +115,12 @@
                                    (:rejected workspace)
                                    (:rejected (:decision workspace)))))
         accepted (lookup-hyps workspace accepted-ids)
-        ;; a hyp is unexplained if it could be explained but is not yet explained
+        ;; a hyp is unexplained if it could be explained
+        ;; or it is forced, but is not yet explained
         is-unexplained #(and (empty? (find-explainers % accepted))
-                             (not-empty (find-explainers % (vals (:hyps workspace)))))
+                             (or (not-empty (find-explainers % (vals (:hyps workspace))))
+                                 (some (fn [hid] (= (:id %) hid))
+                                       (:forced (:decision workspace)))))
         unexplained-ids (map :id (filter is-unexplained accepted))]
     (-> workspace
         (assoc :candidates non-accepted-ids)
@@ -143,8 +146,10 @@
   ;; if no accepted hyps, this is very implausible
   (if (empty? (:accepted (:decision workspace))) VERY-IMPLAUSIBLE
       ;; if accepted hyps exist, find the minimum confidence of them
-      (apply min (map (fn [h] (:confidence h))
-                      (lookup-hyps workspace (:accepted (:decision workspace)))))))
+      (let [accepted (lookup-hyps workspace (:accepted (:decision workspace)))
+            conf (apply min (map (fn [h] (:confidence h)) accepted))]
+        ;; if something is unexplained, penalize the decision
+        (if (empty? (:unexplained workspace)) conf (penalize conf)))))
 
 (defn update-decision-confidence
   [workspace]
@@ -190,10 +195,10 @@
 
 (defn reject-impossible
   [workspace hyps log-msg]
-  (if (empty? hyps) workspace
-      ;; only reject those that are not already rejected
-      (let [rejected (doall (map #(assoc % :confidence IMPOSSIBLE)
-                                 (filter #(not= IMPOSSIBLE (:confidence %)) hyps)))]
+  ;; only reject those that are not already rejected
+  (let [rejected (doall (map #(assoc % :confidence IMPOSSIBLE)
+                             (filter #(not= IMPOSSIBLE (:confidence %)) hyps)))]
+    (if (empty? rejected) workspace
         (-> workspace
             (update-hyps rejected)
             (update-in [:decision :rejected] concat (map :id rejected))
@@ -290,9 +295,9 @@
         essentials (flatten (filter #(= 1 (count %)) explainers))
         good-es (filter #(empty? ((:impossible-fn %) % essentials)) essentials)]
     (if (not-empty good-es)
-      ;; choose random most-confident non-conflicting essential
+      ;; choose first most-confident non-conflicting essential
       (let [max-conf (:confidence (first (reverse (sort-by :confidence good-es))))
-            acc (rand-nth (vec (filter #(= max-conf (:confidence %)) good-es)))]
+            acc (first (vec (filter #(= max-conf (:confidence %)) good-es)))]
         {:hyp acc :dot (dot-format workspace good-es acc)})
 
       ;; otherwise choose random most confident / most explanatory / hyp with
@@ -308,8 +313,8 @@
                                               (vals (:hyps workspace))))))
             max-imp (apply max (conj (map count-imp most-expl) 0))
             most-imp (filter #(= max-imp (count-imp %)) most-expl)]
-        (when (= (count most-imp) 1)
-          (let [acc (first most-imp)]
+        (when (>= (count most-imp) 1)
+          (let [acc (first (sort-by :id most-imp))] ;; KLUDGE for prepared examples
             {:hyp acc :dot (dot-format workspace most-imp acc)}))))))
 
 (defn explain
@@ -331,4 +336,3 @@
                       (format "Accepting %s as explainer of %s." (str (:id (:hyp best)))
                               (apply str (interpose ", " (map str explains)))))
                      (accept-hyp (:hyp best))))))))))
-

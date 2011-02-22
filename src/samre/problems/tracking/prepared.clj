@@ -61,7 +61,8 @@
                                                     ["2" blue 0 5,5 5,4]))}))
 
 (def intersection-ambiguity
-  (let [params (merge basic-params {:Steps 3 :SensorSeesColor 80 :MaxWalk 5})]
+  (let [params (merge basic-params {:Steps 3 :SensorSeesColor 80 :MaxWalk 5
+                                    :MetaAbduction true})]
     {:params params
      :sensors [(new-sensor (keyword "left") 0 2 0 9 true)
                (new-sensor (keyword "middle") 3 4 0 9 false)

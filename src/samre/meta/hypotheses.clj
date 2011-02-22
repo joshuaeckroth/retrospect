@@ -2,12 +2,23 @@
   (:use [samre.workspaces :only
          [new-hyp add-hyp measure-decision-confidence force-acceptance
           clear-decision reset-confidences-to-apriori update-hyps
-          lookup-hyps update-candidates-unexplained]])
+          lookup-hyps update-candidates-unexplained find-explainers]])
   (:use [samre.epistemicstates :only
-         [flatten-ep-state-tree current-ep-state explain
+         [flatten-ep-state-tree current-ep-state explain goto-ep-state
           new-branch-ep-state left-ep-state previous-ep-state update-ep-state-tree]])
   (:use [samre.meta.meta :only [have-enough-meta-hyps]])
   (:use [samre.confidences]))
+
+(defn find-rejected-explainers
+  [workspace]
+  (let [unexplained (lookup-hyps workspace (:unexplained workspace))
+        explainers (map #(find-explainers % (vals (:hyps workspace))) unexplained)]
+    (filter #(= IMPOSSIBLE (:confidence %)) explainers)))
+
+(defn find-no-explainers
+  [workspace]
+  (let [unexplained (lookup-hyps workspace (:unexplained workspace))]
+    (filter #(empty? (find-explainers % (vals (:hyps workspace)))) unexplained)))
 
 (defn mark-least-conf-impossible
   "Given an ep-state (to go back to), mark the least confident
@@ -17,14 +28,10 @@
    likely incorrect) hypothesis is not accepted again, and something
    else is accepted instead."
   [ep-state]
-  (comment (println "pre-mark: " (str ep-state) (:decision (:workspace ep-state))
-                    (map :id (vals (:hyps (:workspace ep-state))))))
-  (if (empty? (:accepted (:decision (:workspace ep-state))))
-    (do (comment (println "empty decision: " (str ep-state))) ep-state)
+  (if (empty? (:accepted (:decision (:workspace ep-state)))) ep-state
     (let [ws (:workspace ep-state)
           least-conf (first (sort-by :confidence (lookup-hyps ws (:accepted (:decision ws)))))
           least-conf-impossible (assoc least-conf :confidence IMPOSSIBLE)]
-      (comment (println "least-conf nil? " (nil? least-conf) "-" (str ep-state)))
       (assoc ep-state :workspace
              (-> ws
                  (reset-confidences-to-apriori)
@@ -37,33 +44,23 @@
    then marks the least confident accepted hyp as IMPOSSIBLE and
    updates the OneRunState with all these changes."
   [ep-state-tree ep-state]
-  (comment (println "pre-branch: " (str ep-state) (:decision (:workspace ep-state))
-                    (map :id (vals (:hyps (:workspace ep-state))))))
   (let [est (new-branch-ep-state ep-state-tree ep-state)
         ep (mark-least-conf-impossible (current-ep-state est))]
-    (comment (println "post-branch: " (str ep) (:decision (:workspace ep)))
-             (map :id (vals (:hyps (:workspace ep)))))
     (update-ep-state-tree est ep)))
 
 (defn score-by-explaining
   [problem ep-state-tree sensors params lazy]
-  (let [ep-state (current-ep-state ep-state-tree)]
-    (comment (println "pre-score: " (str ep-state) (:decision (:workspace ep-state))
-                      (map :id (vals (:hyps (:workspace ep-state)))))))
   (let [time-prev (if-let [time-prev (:time (previous-ep-state ep-state-tree))]
                     (inc time-prev) (:time (current-ep-state ep-state-tree)))
         time-now (apply max (map :sensed-up-to sensors))
-        ep-state (current-ep-state ep-state-tree)
-        #_(generate-hyps-and-explain problem (current-ep-state ep-state-tree)
-                                     time-prev time-now sensors params lazy)
-        score (measure-decision-confidence (:workspace ep-state))
-        ep-state-updated-time (assoc ep-state :time time-now)]
-    {:score score :ep-state ep-state-updated-time}))
+        ep-state (explain (current-ep-state ep-state-tree) params)
+        score (measure-decision-confidence (:workspace ep-state))]
+    {:score score :ep-state ep-state}))
 
 (defn generate-ep-state-hyp
   [ep-state]
-  (new-hyp "EP" :meta VERY-PLAUSIBLE [] (constantly []) (constantly [])
-           (constantly "ep-state" {:ep-state ep-state})))
+  (new-hyp "EP" :meta NEUTRAL [] (constantly []) (constantly [])
+           (constantly "ep-state") {:ep-state ep-state}))
 
 (defn impossible-fn
   [ep-state-hyp hyp hyps]
@@ -77,7 +74,7 @@
                   (score-by-explaining problem est sensors params lazy)]
               (new-hyp "MH" :meta score [(:id ep-state-hyp)]
                        (constantly []) (partial impossible-fn ep-state-hyp)
-                       (fn [hyp] (:pid hyp))
+                       (fn [hyp] (:id hyp))
                        {:ep-state-tree est :ep-state ep}))]
     (add-hyp workspace hyp)))
 
@@ -98,10 +95,18 @@
                        (fn [hyp] (:pid hyp)) nil))]
     (add-hyp workspace hyp)))
 
+(defn add-uninformed-mark-impossible-hyp
+  [workspace ep-state-hyp problem ep-state-tree sensors params lazy]
+  (let [no-explainers (find-no-explainers (:workspace (current-ep-state ep-state-tree)))
+        prev-ep (previous-ep-state ep-state-tree)]
+    (if (or (empty? no-explainers) (nil? prev-ep)) workspace
+        (add-branch-hyp workspace ep-state-hyp prev-ep problem ep-state-tree
+                        sensors params lazy))))
+
 (defn add-accurate-decision-hyp
   [workspace ep-state-hyp]
   (let [apriori (measure-decision-confidence (:workspace (:ep-state (:data ep-state-hyp))))
-        hyp (new-hyp "MHA" :meta apriori
+        hyp (new-hyp "MHA" :meta-accurate apriori
                      [(:id ep-state-hyp)] (constantly [])
                      (partial impossible-fn ep-state-hyp)
                      (constantly "Decision is accurate") nil)]
@@ -109,17 +114,11 @@
 
 (defn generate-meta-hypotheses
   [workspace problem ep-state-tree sensors params lazy]
-  (let [ep-state-hyp (generate-ep-state-hyp (current-ep-state ep-state-tree))
-        ws (-> workspace
-               (add-hyp ep-state-hyp)
-               (force-acceptance ep-state-hyp)
-               (add-accurate-decision-hyp ep-state-hyp))
-        ws2 (if lazy (add-more-explainers-hyp ws ep-state-hyp problem
-                                              ep-state-tree sensors params)
-                ws)]
-    (loop [ws ws2
-           branchable (flatten-ep-state-tree ep-state-tree)]
-      (if (or (empty? branchable) (and lazy (have-enough-meta-hyps (vals (:hyps ws))))) ws
-          (recur (add-branch-hyp ws ep-state-hyp (first branchable) problem
-                                 ep-state-tree sensors params lazy)
-                 (rest branchable))))))
+  (let [ep-state (current-ep-state ep-state-tree)
+        ep-state-hyp (generate-ep-state-hyp ep-state)]
+    (-> workspace
+        (add-hyp ep-state-hyp)
+        (force-acceptance ep-state-hyp)
+        (add-accurate-decision-hyp ep-state-hyp)
+        (add-uninformed-mark-impossible-hyp ep-state-hyp problem ep-state-tree
+                                            sensors params lazy))))
