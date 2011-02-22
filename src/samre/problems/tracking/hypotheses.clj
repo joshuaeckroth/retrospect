@@ -250,27 +250,34 @@
              shared []]
         (cond (or (empty? ps) (some #(empty? %) ps)) shared
               (< 1 (count (distinct (flatten (map (comp path-meta-fn last) ps))))) shared
-              :else (recur (map butlast ps) (distinct (concat shared (map last ps))))))))
+              :else (recur (map butlast ps) (distinct (concat (map last ps) shared)))))))
+
+(defn sort-paths
+  [path1 path2]
+  (cond
+   (< (:time (meta (first (last path1)))) (:time (meta (first (last path2))))) -1
+   (< (:time (meta (first (last path2)))) (:time (meta (first (last path1))))) 1
+   (< (count path1) (count path2)) -1
+   (< (count path2) (count path1)) 1
+   :else 0))
 
 (defn new-label-from-candidates
   [candidates labels]
   (let [get-paths (fn [hyps] (map (comp :path :data) hyps))
-        maybe-splits (for [l labels] (filter not-empty
-                                             (find-label-splits
-                                              (get-paths (filter #(= l (:label (:data %)))
-                                                                 candidates)))))
-        splits
-        (distinct (sort-by #(apply str (sort (map path-str %)))
-                           (filter not-empty maybe-splits)))
-        merges
-        (filter not-empty
-                (for [last-pos (distinct (flatten (map (comp path-meta-fn last)
-                                                       (get-paths candidates))))]
-                  (find-merges (filter (fn [path] (some #(= last-pos %)
-                                                        (path-meta-fn (last path))))
-                                       (get-paths candidates)))))]
-    (println "splits" (map #(map path-str %) splits))
-    (println "merges" (map path-str merges)))
+        maybe-splits (for [l labels] (find-label-splits
+                                      (get-paths (filter #(= l (:label (:data %)))
+                                                         candidates))))
+        splits (distinct (sort-by path-str (filter not-empty (apply concat maybe-splits))))
+        maybe-merges (for [last-pos (distinct (flatten (map (comp path-meta-fn last)
+                                                            (get-paths candidates))))]
+                       (find-merges (filter (fn [path] (some #(= last-pos %)
+                                                             (path-meta-fn (last path))))
+                                            (get-paths candidates))))
+        merges (distinct (filter not-empty maybe-merges))
+        choice (first (sort sort-paths (concat splits merges)))]
+    (println "splits" (map path-str splits))
+    (println "merges" (map path-str merges))
+    (println "choice" (path-str choice)))
   
   #_(new-label labels spotted))
 
