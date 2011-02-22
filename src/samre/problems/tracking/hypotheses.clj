@@ -232,25 +232,34 @@
 
 ;; TODO: check for ambiguity (unexplained), make new label for each alternative
 
-(defn commit-rejected
-  [pdata rejected]
-  (reduce (fn [pd hyp] (let [l (:label (:data hyp))]
-                         (update-in pd [:paths] dissoc l)))
-          pdata rejected))
+(defn subpaths-not-shared
+  "Extract the terminating subpaths that are not shared among all the paths"
+  [paths]
+  (let [get-meta-fn (fn [es] (map (comp #(select-keys % [:x :y :time]) meta) es))]    
+    (cond (some #(empty? %) paths) paths
+          (< 1 (count (distinct (flatten (map (comp get-meta-fn first) paths))))) paths
+          :else (recur (map rest paths)))))
+
+(defn new-label-from-candidates
+  [labels label candidates]
+  (let [alts (map (comp :path :data) (filter #(= label (:label (:data %))) candidates))
+        non-shared (subpaths-not-shared alts)]
+    (println label (map path-str non-shared)))
+  #_(new-label labels spotted))
 
 (defn commit-accepted
   [pdata accepted]
   (reduce (fn [pd hyp] (let [l (:label (:data hyp)) path (:path (:data hyp))]
-                         #_(println "accepted: " (:pid hyp) (str l) (path-str path))
                          (update-in pd [:paths] assoc l path)))
           pdata accepted))
 
 (defn commit-decision
   "Commit rejected first, then accepted."
   [pdata accepted rejected candidates]
-  #_(println (map :pid candidates))
-  #_(println (map (comp path-str :path :data) candidates))
-  #_(commit-rejected pdata rejected)
+  (doseq [c (sort-by (comp :label :data) candidates)]
+    (println "candidate: " (:id c) (str (:label (:data c))) (path-str (:path (:data c)))))
+  (doseq [l (set (map (comp :label :data) candidates))]
+    (new-label-from-candidates (keys (:paths pdata)) l candidates))
   (let [pd (commit-accepted pdata accepted)]
     pd))
 

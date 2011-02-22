@@ -43,7 +43,7 @@
 (defn entity-path
   [[id color time & xys]]
   (let [xy-pairs (partition 2 xys)
-        path (zipmap (range (count xy-pairs))
+        path (zipmap (range time (+ time (count xy-pairs)))
                      (map (fn [pair] {:x (first pair) :y (second pair)}) xy-pairs))]
     [(new-entity id (first (first xy-pairs)) (second (first xy-pairs)) color time)
       path]))
@@ -69,6 +69,22 @@
      :truedata (build-truedata params (entity-paths ["1" red  0 5,5 4,6 2,9]
                                                     ["2" blue 0 5,6 4,5 2,2]))}))
 
+(def split-ambiguity
+  (let [params (merge basic-params {:Steps 4 :MaxWalk 5})]
+    {:params params
+     :sensors [(new-sensor (keyword "x") 0 9 0 9 true)]
+     :truedata (build-truedata params (entity-paths ["1" red 0 4,0 4,2 5,4 5,6]
+                                                    ["2" red 2         3,4 3,6]))}))
+
+(def merge-ambiguity
+  (let [params (merge basic-params {:Steps 4 :MaxWalk 3 :SensorCoverage 80})]
+    {:params params
+     :sensors [(new-sensor (keyword "x") 0 7 0 9 true)]
+     :truedata (build-truedata params (entity-paths ["1" red 0 4,0 4,2 5,4 5,6]
+                                                    ["2" red 0 6,0 6,2 9,2 9,2]))}))
+
 (def prepared-map
   {"simple-dis" simple-disappearance
-   "intersection" intersection-ambiguity})
+   "intersection" intersection-ambiguity
+   "split-ambig" split-ambiguity
+   "merge-ambig" merge-ambiguity})

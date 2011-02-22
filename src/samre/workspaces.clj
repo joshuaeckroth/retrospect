@@ -120,10 +120,11 @@
         ;; a hyp is unexplained if it could be explained but is not yet explained
         is-unexplained #(and (empty? (find-explainers % accepted))
                              (not-empty (find-explainers % (vals (:hyps workspace)))))
-        unexplained (map :id (filter is-unexplained accepted))]
+        unexplained-ids (map :id (filter is-unexplained accepted))]
+    (println "candidates" non-accepted-ids)
     (-> workspace
         (assoc :candidates non-accepted-ids)
-        (assoc :unexplained unexplained))))
+        (assoc :unexplained unexplained-ids))))
 
 (defn accept-workspace-decision
   [workspace]
@@ -187,7 +188,7 @@
   [workspace hyps log-msg]
   (if (empty? hyps) workspace
       (let [penalized (doall (map #(update-in % [:confidence] penalize) hyps))]
-        (add-abducer-log-msg (update-hyps workspace penalized) penalized log-msg))))
+        (add-abducer-log-msg (update-hyps workspace penalized) (map :id penalized) log-msg))))
 
 (defn reject-impossible
   [workspace hyps log-msg]
@@ -198,7 +199,7 @@
         (-> workspace
             (update-hyps rejected)
             (update-in [:decision :rejected] concat (map :id rejected))
-            (add-abducer-log-msg rejected log-msg)))))
+            (add-abducer-log-msg (map :id rejected) log-msg)))))
 
 (defn reject-all-impossible
   [workspace]
@@ -288,13 +289,13 @@
   (let [unexplained (lookup-hyps workspace (:unexplained workspace))
         candidates (lookup-hyps workspace (:candidates workspace))
         explainers (map #(find-explainers % candidates) unexplained)
-        essentials (filter #(= 1 (count %)) explainers)]
-    (if (not-empty essentials)
-      ;; choose random most-confident essential
-      (let [es (apply concat essentials)
-            max-conf (:confidence (first (reverse (sort-by :confidence es))))
-            acc (rand-nth (vec (filter #(= max-conf (:confidence %)) es)))]
-        {:hyp acc :dot (dot-format workspace es acc)})
+        essentials (flatten (filter #(= 1 (count %)) explainers))
+        good-es (filter #(empty? ((:impossible-fn %) % essentials)) essentials)]
+    (if (not-empty good-es)
+      ;; choose random most-confident non-conflicting essential
+      (let [max-conf (:confidence (first (reverse (sort-by :confidence good-es))))
+            acc (rand-nth (vec (filter #(= max-conf (:confidence %)) good-es)))]
+        {:hyp acc :dot (dot-format workspace good-es acc)})
 
       ;; otherwise choose random most confident / most explanatory / hyp with
       ;; most of its "impossible" hyps already marked impossible
@@ -309,7 +310,7 @@
                                               (vals (:hyps workspace))))))
             max-imp (apply max (conj (map count-imp most-expl) 0))
             most-imp (filter #(= max-imp (count-imp %)) most-expl)]
-        (when (>= (count most-imp) 1)
+        (when (= (count most-imp) 1)
           (let [acc (first most-imp)]
             {:hyp acc :dot (dot-format workspace most-imp acc)}))))))
 
