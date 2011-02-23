@@ -322,17 +322,20 @@
   (let [ws (-> (update-candidates-unexplained workspace)
                (reject-all-impossible)
                (update-in [:resources] assoc :hyp-count (count (:hyps workspace)))
-               (update-in [:resources] assoc :hyps-new (count (:hypothesized workspace))))]
-    (if (empty? (:unexplained ws)) (update-in ws [:dot] conj (dot-format ws [] nil))
-        (let [best (find-best ws)]
-          (if (nil? best) (update-in ws [:dot] conj (dot-format ws [] nil))
-              (let [explains (filter #((:hyps workspace) %) (:explains (:hyp best)))]
-                (recur
-                 (-> ws
-                     (update-in [:dot] conj (:dot best))
-                     (update-in [:resources :explain-cycles] inc)
-                     (add-abducer-log-msg
-                      (conj explains (:id (:hyp best)))
-                      (format "Accepting %s as explainer of %s." (str (:id (:hyp best)))
-                              (apply str (interpose ", " (map str explains)))))
-                     (accept-hyp (:hyp best))))))))))
+               (update-in [:resources] assoc :hyps-new (count (:hypothesized workspace))))
+        best (find-best ws)]
+    (if (or (empty? (:unexplained ws)) (nil? best))
+      (-> ws
+          (update-in [:dot] conj (dot-format ws [] nil))
+          (update-decision-confidence)
+          (log-final-accepted-rejected-hyps))
+      (let [explains (filter #((:hyps workspace) %) (:explains (:hyp best)))]
+        (recur
+         (-> ws
+             (update-in [:dot] conj (:dot best))
+             (update-in [:resources :explain-cycles] inc)
+             (add-abducer-log-msg
+              (conj explains (:id (:hyp best)))
+              (format "Accepting %s as explainer of %s." (str (:id (:hyp best)))
+                      (apply str (interpose ", " (map str explains)))))
+             (accept-hyp (:hyp best))))))))

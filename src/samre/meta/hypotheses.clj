@@ -11,11 +11,14 @@
   (:use [samre.meta.meta :only [have-enough-meta-hyps]])
   (:use [samre.confidences]))
 
-(defn find-rejected-explainers
+(defn find-rejectors
   [workspace]
   (let [unexplained (lookup-hyps workspace (:unexplained workspace))
-        explainers (map #(find-explainers % (vals (:hyps workspace))) unexplained)]
-    (filter #(= IMPOSSIBLE (:confidence %)) explainers)))
+        accepted (lookup-hyps workspace (:accepted (:decision workspace)))
+        explainers (apply concat (map #(find-explainers % (vals (:hyps workspace)))
+                                      unexplained))
+        rejected-explainers (filter #(= IMPOSSIBLE (:confidence %)) explainers)]
+    (filter (fn [hyp] (not-empty ((:impossible-fn hyp) hyp rejected-explainers))) accepted)))
 
 (defn find-no-explainers
   [workspace]
@@ -29,25 +32,25 @@
    ensure that the least confident (and therefore, hopefully the most
    likely incorrect) hypothesis is not accepted again, and something
    else is accepted instead."
-  [ep-state]
-  (if (empty? (:accepted (:decision (:workspace ep-state)))) ep-state
-    (let [ws (:workspace ep-state)
-          least-conf (first (sort-by :confidence (lookup-hyps ws (:accepted (:decision ws)))))]
-      (assoc ep-state :workspace
-             (-> ws
-                 (reset-confidences-to-apriori)
-                 (clear-decision)
-                 (reject-impossible
-                  [least-conf] "Rejecting in meta-abduction because least confident.")
-                 (update-candidates-unexplained))))))
+  [ep-state hyps]
+  (let [ws (:workspace ep-state)
+        hyps (if (not-empty hyps) hyps (lookup-hyps ws (:accepted (:decision ws))))
+        least-conf (first (sort-by :confidence hyps))]
+    (assoc ep-state :workspace
+           (-> ws
+               (reset-confidences-to-apriori)
+               (clear-decision)
+               (reject-impossible
+                [least-conf] "Rejecting in meta-abduction because least confident.")
+               (update-candidates-unexplained)))))
 
 (defn branch-and-mark-impossible
   "A composite action that branches at the specified ep-state,
-   then marks the least confident accepted hyp as IMPOSSIBLE and
+   then marks the least confident hyp in 'hyps' as IMPOSSIBLE and
    updates the OneRunState with all these changes."
-  [ep-state-tree ep-state]
+  [ep-state-tree ep-state hyps]
   (let [est (new-branch-ep-state ep-state-tree ep-state)
-        ep (mark-least-conf-impossible (current-ep-state est))]
+        ep (mark-least-conf-impossible (current-ep-state est) hyps)]
     (update-ep-state-tree est ep)))
 
 (defn score-by-explaining
@@ -84,8 +87,8 @@
                        (some #(= % (:id ep-state-hyp)) (:explains h)))) hyps))
 
 (defn add-branch-hyp
-  [workspace ep-state-hyp branchable problem ep-state-tree sensors params lazy]
-  (let [est (branch-and-mark-impossible ep-state-tree branchable)
+  [workspace ep-state-hyp branchable hyps problem ep-state-tree sensors params lazy]
+  (let [est (branch-and-mark-impossible ep-state-tree branchable hyps)
         ep-state (current-ep-state est)
         ep-expl (explain ep-state params)
         est-new (update-ep-state-tree est ep-expl)
@@ -93,7 +96,7 @@
                   (score-by-replaying problem est-new sensors params lazy)]
               (new-hyp "MH" :meta score [(:id ep-state-hyp)]
                        (constantly []) (partial impossible-fn ep-state-hyp)
-                       (fn [hyp] (:id hyp))
+                       (fn [_] (format "Marked impossible: %s" (str (map :id hyps))))
                        {:ep-state-tree est-replayed}))]
     (add-hyp workspace hyp)))
 
@@ -110,7 +113,7 @@
         hyp (let [{score :score} (score-by-explaining problem est2 sensors params true)]
               (new-hyp "MH+" :meta score [(:id ep-state-hyp)] (constantly [])
                        (partial impossible-fn ep-state-hyp)
-                       (fn [hyp] (:pid hyp)) nil))]
+                       (fn [hyp] (:id hyp)) nil))]
     (add-hyp workspace hyp)))
 
 (defn add-uninformed-mark-impossible-hyp
@@ -118,7 +121,15 @@
   (let [no-explainers (find-no-explainers (:workspace (current-ep-state ep-state-tree)))
         prev-ep (previous-ep-state ep-state-tree)]
     (if (or (empty? no-explainers) (nil? prev-ep)) workspace
-        (add-branch-hyp workspace ep-state-hyp prev-ep problem ep-state-tree
+        (add-branch-hyp workspace ep-state-hyp prev-ep [] problem ep-state-tree
+                        sensors params lazy))))
+
+(defn add-mark-impossible-hyp
+  [workspace ep-state-hyp problem ep-state-tree sensors params lazy]
+  (let [rejectors (find-rejectors (:workspace (current-ep-state ep-state-tree)))
+        prev-ep (previous-ep-state ep-state-tree)]
+    (if (or (empty? rejectors) (nil? prev-ep)) workspace
+        (add-branch-hyp workspace ep-state-hyp prev-ep rejectors problem ep-state-tree
                         sensors params lazy))))
 
 (defn add-accurate-decision-hyp
@@ -139,4 +150,6 @@
         (force-acceptance ep-state-hyp)
         (add-accurate-decision-hyp ep-state-hyp)
         (add-uninformed-mark-impossible-hyp ep-state-hyp problem ep-state-tree
-                                            sensors params lazy))))
+                                            sensors params lazy)
+        (add-mark-impossible-hyp ep-state-hyp problem ep-state-tree
+                                 sensors params lazy))))

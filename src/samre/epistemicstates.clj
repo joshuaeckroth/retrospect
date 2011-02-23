@@ -2,8 +2,7 @@
   (:require [samre logs])
   (:import [samre.logs LogEntry])
   (:require [samre.workspaces :as ws :only
-             [init-workspace accept-workspace-decision get-decision-confidence
-              update-decision-confidence log-final-accepted-rejeted-hyps add-hyp
+             [init-workspace accept-workspace-decision get-decision-confidence add-hyp
               force-acceptance reset-confidences-to-apriori lookup-hyps]])
   (:use [samre.confidences])
   (:require [clojure.zip :as zip])
@@ -195,19 +194,14 @@
        :else
        (recur (zip/up loc) least-conf)))))
 
-(defn update-decision
-  [ep-state-tree ep-state]
-  (let [ep (update-in ep-state [:workspace] ws/update-decision-confidence)
-        ep-tree (goto-ep-state (zip/replace ep-state-tree ep) (:id ep))]
-    ep-tree))
-
 (defn count-branches
   [ep-state-tree branch]
   (count (zip/children (zip/up (goto-ep-state ep-state-tree (:id branch))))))
 
 (defn new-branch-ep-state
   [ep-state-tree branch]
-  (let [ep-tree (update-decision ep-state-tree (current-ep-state ep-state-tree))
+  (let [ep-state (current-ep-state ep-state-tree)
+        ep-tree (goto-ep-state (zip/replace ep-state-tree ep-state) (:id ep-state))
         ep (clone-ep-state branch (make-ep-state-id ep-tree) [])
 
         ;; make a branch; the choice of "insert-right" over "insert-left" here
@@ -220,9 +214,8 @@
 
 (defn new-child-ep-state
   [ep-state-tree ep-state time-now problem]
-  (let [ep-with-log (update-in ep-state [:workspace] ws/log-final-accepted-rejected-hyps)
-        ep-tree (update-decision ep-state-tree ep-with-log)
-        ep-child (commit-decision ep-with-log (make-ep-state-id ep-tree) time-now problem)
+  (let [ep-tree (goto-ep-state (zip/replace ep-state-tree ep-state) (:id ep-state))
+        ep-child (commit-decision ep-state (make-ep-state-id ep-tree) time-now problem)
         ep-child-fresh (update-in ep-child [:workspace] ws/delete-ancient-hyps)
         ep-tree-child (goto-ep-state (zip/append-child ep-tree ep-child-fresh)
                                      (:id ep-child-fresh))]
