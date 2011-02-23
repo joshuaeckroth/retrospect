@@ -241,10 +241,9 @@
   (. *abduction-log-label* setText (format "Abduction log for: %s" (str *ep-state*)))
   (. *abduction-log-box* setText
      (apply str (interpose "\n" (map str (:abducer-log (:workspace *ep-state*))))))
-  (. *meta-log-box* setText
-     (apply str (interpose "\n---\n"
-                           (map (fn [ls] (apply str (interpose "\n" (map str ls))))
-                                (:meta-log *or-state*))))))
+  (when-let [meta-log-entry (first (filter #(= (:id *ep-state*) (:id (:ep-state %)))
+                                           (:meta-log *or-state*)))]
+    (. *meta-log-box* setText (str meta-log-entry))))
 
 (defn update-hyp-box
   []

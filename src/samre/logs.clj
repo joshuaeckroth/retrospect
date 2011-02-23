@@ -9,7 +9,8 @@
   (toString [_] (format "Hypotheses: %s\n\t%s"
 			(apply str (interpose ", " (map str hyp-ids))) msg)))
 
-(defrecord MetaLogEntry [ep-state ep-state-revisit msg]
+(defrecord MetaLogEntry [ep-state ep-state-new abducer-log]
   Object
-  (toString [_] (format "Meta-abduction (%s -> %s): %s"
-                        (str ep-state) (str ep-state-revisit) msg)))
+  (toString [_] (format "Meta-abduction (%s -> %s):\n%s"
+                        (str ep-state) (str ep-state-new)
+                        (apply str (interpose "\n" (map str abducer-log))))))
