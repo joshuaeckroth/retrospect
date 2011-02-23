@@ -89,6 +89,10 @@
   (let [up (zip/up ep-state-tree)]
     (if-not (root-ep-state? (zip/node up)) (zip/node up))))
 
+(defn non-accepted-current-ep-state?
+  [ep-state-tree]
+  (nil? (zip/down ep-state-tree)))
+
 (defn goto-next-ep-state
   [ep-state-tree]
   (zip/next ep-state-tree))

@@ -11,11 +11,11 @@
   (:use [incanter.charts :only [scatter-plot]])
   (:use [samre.problem :only [get-headers run-simulation-step]])
   (:use [samre.player.state])
-  (:use [samre.onerun :only [init-one-run-state]])
+  (:use [samre.onerun :only [init-one-run-state update-one-run-state]])
   (:use [samre.workspaces :only [last-id]])
   (:use [samre.epistemicstates :only
          [draw-ep-state-tree list-ep-states current-ep-state goto-ep-state
-          goto-next-ep-state previous-ep-state]]))
+          goto-next-ep-state previous-ep-state non-accepted-current-ep-state?]]))
 
 (def *mainframe* nil)
 (def *problem-headers* nil)
@@ -132,15 +132,16 @@
 
 (defn draw-explains-graph
   []
-  (if-let [prev-ep (previous-ep-state (:ep-state-tree *or-state*))]
-    (let [dot (:dot (:workspace prev-ep))
+  (if *ep-state*
+    (let [dot (:dot (:workspace *ep-state*))
           filename (str "explains-graphs/" *explains-graph-index*)]
-      (. *explains-graph-label* setText
-         (format "Cycle %d of %d" (inc *explains-graph-index*) *explains-graph-count*))
-      (spit (str filename ".dot") (nth dot *explains-graph-index*))
-      (sh "dot" "-Tpng" (str "-o" filename ".png") (str filename ".dot"))
-      (sh "mogrify" "-resize" "50%" (str filename ".png"))
-      (str filename ".png"))))
+      (when (not-empty dot)
+        (. *explains-graph-label* setText
+           (format "Cycle %d of %d" (inc *explains-graph-index*) *explains-graph-count*))
+        (spit (str filename ".dot") (nth dot *explains-graph-index*))
+        (sh "dot" "-Tpng" (str "-o" filename ".png") (str filename ".dot"))
+        (sh "mogrify" "-resize" "50%" (str filename ".png"))
+        (str filename ".png")))))
 
 (defn get-explains-graph-viewport
   []
@@ -177,10 +178,10 @@
 
 (defn update-explains-graph-diagram
   []
-  (if-let [prev-ep (previous-ep-state (:ep-state-tree *or-state*))]
+  (if *ep-state*
     (do
       (def *explains-graph-index* 0)
-      (def *explains-graph-count* (count (:dot (:workspace prev-ep))))
+      (def *explains-graph-count* (count (:dot (:workspace *ep-state*))))
       (def *explains-graph* (draw-explains-graph))
       (. *explains-graph-scrollpane* setViewport (get-explains-graph-viewport))
       (. *prev-explains-graph-button* setEnabled false)
@@ -229,40 +230,39 @@
          ep-states (sort (list-ep-states (:ep-state-tree *or-state*)))]
     (if (empty? ep-states)
       (def *goto-ep-state-combobox*
-        (doto cb (.setSelectedItem (str (previous-ep-state (:ep-state-tree *or-state*))))))
+        (doto cb (.setSelectedItem (str *ep-state*))))
       (recur (doto cb (.addItem (first ep-states))) (rest ep-states)))))
 
 (defn update-logs
   []
   (. *truedata-log-box* setText ((:update-truedata-log-box-fn (:player-fns *problem*))))
   (. *problem-log-box* setText ((:update-problem-log-box-fn (:player-fns *problem*))))
-  (let [ep-state (previous-ep-state (:ep-state-tree *or-state*))]
-    (. *problem-log-label* setText (format "Problem log for: %s" (str ep-state)))
-    (. *abduction-log-label* setText (format "Abduction log for: %s" (str ep-state)))
-    (. *abduction-log-box* setText
-       (apply str (interpose "\n" (map str (:abducer-log (:workspace ep-state))))))
-    (. *meta-log-box* setText
-       (apply str (interpose "\n---\n"
-                             (map (fn [ls] (apply str (interpose "\n" (map str ls))))
-                                            (:meta-log *or-state*)))))))
+  (. *problem-log-label* setText (format "Problem log for: %s" (str *ep-state*)))
+  (. *abduction-log-label* setText (format "Abduction log for: %s" (str *ep-state*)))
+  (. *abduction-log-box* setText
+     (apply str (interpose "\n" (map str (:abducer-log (:workspace *ep-state*))))))
+  (. *meta-log-box* setText
+     (apply str (interpose "\n---\n"
+                           (map (fn [ls] (apply str (interpose "\n" (map str ls))))
+                                (:meta-log *or-state*))))))
 
 (defn update-hyp-box
   []
-  (if-let [ep (previous-ep-state (:ep-state-tree *or-state*))]
+  (if *ep-state*
     (if-let [hyp (if-let [choice (.getSelectedItem *hyp-choice*)]
-                   (get (:hyps (:workspace ep)) (symbol choice)))]
+                   (get (:hyps (:workspace *ep-state*)) (symbol choice)))]
       (. *hyp-box* setText
          (apply str ((:str-fn hyp) hyp) "\n\n"
                 (interpose
                  "\n" (map str (filter (fn [l] (some #(= % (:id hyp)) (:hyp-ids l)))
-                                       (:abducer-log (:workspace ep))))))))
+                                       (:abducer-log (:workspace *ep-state*))))))))
     (. *hyp-box* setText "")))
 
 (defn update-hyp-choice-dropdown
   []
   (.removeAllItems *hyp-choice*)
-  (when-let [ep (previous-ep-state (:ep-state-tree *or-state*))]
-    (doseq [i (sort (map str (keys (:hyps (:workspace ep)))))]
+  (when *ep-state*
+    (doseq [i (sort (map str (keys (:hyps (:workspace *ep-state*)))))]
       (.addItem *hyp-choice* i))))
 
 (defn get-results-viewport
@@ -381,13 +381,14 @@
 (defn update-everything
   [or-state]
   (update-or-state or-state)
-  (if (= "A" (:id (:ep-state or-state)))
+  (if (nil? *ep-state*)
     (do
       (update-time -1)
       (. *steplabel* (setText "Step: N/A")))
-    (let [prev-ep (previous-ep-state (:ep-state-tree *or-state*))
-          time-now (dec (:time (:ep-state or-state)))
-          time-prev (dec (:time prev-ep))]
+    (let [prev-ep (previous-ep-state (goto-ep-state (:ep-state-tree *or-state*)
+                                                    (:id *ep-state*)))
+          time-now (:time *ep-state*)
+          time-prev (if prev-ep (:time prev-ep) -1)]
       (update-time time-now)
       (update-time-prev time-prev)
       (. *steplabel* (setText (if time-prev (format "Step: %d->%d" time-prev time-now)
@@ -399,23 +400,29 @@
   (update-hyp-box)
   (update-results)
   (update-results-graph)
-  (.repaint *problem-diagram*)
   ((:update-stats-fn (:player-fns *problem*)))
-  (update-logs))
+  (update-logs)
+  (.repaint *problem-diagram*)
+  (.repaint *mainframe*))
 
 (defn goto-ep-state-action
   []
   (let [id (re-find #"^[A-Z]+" (. *goto-ep-state-combobox* (getSelectedItem)))
-        ep-state-tree (goto-next-ep-state (goto-ep-state (:ep-state-tree *or-state*) id))]
+        est (goto-ep-state (:ep-state-tree *or-state*) id)
+        ep-state (current-ep-state est)
+        est2 (if (non-accepted-current-ep-state? est) est
+                 (goto-next-ep-state est))]
+    (update-ep-state ep-state)
     (update-everything
      (-> *or-state*
-         (assoc :ep-state-tree ep-state-tree)
-         (assoc :ep-state (current-ep-state ep-state-tree))))))
+         (assoc :ep-state-tree est2)
+         (assoc :ep-state (current-ep-state est2))))))
 
 (defn step
   []
   (let [or-state (run-simulation-step *problem* *truedata* *or-state*
                                       *params* false true)]
+    (update-ep-state (previous-ep-state (:ep-state-tree or-state)))
     (update-everything or-state)))
 
 (defn new-simulation
@@ -431,6 +438,7 @@
         or-state (init-one-run-state meta-abduction lazy sensors
                                      ((:gen-problem-data-fn *problem*) sensors params))]
     (dosync (alter last-id (constantly 0)))
+    (update-ep-state nil)
     (update-params params)
     (update-sensors sensors)
     (update-truedata truedata)

@@ -1,8 +1,10 @@
-(ns samre.player.state)
+(ns samre.player.state
+  (:use [samre.epistemicstates :only [non-accepted-current-ep-state? previous-ep-state]]))
 
 (def *problem* nil)
 (def *params* nil)
 (def *or-state* nil)
+(def *ep-state* nil)
 (def *sensors* nil)
 (def *truedata* nil)
 (def *time* 0)
@@ -19,6 +21,10 @@
 (defn update-or-state
   [ors]
   (def *or-state* ors))
+
+(defn update-ep-state
+  [ep-state]
+  (def *ep-state* ep-state))
 
 (defn update-sensors
   [sensors]
