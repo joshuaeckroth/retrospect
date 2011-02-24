@@ -168,14 +168,16 @@
 (defn assoc-label-path
   [label paths prior-covered spotted-grid maxwalk]
   (let [prior-paths (label paths)
-        last-time (apply min (map (comp :time meta first last) prior-paths))
-        sg (if-not prior-paths spotted-grid (subvec spotted-grid (inc last-time)))
-        new-paths (make-label-path label prior-paths prior-covered sg maxwalk)]
-    ;; check if no progress was made in extending the paths;
-    ;; if there was no progress, forget about the label
-    (if (= new-paths prior-paths)
-      (dissoc paths label)
-      (assoc paths label new-paths))))
+        last-time (apply min (map (comp :time meta first last) prior-paths))]
+    (println label (map path-str prior-paths))
+    (println last-time (count spotted-grid))
+    (let [sg (if-not prior-paths spotted-grid (subvec spotted-grid (inc last-time)))
+          new-paths (make-label-path label prior-paths prior-covered sg maxwalk)]
+      ;; check if no progress was made in extending the paths;
+      ;; if there was no progress, forget about the label
+      (if (= new-paths prior-paths)
+        (dissoc paths label)
+        (assoc paths label new-paths)))))
 
 (defn str-fn
   [hyp]
@@ -197,6 +199,8 @@
 
 (defn hypothesize
   [ep-state sensors time-now params]
+  (println (:id ep-state) time-now (paths-str (:paths (:problem-data ep-state))) params
+           (map :sensed-up-to sensors))
   (let [ep (process-sensors ep-state sensors time-now)
         spotted-grid (:spotted-grid (:problem-data ep))
         maxwalk (:MaxWalk params)

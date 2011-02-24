@@ -2,5 +2,6 @@
   (:use [samre.confidences]))
 
 (defn have-enough-meta-hyps
-  [hyps]
-  (some #(and (not= :ep-state (:id %)) (= VERY-PLAUSIBLE (:apriori %))) hyps))
+  [workspace]
+  (some #(and (not= :ep-state (:id %)) (= PLAUSIBLE (:apriori %)))
+        (vals (:hyps workspace))))

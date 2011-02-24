@@ -314,7 +314,7 @@
             max-imp (apply max (conj (map count-imp most-expl) 0))
             most-imp (filter #(= max-imp (count-imp %)) most-expl)]
         (when (>= (count most-imp) 1)
-          (let [acc (first (sort-by :id most-imp))] ;; KLUDGE for prepared examples
+          (let [acc (first (sort-by :id most-imp))] ;; first/sorting is for prepared examples
             {:hyp acc :dot (dot-format workspace most-imp acc)}))))))
 
 (defn explain

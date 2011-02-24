@@ -41,16 +41,24 @@
                (reset-confidences-to-apriori)
                (clear-decision)
                (reject-impossible
-                [least-conf] "Rejecting in meta-abduction because least confident.")
-               (update-candidates-unexplained)))))
+                [least-conf] "Rejecting in meta-abduction because least confident.")))))
+
+(defn mark-many-impossible
+  [ep-state hyps]
+  (let [workspace (:workspace ep-state)]
+    (assoc ep-state :workspace
+           (reduce (fn [ws hyp] (reject-impossible ws [hyp] "Rejecting in meta-abduction."))
+                   (-> workspace (reset-confidences-to-apriori) (clear-decision)) hyps))))
 
 (defn branch-and-mark-impossible
   "A composite action that branches at the specified ep-state,
    then marks the least confident hyp in 'hyps' as IMPOSSIBLE and
    updates the OneRunState with all these changes."
-  [ep-state-tree ep-state hyps]
+  [ep-state-tree ep-state hyps least-conf?]
   (let [est (new-branch-ep-state ep-state-tree ep-state)
-        ep (mark-least-conf-impossible (current-ep-state est) hyps)]
+        ep (if least-conf?
+             (mark-least-conf-impossible (current-ep-state est) hyps)
+             (mark-many-impossible (current-ep-state est) hyps))]
     (update-ep-state-tree est ep)))
 
 (defn score-by-explaining
@@ -87,14 +95,15 @@
                        (some #(= % (:id ep-state-hyp)) (:explains h)))) hyps))
 
 (defn add-branch-hyp
-  [workspace ep-state-hyp branchable hyps problem ep-state-tree sensors params lazy]
-  (let [est (branch-and-mark-impossible ep-state-tree branchable hyps)
+  [workspace ep-state-hyp branchable hyps problem ep-state-tree
+   sensors params lazy prefix least-conf?]
+  (let [est (branch-and-mark-impossible ep-state-tree branchable hyps least-conf?)
         ep-state (current-ep-state est)
         ep-expl (explain ep-state params)
         est-new (update-ep-state-tree est ep-expl)
         hyp (let [{score :score est-replayed :ep-state-tree}
                   (score-by-replaying problem est-new sensors params lazy)]
-              (new-hyp "MH" :meta score [(:id ep-state-hyp)]
+              (new-hyp prefix :meta score [(:id ep-state-hyp)]
                        (constantly []) (partial impossible-fn ep-state-hyp)
                        (fn [_] (format "Marked impossible: %s" (str (map :id hyps))))
                        {:ep-state-tree est-replayed}))]
@@ -118,23 +127,36 @@
 
 (defn add-uninformed-mark-impossible-hyp
   [workspace ep-state-hyp problem ep-state-tree sensors params lazy]
-  (let [no-explainers (find-no-explainers (:workspace (current-ep-state ep-state-tree)))
-        prev-ep (previous-ep-state ep-state-tree)]
-    (if (or (empty? no-explainers) (nil? prev-ep)) workspace
-        (add-branch-hyp workspace ep-state-hyp prev-ep [] problem ep-state-tree
-                        sensors params lazy))))
+  (let [prev-ep (previous-ep-state ep-state-tree)
+        no-explainers (find-no-explainers (:workspace (current-ep-state ep-state-tree)))]
+    (if (or (nil? prev-ep) (empty? no-explainers)) workspace
+        (let [ws (:workspace prev-ep)
+              hyps (lookup-hyps ws (:accepted (:decision ws)))]
+          (add-branch-hyp
+           workspace ep-state-hyp prev-ep hyps problem ep-state-tree
+           sensors params lazy (format "MH:U:%s:L" (:id prev-ep)) true)))))
 
 (defn add-mark-impossible-hyp
   [workspace ep-state-hyp problem ep-state-tree sensors params lazy]
-  (let [rejectors (find-rejectors (:workspace (current-ep-state ep-state-tree)))
-        prev-ep (previous-ep-state ep-state-tree)]
-    (if (or (empty? rejectors) (nil? prev-ep)) workspace
-        (add-branch-hyp workspace ep-state-hyp prev-ep rejectors problem ep-state-tree
-                        sensors params lazy))))
+  (let [prev-ep (previous-ep-state ep-state-tree)
+        rejectors (find-rejectors (:workspace (current-ep-state ep-state-tree)))]
+    (if (or (nil? prev-ep) (empty? rejectors)) workspace
+        (add-branch-hyp
+         workspace ep-state-hyp prev-ep rejectors problem ep-state-tree
+         sensors params lazy (format "MH:R:%s:*" (:id prev-ep)) false))))
+
+(defn add-mark-impossible-hyp-least-conf
+  [workspace ep-state-hyp problem ep-state-tree branchable sensors params lazy]
+  (let [ws (:workspace branchable)
+        hyps (lookup-hyps ws (:accepted (:decision ws)))]
+    (add-branch-hyp
+     workspace ep-state-hyp branchable hyps problem ep-state-tree
+     sensors params lazy (format "MH:LC:%s:L" (:id branchable)) true)))
 
 (defn add-accurate-decision-hyp
   [workspace ep-state-hyp]
-  (let [apriori (measure-decision-confidence (:workspace (:ep-state (:data ep-state-hyp))))
+  (let [apriori (boost (measure-decision-confidence
+                        (:workspace (:ep-state (:data ep-state-hyp)))))
         hyp (new-hyp "MHA" :meta-accurate apriori
                      [(:id ep-state-hyp)] (constantly [])
                      (partial impossible-fn ep-state-hyp)
@@ -144,12 +166,19 @@
 (defn generate-meta-hypotheses
   [workspace problem ep-state-tree sensors params lazy]
   (let [ep-state (current-ep-state ep-state-tree)
-        ep-state-hyp (generate-ep-state-hyp ep-state)]
-    (-> workspace
-        (add-hyp ep-state-hyp)
-        (force-acceptance ep-state-hyp)
-        (add-accurate-decision-hyp ep-state-hyp)
-        (add-uninformed-mark-impossible-hyp ep-state-hyp problem ep-state-tree
-                                            sensors params lazy)
-        (add-mark-impossible-hyp ep-state-hyp problem ep-state-tree
-                                 sensors params lazy))))
+        ep-state-hyp (generate-ep-state-hyp ep-state)
+        prev-ep (previous-ep-state ep-state-tree)
+        ws (-> workspace
+               (add-hyp ep-state-hyp)
+               (force-acceptance ep-state-hyp)
+               (add-accurate-decision-hyp ep-state-hyp)
+               (add-uninformed-mark-impossible-hyp
+                ep-state-hyp problem ep-state-tree sensors params lazy)
+               (add-mark-impossible-hyp
+                ep-state-hyp problem ep-state-tree sensors params lazy))]
+    (loop [ws2 ws
+           states (reverse (flatten-ep-state-tree ep-state-tree))]
+      (if (or (empty? states) (have-enough-meta-hyps ws2)) ws2
+          (recur (add-mark-impossible-hyp-least-conf ws2
+                  ep-state-hyp problem ep-state-tree (first states) sensors params lazy)
+                 (rest states))))))
