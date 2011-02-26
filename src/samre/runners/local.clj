@@ -43,7 +43,7 @@
   [problem monitor filename params]
   (when (not-empty params)
     (send-off write-agent write-csv filename problem
-              (average-runs problem monitor (first params) 10))
+              (average-runs problem monitor (first params) 200))
     (recur problem monitor filename (rest params))))
 
 (defn check-progress

@@ -100,7 +100,14 @@
 
 (defn generate-sensors
   [params]
-  (generate-sensors-with-coverage
-    (:GridWidth params) (:GridHeight params)
-    (:SensorCoverage params) (:SensorSeesColor params)))
+  [(new-sensor (keyword "left") 0 2 0 9 true)
+   (new-sensor (keyword "middletop") 3 6 0 3 false)
+   (new-sensor (keyword "middlebottom") 3 6 6 9 false)
+   (new-sensor (keyword "right") 7 9 0 9 true)])
+
+(comment (defn generate-sensors
+           [params]
+           (generate-sensors-with-coverage
+             (:GridWidth params) (:GridHeight params)
+             (:SensorCoverage params) (:SensorSeesColor params))))
 

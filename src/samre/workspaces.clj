@@ -139,7 +139,9 @@
         (assoc :rejected rejected)
         (assoc :candidates (:candidates workspace))
         (assoc :unexplained (:unexplained workspace))
-        (assoc :marked-ancient (:marked-ancient workspace)))))
+        (assoc :marked-ancient (:marked-ancient workspace))
+        (assoc :resources {:explain-cycles (:explain-cycles (:resources workspace))
+                           :hyp-count 0 :hyps-new 0}))))
 
 (defn measure-decision-confidence
   [workspace]
@@ -149,7 +151,7 @@
       (let [accepted (lookup-hyps workspace (:accepted (:decision workspace)))
             conf (apply min (map (fn [h] (:confidence h)) accepted))]
         ;; if something is unexplained, penalize the decision
-        (if (empty? (:unexplained workspace)) conf (penalize conf)))))
+        (if (empty? (:unexplained workspace)) conf VERY-IMPLAUSIBLE))))
 
 (defn update-decision-confidence
   [workspace]

@@ -58,17 +58,9 @@
   (let [est (new-branch-ep-state ep-state-tree ep-state)
         ep (if least-conf?
              (mark-least-conf-impossible (current-ep-state est) hyps)
-             (mark-many-impossible (current-ep-state est) hyps))]
-    (update-ep-state-tree est ep)))
-
-(defn score-by-explaining
-  [problem ep-state-tree sensors params lazy]
-  (let [time-prev (if-let [time-prev (:time (previous-ep-state ep-state-tree))]
-                    (inc time-prev) (:time (current-ep-state ep-state-tree)))
-        time-now (apply max (map :sensed-up-to sensors))
-        ep-state (explain (current-ep-state ep-state-tree) params)
-        score (measure-decision-confidence (:workspace ep-state))]
-    {:score score :ep-state-tree ep-state-tree}))
+             (mark-many-impossible (current-ep-state est) hyps))
+        ep-expl-cycles (update-in ep [:workspace :resources] assoc :explain-cycles 0)]
+    (update-ep-state-tree est ep-expl-cycles)))
 
 (defn score-by-replaying
   [problem ep-state-tree sensors params lazy]
@@ -82,11 +74,12 @@
               ep-expl (explain ep-hyps params)]
           (recur (update-ep-state-tree est-child ep-expl)))
         {:ep-state-tree est
+         :explain-cycles (:explain-cycles (:resources (:workspace (current-ep-state est))))
          :score (measure-decision-confidence (:workspace (current-ep-state est)))}))))
 
 (defn generate-ep-state-hyp
   [ep-state]
-  (new-hyp "EP" :meta NEUTRAL [] (constantly []) (constantly [])
+  (new-hyp "EP" :meta-ep NEUTRAL [] (constantly []) (constantly [])
            (constantly "ep-state") {:ep-state ep-state}))
 
 (defn impossible-fn
@@ -101,28 +94,12 @@
         ep-state (current-ep-state est)
         ep-expl (explain ep-state params)
         est-new (update-ep-state-tree est ep-expl)
-        hyp (let [{score :score est-replayed :ep-state-tree}
+        hyp (let [{score :score est-replayed :ep-state-tree ec :explain-cycles}
                   (score-by-replaying problem est-new sensors params lazy)]
               (new-hyp prefix :meta score [(:id ep-state-hyp)]
                        (constantly []) (partial impossible-fn ep-state-hyp)
                        (fn [_] (format "Marked impossible: %s" (str (map :id hyps))))
-                       {:ep-state-tree est-replayed}))]
-    (add-hyp workspace hyp)))
-
-(defn add-more-explainers-hyp
-  [workspace ep-state-hyp problem ep-state-tree sensors params]
-  (let [est (new-branch-ep-state ep-state-tree (:ep-state (:data ep-state-hyp)))
-        ep ((:get-more-hyps-fn problem) (current-ep-state est) sensors params true)
-        ep2 (assoc ep :workspace
-                   (-> (:workspace ep)
-                       (reset-confidences-to-apriori)
-                       (clear-decision)
-                       (update-candidates-unexplained)))
-        est2 (update-ep-state-tree est ep2)
-        hyp (let [{score :score} (score-by-explaining problem est2 sensors params true)]
-              (new-hyp "MH+" :meta score [(:id ep-state-hyp)] (constantly [])
-                       (partial impossible-fn ep-state-hyp)
-                       (fn [hyp] (:id hyp)) nil))]
+                       {:ep-state-tree est-replayed :explain-cycles ec}))]
     (add-hyp workspace hyp)))
 
 (defn add-uninformed-mark-impossible-hyp

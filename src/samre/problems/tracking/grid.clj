@@ -74,7 +74,11 @@
               {x :x y :y} (rand-nth [{:x (dec ox) :y oy}
                                      {:x (inc ox) :y oy}
                                      {:x ox :y (inc oy)}
-                                     {:x ox :y (dec oy)}])]
+                                     {:x ox :y (dec oy)}
+                                     {:x (dec ox) :y (dec oy)}
+                                     {:x (dec ox) :y (inc oy)}
+                                     {:x (inc ox) :y (dec oy)}
+                                     {:x (inc ox) :y (inc oy)}])]
           (if (and (< x (:width (meta grid)))
                    (>= x 0)
                    (< y (:height (meta grid)))

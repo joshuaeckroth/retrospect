@@ -85,31 +85,75 @@
     (doall (for [ors or-states]
              (last (run-simulation problem truedata ors monitor params))))))
 
+(defn calc-percent-improvement
+  [k m b]
+  (if (= 0 (k b)) 0.0
+      (double (* 100.0 (/ (- (k m) (k b)) (k b))))))
+
+(defn calc-ratio
+  [k m b]
+  (if (= 0 (k b)) 0.0
+      (double (/ (k m) (k b)))))
+
 (defn run-many
   [problem monitor params n]
-  (apply concat (for [i (range n)] (run-comparative problem monitor params))))
+  (for [i (range n)]
+    (let [[m b] (run-comparative problem monitor params)]
+      {:MetaAbductions (:MetaAbductions m)
+       :MetaMilliseconds (:Milliseconds m)
+       :BaseMilliseconds (:Milliseconds b)
+       :RatioMilliseconds (calc-ratio :Milliseconds m b)
+       :ImproveMilliseconds (calc-percent-improvement :Milliseconds m b)
+       :MetaUnexplained (:Unexplained m)
+       :BaseUnexplained (:Unexplained b)
+       :RatioUnexplained (calc-ratio :Unexplained m b)
+       :MetaPercentEventsCorrect (:PercentEventsCorrect m)
+       :BasePercentEventsCorrect (:PercentEventsCorrect b)
+       :RatioPercentEventsCorrect (calc-ratio :PercentEventsCorrect m b)
+       :ImprovePercentEventsCorrect (calc-percent-improvement :PercentEventsCorrect m b)
+       :MetaMeanTimeWithLabel (:MeanTimeWithLabel m)
+       :BaseMeanTimeWithLabel (:MeanTimeWithLabel b)
+       :RatioMeanTimeWithLabel (calc-ratio :MeanTimeWithLabel m b)
+       :ImproveMeanTimeWithLabel (calc-percent-improvement :MeanTimeWithLabel m b)
+       :MetaExplainCycles (:ExplainCycles m)
+       :BaseExplainCycles (:ExplainCycles b)
+       :RatioExplainCycles (calc-ratio :ExplainCycles m b)
+       :ImproveExplainCycles (calc-percent-improvement :ExplainCycles m b)
+       :NumberEntities (:NumberEntities params)
+       :MaxWalk (:MaxWalk params)
+       :Steps (:Steps params)
+       :ProbNewEntities (:ProbNewEntities params)})))
 
 (defn average-runs
   [problem monitor params n]
-  (let [results (run-many problem monitor params n)]
-    (doall (for [meta-abduction [true false] lazy [true]]
-             (let [rs (filter #(and (= meta-abduction (:MetaAbduction %))
-                                    (= lazy (:Lazy %)))
-                              results)
-            
-                   ;; choose any result; 'avg-fields' will be updated
-                   result (first rs) 
-        
-                   avg (fn [field] (double (/ (reduce + (map field rs)) n)))
-                   newfields (interleave (concat avg-fields (:avg-fields problem))
-                                         (doall (map #(avg %)
-                                                     (concat avg-fields
-                                                             (:avg-fields problem)))))]
-               (apply assoc result newfields))))))
+  (doall (run-many problem monitor params n)))
 
 (defn get-headers
   [problem]
-  (concat avg-fields non-avg-fields (:avg-fields problem) (:non-avg-fields problem)))
+  [:MetaAbductions
+   :MetaMilliseconds
+   :BaseMilliseconds
+   :RatioMilliseconds
+   :ImproveMilliseconds
+   :MetaUnexplained
+   :BaseUnexplained
+   :RatioUnexplained
+   :MetaPercentEventsCorrect
+   :BasePercentEventsCorrect
+   :RatioPercentEventsCorrect
+   :ImprovePercentEventsCorrect
+   :MetaMeanTimeWithLabel
+   :BaseMeanTimeWithLabel
+   :RatioMeanTimeWithLabel
+   :ImproveMeanTimeWithLabel
+   :MetaExplainCycles
+   :BaseExplainCycles
+   :RatioExplainCycles
+   :ImproveExplainCycles
+   :NumberEntities
+   :MaxWalk
+   :Steps
+   :ProbNewEntities])
 
 (defrecord Problem
     [name monitor-fn player-fns truedata-fn sensor-gen-fn prepared-map

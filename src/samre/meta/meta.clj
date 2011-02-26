@@ -3,5 +3,6 @@
 
 (defn have-enough-meta-hyps
   [workspace]
-  (some #(and (not= :ep-state (:id %)) (= PLAUSIBLE (:apriori %)))
+  (some #(and (not= :ep-state (:id %)) (= NEUTRAL (:apriori %)))
         (vals (:hyps workspace))))
+
