@@ -9,8 +9,7 @@
   (:use [clojure.java.io :as io :only (writer reader copy)])
   (:use [clojure.string :only (split)])
   (:use [samre.runners.local :only (run-local)])
-  (:use [samre.problem :only (get-headers)])
-  (:use [samre.charts :only (save-plots)]))
+  (:use [samre.problem :only (get-headers)]))
 
 (defn get-gitcommit []
   (first (split (sh "git" "rev-list" "HEAD") #"\n")))
@@ -58,7 +57,7 @@
   "Create a new folder for storing run data and execute the run. Then,
   depending on whether hadoop is true or false, execute a hadoop job
   control process or a local (this machine) runner."
-  [problem paramsfile recordsdir nthreads monitor]
+  [problem paramsfile recordsdir nthreads monitor repetitions]
   (try
     (let [dir (str recordsdir "/" (. System (currentTimeMillis)))
           params (explode-params (read-params problem paramsfile))]
@@ -72,28 +71,16 @@
       (copy-params-file (str dir "/params.xml") paramsfile)
       (println "done.")
       (println (format "Running %d parameter combinations..." (count params)))
-      (run-local problem params dir nthreads monitor)
+      (run-local problem params dir nthreads monitor repetitions)
       (println "Done."))
     (catch java.util.concurrent.ExecutionException e
       (println "Quitting early."))))
 
 (defn write-input
-  [params input]
   "This function only writes the input file."
+  [params input]
   (with-open [writer (io/writer input)]
     (doseq [p params] (.write writer (str (print-str p) \newline)))))
-
-(defn prepare-hadoop [problem paramsfile recordsdir]
-  (write-input (explode-params (read-params problem paramsfile))
-	       (str recordsdir "/input.txt")))
-
-(defn cleanup-hadoop-results
-  [problem dir file1 file2]
-  (with-open [reader (io/reader file1)
-	      writer (io/writer file2)]
-    (.write writer (apply str (concat (interpose "," (map name (get-headers problem))))))
-    (doseq [line (line-seq reader)]
-      (.write writer (str (clojure.string/replace line #"^\d+\s+" "") \newline)))))
 
 (defn record-str
   [id date commit params]
@@ -124,9 +111,3 @@
 				:params params-str)]
 	   (record-str id date commit params))
 	 (catch Exception e))))))
-
-(defn chart
-  [recordsdir record problem]
-  (print "Saving charts...")
-  (save-plots (str recordsdir "/" record) problem)
-  (println "done."))

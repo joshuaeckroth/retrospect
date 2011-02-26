@@ -15,8 +15,7 @@
   [workspace]
   (let [unexplained (lookup-hyps workspace (:unexplained workspace))
         accepted (lookup-hyps workspace (:accepted (:decision workspace)))
-        explainers (apply concat (map #(find-explainers % (vals (:hyps workspace)))
-                                      unexplained))
+        explainers (mapcat #(find-explainers % (vals (:hyps workspace))) unexplained)
         rejected-explainers (filter #(= IMPOSSIBLE (:confidence %)) explainers)]
     (filter (fn [hyp] (not-empty ((:impossible-fn hyp) hyp rejected-explainers))) accepted)))
 

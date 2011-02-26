@@ -1,5 +1,6 @@
 (ns samre.problems.tracking.grid
-  (:use [samre.colors :only [red blue]]))
+  (:use [samre.colors :only [red blue]])
+  (:use [clojure.contrib.seq :only [find-first]]))
 
 ;; top-left is (0, 0); bottom-right is (width-1, height-1)
 
@@ -61,7 +62,7 @@
 
 (defn find-entity
   [grid entity]
-  (first (filter (fn [e] (= e entity)) (filter identity grid))))
+  (find-first #{entity} grid))
 
 (defn walk1
   "Move an entity one step in a random (free) direction; try to move 4
@@ -91,5 +92,3 @@
   [grid time]
   (with-meta (vec (map (fn [e] (if e (with-meta e (merge (meta e) {:time time})))) grid))
     (meta grid)))
-
-

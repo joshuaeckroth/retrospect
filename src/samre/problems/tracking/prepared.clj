@@ -45,7 +45,7 @@
   (let [xy-pairs (partition 2 xys)
         path (zipmap (range time (+ time (count xy-pairs)))
                      (map (fn [pair] {:x (first pair) :y (second pair)}) xy-pairs))]
-    [(new-entity id (first (first xy-pairs)) (second (first xy-pairs)) color time)
+    [(new-entity id (ffirst xy-pairs) (second (first xy-pairs)) color time)
       path]))
 
 (defn entity-paths

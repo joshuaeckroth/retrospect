@@ -21,12 +21,12 @@
         height (:height (meta sensors-seen-grid))]
     (with-meta
       (for [y (range height) x (range width)] ;; need height followed by width
-        (apply concat (map (fn [s]
-                             (map #(add-sensor-hyp s %)
-                                  (filter (fn [e] (and (= x (:x (meta e)))
-                                                       (= y (:y (meta e)))))
-                                          (sensed-at s time))))
-                           sensors)))
+        (mapcat (fn [s]
+                  (map #(add-sensor-hyp s %)
+                       (filter (fn [e] (and (= x (:x (meta e)))
+                                            (= y (:y (meta e)))))
+                               (sensed-at s time))))
+                sensors))
       {:width width :height height :time time})))
 
 (defn process-sensors
@@ -152,8 +152,7 @@
 
 (defn extend-paths
   [label paths prior-covered spotted-grid maxwalk]
-  (apply concat (map (fn [p] (extend-path label p prior-covered spotted-grid maxwalk))
-                     paths)))
+  (mapcat (fn [p] (extend-path label p prior-covered spotted-grid maxwalk)) paths))
 
 (defn make-label-path
   "The first grid in spotted-grid is the time step that should be
@@ -214,9 +213,8 @@
         (if (or (empty? uncovered)
                 (and (= 0 (:ProbNewEntities params)) (= 100 (:SensorCoverage params))
                      (not= 0 time-now)))
-          (reduce add-hyp ep (apply concat (map (fn [l] (map #(make-hyp % l maxwalk)
-                                                             (l paths)))
-                                                (keys paths))))
+          (reduce add-hyp ep (mapcat (fn [l] (map #(make-hyp % l maxwalk) (l paths)))
+                                     (keys paths)))
           ;; when making a new label, consider oldpaths labels plus newpaths labels,
           ;; since the newpaths (called 'paths' here) may have dissoc'd some labels
           ;; that could not be extended
@@ -227,9 +225,8 @@
                 ;; if no extension progress is made; since we just created
                 ;; a new label we want to be sure to save the new label even if
                 ;; no extension was made
-                expaths (merge newpaths
-                               (assoc-label-path label newpaths prior-covered
-                                                 spotted-grid maxwalk))]
+                expaths (merge newpaths (assoc-label-path label newpaths prior-covered
+                                                          spotted-grid maxwalk))]
             (recur expaths)))))))
 
 (defn entity-meta
@@ -311,4 +308,3 @@
         (if (empty? (set/difference (set (keys ps)) (set (keys paths))))
           (assoc pd :paths paths)
           (recur ps))))))
-

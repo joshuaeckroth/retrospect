@@ -4,7 +4,8 @@
   (:use [samre.confidences])
   (:use [samre.problems.tracking.hypotheses :only [path-to-movements]])
   (:use [samre.problems.tracking.truedata :only [get-grid-movements]])
-  (:require [clojure.set :as set]))
+  (:require [clojure.set :as set])
+  (:use [clojure.contrib.seq :only [find-first]]))
 
 (defn believed-movements
   [pdata]
@@ -34,7 +35,7 @@
                                        (flatten p)))
                 ;; find the label associated with an entity's position/time;
                 ;; note that there is only zero or one such label
-                find-fn (fn [e] (first (filter (fn [l] (match? (l paths) e)) (keys paths))))
+                find-fn (fn [e] (find-first (fn [l] (match? (l paths) e)) (keys paths)))
                 ;; add to the labels associated with an entity, if there are any such labels
                 assoc-fn (fn [elm e] (assoc elm e (if-let [l (find-fn e)]
                                                     (conj (elm e) l) (elm e))))

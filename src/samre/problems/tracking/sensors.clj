@@ -60,8 +60,8 @@
 (defn measure-sensor-overlap
   [width height sensors]
   (let [count-xy
-	(doall (for [x (range width) y (range height)]
-                 (count (filter identity (map (fn [s] (sees s x y)) sensors)))))]
+	(for [x (range width) y (range height)]
+          (count (filter identity (map (fn [s] (sees s x y)) sensors))))]
     (double (/ (reduce + count-xy) (* width height)))))
 
 (defn inside?

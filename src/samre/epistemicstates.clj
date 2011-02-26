@@ -1,6 +1,4 @@
 (ns samre.epistemicstates
-  (:require [samre logs])
-  (:import [samre.logs LogEntry])
   (:require [samre.workspaces :as ws :only
              [init-workspace accept-workspace-decision get-decision-confidence add-hyp
               force-acceptance reset-confidences-to-apriori lookup-hyps]])
@@ -141,16 +139,11 @@
         (recur (zip/next loc) (conj states (zip/node loc))))))
 
 (defn list-ep-states
-  [ep-state-tree]
   "List ep-states in the order that they were created (i.e., sorted by id,
    which is the same as a depth-first left-first walk)."
+  [ep-state-tree]
   (map str (filter (comp :confidence :decision :workspace)
                    (flatten-ep-state-tree ep-state-tree))))
-
-(defn add-log-msg
-  [ep-state msg]
-  (let [entry (LogEntry. msg)]
-    (update-in ep-state [:log] conj entry)))
 
 (defn add-hyp
   [ep-state hyp]
@@ -158,9 +151,7 @@
 
 (defn add-fact
   [ep-state hyp]
-  (assoc ep-state :workspace (-> (:workspace ep-state)
-                                 (ws/add-hyp hyp)
-                                 (ws/force-acceptance hyp))))
+  (update-in ep-state [:workspace] #(-> % (ws/add-hyp hyp) (ws/force-acceptance hyp))))
 
 (defn commit-decision
   [ep-state id time-now problem]
@@ -178,9 +169,9 @@
       accepted-hyps rejected-hyps candidate-hyps))))
 
 (defn find-least-confident-decision
-  [ep-state-tree]
   "Finds most recent (up the path) lowest-confidence decision; returns
    the epistemic state; returns nil if there are no past states."
+  [ep-state-tree]
   (if-not (root-ep-state? (zip/node (zip/up ep-state-tree)))
     (loop [loc (zip/up ep-state-tree)
            least-conf (zip/node loc)]
@@ -208,8 +199,7 @@
         ;; is what makes (list-ep-states) possible, since depth-first search
         ;; looks left before looking right
         ep-tree-branch
-        (goto-ep-state (zip/insert-right (goto-ep-state ep-tree (:id branch)) ep)
-                       (:id ep))]
+        (goto-ep-state (zip/insert-right (goto-ep-state ep-tree (:id branch)) ep) (:id ep))]
     ep-tree-branch))
 
 (defn new-child-ep-state
@@ -223,5 +213,4 @@
 
 (defn explain
   [ep-state params]
-  (let [ws-explained (ws/explain (:workspace ep-state))]
-    (assoc ep-state :workspace ws-explained)))
+  (update-in ep-state [:workspace] ws/explain))

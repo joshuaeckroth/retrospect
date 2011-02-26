@@ -7,14 +7,6 @@
   (:use [samre.meta.explain :only [explain-meta]])
   (:use [samre.sensors :only [update-sensors]]))
 
-(def avg-fields
-  [:Steps :Step :StepsBetween :MetaAbductions :Milliseconds
-   :SensorReportNoise :BeliefNoise :Unexplained :ExplainCycles
-   :HypothesisCount :HypothesesNew])
-
-(def non-avg-fields
-  [:MetaAbduction :Lazy])
-
 (defn evaluate
   [problem truedata or-state params]
   (let [prev-ep (previous-ep-state (:ep-state-tree or-state))]
@@ -96,37 +88,34 @@
       (double (/ (k m) (k b)))))
 
 (defn run-many
-  [problem monitor params n]
-  (for [i (range n)]
-    (let [[m b] (run-comparative problem monitor params)]
-      {:MetaAbductions (:MetaAbductions m)
-       :MetaMilliseconds (:Milliseconds m)
-       :BaseMilliseconds (:Milliseconds b)
-       :RatioMilliseconds (calc-ratio :Milliseconds m b)
-       :ImproveMilliseconds (calc-percent-improvement :Milliseconds m b)
-       :MetaUnexplained (:Unexplained m)
-       :BaseUnexplained (:Unexplained b)
-       :RatioUnexplained (calc-ratio :Unexplained m b)
-       :MetaPercentEventsCorrect (:PercentEventsCorrect m)
-       :BasePercentEventsCorrect (:PercentEventsCorrect b)
-       :RatioPercentEventsCorrect (calc-ratio :PercentEventsCorrect m b)
-       :ImprovePercentEventsCorrect (calc-percent-improvement :PercentEventsCorrect m b)
-       :MetaMeanTimeWithLabel (:MeanTimeWithLabel m)
-       :BaseMeanTimeWithLabel (:MeanTimeWithLabel b)
-       :RatioMeanTimeWithLabel (calc-ratio :MeanTimeWithLabel m b)
-       :ImproveMeanTimeWithLabel (calc-percent-improvement :MeanTimeWithLabel m b)
-       :MetaExplainCycles (:ExplainCycles m)
-       :BaseExplainCycles (:ExplainCycles b)
-       :RatioExplainCycles (calc-ratio :ExplainCycles m b)
-       :ImproveExplainCycles (calc-percent-improvement :ExplainCycles m b)
-       :NumberEntities (:NumberEntities params)
-       :MaxWalk (:MaxWalk params)
-       :Steps (:Steps params)
-       :ProbNewEntities (:ProbNewEntities params)})))
-
-(defn average-runs
-  [problem monitor params n]
-  (doall (run-many problem monitor params n)))
+  [problem monitor params repetitions]
+  (doall
+   (for [i (range repetitions)]
+     (let [[m b] (run-comparative problem monitor params)]
+       {:MetaAbductions (:MetaAbductions m)
+        :MetaMilliseconds (:Milliseconds m)
+        :BaseMilliseconds (:Milliseconds b)
+        :RatioMilliseconds (calc-ratio :Milliseconds m b)
+        :ImproveMilliseconds (calc-percent-improvement :Milliseconds m b)
+        :MetaUnexplained (:Unexplained m)
+        :BaseUnexplained (:Unexplained b)
+        :RatioUnexplained (calc-ratio :Unexplained m b)
+        :MetaPercentEventsCorrect (:PercentEventsCorrect m)
+        :BasePercentEventsCorrect (:PercentEventsCorrect b)
+        :RatioPercentEventsCorrect (calc-ratio :PercentEventsCorrect m b)
+        :ImprovePercentEventsCorrect (calc-percent-improvement :PercentEventsCorrect m b)
+        :MetaMeanTimeWithLabel (:MeanTimeWithLabel m)
+        :BaseMeanTimeWithLabel (:MeanTimeWithLabel b)
+        :RatioMeanTimeWithLabel (calc-ratio :MeanTimeWithLabel m b)
+        :ImproveMeanTimeWithLabel (calc-percent-improvement :MeanTimeWithLabel m b)
+        :MetaExplainCycles (:ExplainCycles m)
+        :BaseExplainCycles (:ExplainCycles b)
+        :RatioExplainCycles (calc-ratio :ExplainCycles m b)
+        :ImproveExplainCycles (calc-percent-improvement :ExplainCycles m b)
+        :NumberEntities (:NumberEntities params)
+        :MaxWalk (:MaxWalk params)
+        :Steps (:Steps params)
+        :ProbNewEntities (:ProbNewEntities params)}))))
 
 (defn get-headers
   [problem]
@@ -157,5 +146,4 @@
 
 (defrecord Problem
     [name monitor-fn player-fns truedata-fn sensor-gen-fn prepared-map
-     hypothesize-fn commit-decision-fn gen-problem-data-fn
-     evaluate-fn avg-fields non-avg-fields charts])
+     hypothesize-fn commit-decision-fn gen-problem-data-fn evaluate-fn])

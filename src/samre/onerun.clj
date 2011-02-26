@@ -26,9 +26,9 @@
 
 (defn init-one-run-states
   [options sensors problem-data]
-  (doall (for [meta-abduction (:MetaAbduction options)
-               lazy (:Lazy options)]
-           (init-one-run-state meta-abduction lazy sensors problem-data))))
+  (for [meta-abduction (:MetaAbduction options)
+        lazy (:Lazy options)]
+    (init-one-run-state meta-abduction lazy sensors problem-data)))
 
 (defn update-one-run-state
   [or-state ep-state]

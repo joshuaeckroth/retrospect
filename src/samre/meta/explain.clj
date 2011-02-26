@@ -15,11 +15,11 @@
 
 (defn update-explain-cycles
   [or-state ep-state meta-hyps]
-  (update-one-run-state
-   or-state
-   (update-in ep-state [:workspace :resources] assoc :explain-cycles
-              (reduce + (:explain-cycles (:resources (:workspace (:ep-state or-state))))
-                      (map (comp :explain-cycles :data) meta-hyps)))))
+  (let [expl-cyc-prior (:explain-cycles (:resources (:workspace (:ep-state or-state))))
+        meta-expl-cycs (map (comp :explain-cycles :data) meta-hyps)]
+    (update-one-run-state or-state
+                          (update-in ep-state [:workspace :resources] assoc :explain-cycles
+                                     (reduce + expl-cyc-prior meta-expl-cycs)))))
 
 (defn explain-meta
   [problem or-state params]
