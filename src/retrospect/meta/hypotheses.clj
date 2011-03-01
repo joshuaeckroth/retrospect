@@ -1,9 +1,7 @@
 (ns retrospect.meta.hypotheses
   (:use [retrospect.workspaces :only
-         [new-hyp add-hyp measure-decision-confidence force-acceptance
-          clear-decision reset-confidences-to-apriori update-hyps
-          lookup-hyps update-candidates-unexplained find-explainers
-          reject-impossible]])
+         [new-hyp add-hyp measure-conf forced reject-many get-conf reset-confidences
+          find-explainers find-unexplained find-conflicts sort-by-conf prepare-workspace]])
   (:use [retrospect.epistemicstates :only
          [flatten-ep-state-tree current-ep-state explain goto-ep-state
           new-branch-ep-state left-ep-state previous-ep-state update-ep-state-tree
@@ -13,16 +11,17 @@
 
 (defn find-rejectors
   [workspace]
-  (let [unexplained (lookup-hyps workspace (:unexplained workspace))
-        accepted (lookup-hyps workspace (:accepted (:decision workspace)))
-        explainers (mapcat #(find-explainers % (vals (:hyps workspace))) unexplained)
-        rejected-explainers (filter #(= IMPOSSIBLE (:confidence %)) explainers)]
-    (filter (fn [hyp] (not-empty ((:impossible-fn hyp) hyp rejected-explainers))) accepted)))
+  (let [unexplained (find-unexplained workspace)
+        accepted (:accepted workspace)
+        explainers (mapcat #(find-explainers workspace %) unexplained)
+        rejected-explainers (filter #(= IMPOSSIBLE (get-conf workspace %)) explainers)]
+    (filter (fn [hyp] (not-empty (find-conflicts workspace hyp rejected-explainers)))
+            accepted)))
 
 (defn find-no-explainers
   [workspace]
-  (let [unexplained (lookup-hyps workspace (:unexplained workspace))]
-    (filter #(empty? (find-explainers % (vals (:hyps workspace)))) unexplained)))
+  (let [unexplained (find-unexplained workspace)]
+    (filter #(empty? (find-explainers workspace %)) unexplained)))
 
 (defn mark-least-conf-impossible
   "Given an ep-state (to go back to), mark the least confident
@@ -33,21 +32,21 @@
    else is accepted instead."
   [ep-state hyps]
   (let [ws (:workspace ep-state)
-        hyps (if (not-empty hyps) hyps (lookup-hyps ws (:accepted (:decision ws))))
-        least-conf (first (sort-by :confidence hyps))]
+        hyps (if (not-empty hyps) hyps (:accepted ws))
+        least-conf (first (reverse (sort-by-conf ws hyps)))]
     (assoc ep-state :workspace
            (-> ws
-               (reset-confidences-to-apriori)
-               (clear-decision)
-               (reject-impossible
-                [least-conf] "Rejecting in meta-abduction because least confident.")))))
+               (reset-confidences)
+               (prepare-workspace)
+               (reject-many [least-conf]
+                            "Rejecting in meta-abduction because least confident.")))))
 
 (defn mark-many-impossible
   [ep-state hyps]
-  (let [workspace (:workspace ep-state)]
-    (assoc ep-state :workspace
-           (reduce (fn [ws hyp] (reject-impossible ws [hyp] "Rejecting in meta-abduction."))
-                   (-> workspace (reset-confidences-to-apriori) (clear-decision)) hyps))))
+  (let [ws (-> (:workspace ep-state)
+               (reset-confidences)
+               (prepare-workspace))]
+    (assoc ep-state :workspace (reject-many ws hyps "Rejecting in meta-abduction."))))
 
 (defn branch-and-mark-impossible
   "A composite action that branches at the specified ep-state,
@@ -74,17 +73,11 @@
           (recur (update-ep-state-tree est-child ep-expl)))
         {:ep-state-tree est
          :explain-cycles (:explain-cycles (:resources (:workspace (current-ep-state est))))
-         :score (measure-decision-confidence (:workspace (current-ep-state est)))}))))
+         :score (measure-conf (:workspace (current-ep-state est)))}))))
 
 (defn generate-ep-state-hyp
   [ep-state]
-  (new-hyp "EP" :meta-ep NEUTRAL [] (constantly []) (constantly [])
-           (constantly "ep-state") {:ep-state ep-state}))
-
-(defn impossible-fn
-  [ep-state-hyp hyp hyps]
-  (filter (fn [h] (and (not= (:id hyp) (:id h))
-                       (some #(= % (:id ep-state-hyp)) (:explains h)))) hyps))
+  (new-hyp "EP" :meta-ep NEUTRAL [] "ep-state hyp" {:ep-state ep-state}))
 
 (defn add-branch-hyp
   [workspace ep-state-hyp branchable hyps problem ep-state-tree
@@ -95,9 +88,9 @@
         est-new (update-ep-state-tree est ep-expl)
         hyp (let [{score :score est-replayed :ep-state-tree ec :explain-cycles}
                   (score-by-replaying problem est-new sensors params lazy)]
-              (new-hyp prefix :meta score [(:id ep-state-hyp)]
-                       (constantly []) (partial impossible-fn ep-state-hyp)
-                       (fn [_] (format "Marked impossible: %s" (str (map :id hyps))))
+              (new-hyp prefix :meta score [ep-state-hyp]
+                       (format "Marked impossible: %s"
+                               (apply str (interpose ", " (map :id hyps))))
                        {:ep-state-tree est-replayed :explain-cycles ec}))]
     (add-hyp workspace hyp)))
 
@@ -107,7 +100,7 @@
         no-explainers (find-no-explainers (:workspace (current-ep-state ep-state-tree)))]
     (if (or (nil? prev-ep) (empty? no-explainers)) workspace
         (let [ws (:workspace prev-ep)
-              hyps (lookup-hyps ws (:accepted (:decision ws)))]
+              hyps (:accepted ws)]
           (add-branch-hyp
            workspace ep-state-hyp prev-ep hyps problem ep-state-tree
            sensors params lazy (format "MH:U:%s:L" (:id prev-ep)) true)))))
@@ -124,19 +117,16 @@
 (defn add-mark-impossible-hyp-least-conf
   [workspace ep-state-hyp problem ep-state-tree branchable sensors params lazy]
   (let [ws (:workspace branchable)
-        hyps (lookup-hyps ws (:accepted (:decision ws)))]
+        hyps (:accepted ws)]
     (add-branch-hyp
      workspace ep-state-hyp branchable hyps problem ep-state-tree
      sensors params lazy (format "MH:LC:%s:L" (:id branchable)) true)))
 
 (defn add-accurate-decision-hyp
   [workspace ep-state-hyp]
-  (let [apriori (boost (measure-decision-confidence
-                        (:workspace (:ep-state (:data ep-state-hyp)))))
-        hyp (new-hyp "MHA" :meta-accurate apriori
-                     [(:id ep-state-hyp)] (constantly [])
-                     (partial impossible-fn ep-state-hyp)
-                     (constantly "Decision is accurate") nil)]
+  (let [apriori (boost (measure-conf (:workspace (:ep-state (:data ep-state-hyp)))))
+        hyp (new-hyp "MHA" :meta-accurate apriori [ep-state-hyp]
+                     "Decision is accurate" nil)]
     (add-hyp workspace hyp)))
 
 (defn generate-meta-hypotheses
@@ -146,7 +136,7 @@
         prev-ep (previous-ep-state ep-state-tree)
         ws (-> workspace
                (add-hyp ep-state-hyp)
-               (force-acceptance ep-state-hyp)
+               (forced ep-state-hyp)
                (add-accurate-decision-hyp ep-state-hyp)
                (add-uninformed-mark-impossible-hyp
                 ep-state-hyp problem ep-state-tree sensors params lazy)

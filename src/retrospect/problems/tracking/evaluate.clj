@@ -1,6 +1,5 @@
 (ns retrospect.problems.tracking.evaluate
   (:use [retrospect.epistemicstates :only (current-ep-state)])
-  (:use [retrospect.workspaces :only [lookup-hyps]])
   (:use [retrospect.confidences])
   (:use [retrospect.problems.tracking.hypotheses :only [path-to-movements]])
   (:use [retrospect.problems.tracking.truedata :only [get-grid-movements]])

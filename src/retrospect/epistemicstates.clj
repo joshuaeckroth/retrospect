@@ -1,7 +1,6 @@
 (ns retrospect.epistemicstates
   (:require [retrospect.workspaces :as ws :only
-             [init-workspace accept-workspace-decision get-decision-confidence add-hyp
-              force-acceptance reset-confidences-to-apriori lookup-hyps]])
+             [init-workspace get-conf add-hyp forced clear-workspace find-candidates]])
   (:use [retrospect.confidences])
   (:require [clojure.zip :as zip])
   (:require [clojure.set :as set])
@@ -112,15 +111,13 @@
 (defn ep-state-tree-to-nested-helper
   [ep-state]
   (let [deeper (map ep-state-tree-to-nested-helper
-                    (filter (comp :confidence :decision :workspace)
-                            (:children ep-state)))]
+                    (filter (comp ws/get-conf :workspace) (:children ep-state)))]
     (conj deeper (str ep-state))))
 
 (defn ep-state-tree-to-nested
   [ep-state-tree]
   (conj (map ep-state-tree-to-nested-helper
-             (filter (comp :confidence :decision :workspace)
-                     (:children (zip/root ep-state-tree))))
+             (filter (comp ws/get-conf :workspace) (:children (zip/root ep-state-tree))))
         "root"))
 
 (defn print-ep-state-tree
@@ -142,7 +139,7 @@
   "List ep-states in the order that they were created (i.e., sorted by id,
    which is the same as a depth-first left-first walk)."
   [ep-state-tree]
-  (map str (filter (comp :confidence :decision :workspace)
+  (map str (filter (comp ws/get-conf :workspace)
                    (flatten-ep-state-tree ep-state-tree))))
 
 (defn add-hyp
@@ -151,22 +148,23 @@
 
 (defn add-fact
   [ep-state hyp]
-  (update-in ep-state [:workspace] #(-> % (ws/add-hyp hyp) (ws/force-acceptance hyp))))
+  (update-in ep-state [:workspace] #(-> % (ws/add-hyp hyp) (ws/forced hyp))))
 
 (defn commit-decision
   [ep-state id time-now problem]
   (let [workspace (:workspace ep-state)
-        accepted-hyps (ws/lookup-hyps workspace (:accepted (:decision workspace)))
-        rejected-hyps (ws/lookup-hyps workspace (:rejected (:decision workspace)))
-        candidate-hyps (ws/lookup-hyps workspace (:candidates workspace))]
+        accepted (:accepted workspace)
+        rejected (:rejected workspace)
+        candidates (ws/find-candidates workspace)
+        unexplained (ws/find-unexplained workspace)]
     (EpistemicState.
      id
      []
      (inc time-now)
-     (ws/accept-workspace-decision workspace)
+     (ws/init-workspace workspace)
      []
      ((:commit-decision-fn problem) (:problem-data ep-state)
-      accepted-hyps rejected-hyps candidate-hyps))))
+      accepted rejected candidates unexplained))))
 
 (defn find-least-confident-decision
   "Finds most recent (up the path) lowest-confidence decision; returns
@@ -178,8 +176,8 @@
       (cond
        (root-ep-state? (zip/node loc)) least-conf
 
-       (< (ws/get-decision-confidence (:workspace (zip/node loc)))
-          (ws/get-decision-confidence (:workspace least-conf)))
+       (< (ws/get-conf (:workspace (zip/node loc)))
+          (ws/get-conf (:workspace least-conf)))
        (recur (zip/up loc) (zip/node loc))
        
        :else
@@ -206,9 +204,7 @@
   [ep-state-tree ep-state time-now problem]
   (let [ep-tree (goto-ep-state (zip/replace ep-state-tree ep-state) (:id ep-state))
         ep-child (commit-decision ep-state (make-ep-state-id ep-tree) time-now problem)
-        ep-child-fresh (update-in ep-child [:workspace] ws/delete-ancient-hyps)
-        ep-tree-child (goto-ep-state (zip/append-child ep-tree ep-child-fresh)
-                                     (:id ep-child-fresh))]
+        ep-tree-child (goto-ep-state (zip/append-child ep-tree ep-child) (:id ep-child))]
     ep-tree-child))
 
 (defn explain

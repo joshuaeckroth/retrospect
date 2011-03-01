@@ -627,9 +627,6 @@
       (update-truedata (:truedata options))
       (update-everything (:or-state options))
       (set-params))
-    (when (not (:interactive options))
-      (doto *mainframe*
-        (.setDefaultCloseOperation JFrame/EXIT_ON_CLOSE)))
     (doto *mainframe*
       (.setResizable true)
       (.pack)

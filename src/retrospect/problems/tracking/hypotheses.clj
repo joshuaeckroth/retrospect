@@ -10,8 +10,8 @@
 
 (defn add-sensor-hyp
   [sensor e]
-  (let [hyp (new-hyp "SH" :sensor NEUTRAL [] (constantly []) (constantly [])
-                     (fn [h] (format "%s" (str (meta (:entity (:data h))))))
+  (let [hyp (new-hyp "SH" :sensor NEUTRAL []
+                     (format "%s" (str (meta e)))
                      {:sensor sensor :entity e})]
     (with-meta e (merge (meta e) {:hyp hyp}))))
 
@@ -176,23 +176,11 @@
       (dissoc paths label)
       (assoc paths label new-paths))))
 
-(defn str-fn
-  [hyp]
-  (format "%s" (path-str (:path (:data hyp)))))
-
-(defn impossible-fn
-  [hyp hyps]
-  (let [explains (set (:explains hyp))]
-    (filter (fn [h] (and (not= (:id hyp) (:id h))
-                         (not-empty (set/intersection explains (set (:explains h))))))
-            hyps)))
-
 (defn make-hyp
   [path label maxwalk]
   (new-hyp "TH" :tracking (score-path path label maxwalk)
-           (map :id (filter identity (map (comp :hyp meta) (flatten path))))
-           (constantly []) impossible-fn
-           str-fn {:label label :path path}))
+           (filter identity (map (comp :hyp meta) (flatten path)))
+           "" {:label label :path path}))
 
 (defn hypothesize
   [ep-state sensors time-now params]
@@ -300,7 +288,7 @@
 
 (defn commit-decision
   "Commit rejected first, then accepted."
-  [pdata accepted rejected candidates]
+  [pdata accepted rejected candidates unexplained]
   (let [pd (commit-accepted pdata accepted)]
     ;; add labels for merges/splits as long as there are any
     (loop [paths (:paths pd)]

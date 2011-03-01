@@ -1,7 +1,7 @@
 (ns retrospect.meta.explain
   (:require [retrospect logs])
   (:import [retrospect.logs MetaLogEntry])
-  (:use [retrospect.workspaces :only [init-workspace explain lookup-hyps]])
+  (:use [retrospect.workspaces :only [init-workspace explain get-hyps]])
   (:use [retrospect.epistemicstates :only
          [current-ep-state previous-ep-state update-ep-state-tree]])
   (:use [retrospect.onerun :only [update-one-run-state]])
@@ -30,11 +30,11 @@
                                                     (:lazy or-state))
                           (explain))
             ;; we only expect one accepted meta hyp
-            accepted-hyp (first (lookup-hyps workspace (:accepted (:decision workspace))))
+            accepted-hyp (first (:accepted workspace))
             est (:ep-state-tree (:data accepted-hyp))
             meta-hyps (filter #(and (not= :meta-accurate (:type %))
                                     (not= :meta-ep (:type %)))
-                              (vals (:hyps workspace)))
+                              (get-hyps workspace))
             ors (update-explain-cycles or-state (:ep-state or-state) meta-hyps)
             ors-log (update-meta-log ors (:ep-state ors) workspace)]
         (if (= :meta-accurate (:type accepted-hyp)) ors-log

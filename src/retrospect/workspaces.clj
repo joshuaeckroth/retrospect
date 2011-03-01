@@ -3,338 +3,234 @@
   (:import [retrospect.logs AbducerLogEntry])
   (:use [retrospect.confidences])
   (:require [clojure.set :as set])
-  (:use [clojure.contrib.seq :only [find-first]]))
+  (:use [loom.graph :only
+         [digraph nodes incoming neighbors weight
+          add-nodes add-edges remove-nodes edges]]))
 
 (def last-id (ref 0))
 
-(defrecord Hypothesis
-    [id ;; an integer
-     type ;; a keyword
-     apriori
-     confidence
-     explains
-     implausible-fn
-     impossible-fn
-     str-fn
-     data]
-  Object
-  (toString [this] (str-fn this)))
-
 (defn new-hyp
-  [prefix type apriori explains implausible-fn impossible-fn str-fn data]
+  [prefix type apriori explains desc data]
   (dosync
    (let [id (inc @last-id)]
      (alter last-id inc)
-     (Hypothesis. (symbol (format "%s%d" prefix id)) type apriori apriori
-                  explains implausible-fn impossible-fn str-fn data))))
-
-(defrecord Workspace
-    [hyps ;; this is a map keyed by hyp-id
-     accepted ;; hyp-ids
-     rejected ;; hyp-ids
-     hypothesized ;; hyp-ids
-     unexplained ;; hyp-ids
-     candidates ;; hyp-ids
-     abducer-log
-     dot ;; graph vector
-     marked-ancient ;; vector
-     resources ;; map
-     decision]) ;; {:confidence :accepted (hyp-ids) :rejected (hyp-ids) :forced (hyp-ids)}
+     {:id (format "%s%d" prefix id) :type type
+      :explains explains :apriori apriori :desc desc :data data})))
 
 (defn init-workspace
-  []
-  (Workspace. {} [] [] [] [] [] [] [] []
-              {:explain-cycles 0 :hyp-count 0 :hyps-new 0}
-              {:confidence nil :accepted [] :rejected [] :forced []}))
+  ([]
+     {:graph nil
+      :graph-static (digraph)
+      :hyp-confidences {}
+      :abducer-log []
+      :dot []
+      :confidence nil
+      :accepted []
+      :rejected []
+      :forced []
+      :resources {:explain-cycles 0 :hyp-count 0}})
+  ([workspace-old]
+     (assoc-in (init-workspace) [:resources :explains-cycles]
+               (:explains-cycles (:resources workspace-old)))))
 
-(defn update-hyps
+(defn get-hyps
+  [workspace]
+  (nodes (:graph-static workspace)))
+
+(defn hyp-conf
+  [workspace hyp]
+  (get (:hyp-confidences workspace) hyp))
+
+(defn sort-by-conf
   [workspace hyps]
-  (doall (reduce (fn [ws h] (update-in ws [:hyps] assoc (:id h) h))
-                 workspace hyps)))
+  (reverse (sort-by (partial hyp-conf workspace) hyps)))
 
-(defn lookup-hyps
-  [workspace hyp-ids]
-  (doall (filter identity (map #((:hyps workspace) %) hyp-ids))))
+(defn find-explainers
+  ([workspace]
+     (let [g (:graph workspace)]
+       (set (mapcat #(incoming g %) (nodes g)))))
+  ([workspace hyp]
+     (let [g (:graph workspace)]
+       (incoming g hyp)))
+  ([workspace hyp hyps]
+     (let [g (:graph workspace)]
+       (set/intersection (set hyps) (set (find-explainers workspace hyp))))))
+
+(defn find-unexplained
+  "Unexplained hyps are those that are forced and remain in the graph,
+   and those that are in the graph and have incoming edges."
+  [workspace]
+  (let [g (:graph workspace)
+        hyps (nodes g)]
+    (set (concat (set/intersection (set (:forced workspace)) (set hyps))
+                 (filter #(not-empty (incoming g %)) hyps)))))
+
+(defn find-candidates
+  [workspace]
+  (let [g (:graph workspace)]
+    (filter (fn [h] (not-empty (neighbors g h))) (nodes g))))
+
+(defn essential?
+  [workspace hyp]
+  (let [g (:graph workspace)]
+    (some (fn [explained] (= 1 (count (incoming g explained)))) (neighbors g hyp))))
+
+(defn find-conflicts
+  "The conflicts of a hyp are those other hyps that share the end of
+   some explains link."
+  ([workspace hyp]
+     (let [g (:graph workspace)]
+       (set (filter #(not= % hyp) (mapcat #(incoming g %) (neighbors g hyp))))))
+  ([workspace hyp hyps]
+     (let [g (:graph workspace)]
+       (set/intersection (set hyps) (set (find-conflicts workspace hyp))))))
 
 (defn dot-format
-  [workspace boxed acc]
-  (let [id #(format "%s %s" (str (:id %)) (confidence-str (:confidence %)))
-        all-acc (lookup-hyps workspace (concat (:accepted (:decision workspace))
-                                               (:forced (:decision workspace))
-                                               (:accepted workspace)))
-        all-rej (lookup-hyps workspace (concat (:rejected (:decision workspace))
-                                               (:rejected workspace)))]
+  [workspace boxed best]
+  (let [id #(format "%s %s" (:id %) (confidence-str (hyp-conf workspace %)))
+        acc (concat (:accepted workspace) (:forced workspace))
+        rej (concat (:rejected workspace))
+        unexplained (find-unexplained workspace)]
     (str
      "digraph G {\n"
      "rankdir=\"LR\";\n"
      "node [shape=\"plaintext\"];\n"
-     (apply str (for [h (vals (:hyps workspace))]
-                  (str (apply str (map #(format "\"%s\" -> \"%s\";\n" (id h) (id %))
-                                       (lookup-hyps workspace (:explains h)))))))
-     (if (empty? all-acc) ""
-         (apply str (for [h all-acc]
-                      (format "\"%s\" [color=\"blue\", fontcolor=\"blue\"];\n"
-                              (id h)))))
-     (if (empty? all-rej) ""
-         (apply str (for [h all-rej]
-                      (format "\"%s\" [color=\"red\", fontcolor=\"red\"];\n"
-                              (id h)))))
-     (if (empty? (:unexplained workspace)) ""
-         (apply str (for [h (lookup-hyps workspace (:unexplained workspace))]
-                      (format "\"%s\" [color=\"orange\", fontcolor=\"orange\"];\n"
-                              (id h)))))
+     (apply str (for [h (nodes (:graph-static workspace))]
+                  (apply str (format "\"%s\";\n" (id h))
+                         (map #(format "\"%s\" -> \"%s\";\n" (id h) (id %))
+                              (:explains h)))))
+     (apply str "" (for [h acc]
+                     (format "\"%s\" [color=\"blue\", fontcolor=\"blue\"];\n" (id h))))
+     (apply str "" (for [h rej]
+                     (format "\"%s\" [color=\"red\", fontcolor=\"red\"];\n" (id h))))
+     (apply str "" (for [h unexplained]
+                     (format "\"%s\" [color=\"orange\", fontcolor=\"orange\"];\n" (id h))))
      "subgraph cluster {\n"
-     (if (= 0 (count boxed)) ""
-       (if (< 0 (count boxed))
-         (apply str (map #(format "\"%s\";\n" (id %)) boxed))
-         (format "\"%s\";\n" (id (first boxed)))))
+     (apply str "" (map #(format "\"%s\";\n" (id %)) boxed))
      "}\n"
-     (apply str (for [h (vals (:hyps workspace))]
-                  (format "\"%s\";\n" (id h))))
-     (if (nil? acc) ""
+     (if (nil? best) ""
          (format "\"%s\" [color=\"blue\", fontcolor=\"blue\", shape=\"box\"];"
-                 (id acc)))
-     (if (nil? acc) ""
-         (let [implausible ((:implausible-fn acc) acc (vals (:hyps workspace)))]
-           (if (empty? implausible) ""
-               (if (< 0 (count implausible))
-                 (apply str (map #(format "\"%s\" -> \"%s\" [arrowhead=\"box\"];\n"
-                                          (id acc) (id %)) implausible))
-                 (format "\"%s\" -> \"%s\" [arrowhead=\"dot\", color=\"red\"];\n"
-                         (id acc) (id (first implausible)))))))
-     (if (nil? acc) ""
-         (let [impossible ((:impossible-fn acc) acc (vals (:hyps workspace)))]
-           (if (empty? impossible) ""
-               (if (< 0 (count impossible))
-                 (apply str (map #(format "\"%s\" -> \"%s\" [arrowhead=\"box\"];\n"
-                                          (id acc) (id %)) impossible))
-                 (format "\"%s\" -> \"%s\" [arrowhead=\"box\"];\n"
-                         (id acc) (id (first impossible)))))))
+                 (id best)))
+     (if (nil? best) ""
+         (let [conflicts (find-conflicts workspace best)]
+           (apply str ""
+                  (map #(format "\"%s\" -> \"%s\" [arrowhead=\"box\"; color=\"red\"];\n"
+                                (id acc) (id %)) conflicts))))
      "}\n")))
 
-(defn add-abducer-log-msg
+(defn log
   [workspace hyp-ids msg]
   (update-in workspace [:abducer-log] conj (AbducerLogEntry. hyp-ids msg)))
 
-(defn log-final-accepted-rejected-hyps
+(defn log-final
   [workspace]
-  (let [id-to-str (fn [t] (apply str (interpose ", " (sort (t (:decision workspace))))))]
-    (add-abducer-log-msg
-     workspace
-     (concat (:accepted (:decision workspace))
-             (:rejected (:decision workspace)))
+  (let [ids-to-str
+        (fn [t] (apply str (interpose ", " (sort (map :id (t workspace))))))]
+    (log
+     workspace (concat (:accepted workspace) (:rejected workspace))
      (format "Final accepted: %s\n\tFinal rejected: %s\n\tFinal unexplained: %s"
-             (id-to-str :accepted) (id-to-str :rejected)
-             (apply str (interpose ", " (sort (:unexplained workspace))))))))
+             (ids-to-str :accepted) (ids-to-str :rejected)
+             (apply str (interpose ", " (sort (map :id (find-unexplained workspace)))))))))
 
-(defn find-explainers
-  [hyp hyps]
-  (doall (filter (fn [h] (some #(= (:id hyp) %) (:explains h))) hyps)))
-
-(defn find-ancient-hyps
-  "An 'ancient' hyp is one that is fully explained (not unexplained)
-   and not explained by something currently unexplained or a candidate
-   hyp."
-  [workspace]
-  (let [active-hyps (lookup-hyps workspace (concat (:candidates workspace)
-                                                   (:unexplained workspace)))
-        explains (filter #((:hyps workspace) %) (flatten (map :explains active-hyps)))]
-    (filter (fn [hid] (not-any? #(= hid %) (concat (map :id explains)
-                                                   (:unexplained workspace))))
-            (keys (:hyps workspace)))))
-
-(defn delete-ancient-hyps
-  "Called by new-child-ep-state in epistemicstates.clj"
-  [workspace]
-  (let [ancient (set (find-ancient-hyps workspace))
-        marked (:marked-ancient workspace)
-        new-hyps (apply dissoc (:hyps workspace) (concat marked (:candidates workspace)))
-        new-accepted (set/difference (set (:accepted workspace)) marked)
-        new-rejected (set/difference (set (:rejected workspace)) marked)]
-    (-> workspace
-        (assoc :marked-ancient ancient)
-        (assoc :dot [])
-        (assoc :hyps new-hyps)
-        (assoc :accepted new-accepted)
-        (assoc :rejected new-rejected))))
-
-(defn update-candidates-unexplained
-  [workspace]
-  (let [accepted-ids (concat
-                      (:accepted workspace)
-                      (:accepted (:decision workspace))
-                      (:forced (:decision workspace)))
-        non-accepted-ids (set/difference
-                      (set (keys (:hyps workspace)))
-                      (set (concat accepted-ids
-                                   (:rejected workspace)
-                                   (:rejected (:decision workspace)))))
-        accepted (lookup-hyps workspace accepted-ids)
-        ;; a hyp is unexplained if it could be explained
-        ;; or it is forced, but is not yet explained
-        is-unexplained #(and (empty? (find-explainers % accepted))
-                             (or (not-empty (find-explainers % (vals (:hyps workspace))))
-                                 (some (fn [hid] (= (:id %) hid))
-                                       (:forced (:decision workspace)))))
-        unexplained-ids (map :id (filter is-unexplained accepted))]
-    (-> workspace
-        (assoc :candidates non-accepted-ids)
-        (assoc :unexplained unexplained-ids))))
-
-(defn accept-workspace-decision
-  [workspace]
-  (let [accepted (concat (:accepted workspace)
-                         (:accepted (:decision workspace))
-                         (:forced (:decision workspace)))
-        rejected (concat (:rejected workspace)
-                         (:rejected (:decision workspace)))]
-    (-> (init-workspace)
-        (assoc :hyps (:hyps workspace))
-        (assoc :accepted accepted)
-        (assoc :rejected rejected)
-        (assoc :candidates (:candidates workspace))
-        (assoc :unexplained (:unexplained workspace))
-        (assoc :marked-ancient (:marked-ancient workspace))
-        (assoc :resources {:explain-cycles (:explain-cycles (:resources workspace))
-                           :hyp-count 0 :hyps-new 0}))))
-
-(defn measure-decision-confidence
+(defn measure-conf
   [workspace]
   ;; if no accepted hyps, this is very implausible
-  (if (empty? (:accepted (:decision workspace))) VERY-IMPLAUSIBLE
+  (if (empty? (:accepted workspace)) VERY-IMPLAUSIBLE
       ;; if accepted hyps exist, find the minimum confidence of them
-      (let [accepted (lookup-hyps workspace (:accepted (:decision workspace)))
-            conf (apply min (map (fn [h] (:confidence h)) accepted))]
+      (let [conf (apply min (vals (select-keys (:hyp-confidences workspace)
+                                               (:accepted workspace))))]
         ;; if something is unexplained, give worst confidence score
-        (if (empty? (:unexplained workspace)) conf VERY-IMPLAUSIBLE))))
+        (if (empty? (find-unexplained workspace)) conf VERY-IMPLAUSIBLE))))
 
-(defn update-decision-confidence
+(defn update-conf
   [workspace]
-  (update-in workspace [:decision] #(assoc % :confidence (measure-decision-confidence %))))
+  (assoc-in workspace [:confidence] (measure-conf workspace)))
 
-(defn get-decision-confidence
+(defn get-conf
   [workspace]
-  (:confidence (:decision workspace)))
-
-(defn clear-decision
-  "Clear the decision, except for what was 'forced'."
-  [workspace]
-  (update-in workspace [:decision] assoc :confidence nil :accepted [] :rejected []))
-
-(defn reset-confidences-to-apriori
-  [workspace]
-  (-> workspace
-      (update-hyps (doall (map #(assoc % :confidence (:apriori %)) (vals (:hyps workspace)))))
-      (add-abducer-log-msg (keys (:hyps workspace))
-                           "Resetting confidences back to apriori values.")))
+  (:confidence workspace))
 
 (defn add-hyp
-  "Add the hypothesis to the workspace."
-  [workspace hyp]
-  ;; don't add an identical existing hyp
-  (if (get (:hyps workspace) (:id hyp)) workspace
-      (-> workspace
-          (update-in [:hypothesized] conj (:id hyp))
-          (update-in [:hyps] assoc (:id hyp) hyp)
-          (add-abducer-log-msg
-           [(:id hyp)]
-           (format "Adding hypothesis (apriori=%s; explains %s)."
-                   (confidence-str (:apriori hyp))
-                   (apply str (interpose ","  (map str (:explains hyp)))))))))
-
-(defn penalize-implausible
-  [workspace hyps log-msg]
-  (if (empty? hyps) workspace
-      (let [penalized (doall (map #(update-in % [:confidence] penalize) hyps))]
-        (add-abducer-log-msg (update-hyps workspace penalized) (map :id penalized) log-msg))))
-
-(defn reject-impossible
-  [workspace hyps log-msg]
-  ;; only reject those that are not already rejected
-  (let [rejected (doall (map #(assoc % :confidence IMPOSSIBLE)
-                             (filter #(not= IMPOSSIBLE (:confidence %)) hyps)))]
-    (if (empty? rejected) workspace
-        (-> workspace
-            (update-hyps rejected)
-            (update-in [:decision :rejected] concat (map :id rejected))
-            (add-abducer-log-msg (map :id rejected) log-msg)))))
-
-(defn reject-all-impossible
-  [workspace]
-  (let [impossible (filter #(= (:confidence %) IMPOSSIBLE)
-                           (lookup-hyps workspace (:candidates workspace)))]
-    (-> workspace
-        (reject-impossible impossible "Rejecting due to IMPOSSIBLE confidence."))))
-
-(defn accept-hyp
-  [workspace hyp]
-  (let [implausible (doall ((:implausible-fn hyp) hyp (vals (:hyps workspace))))
-        impossible (doall ((:impossible-fn hyp) hyp (vals (:hyps workspace))))]
-    (-> workspace
-        (update-in [:decision :accepted] conj (:id hyp))
-        (penalize-implausible
-         implausible
-         (format "Penalizing because accepting %s." (str (:id hyp))))
-        (reject-impossible
-         impossible
-         (format "Rejecting because accepting %s." (str (:id hyp)))))))
-
-(defn force-acceptance
   [workspace hyp]
   (-> workspace
-      (update-in [:decision :forced] conj (:id hyp))
-      (add-abducer-log-msg
-       [(:id hyp)] (format "Forcing acceptance of %s." (str (:id hyp))))))
+      (update-in [:graph-static] #(apply add-nodes % (conj (:explains hyp) hyp)))
+      (update-in [:graph-static] #(apply add-edges % (map (fn [e] [hyp e]) (:explains hyp))))
+      (update-in [:hyp-confidences] assoc hyp (:apriori hyp))
+      (log [(:id hyp)]
+           (format "Adding hypothesis; apriori=%s; explains: %s"
+                   (confidence-str (:apriori hyp))
+                   (apply str (interpose ","  (map :id (:explains hyp))))))))
+
+(defn reject-many
+  [workspace hyps log-msg]
+  (-> workspace
+      (update-in [:graph] remove-nodes hyps)
+      (update-in [:hyp-confidences] #(reduce (fn [c h] (assoc c h IMPOSSIBLE)) % hyps))
+      (update-in [:rejected] concat hyps)
+      (log (map :id hyps) log-msg)))
+
+(defn accept
+  [workspace hyp]
+  (let [g (:graph workspace)
+        conflicts (find-conflicts workspace hyp)
+        removable (concat (neighbors g hyp) (if (empty? (incoming g hyp)) [hyp] []))]
+    ;; don't make log entry for acceptance; (explain) does that
+    (-> workspace
+        (update-in [:accepted] conj hyp)
+        (update-in [:graph] #(apply remove-nodes % removable))
+        (reject-many conflicts (format "Rejecting because accepting %s." (:id hyp))))))
+
+(defn forced
+  [workspace hyp]
+  (-> workspace
+      (update-in [:forced] conj hyp)
+      (log [(:id hyp)] (format "Forcing acceptance of %s." (:id hyp)))))
+
+(defn reset-confidences
+  [workspace]
+  (assoc workspace :hyp-confidences
+         (apply assoc {} (mapcat (fn [h] [h (:apriori h)]) (get-hyps workspace)))))
+
+(defn prepare-workspace
+  "Clear the decision, except for what was 'forced'."
+  [workspace]
+  (assoc workspace :confidence nil :accepted [] :rejected []
+         :graph (:graph-static workspace)))
 
 (defn find-best
   [workspace]
-  (let [unexplained (lookup-hyps workspace (:unexplained workspace))
-        candidates (lookup-hyps workspace (:candidates workspace))
-        explainers (map #(find-explainers % candidates) unexplained)
-        essentials (flatten (filter #(= 1 (count %)) explainers))
-        good-es (filter #(empty? ((:impossible-fn %) % essentials)) essentials)]
+  (let [explainers (find-explainers workspace)
+        essentials (filter (partial essential? workspace) explainers)
+        good-es (filter #(empty? (find-conflicts workspace % essentials)) essentials)]
     (if (not-empty good-es)
       ;; choose first most-confident non-conflicting essential
-      (let [max-conf (:confidence (last (sort-by :confidence good-es)))
-            acc (find-first #(= max-conf (:confidence %)) good-es)]
-        {:hyp acc :dot (dot-format workspace good-es acc)})
+      (let [best (first (sort-by-conf workspace good-es))]
+        {:hyp best :dot (dot-format workspace good-es best)})
 
-      ;; otherwise choose random most confident / most explanatory / hyp with
-      ;; most of its "impossible" hyps already marked impossible
-      (let [sorted (reverse (sort-by :confidence (apply concat explainers)))
-            max-conf (:confidence (first sorted))
-            most-conf (filter #(= max-conf (:confidence %)) sorted)
-            expl-sorted (reverse (sort-by (comp count :explains) most-conf))
-            max-expl (count (:explains (first expl-sorted)))
-            most-expl (filter #(= max-expl (count (:explains %))) most-conf)
-            count-imp (fn [h] (count (filter #(= IMPOSSIBLE (:confidence %))
-                                             ((:impossible-fn h) h
-                                              (vals (:hyps workspace))))))
-            max-imp (apply max (conj (map count-imp most-expl) 0))
-            most-imp (filter #(= max-imp (count-imp %)) most-expl)]
-        (when (>= (count most-imp) 1)
-          (let [acc (first (sort-by :id most-imp))] ;; first/sorting is for prepared examples
-            {:hyp acc :dot (dot-format workspace most-imp acc)}))))))
+      ;; otherwise, ...
+      (let [best (first (sort-by-conf workspace explainers))]
+        {:hyp best :dot (dot-format workspace explainers best)}))))
 
 (defn explain
   [workspace]
-  (let [ws (-> (update-candidates-unexplained workspace)
-               (reject-all-impossible)
-               (update-in [:resources] assoc :hyp-count (count (:hyps workspace)))
-               (update-in [:resources] assoc :hyps-new (count (:hypothesized workspace))))
-        best (find-best ws)]
-    (if (or (empty? (:unexplained ws)) (nil? best))
-      (-> ws
-          (update-in [:dot] conj (dot-format ws [] nil))
-          (update-decision-confidence)
-          (log-final-accepted-rejected-hyps))
-      (let [explains (filter #((:hyps workspace) %) (:explains (:hyp best)))]
-        (recur
-         (-> ws
-             (update-in [:dot] conj (:dot best))
-             (update-in [:resources :explain-cycles] inc)
-             (add-abducer-log-msg
-              (conj explains (:id (:hyp best)))
-              (format "Accepting %s as explainer of %s." (str (:id (:hyp best)))
-                      (apply str (interpose ", " (map str explains)))))
-             (accept-hyp (:hyp best))))))))
+  (loop [ws (-> (prepare-workspace workspace)
+                (assoc-in [:resources :hyp-count]
+                          (count (nodes (:graph-static workspace)))))]
+    (let [best (find-best ws)]
+      (println "best" (if best (:id (:hyp best))))
+      (println "graph nodes" (if (:graph ws) (map :id (nodes (:graph ws)))))
+      (println "graph-static nodes" (map :id (nodes (:graph-static ws))))
+      (if (or (empty? (edges (:graph ws))) (nil? best))
+        (-> ws
+            (update-in [:dot] conj (dot-format ws [] nil))
+            (update-conf)
+            (log-final))
+        (let [explains (neighbors (:graph ws) (:hyp best))]
+          (recur
+           (-> ws
+               (update-in [:dot] conj (:dot best))
+               (update-in [:resources :explain-cycles] inc)
+               (log (conj (map :id explains) (:id (:hyp best)))
+                    (format "Accepting %s as explainer of %s." (:id (:hyp best))
+                            (apply str (interpose ", " (map :id explains)))))
+               (accept (:hyp best)))))))))
