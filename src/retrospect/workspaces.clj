@@ -151,15 +151,18 @@
   (:confidence workspace))
 
 (defn add-hyp
+  "Only adds edges for hyps that it explains if those explained hyps
+   are already in the graph."
   [workspace hyp]
-  (-> workspace
-      (update-in [:graph-static] #(apply add-nodes % (conj (:explains hyp) hyp)))
-      (update-in [:graph-static] #(apply add-edges % (map (fn [e] [hyp e]) (:explains hyp))))
-      (update-in [:hyp-confidences] assoc hyp (:apriori hyp))
-      (log [(:id hyp)]
-           (format "Adding hypothesis; apriori=%s; explains: %s"
-                   (confidence-str (:apriori hyp))
-                   (apply str (interpose ","  (map :id (:explains hyp))))))))
+  (let [expl (set/intersection (nodes (:graph-static workspace)) (set (:explains hyp)))]
+    (-> workspace
+        (update-in [:graph-static] #(apply add-nodes % (conj expl hyp)))
+        (update-in [:graph-static] #(apply add-edges % (map (fn [e] [hyp e]) expl)))
+        (update-in [:hyp-confidences] assoc hyp (:apriori hyp))
+        (log [(:id hyp)]
+             (format "Adding hypothesis; apriori=%s; explains: %s"
+                     (confidence-str (:apriori hyp))
+                     (apply str (interpose ","  (map :id (:explains hyp)))))))))
 
 (defn reject-many
   [workspace hyps log-msg]
@@ -217,9 +220,6 @@
                 (assoc-in [:resources :hyp-count]
                           (count (nodes (:graph-static workspace)))))]
     (let [best (find-best ws)]
-      (println "best" (if best (:id (:hyp best))))
-      (println "graph nodes" (if (:graph ws) (map :id (nodes (:graph ws)))))
-      (println "graph-static nodes" (map :id (nodes (:graph-static ws))))
       (if (or (empty? (edges (:graph ws))) (nil? best))
         (-> ws
             (update-in [:dot] conj (dot-format ws [] nil))

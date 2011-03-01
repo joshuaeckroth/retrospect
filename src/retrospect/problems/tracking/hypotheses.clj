@@ -5,7 +5,7 @@
   (:use [retrospect.colors])
   (:use [retrospect.confidences])
   (:use [retrospect.problems.tracking.grid :only [grid-at]])
-  (:require [clojure.contrib.math :as math :only [abs ceil]])
+  (:use [clojure.contrib.math :as math :only [sqrt]])
   (:require [clojure.set :as set :only [intersection difference]]))
 
 (defn add-sensor-hyp
@@ -41,18 +41,20 @@
           (recur (inc t) (conj sg spotted)
                  (reduce add-fact ep (map (comp :hyp meta) (flatten spotted)))))))))
 
-(defn man-dist
+(defn dist
   [x1 y1 x2 y2]
-  (+ (math/abs (- x1 x2)) (math/abs (- y1 y2))))
+  (math/sqrt (+ (* (- x1 x2) (- x1 x2))
+                (* (- y1 y2) (- y1 y2)))))
 
 (defn score-distance
   [x1 y1 x2 y2 maxwalk]
-  (let [dist (man-dist x1 y1 x2 y2)]
+  (let [d (dist x1 y1 x2 y2)
+        mw (* (math/sqrt 2.1) maxwalk)]
     (cond
-     (<= dist (math/ceil (/ maxwalk 4))) VERY-PLAUSIBLE
-     (<= dist (math/ceil (/ maxwalk 2))) PLAUSIBLE
+     (<= d (/ mw 4.0)) VERY-PLAUSIBLE
+     (<= d (/ mw 2.0)) PLAUSIBLE
      ;; last case is same as :else due to physical constraints
-     (<= dist maxwalk) NEUTRAL))) 
+     (<= d mw) NEUTRAL))) 
 
 (defn score-path
   "spotted is a collection of sensor detections; count-seen is how
@@ -135,8 +137,7 @@
                        (= (:x (meta %)) (:x (meta e)))
                        (= (:y (meta %)) (:y (meta e))))
                  prior-covered)
-       (>= maxwalk (man-dist x y (:x (meta e))
-                             (:y (meta e))))))
+       (>= (* maxwalk (math/sqrt 2.1)) (dist x y (:x (meta e)) (:y (meta e))))))
 
 (defn spotted-in-range
   [label path prior-covered spotted-grid maxwalk]
@@ -287,7 +288,6 @@
           pdata accepted))
 
 (defn commit-decision
-  "Commit rejected first, then accepted."
   [pdata accepted rejected candidates unexplained]
   (let [pd (commit-accepted pdata accepted)]
     ;; add labels for merges/splits as long as there are any
