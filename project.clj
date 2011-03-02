@@ -6,5 +6,7 @@
                  [org.clojars.overtone/vijual "0.2.1"]
                  [org.satta/loom "0.1.0-SNAPSHOT"]]
   :dev-dependencies [[swank-clojure "1.2.1"]
-                     [marginalia "0.5.0"]]
-  :main retrospect.core)
+                     [marginalia "0.5.0"]
+                     [midje "1.1-alpha-1"]]
+  :main retrospect.core
+  :keep-non-project-classes true)
