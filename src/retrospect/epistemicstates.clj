@@ -1,6 +1,5 @@
 (ns retrospect.epistemicstates
-  (:require [retrospect.workspaces :as ws :only
-             [init-workspace get-conf add-hyp forced clear-workspace find-candidates]])
+  (:require [retrospect.workspaces :as ws])
   (:use [retrospect.confidences])
   (:require [clojure.zip :as zip])
   (:require [clojure.set :as set])
@@ -19,8 +18,7 @@
      log
      problem-data]
   Object
-  (toString [_] (format "%s %d %s" id time
-                        (confidence-str (:confidence (:decision workspace))))))
+  (toString [_] (format "%s %d %s" id time (confidence-str (ws/get-conf workspace)))))
 
 (defn clone-ep-state
   [ep-state id children]
@@ -143,12 +141,12 @@
                    (flatten-ep-state-tree ep-state-tree))))
 
 (defn add-hyp
-  [ep-state hyp]
-  (update-in ep-state [:workspace] ws/add-hyp hyp))
+  [ep-state hyp explains]
+  (update-in ep-state [:workspace] ws/add hyp explains))
 
 (defn add-fact
-  [ep-state hyp]
-  (update-in ep-state [:workspace] #(-> % (ws/add-hyp hyp) (ws/forced hyp))))
+  [ep-state hyp explains]
+  (update-in ep-state [:workspace] #(-> % (ws/add hyp explains) (ws/forced hyp))))
 
 (defn commit-decision
   [ep-state id time-now problem]
@@ -208,5 +206,6 @@
     ep-tree-child))
 
 (defn explain
-  [ep-state params]
-  (update-in ep-state [:workspace] ws/explain))
+  [ep-state]
+  (let [workspace (ws/prepare-workspace (:workspace ep-state))]
+    (assoc ep-state :workspace (ws/explain workspace))))

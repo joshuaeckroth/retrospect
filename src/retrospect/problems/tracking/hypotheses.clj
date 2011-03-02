@@ -8,9 +8,9 @@
   (:use [clojure.contrib.math :as math :only [sqrt]])
   (:require [clojure.set :as set :only [intersection difference]]))
 
-(defn add-sensor-hyp
+(defn make-sensor-hyp
   [sensor e]
-  (let [hyp (new-hyp "SH" :sensor NEUTRAL []
+  (let [hyp (new-hyp "SH" :sensor nil NEUTRAL
                      (format "%s" (str (meta e)))
                      {:sensor sensor :entity e})]
     (with-meta e (merge (meta e) {:hyp hyp}))))
@@ -20,13 +20,13 @@
   (let [width (:width (meta sensors-seen-grid))
         height (:height (meta sensors-seen-grid))]
     (with-meta
-      (for [y (range height) x (range width)] ;; need height followed by width
-        (mapcat (fn [s]
-                  (map #(add-sensor-hyp s %)
-                       (filter (fn [e] (and (= x (:x (meta e)))
-                                            (= y (:y (meta e)))))
-                               (sensed-at s time))))
-                sensors))
+      (doall (for [y (range height) x (range width)] ;; need height followed by width
+               (mapcat (fn [s]
+                         (map #(make-sensor-hyp s %)
+                              (filter (fn [e] (and (= x (:x (meta e)))
+                                                   (= y (:y (meta e)))))
+                                      (sensed-at s time))))
+                       sensors)))
       {:width width :height height :time time})))
 
 (defn process-sensors
@@ -39,7 +39,8 @@
         (update-in ep [:problem-data] assoc :spotted-grid sg)
         (let [spotted (sensors-to-spotted sensors t sensors-seen-grid)]
           (recur (inc t) (conj sg spotted)
-                 (reduce add-fact ep (map (comp :hyp meta) (flatten spotted)))))))))
+                 (reduce #(add-fact %1 %2 []) ep
+                         (map (comp :hyp meta) (flatten spotted)))))))))
 
 (defn dist
   [x1 y1 x2 y2]
@@ -60,20 +61,21 @@
   "spotted is a collection of sensor detections; count-seen is how
   many sensors should have seen the same thing."
   [path label maxwalk]
-  (let [move-pairs (partition 2 (interleave path (rest path)))]
+  (let [move-pairs (doall (partition 2 (interleave path (rest path))))]
     (if (empty? move-pairs) NEUTRAL
-        (apply min (map (fn [[a b]] (score-distance (:x (meta (first a)))
-                                                    (:y (meta (first a)))
-                                                    (:x (meta (first b)))
-                                                    (:y (meta (first b)))
-                                                    maxwalk))
-                        move-pairs)))))
+        (apply min (doall (map (fn [[a b]] (score-distance (:x (meta (first a)))
+                                                           (:y (meta (first a)))
+                                                           (:x (meta (first b)))
+                                                           (:y (meta (first b)))
+                                                           maxwalk))
+                               move-pairs))))))
 
 (defn path-to-movements
   [path]
   (map (fn [[e1 e2]] {:ox (:x (meta e1)) :oy (:y (meta e1)) :ot (:time (meta e1))
                       :x (:x (meta e2)) :y (:y (meta e2)) :t (:time (meta e2))})
-       (partition 2 (interleave (butlast (map first path)) (rest (map first path))))))
+       (doall (partition 2 (interleave (butlast (map first path))
+                                       (rest (map first path)))))))
 
 (defn path-str
   [path]
@@ -99,12 +101,13 @@
       (let [grid (first spotted-grid)
             time (:time (meta grid))
             uncovered
-            (filter identity
-                    (for [y (range (:height (meta grid))) ;; need height followed by width
-                          x (range (:width (meta grid)))]
-                      (if (and (not-empty (grid-at grid x y))
-                               (not (covered? es x y time)))
-                        {:x x :y y :time time})))]
+            (doall (filter identity
+                           ;; need height followed by width
+                           (for [y (range (:height (meta grid))) 
+                                 x (range (:width (meta grid)))]
+                             (if (and (not-empty (grid-at grid x y))
+                                      (not (covered? es x y time)))
+                               {:x x :y y :time time}))))]
         (if (not-empty uncovered) uncovered
             (recur es (rest spotted-grid))))))
 
@@ -143,17 +146,17 @@
   [label path prior-covered spotted-grid maxwalk]
   (let [{x :x y :y t :time} (meta (first (last path)))
         grid (first spotted-grid)]
-    (filter (fn [es] (some #(matched-and-in-range? label % x y t prior-covered maxwalk)
-                           es)) grid)))
+    (doall (filter (fn [es] (some #(matched-and-in-range? label % x y t prior-covered maxwalk)
+                                  es)) grid))))
 
 (defn extend-path
   [label path prior-covered spotted-grid maxwalk]
   (let [in-range (spotted-in-range label path prior-covered spotted-grid maxwalk)]
-    (map (fn [e] (conj path e)) in-range)))
+    (doall (map (fn [e] (conj path e)) in-range))))
 
 (defn extend-paths
   [label paths prior-covered spotted-grid maxwalk]
-  (mapcat (fn [p] (extend-path label p prior-covered spotted-grid maxwalk)) paths))
+  (doall (mapcat (fn [p] (extend-path label p prior-covered spotted-grid maxwalk)) paths)))
 
 (defn make-label-path
   "The first grid in spotted-grid is the time step that should be
@@ -178,10 +181,11 @@
       (assoc paths label new-paths))))
 
 (defn make-hyp
+  "Returns [hyp explains] vector."
   [path label maxwalk]
-  (new-hyp "TH" :tracking (score-path path label maxwalk)
-           (filter identity (map (comp :hyp meta) (flatten path)))
-           "" {:label label :path path}))
+  [(new-hyp "TH" :tracking label (score-path path label maxwalk)
+            (str label (path-str path)) {:label label :path path})
+   (filter identity (map (comp :hyp meta) (flatten path)))])
 
 (defn hypothesize
   [ep-state sensors time-now params]
@@ -202,8 +206,9 @@
         (if (or (empty? uncovered)
                 (and (= 0 (:ProbNewEntities params)) (= 100 (:SensorCoverage params))
                      (not= 0 time-now)))
-          (reduce add-hyp ep (mapcat (fn [l] (map #(make-hyp % l maxwalk) (l paths)))
-                                     (keys paths)))
+          (reduce (fn [ep [hyp explains]] (add-hyp ep hyp explains))
+                  ep (mapcat (fn [l] (map #(make-hyp % l maxwalk) (l paths)))
+                             (keys paths)))
           ;; when making a new label, consider oldpaths labels plus newpaths labels,
           ;; since the newpaths (called 'paths' here) may have dissoc'd some labels
           ;; that could not be extended
@@ -224,7 +229,7 @@
 
 (defn entity-metas
   [es]
-  (map entity-meta es))
+  (doall (map entity-meta es)))
 
 (defn find-label-splits
   "Extract the terminating subpaths that are not shared among all the paths"
@@ -259,17 +264,17 @@
                                             (not-any? #(= % em) labeled))) path))
         unlabeled-path (fn [hyp] (vec (filter-labeled (:path (:data hyp)))))
         maybe-splits
-        (for [l (keys paths)]
-          (filter not-empty (find-label-splits
-                             (map unlabeled-path (filter #(= l (:label (:data %)))
-                                                         candidates)))))
+        (doall (for [l (keys paths)]
+                 (filter not-empty (find-label-splits
+                                    (map unlabeled-path (filter #(= l (:label (:data %)))
+                                                                candidates))))))
         splits (sort-by #(:time (ffirst %)) (filter not-empty maybe-splits))
         maybe-merges
-        (for [last-pos (distinct (flatten (map (comp entity-metas last)
-                                               (map unlabeled-path candidates))))]
-          (find-merges (filter (fn [path] (some #(= last-pos %)
-                                                (entity-metas (last path))))
-                               (map unlabeled-path candidates))))
+        (doall (for [last-pos (distinct (flatten (map (comp entity-metas last)
+                                                      (map unlabeled-path candidates))))]
+                 (find-merges (filter (fn [path] (some #(= last-pos %)
+                                                       (entity-metas (last path))))
+                                      (map unlabeled-path candidates)))))
         merges (sort sort-paths (filter not-empty maybe-merges))]
     ;; always attempt to incorporate a split first
     (if (not-empty splits)

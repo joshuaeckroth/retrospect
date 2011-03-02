@@ -1,17 +1,9 @@
 (ns retrospect.meta.explain
-  (:require [retrospect logs])
-  (:import [retrospect.logs MetaLogEntry])
-  (:use [retrospect.workspaces :only [init-workspace explain get-hyps]])
+  (:use [retrospect.workspaces :only [init-workspace prepare-workspace explain get-hyps]])
   (:use [retrospect.epistemicstates :only
          [current-ep-state previous-ep-state update-ep-state-tree]])
   (:use [retrospect.onerun :only [update-one-run-state]])
   (:use [retrospect.meta.hypotheses :only [generate-meta-hypotheses]]))
-
-(defn update-meta-log
-  [or-state ep-state workspace]
-  (update-in or-state [:meta-log] conj
-             (MetaLogEntry. (:ep-state or-state) ep-state
-                            (:abducer-log workspace))))
 
 (defn update-explain-cycles
   [or-state ep-state meta-hyps]
@@ -28,6 +20,7 @@
                           (generate-meta-hypotheses problem (:ep-state-tree or-state)
                                                     (:sensors or-state) params
                                                     (:lazy or-state))
+                          (prepare-workspace)
                           (explain))
             ;; we only expect one accepted meta hyp
             accepted-hyp (first (:accepted workspace))
@@ -35,8 +28,7 @@
             meta-hyps (filter #(and (not= :meta-accurate (:type %))
                                     (not= :meta-ep (:type %)))
                               (get-hyps workspace))
-            ors (update-explain-cycles or-state (:ep-state or-state) meta-hyps)
-            ors-log (update-meta-log ors (:ep-state ors) workspace)]
-        (if (= :meta-accurate (:type accepted-hyp)) ors-log
-          (assoc (update-in ors-log [:resources :meta-abductions] inc)
+            ors (update-explain-cycles or-state (:ep-state or-state) meta-hyps)]
+        (if (= :meta-accurate (:type accepted-hyp)) ors
+          (assoc (update-in ors [:resources :meta-abductions] inc)
             :ep-state-tree est :ep-state (current-ep-state est))))))
