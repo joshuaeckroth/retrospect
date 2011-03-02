@@ -42,40 +42,42 @@
    ((:hypothesize-fn problem) (:ep-state or-state) (:sensors or-state) time-now params)))
 
 (defn run-simulation-step
-  [problem truedata or-state params monitor player]
+  [problem truedata or-state params monitor? player?]
   (let [time (:time (:ep-state or-state))
         ors-sensors (proceed-n-steps (:StepsBetween params) time truedata or-state)
         time-now (+ (dec (:StepsBetween params)) time)
         start-time (. System (nanoTime)) ;; start the clock
         ors-hyps (hypothesize problem ors-sensors time-now params)
-        ep-explained (explain (:ep-state ors-hyps) params)
+        ep-explained (explain (:ep-state ors-hyps))
         ors-expl (update-one-run-state ors-sensors ep-explained)
         ors-meta (explain-meta problem ors-expl params)
         ep-meta (current-ep-state (:ep-state-tree ors-meta))
         ors-next (proceed-one-run-state ors-meta ep-meta time-now problem)
         ms (/ (- (. System (nanoTime)) start-time) 1000000.0) ;; stop the clock
         ors-resources (update-in ors-next [:resources] assoc :milliseconds ms)
-        ors-results (evaluate problem truedata ors-resources params)]
-    (if (and (not player) monitor)
+        ors-results (if-not player? ors-resources
+                            (evaluate problem truedata ors-resources params))]
+    (if (and (not player?) monitor?)
       ((:monitor-fn problem) problem truedata (:sensors ors-results) ors-results params)
       ors-results)))
 
 (defn run-simulation
-  [problem truedata or-state monitor params]
+  [problem truedata or-state params monitor?]
   (loop [ors or-state]
     (when (nil? ors) (throw (ExecutionException. "Monitor took control." (Throwable.))))
-    (if (>= (:time (:ep-state ors)) (:Steps params)) (:results ors)
-        (recur (run-simulation-step problem truedata ors params monitor false)))))
+    (if (>= (:time (:ep-state ors)) (:Steps params))
+      (last (:results (evaluate problem truedata ors params)))
+      (recur (run-simulation-step problem truedata ors params monitor? false)))))
 
 (defn run-comparative
-  [problem monitor params]
+  [problem monitor? params]
   (let [truedata ((:truedata-fn problem) params)
         sensors ((:sensor-gen-fn problem) params)
         problem-data ((:gen-problem-data-fn problem) sensors params)
         or-states (init-one-run-states {:MetaAbduction [true false] :Lazy [true]}
                                        sensors problem-data)]
     (doall (for [ors or-states]
-             (last (run-simulation problem truedata ors monitor params))))))
+             (run-simulation problem truedata ors params monitor?)))))
 
 (defn calc-percent-improvement
   [k m b]
@@ -88,10 +90,10 @@
       (double (/ (k m) (k b)))))
 
 (defn run-many
-  [problem monitor params repetitions]
+  [problem monitor? params repetitions]
   (doall
    (for [i (range repetitions)]
-     (let [[m b] (run-comparative problem monitor params)]
+     (let [[m b] (run-comparative problem monitor? params)]
        {:MetaAbductions (:MetaAbductions m)
         :MetaMilliseconds (:Milliseconds m)
         :BaseMilliseconds (:Milliseconds b)

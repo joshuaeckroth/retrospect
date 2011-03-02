@@ -7,12 +7,13 @@
                         ImageIcon JViewport Scrollable JTabbedPane JTable))
   (:import (java.util Vector))
   (:use [clojure.java.shell :only [sh]])
+  (:use [clojure.contrib.seq :only [find-first]])
   (:use [incanter.core :only [to-list with-data dataset nrow]])
   (:use [incanter.charts :only [scatter-plot]])
   (:use [retrospect.problem :only [get-headers run-simulation-step]])
   (:use [retrospect.state])
   (:use [retrospect.onerun :only [init-one-run-state update-one-run-state]])
-  (:use [retrospect.workspaces :only [last-id]])
+  (:use [retrospect.workspaces :only [last-id get-hyps]])
   (:use [retrospect.epistemicstates :only
          [draw-ep-state-tree list-ep-states current-ep-state goto-ep-state
           goto-next-ep-state previous-ep-state non-accepted-current-ep-state?]]))
@@ -139,8 +140,8 @@
         (. *explains-graph-label* setText
            (format "Cycle %d of %d" (inc *explains-graph-index*) *explains-graph-count*))
         (spit (str filename ".dot") (nth dot *explains-graph-index*))
-        (sh "dot" "-Tpng" (str "-o" filename ".png") (str filename ".dot"))
-        (sh "mogrify" "-resize" "50%" (str filename ".png"))
+        #_(sh "dot" "-Tpng" (str "-o" filename ".png") (str filename ".dot"))
+        #_(sh "mogrify" "-resize" "50%" (str filename ".png"))
         (str filename ".png")))))
 
 (defn get-explains-graph-viewport
@@ -237,21 +238,15 @@
   []
   (. *truedata-log-box* setText ((:update-truedata-log-box-fn (:player-fns *problem*))))
   (. *problem-log-box* setText ((:update-problem-log-box-fn (:player-fns *problem*))))
-  (. *problem-log-label* setText (format "Problem log for: %s" (str *ep-state*)))
-  (. *abduction-log-label* setText (format "Abduction log for: %s" (str *ep-state*)))
-  (. *abduction-log-box* setText
-     (apply str (interpose "\n" (map str (:abducer-log (:workspace *ep-state*))))))
-  (when-let [meta-log-entry (first (filter #(= (:id *ep-state*) (:id (:ep-state %)))
-                                           (:meta-log *or-state*)))]
-    (. *meta-log-box* setText (str meta-log-entry))))
+  (. *problem-log-label* setText (format "Problem log for: %s" (str *ep-state*))))
 
 (defn update-hyp-box
   []
   (if *ep-state*
     (if-let [hyp (if-let [choice (.getSelectedItem *hyp-choice*)]
-                   (get (:hyps (:workspace *ep-state*)) (symbol choice)))]
+                   (find-first #(= (:id %) choice) (get-hyps (:workspace *ep-state*))))]
       (. *hyp-box* setText
-         (apply str ((:str-fn hyp) hyp) "\n\n"
+         (apply str (:desc hyp) "\n\n"
                 (interpose
                  "\n" (map str (filter (fn [l] (some #(= % (:id hyp)) (:hyp-ids l)))
                                        (:abducer-log (:workspace *ep-state*))))))))
@@ -261,7 +256,7 @@
   []
   (.removeAllItems *hyp-choice*)
   (when *ep-state*
-    (doseq [i (sort (map str (keys (:hyps (:workspace *ep-state*)))))]
+    (doseq [i (sort (map :id (get-hyps (:workspace *ep-state*))))]
       (.addItem *hyp-choice* i))))
 
 (defn get-results-viewport
