@@ -28,7 +28,8 @@
             meta-hyps (filter #(and (not= :meta-accurate (:type %))
                                     (not= :meta-ep (:type %)))
                               (get-hyps workspace))
-            ors (update-explain-cycles or-state (:ep-state or-state) meta-hyps)]
-        (if (= :meta-accurate (:type accepted-hyp)) ors
-          (assoc (update-in ors [:resources :meta-abductions] inc)
+            ors (update-explain-cycles or-state (:ep-state or-state) meta-hyps)
+            ors-meta (assoc-in ors [:meta-workspaces (:id (:ep-state or-state))] workspace)]
+        (if (= :meta-accurate (:type accepted-hyp)) ors-meta
+          (assoc (update-in ors-meta [:resources :meta-abductions] inc)
             :ep-state-tree est :ep-state (current-ep-state est))))))

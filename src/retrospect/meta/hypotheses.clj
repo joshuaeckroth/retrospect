@@ -40,15 +40,14 @@
            (-> ws
                (reset-confidences)
                (prepare-workspace)
-               (reject-many [least-conf]
-                            "Rejecting in meta-abduction because least confident.")))))
+               (reject-many [least-conf])))))
 
 (defn mark-many-impossible
   [ep-state hyps]
   (let [ws (-> (:workspace ep-state)
                (reset-confidences)
                (prepare-workspace))]
-    (assoc ep-state :workspace (reject-many ws hyps "Rejecting in meta-abduction."))))
+    (assoc ep-state :workspace (reject-many ws hyps))))
 
 (defn branch-and-mark-impossible
   "A composite action that branches at the specified ep-state,

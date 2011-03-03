@@ -5,24 +5,15 @@
           update-ep-state-tree
           new-child-ep-state]]))
 
-(defrecord OneRunState
-    [meta-abduction
-     lazy
-     meta-log
-     resources
-     results
-     sensors
-     ep-state-tree
-     ep-state])
-
 (defn init-one-run-state
   [meta-abduction lazy sensors problem-data]
   (let [ep-state-tree (init-ep-state-tree problem-data)]
-    (OneRunState. meta-abduction lazy []
-                  {:meta-abductions 0 :compute 0 :milliseconds 0 :memory 0}
-                  []
-                  sensors
-                  ep-state-tree (current-ep-state ep-state-tree))))
+    {:meta-abduction meta-abduction :lazy lazy
+     :meta-workspaces {}
+     :resources {:meta-abductions 0 :compute 0 :milliseconds 0 :memory 0}
+     :results [] :sensors sensors
+     :ep-state-tree ep-state-tree
+     :ep-state (current-ep-state ep-state-tree)}))
 
 (defn init-one-run-states
   [options sensors problem-data]
