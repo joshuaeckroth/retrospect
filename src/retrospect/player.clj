@@ -1,631 +1,220 @@
 (ns retrospect.player
-  (:import [misc WrapLayout])
-  (:import (java.awt Color GridBagLayout FlowLayout Insets Dimension Checkbox))
-  (:import (java.awt.image BufferedImage))
-  (:import (javax.swing JPanel JFrame JButton JTextField JTextArea
-			JLabel JScrollPane JSpinner SpinnerNumberModel JComboBox
-                        ImageIcon JViewport Scrollable JTabbedPane JTable))
-  (:import (java.util Vector))
-  (:use [clojure.java.shell :only [sh]])
-  (:use [clojure.contrib.seq :only [find-first]])
-  (:use [incanter.core :only [to-list with-data dataset nrow]])
-  (:use [incanter.charts :only [scatter-plot]])
-  (:use [retrospect.problem :only [get-headers run-simulation-step]])
+  (:import (java.awt GridBagLayout Insets Dimension))
+  (:import (javax.swing JSpinner SpinnerNumberModel JTabbedPane))
+  (:use [clj-swing.frame])
+  (:use [clj-swing.label])
+  (:use [clj-swing.panel])
+  (:use [clj-swing.button])
+  (:use [clj-swing.combo-box])
+  (:use [retrospect.problem :only [run-simulation-step]])
   (:use [retrospect.state])
-  (:use [retrospect.onerun :only [init-one-run-state update-one-run-state]])
-  (:use [retrospect.workspaces :only [last-id get-hyps]])
+  (:use [retrospect.gui.eptree :only [ep-tree-tab update-ep-tree]])
+  (:use [retrospect.gui.explainsgraph :only [explains-graph-tab update-explains-graph]])
+  (:use [retrospect.gui.results :only [update-results update-results-graph results-tab]])
+  (:use [retrospect.gui.logs :only [update-logs logs-tab]])
+  (:use [retrospect.onerun :only [init-one-run-state]])
+  (:use [retrospect.workspaces :only [last-id]])
   (:use [retrospect.epistemicstates :only
-         [draw-ep-state-tree list-ep-states current-ep-state goto-ep-state
+         [list-ep-states current-ep-state goto-ep-state root-ep-state?
           goto-next-ep-state previous-ep-state non-accepted-current-ep-state?]]))
 
-(def *mainframe* nil)
-(def *problem-headers* nil)
-(def *problem-diagram* nil)
-(def *problem-params-panel* nil)
-(def *problem-stats-panel* nil)
+(def prepared-selected (atom nil))
+(def ep-list (ref '[]))
+(def ep-selected (atom nil))
+(def steplabel (label ""))
+(def problem-diagram (panel))
 
-(def *prepared-list* (JComboBox.))
-
-(def *steplabel* (JLabel. "Step: "))
-(def *goto-ep-state-combobox* (JComboBox. (to-array "")))
-
-(def *ep-tree* (BufferedImage. 1 1 (. BufferedImage TYPE_4BYTE_ABGR)))
-(def *explains-graph-index* 0)
-(def *explains-graph-count* 0)
-(def *explains-graph* nil)
-(def *prev-explains-graph-button* nil)
-(def *next-explains-graph-button* nil)
-(def *explains-graph-label* (JLabel.))
-(def *truedata-log-box* (JTextArea.))
-(def *abduction-log-label* (JLabel. "Abduction log"))
-(def *abduction-log-box* (JTextArea.))
-(def *hyp-choice* (JComboBox.))
-(def *hyp-box* (JTextArea.))
-(def *meta-log-box* (JTextArea.))
-(def *problem-log-label* (JLabel. "Problem log"))
-(def *problem-log-box* (JTextArea.))
-(def *results-checkboxes* {})
-(def *results-checkboxes-panel* (JPanel.))
-
-;; from http://stuartsierra.com/2010/01/08/agents-of-swing
-(defmacro with-action [component event & body]
-  `(. ~component addActionListener
-      (proxy [java.awt.event.ActionListener] []
-        (actionPerformed [~event] ~@body))))
-
-;;; from http://stuartsierra.com/2010/01/05/taming-the-gridbaglayout
-(defmacro set-grid! [constraints field value]
-  `(set! (. ~constraints ~(symbol (name field)))
-         ~(if (keyword? value)
-            `(. java.awt.GridBagConstraints
-                ~(symbol (name value)))
-            value)))
-
-;;; from http://stuartsierra.com/2010/01/05/taming-the-gridbaglayout
-(defmacro grid-bag-layout [container & body]
-  (let [c (gensym "c")
-        cntr (gensym "cntr")]
-    `(let [~c (new java.awt.GridBagConstraints)
-           ~cntr ~container]
-       ~@(loop [result '() body body]
-           (if (empty? body)
-             (reverse result)
-             (let [expr (first body)]
-               (if (keyword? expr)
-                 (recur (cons `(set-grid! ~c ~expr
-                                          ~(second body))
-                              result)
-                        (next (next body)))
-                 (recur (cons `(.add ~cntr ~expr ~c)
-                              result)
-                        (next body)))))))))
-
-(def *param-spinners*
+(def param-spinners
   {:Steps (JSpinner. (SpinnerNumberModel. 50 1 1000 1))
    :StepsBetween (JSpinner. (SpinnerNumberModel. 1 1 1000 1))
    :SensorReportNoise (JSpinner. (SpinnerNumberModel. 0 0 100 10))
    :BeliefNoise (JSpinner. (SpinnerNumberModel. 0 0 100 10))})
 
-(def *param-checkbox*
-  {:MetaAbduction (Checkbox.)
-   :Lazy (Checkbox.)})
+(def param-checkbox
+  {:MetaAbduction (check-box)
+   :Lazy (check-box)})
 
 (defn get-params
   []
-  (apply hash-map
-         (flatten
-          (concat
-           ((:get-params-fn (:player-fns *problem*)))
-           (for [k (keys *param-spinners*)]
-             [k (->> (k *param-spinners*)
-                     .getModel .getNumber .intValue)])
-           (for [k (keys *param-checkbox*)]
-             [k (.getState (k *param-checkbox*))])))))
+  (apply hash-map (flatten (concat
+                            ((:get-params-fn (:player-fns @problem)))
+                            (for [k (keys param-spinners)]
+                              [k (->> (k param-spinners)
+                                      .getModel .getNumber .intValue)])
+                            (for [k (keys param-checkbox)]
+                              [k (.isSelected (k param-checkbox))])))))
 
 (defn set-params
   []
-  ((:set-params-fn (:player-fns *problem*)))
-  (doseq [k (keys *param-spinners*)]
-    (. (k *param-spinners*) setValue (k *params*)))
-  (. (:MetaAbduction *param-checkbox*) setState (:meta-abduction *or-state*))
-  (. (:Lazy *param-checkbox*) setState (:lazy *or-state*)))
-
-(defn get-prepared-list
-  []
-  (let [prepared-map (:prepared-map *problem*)]
-    (.addItem *prepared-list* "None")
-    (doseq [p (keys prepared-map)]
-      (.addItem *prepared-list* p))))
-
-(defn get-ep-tree-viewport
-  []
-  (doto (JViewport.)
-    (.setBackground Color/white)
-    (.setView (JLabel. (ImageIcon. *ep-tree*)))))
-
-(def *ep-tree-scrollpane*
-  (JScrollPane. (get-ep-tree-viewport)))
-
-(defn update-ep-tree-diagram
-  []
-  (def *ep-tree* (draw-ep-state-tree (:ep-state-tree *or-state*)))
-  (. *ep-tree-scrollpane* setViewport (get-ep-tree-viewport)))
-
-(defn draw-explains-graph
-  []
-  (if *ep-state*
-    (let [dot (:dot (:workspace *ep-state*))
-          filename (str "explains-graphs/" *explains-graph-index*)]
-      (when (not-empty dot)
-        (. *explains-graph-label* setText
-           (format "Cycle %d of %d" (inc *explains-graph-index*) *explains-graph-count*))
-        (spit (str filename ".dot") (nth dot *explains-graph-index*))
-        #_(sh "dot" "-Tpng" (str "-o" filename ".png") (str filename ".dot"))
-        #_(sh "mogrify" "-resize" "50%" (str filename ".png"))
-        (str filename ".png")))))
-
-(defn get-explains-graph-viewport
-  []
-  (if *explains-graph*
-    (let [imageicon (ImageIcon. *explains-graph*)]
-      (.. imageicon getImage flush)
-      (doto (JViewport.)
-        (.setBackground Color/white)
-        (.setView (JLabel. imageicon))))
-    (doto (JViewport.) (.setBackground Color/white))))
-
-(def *explains-graph-scrollpane*
-  (JScrollPane. (get-explains-graph-viewport)))
-
-(defn prev-explains-graph
-  []
-  (when (> *explains-graph-index* 0)
-    (def *explains-graph-index* (dec *explains-graph-index*))
-    (when (= 0 *explains-graph-index*)
-      (. *prev-explains-graph-button* setEnabled false))
-    (. *next-explains-graph-button* setEnabled true)
-    (def *explains-graph* (draw-explains-graph))
-    (. *explains-graph-scrollpane* setViewport (get-explains-graph-viewport))))
-
-(defn next-explains-graph
-  []
-  (when (< *explains-graph-index* (dec *explains-graph-count*))
-    (def *explains-graph-index* (inc *explains-graph-index*))
-    (. *prev-explains-graph-button* setEnabled true)
-    (when (= (dec *explains-graph-count*) *explains-graph-index*)
-      (. *next-explains-graph-button* setEnabled false))
-    (def *explains-graph* (draw-explains-graph))
-    (. *explains-graph-scrollpane* setViewport (get-explains-graph-viewport))))
-
-(defn update-explains-graph-diagram
-  []
-  (if *ep-state*
-    (do
-      (def *explains-graph-index* 0)
-      (def *explains-graph-count* (count (:dot (:workspace *ep-state*))))
-      (def *explains-graph* (draw-explains-graph))
-      (. *explains-graph-scrollpane* setViewport (get-explains-graph-viewport))
-      (. *prev-explains-graph-button* setEnabled false)
-      (if (< 1 *explains-graph-count*)
-        (. *next-explains-graph-button* setEnabled true)
-        (. *next-explains-graph-button* setEnabled false)))
-    (do
-      (def *explains-graph-index* 0)
-      (def *explains-graph-count* 0)
-      (def *explains-graph* nil)
-      (. *prev-explains-graph-button* setEnabled false)
-      (. *next-explains-graph-button* setEnabled false)
-      (. *explains-graph-scrollpane* setViewport (get-explains-graph-viewport))
-      (. *explains-graph-label* setText ""))))
-
-(defn get-explains-graph-tab
-  []
-  (doto (JPanel. (GridBagLayout.))
-    (grid-bag-layout
-     :fill :BOTH, :insets (Insets. 5 5 5 5)
-
-     :gridx 0, :gridy 0, :weightx 1.0, :weighty 1.0, :gridwidth 6
-     *explains-graph-scrollpane*
-
-     :gridx 0, :gridy 1, :weightx 0.0, :weighty 0.0, :gridwidth 1
-     *prev-explains-graph-button*
-
-     :gridx 1
-     *next-explains-graph-button*
-
-     :gridx 2, :weightx 1.0
-     *explains-graph-label*
-
-     :gridx 3, :weightx 0.0
-     (doto (JLabel. " unexplained ") (.setForeground Color/orange))
-     
-     :gridx 4, :weightx 0.0
-     (doto (JLabel. " accepted ") (.setForeground Color/blue))
-
-     :gridx 5, :weightx 0.0
-     (doto (JLabel. " rejected ") (.setForeground Color/red)))))
-
-(defn update-goto-ep-state-combobox
-  []
-  (loop [cb (doto *goto-ep-state-combobox* (.removeAllItems))
-         ep-states (sort (list-ep-states (:ep-state-tree *or-state*)))]
-    (if (empty? ep-states)
-      (def *goto-ep-state-combobox*
-        (doto cb (.setSelectedItem (str *ep-state*))))
-      (recur (doto cb (.addItem (first ep-states))) (rest ep-states)))))
-
-(defn update-logs
-  []
-  (. *truedata-log-box* setText ((:update-truedata-log-box-fn (:player-fns *problem*))))
-  (. *problem-log-box* setText ((:update-problem-log-box-fn (:player-fns *problem*))))
-  (. *problem-log-label* setText (format "Problem log for: %s" (str *ep-state*))))
-
-(defn update-hyp-box
-  []
-  (if *ep-state*
-    (if-let [hyp (if-let [choice (.getSelectedItem *hyp-choice*)]
-                   (find-first #(= (:id %) choice) (get-hyps (:workspace *ep-state*))))]
-      (. *hyp-box* setText
-         (apply str (:desc hyp) "\n\n"
-                (interpose
-                 "\n" (map str (filter (fn [l] (some #(= % (:id hyp)) (:hyp-ids l)))
-                                       (:abducer-log (:workspace *ep-state*))))))))
-    (. *hyp-box* setText "")))
-
-(defn update-hyp-choice-dropdown
-  []
-  (.removeAllItems *hyp-choice*)
-  (when *ep-state*
-    (doseq [i (sort (map :id (get-hyps (:workspace *ep-state*))))]
-      (.addItem *hyp-choice* i))))
-
-(defn get-results-viewport
-  []
-  (let [headers (filter (fn [h] (if-let [cb (get *results-checkboxes* h)]
-                                  (.getState cb)))
-                        *problem-headers*)
-        results-matrix (map (fn [r] (map (fn [h] (h r)) headers))
-                            (:results *or-state*))]
-    (doto (JViewport.)
-      (.setView  (JTable. (Vector. (map #(Vector. %) (to-list results-matrix)))
-                          (Vector. (map name headers)))))))
-
-(def *results-scrollpane*
-  (JScrollPane. (get-results-viewport)))
-
-(defn update-results
-  []
-  (. *results-scrollpane* (setViewport (get-results-viewport))))
-
-(defn get-results-checkboxes
-  []
-  (reduce (fn [m h] (let [cb (Checkbox. (name h) false)]
-                      (. cb addItemListener
-                         (proxy [java.awt.event.ItemListener] []
-                           (itemStateChanged [_] (update-results))))
-                      (assoc m h cb)))
-          {} *problem-headers*))
-
-(defn get-results-checkboxes-panel
-  []
-  (loop [p (JPanel. (WrapLayout. FlowLayout/LEFT))
-         cbs *problem-headers*]
-    (if (empty? cbs) p
-        (recur (doto p (.add (get *results-checkboxes* (first cbs)))) (rest cbs)))))
-
-(defn results-to-dataset
-  []
-  (dataset *problem-headers*
-           (map (fn [r] (map (fn [h] (get r h))
-                             *problem-headers*))
-                (:results *or-state*))))
-
-(def *results-graph-x-dropdown* (JComboBox.))
-
-(defn get-results-graph-x-dropdown
-  []
-  (def *results-graph-x-dropdown*
-    (JComboBox. (to-array (map name *problem-headers*)))))
-
-(def *results-graph-y-dropdown* (JComboBox.))
-
-(defn get-results-graph-y-dropdown
-  []
-  (def *results-graph-y-dropdown*
-    (JComboBox. (to-array (map name *problem-headers*)))))
-
-(def *results-graph* nil)
-
-(defn paint-results-graph
-  [g]
-  (if *results-graph*
-    (.draw *results-graph* g (.getClipBounds g))))
-
-(def *results-graph-panel*
-  (proxy [JPanel] []
-    (getPreferredSize [] (Dimension. 300 300))
-    (paint [g] (paint-results-graph g))))
-
-(defn update-results-graph
-  []
-  (let [data (results-to-dataset)]
-    (if (< 1 (nrow data))
-      (def *results-graph*
-        (let [x-axis (keyword (.getSelectedItem *results-graph-x-dropdown*))
-              y-axis (keyword (.getSelectedItem *results-graph-y-dropdown*))]
-          (with-data (results-to-dataset)
-            (scatter-plot x-axis y-axis :x-label (name x-axis) :y-label (name y-axis)))))
-      (def *results-graph* nil)))
-  (.repaint *results-graph-panel*))
-
-(defn get-results-tab
-  []
-  (doto (JPanel. (GridBagLayout.))
-    (grid-bag-layout
-     :fill :BOTH, :insets (Insets. 5 5 5 5)
-
-     :gridx 0, :gridy 0, :weightx 1.0, :weighty 1.0, :gridwidth 5
-     *results-scrollpane*
-
-     :gridx 0, :gridy 1, :weightx 0.0, :weighty 0.0, :gridwidth 1
-     (JLabel. "x-axis:")
-
-     :gridx 1
-     (doto *results-graph-x-dropdown*
-       (. addItemListener (proxy [java.awt.event.ItemListener] []
-                            (itemStateChanged [_] (update-results-graph)))))
-
-     :gridx 2
-     (JLabel. "y-axis:")
-
-     :gridx 3
-     (doto *results-graph-y-dropdown*
-       (. addItemListener (proxy [java.awt.event.ItemListener] []
-                            (itemStateChanged [_] (update-results-graph)))))
-
-     :gridx 4, :weightx 1.0
-     (JPanel.)
-
-     :gridx 0, :gridy 2, :weightx 1.0, :weighty 1.0, :gridwidth 5
-     *results-graph-panel*
-
-     :gridx 0, :gridy 3, :weighty 0.0
-     *results-checkboxes-panel*)))
+  ((:set-params-fn (:player-fns @problem)))
+  (doseq [k (keys param-spinners)]
+    (. (k param-spinners) setValue (k @params)))
+  (. (:MetaAbduction param-checkbox) setState (:meta-abduction @or-state))
+  (. (:Lazy param-checkbox) setState (:lazy @or-state)))
 
 (defn update-everything
-  [or-state]
-  (update-or-state or-state)
-  (if (nil? *ep-state*)
+  []
+  (if (root-ep-state? (:ep-state @or-state))
     (do
-      (update-time -1)
-      (. *steplabel* (setText "Step: N/A")))
-    (let [prev-ep (previous-ep-state (goto-ep-state (:ep-state-tree *or-state*)
-                                                    (:id *ep-state*)))
-          time-now (:time *ep-state*)
-          time-prev (if prev-ep (:time prev-ep) -1)]
-      (update-time time-now)
-      (update-time-prev time-prev)
-      (. *steplabel* (setText (if time-prev (format "Step: %d->%d" time-prev time-now)
-                                  (format "Step: N/A->%d" time-now))))))
-  (update-goto-ep-state-combobox)
-  (update-ep-tree-diagram)
-  (update-explains-graph-diagram)
-  (update-hyp-choice-dropdown)
-  (update-hyp-box)
+      (dosync
+       (alter time-now (constantly -1))
+       (alter time-prev (constantly -1)))
+      (. steplabel (setText "Step: N/A")))
+    (let [prev-ep (previous-ep-state (:ep-state-tree @or-state))
+          time-n (:time (:ep-state @or-state))
+          time-p (if prev-ep (:time prev-ep) -1)]
+      (dosync
+       (alter time-now (constantly time-n))
+       (alter time-prev (constantly time-p)))
+      (. steplabel (setText (if time-prev
+                              (format "Step: %d->%d" @time-prev @time-now)
+                              (format "Step: N/A->%d" @time-now))))))
+  (dosync
+   (alter ep-list (constantly (sort (list-ep-states (:ep-state-tree @or-state))))))
+  (update-ep-tree)
+  (update-explains-graph)
   (update-results)
   (update-results-graph)
-  ((:update-stats-fn (:player-fns *problem*)))
   (update-logs)
-  (.repaint *problem-diagram*)
-  (.repaint *mainframe*))
-
-(defn goto-ep-state-action
-  []
-  (let [id (re-find #"^[A-Z]+" (. *goto-ep-state-combobox* (getSelectedItem)))
-        est (goto-ep-state (:ep-state-tree *or-state*) id)
-        ep-state (current-ep-state est)
-        est2 (if (non-accepted-current-ep-state? est) est
-                 (goto-next-ep-state est))]
-    (update-ep-state ep-state)
-    (update-everything
-     (-> *or-state*
-         (assoc :ep-state-tree est2)
-         (assoc :ep-state (current-ep-state est2))))))
-
-(defn step
-  []
-  (let [or-state (run-simulation-step *problem* *truedata* *or-state*
-                                      *params* false true)]
-    (update-ep-state (previous-ep-state (:ep-state-tree or-state)))
-    (update-everything or-state)))
+  ((:update-stats-fn (:player-fns @problem)))
+  ((:update-diagram-fn (:player-fns @problem))))
 
 (defn new-simulation
   []
-  (let [prepared-choice (.getSelectedItem *prepared-list*)
-        prepared (if (not= "None" prepared-choice) (get (:prepared-map *problem*)
-                                                        prepared-choice))
-        params (if prepared (:params prepared) (get-params))
-        meta-abduction (:MetaAbduction params)
-        lazy (:Lazy params)
-        sensors (if prepared (:sensors prepared) ((:sensor-gen-fn *problem*) params))
-        truedata (if prepared (:truedata prepared) ((:truedata-fn *problem*) params))
-        or-state (init-one-run-state meta-abduction lazy sensors
-                                     ((:gen-problem-data-fn *problem*) sensors params))]
-    (dosync (alter last-id (constantly 0)))
-    (update-ep-state nil)
-    (update-params params)
-    (update-sensors sensors)
-    (update-truedata truedata)
-    (update-everything or-state)
-    (when prepared-choice (set-params))))
+  (let [prepared (if (not= "None" @prepared-selected)
+                   (get (:prepared-map @problem) @prepared-selected))
+        ps (if prepared (:params prepared) (get-params))
+        meta-abduction (:MetaAbduction ps)
+        lazy (:Lazy ps)
+        sens (if prepared (:sensors prepared) ((:sensor-gen-fn @problem) ps))
+        td (if prepared (:truedata prepared) ((:truedata-fn @problem) ps))
+        ors (init-one-run-state meta-abduction lazy sens
+                                ((:gen-problem-data-fn @problem) sens ps))]
+    (dosync
+     (alter last-id (constantly 0))
+     (alter params (constantly ps))
+     (alter or-state (constantly ors))
+     (alter sensors (constantly sens))
+     (alter truedata (constantly td)))
+    (update-everything)
+    (when @prepared-selected (set-params ps))))
 
-(def *newbutton*
-  (let [b (JButton. "New")]
-    (with-action b e (new-simulation))
-    b))
+(defn goto-ep-state-action
+  []
+  (let [id (re-find #"^[A-Z]+" @ep-selected)
+        est (goto-ep-state (:ep-state-tree @or-state) id)
+        ep-state (current-ep-state est)
+        est2 (if (non-accepted-current-ep-state? est) est
+                 (goto-next-ep-state est))]
+    (dosync (alter or-state assoc :ep-state-tree est2 :ep-state (current-ep-state est2)))
+    (update-everything)))
+
+(defn step
+  []
+  (let [ors (run-simulation-step @problem @truedata @or-state @params false true)]
+    (dosync (alter or-state (constantly ors)))
+    (update-everything)))
 
 (defn next-step
   []
-  (when (< *time* (- (:Steps *params*) (:StepsBetween *params*)))
+  (when (< @time-now (- (:Steps @params) (:StepsBetween @params)))
     (step)))
 
-(def *nextbutton*
-  (let [b (JButton. "Next Step")]
-    (with-action b e (next-step))
-    b))
+(def generic-params
+  (panel :layout (GridBagLayout.)
+         :constrains (java.awt.GridBagConstraints.)
+         [:gridx 0 :gridy 0 :fill :BOTH :insets (Insets. 5 5 5 5)
+          _ (label "Steps:")
+          :gridx 1
+          _ (:Steps param-spinners)
+          :gridx 0 :gridy 1
+          _ (label "StepsBetween:")
+          :gridx 1
+          _ (:StepsBetween param-spinners)
+          :gridx 0 :gridy 2
+          _ (label "SensorReportNoise:")
+          :gridx 1
+          _ (:SensorReportNoise param-spinners)
+          :gridx 0 :gridy 3
+          _ (label "BeliefNoise:")
+          :gridx 1
+          _ (:BeliefNoise param-spinners)]))
 
-(def *goto-ep-state-button*
-  (let [b (JButton. "Goto ep-state")]
-    (with-action b e (goto-ep-state-action))
-    b))
-
-(def *params-panel*
-  (doto (JPanel. (GridBagLayout.))
-    (grid-bag-layout
-     :fill :BOTH, :insets (Insets. 5 5 5 5)
-     :gridwidth 1
-
-     :gridx 0, :gridy 0
-     (JLabel. "Prepared:")
-     :gridx 1, :gridy 0
-     *prepared-list*
-     
-     :gridx 0, :gridy 1
-     (JLabel. "MetaAbduction:")
-     :gridx 1, :gridy 1
-     (:MetaAbduction *param-checkbox*)
-
-     :gridx 0, :gridy 2
-     (JLabel. "Lazy:")
-     :gridx 1, :gridy 2
-     (:Lazy *param-checkbox*)
-
-     :gridx 0, :gridy 3
-     (JLabel. "Steps:")
-     :gridx 1, :gridy 3
-     (:Steps *param-spinners*)
-
-     :gridx 0, :gridy 4
-     (JLabel. "StepsBetween:")
-     :gridx 1, :gridy 4
-     (:StepsBetween *param-spinners*)
-     
-     :gridx 0, :gridy 5
-     (JLabel. "SensorReportNoise:")
-     :gridx 1, :gridy 5
-     (:SensorReportNoise *param-spinners*)
-     
-     :gridx 0, :gridy 6
-     (JLabel. "BeliefNoise:")
-     :gridx 1, :gridy 6
-     (:BeliefNoise *param-spinners*))))
-
-(def *stats-panel*
-  (doto (JPanel. (GridBagLayout.))
-    (grid-bag-layout
-     :fill :BOTH, :insets (Insets. 5 5 5 5)
-     
-     :gridx 0, :gridy 0
-     *steplabel*)))
-
-(def *logs-tab*
-  (doto (JPanel. (GridBagLayout.))
-    (grid-bag-layout
-     :insets (Insets. 5 5 5 5)
-     :weightx 1.0, :fill :BOTH
-
-     :gridx 0, :gridy 0, :weighty 0.0
-     (JLabel. "True data log")
-     :gridx 0, :gridy 1, :weighty 1.0
-     (JScrollPane. *truedata-log-box*)
-     
-     :gridx 0, :gridy 2, :weighty 0.0
-     *abduction-log-label*
-     :gridx 0, :gridy 3, :weighty 1.0
-     (JScrollPane. *abduction-log-box*)
-
-     :gridx 0, :gridy 4, :weighty 0.0
-     (doto *hyp-choice*
-       (. addItemListener (proxy [java.awt.event.ItemListener] []
-                            (itemStateChanged [_] (update-hyp-box)))))
-     :gridx 0, :gridy 5, :weighty 1.0
-     (JScrollPane. *hyp-box*)
-
-     :gridx 0, :gridy 6, :weighty 0.0
-     *problem-log-label*
-     :gridx 0, :gridy 7, :weighty 1.0
-     (JScrollPane. *problem-log-box*)
-
-     :gridx 0, :gridy 8, :weighty 0.0
-     (JLabel. "Meta-abduction log")
-     :gridx 0, :gridy 9, :weighty 1.0
-     (JScrollPane. *meta-log-box*))))
-
-(defn get-mainframe
+(defn mainframe
   []
-  (doto (JFrame. "Player")
-    (.setLayout (GridBagLayout.))
-    (grid-bag-layout
-     :insets (Insets. 5 5 5 5)
-     
-     :gridx 0, :gridy 0, :gridheight 7, :fill :BOTH
-     :weightx 1.0, :weighty 1.0
-     (doto (JTabbedPane.)
-       (.addTab "Problem diagram" *problem-diagram*)
-       (.addTab "Epistemic state tree" *ep-tree-scrollpane*)
-       (.addTab "Logs" *logs-tab*)
-       (.addTab "Explains graph" (get-explains-graph-tab))
-       (.addTab "Results" (get-results-tab))
-       (.setSelectedIndex 0))
-     
-     :gridx 1, :gridy 0, :gridheight 1, :gridwidth 2
-     :weightx 0.0, :weighty 0.0
-     *params-panel*
+  (frame :title "Player"
+         :layout (GridBagLayout.)
+         :constrains (java.awt.GridBagConstraints.)
+         :pack true :show true :on-close :exit
+         [:gridx 0 :gridy 0 :gridheight 8 :weightx 1.0 :weighty 1.0
+          :fill :BOTH :insets (Insets. 5 5 5 5)
+          _ (doto (JTabbedPane.)
+              (.addTab "Problem diagram" problem-diagram)
+              (.addTab "Epistemic state tree" (ep-tree-tab))
+              (.addTab "Logs" (logs-tab))
+              (.addTab "Explains graph" (explains-graph-tab))
+              (.addTab "Results" (results-tab))
+              (.setSelectedIndex 0))
 
-     :gridx 1, :gridy 1, :insets (Insets. 0 0 0 0)
-     *problem-params-panel*
+          :gridx 1 :gridy 0 :gridheight 1 :weightx 0.0 :weighty 0.0
+          _ (label "Prepared:")
+          :gridx 2
+          _ (combo-box
+             [] :model (seq-ref-combobox-model
+                        (ref (concat ["None"] (keys (:prepared-map @problem))))
+                        prepared-selected))
 
-     :gridx 1, :gridy 2, :gridwidth 1, :insets (Insets. 5 5 5 5)
-     *newbutton*
-     :gridx 2, :gridy 2
-     *nextbutton*
+          :gridx 1 :gridy 1
+          _ (label "MetaAbduction:")
+          :gridx 2
+          _ (:MetaAbduction param-checkbox)
 
-     :gridx 1, :gridy 3
-     *goto-ep-state-combobox*
-     :gridx 2, :gridy 3
-     *goto-ep-state-button*
+          :gridx 1 :gridy 2
+          _ (label "Lazy:")
+          :gridx 2
+          _ (:Lazy param-checkbox)
 
-     :gridx 1, :gridy 4, :gridwidth 2
-     *stats-panel*
+          :gridx 1 :gridy 3 :gridwidth 2 :weighty 1.0
+          _ (doto (JTabbedPane.)
+              (.addTab "Generic"
+                       (scroll-panel generic-params))
+              (.addTab (:name @problem)
+                       (scroll-panel ((:get-params-panel-fn (:player-fns @problem))))))
+          
+          :gridx 1 :gridy 4 :gridwidth 1 :weighty 0.0
+          _ (button "New" :action ([_] (new-simulation)))
+          :gridx 2 :gridy 4
+          _ (button "Next" :action ([_] (next-step)))
 
-     :gridx 1, :gridy 5
-     *problem-stats-panel*
+          :gridx 1 :gridy 5
+          _ (combo-box [] :model (seq-ref-combobox-model ep-list ep-selected))
+          :gridx 2 :gridy 5
+          _ (button "Goto" :action ([_] (goto-ep-state-action)))
 
-     :gridy 6, :gridheight :REMAINDER
-     (JPanel.))))
+          :gridx 1 :gridy 6 :gridwidth 2
+          _ steplabel
+
+          :gridx 1 :gridy 7
+          _ ((:get-stats-panel-fn (:player-fns @problem)))]))
 
 (defn start-player
-  [problem & opts]
+  [prob & opts]
 
-  (update-problem problem)
-  (def *problem-headers* (get-headers *problem*))
-
-  (update-params (get-params))
-
-  (get-results-graph-x-dropdown)
-  (get-results-graph-y-dropdown)
-
-  (def *prev-explains-graph-button*
-    (let [b (JButton. "Prev")]
-      (with-action b e (prev-explains-graph))
-      (doto b (.setEnabled false))))
-  
-  (def *next-explains-graph-button*
-    (let [b (JButton. "Next")]
-      (with-action b e (next-explains-graph))
-      (doto b (.setEnabled false))))
-
-  (def *problem-diagram* ((:get-diagram-fn (:player-fns problem))))
-  (def *problem-params-panel* ((:get-params-panel-fn (:player-fns problem))))
-  (def *problem-stats-panel* ((:get-stats-panel-fn (:player-fns problem))))
-  (def *results-checkboxes* (get-results-checkboxes))
-  (def *results-checkboxes-panel* (get-results-checkboxes-panel))
-
-  (get-prepared-list)
-
-  (def *mainframe* (get-mainframe))
+  (dosync
+   (alter problem (constantly prob))
+   (alter params (constantly (get-params))))
 
   (let [options (apply hash-map opts)]
     (when (:monitor options)
-      (update-params (:params options))
-      (update-sensors (:sensors options))
-      (update-truedata (:truedata options))
-      (update-everything (:or-state options))
-      (set-params))
-    (doto *mainframe*
-      (.setResizable true)
-      (.pack)
-      (.setSize 900 750)
-      (.show))
+      (dosync
+       (alter params (constantly (:params options)))
+       (alter or-state (constantly (:or-state options)))
+       (alter sensors (constantly (:sensors options)))
+       (alter truedata (constantly (:truedata options))))
+      (update-everything)
+      (set-params (:params options)))
     (when (not (:monitor options))
-      (new-simulation))))
+      (new-simulation)))
+  ((:setup-diagram-fn (:player-fns @problem)) problem-diagram)
+
+  (mainframe))

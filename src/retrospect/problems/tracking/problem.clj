@@ -8,9 +8,8 @@
          [hypothesize commit-decision]])
   (:use [retrospect.problems.tracking.player :only
          [player-get-params player-set-params player-get-params-panel
-          player-get-diagram player-get-stats-panel
-          player-update-stats player-update-truedata-log-box
-          player-update-problem-log-box]])
+          player-get-stats-panel player-update-stats player-get-truedata-log
+          player-get-problem-log player-setup-diagram player-update-diagram]])
   (:use [retrospect.problems.tracking.sensors :only
          [measure-sensor-overlap measure-sensor-coverage
           list-sensors-seen list-sensors-unseen sensors-seen-grid]])
@@ -32,16 +31,17 @@
    (measure-sensor-overlap (:GridWidth params) (:GridHeight params) sensors)})
 
 (def tracking-problem
-  (Problem. "tracking"
+  (Problem. "Tracking"
             monitor
             {:get-params-fn player-get-params
              :set-params-fn player-set-params
              :get-params-panel-fn player-get-params-panel
-             :get-diagram-fn player-get-diagram
              :get-stats-panel-fn player-get-stats-panel
              :update-stats-fn player-update-stats
-             :update-truedata-log-box-fn player-update-truedata-log-box
-             :update-problem-log-box-fn player-update-problem-log-box}
+             :get-truedata-log player-get-truedata-log
+             :get-problem-log player-get-problem-log
+             :setup-diagram-fn player-setup-diagram
+             :update-diagram-fn player-update-diagram}
             generate-truedata
             generate-sensors
             prepared-map
