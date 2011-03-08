@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <parameters>
   <problems>
-    <problem name="tracking">
+    <problem name="Tracking">
       <params>
         <Steps start="20" end="20" step="1" />
         <StepsBetween start="2" end="2" step="1" />
@@ -17,7 +17,7 @@
         <SensorSeesColor start="60" end="100" step="20" />
       </params>
     </problem>
-    <problem name="circuit">
+    <problem name="Circuit">
       <params>
         <MinGates start="3" end="10" step="1" />
         <MaxGates start="10" end="30" step="5" />
