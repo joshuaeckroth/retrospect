@@ -42,10 +42,9 @@
 
 (defn results-to-dataset
   [or-state]
-  (let [headers (keys @headers-on)]
-    (if (empty? headers) []
-        (dataset headers (map (fn [r] (map (fn [h] (get r h)) headers))
-                              (:results or-state))))))
+  (let [headers (get-headers @problem)]
+    (dataset headers (map (fn [r] (map (fn [h] (get r h)) headers))
+                          (:results or-state)))))
 
 (defn update-results-graph
   []
@@ -54,9 +53,9 @@
      (if (< 1 (nrow data))
        (alter graph
               (constantly
-               (let [x-axis (keyword x-selected)
-                     y-axis (keyword y-selected)]
-                 (when (or x-axis y-axis)
+               (let [x-axis (keyword @x-selected)
+                     y-axis (keyword @y-selected)]
+                 (when (and x-axis y-axis)
                    (with-data data
                      (scatter-plot x-axis y-axis
                                    :x-label (name x-axis)
@@ -75,14 +74,14 @@
           _ (label "x-axis:")
           :gridx 1
           _ (combo-box [] :model (seq-ref-combobox-model
-                                  (ref (map name (get-headers @problem)))
+                                  (ref (sort (map name (get-headers @problem))))
                                   x-selected)
                        :action ([_] (update-results-graph)))
           :gridx 2
           _ (label "y-axis:")
           :gridx 3
           _ (combo-box [] :model (seq-ref-combobox-model
-                                  (ref (map name (get-headers @problem)))
+                                  (ref (sort (map name (get-headers @problem))))
                                   y-selected)
                        :action ([_] (update-results-graph)))
           :gridx 4 :weightx 1.0
@@ -91,7 +90,8 @@
           _ graph-panel
           :gridx 0 :gridy 3 :weighty 0.0
           _ (let [p (panel :layout (WrapLayout. FlowLayout/LEFT))]
-              (doseq [h (get-headers @problem)]
+              (doseq [h (sort-by name (get-headers @problem))]
                 (doto p (.add (check-box :caption (name h) :selected false
-                                         :action ([_] (toggle-header h))))))
+                                         :action ([_] (toggle-header h)
+                                                    (update-results))))))
               p)]))

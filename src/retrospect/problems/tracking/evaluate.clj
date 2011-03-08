@@ -76,3 +76,26 @@
      :SensorOverlap 0
      :EntityDensity 0}))
 
+(defn calc-percent-improvement
+  [k m b]
+  (if (= 0 (k b)) 0.0
+      (double (* 100.0 (/ (- (k m) (k b)) (k b))))))
+
+(defn calc-ratio
+  [k m b]
+  (if (= 0 (k b)) 0.0
+      (double (/ (k m) (k b)))))
+
+(defn evaluate-batch
+  [params [m b]]
+  {:MetaPercentEventsCorrect (:PercentEventsCorrect m)
+   :BasePercentEventsCorrect (:PercentEventsCorrect b)
+   :RatioPercentEventsCorrect (calc-ratio :PercentEventsCorrect m b)
+   :ImprovePercentEventsCorrect (calc-percent-improvement :PercentEventsCorrect m b)
+   :MetaMeanTimeWithLabel (:MeanTimeWithLabel m)
+   :BaseMeanTimeWithLabel (:MeanTimeWithLabel b)
+   :RatioMeanTimeWithLabel (calc-ratio :MeanTimeWithLabel m b)
+   :ImproveMeanTimeWithLabel (calc-percent-improvement :MeanTimeWithLabel m b)
+   :NumberEntities (:NumberEntities params)
+   :MaxWalk (:MaxWalk params)
+   :ProbNewEntities (:ProbNewEntities params)})

@@ -208,8 +208,8 @@
 
 (defn player-update-stats
   []
-  (if (>= @time-now 0)
-    (let [t (int (/ @time-now (:StepsBetween @params)))]
+  (if (> @time-now 0)
+    (let [t (dec @time-now)]
       (. percent-events-correct-label
          (setText
           (format "%.2f%%"

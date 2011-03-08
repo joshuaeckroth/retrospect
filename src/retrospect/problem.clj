@@ -29,6 +29,33 @@
                         :HypothesesNew
                         (:hyps-new (:resources (:workspace prev-ep))))))))
 
+(defn calc-percent-improvement
+  [k m b]
+  (if (= 0 (k b)) 0.0
+      (double (* 100.0 (/ (- (k m) (k b)) (k b))))))
+
+(defn calc-ratio
+  [k m b]
+  (if (= 0 (k b)) 0.0
+      (double (/ (k m) (k b)))))
+
+(defn evaluate-batch
+  [problem params [m b]]
+  (merge ((:evaluate-batch-fn problem) params [m b])
+         {:MetaAbductions (:MetaAbductions m)
+          :MetaMilliseconds (:Milliseconds m)
+          :BaseMilliseconds (:Milliseconds b)
+          :RatioMilliseconds (calc-ratio :Milliseconds m b)
+          :ImproveMilliseconds (calc-percent-improvement :Milliseconds m b)
+          :MetaUnexplained (:Unexplained m)
+          :BaseUnexplained (:Unexplained b)
+          :RatioUnexplained (calc-ratio :Unexplained m b)
+          :MetaExplainCycles (:ExplainCycles m)
+          :BaseExplainCycles (:ExplainCycles b)
+          :RatioExplainCycles (calc-ratio :ExplainCycles m b)
+          :ImproveExplainCycles (calc-percent-improvement :ExplainCycles m b)
+          :Steps (:Steps params)}))
+
 (defn proceed-n-steps
   [n time truedata or-state]
   (loop [t time
@@ -79,73 +106,44 @@
     (doall (for [ors or-states]
              (run-simulation problem truedata ors params monitor?)))))
 
-(defn calc-percent-improvement
-  [k m b]
-  (if (= 0 (k b)) 0.0
-      (double (* 100.0 (/ (- (k m) (k b)) (k b))))))
-
-(defn calc-ratio
-  [k m b]
-  (if (= 0 (k b)) 0.0
-      (double (/ (k m) (k b)))))
-
 (defn run-many
   [problem monitor? params repetitions]
   (doall
    (for [i (range repetitions)]
-     (let [[m b] (run-comparative problem monitor? params)]
-       {:MetaAbductions (:MetaAbductions m)
-        :MetaMilliseconds (:Milliseconds m)
-        :BaseMilliseconds (:Milliseconds b)
-        :RatioMilliseconds (calc-ratio :Milliseconds m b)
-        :ImproveMilliseconds (calc-percent-improvement :Milliseconds m b)
-        :MetaUnexplained (:Unexplained m)
-        :BaseUnexplained (:Unexplained b)
-        :RatioUnexplained (calc-ratio :Unexplained m b)
-        :MetaPercentEventsCorrect (:PercentEventsCorrect m)
-        :BasePercentEventsCorrect (:PercentEventsCorrect b)
-        :RatioPercentEventsCorrect (calc-ratio :PercentEventsCorrect m b)
-        :ImprovePercentEventsCorrect (calc-percent-improvement :PercentEventsCorrect m b)
-        :MetaMeanTimeWithLabel (:MeanTimeWithLabel m)
-        :BaseMeanTimeWithLabel (:MeanTimeWithLabel b)
-        :RatioMeanTimeWithLabel (calc-ratio :MeanTimeWithLabel m b)
-        :ImproveMeanTimeWithLabel (calc-percent-improvement :MeanTimeWithLabel m b)
-        :MetaExplainCycles (:ExplainCycles m)
-        :BaseExplainCycles (:ExplainCycles b)
-        :RatioExplainCycles (calc-ratio :ExplainCycles m b)
-        :ImproveExplainCycles (calc-percent-improvement :ExplainCycles m b)
-        :NumberEntities (:NumberEntities params)
-        :MaxWalk (:MaxWalk params)
-        :Steps (:Steps params)
-        :ProbNewEntities (:ProbNewEntities params)}))))
+     (evaluate-batch problem params (run-comparative problem monitor? params)))))
 
 (defn get-headers
   [problem]
-  [:MetaAbductions
-   :MetaMilliseconds
-   :BaseMilliseconds
-   :RatioMilliseconds
-   :ImproveMilliseconds
-   :MetaUnexplained
-   :BaseUnexplained
-   :RatioUnexplained
-   :MetaPercentEventsCorrect
-   :BasePercentEventsCorrect
-   :RatioPercentEventsCorrect
-   :ImprovePercentEventsCorrect
-   :MetaMeanTimeWithLabel
-   :BaseMeanTimeWithLabel
-   :RatioMeanTimeWithLabel
-   :ImproveMeanTimeWithLabel
-   :MetaExplainCycles
-   :BaseExplainCycles
-   :RatioExplainCycles
-   :ImproveExplainCycles
-   :NumberEntities
-   :MaxWalk
-   :Steps
-   :ProbNewEntities])
+  (concat (:headers problem)
+          [:Step
+           :MetaAbduction
+           :Lazy
+           :MetaAbductions
+           :Milliseconds
+           :Unexplained
+           :ExplainCycles
+           :HypothesisCount
+           :HypothesesNew]))
+
+(defn get-batch-headers
+  [problem]
+  (concat (:batch-headers problem)
+          [:MetaAbductions
+           :MetaMilliseconds
+           :BaseMilliseconds
+           :RatioMilliseconds
+           :ImproveMilliseconds
+           :MetaUnexplained
+           :BaseUnexplained
+           :RatioUnexplained
+           :MetaExplainCycles
+           :BaseExplainCycles
+           :RatioExplainCycles
+           :ImproveExplainCycles
+           :Steps]))
 
 (defrecord Problem
-    [name monitor-fn player-fns truedata-fn sensor-gen-fn prepared-map
-     hypothesize-fn commit-decision-fn gen-problem-data-fn evaluate-fn])
+    [name headers batch-headers monitor-fn player-fns
+     truedata-fn sensor-gen-fn prepared-map
+     hypothesize-fn commit-decision-fn gen-problem-data-fn
+     evaluate-fn evaluate-batch-fn])

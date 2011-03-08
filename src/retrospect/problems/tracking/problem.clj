@@ -1,7 +1,7 @@
 (ns retrospect.problems.tracking.problem
   (:require [retrospect problem])
   (:import [retrospect.problem Problem])
-  (:use [retrospect.problems.tracking.evaluate :only [evaluate]])
+  (:use [retrospect.problems.tracking.evaluate :only [evaluate evaluate-batch]])
   (:use [retrospect.problems.tracking.truedata :only [generate-truedata]])
   (:use [retrospect.problems.tracking.sensors :only [generate-sensors]])
   (:use [retrospect.problems.tracking.hypotheses :only
@@ -30,8 +30,21 @@
    :sensor-overlap
    (measure-sensor-overlap (:GridWidth params) (:GridHeight params) sensors)})
 
+(def headers
+  [:PercentEventsCorrect :MeanTimeWithLabel :MaxTimeWithLabel :MinTimeWithLabel
+   :MeanCountAlternatives :MeanLabelCounts :AvgWalk :PlausibilityAccuracy
+   :SensorOverlap :EntityDensity])
+
+(def batch-headers
+  [:MetaPercentEventsCorrect :BasePercentEventsCorrect :RatioPercentEventsCorrect
+   :ImprovePercentEventsCorrect :MetaMeanTimeWithLabel :BaseMeanTimeWithLabel
+   :RatioMeanTimeWithLabel :ImproveMeanTimeWithLabel :NumberEntities
+   :MaxWalk :ProbNewEntities])
+
 (def tracking-problem
   (Problem. "Tracking"
+            headers
+            batch-headers
             monitor
             {:get-params-fn player-get-params
              :set-params-fn player-set-params
@@ -48,4 +61,5 @@
             hypothesize
             commit-decision
             generate-problem-data
-            evaluate))
+            evaluate
+            evaluate-batch))

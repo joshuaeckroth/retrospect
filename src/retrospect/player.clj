@@ -101,13 +101,14 @@
 
 (defn goto-ep-state-action
   []
-  (let [id (re-find #"^[A-Z]+" @ep-selected)
-        est (goto-ep-state (:ep-state-tree @or-state) id)
-        ep-state (current-ep-state est)
-        est2 (if (non-accepted-current-ep-state? est) est
-                 (goto-next-ep-state est))]
-    (dosync (alter or-state assoc :ep-state-tree est2 :ep-state (current-ep-state est2)))
-    (update-everything)))
+  (if @ep-selected
+    (let [id (re-find #"^[A-Z]+" @ep-selected)
+          est (goto-ep-state (:ep-state-tree @or-state) id)
+          ep-state (current-ep-state est)
+          est2 (if (non-accepted-current-ep-state? est) est
+                   (goto-next-ep-state est))]
+      (dosync (alter or-state assoc :ep-state-tree est2 :ep-state (current-ep-state est2)))
+      (update-everything))))
 
 (defn step
   []

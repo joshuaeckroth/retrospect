@@ -8,8 +8,7 @@
   (:use [clojure.contrib.shell :only (sh)])
   (:use [clojure.java.io :as io :only (writer reader copy)])
   (:use [clojure.string :only (split)])
-  (:use [retrospect.local :only (run-local)])
-  (:use [retrospect.problem :only (get-headers)]))
+  (:use [retrospect.local :only (run-local)]))
 
 (defn get-gitcommit []
   (first (split (sh "git" "rev-list" "HEAD") #"\n")))
