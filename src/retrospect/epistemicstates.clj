@@ -15,7 +15,6 @@
      children
      time
      workspace
-     log
      problem-data]
   Object
   (toString [_] (format "%s %d %s" id time (confidence-str (ws/get-conf workspace)))))
@@ -27,7 +26,6 @@
    children
    (:time ep-state)
    (:workspace ep-state)
-   (:log ep-state)
    (:problem-data ep-state)))
 
 (defrecord RootNode [children])
@@ -67,7 +65,6 @@
    (zip-ep-state-tree
     [(EpistemicState. (make-ep-state-id) [] 0
                       (ws/init-workspace)
-                      []
                       pdata)])))
 
 (defn root-ep-state?
@@ -160,7 +157,6 @@
      []
      (inc time-now)
      (ws/init-workspace workspace)
-     []
      ((:commit-decision-fn problem) (:problem-data ep-state)
       accepted rejected candidates unexplained))))
 

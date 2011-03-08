@@ -1,6 +1,6 @@
 (ns retrospect.player
   (:import (java.awt GridBagLayout Insets Dimension))
-  (:import (javax.swing JSpinner SpinnerNumberModel JTabbedPane))
+  (:import (javax.swing JSpinner SpinnerNumberModel JTabbedPane UIManager))
   (:use [clj-swing.frame])
   (:use [clj-swing.label])
   (:use [clj-swing.panel])
@@ -145,7 +145,7 @@
   (frame :title "Player"
          :layout (GridBagLayout.)
          :constrains (java.awt.GridBagConstraints.)
-         :pack true :show true :on-close :exit
+         :show true :size [800 600] :on-close :exit
          [:gridx 0 :gridy 0 :gridheight 8 :weightx 1.0 :weighty 1.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
           _ (doto (JTabbedPane.)
@@ -199,6 +199,8 @@
 
 (defn start-player
   [prob & opts]
+
+  (. UIManager setLookAndFeel (. UIManager getSystemLookAndFeelClassName))
 
   (dosync
    (alter problem (constantly prob))

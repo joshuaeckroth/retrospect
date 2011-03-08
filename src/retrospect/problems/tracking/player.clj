@@ -231,11 +231,12 @@
   []
   (if (<= @time-now 0) ""
     (apply str (interpose
-                "\n" (map #(format "%s: %d,%d->%d,%d"
-                                   (str (:e %)) (:ox %) (:oy %)(:x %) (:y %))
-                          (sort-by :e (get-grid-movements @truedata
-                                                          (dec @time-now)
-                                                          (dec @time-now))))))))
+                "\n" (map #(format "Entity %s: %d,%d@%d->%d,%d@%d"
+                                   (str (:e %))
+                                   (:ox %) (:oy %) (:ot %)
+                                   (:x %) (:y %) (:t %))
+                          (sort-by :e (get-grid-movements
+                                       @truedata @time-prev (dec @time-now))))))))
 
 (defn player-get-problem-log
   []

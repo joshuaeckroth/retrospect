@@ -10,4 +10,6 @@
                      [marginalia "0.5.0"]
                      [midje "1.1-alpha-1"]]
   :main retrospect.core
-  :keep-non-project-classes true)
+  :keep-non-project-classes true
+  :java-source-path "src/jvm"
+  :jvm-opts ["-Dawt.useSystemAAFontSettings=on"])
