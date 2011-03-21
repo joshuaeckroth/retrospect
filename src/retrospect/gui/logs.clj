@@ -83,12 +83,12 @@
   (panel :layout (GridBagLayout.)
          :constrains (java.awt.GridBagConstraints.)
          [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0 :fill :BOTH :insets (Insets. 5 5 5 5)
-          _ (text-field :str-ref truedata-log)
+          _ (scroll-panel (text-area :str-ref truedata-log :editable false))
 
           :gridx 0 :gridy 1 :weighty 0.0
           _ problem-log-label
           :gridx 0 :gridy 2 :weighty 1.0
-          _ (text-field :str-ref problem-log)
+          _ (scroll-panel (text-area :str-ref problem-log :editable false))
 
           :gridx 0 :gridy 3
           _ (split-horizontal
@@ -96,4 +96,4 @@
                    :model (mapref-tree-model
                            abduction-tree-map "Epistemic states")
                    :action ([_ _] (show-log (.getSelectionPath tr))))
-             (text-field :str-ref workspace-log))]))
+             (scroll-panel (text-area :str-ref workspace-log :editable false)))]))

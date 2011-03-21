@@ -12,8 +12,8 @@
   (:use [retrospect.gui.explainsgraph :only [explains-graph-tab update-explains-graph]])
   (:use [retrospect.gui.results :only [update-results update-results-graph results-tab]])
   (:use [retrospect.gui.logs :only [update-logs logs-tab]])
-  (:use [retrospect.onerun :only [init-one-run-state]])
   (:use [retrospect.workspaces :only [last-id]])
+  (:use [retrospect.onerun :only [init-one-run-state]])
   (:use [retrospect.epistemicstates :only
          [list-ep-states current-ep-state goto-ep-state root-ep-state?
           goto-next-ep-state previous-ep-state non-accepted-current-ep-state?]]))
@@ -27,7 +27,7 @@
 (def param-spinners
   {:Steps (JSpinner. (SpinnerNumberModel. 50 1 1000 1))
    :StepsBetween (JSpinner. (SpinnerNumberModel. 1 1 1000 1))
-   :SensorReportNoise (JSpinner. (SpinnerNumberModel. 0 0 100 10))
+   :SensorNoise (JSpinner. (SpinnerNumberModel. 0 0 100 10))
    :BeliefNoise (JSpinner. (SpinnerNumberModel. 0 0 100 10))})
 
 (def param-checkbox
@@ -46,11 +46,13 @@
 
 (defn set-params
   []
-  ((:set-params-fn (:player-fns @problem)))
-  (doseq [k (keys param-spinners)]
-    (. (k param-spinners) setValue (k @params)))
-  (. (:MetaAbduction param-checkbox) setState (:meta-abduction @or-state))
-  (. (:Lazy param-checkbox) setState (:lazy @or-state)))
+  (println @params)
+  (comment
+    ((:set-params-fn (:player-fns @problem)))
+    (doseq [k (keys param-spinners)]
+      (. (k param-spinners) setValue (k @params)))
+    (. (:MetaAbduction param-checkbox) setState (:meta-abduction @or-state))
+    (. (:Lazy param-checkbox) setState (:lazy @or-state))))
 
 (defn update-everything
   []
@@ -67,7 +69,7 @@
        (alter time-now (constantly time-n))
        (alter time-prev (constantly time-p)))
       (. steplabel (setText (if time-prev
-                              (format "Step: %d->%d" @time-prev @time-now)
+                              (format "Step: %d->%d" (dec @time-prev) (dec @time-now))
                               (format "Step: N/A->%d" @time-now))))))
   (dosync
    (alter ep-list (constantly (sort (list-ep-states (:ep-state-tree @or-state))))))
@@ -91,13 +93,12 @@
         ors (init-one-run-state meta-abduction lazy sens
                                 ((:gen-problem-data-fn @problem) sens ps))]
     (dosync
-     (alter last-id (constantly 0))
      (alter params (constantly ps))
      (alter or-state (constantly ors))
      (alter sensors (constantly sens))
      (alter truedata (constantly td)))
     (update-everything)
-    (when @prepared-selected (set-params ps))))
+    (when @prepared-selected (set-params))))
 
 (defn goto-ep-state-action
   []
@@ -133,9 +134,9 @@
           :gridx 1
           _ (:StepsBetween param-spinners)
           :gridx 0 :gridy 2
-          _ (label "SensorReportNoise:")
+          _ (label "SensorNoise:")
           :gridx 1
-          _ (:SensorReportNoise param-spinners)
+          _ (:SensorNoise param-spinners)
           :gridx 0 :gridy 3
           _ (label "BeliefNoise:")
           :gridx 1
@@ -215,7 +216,7 @@
        (alter sensors (constantly (:sensors options)))
        (alter truedata (constantly (:truedata options))))
       (update-everything)
-      (set-params (:params options)))
+      (set-params))
     (when (not (:monitor options))
       (new-simulation)))
   ((:setup-diagram-fn (:player-fns @problem)) problem-diagram)

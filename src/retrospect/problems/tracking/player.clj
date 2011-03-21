@@ -110,8 +110,8 @@
 (defn draw-movements [#^Graphics2D g entity]
   (let [entity-at (fn [t] (find-entity (nth @truedata t) entity))]
     (doseq [t (range @time-prev @time-now)]
-      (when-let [old-e (if (> t -1) (entity-at t))]
-        (let [new-e (entity-at (inc t))
+      (when-let [old-e (if (> t 0) (entity-at (dec t)))]
+        (let [new-e (entity-at t)
               {ox :x oy :y} (meta old-e)
               {x :x y :y} (meta new-e)
               degree (int (- 255 (* 255 (/ (- @time-now @time-prev) (- @time-now t)))))
@@ -129,10 +129,10 @@
          (if (:sees-color (meta sensor))
            (fill-cell g x y yellow-alpha)
            (fill-cell g x y gray-alpha))))))
-  (when (and @truedata (>= @time-now 0))
+  (when (and @truedata (> @time-now 0))
     (dorun
      (for [x (range @grid-width) y (range @grid-height)]
-       (when-let [e (grid-at (nth @truedata @time-now) x y)]
+       (when-let [e (grid-at (nth @truedata (dec @time-now)) x y)]
          (fill-cell g x y (:color (meta e)))
          (draw-entity-id g e)
          (draw-movements g e))))))
@@ -229,14 +229,16 @@
 
 (defn player-get-truedata-log
   []
-  (if (<= @time-now 0) ""
+  (if (<= @time-now 1) ""
     (apply str (interpose
                 "\n" (map #(format "Entity %s: %d,%d@%d->%d,%d@%d"
                                    (str (:e %))
                                    (:ox %) (:oy %) (:ot %)
                                    (:x %) (:y %) (:t %))
                           (sort-by :e (get-grid-movements
-                                       @truedata @time-prev (dec @time-now))))))))
+                                       @truedata
+                                       (dec @time-prev)
+                                       (dec (dec @time-now)))))))))
 
 (defn player-get-problem-log
   []
