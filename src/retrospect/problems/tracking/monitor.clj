@@ -6,4 +6,7 @@
 ;; particular situations can be studied.
 (defn monitor
   [problem truedata sensors or-state params]
-  or-state)
+  (if (< 0 (:meta-abductions (:resources or-state)))
+    (start-player problem :monitor true :or-state or-state
+                  :params params :sensors sensors :truedata truedata)
+    or-state))
