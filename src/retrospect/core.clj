@@ -16,10 +16,10 @@
      [record "Record" ""]
      [nthreads "Number of threads" "1"]
      [repetitions "Number of repetitions" "10"]
-     [monitor? "Activate monitor?" "false"]]
+     [monitor "Activate monitor?" "false"]]
     (let [nthreads (Integer/parseInt nthreads)
           repetitions (Integer/parseInt repetitions)
-          monitor? (Boolean/parseBoolean monitor?)
+          monitor? (Boolean/parseBoolean monitor)
           prob (cond (= problem "tracking") tracking-problem
                      ;(= problem "circuit") circuit-problem
                      :else nil)]
