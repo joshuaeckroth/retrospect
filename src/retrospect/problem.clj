@@ -83,7 +83,7 @@
         ors-next (proceed-one-run-state ors-meta ep-meta time-now problem)
         ms (/ (- (. System (nanoTime)) start-time) 1000000.0) ;; stop the clock
         ors-resources (update-in ors-next [:resources] assoc :milliseconds ms)
-        ors-results (if-not player? ors-resources
+        ors-results (if-not (or player? monitor?) ors-resources
                             (evaluate problem truedata ors-resources params))]
     (if (and (not player?) monitor?)
       ((:monitor-fn problem) problem truedata (:sensors ors-results) ors-results params)
