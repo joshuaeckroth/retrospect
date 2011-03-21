@@ -18,6 +18,8 @@
          [list-ep-states current-ep-state goto-ep-state root-ep-state?
           goto-next-ep-state previous-ep-state non-accepted-current-ep-state?]]))
 
+(. UIManager setLookAndFeel (. UIManager getSystemLookAndFeelClassName))
+
 (def prepared-selected (atom nil))
 (def ep-list (ref '[]))
 (def ep-selected (atom nil))
@@ -201,8 +203,6 @@
 
 (defn start-player
   [prob & opts]
-
-  (. UIManager setLookAndFeel (. UIManager getSystemLookAndFeelClassName))
 
   (dosync
    (alter problem (constantly prob))
