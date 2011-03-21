@@ -6,7 +6,7 @@
 
 (def basic-params
   {:GridHeight 10, :GridWidth 10, :MaxWalk 1, :Lazy false, :ProbMovement 50,
-   :SensorReportNoise 0, :SensorSeesColor 100, :SensorCoverage 100,
+   :SensorNoise 0, :SensorSeesColor 100, :SensorCoverage 100,
    :BeliefNoise 0, :StepsBetween 1, :Steps 50,
    :ProbNewEntities 0, :NumberEntities 1, :MetaAbduction false})
 
