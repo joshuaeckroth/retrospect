@@ -99,7 +99,10 @@
   [workspace hyp & opts]
   (let [g (if (some #{:static} opts) (:graph-static workspace) (:graph workspace))]
     (set (concat
-          (filter #(and (not= % hyp) (= (:conflict-id hyp) (:conflict-id %))) (nodes g))
+          (filter #(and (not= % hyp)
+                        (not (nil? (:conflict-id hyp)))
+                        (= (:conflict-id hyp) (:conflict-id %)))
+                  (nodes g))
           (filter #(not= % hyp) (mapcat #(incoming g %) (neighbors g hyp)))))))
 
 (defn dot-format
