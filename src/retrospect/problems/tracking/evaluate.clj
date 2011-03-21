@@ -59,15 +59,19 @@
     (if (empty? hyp-map) 0.0
         (double (/ (reduce + 0 (vals hyp-map)) (count hyp-map))))))
 
+(defn avg
+  [l]
+  (double (/ (reduce + l) (count l))))
+
 (defn evaluate
   [ep-state sensors truedata params]
   (let [elmap (assoc-es-ls ep-state truedata)
         twl (reduce (partial assoc-es-twl elmap) {} (keys elmap))]
     {:PercentEventsCorrect (percent-events-correct truedata (:problem-data ep-state)
                                                    (dec (dec (:time ep-state))))
-     :MeanTimeWithLabel (double (/ (reduce + 0 (flatten (vals twl))) (count (keys twl))))
-     :MaxTimeWithLabel (double (apply max (flatten (vals twl))))
-     :MinTimeWithLabel (double (apply min (flatten (vals twl))))
+     :MeanTimeWithLabel (avg (map #(avg (twl %)) (keys twl)))
+     :MaxTimeWithLabel (avg (map #(apply max (twl %)) (keys twl)))
+     :MinTimeWithLabel (avg (map #(apply min (twl %)) (keys twl)))
      :MeanCountAlternatives (mean-count-alts (:workspace ep-state) :sensor)
      :MeanLabelCounts (double (/ (reduce + 0 (map #(count (set (elmap %))) (keys elmap)))
                                  (count (keys elmap))))
@@ -92,10 +96,27 @@
    :BasePercentEventsCorrect (:PercentEventsCorrect b)
    :RatioPercentEventsCorrect (calc-ratio :PercentEventsCorrect m b)
    :ImprovePercentEventsCorrect (calc-percent-improvement :PercentEventsCorrect m b)
+   
    :MetaMeanTimeWithLabel (:MeanTimeWithLabel m)
    :BaseMeanTimeWithLabel (:MeanTimeWithLabel b)
    :RatioMeanTimeWithLabel (calc-ratio :MeanTimeWithLabel m b)
    :ImproveMeanTimeWithLabel (calc-percent-improvement :MeanTimeWithLabel m b)
+   
+   :MetaMaxTimeWithLabel (:MaxTimeWithLabel m)
+   :BaseMaxTimeWithLabel (:MaxTimeWithLabel b)
+   :RatioMaxTimeWithLabel (calc-ratio :MaxTimeWithLabel m b)
+   :ImproveMaxTimeWithLabel (calc-percent-improvement :MaxTimeWithLabel m b)
+
+   :MetaMinTimeWithLabel (:MinTimeWithLabel m)
+   :BaseMinTimeWithLabel (:MinTimeWithLabel b)
+   :RatioMinTimeWithLabel (calc-ratio :MinTimeWithLabel m b)
+   :ImproveMinTimeWithLabel (calc-percent-improvement :MinTimeWithLabel m b)
+
+   :MetaMeanLabelCounts (:MeanLabelCounts m)
+   :BaseMeanLabelCounts (:MeanLabelCounts b)
+   :RatioMeanLabelCounts (calc-ratio :MeanLabelCounts m b)
+   :ImproveMeanLabelCounts (calc-percent-improvement :MeanLabelCounts m b)
+   
    :NumberEntities (:NumberEntities params)
    :MaxWalk (:MaxWalk params)
    :ProbNewEntities (:ProbNewEntities params)})

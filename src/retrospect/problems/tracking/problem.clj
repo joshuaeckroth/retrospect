@@ -38,8 +38,14 @@
 (def batch-headers
   [:MetaPercentEventsCorrect :BasePercentEventsCorrect :RatioPercentEventsCorrect
    :ImprovePercentEventsCorrect :MetaMeanTimeWithLabel :BaseMeanTimeWithLabel
-   :RatioMeanTimeWithLabel :ImproveMeanTimeWithLabel :NumberEntities
-   :MaxWalk :ProbNewEntities])
+   :RatioMeanTimeWithLabel :ImproveMeanTimeWithLabel
+   :MetaMaxTimeWithLabel :BaseMaxTimeWithLabel :RatioMaxTimeWithLabel
+   :ImproveMaxTimeWithLabel
+   :MetaMinTimeWithLabel :BaseMinTimeWithLabel :RatioMinTimeWithLabel
+   :ImproveMinTimeWithLabel
+   :MetaMeanLabelCounts :BaseMeanLabelCounts :RatioMeanLabelCounts
+   :ImproveMeanLabelCounts
+   :NumberEntities :MaxWalk :ProbNewEntities])
 
 (def tracking-problem
   (Problem. "Tracking"
