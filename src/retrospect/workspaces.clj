@@ -1,21 +1,27 @@
 (ns retrospect.workspaces
+  (:import (misc AlphanumComparator))
   (:use [retrospect.confidences])
   (:require [clojure.set :as set])
   (:use [loom.graph :only
          [digraph nodes incoming neighbors weight
           add-nodes add-edges remove-nodes edges]]))
 
-(def last-id (ref 0))
+(def last-id 0)
+
+(def meta? false)
 
 (defn new-hyp
   [prefix type conflict-id apriori desc data]
-  (dosync
-   (let [id (inc @last-id)]
-     (alter last-id inc)
-     {:id (format "%s%d" prefix id) :type type
-      ;; if conflict-id is nil, set it to the uniq :id
-      :conflict-id (if conflict-id conflict-id id)
-      :apriori apriori :desc desc :data data})))
+  (let [id (inc last-id)]
+    ;; use var-set if running batch mode; def if using player
+    (if (= "AWT-EventQueue-0" (. (Thread/currentThread) getName))
+      (def last-id (inc last-id))
+      (var-set (var last-id) (inc last-id)))
+    {:id (format "%s%d" (if meta? (str "M" prefix) prefix) id)
+     :type type
+     ;; if conflict-id is nil, set it to the uniq :id
+     :conflict-id (if conflict-id conflict-id id)
+     :apriori apriori :desc desc :data data}))
 
 (defn init-workspace
   ([]
@@ -32,8 +38,8 @@
       :forced #{}
       :resources {:explain-cycles 0 :hyp-count 0}})
   ([workspace-old]
-     (assoc-in (init-workspace) [:resources :explains-cycles]
-               (:explains-cycles (:resources workspace-old)))))
+     (assoc-in (init-workspace) [:resources :explain-cycles]
+               (:explain-cycles (:resources workspace-old)))))
 
 (defn get-hyps
   [workspace]
@@ -46,6 +52,13 @@
 (defn sort-by-conf
   [workspace hyps]
   (doall (reverse (sort-by (partial hyp-conf workspace) hyps))))
+
+(defn pick-top-conf
+  [workspace hyps]
+  (let [sorted (sort-by-conf workspace hyps)
+        best-conf (hyp-conf workspace (first sorted))
+        only-best-conf (take-while #(= best-conf (hyp-conf workspace %)) sorted)]
+    (first (sort-by :id (AlphanumComparator.) only-best-conf))))
 
 (defn find-explainers
   ([workspace]
@@ -210,10 +223,10 @@
                                essentials))]
     (if (not-empty good-es)
       ;; choose first most-confident non-conflicting essential
-      (let [best (first (sort-by-conf workspace good-es))]
+      (let [best (pick-top-conf workspace good-es)]
         {:best best :alts good-es :essential? true})
       ;; otherwise, ...
-      (let [best (first (sort-by-conf workspace explainers))]
+      (let [best (pick-top-conf workspace explainers)]
         {:best best :alts explainers :essential? false}))))
 
 (defn explain

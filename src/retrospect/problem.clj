@@ -1,5 +1,6 @@
 (ns retrospect.problem
   (:import (java.util.concurrent ExecutionException))
+  (:use [retrospect.workspaces :only [last-id]])
   (:use [retrospect.onerun :only
          [init-one-run-states update-one-run-state proceed-one-run-state]])
   (:use [retrospect.epistemicstates :only
@@ -104,7 +105,8 @@
         or-states (init-one-run-states {:MetaAbduction [true false] :Lazy [true]}
                                        sensors problem-data)]
     (doall (for [ors or-states]
-             (run-simulation problem truedata ors params monitor?)))))
+             (binding [last-id 0]
+               (run-simulation problem truedata ors params monitor?))))))
 
 (defn run-many
   [problem monitor? params repetitions]
