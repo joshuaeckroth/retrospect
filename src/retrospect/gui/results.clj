@@ -1,7 +1,7 @@
 (ns retrospect.gui.results
   (:import [misc WrapLayout])
   (:import (java.awt GridBagLayout FlowLayout Insets))
-  (:import (javax.swing JViewport JTable))
+  (:import (javax.swing JViewport JTable UIManager))
   (:import (java.util Vector))
   (:use [clj-swing.panel])
   (:use [clj-swing.label])
@@ -34,7 +34,7 @@
                             (:results or-state))]
     (doto (JViewport.)
       (.setView  (JTable. (Vector. (map #(Vector. %) (to-list results-matrix)))
-                          (Vector. (map name headers)))))))
+                          (Vector. (sort (map name headers))))))))
 
 (defn update-results
   []

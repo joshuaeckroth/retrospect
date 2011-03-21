@@ -48,31 +48,22 @@
 
 (defn set-params
   []
-  (println @params)
-  (comment
-    ((:set-params-fn (:player-fns @problem)))
-    (doseq [k (keys param-spinners)]
-      (. (k param-spinners) setValue (k @params)))
-    (. (:MetaAbduction param-checkbox) setState (:meta-abduction @or-state))
-    (. (:Lazy param-checkbox) setState (:lazy @or-state))))
+  ((:set-params-fn (:player-fns @problem)))
+  (doseq [k (keys param-spinners)]
+    (. (k param-spinners) setValue (k @params)))
+  (. (:MetaAbduction param-checkbox) setSelected (:meta-abduction @or-state))
+  (. (:Lazy param-checkbox) setSelected (:lazy @or-state)))
 
 (defn update-everything
   []
-  (if (root-ep-state? (:ep-state @or-state))
-    (do
-      (dosync
-       (alter time-now (constantly -1))
-       (alter time-prev (constantly -1)))
-      (. steplabel (setText "Step: N/A")))
-    (let [prev-ep (previous-ep-state (:ep-state-tree @or-state))
-          time-n (:time (:ep-state @or-state))
-          time-p (if prev-ep (:time prev-ep) -1)]
-      (dosync
-       (alter time-now (constantly time-n))
-       (alter time-prev (constantly time-p)))
-      (. steplabel (setText (if time-prev
-                              (format "Step: %d->%d" (dec @time-prev) (dec @time-now))
-                              (format "Step: N/A->%d" @time-now))))))
+  (let [prev-ep (previous-ep-state (:ep-state-tree @or-state))
+        time-n (:time (:ep-state @or-state))
+        time-p (if prev-ep (:time prev-ep) -1)]
+    (dosync
+     (alter time-now (constantly time-n))
+     (alter time-prev (constantly time-p)))
+    (. steplabel (setText (if (nil? prev-ep) "Step: N/A"
+                              (format "Step: %d->%d" (dec @time-prev) (dec @time-now))))))
   (dosync
    (alter ep-list (constantly (sort (list-ep-states (:ep-state-tree @or-state))))))
   (update-ep-tree)
@@ -121,7 +112,7 @@
 
 (defn next-step
   []
-  (when (< @time-now (- (:Steps @params) (:StepsBetween @params)))
+  (when (<= @time-now (- (:Steps @params) (:StepsBetween @params)))
     (step)))
 
 (def generic-params

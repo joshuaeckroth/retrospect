@@ -2,7 +2,7 @@
   (:import (java.awt Graphics2D Dimension GridBagLayout GridBagConstraints
                      BorderLayout RenderingHints BasicStroke Font Insets))
   (:import (java.awt.image BufferedImage))
-  (:import (javax.swing JPanel JSpinner SpinnerNumberModel))
+  (:import (javax.swing JPanel JSpinner SpinnerNumberModel UIManager))
   (:use [clojure.contrib.math :only [floor ceil]])
   (:use [clj-swing.label])
   (:use [clj-swing.frame])
@@ -13,6 +13,8 @@
   (:use [retrospect.problems.tracking.hypotheses :only [paths-str]])
   (:use [retrospect.colors])
   (:use [retrospect.state]))
+
+(. UIManager setLookAndFeel (. UIManager getSystemLookAndFeelClassName))
 
 (def diagram-width (ref nil))
 (def diagram-height (ref nil))

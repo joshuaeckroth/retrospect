@@ -42,15 +42,16 @@
 
 (defn show-log
   [path]
-  (let [last-comp (node (. path getLastPathComponent))
-        ep-id (if (> (. path getPathCount) 1)
-                (re-find #"^[A-Z]+" (str (. path getPathComponent 1))))
-        ep-state (if ep-id (find-first #(= (:id %) ep-id)
-                                       (flatten-ep-state-tree (:ep-state-tree @or-state))))
-        hyp (if ep-state (find-first #(= (:id %) last-comp)
-                                     (get-hyps (:workspace ep-state))))]
-    (when hyp
-      (dosync (alter workspace-log (constantly (:desc hyp)))))))
+  (if path
+    (let [last-comp (node (. path getLastPathComponent))
+          ep-id (if (> (. path getPathCount) 1)
+                  (re-find #"^[A-Z]+" (str (. path getPathComponent 1))))
+          ep-state (if ep-id (find-first #(= (:id %) ep-id)
+                                         (flatten-ep-state-tree (:ep-state-tree @or-state))))
+          hyp (if ep-state (find-first #(= (:id %) last-comp)
+                                       (get-hyps (:workspace ep-state))))]
+      (when hyp
+        (dosync (alter workspace-log (constantly (:desc hyp))))))))
 
 (defn update-logs
   []
