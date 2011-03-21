@@ -11,7 +11,9 @@
 (defn make-sensor-hyp
   [sensor e]
   (let [hyp (new-hyp "SH" :sensor nil NEUTRAL
-                     (format "%s" (str (meta e)))
+                     (format "Sensor detection by %s - color: %s, x: %d, y: %d, time: %d"
+                             (:id sensor) (color-str (:color (meta e)))
+                             (:x (meta e)) (:y (meta e)) (:time (meta e)))
                      {:sensor sensor :entity e})]
     (with-meta e (merge (meta e) {:hyp hyp}))))
 
@@ -180,14 +182,27 @@
 
 (defn make-hyp
   "Returns [hyp explains] vector."
-  [path label maxwalk]
-  [(new-hyp "TH" :tracking label (score-path path label maxwalk)
-            (str label (path-str path)) {:label label :path path})
-   (filter identity (map (comp :hyp meta) (flatten path)))])
+  [path label maxwalk whereto-hyps]
+  ;; add the whereto-hyp as explained, if there is a whereto-hyp for this label
+  (let [explains (concat (if (whereto-hyps label) [(whereto-hyps label)] [])
+                         (filter identity (map (comp :hyp meta) (flatten path))))]
+    [(new-hyp "TH" :tracking label (score-path path label maxwalk)
+              (str label ":" (path-str path)
+                   "\nExplains: " (apply str (interpose ", " (map :id explains))))
+              {:label label :path path})
+     explains]))
+
+(defn make-whereto-hyps
+  [labels]
+  (let [hyps (map #(new-hyp "THW" :tracking nil NEUTRAL
+                            (str "Where did " % " go?") nil) labels)]
+    (zipmap labels hyps)))
 
 (defn hypothesize
   [ep-state sensors time-now params]
   (let [ep (process-sensors ep-state sensors time-now)
+        whereto-hyps (make-whereto-hyps (keys (:paths (:problem-data ep-state))))
+        ep-whereto (reduce #(add-fact %1 %2 []) ep (vals whereto-hyps))
         spotted-grid (:spotted-grid (:problem-data ep))
         maxwalk (:MaxWalk params)
         spotted-at (fn [{x :x y :y t :time}] (grid-at (nth spotted-grid t) x y))
@@ -205,8 +220,9 @@
                 (and (= 0 (:ProbNewEntities params)) (= 100 (:SensorCoverage params))
                      (not= 0 time-now)))
           (reduce (fn [ep [hyp explains]] (add-hyp ep hyp explains))
-                  ep (mapcat (fn [l] (map #(make-hyp % l maxwalk) (l paths)))
-                             (keys paths)))
+                  ep-whereto
+                  (mapcat (fn [l] (map #(make-hyp % l maxwalk whereto-hyps) (l paths)))
+                          (keys paths)))
           ;; when making a new label, consider oldpaths labels plus newpaths labels,
           ;; since the newpaths (called 'paths' here) may have dissoc'd some labels
           ;; that could not be extended
