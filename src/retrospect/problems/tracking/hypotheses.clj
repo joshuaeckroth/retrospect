@@ -5,7 +5,7 @@
   (:use [retrospect.colors])
   (:use [retrospect.confidences])
   (:use [retrospect.problems.tracking.grid :only [grid-at]])
-  (:use [clojure.contrib.math :as math :only [sqrt ceil]])
+  (:use [clojure.contrib.math :as math])
   (:require [clojure.set :as set :only [intersection difference]]))
 
 (defn make-sensor-hyp
@@ -46,16 +46,17 @@
 
 (defn dist
   [x1 y1 x2 y2]
-  (+ (math/abs (- x1 x2)) (math/abs (- y1 y2))))
+  (math/sqrt (+ (* (- x1 x2) (- x1 x2))
+                (* (- y1 y2) (- y1 y2)))))
 
 (defn score-distance
   [x1 y1 x2 y2 maxwalk]
-  (let [d (dist x1 y1 x2 y2)]
+  (let [d (dist x1 y1 x2 y2)
+        mw (* (math/sqrt 2.1) maxwalk)]
     (cond
-     (<= d (math/ceil (/ maxwalk 4.0))) VERY-PLAUSIBLE
-     (<= d (math/ceil (/ maxwalk 2.0))) PLAUSIBLE
-     ;; last case is same as :else due to physical constraints
-     (<= d maxwalk) NEUTRAL))) 
+     (<= d (/ mw 4.0)) VERY-PLAUSIBLE
+     (<= d (/ mw 2.0)) PLAUSIBLE
+     (<= d mw) NEUTRAL)))
 
 (defn score-path
   "spotted is a collection of sensor detections; count-seen is how
@@ -140,7 +141,7 @@
                        (= (:x (meta %)) (:x (meta e)))
                        (= (:y (meta %)) (:y (meta e))))
                  prior-covered)
-       (>= maxwalk (dist x y (:x (meta e)) (:y (meta e))))))
+       (>= (* maxwalk (math/sqrt 2.1)) (dist x y (:x (meta e)) (:y (meta e))))))
 
 (defn spotted-in-range
   [label path prior-covered spotted-grid maxwalk]

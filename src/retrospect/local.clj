@@ -41,9 +41,9 @@
 (defn run-partition
   [problem monitor? filename repetitions params]
   (when (not-empty params)
-    (send-off write-agent write-csv filename problem
-              (run-many problem monitor? (first params) repetitions))
-    (recur problem monitor? filename repetitions (rest params))))
+    (let [results (run-many problem monitor? (first params) repetitions)]
+      (send-off write-agent write-csv filename problem results)
+      (recur problem monitor? filename repetitions (rest params)))))
 
 (defn check-progress
   [remaining dir problem total start-time]
@@ -60,8 +60,11 @@
   (with-open [writer (io/writer filename)]
     (.write writer (format-csv-row (map name (get-batch-headers problem)))))
   (send (agent (count params)) check-progress dir problem (count params) (.getTime (Date.)))
-  (let [partitions (partition (int (/ (count params) nthreads)) (shuffle params))]
-    (doall (pmap (partial run-partition problem monitor? filename repetitions) partitions))))
+  (let [partitions (partition-all (int (/ (count params) nthreads)) (shuffle params))
+        workers (doall (for [part partitions]
+                         (future (run-partition problem monitor?
+                                                filename repetitions part))))]
+    (doall (pmap (fn [w] @w) workers))))
 
 (defn run-local
   [problem params dir nthreads monitor? repetitions]

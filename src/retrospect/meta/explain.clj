@@ -1,6 +1,6 @@
 (ns retrospect.meta.explain
   (:use [retrospect.workspaces :only
-         [meta? init-workspace prepare-workspace explain get-hyps]])
+         [meta? init-workspace prepare-workspace explain get-hyps hyp-conf]])
   (:use [retrospect.epistemicstates :only
          [current-ep-state previous-ep-state update-ep-state-tree]])
   (:use [retrospect.onerun :only [update-one-run-state]])
@@ -31,7 +31,12 @@
                                       (not= :meta-ep (:type %)))
                                 (get-hyps workspace))
               ors (update-explain-cycles or-state (:ep-state or-state) meta-hyps)
-              ors-meta (assoc-in ors [:meta-workspaces (:id (:ep-state or-state))] workspace)]
+              ors-meta (assoc-in ors [:meta-workspaces (:id (:ep-state or-state))]
+                                 workspace)]
+          (comment (println (map #(format "%s: %s/%s %s; "
+                                          (:id %) (:apriori %)
+                                          (hyp-conf workspace %) (:desc %))
+                                 (get-hyps workspace))))
           (if (= :meta-accurate (:type accepted-hyp)) ors-meta
               (assoc (update-in ors-meta [:resources :meta-abductions] inc)
                 :ep-state-tree est :ep-state (current-ep-state est)))))))

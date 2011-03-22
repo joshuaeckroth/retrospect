@@ -5,6 +5,7 @@
 
 (fact (:confidence (init-workspace)) => nil)
 
-(let [hyp (new-hyp "TEST" :test NEUTRAL [] "No desc." nil)
-      ws (add (init-workspace) hyp [])]
-  (fact (get-hyps ws) => (just hyp)))
+(binding [last-id 0]
+  (let [hyp (new-hyp "TEST" :test NEUTRAL [] "No desc." nil)
+        ws (add (init-workspace) hyp [])]
+    (fact (get-hyps ws) => (just hyp))))
