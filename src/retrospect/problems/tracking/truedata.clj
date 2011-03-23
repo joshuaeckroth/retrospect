@@ -41,8 +41,8 @@
        (for [time (range mintime (inc maxtime))]
          (let [grid-before (nth truedata time)
                grid-after (nth truedata (inc time))]
-           (map (fn [e] (let [e2 (find-first #(= e %) grid-after)]
+           (map (fn [e] (let [e2 (find-first #(= e %) (grid-entities grid-after))]
                           {:e e :ox (:x (meta e)) :oy (:y (meta e)) :ot (:time (meta e))
                            :x (:x (meta e2)) :y (:y (meta e2)) :t (:time (meta e2))}))
-                (filter identity grid-before)))))))
+                (grid-entities grid-before)))))))
 

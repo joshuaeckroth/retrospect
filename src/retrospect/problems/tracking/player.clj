@@ -85,20 +85,6 @@
           :gridx 1
           _ (:SensorSeesColor param-spinners)]))
 
-(defn fill-cell [#^Graphics2D g x y c]
-  (doto g
-    (.setColor c)
-    (.fillRect (* x @grid-cell-width) (* y @grid-cell-height)
-	       @grid-cell-width @grid-cell-height)))
-
-(defn draw-entity-id [#^Graphics2D g e]
-  (doto g
-    (.setColor white)
-    (.setFont (.. g getFont (deriveFont Font/BOLD (float 14.0))))
-    (.drawString (str e)
-                 (+ 3 (int (* (:x (meta e)) @grid-cell-width)))
-                 (+ 20 (int (* (:y (meta e)) @grid-cell-height))))))
-
 (defn draw-move [#^Graphics2D g oldx oldy newx newy color width]
   (let [oldpx (+ (* oldx @grid-cell-width) (/ @grid-cell-width 2))
 	oldpy (+ (* oldy @grid-cell-height) (/ @grid-cell-height 2))
@@ -120,6 +106,30 @@
               width (double (+ 2 (* 5 (/ degree 255))))]
           (draw-move g ox oy x y (var-color degree) width))))))
 
+(defn fill-cell [#^Graphics2D g x y color]
+  (doto g
+    (.setColor color)
+    (.fillRect (* x @grid-cell-width)
+               (* y @grid-cell-height)
+               @grid-cell-width @grid-cell-height)))
+
+(defn fill-cell-entities [#^Graphics2D g x y es]
+  (let [width (ceil (/ @grid-cell-width (count es)))]
+    (doseq [i (range (count es))]
+      (let [e (nth es i)
+            left (+ (* i width) (* x @grid-cell-width))
+            top (* y @grid-cell-height)]
+        (doto g
+          ;; draw block
+          (.setColor (:color (meta e)))
+          (.fillRect left top width @grid-cell-height)
+          ;; draw id
+          (.setColor white)
+          (.setFont (.. g getFont (deriveFont Font/BOLD (float 12.0))))
+          (.drawString (str e) (+ 3 left) (+ 15 top))
+          ;; draw movement
+          (draw-movements e))))))
+
 (defn draw-grid [g]
   (dorun
    (for [x (range @grid-width) y (range @grid-height)]
@@ -134,10 +144,9 @@
   (when (and @truedata (> @time-now 0))
     (dorun
      (for [x (range @grid-width) y (range @grid-height)]
-       (when-let [e (grid-at (nth @truedata (dec @time-now)) x y)]
-         (fill-cell g x y (:color (meta e)))
-         (draw-entity-id g e)
-         (draw-movements g e))))))
+       (let [es (sort (grid-at (nth @truedata (dec @time-now)) x y))]
+         (when (not-empty es)
+           (fill-cell-entities g x y es)))))))
 
 (defn render [g]
   (dosync

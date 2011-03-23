@@ -1,6 +1,6 @@
 (ns retrospect.problems.tracking.prepared
   (:use [retrospect.problems.tracking.grid :only
-         [new-grid grid-put grid-move grid-at update-all-entity-times]])
+         [new-grid grid-add grid-move grid-at update-all-entity-times find-entity]])
   (:use [retrospect.problems.tracking.sensors :only [new-sensor]])
   (:use [retrospect.colors]))
 
@@ -20,12 +20,12 @@
       (if (= t steps) td
           (let [g (last td)
                 g-new-es
-                (reduce (fn [grid e] (grid-put grid (:x (meta e)) (:y (meta e)) e))
+                (reduce (fn [grid e] (grid-add grid (:x (meta e)) (:y (meta e)) e))
                         (if (= t 0) (new-grid width height) g)
                         (filter (fn [e] (= (:time (meta e)) t)) (keys paths)))
                 g-moves
                 (reduce (fn [g {e :e x :x y :y ox :ox oy :oy}]
-                          (grid-move g (grid-at g ox oy) x y))
+                          (grid-move g (find-entity g e) x y))
                         g-new-es
                         (map (fn [e] {:e e :x (:x (get (paths e) t))
                                       :y (:y (get (paths e) t))
