@@ -282,9 +282,10 @@
 
 (defn find-split-head
   [candidates subpath]
-  (let [matches (filter (fn [c] (not-empty (set/intersection
-                                            (set (entity-metas (:path (:data c))))
-                                            (set (entity-metas subpath)))))
+  (let [matches (filter (fn [c]
+                          (not-empty (set/intersection
+                                      (set (entity-metas (flatten (:path (:data c)))))
+                                      (set (entity-metas (flatten subpath))))))
                         candidates)
         subpath-start-time (:time (first (sort-by :time (entity-metas (flatten subpath)))))]
     (distinct (mapcat #(nth (:path (:data %)) (dec subpath-start-time)) matches))))

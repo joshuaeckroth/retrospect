@@ -74,22 +74,50 @@
   (assoc-in intersection-ambiguity [:params :MetaAbduction] false))
 
 (def split-ambiguity
-  (let [params (merge basic-params {:Steps 4 :MaxWalk 5})]
+  (let [params (merge basic-params {:Steps 4 :MaxWalk 2})]
     {:params params
      :sensors [(new-sensor (keyword "x") 0 9 0 9 true)]
-     :truedata (build-truedata params (entity-paths ["1" red 0 4,0 4,2 5,4 5,6]
-                                                    ["2" red 2         3,4 3,6]))}))
+     :truedata (build-truedata params (entity-paths ["1" red 0 4,0 4,2 6,4 6,6]
+                                                    ["2" red 0 4,0 4,2 2,4 2,6]))}))
+
+(def split-ambiguity-2
+  (let [params (merge basic-params {:Steps 4 :MaxWalk 1})]
+    {:params params
+     :sensors [(new-sensor (keyword "x") 0 9 0 9 true)]
+     :truedata (build-truedata params (entity-paths ["1" red  0 1,0 1,1 0,2 0,3]
+                                                    ["2" red  0 1,0 1,1 2,2 2,3]
+                                                    ["3" blue 0 6,0 6,1 5,2 5,3]
+                                                    ["4" blue 0 6,0 6,1 7,2 7,3]))}))
 
 (def merge-ambiguity
-  (let [params (merge basic-params {:Steps 4 :MaxWalk 3 :SensorCoverage 80})]
+  (let [params (merge basic-params {:Steps 4 :MaxWalk 3})]
     {:params params
      :sensors [(new-sensor (keyword "x") 0 9 0 9 true)]
      :truedata (build-truedata params (entity-paths ["1" red 0 4,0 4,2 5,4 5,6]
                                                     ["2" red 0 6,0 6,2 5,4 5,6]))}))
 
+(def merge-ambiguity-2
+  (let [params (merge basic-params {:Steps 4 :MaxWalk 3})]
+    {:params params
+     :sensors [(new-sensor (keyword "x") 0 9 0 9 true)]
+     :truedata (build-truedata params (entity-paths ["1" red  0 0,0 0,2 1,4 1,6]
+                                                    ["2" red  0 2,0 2,2 1,4 1,6]
+                                                    ["3" blue 0 7,0 7,2 8,4 8,6]
+                                                    ["4" blue 0 9,0 9,2 8,4 8,6]))}))
+
+(def split-merge
+  (let [params (merge basic-params {:Steps 6 :MaxWalk 2})]
+    {:params params
+     :sensors [(new-sensor (keyword "x") 0 9 0 9 true)]
+     :truedata (build-truedata params (entity-paths ["1" red 0 5,0 5,1 7,3 7,4 5,5 5,6]
+                                                    ["2" red 0 5,0 5,1 3,3 3,4 5,5 5,6]))}))
+
 (def prepared-map
   {"simple-dis" simple-disappearance
    "intersect" intersection-ambiguity
    "intersect-nom" intersection-ambiguity-nometa
-   "split-ambig" split-ambiguity
-   "merge-ambig" merge-ambiguity})
+   "split" split-ambiguity
+   "split-2" split-ambiguity-2
+   "merge" merge-ambiguity
+   "merge-2" merge-ambiguity-2
+   "split-merge" split-merge})

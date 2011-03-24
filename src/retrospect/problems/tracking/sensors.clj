@@ -42,7 +42,8 @@
         color-adjusted (if (:sees-color (meta sensor)) id-adjusted
                            (map (fn [e] (with-meta e (assoc (meta e) :color gray)))
                                 id-adjusted))]
-    (add-sensed sensor time color-adjusted)))
+    (add-sensed sensor time
+                (vals (reduce (fn [m e] (assoc m (meta e) e)) {} color-adjusted)))))
 
 (defn new-sensor
   "Generate a new sensor with provided values and an empty 'spotted' vector."

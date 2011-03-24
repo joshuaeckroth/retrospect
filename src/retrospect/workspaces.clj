@@ -78,10 +78,12 @@
   [workspace]
   (let [hyps (:accepted workspace)]
     (if (>= 1 (count hyps)) []
-        (filter (fn [hyp] (not-empty (apply set/intersection
-                                            (find-explains workspace hyp :static)
-                                            (map #(find-explains workspace % :static)
-                                                 (filter #(not= hyp %) hyps)))))
+        (filter (fn [hyp] (not-empty
+                           (apply set/union
+                                  (map #(set/intersection
+                                         (find-explains workspace hyp :static)
+                                         (find-explains workspace % :static))
+                                       (disj hyps hyp)))))
                 hyps))))
 
 (defn find-unexplained
