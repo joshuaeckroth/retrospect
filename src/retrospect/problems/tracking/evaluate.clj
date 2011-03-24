@@ -26,7 +26,7 @@
            time 0]
       (if (>= time (:time ep-state)) elmap
           (let [grid (nth truedata time)
-                es (filter identity grid)
+                es (flatten grid)
                 ;; does the path explain the entity?
                 match? (fn [p e] (some #(and (= (:x (meta %)) (:x (meta e)))
                                              (= (:y (meta %)) (:y (meta e)))
