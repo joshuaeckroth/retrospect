@@ -45,21 +45,6 @@
   [workspace]
   (nodes (:graph-static workspace)))
 
-(defn hyp-conf
-  [workspace hyp]
-  (get (:hyp-confidences workspace) hyp))
-
-(defn sort-by-conf
-  [workspace hyps]
-  (doall (reverse (sort-by (partial hyp-conf workspace) hyps))))
-
-(defn pick-top-conf
-  [workspace hyps]
-  (let [sorted (sort-by-conf workspace hyps)
-        best-conf (hyp-conf workspace (first sorted))
-        only-best-conf (take-while #(= best-conf (hyp-conf workspace %)) sorted)]
-    (first (sort-by :id (AlphanumComparator.) only-best-conf))))
-
 (defn find-explainers
   ([workspace]
      (let [g (:graph workspace)]
@@ -95,6 +80,24 @@
         hyps (nodes g)]
     (set (concat (set/intersection (set (:forced workspace)) (set hyps))
                  (filter #(not-empty (incoming g %)) hyps)))))
+
+(defn hyp-conf
+  [workspace hyp]
+  (get (:hyp-confidences workspace) hyp))
+
+(defn sort-by-conf
+  [workspace hyps]
+  (doall (reverse (sort-by (partial hyp-conf workspace) hyps))))
+
+(defn pick-top-conf
+  [workspace hyps]
+  (let [sorted (sort-by-conf workspace hyps)
+        best-conf (hyp-conf workspace (first sorted))
+        only-best-conf (take-while #(= best-conf (hyp-conf workspace %)) sorted)
+        max-explains (last (sort (map #(count (find-explains workspace %)) only-best-conf)))
+        only-max-explains (filter #(= max-explains (count (find-explains workspace %)))
+                                  only-best-conf)]
+    (first (sort-by :id (AlphanumComparator.) only-max-explains))))
 
 (defn essential?
   [workspace hyp]
@@ -162,16 +165,31 @@
       (update-in [:rejected] set/union (set hyps))
       (update-in [:log :rejected] concat (map :id hyps))))
 
+(defn penalize-hyps
+  [workspace hyps]
+  (update-in workspace [:hyp-confidences]
+               #(reduce (fn [c h] (assoc c h (penalize (hyp-conf workspace h))))
+                        % hyps)))
+
 (defn accept
   [workspace hyp]
   (let [g (:graph workspace)
         conflicts (find-conflicts workspace hyp)
-        removable (concat (neighbors g hyp) (if (empty? (incoming g hyp)) [hyp] []))]
-    (-> workspace
-        (update-in [:accepted] conj hyp)
-        (update-in [:graph] #(apply remove-nodes % removable))
-        (update-in [:log :accrej] conj {:acc (:id hyp) :rej (map :id conflicts)})
-        (reject-many conflicts))))
+        removable (concat (neighbors g hyp) (if (empty? (incoming g hyp)) [hyp] []))
+        ws (-> workspace
+               (update-in [:accepted] conj hyp)
+               (update-in [:graph] #(apply remove-nodes % removable))
+               (reject-many conflicts))
+        ;; find out what this hyp used to explain (in 'workspace'),
+        ;; and what else still explains that
+        penalized (set/intersection
+                   (nodes (:graph ws))
+                   (set (filter #(not= % hyp)
+                                (mapcat (fn [e] (find-explainers workspace e))
+                                        (find-explains workspace hyp)))))]
+    (update-in (penalize-hyps ws penalized)
+               [:log :accrej] conj {:acc (:id hyp) :rej (map :id conflicts)
+                                    :penalized (map :id penalized)})))
 
 (defn forced
   [workspace hyp]
