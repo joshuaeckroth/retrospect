@@ -52,7 +52,7 @@
   []
   (panel :layout (GridBagLayout.)
          :constrains (java.awt.GridBagConstraints.)
-         [:gridx 0 :gridy 0 :fill :BOTH :insets (Insets. 5 5 5 5)
+         [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0 :fill :BOTH :insets (Insets. 5 5 5 5)
           _ (label "NumberEntities:")
           :gridx 1
           _ (:NumberEntities param-spinners)
@@ -202,7 +202,7 @@
   []
   (panel :layout (GridBagLayout.)
          :constrains (java.awt.GridBagConstraints.)
-         [:gridx 0 :gridy 0 :fill :BOTH :insets (Insets. 5 5 5 5)
+         [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0 :fill :BOTH :insets (Insets. 5 0 5 0)
           _ (label "PercentEventsCorrect:")
           :gridx 1
           _ percent-events-correct-label

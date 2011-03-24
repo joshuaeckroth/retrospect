@@ -118,7 +118,7 @@
 (def generic-params
   (panel :layout (GridBagLayout.)
          :constrains (java.awt.GridBagConstraints.)
-         [:gridx 0 :gridy 0 :fill :BOTH :insets (Insets. 5 5 5 5)
+         [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0 :fill :BOTH :insets (Insets. 5 5 5 5)
           _ (label "Steps:")
           :gridx 1
           _ (:Steps param-spinners)
@@ -133,7 +133,9 @@
           :gridx 0 :gridy 3
           _ (label "BeliefNoise:")
           :gridx 1
-          _ (:BeliefNoise param-spinners)]))
+          _ (:BeliefNoise param-spinners)
+          :gridy 4 :weighty 1.0
+          _ (panel)]))
 
 (defn mainframe
   []
