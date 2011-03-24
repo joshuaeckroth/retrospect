@@ -192,7 +192,7 @@
   ;; add the whereto-hyp as explained, if there is a whereto-hyp for this label
   (let [explains (concat (if (whereto-hyps label) [(whereto-hyps label)] [])
                          (filter identity (map (comp :hyp meta) (flatten path))))]
-    [(new-hyp "TH" :tracking label (score-path path label maxwalk)
+    [(new-hyp "TH" :tracking nil (score-path path label maxwalk)
               (str label ":" (path-str path)
                    "\nExplains: " (apply str (interpose ", " (map :id explains))))
               {:label label :path path})

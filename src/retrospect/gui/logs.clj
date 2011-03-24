@@ -7,8 +7,9 @@
   (:import (clj-swing.tree Pathed))
   (:use [clj-swing.panel])
   (:use [clojure.contrib.seq :only [find-first]])
-  (:use [retrospect.workspaces :only [get-hyps]])
+  (:use [retrospect.workspaces :only [get-hyps hyp-conf]])
   (:use [retrospect.epistemicstates :only [previous-ep-state flatten-ep-state-tree]])
+  (:use [retrospect.confidences])
   (:use [retrospect.state]))
 
 (def truedata-log (ref ""))
@@ -47,6 +48,12 @@
                   (merge mw {"Workspace" (ws-fn (:log (:workspace ep)))})))]
     (apply sorted-map (mapcat (fn [ep] [(str ep) (ep-fn ep)]) ep-states))))
 
+(defn hyp-info
+  [workspace hyp]
+  (format "%s\n\nApriori: %s\nConfidence: %s"
+          (:desc hyp) (confidence-str (:apriori hyp))
+          (confidence-str (hyp-conf workspace hyp))))
+
 (defn show-log
   [path]
   (if path
@@ -59,12 +66,17 @@
           hyp (if ep-state
                 (find-first #(= (:id %) last-comp)
                             (concat (get-hyps (:workspace ep-state))
-                                    (if-not
-                                        (:meta-abduction @or-state) []
-                                        (get-hyps (get (:meta-workspaces @or-state)
-                                                       (:id ep-state)))))))]
+                                    (if-not (and (:meta-abduction @or-state)
+                                                 (get (:meta-workspace @or-state)
+                                                      (:id ep-state)))
+                                      []
+                                      (get-hyps (get (:meta-workspaces @or-state)
+                                                     (:id ep-state)))))))
+          ws (if (and hyp (re-matches #"^M.*" (:id hyp)))
+               (get (:meta-workspaces @or-state) (:id ep-state))
+               (:workspace ep-state))]
       (when hyp
-        (dosync (alter workspace-log (constantly (:desc hyp))))))))
+        (dosync (alter workspace-log (constantly (hyp-info ws hyp))))))))
 
 (defn update-logs
   []

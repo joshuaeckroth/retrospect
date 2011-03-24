@@ -102,17 +102,12 @@
     (some (fn [explained] (= 1 (count (incoming g explained)))) (neighbors g hyp))))
 
 (defn find-conflicts
-  "The conflicts of a hyp are those other hyps that share the end of
-   some explains link, or that share a :conflict-id."
+  "The conflicts of a hyp are those other hyps that share a :conflict-id"
   [workspace hyp & opts]
-  []
-  (comment (let [g (if (some #{:static} opts) (:graph-static workspace) (:graph workspace))]
-             (set (concat
-                   (filter #(and (not= % hyp)
-                                 (not (nil? (:conflict-id hyp)))
-                                 (= (:conflict-id hyp) (:conflict-id %)))
-                           (nodes g))
-                   (filter #(not= % hyp) (mapcat #(incoming g %) (neighbors g hyp))))))))
+  (if (nil? (:conflict-id hyp)) []
+      (let [g (if (some #{:static} opts) (:graph-static workspace) (:graph workspace))]
+        (set (filter #(and (not= % hyp) (= (:conflict-id hyp) (:conflict-id %)))
+                     (nodes g))))))
 
 (defn dot-format
   [workspace boxed best]
@@ -146,24 +141,6 @@
                   (map #(format "\"%s\" -> \"%s\" [arrowhead=\"box\"; color=\"red\"];\n"
                                 (id acc) (id %)) conflicts))))
      "}\n")))
-
-(defn measure-conf
-  [workspace]
-  ;; if no accepted hyps, this is very implausible
-  (if (empty? (:accepted workspace)) VERY-IMPLAUSIBLE
-      ;; if accepted hyps exist, find the minimum confidence of them
-      (let [conf (apply min (vals (select-keys (:hyp-confidences workspace)
-                                               (:accepted workspace))))]
-        ;; if something is unexplained, give worst confidence score
-        (if (empty? (find-unexplained workspace)) conf VERY-IMPLAUSIBLE))))
-
-(defn update-conf
-  [workspace]
-  (assoc workspace :confidence (measure-conf workspace)))
-
-(defn get-conf
-  [workspace]
-  (:confidence workspace))
 
 (defn add
   "Only adds edges for hyps that it explains if those explained hyps
@@ -216,15 +193,33 @@
                   :graph (:graph-static workspace))]
     (assoc-in ws [:resources :hyp-count] (count (nodes (:graph-static ws))))))
 
+(defn measure-conf
+  [workspace]
+  ;; if no accepted hyps, this is very implausible
+  (if (empty? (:accepted workspace)) VERY-IMPLAUSIBLE
+      ;; if accepted hyps exist, find the minimum confidence of them
+      (let [conf (apply min (vals (select-keys (:hyp-confidences workspace)
+                                               (:accepted workspace))))]
+        (cond
+         ;; if something is unexplained, give worst confidence score
+         (not-empty (find-unexplained workspace)) VERY-IMPLAUSIBLE
+         ;; if shared-explains is not empty, penalize confidence
+         (not-empty (:shared-explains (:final (:log workspace)))) (penalize conf)
+         ;; otherwise go with lowest accepted hypothesis confidence
+         :else conf))))
+
+(defn get-conf
+  [workspace]
+  (:confidence (:log workspace)))
+
 (defn log-final
   [workspace]
-  (-> workspace
-      (assoc-in [:log :final]
-                {:accepted (map :id (:accepted workspace))
-                 :rejected (map :id (:rejected workspace))
-                 :shared-explains (map :id (find-shared-explains workspace))
-                 :unexplained (map :id (find-unexplained workspace))})
-      (assoc-in [:log :confidence] (:confidence workspace))))
+  (let [ws (assoc-in workspace [:log :final]
+                     {:accepted (map :id (:accepted workspace))
+                      :rejected (map :id (:rejected workspace))
+                      :shared-explains (map :id (find-shared-explains workspace))
+                      :unexplained (map :id (find-unexplained workspace))})]
+    (assoc-in ws [:log :confidence] (measure-conf ws))))
 
 (defn find-best
   [workspace]
@@ -243,10 +238,10 @@
 
 (defn explain
   [workspace]
-  (if (empty? (edges (:graph workspace))) (-> workspace (update-conf) (log-final))
+  (if (empty? (edges (:graph workspace))) (log-final workspace)
       (let [{best :best alts :alts essential? :essential?} (find-best workspace)]
         (if-not best
-          (-> workspace (update-conf) (log-final))
+          (log-final workspace)
           (recur
            (-> workspace
                (update-in [:resources :explain-cycles] inc)

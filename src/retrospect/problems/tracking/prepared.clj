@@ -112,12 +112,23 @@
      :truedata (build-truedata params (entity-paths ["1" red 0 5,0 5,1 7,3 7,4 5,5 5,6]
                                                     ["2" red 0 5,0 5,1 3,3 3,4 5,5 5,6]))}))
 
+(def march
+  (let [params (merge basic-params {:Steps 6 :MaxWalk 1 :MetaAbduction true})]
+    {:params params
+     :sensors [(new-sensor (keyword "x") 0 9 0 9 true)]
+     :truedata (build-truedata params (entity-paths ["1" red 0 0,5 1,5 2,5 3,5 4,5 5,5]
+                                                    ["2" red 0 1,5 2,5 3,5 4,5 5,5 6,5]
+                                                    ["3" red 0 2,5 3,5 4,5 5,5 6,5 7,5]
+                                                    ["4" red 0 3,5 4,5 5,5 6,5 7,5 8,5]
+                                                    ["5" red 0 4,5 5,5 6,5 7,5 8,5 9,5]))}))
+
 (def prepared-map
-  {"simple-dis" simple-disappearance
-   "intersect" intersection-ambiguity
-   "intersect-nom" intersection-ambiguity-nometa
-   "split" split-ambiguity
-   "split-2" split-ambiguity-2
-   "merge" merge-ambiguity
-   "merge-2" merge-ambiguity-2
-   "split-merge" split-merge})
+  (sorted-map "simple-dis" simple-disappearance
+              "intersect" intersection-ambiguity
+              "intersect-nom" intersection-ambiguity-nometa
+              "march" march
+              "merge" merge-ambiguity
+              "merge-2" merge-ambiguity-2
+              "split" split-ambiguity
+              "split-2" split-ambiguity-2
+              "split-merge" split-merge))

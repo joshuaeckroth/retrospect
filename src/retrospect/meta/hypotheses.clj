@@ -31,15 +31,12 @@
    ensure that the least confident (and therefore, hopefully the most
    likely incorrect) hypothesis is not accepted again, and something
    else is accepted instead."
-  [ep-state hyps]
-  (let [ws (:workspace ep-state)
-        hyps (if (not-empty hyps) hyps (:accepted ws))
-        least-conf (first (reverse (ws/sort-by-conf ws hyps)))]
-    (assoc ep-state :workspace
-           (-> ws
-               (ws/reset-confidences)
-               (ws/prepare-workspace)
-               (ws/reject-many [least-conf])))))
+  [ep-state least-conf]
+  (assoc ep-state :workspace
+         (-> (:workspace ep-state)
+             (ws/reset-confidences)
+             (ws/prepare-workspace)
+             (ws/reject-many [least-conf]))))
 
 (defn mark-many-impossible
   [ep-state hyps]
@@ -52,11 +49,12 @@
   "A composite action that branches at the specified ep-state,
    then marks the least confident hyp in 'hyps' as IMPOSSIBLE and
    updates the OneRunState with all these changes."
-  [ep-state-tree ep-state hyps least-conf?]
+  [ep-state-tree ep-state hyps least-conf]
   (let [est (new-branch-ep-state ep-state-tree ep-state)
-        ep (if least-conf?
-             (mark-least-conf-impossible (current-ep-state est) hyps)
-             (mark-many-impossible (current-ep-state est) hyps))
+        ep-state (current-ep-state est)
+        ep (if least-conf
+             (mark-least-conf-impossible ep-state least-conf)
+             (mark-many-impossible ep-state hyps))
         ep-expl-cycles (update-in ep [:workspace :resources] assoc :explain-cycles 0)]
     (comment (println "branch-mark-imp rejected:"
                       (map :id (:rejected (:workspace ep-expl-cycles)))))
@@ -87,7 +85,7 @@
           (recur (update-ep-state-tree est-child ep-expl)))
         {:ep-state-tree est
          :explain-cycles (:explain-cycles (:resources (:workspace (current-ep-state est))))
-         :score (ws/measure-conf (:workspace (current-ep-state est)))}))))
+         :score (ws/get-conf (:workspace (current-ep-state est)))}))))
 
 (defn generate-ep-state-hyp
   [ep-state]
@@ -96,7 +94,11 @@
 (defn add-branch-hyp
   [workspace ep-state-hyp branchable hyps problem ep-state-tree
    sensors params lazy prefix least-conf?]
-  (let [est (branch-and-mark-impossible ep-state-tree branchable hyps least-conf?)
+  (let [lconf (if least-conf?
+                (let [ws (:workspace (current-ep-state ep-state-tree))
+                      hs (if (not-empty hyps) hyps (:accepted ws))]
+                  (first (reverse (ws/sort-by-conf ws hs)))))
+        est (branch-and-mark-impossible ep-state-tree branchable hyps lconf)
         ep-state (current-ep-state est)
         ;; bypass epistemicstate's explain, go directly to workspace's explain,
         ;; so that we don't cause another prepare-workspace before explaining
@@ -104,9 +106,10 @@
         est-new (update-ep-state-tree est ep-expl)
         hyp (let [{score :score est-replayed :ep-state-tree ec :explain-cycles}
                   (score-by-replaying problem est-new sensors params lazy)]
-              (ws/new-hyp prefix :meta nil score
-                          (format "Marked impossible (one or more of): %s"
-                                  (apply str (interpose ", " (map :id hyps))))
+              (ws/new-hyp prefix :meta :meta score
+                          (format "Marked impossible: %s"
+                                  (if lconf (:id lconf)
+                                      (apply str (interpose ", " (map :id hyps)))))
                           {:ep-state-tree est-replayed :explain-cycles ec}))]
     (comment
       (println "a-b-h ep-state rejected:" (map :id (:rejected (:workspace ep-state))))
@@ -145,8 +148,8 @@
 
 (defn add-accurate-decision-hyp
   [workspace ep-state-hyp]
-  (let [apriori (boost (ws/measure-conf (:workspace (:ep-state (:data ep-state-hyp)))))
-        hyp (ws/new-hyp "MHA" :meta-accurate nil apriori "Decision is accurate" nil)]
+  (let [apriori (boost (ws/get-conf (:workspace (:ep-state (:data ep-state-hyp)))))
+        hyp (ws/new-hyp "MHA" :meta-accurate :meta apriori "Decision is accurate" nil)]
     (ws/add workspace hyp [ep-state-hyp])))
 
 (defn generate-meta-hypotheses
