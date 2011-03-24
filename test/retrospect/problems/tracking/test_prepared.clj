@@ -45,8 +45,3 @@
   (facts (:PercentEventsCorrect results) => (roughly 0.0)
          (:MetaAbductions results) => 0))
 
-(let [or-state (run-for-or-state simple-disappearance)
-      prev-ep (previous-ep-state (:ep-state-tree or-state))]
-  (facts (:unexplained (:final (:log (:workspace prev-ep)))) => (just "THW6")
-         (get-conf (:workspace prev-ep)) => VERY-IMPLAUSIBLE))
-

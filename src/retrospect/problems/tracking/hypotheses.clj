@@ -6,6 +6,7 @@
   (:use [retrospect.confidences])
   (:use [retrospect.problems.tracking.grid :only [grid-at]])
   (:use [clojure.contrib.math :as math])
+  (:use [clojure.contrib.seq :only [find-first]])
   (:require [clojure.set :as set :only [intersection difference]]))
 
 (defn make-sensor-hyp
@@ -87,6 +88,10 @@
   [paths]
   (apply str (interpose "\n" (map (fn [k] (str k ":" (path-str (k paths))))
                                   (sort (keys paths))))))
+
+(defn active-labels
+  [paths]
+  (filter #(not (:dead (meta %))) (keys paths)))
 
 (defn covered?
   [es x y time]
@@ -202,15 +207,16 @@
 (defn hypothesize
   [ep-state sensors time-now params]
   (let [ep (process-sensors ep-state sensors time-now)
-        whereto-hyps (make-whereto-hyps (keys (:paths (:problem-data ep-state))))
+        whereto-hyps (make-whereto-hyps (active-labels (:paths (:problem-data ep-state))))
         ep-whereto (reduce #(add-fact %1 %2 []) ep (vals whereto-hyps))
         spotted-grid (:spotted-grid (:problem-data ep))
         maxwalk (:MaxWalk params)
         spotted-at (fn [{x :x y :y t :time}] (grid-at (nth spotted-grid t) x y))
+        active (active-labels (:paths (:problem-data ep-state)))
         ;; put all existing paths into vectors so that alt paths can be added
         oldpaths (reduce (fn [paths l] (assoc paths l [(l paths)]))
-                         (:paths (:problem-data ep-state))
-                         (keys (:paths (:problem-data ep-state))))
+                         (select-keys (:paths (:problem-data ep-state)) active)
+                         active)
         prior-covered (flatten (vals oldpaths))]
     (loop [paths (reduce (fn [p l] (assoc-label-path l p prior-covered spotted-grid maxwalk))
                          oldpaths (keys oldpaths))]
@@ -224,10 +230,10 @@
                   ep-whereto
                   (mapcat (fn [l] (map #(make-hyp % l maxwalk whereto-hyps) (l paths)))
                           (keys paths)))
-          ;; when making a new label, consider oldpaths labels plus newpaths labels,
+          ;; when making a new label, consider oldpaths labels plus newpa0ths labels,
           ;; since the newpaths (called 'paths' here) may have dissoc'd some labels
           ;; that could not be extended
-          (let [label (new-label (concat (keys oldpaths) (keys paths))
+          (let [label (new-label (distinct (concat active (keys paths)))
                                  (spotted-at (first uncovered)))
                 newpaths (assoc paths label [[(spotted-at (first uncovered))]])
                 ;; do a merge because the assoc-label-path func may dissoc the label
@@ -254,13 +260,16 @@
         :else (recur (map rest paths))))
 
 (defn find-merges
-  [paths]
-  (if (= 1 (count paths)) []
-      (loop [ps paths
+  [candidates]
+  (if (= 1 (count candidates)) {}
+      (loop [ps (map (fn [c] {:label (:label (:data c))
+                              :path (:path (:data c))}) candidates)
              shared []]
-        (cond (or (empty? ps) (some #(empty? %) ps)) shared
-              (< 1 (count (distinct (flatten (map (comp entity-metas last) ps))))) shared
-              :else (recur (map butlast ps) (conj shared (last (first ps))))))))
+        (if (or (some (comp empty? :path) ps)
+                (< 1 (count (distinct (map (comp entity-metas flatten last :path) ps)))))
+          {:paths ps :shared shared}              
+          (recur (map #(update-in % [:path] (fn [p] (vec (butlast p)))) ps)
+                 (conj shared (distinct (mapcat (comp last :path) ps))))))))
 
 (defn sort-paths
   [path1 path2]
@@ -271,35 +280,64 @@
    (< (count path2) (count path1)) 1
    :else 0))
 
+(defn find-split-head
+  [candidates subpath]
+  (let [matches (filter (fn [c] (not-empty (set/intersection
+                                            (set (entity-metas (:path (:data c))))
+                                            (set (entity-metas subpath)))))
+                        candidates)
+        subpath-start-time (:time (first (sort-by :time (entity-metas (flatten subpath)))))]
+    (distinct (mapcat #(nth (:path (:data %)) (dec subpath-start-time)) matches))))
+
 (defn new-label-from-candidates
   [candidates paths]
   (let [labeled (distinct (entity-metas (flatten (vals paths))))
         filter-labeled (fn [path]
-                         (filter (fn [es] (let [em (first (distinct (entity-metas es)))]
-                                            (not-any? #(= % em) labeled))) path))
-        unlabeled-path (fn [hyp] (vec (filter-labeled (:path (:data hyp)))))
+                         (vec (filter (fn [es] (let [em (first (distinct (entity-metas es)))]
+                                                 (not-any? #(= % em) labeled))) path)))
+        unlabeled-path (fn [hyp] (filter-labeled (:path (:data hyp))))
         maybe-splits
-        (doall (for [l (keys paths)]
-                 (filter not-empty (find-label-splits
-                                    (map unlabeled-path (filter #(= l (:label (:data %)))
-                                                                candidates))))))
-        splits (sort-by #(:time (ffirst %)) (filter not-empty maybe-splits))
-        maybe-merges
-        (doall (for [last-pos (distinct (flatten (map (comp entity-metas last)
-                                                      (map unlabeled-path candidates))))]
-                 (find-merges (filter (fn [path] (some #(= last-pos %)
-                                                       (entity-metas (last path))))
-                                      (map unlabeled-path candidates)))))
-        merges (sort sort-paths (filter not-empty maybe-merges))]
+        (for [l (keys paths)]
+          (filter not-empty (find-label-splits
+                             (map unlabeled-path (filter #(= l (:label (:data %)))
+                                                         candidates)))))
+        ;; add the head of a split, only to non-empty splits
+        maybe-splits (map (fn [ss]
+                            (map (fn [s] (vec (concat [(find-split-head candidates s)] s)))
+                                 ss))
+                          (sort-by #(:time (ffirst %))
+                                   (filter not-empty maybe-splits)))
+        splits (filter (fn [s] (not-any? #{s} (vals paths))) maybe-splits)
+        merges-and-paths
+        (filter identity
+                (for [last-pos (distinct (flatten (map (comp entity-metas last)
+                                                       (map unlabeled-path candidates))))]
+                  (let [mp (find-merges
+                            (filter (fn [c] (some #(= last-pos %)
+                                                  (entity-metas (last (unlabeled-path c)))))
+                                    candidates))]
+                    (if (and (:shared mp) (not-empty (:shared mp))) mp))))]
     ;; always attempt to incorporate a split first
-    (if (not-empty splits)
-      (let [split (first splits)]
-        (reduce (fn [ps s] (assoc ps (new-label (keys ps) (flatten s)) s))
-                paths (map vec split)))
-      (if (empty? merges) paths
-          (let [merge (first merges)]
-            (assoc paths (new-label (keys paths) (flatten merge))
-                   (map vec merge)))))))
+    (if-let [split (first splits)]
+      (reduce (fn [ps s] (assoc ps (new-label (keys ps) (flatten s)) s)) paths split)
+      ;; if no splits, incorporate a merge
+      (if-let [{subpaths :paths shared :shared} (first merges-and-paths)]
+        ;; update all labels that merged so that the labels continue until the merge
+        ;; but no further
+        (reduce (fn [ps {label :label path :path}]
+                  (assoc ps label (conj path (first shared))))
+                ;; add the new merged "shared" path
+                (assoc paths (new-label (keys paths) (flatten shared)) shared)
+                subpaths)
+        ;; no merges or splits, just send back the identical paths
+        paths))))
+
+(defn mark-candidate-labels-dead
+  [candidates paths]
+  (merge (apply dissoc paths (map (comp :label :data) candidates))
+         (reduce (fn [ps label] (assoc ps (with-meta label (merge (meta label) {:dead true}))
+                                       (paths label)))
+                 {} (map (comp :label :data) candidates))))
 
 (defn commit-accepted
   [pdata accepted]
@@ -308,11 +346,11 @@
           pdata accepted))
 
 (defn commit-decision
-  [pdata accepted rejected candidates unexplained]
-  (let [pd (commit-accepted pdata accepted)]
+  [pdata accepted rejected shared-explains unexplained]
+  (let [pd (commit-accepted pdata (set/difference accepted shared-explains))]
     ;; add labels for merges/splits as long as there are any
-    (loop [paths (:paths pd)]
-      (let [ps (new-label-from-candidates candidates paths)]
+    (loop [paths (mark-candidate-labels-dead shared-explains (:paths pd))]
+      (let [ps (new-label-from-candidates shared-explains paths)]
         (if (empty? (set/difference (set (keys ps)) (set (keys paths))))
           (assoc pd :paths paths)
           (recur ps))))))

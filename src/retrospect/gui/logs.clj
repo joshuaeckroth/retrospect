@@ -31,9 +31,9 @@
                                  "Rejected" (apply sorted-map
                                                    (mapcat (fn [h] [h nil])
                                                            (:rejected (:final ws))))
-                                 "Candidates" (apply sorted-map
+                                 "Shared explains" (apply sorted-map
                                                      (mapcat (fn [h] [h nil])
-                                                             (:candidates (:final ws))))
+                                                             (:shared-explains (:final ws))))
                                  "Unexplained" (apply sorted-map
                                                       (mapcat (fn [h] [h nil])
                                                               (:unexplained (:final ws))))}})

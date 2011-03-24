@@ -150,7 +150,7 @@
   (let [workspace (:workspace ep-state)
         accepted (:accepted workspace)
         rejected (:rejected workspace)
-        candidates (ws/find-candidates workspace)
+        shared-explains (ws/find-shared-explains workspace)
         unexplained (ws/find-unexplained workspace)]
     (EpistemicState.
      id
@@ -158,7 +158,7 @@
      (inc time-now)
      (ws/init-workspace workspace)
      ((:commit-decision-fn problem) (:problem-data ep-state)
-      accepted rejected candidates unexplained))))
+      accepted rejected shared-explains unexplained))))
 
 (defn find-least-confident-decision
   "Finds most recent (up the path) lowest-confidence decision; returns

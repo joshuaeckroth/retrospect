@@ -29,7 +29,7 @@
       :graph-static (digraph)
       :hyp-confidences {}
       :log {:added [] :forced [] :best [] :accrej []
-            :final {:accepted [] :rejected [] :candidates [] :unexplained []}
+            :final {:accepted [] :rejected [] :shared-explains [] :unexplained []}
             :confidence nil}
       :dot []
       :confidence nil
@@ -74,6 +74,16 @@
     (neighbors (:graph-static workspace) hyp)
     (neighbors (:graph workspace) hyp)))
 
+(defn find-shared-explains
+  [workspace]
+  (let [hyps (:accepted workspace)]
+    (if (>= 1 (count hyps)) []
+        (filter (fn [hyp] (not-empty (apply set/intersection
+                                            (find-explains workspace hyp :static)
+                                            (map #(find-explains workspace % :static)
+                                                 (filter #(not= hyp %) hyps)))))
+                hyps))))
+
 (defn find-unexplained
   "Unexplained hyps are those that are forced and remain in the graph,
    and those that are in the graph and have incoming edges."
@@ -82,11 +92,6 @@
         hyps (nodes g)]
     (set (concat (set/intersection (set (:forced workspace)) (set hyps))
                  (filter #(not-empty (incoming g %)) hyps)))))
-
-(defn find-candidates
-  [workspace & opts]
-  (let [g (if (some #{:static} opts) (:graph-static workspace) (:graph workspace))]
-    (doall (filter (fn [h] (not-empty (neighbors g h))) (nodes g)))))
 
 (defn essential?
   [workspace hyp]
@@ -97,13 +102,14 @@
   "The conflicts of a hyp are those other hyps that share the end of
    some explains link, or that share a :conflict-id."
   [workspace hyp & opts]
-  (let [g (if (some #{:static} opts) (:graph-static workspace) (:graph workspace))]
-    (set (concat
-          (filter #(and (not= % hyp)
-                        (not (nil? (:conflict-id hyp)))
-                        (= (:conflict-id hyp) (:conflict-id %)))
-                  (nodes g))
-          (filter #(not= % hyp) (mapcat #(incoming g %) (neighbors g hyp)))))))
+  []
+  (comment (let [g (if (some #{:static} opts) (:graph-static workspace) (:graph workspace))]
+             (set (concat
+                   (filter #(and (not= % hyp)
+                                 (not (nil? (:conflict-id hyp)))
+                                 (= (:conflict-id hyp) (:conflict-id %)))
+                           (nodes g))
+                   (filter #(not= % hyp) (mapcat #(incoming g %) (neighbors g hyp))))))))
 
 (defn dot-format
   [workspace boxed best]
@@ -213,7 +219,7 @@
       (assoc-in [:log :final]
                 {:accepted (map :id (:accepted workspace))
                  :rejected (map :id (:rejected workspace))
-                 :candidates (map :id (find-candidates workspace))
+                 :shared-explains (map :id (find-shared-explains workspace))
                  :unexplained (map :id (find-unexplained workspace))})
       (assoc-in [:log :confidence] (:confidence workspace))))
 

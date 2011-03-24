@@ -83,9 +83,9 @@
 (def merge-ambiguity
   (let [params (merge basic-params {:Steps 4 :MaxWalk 3 :SensorCoverage 80})]
     {:params params
-     :sensors [(new-sensor (keyword "x") 0 7 0 9 true)]
+     :sensors [(new-sensor (keyword "x") 0 9 0 9 true)]
      :truedata (build-truedata params (entity-paths ["1" red 0 4,0 4,2 5,4 5,6]
-                                                    ["2" red 0 6,0 6,2 9,2 9,2]))}))
+                                                    ["2" red 0 6,0 6,2 5,4 5,6]))}))
 
 (def prepared-map
   {"simple-dis" simple-disappearance
