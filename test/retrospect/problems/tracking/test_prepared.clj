@@ -61,7 +61,7 @@
   (facts (:PercentEventsCorrect results) => (roughly 100.0)
          (:MeanTimeWithLabel results) => (roughly 2.0)
          (paths-str (:paths (:problem-data (:ep-state or-state))))
-         => "A:[1,0@0 1,1@1 ]\nB:[6,0@0 6,1@1 ]\nC:[1,1@1 2,2@2 2,3@3 ]\nD:[1,1@1 0,2@2 0,3@3 ]\nE:[6,1@1 5,2@2 5,3@3 ]\nF:[6,1@1 7,2@2 7,3@3 ]"))
+         => "A:[1,0@0 1,1@1 ]\nB:[6,0@0 6,1@1 ]\nC:[1,1@1 0,2@2 0,3@3 ]\nD:[1,1@1 2,2@2 2,3@3 ]\nE:[6,1@1 5,2@2 5,3@3 ]\nF:[6,1@1 7,2@2 7,3@3 ]"))
 
 (let [or-state (run-for-or-state merge-ambiguity)
       results (last (:results or-state))]

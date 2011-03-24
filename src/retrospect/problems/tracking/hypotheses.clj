@@ -91,7 +91,7 @@
 
 (defn active-labels
   [paths]
-  (filter #(not (:dead (meta %))) (keys paths)))
+  (sort (filter #(not (:dead (meta %))) (keys paths))))
 
 (defn covered?
   [es x y time]

@@ -78,13 +78,14 @@
   [workspace]
   (let [hyps (:accepted workspace)]
     (if (>= 1 (count hyps)) []
-        (filter (fn [hyp] (not-empty
-                           (apply set/union
-                                  (map #(set/intersection
-                                         (find-explains workspace hyp :static)
-                                         (find-explains workspace % :static))
-                                       (disj hyps hyp)))))
-                hyps))))
+        (sort-by :id (AlphanumComparator.)
+                 (filter (fn [hyp] (not-empty
+                                    (apply set/union
+                                           (map #(set/intersection
+                                                  (find-explains workspace hyp :static)
+                                                  (find-explains workspace % :static))
+                                                (disj hyps hyp)))))
+                         hyps)))))
 
 (defn find-unexplained
   "Unexplained hyps are those that are forced and remain in the graph,
