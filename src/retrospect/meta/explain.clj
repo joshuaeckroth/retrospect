@@ -33,10 +33,6 @@
               ors (update-explain-cycles or-state (:ep-state or-state) meta-hyps)
               ors-meta (assoc-in ors [:meta-workspaces (:id (:ep-state or-state))]
                                  workspace)]
-          (comment (println (map #(format "%s: %s/%s %s; "
-                                          (:id %) (:apriori %)
-                                          (hyp-conf workspace %) (:desc %))
-                                 (get-hyps workspace))))
           (if (= :meta-accurate (:type accepted-hyp)) ors-meta
               (assoc (update-in ors-meta [:resources :meta-abductions] inc)
                 :ep-state-tree est :ep-state (current-ep-state est)))))))

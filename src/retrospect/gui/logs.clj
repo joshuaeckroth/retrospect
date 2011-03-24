@@ -22,23 +22,29 @@
 (def workspace-log (ref ""))
 
 (defn build-abduction-tree-map
-  [ep-states]
-  (let [ws-fn (fn [ws] {"Added" (apply sorted-map (mapcat (fn [h] [(:hypid h) nil])
-                                                          (:added ws)))
-                        "Forced" (apply sorted-map (mapcat (fn [h] [h nil]) (:forced ws)))
-                        "Final" {"Accepted" (apply sorted-map
+  [or-state]
+  (let [ep-states (flatten-ep-state-tree (:ep-state-tree or-state))
+        ws-fn (fn [ws]
+                {"Added" (apply sorted-map (mapcat (fn [h] [(:hypid h) nil])
+                                                   (:added ws)))
+                 "Forced" (apply sorted-map (mapcat (fn [h] [h nil]) (:forced ws)))
+                 "Final" {"Accepted" (apply sorted-map
+                                            (mapcat (fn [h] [h nil])
+                                                    (:accepted (:final ws))))
+                          "Rejected" (apply sorted-map
+                                            (mapcat (fn [h] [h nil])
+                                                    (:rejected (:final ws))))
+                          "Shared explains" (apply sorted-map
                                                    (mapcat (fn [h] [h nil])
-                                                           (:accepted (:final ws))))
-                                 "Rejected" (apply sorted-map
-                                                   (mapcat (fn [h] [h nil])
-                                                           (:rejected (:final ws))))
-                                 "Shared explains" (apply sorted-map
-                                                     (mapcat (fn [h] [h nil])
-                                                             (:shared-explains (:final ws))))
-                                 "Unexplained" (apply sorted-map
-                                                      (mapcat (fn [h] [h nil])
-                                                              (:unexplained (:final ws))))}})
-        ep-fn (fn [ep] {"Workspace" (ws-fn (:log (:workspace ep)))})]
+                                                           (:shared-explains (:final ws))))
+                          "Unexplained" (apply sorted-map
+                                               (mapcat (fn [h] [h nil])
+                                                       (:unexplained (:final ws))))}})
+        ep-fn (fn [ep]
+                (let [mw (if-not (:meta-abduction or-state) {}
+                                 {"Meta Workspace"
+                                  (ws-fn (:log (get (:meta-workspaces or-state) (:id ep))))})]
+                  (merge mw {"Workspace" (ws-fn (:log (:workspace ep)))})))]
     (apply sorted-map (mapcat (fn [ep] [(str ep) (ep-fn ep)]) ep-states))))
 
 (defn show-log
@@ -47,38 +53,28 @@
     (let [last-comp (node (. path getLastPathComponent))
           ep-id (if (> (. path getPathCount) 1)
                   (re-find #"^[A-Z]+" (str (. path getPathComponent 1))))
-          ep-state (if ep-id (find-first #(= (:id %) ep-id)
-                                         (flatten-ep-state-tree (:ep-state-tree @or-state))))
-          hyp (if ep-state (find-first #(= (:id %) last-comp)
-                                       (get-hyps (:workspace ep-state))))]
+          ep-state (if ep-id
+                     (find-first #(= (:id %) ep-id)
+                                 (flatten-ep-state-tree (:ep-state-tree @or-state))))
+          hyp (if ep-state
+                (find-first #(= (:id %) last-comp)
+                            (concat (get-hyps (:workspace ep-state))
+                                    (if-not
+                                        (:meta-abduction @or-state) []
+                                        (get-hyps (get (:meta-workspaces @or-state)
+                                                       (:id ep-state)))))))]
       (when hyp
         (dosync (alter workspace-log (constantly (:desc hyp))))))))
 
 (defn update-logs
   []
-  (let [est (:ep-state-tree @or-state)
-        prev-ep (previous-ep-state est)
-        ep-states (flatten-ep-state-tree est)]
-    (dosync
-     (alter truedata-log (constantly ((:get-truedata-log (:player-fns @problem)))))
-     (alter problem-log (constantly ((:get-problem-log (:player-fns @problem)))))
-     (alter hyp-choices
-            (constantly (sort (map :id (get-hyps (:workspace (:ep-state @or-state)))))))
-     (alter abduction-tree-map (constantly (build-abduction-tree-map ep-states)))))
+  (dosync
+   (alter truedata-log (constantly ((:get-truedata-log (:player-fns @problem)))))
+   (alter problem-log (constantly ((:get-problem-log (:player-fns @problem)))))
+   (alter hyp-choices
+          (constantly (sort (map :id (get-hyps (:workspace (:ep-state @or-state)))))))
+   (alter abduction-tree-map (constantly (build-abduction-tree-map @or-state))))
   (. problem-log-label setText (format "Problem log for: %s" (str (:ep-state @or-state)))))
-
-(comment
-  (defn update-hyp-box
-    []
-    (if *ep-state*
-      (if-let [hyp (if-let [choice (.getSelectedItem *hyp-choice*)]
-                     (find-first #(= (:id %) choice) (get-hyps (:workspace *ep-state*))))]
-        (. *hyp-box* setText
-           (apply str (:desc hyp) "\n\n"
-                  (interpose
-                   "\n" (map str (filter (fn [l] (some #(= % (:id hyp)) (:hyp-ids l)))
-                                         (:abducer-log (:workspace *ep-state*))))))))
-      (. *hyp-box* setText ""))))
 
 (defn logs-tab
   []
