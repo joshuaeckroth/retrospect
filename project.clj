@@ -12,4 +12,4 @@
   :main retrospect.core
   :keep-non-project-classes true
   :java-source-path "src/jvm"
-  :jvm-opts ["-Dawt.useSystemAAFontSettings=on"])
+  :jvm-opts ["-Dawt.useSystemAAFontSettings=on" "-Xmx800m"])
