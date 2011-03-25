@@ -100,8 +100,10 @@
                                         (flatten-ep-state-tree
                                          (:ep-state-tree (:data metahyp))))))
           ws (cond meta-ep-state (:workspace meta-ep-state)
-                   (:meta-abduction @or-state) (get (:meta-workspaces @or-state)
-                                                    (:id ep-state))
+                   (and (:meta-abduction @or-state)
+                        (<= 3 (. path getPathCount))
+                        (= "Meta Workspace" (str (. path getPathComponent 2))))
+                   (get (:meta-workspaces @or-state) (:id ep-state))
                    ep-state (:workspace ep-state)
                    :else nil)]
       (if-let [hyp (if ws (find-first #(= (:id %) last-comp) (get-hyps ws)))]
