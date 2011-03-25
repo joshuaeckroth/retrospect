@@ -24,12 +24,17 @@
 (def workspace-log (ref ""))
 
 (defn build-abduction-tree-map
-  [or-state]
-  (let [list-hyps #(apply sorted-map-by (AlphanumComparator.) (mapcat (fn [h] [h nil]) %))
-        ep-states (flatten-ep-state-tree (:ep-state-tree or-state))
+  [ep-state-tree in-meta?]
+  (let [expand-meta-hyp (fn [h] (if (:data h)
+                                  (if-let [est (:ep-state-tree (:data h))]
+                                    (build-abduction-tree-map est true))))
+        list-hyps #(apply sorted-map-by (AlphanumComparator.)
+                          (mapcat (fn [h] [(:id h) (expand-meta-hyp h)]) %))
+        ep-states (flatten-ep-state-tree ep-state-tree)
         ws-fn (fn [wslog]
                 {"Added" (apply sorted-map-by (AlphanumComparator.)
-                                (mapcat (fn [h] [(:hypid h) nil])
+                                (mapcat (fn [h] [(:id (:hyp h))
+                                                 (expand-meta-hyp (:hyp h))])
                                         (:added wslog)))
                  "Forced" (list-hyps (:forced wslog))
                  "Cycles" (apply sorted-map-by (AlphanumComparator.)
@@ -39,7 +44,8 @@
                                              [(format "Cycle %d" (inc i))
                                               {(format "Best%s" (if (:essential? b)
                                                                   " (essential)" ""))
-                                               {(:best b) nil}
+                                               {(:id (:best b))
+                                                (expand-meta-hyp (:best b))}
                                                "Alternatives" (list-hyps (:alts b))
                                                "Rejected" (list-hyps (:rej ar))
                                                "Penalized" (list-hyps (:penalized ar))}]))
@@ -49,9 +55,9 @@
                           "Shared explains" (list-hyps (:shared-explains (:final wslog)))
                           "Unexplained" (list-hyps (:unexplained (:final wslog)))}})
         ep-fn (fn [ep]
-                (let [mw (if-not (:meta-abduction or-state) {}
-                                 {"Meta Workspace"
-                                  (ws-fn (:log (get (:meta-workspaces or-state) (:id ep))))})]
+                (let [mw (if (or in-meta? (not (:meta-abduction @or-state))) {}
+                             {"Meta Workspace"
+                              (ws-fn (:log (get (:meta-workspaces @or-state) (:id ep))))})]
                   (merge mw {"Workspace" (ws-fn (:log (:workspace ep)))})))]
     (apply sorted-map-by (AlphanumComparator.)
            (mapcat (fn [ep] [(str ep) (ep-fn ep)]) ep-states))))
@@ -93,7 +99,8 @@
    (alter problem-log (constantly ((:get-problem-log (:player-fns @problem)))))
    (alter hyp-choices
           (constantly (sort (map :id (get-hyps (:workspace (:ep-state @or-state)))))))
-   (alter abduction-tree-map (constantly (build-abduction-tree-map @or-state))))
+   (alter abduction-tree-map
+          (constantly (build-abduction-tree-map (:ep-state-tree @or-state) false))))
   (. problem-log-label setText (format "Problem log for: %s" (str (:ep-state @or-state)))))
 
 (defn logs-tab

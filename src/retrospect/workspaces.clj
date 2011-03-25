@@ -154,8 +154,7 @@
         (update-in [:graph-static] #(apply add-nodes % (conj expl hyp)))
         (update-in [:graph-static] #(apply add-edges % (map (fn [e] [hyp e]) expl)))
         (update-in [:hyp-confidences] assoc hyp (:apriori hyp))
-        (update-in [:log :added] conj {:hypid (:id hyp) :explains (map :id expl)
-                                       :apriori (:apriori hyp)}))))
+        (update-in [:log :added] conj {:hyp hyp :explains expl}))))
 
 (defn reject-many
   [workspace hyps]
@@ -163,7 +162,7 @@
       (update-in [:graph] #(apply remove-nodes % hyps))
       (update-in [:hyp-confidences] #(reduce (fn [c h] (assoc c h IMPOSSIBLE)) % hyps))
       (update-in [:rejected] set/union (set hyps))
-      (update-in [:log :rejected] concat (map :id hyps))))
+      (update-in [:log :rejected] concat hyps)))
 
 (defn penalize-hyps
   [workspace hyps]
@@ -188,14 +187,13 @@
                                 (mapcat (fn [e] (find-explainers workspace e))
                                         (find-explains workspace hyp)))))]
     (update-in (penalize-hyps ws penalized)
-               [:log :accrej] conj {:acc (:id hyp) :rej (map :id conflicts)
-                                    :penalized (map :id penalized)})))
+               [:log :accrej] conj {:acc hyp :rej conflicts :penalized  penalized})))
 
 (defn forced
   [workspace hyp]
   (-> workspace
       (update-in [:forced] conj hyp)
-      (update-in [:log :forced] conj (:id hyp))))
+      (update-in [:log :forced] conj hyp)))
 
 (defn reset-confidences
   [workspace]
@@ -233,10 +231,10 @@
 (defn log-final
   [workspace]
   (let [ws (assoc-in workspace [:log :final]
-                     {:accepted (map :id (:accepted workspace))
-                      :rejected (map :id (:rejected workspace))
-                      :shared-explains (map :id (find-shared-explains workspace))
-                      :unexplained (map :id (find-unexplained workspace))})]
+                     {:accepted (:accepted workspace)
+                      :rejected (:rejected workspace)
+                      :shared-explains (find-shared-explains workspace)
+                      :unexplained (find-unexplained workspace)})]
     (assoc-in ws [:log :confidence] (measure-conf ws))))
 
 (defn find-best
@@ -263,6 +261,5 @@
           (recur
            (-> workspace
                (update-in [:resources :explain-cycles] inc)
-               (update-in [:log :best] conj
-                          {:best (:id best) :alts (map :id alts) :essential? essential?})
+               (update-in [:log :best] conj {:best best :alts alts :essential? essential?})
                (accept best)))))))
