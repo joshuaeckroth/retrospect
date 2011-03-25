@@ -89,7 +89,7 @@
 
 (defn generate-ep-state-hyp
   [ep-state]
-  (ws/new-hyp "EP" :meta-ep nil NEUTRAL "ep-state hyp" {:ep-state ep-state}))
+  (ws/new-hyp "HEP" :meta-ep nil NEUTRAL "ep-state hyp" {:ep-state ep-state}))
 
 (defn add-branch-hyp
   [workspace ep-state-hyp branchable hyps problem ep-state-tree
@@ -126,7 +126,7 @@
               hyps (:accepted ws)]
           (add-branch-hyp
            workspace ep-state-hyp prev-ep hyps problem ep-state-tree
-           sensors params lazy (format "MH:U:%s:L" (:id prev-ep)) true)))))
+           sensors params lazy (format "H:U:%s:L" (:id prev-ep)) true)))))
 
 (defn add-mark-impossible-hyp
   [workspace ep-state-hyp problem ep-state-tree sensors params lazy]
@@ -136,7 +136,7 @@
     (if (empty? rejectors) workspace
         (add-branch-hyp
          workspace ep-state-hyp ep-state rejectors problem ep-state-tree
-         sensors params lazy (format "MH:R:%s:*" (:id ep-state)) false))))
+         sensors params lazy (format "H:R:%s:*" (:id ep-state)) false))))
 
 (defn add-mark-impossible-hyp-least-conf
   [workspace ep-state-hyp problem ep-state-tree branchable sensors params lazy]
@@ -144,12 +144,12 @@
         hyps (:accepted ws)]
     (add-branch-hyp
      workspace ep-state-hyp branchable hyps problem ep-state-tree
-     sensors params lazy (format "MH:LC:%s:L" (:id branchable)) true)))
+     sensors params lazy (format "H:LC:%s:L" (:id branchable)) true)))
 
 (defn add-accurate-decision-hyp
   [workspace ep-state-hyp]
   (let [apriori (boost (ws/get-conf (:workspace (:ep-state (:data ep-state-hyp)))))
-        hyp (ws/new-hyp "MHA" :meta-accurate :meta apriori "Decision is accurate" nil)]
+        hyp (ws/new-hyp "HA" :meta-accurate :meta apriori "Decision is accurate" nil)]
     (ws/add workspace hyp [ep-state-hyp])))
 
 (defn generate-meta-hypotheses
@@ -166,7 +166,7 @@
                (add-mark-impossible-hyp
                 ep-state-hyp problem ep-state-tree sensors params lazy))]
     (loop [ws2 ws
-           states (reverse (flatten-ep-state-tree ep-state-tree))]
+           states (take 5 (reverse (flatten-ep-state-tree ep-state-tree)))]
       (if (or (empty? states) (have-enough-meta-hyps ws2)) ws2
           (recur (add-mark-impossible-hyp-least-conf ws2
                   ep-state-hyp problem ep-state-tree (first states) sensors params lazy)
