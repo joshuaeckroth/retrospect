@@ -72,25 +72,41 @@
   [path]
   (if path
     (let [last-comp (node (. path getLastPathComponent))
-          ep-id (if (> (. path getPathCount) 1)
-                  (re-find #"^[A-Z]+" (str (. path getPathComponent 1))))
-          ep-state (if ep-id
-                     (find-first #(= (:id %) ep-id)
-                                 (flatten-ep-state-tree (:ep-state-tree @or-state))))
-          hyp (if ep-state
-                (find-first #(= (:id %) last-comp)
-                            (concat (get-hyps (:workspace ep-state))
-                                    (if-not (and (:meta-abduction @or-state)
-                                                 (get (:meta-workspace @or-state)
-                                                      (:id ep-state)))
-                                      []
-                                      (get-hyps (get (:meta-workspaces @or-state)
-                                                     (:id ep-state)))))))
-          ws (if (and hyp (re-matches #"^M.*" (:id hyp)))
-               (get (:meta-workspaces @or-state) (:id ep-state))
-               (:workspace ep-state))]
-      (when hyp
-        (dosync (alter workspace-log (constantly (hyp-info ws hyp))))))))
+          ;; find top-most ep-state
+          ep-state (if (< 1 (. path getPathCount))
+                     (if-let [ep-id (re-find #"^[A-Z]+"
+                                             (str (. path getPathComponent 1)))]
+                       (find-first #(= (:id %) ep-id) (flatten-ep-state-tree
+                                                       (:ep-state-tree @or-state)))))
+          ;; is the selection below a meta-hyp?
+          submeta-hyp-id (if-let [i (find-first
+                                     (fn [i] (re-matches #"^MH.*"
+                                                         (str (. path getPathComponent i))))
+                                     (range (dec (. path getPathCount))))]
+                           (str (. path getPathComponent i)))
+          metahyp (if submeta-hyp-id
+                    (find-first #(= (:id %) submeta-hyp-id)
+                                (get-hyps (get (:meta-workspaces @or-state)
+                                               (:id ep-state)))))
+          meta-ep-state (if (and metahyp (:data metahyp) (:ep-state-tree (:data metahyp)))
+                          (if-let [i (find-first
+                                      (fn [i]
+                                        (re-matches #"^[A-Z]+ \d.*"
+                                                 (str (. path getPathComponent i))))
+                                      (range 5 (. path getPathCount)))]
+                            (find-first #(= (:id %)
+                                            (re-find #"^[A-Z]+"
+                                                     (str (. path getPathComponent i))))
+                                        (flatten-ep-state-tree
+                                         (:ep-state-tree (:data metahyp))))))
+          ws (cond meta-ep-state (:workspace meta-ep-state)
+                   (:meta-abduction @or-state) (get (:meta-workspaces @or-state)
+                                                    (:id ep-state))
+                   ep-state (:workspace ep-state)
+                   :else nil)]
+      (if-let [hyp (if ws (find-first #(= (:id %) last-comp) (get-hyps ws)))]
+        (dosync (alter workspace-log (constantly (hyp-info ws hyp))))
+        (dosync (alter workspace-log (constantly "")))))))
 
 (defn update-logs
   []
