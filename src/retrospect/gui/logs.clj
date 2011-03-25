@@ -1,6 +1,7 @@
 (ns retrospect.gui.logs
   (:import (java.awt GridBagLayout Insets))
   (:import (javax.swing Box))
+  (:import (misc AlphanumComparator))
   (:use [clj-swing.label])
   (:use [clj-swing.text-field])
   (:use [clj-swing.tree])
@@ -24,29 +25,36 @@
 
 (defn build-abduction-tree-map
   [or-state]
-  (let [ep-states (flatten-ep-state-tree (:ep-state-tree or-state))
-        ws-fn (fn [ws]
-                {"Added" (apply sorted-map (mapcat (fn [h] [(:hypid h) nil])
-                                                   (:added ws)))
-                 "Forced" (apply sorted-map (mapcat (fn [h] [h nil]) (:forced ws)))
-                 "Final" {"Accepted" (apply sorted-map
-                                            (mapcat (fn [h] [h nil])
-                                                    (:accepted (:final ws))))
-                          "Rejected" (apply sorted-map
-                                            (mapcat (fn [h] [h nil])
-                                                    (:rejected (:final ws))))
-                          "Shared explains" (apply sorted-map
-                                                   (mapcat (fn [h] [h nil])
-                                                           (:shared-explains (:final ws))))
-                          "Unexplained" (apply sorted-map
-                                               (mapcat (fn [h] [h nil])
-                                                       (:unexplained (:final ws))))}})
+  (let [list-hyps #(apply sorted-map-by (AlphanumComparator.) (mapcat (fn [h] [h nil]) %))
+        ep-states (flatten-ep-state-tree (:ep-state-tree or-state))
+        ws-fn (fn [wslog]
+                {"Added" (apply sorted-map-by (AlphanumComparator.)
+                                (mapcat (fn [h] [(:hypid h) nil])
+                                        (:added wslog)))
+                 "Forced" (list-hyps (:forced wslog))
+                 "Cycles" (apply sorted-map-by (AlphanumComparator.)
+                                 (mapcat (fn [i]
+                                           (let [b (nth (:best wslog) i)
+                                                 ar (nth (:accrej wslog) i)]
+                                             [(format "Cycle %d" (inc i))
+                                              {(format "Best%s" (if (:essential? b)
+                                                                  " (essential)" ""))
+                                               {(:best b) nil}
+                                               "Alternatives" (list-hyps (:alts b))
+                                               "Rejected" (list-hyps (:rej ar))
+                                               "Penalized" (list-hyps (:penalized ar))}]))
+                                         (range (count (:best wslog)))))
+                 "Final" {"Accepted" (list-hyps (:accepted (:final wslog)))
+                          "Rejected" (list-hyps (:rejected (:final wslog)))
+                          "Shared explains" (list-hyps (:shared-explains (:final wslog)))
+                          "Unexplained" (list-hyps (:unexplained (:final wslog)))}})
         ep-fn (fn [ep]
                 (let [mw (if-not (:meta-abduction or-state) {}
                                  {"Meta Workspace"
                                   (ws-fn (:log (get (:meta-workspaces or-state) (:id ep))))})]
                   (merge mw {"Workspace" (ws-fn (:log (:workspace ep)))})))]
-    (apply sorted-map (mapcat (fn [ep] [(str ep) (ep-fn ep)]) ep-states))))
+    (apply sorted-map-by (AlphanumComparator.)
+           (mapcat (fn [ep] [(str ep) (ep-fn ep)]) ep-states))))
 
 (defn hyp-info
   [workspace hyp]

@@ -249,10 +249,10 @@
     (if (not-empty good-es)
       ;; choose first most-confident non-conflicting essential
       (let [best (pick-top-conf workspace good-es)]
-        {:best best :alts good-es :essential? true})
+        {:best best :alts (filter #(not= % best) good-es) :essential? true})
       ;; otherwise, ...
       (let [best (pick-top-conf workspace explainers)]
-        {:best best :alts explainers :essential? false}))))
+        {:best best :alts (filter #(not= % best) explainers) :essential? false}))))
 
 (defn explain
   [workspace]
