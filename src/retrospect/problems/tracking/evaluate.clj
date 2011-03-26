@@ -140,6 +140,11 @@
    :BaseMeanLabelCounts (:MeanLabelCounts b)
    :RatioMeanLabelCounts (calc-ratio :MeanLabelCounts m b)
    :ImproveMeanLabelCounts (calc-percent-improvement :MeanLabelCounts m b)
+
+   :MetaPlausibilityAccuracy (:PlausibilityAccuracy m)
+   :BasePlausibilityAccuracy (:PlausibilityAccuracy b)
+   :RatioPlausibilityAccuracy (calc-ratio :PlausibilityAccuracy m b)
+   :ImprovePlausibilityAccuracy (calc-percent-improvement :PlausibilityAccuracy m b)
    
    :NumberEntities (:NumberEntities params)
    :MaxWalk (:MaxWalk params)

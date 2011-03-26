@@ -45,6 +45,8 @@
    :ImproveMinTimeWithLabel
    :MetaMeanLabelCounts :BaseMeanLabelCounts :RatioMeanLabelCounts
    :ImproveMeanLabelCounts
+   :MetaPlausibilityAccuracy :BasePlausibilityAccuracy :RatioPlausibilityAccuracy
+   :ImprovePlausibilityAccuracy
    :NumberEntities :MaxWalk :ProbNewEntities])
 
 (def tracking-problem
