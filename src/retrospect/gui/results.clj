@@ -29,7 +29,7 @@
 
 (defn get-results-viewport
   [or-state]
-  (let [headers (filter #(@headers-on %) (keys @headers-on))
+  (let [headers (filter #(@headers-on %) (sort-by name (keys @headers-on)))
         results-matrix (map (fn [r] (map (fn [h] (h r)) headers))
                             (:results or-state))]
     (doto (JViewport.)
