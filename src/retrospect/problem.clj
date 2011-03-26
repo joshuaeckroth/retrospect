@@ -14,6 +14,8 @@
     (update-in or-state [:results] conj
                (merge ((:evaluate-fn problem)
                        (:ep-state or-state)
+                       (:results or-state)
+                       (previous-ep-state (:ep-state-tree or-state))
                        (:sensors or-state) truedata params)
                       (assoc params
                         :Step (:time (:ep-state or-state))

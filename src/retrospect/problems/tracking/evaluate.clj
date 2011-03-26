@@ -1,6 +1,7 @@
 (ns retrospect.problems.tracking.evaluate
-  (:use [retrospect.epistemicstates :only (current-ep-state)])
+  (:use [retrospect.epistemicstates :only [current-ep-state]])
   (:use [retrospect.confidences])
+  (:use [retrospect.workspaces :only [hyp-conf]])
   (:use [retrospect.problems.tracking.hypotheses :only [path-to-movements]])
   (:use [retrospect.problems.tracking.truedata :only [get-grid-movements]])
   (:require [clojure.set :as set])
@@ -9,15 +10,17 @@
 (defn believed-movements
   [pdata]
   (let [paths (:paths pdata)]
-    (flatten (map path-to-movements (vals paths)))))
+    (set (flatten (map path-to-movements (vals paths))))))
+
+(defn true-movements
+  [truedata maxtime]
+  (set (map #(dissoc % :e) (get-grid-movements truedata 0 maxtime))))
 
 (defn percent-events-correct
-  [truedata pdata maxtime]
-  (let [grid-movements (set (map #(dissoc % :e) (get-grid-movements truedata 0 maxtime)))
-        bel-movements (set (believed-movements pdata))]
-    (if (empty? grid-movements) 100.0
-        (double (* 100.0 (/ (count (set/intersection grid-movements bel-movements))
-                            (count grid-movements)))))))
+  [pdata true-moves]
+  (if (empty? true-moves) 100.0
+      (double (* 100.0 (/ (count (set/intersection true-moves (believed-movements pdata)))
+                          (count true-moves))))))
 
 (defn assoc-es-ls
   [ep-state truedata]
@@ -59,16 +62,32 @@
     (if (empty? hyp-map) 0.0
         (double (/ (reduce + 0 (vals hyp-map)) (count hyp-map))))))
 
+(defn believed-movements-conf
+  [prev-ep true-moves]
+  (let [accepted (filter #(re-find #"^M?TH" (:id %))
+                         (:accepted (:final (:log (:workspace prev-ep)))))
+        movements (map (fn [h] {:movements (set (path-to-movements (:path (:data h))))
+                                :conf (hyp-conf (:workspace prev-ep) h)})
+                       accepted)]
+    (map (fn [{ms :movements conf :conf}]
+           (let [ms-recent (set (filter #(<= (:time prev-ep) (:t %)) ms))
+                 true-recent (set (filter #(<= (:time prev-ep) (:t %)) true-moves))]
+             ;; the following requires that confidences are really numeric
+             ;; and that neutral is 0
+             (+ (* conf (count (set/intersection true-recent ms-recent)))
+                (* (- 0 conf) (count (set/difference ms-recent true-recent))))))
+         movements)))
+
 (defn avg
   [l]
   (double (/ (reduce + l) (count l))))
 
 (defn evaluate
-  [ep-state sensors truedata params]
+  [ep-state results prev-ep sensors truedata params]
   (let [elmap (assoc-es-ls ep-state truedata)
-        twl (reduce (partial assoc-es-twl elmap) {} (keys elmap))]
-    {:PercentEventsCorrect (percent-events-correct truedata (:problem-data ep-state)
-                                                   (dec (dec (:time ep-state))))
+        twl (reduce (partial assoc-es-twl elmap) {} (keys elmap))
+        true-moves (true-movements truedata (dec (:time prev-ep)))]
+    {:PercentEventsCorrect (percent-events-correct (:problem-data ep-state) true-moves)
      :MeanTimeWithLabel (avg (map #(avg (twl %)) (keys twl)))
      :MaxTimeWithLabel (avg (map #(apply max (twl %)) (keys twl)))
      :MinTimeWithLabel (avg (map #(apply min (twl %)) (keys twl)))
@@ -76,7 +95,12 @@
      :MeanLabelCounts (double (/ (reduce + 0 (map #(count (set (elmap %))) (keys elmap)))
                                  (count (keys elmap))))
      :AvgWalk 0
-     :PlausibilityAccuracy 0
+     ;; average current plausibility accuracy with past
+     :PlausibilityAccuracy
+     (let [bmc (believed-movements-conf prev-ep true-moves)
+           pa (if (empty? bmc) 0.0 (avg bmc))]
+       (if (empty? results) pa
+           (/ (+ (:PlausibilityAccuracy (last results)) pa) 2.0)))
      :SensorOverlap 0
      :EntityDensity 0}))
 
