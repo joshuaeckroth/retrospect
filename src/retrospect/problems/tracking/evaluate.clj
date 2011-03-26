@@ -4,6 +4,7 @@
   (:use [retrospect.workspaces :only [hyp-conf]])
   (:use [retrospect.problems.tracking.hypotheses :only [path-to-movements]])
   (:use [retrospect.problems.tracking.truedata :only [get-grid-movements]])
+  (:use [retrospect.problems.tracking.grid :only [dist]])
   (:require [clojure.set :as set])
   (:use [clojure.contrib.seq :only [find-first]]))
 
@@ -74,8 +75,8 @@
                  true-recent (set (filter #(<= (:time prev-ep) (:t %)) true-moves))]
              ;; the following requires that confidences are really numeric
              ;; and that neutral is 0
-             (+ (* conf (count (set/intersection true-recent ms-recent)))
-                (* (- 0 conf) (count (set/difference ms-recent true-recent))))))
+             (- (* conf (count (set/intersection true-recent ms-recent)))
+                (* conf (count (set/difference ms-recent true-recent))))))
          movements)))
 
 (defn avg
@@ -94,7 +95,8 @@
      :MeanCountAlternatives (mean-count-alts (:workspace ep-state) :sensor)
      :MeanLabelCounts (double (/ (reduce + 0 (map #(count (set (elmap %))) (keys elmap)))
                                  (count (keys elmap))))
-     :AvgWalk 0
+     :AvgWalk (if (empty? true-moves) 0.0
+                  (avg (map #(dist (:ox %) (:oy %) (:x %) (:y %)) true-moves)))
      ;; average current plausibility accuracy with past
      :PlausibilityAccuracy
      (let [bmc (believed-movements-conf prev-ep true-moves)
@@ -147,5 +149,6 @@
    :ImprovePlausibilityAccuracy (calc-percent-improvement :PlausibilityAccuracy m b)
    
    :NumberEntities (:NumberEntities params)
+   :AvgWalk (:AvgWalk b)
    :MaxWalk (:MaxWalk params)
    :ProbNewEntities (:ProbNewEntities params)})

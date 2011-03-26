@@ -4,6 +4,6 @@
 
 (defn have-enough-meta-hyps
   [workspace]
-  (some #(and (not= :ep-state (:type %)) (= NEUTRAL (hyp-conf workspace %)))
+  (some #(and (not= :meta-ep (:type %)) (<= PLAUSIBLE (hyp-conf workspace %)))
         (get-hyps workspace)))
 

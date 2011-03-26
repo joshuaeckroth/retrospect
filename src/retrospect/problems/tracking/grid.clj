@@ -1,6 +1,7 @@
 (ns retrospect.problems.tracking.grid
   (:use [retrospect.colors :only [red blue]])
-  (:use [clojure.contrib.seq :only [find-first]]))
+  (:use [clojure.contrib.seq :only [find-first]])
+  (:require [clojure.contrib.math :as math]))
 
 ;; top-left is (0, 0); bottom-right is (width-1, height-1)
 
@@ -79,6 +80,11 @@
                     (< y (:height (meta grid))) (>= y 0))
              (grid-move grid e x y)
              (recur))))))
+
+(defn dist
+  [x1 y1 x2 y2]
+  (math/sqrt (+ (* (- x1 x2) (- x1 x2))
+                (* (- y1 y2) (- y1 y2)))))
 
 (defn update-all-entity-times
   [grid time]

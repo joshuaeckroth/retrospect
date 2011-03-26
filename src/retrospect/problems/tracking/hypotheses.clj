@@ -4,9 +4,9 @@
   (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.colors])
   (:use [retrospect.confidences])
-  (:use [retrospect.problems.tracking.grid :only [grid-at]])
-  (:use [clojure.contrib.math :as math])
+  (:use [retrospect.problems.tracking.grid :only [grid-at dist]])
   (:use [clojure.contrib.seq :only [find-first]])
+  (:require [clojure.contrib.math :as math])
   (:require [clojure.set :as set :only [intersection difference]]))
 
 (defn make-sensor-hyp
@@ -45,19 +45,16 @@
                  (reduce #(add-fact %1 %2 []) ep
                          (map (comp :hyp meta) (flatten spotted)))))))))
 
-(defn dist
-  [x1 y1 x2 y2]
-  (math/sqrt (+ (* (- x1 x2) (- x1 x2))
-                (* (- y1 y2) (- y1 y2)))))
-
 (defn score-distance
   [x1 y1 x2 y2 maxwalk]
   (let [d (dist x1 y1 x2 y2)
         mw (* (math/sqrt 2.1) maxwalk)]
     (cond
      (<= d (/ mw 4.0)) VERY-PLAUSIBLE
-     (<= d (/ mw 2.0)) PLAUSIBLE
-     (<= d mw) NEUTRAL)))
+     (<= d (/ mw 3.0)) PLAUSIBLE
+     (<= d (/ mw 2.0)) NEUTRAL
+     (<= d (/ (* mw 2.0) 3.0)) IMPLAUSIBLE
+     (<= d mw) VERY-IMPLAUSIBLE)))
 
 (defn score-path
   "spotted is a collection of sensor detections; count-seen is how
@@ -207,12 +204,12 @@
 (defn hypothesize
   [ep-state sensors time-now params]
   (let [ep (process-sensors ep-state sensors time-now)
-        whereto-hyps (make-whereto-hyps (active-labels (:paths (:problem-data ep-state))))
+        active (active-labels (:paths (:problem-data ep-state)))
+        whereto-hyps (make-whereto-hyps active)
         ep-whereto (reduce #(add-fact %1 %2 []) ep (vals whereto-hyps))
         spotted-grid (:spotted-grid (:problem-data ep))
         maxwalk (:MaxWalk params)
         spotted-at (fn [{x :x y :y t :time}] (grid-at (nth spotted-grid t) x y))
-        active (active-labels (:paths (:problem-data ep-state)))
         ;; put all existing paths into vectors so that alt paths can be added
         oldpaths (reduce (fn [paths l] (assoc paths l [(l paths)]))
                          (select-keys (:paths (:problem-data ep-state)) active)
@@ -337,12 +334,21 @@
         ;; no merges or splits, just send back the identical paths
         paths))))
 
-(defn mark-candidate-labels-dead
-  [candidates paths]
-  (merge (apply dissoc paths (map (comp :label :data) candidates))
-         (reduce (fn [ps label] (assoc ps (with-meta label (merge (meta label) {:dead true}))
-                                       (paths label)))
-                 {} (map (comp :label :data) candidates))))
+(defn mark-labels-dead
+  "Mark candidates as dead (since they'll be split/merged),
+   as well as old discontinued labels."
+  [candidates paths time-now]
+  (let [labels
+        (set (concat
+              (map (comp :label :data) candidates)
+              (filter #(and (not (:dead (meta %)))
+                            (> time-now (inc (:time (meta (first (last (paths %))))))))
+                      (keys paths))))]
+    (merge (apply dissoc paths labels)
+           (reduce (fn [ps label] (assoc ps (with-meta label (merge (meta label)
+                                                                    {:dead true}))
+                                         (paths label)))
+                   {} labels))))
 
 (defn commit-accepted
   [pdata accepted]
@@ -351,11 +357,11 @@
           pdata accepted))
 
 (defn commit-decision
-  [pdata accepted rejected shared-explains unexplained]
+  [pdata accepted rejected shared-explains unexplained time-now]
   (let [pd (commit-accepted pdata (set/difference accepted shared-explains))]
     ;; add labels for merges/splits as long as there are any
     (loop [paths (:paths pd)]
       (let [ps (new-label-from-candidates shared-explains paths)]
         (if (empty? (set/difference (set (keys ps)) (set (keys paths))))
-          (assoc pd :paths (mark-candidate-labels-dead shared-explains paths))
+          (assoc pd :paths (mark-labels-dead shared-explains paths time-now))
           (recur ps))))))

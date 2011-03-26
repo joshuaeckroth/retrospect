@@ -1,6 +1,6 @@
 (ns retrospect.meta.explain
   (:use [retrospect.workspaces :only
-         [meta? init-workspace prepare-workspace explain get-hyps hyp-conf]])
+         [meta? init-workspace prepare-workspace explain get-hyps hyp-conf get-conf]])
   (:use [retrospect.epistemicstates :only
          [current-ep-state previous-ep-state update-ep-state-tree]])
   (:use [retrospect.onerun :only [update-one-run-state]])
@@ -33,6 +33,10 @@
               ors (update-explain-cycles or-state (:ep-state or-state) meta-hyps)
               ors-meta (assoc-in ors [:meta-workspaces (:id (:ep-state or-state))]
                                  workspace)]
-          (if (= :meta-accurate (:type accepted-hyp)) ors-meta
-              (assoc (update-in ors-meta [:resources :meta-abductions] inc)
-                :ep-state-tree est :ep-state (current-ep-state est)))))))
+          (if (or (= :meta-accurate (:type accepted-hyp))
+                  ;; don't branch if accepted hyp is not any more confident
+                  (= (hyp-conf workspace accepted-hyp)
+                     (get-conf (:workspace (current-ep-state (:ep-state-tree or-state))))))
+            ors-meta
+            (assoc (update-in ors-meta [:resources :meta-abductions] inc)
+              :ep-state-tree est :ep-state (current-ep-state est)))))))

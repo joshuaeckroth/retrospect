@@ -148,7 +148,7 @@
 
 (defn add-accurate-decision-hyp
   [workspace ep-state-hyp]
-  (let [apriori (boost (ws/get-conf (:workspace (:ep-state (:data ep-state-hyp)))))
+  (let [apriori (ws/get-conf (:workspace (:ep-state (:data ep-state-hyp))))
         hyp (ws/new-hyp "HA" :meta-accurate :meta apriori "Decision is accurate" nil)]
     (ws/add workspace hyp [ep-state-hyp])))
 

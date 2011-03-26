@@ -158,7 +158,7 @@
      (inc time-now)
      (ws/init-workspace workspace)
      ((:commit-decision-fn problem) (:problem-data ep-state)
-      accepted rejected shared-explains unexplained))))
+      accepted rejected shared-explains unexplained time-now))))
 
 (defn find-least-confident-decision
   "Finds most recent (up the path) lowest-confidence decision; returns

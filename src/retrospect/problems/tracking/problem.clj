@@ -47,7 +47,7 @@
    :ImproveMeanLabelCounts
    :MetaPlausibilityAccuracy :BasePlausibilityAccuracy :RatioPlausibilityAccuracy
    :ImprovePlausibilityAccuracy
-   :NumberEntities :MaxWalk :ProbNewEntities])
+   :NumberEntities :AvgWalk :MaxWalk :ProbNewEntities])
 
 (def tracking-problem
   (Problem. "Tracking"
