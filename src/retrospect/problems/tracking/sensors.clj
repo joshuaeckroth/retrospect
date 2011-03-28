@@ -101,14 +101,21 @@
 
 (defn generate-sensors
   [params]
-  [(new-sensor (keyword "1") 0 4 0 15 true)
-   (new-sensor (keyword "2g") 0 4 16 20 false)
-   (new-sensor (keyword "3") 0 4 21 29 true)
-   (new-sensor (keyword "4g") 5 8 0 10 false)
-   (new-sensor (keyword "5") 5 14 16 20 true)
-   (new-sensor (keyword "5g") 5 10 21 24 false)
-   (new-sensor (keyword "6") 15 29 0 20 true)
-   (new-sensor (keyword "6g") 15 29 21 29 false)])
+  [(new-sensor (keyword "1") 0 4 0 29 true)
+   (new-sensor (keyword "1g") 5 9 0 29 false)
+   (new-sensor (keyword "2") 10 14 0 29 true)
+   (new-sensor (keyword "2g") 15 19 0 29 false)
+   (new-sensor (keyword "3") 20 24 0 29 true)
+   (new-sensor (keyword "3g") 25 29 0 29 false)])
+
+(comment [(new-sensor (keyword "1") 0 4 0 15 true)
+          (new-sensor (keyword "2g") 0 4 16 20 false)
+          (new-sensor (keyword "3") 0 4 21 29 true)
+          (new-sensor (keyword "4g") 5 8 0 10 false)
+          (new-sensor (keyword "5") 5 14 16 20 true)
+          (new-sensor (keyword "5g") 5 10 21 24 false)
+          (new-sensor (keyword "6") 15 29 0 20 true)
+          (new-sensor (keyword "6g") 15 29 21 29 false)])
 
 (comment (defn generate-sensors
            [params]

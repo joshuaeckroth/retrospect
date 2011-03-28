@@ -59,15 +59,19 @@
 (defn score-path
   "spotted is a collection of sensor detections; count-seen is how
   many sensors should have seen the same thing."
-  [path label maxwalk]
+  [path label maxwalk time-now]
   (let [move-pairs (doall (partition 2 (interleave path (rest path))))]
     (if (empty? move-pairs) NEUTRAL
-        (apply min (doall (map (fn [[a b]] (score-distance (:x (meta (first a)))
-                                                           (:y (meta (first a)))
-                                                           (:x (meta (first b)))
-                                                           (:y (meta (first b)))
-                                                           maxwalk))
-                               move-pairs))))))
+        (let [score (apply min
+                           (map (fn [[a b]]
+                                  (score-distance (:x (meta (first a)))
+                                                  (:y (meta (first a)))
+                                                  (:x (meta (first b)))
+                                                  (:y (meta (first b)))
+                                                  maxwalk))
+                                move-pairs))]
+          ;; give a boost to longer paths (half total time or greater)
+          (if (<= 0.5 (/ (count move-pairs) time-now)) (boost score) score)))))
 
 (defn path-to-movements
   [path]
@@ -83,7 +87,8 @@
 
 (defn paths-str
   [paths]
-  (apply str (interpose "\n" (map (fn [k] (str k ":" (path-str (k paths))))
+  (apply str (interpose "\n" (map (fn [k] (str k " (" (color-str (:color (meta k))) "): "
+                                               (path-str (k paths))))
                                   (sort (keys paths))))))
 
 (defn active-labels
@@ -132,8 +137,7 @@
 
 (defn label-matches?
   [label spotted]
-  (or (= (:color (meta label)) gray) (= (:color (meta spotted)) gray)
-      (= (:color (meta label)) (:color (meta spotted)))))
+  (match-color? (:color (meta label)) (:color (meta spotted))))
 
 (defn matched-and-in-range?
   [label e x y time prior-covered maxwalk]
@@ -171,6 +175,12 @@
         (if (empty? ex-paths) paths
             (recur label ex-paths prior-covered (rest spotted-grid) maxwalk)))))
 
+(defn find-color
+  "Find first non-gray color, if there is one."
+  [paths]
+  (or (some #(not (match-color? % gray)) (map (comp :color meta) (flatten paths)))
+      gray))
+
 (defn assoc-label-path
   [label paths prior-covered spotted-grid maxwalk]
   (let [prior-paths (label paths)
@@ -181,16 +191,18 @@
     ;; if there was no progress, forget about the label
     (if (= new-paths prior-paths)
       (dissoc paths label)
-      (assoc paths label new-paths))))
+      ;; update the color of the label
+      (assoc paths (with-meta label (merge (meta label) {:color (find-color new-paths)}))
+             new-paths))))
 
 (defn make-hyp
   "Returns [hyp explains] vector."
-  [path label maxwalk whereto-hyps]
+  [path label maxwalk whereto-hyps time-now]
   ;; add the whereto-hyp as explained, if there is a whereto-hyp for this label
   (let [explains (concat (if (whereto-hyps label) [(whereto-hyps label)] [])
                          (filter identity (map (comp :hyp meta) (flatten path))))]
-    [(new-hyp "TH" :tracking nil (score-path path label maxwalk)
-              (str label ":" (path-str path)
+    [(new-hyp "TH" :tracking nil (score-path path label maxwalk time-now)
+              (str label " (" (color-str (:color (meta label))) "): " (path-str path)
                    "\nExplains: " (apply str (interpose ", " (map :id explains))))
               {:label label :path path})
      explains]))
@@ -225,7 +237,8 @@
                      (not= 0 time-now)))
           (reduce (fn [ep [hyp explains]] (add-hyp ep hyp explains))
                   ep-whereto
-                  (mapcat (fn [l] (map #(make-hyp % l maxwalk whereto-hyps) (l paths)))
+                  (mapcat (fn [l] (map #(make-hyp % l maxwalk whereto-hyps time-now)
+                                       (l paths)))
                           (keys paths)))
           ;; when making a new label, consider oldpaths labels plus newpa0ths labels,
           ;; since the newpaths (called 'paths' here) may have dissoc'd some labels

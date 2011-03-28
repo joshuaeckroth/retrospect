@@ -32,8 +32,8 @@
         :else "color?"))
 
 (defn match-color?
-  [o1 o2]
+  [c1 c2]
   (or
-   (. (:color o1) equals gray)
-   (. (:color o2) equals gray)
-   (. (:color o1) equals (:color o2))))
+   (. c1 equals gray)
+   (. c2 equals gray)
+   (. c1 equals c2)))
