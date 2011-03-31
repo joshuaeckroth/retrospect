@@ -1,5 +1,6 @@
 (ns retrospect.problems.tracking.sensors
   (:use [retrospect.confidences])
+  (:use [retrospect.random])
   (:use [retrospect.colors :only [gray]])
   (:use [retrospect.problems.tracking.grid :only [grid-entities]])
   (:use [retrospect.sensors :only [init-sensor add-sensed]]))
@@ -80,14 +81,14 @@
 
 (defn generate-sensors-sample
   [width height sees-color-prob]
-  (doall (for [i (range (rand-int (* width height)))]
-           (let [left (rand-int width)
-                 right (+ left (rand-int (- width left)))
-                 bottom (rand-int height)
-                 top (+ bottom (rand-int (- height bottom)))]
-             (new-sensor (keyword (format "Sensor%d" (hash (rand))))
+  (doall (for [i (range (my-rand-int (* width height)))]
+           (let [left (my-rand-int width)
+                 right (+ left (my-rand-int (- width left)))
+                 bottom (my-rand-int height)
+                 top (+ bottom (my-rand-int (- height bottom)))]
+             (new-sensor (keyword (format "Sensor%d" (hash (my-rand))))
                          left right bottom top
-                         (> (double (/ sees-color-prob 100)) (rand)))))))
+                         (> (double (/ sees-color-prob 100)) (my-rand)))))))
 
 (defn generate-sensors-with-coverage
   [width height coverage sees-color-prob]

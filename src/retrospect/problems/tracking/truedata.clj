@@ -1,4 +1,5 @@
 (ns retrospect.problems.tracking.truedata
+  (:use [retrospect.random])
   (:use [retrospect.problems.tracking.grid])
   (:use [retrospect.problems.tracking.prepared])
   (:use [clojure.contrib.seq :only [find-first]]))
@@ -10,14 +11,15 @@
 (defn random-walks
   [grid params]
   (let [maxwalk (:MaxWalk params)
-        es (filter (fn [_] (<= (rand) (double (/ (:ProbMovement params) 100))))
+        es (filter (fn [_] (<= (my-rand) (double (/ (:ProbMovement params) 100))))
                    (grid-entities grid))
-        es-walk (shuffle (flatten (map (fn [e] (repeat (inc (rand-int maxwalk)) e)) es)))]
+        es-walk (my-shuffle
+                 (flatten (map (fn [e] (repeat (inc (my-rand-int maxwalk)) e)) es)))]
     (reduce walk1 grid es-walk)))
 
 (defn possibly-add-new-entity
   [grid time params]
-  (if (>= (double (/ (:ProbNewEntities params) 100)) (rand))
+  (if (>= (double (/ (:ProbNewEntities params) 100)) (my-rand))
     (grid-new-entity grid time)
     grid))
 

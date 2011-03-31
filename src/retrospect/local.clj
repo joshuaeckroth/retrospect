@@ -2,7 +2,8 @@
   (:import (java.util Date))
   (:use [clojure.java.io :as io :only (writer copy file)])
   (:use [clojure.stacktrace :only [print-cause-trace]])
-  (:use [retrospect.problem :only (run-many get-batch-headers)]))
+  (:use [retrospect.problem :only (run-many get-batch-headers)])
+  (:use [retrospect.random]))
 
 (def write-agent (agent 0))
 
@@ -60,7 +61,7 @@
   (with-open [writer (io/writer filename)]
     (.write writer (format-csv-row (map name (get-batch-headers problem)))))
   (send (agent (count params)) check-progress dir problem (count params) (.getTime (Date.)))
-  (let [partitions (partition-all (int (/ (count params) nthreads)) (shuffle params))
+  (let [partitions (partition-all (int (/ (count params) nthreads)) (my-shuffle params))
         workers (doall (for [part partitions]
                          (future (run-partition problem monitor?
                                                 filename repetitions part))))]

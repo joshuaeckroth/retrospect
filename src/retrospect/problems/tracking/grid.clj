@@ -1,4 +1,5 @@
 (ns retrospect.problems.tracking.grid
+  (:use [retrospect.random])
   (:use [retrospect.colors :only [red blue]])
   (:use [clojure.contrib.seq :only [find-first]])
   (:require [clojure.contrib.math :as math]))
@@ -33,7 +34,7 @@
 
 (defn grid-del
   [grid x y e]
-  (update-in grid [(grid-pos grid x y)] (fn [v] (filter #(not= e %) v))))
+  (update-in grid [(grid-pos grid x y)] (fn [v] (vec (filter #(not= e %) v)))))
 
 (defn grid-move
   "Move the entity in the grid and update the entity's meta content."
@@ -47,13 +48,13 @@
 (defn rand-pos
   "Generate a random position for a new entity. Returns a map {:x x :y y}."
   [grid]
-  {:x (rand-int (:width (meta grid))) :y (rand-int (:height (meta grid)))})
+  {:x (my-rand-int (:width (meta grid))) :y (my-rand-int (:height (meta grid)))})
 
 (defn grid-new-entity
   "Create a new entity with a random location."
   [grid time]
   (let [{x :x y :y} (rand-pos grid)
-        c (rand-nth [red blue])
+        c (my-rand-nth [red blue])
         e (with-meta (symbol (str (grid-count grid)))
             {:x x :y y :color c :time time})]
     (grid-add grid x y e)))
@@ -68,18 +69,18 @@
   (let [e (find-entity grid entity)]
     (loop []
       (let [{ox :x oy :y} (meta e)
-            {x :x y :y} (rand-nth [{:x (dec ox) :y oy}
-                                   {:x (inc ox) :y oy}
-                                   {:x ox :y (inc oy)}
-                                   {:x ox :y (dec oy)}
-                                   {:x (dec ox) :y (dec oy)}
-                                   {:x (dec ox) :y (inc oy)}
-                                   {:x (inc ox) :y (dec oy)}
-                                   {:x (inc ox) :y (inc oy)}])]
-           (if (and (< x (:width (meta grid))) (>= x 0)
-                    (< y (:height (meta grid))) (>= y 0))
-             (grid-move grid e x y)
-             (recur))))))
+            {x :x y :y} (my-rand-nth [{:x (dec ox) :y oy}
+                                      {:x (inc ox) :y oy}
+                                      {:x ox :y (inc oy)}
+                                      {:x ox :y (dec oy)}
+                                      {:x (dec ox) :y (dec oy)}
+                                      {:x (dec ox) :y (inc oy)}
+                                      {:x (inc ox) :y (dec oy)}
+                                      {:x (inc ox) :y (inc oy)}])]
+        (if (and (< x (:width (meta grid))) (>= x 0)
+                 (< y (:height (meta grid))) (>= y 0))
+          (grid-move grid e x y)
+          (recur))))))
 
 (defn dist
   [x1 y1 x2 y2]
@@ -88,5 +89,6 @@
 
 (defn update-all-entity-times
   [grid time]
-  (with-meta (vec (map (fn [es] (map #(with-meta % (merge (meta %) {:time time})) es)) grid))
+  (with-meta (vec (map (fn [es] (vec (map #(with-meta % (merge (meta %) {:time time}))
+                                          es))) grid))
     (meta grid)))
