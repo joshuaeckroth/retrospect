@@ -112,6 +112,13 @@
      :truedata (build-truedata params (entity-paths ["1" red 0 5,0 5,1 7,3 7,4 5,5 5,6]
                                                     ["2" red 0 5,0 5,1 3,3 3,4 5,5 5,6]))}))
 
+(def split-non-ambiguity
+  (let [params (merge basic-params {:Steps 4})]
+    {:params params
+     :sensors [(new-sensor (keyword "x") 0 9 0 9 true)]
+     :truedata (build-truedata params (entity-paths ["1" red  0 4,3 4,4 5,5 5,6]
+                                                    ["2" blue 0 4,3 4,4 3,5 3,6]))}))
+
 (def march
   (let [params (merge basic-params {:Steps 6 :MaxWalk 1 :MetaAbduction true})]
     {:params params
@@ -131,4 +138,5 @@
               "merge-2" merge-ambiguity-2
               "split" split-ambiguity
               "split-2" split-ambiguity-2
-              "split-merge" split-merge))
+              "split-merge" split-merge
+              "split-non-am" split-non-ambiguity))

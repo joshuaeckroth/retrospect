@@ -1,7 +1,7 @@
 (ns retrospect.problems.tracking.sensors
   (:use [retrospect.confidences])
   (:use [retrospect.random])
-  (:use [retrospect.colors :only [gray]])
+  (:use [retrospect.colors :only [red blue gray]])
   (:use [retrospect.problems.tracking.grid :only [grid-entities]])
   (:use [retrospect.sensors :only [init-sensor add-sensed]]))
 
@@ -36,13 +36,21 @@
   (filter (fn [e] (sees sensor (:x (meta e)) (:y (meta e))))
           (grid-entities grid)))
 
+(defn adjust-ids
+  [es sees-color?]
+  (if sees-color?
+    (concat (map (fn [e] (with-meta (symbol (str "B")) (meta e)))
+                 (filter #(= blue (:color (meta %))) es))
+            (map (fn [e] (with-meta (symbol (str "R")) (meta e)))
+                 (filter #(= red (:color (meta %))) es)))
+    (map (fn [e] (with-meta (symbol (str "G")) (assoc (meta e) :color gray))) es)))
+
 (defn sense
   [sensor grid time]
   (let [spotted (find-spotted sensor grid time)
-        id-adjusted (map (fn [e] (with-meta (symbol (str "X")) (meta e))) spotted)
-        color-adjusted (if (:sees-color (meta sensor)) id-adjusted
-                           (map (fn [e] (with-meta e (assoc (meta e) :color gray)))
-                                id-adjusted))]
+        color-adjusted (if (:sees-color (meta sensor))
+                         (adjust-ids spotted true)
+                         (adjust-ids spotted false))]
     (add-sensed sensor time
                 (vals (reduce (fn [m e] (assoc m (meta e) e)) {} color-adjusted)))))
 

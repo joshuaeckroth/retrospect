@@ -24,20 +24,6 @@
   (let [unexplained (ws/find-unexplained workspace)]
     (filter #(empty? (ws/find-explainers workspace % :static)) unexplained)))
 
-(defn mark-least-conf-impossible
-  "Given an ep-state (to go back to), mark the least confident
-   accepted hypothesis as IMPOSSIBLE after clearing the decision and
-   resetting confidences to their apriori values. The idea is to
-   ensure that the least confident (and therefore, hopefully the most
-   likely incorrect) hypothesis is not accepted again, and something
-   else is accepted instead."
-  [ep-state least-conf]
-  (assoc ep-state :workspace
-         (-> (:workspace ep-state)
-             (ws/reset-confidences)
-             (ws/prepare-workspace)
-             (ws/reject-many [least-conf]))))
-
 (defn mark-many-impossible
   [ep-state hyps]
   (let [ws (-> (:workspace ep-state)
@@ -53,29 +39,15 @@
   (let [est (new-branch-ep-state ep-state-tree ep-state)
         ep-state (current-ep-state est)
         ep (if least-conf
-             (mark-least-conf-impossible ep-state least-conf)
+             (mark-many-impossible ep-state [least-conf])
              (mark-many-impossible ep-state hyps))
         ep-expl-cycles (update-in ep [:workspace :resources] assoc :explain-cycles 0)]
-    (comment (println "branch-mark-imp rejected:"
-                      (map :id (:rejected (:workspace ep-expl-cycles)))))
     (update-ep-state-tree est ep-expl-cycles)))
 
 (defn score-by-replaying
   [problem ep-state-tree sensors params lazy]
   (let [time-now (apply max (map :sensed-up-to sensors))]
     (loop [est ep-state-tree]
-      (comment
-        (println "hyps:" (map :id (ws/get-hyps (:workspace (current-ep-state est)))))
-        (println "replay rejected @" (:time (current-ep-state est)) ":"
-                 (map :id (:rejected (:workspace (current-ep-state est)))))
-        (println "replay accepted @" (:time (current-ep-state est)) ":"
-                 (map #(format "%s %s" (:id %)
-                               (ws/hyp-conf (:workspace (current-ep-state est)) %))
-                      (:accepted (:workspace (current-ep-state est)))))
-        (println "replay rejected @" (:time (current-ep-state est)) ":"
-                 (map :id (:rejected (:workspace (current-ep-state est)))))
-        (println "replay unexplained:"
-                 (map :id (ws/find-unexplained (:workspace (current-ep-state est))))))
       (if (< (:time (current-ep-state est)) time-now)
         (let [ep-state (current-ep-state est)
               est-child (new-child-ep-state est ep-state (:time ep-state) problem)
@@ -111,16 +83,12 @@
                                   (if lconf (:id lconf)
                                       (apply str (interpose ", " (map :id hyps)))))
                           {:ep-state-tree est-replayed :explain-cycles ec}))]
-    (comment
-      (println "a-b-h ep-state rejected:" (map :id (:rejected (:workspace ep-state))))
-      (println "a-b-h ep-expl rejected:" (map :id (:rejected (:workspace ep-expl)))))
     (ws/add workspace hyp [ep-state-hyp])))
 
 (defn add-uninformed-mark-impossible-hyp
   [workspace ep-state-hyp problem ep-state-tree sensors params lazy]
   (let [prev-ep (previous-ep-state ep-state-tree)
         no-explainers (find-no-explainers (:workspace (current-ep-state ep-state-tree)))]
-    (comment (println "no explainers:" (map :id no-explainers)))
     (if (or (nil? prev-ep) (empty? no-explainers)) workspace
         (let [ws (:workspace prev-ep)
               hyps (:accepted ws)]
@@ -132,7 +100,6 @@
   [workspace ep-state-hyp problem ep-state-tree sensors params lazy]
   (let [ep-state (current-ep-state ep-state-tree)
         rejectors (find-rejectors (:workspace ep-state))]
-    (comment (println "rejectors:" (map :id rejectors)))
     (if (empty? rejectors) workspace
         (add-branch-hyp
          workspace ep-state-hyp ep-state rejectors problem ep-state-tree

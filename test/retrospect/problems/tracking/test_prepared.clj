@@ -85,3 +85,10 @@
          (paths-str (:paths (:problem-data (:ep-state or-state))))
          => "A (red): [5,0@0 5,1@1 ]\nB (red): [5,1@1 3,3@2 3,4@3 5,5@4 ]\nC (red): [5,1@1 7,3@2 7,4@3 5,5@4 ]\nD (red): [5,5@4 5,6@5 ]"))
 
+(let [or-state (run-for-or-state split-non-ambiguity)
+      results (last (:results or-state))]
+  (facts (:PercentEventsCorrect results) => (roughly 100.0)
+         (:MeanTimeWithLabel results) => (roughly 4.00)
+         (:MeanLabelCounts results) => (roughly 1.00)
+         (paths-str (:paths (:problem-data (:ep-state or-state))))
+         => "A (red): [4,3@0 4,4@1 5,5@2 5,6@3 ]\nB (blue): [4,3@0 4,4@1 3,5@2 3,6@3 ]"))

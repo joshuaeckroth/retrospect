@@ -1,6 +1,7 @@
 (ns retrospect.problems.tracking.evaluate
   (:use [retrospect.epistemicstates :only [current-ep-state]])
   (:use [retrospect.confidences])
+  (:use [retrospect.colors])
   (:use [retrospect.workspaces :only [hyp-conf]])
   (:use [retrospect.problems.tracking.hypotheses :only [path-to-movements]])
   (:use [retrospect.problems.tracking.truedata :only [get-grid-movements]])
@@ -34,6 +35,8 @@
                 ;; does the path explain the entity?
                 match? (fn [p e] (some #(and (= (:x (meta %)) (:x (meta e)))
                                              (= (:y (meta %)) (:y (meta e)))
+                                             (match-color?
+                                              (:color (meta %)) (:color (meta e)))
                                              (= (:time (meta %)) (:time (meta e))))
                                        (flatten p)))
                 ;; find the label associated with an entity's position/time;
