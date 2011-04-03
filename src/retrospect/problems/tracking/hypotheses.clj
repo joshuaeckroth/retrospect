@@ -35,7 +35,8 @@
 (defn process-sensors
   [ep-state sensors time-now]
   (let [sensors-seen-grid (:sensors-seen-grid (:problem-data ep-state))]
-    (loop [t (:time ep-state)
+    (loop [t (inc (apply max -1 (map (comp :time meta)
+                                     (flatten (:spotted-grid (:problem-data ep-state))))))
            sg (:spotted-grid (:problem-data ep-state))
            ep ep-state]
       (if (> t time-now)
@@ -44,34 +45,6 @@
           (recur (inc t) (conj sg spotted)
                  (reduce #(add-fact %1 %2 []) ep
                          (map (comp :hyp meta) (flatten spotted)))))))))
-
-(defn score-distance
-  [x1 y1 x2 y2 maxwalk]
-  (let [d (dist x1 y1 x2 y2)
-        mw (* (math/sqrt 2.1) maxwalk)]
-    (cond
-     (<= d (/ mw 4.0)) VERY-PLAUSIBLE
-     (<= d (/ mw 3.0)) PLAUSIBLE
-     (<= d (/ mw 2.0)) NEUTRAL
-     (<= d (/ (* mw 2.0) 3.0)) IMPLAUSIBLE
-     (<= d mw) VERY-IMPLAUSIBLE)))
-
-(defn score-path
-  "spotted is a collection of sensor detections; count-seen is how
-  many sensors should have seen the same thing."
-  [path label maxwalk time-now]
-  (let [move-pairs (doall (partition 2 (interleave path (rest path))))]
-    (if (empty? move-pairs) NEUTRAL
-        (let [score (apply min
-                           (map (fn [[a b]]
-                                  (score-distance (:x (meta (first a)))
-                                                  (:y (meta (first a)))
-                                                  (:x (meta (first b)))
-                                                  (:y (meta (first b)))
-                                                  maxwalk))
-                                move-pairs))]
-          ;; give a boost to longer paths (half total time or greater)
-          (if (<= 0.5 (/ (count move-pairs) time-now)) (boost score) score)))))
 
 (defn path-to-movements
   [path]
@@ -91,6 +64,39 @@
                                                (path-str (k paths))))
                                   (sort (keys paths))))))
 
+(defn score-distance
+  [x1 y1 x2 y2 maxwalk]
+  (let [d (dist x1 y1 x2 y2)
+        mw (* (math/sqrt 2.1) maxwalk)]
+    (cond
+     (<= d (/ mw 4.0)) VERY-PLAUSIBLE
+     (<= d (/ mw 3.0)) PLAUSIBLE
+     (<= d (/ mw 2.0)) NEUTRAL
+     (<= d (/ (* mw 2.0) 3.0)) IMPLAUSIBLE
+     (<= d mw) VERY-IMPLAUSIBLE
+     :else (println "x1" x1 "y1" y1 "x2" x2 "y2" y2 "maxwalk" maxwalk "d" d "mw" mw))))
+
+(defn score-path
+  "spotted is a collection of sensor detections; count-seen is how
+  many sensors should have seen the same thing."
+  [path label maxwalk time-now]
+  (let [move-pairs (doall (partition 2 (interleave path (rest path))))]
+    (if (empty? move-pairs) NEUTRAL
+        (let [score (apply min
+                           (map (fn [[a b]]
+                                  (let [s (score-distance (:x (meta (first a)))
+                                                          (:y (meta (first a)))
+                                                          (:x (meta (first b)))
+                                                          (:y (meta (first b)))
+                                                          maxwalk)]
+                                    (when (nil? s) (println "label" label "path" path
+                                                            "path-str" (path-str path)
+                                                            "move-pairs" move-pairs))
+                                    s))
+                                move-pairs))]
+          ;; give a boost to longer paths (half total time or greater)
+          (if (<= 0.5 (/ (count move-pairs) time-now)) (boost score) score)))))
+
 (defn active-labels
   [paths]
   (sort (filter #(not (:dead (meta %))) (keys paths))))
@@ -104,24 +110,30 @@
         es))
 
 (defn find-uncovered-pos
-  "Finds the earliest spotted positions/colors that have not been covered."
+  "Finds the spotted positions/colors that have not been covered."
   [es spotted-grid]
-  (if (empty? spotted-grid) []
-      (let [grid (first spotted-grid)
-            time (:time (meta grid))
-            uncovered
-            (doall (filter identity
-                           ;; need height followed by width
-                           (for [y (range (:height (meta grid))) 
-                                 x (range (:width (meta grid)))
-                                 color [red blue gray]]
-                             (if (and (not-empty (grid-at grid x y))
-                                      (not (covered? es x y time color))
-                                      (some #(= color (:color (meta %)))
-                                            (grid-at grid x y)))
-                               {:x x :y y :time time :color color}))))]
-        (if (not-empty uncovered) uncovered
-            (recur es (rest spotted-grid))))))
+  (loop [sg spotted-grid
+         uncovered []]
+    (if (empty? sg) uncovered
+        (let [grid (first sg)
+              time (:time (meta grid))
+              uc (doall (filter identity
+                                ;; need height followed by width
+                                (for [y (range (:height (meta grid))) 
+                                      x (range (:width (meta grid)))
+                                      color [red blue gray]]
+                                  (if (and (not-empty (grid-at grid x y))
+                                           (not (covered? es x y time color))
+                                           (some #(= color (:color (meta %)))
+                                                 (grid-at grid x y)))
+                                    {:x x :y y :time time :color color}))))]
+          (recur (rest sg) (concat uncovered uc))))))
+
+(defn find-color
+  "Find first non-gray color, if there is one."
+  [paths]
+  (let [c (find-first #(not= % gray) (map (comp :color meta) (flatten paths)))]
+    (or c gray)))
 
 (defn new-label
   [labels spotted]
@@ -131,9 +143,7 @@
             (loop [i nth id ""]
               (if (<= i 25) (symbol (str id (char (+ 65 i))))
                   (recur (int (- i 26)) (str id (char (+ 65 (mod i 26))))))))
-        color (if (not-any? (fn [s] (not= gray (:color (meta s)))) spotted) gray
-                  (:color (meta (first (filter (fn [s] (not= gray (:color (meta s))))
-                                               spotted)))))]
+        color (find-color spotted)]
     (with-meta sym {:color color :nth nth})))
 
 ;; TODO: Does not support sensor noise: e.g., one sensor reporting
@@ -180,11 +190,6 @@
         (if (empty? ex-paths) paths
             (recur label ex-paths prior-covered (rest spotted-grid) maxwalk)))))
 
-(defn find-color
-  "Find first non-gray color, if there is one."
-  [paths]
-  (or (some #(not= % gray) (map (comp :color meta) (flatten paths))) gray))
-
 (defn assoc-label-path
   [label paths prior-covered spotted-grid maxwalk]
   (let [prior-paths (label paths)
@@ -196,8 +201,9 @@
     (if (= new-paths prior-paths)
       (dissoc paths label)
       ;; update the color of the label
-      (assoc paths (with-meta label (merge (meta label) {:color (find-color new-paths)}))
-             new-paths))))
+      (assoc (dissoc paths label)
+        (with-meta label (merge (meta label) {:color (find-color new-paths)}))
+        new-paths))))
 
 (defn make-hyp
   "Returns [hyp explains] vector."
@@ -232,32 +238,30 @@
         oldpaths (reduce (fn [paths l] (assoc paths l [(l paths)]))
                          (select-keys (:paths (:problem-data ep-state)) active)
                          active)
-        prior-covered (flatten (vals oldpaths))]
+        prior-covered (flatten (vals (:paths (:problem-data ep-state))))]
     (loop [paths (reduce (fn [p l] (assoc-label-path l p prior-covered spotted-grid maxwalk))
                          oldpaths (keys oldpaths))]
-      (let [uncovered (find-uncovered-pos (concat (flatten (vals paths)) prior-covered)
-                                          spotted-grid)]
-        ;; if nothing's uncovered or we should not be creating new labels
-        (if (or (empty? uncovered)
-                (and (= 0 (:ProbNewEntities params)) (= 100 (:SensorCoverage params))
-                     (not= 0 time-now)))
+      (let [uncovered (find-uncovered-pos
+                       (concat (flatten (vals paths)) prior-covered) spotted-grid)]
+        (if (empty? uncovered)
           (reduce (fn [ep [hyp explains]] (add-hyp ep hyp explains))
                   ep-whereto
                   (mapcat (fn [l] (map #(make-hyp % l maxwalk whereto-hyps time-now)
                                        (l paths)))
                           (keys paths)))
-          ;; when making a new label, consider oldpaths labels plus newpa0ths labels,
+          ;; when making a new label, consider oldpaths labels plus newpaths labels,
           ;; since the newpaths (called 'paths' here) may have dissoc'd some labels
           ;; that could not be extended
           (let [spotted (spotted-at (first uncovered))
                 label (new-label (distinct (concat active (keys paths))) spotted)
                 newpaths (assoc paths label [[spotted]])
-                ;; do a merge because the assoc-label-path func may dissoc the label
-                ;; if no extension progress is made; since we just created
-                ;; a new label we want to be sure to save the new label even if
-                ;; no extension was made
-                expaths (merge newpaths (assoc-label-path label newpaths prior-covered
-                                                          spotted-grid maxwalk))]
+                ;; the assoc-label-path func may dissoc the label if
+                ;; no extension progress is made; since we just
+                ;; created a new label we want to be sure to save the
+                ;; new label even if no extension was made
+                lpaths (assoc-label-path label newpaths prior-covered
+                                         spotted-grid maxwalk)
+                expaths (if (label lpaths) lpaths newpaths)]
             (recur expaths)))))))
 
 (defn entity-meta
@@ -371,8 +375,11 @@
 
 (defn commit-accepted
   [pdata accepted]
-  (reduce (fn [pd hyp] (let [l (:label (:data hyp)) path (:path (:data hyp))]
-                         (update-in pd [:paths] assoc l path)))
+  (reduce (fn [pd hyp]
+            ;; dissoc followed by assoc incase color (metadata) in label changed
+            (let [l (:label (:data hyp)) path (:path (:data hyp))
+                  pd-dissoc (update-in pd [:paths] dissoc l)]
+              (update-in pd-dissoc [:paths] assoc l path)))
           pdata accepted))
 
 (defn commit-decision

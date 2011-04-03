@@ -44,20 +44,17 @@
         ep-expl-cycles (update-in ep [:workspace :resources] assoc :explain-cycles 0)]
     (update-ep-state-tree est ep-expl-cycles)))
 
-(defn score-by-replaying
+(defn score-by-catching-up
   [problem ep-state-tree sensors params lazy]
-  (let [time-now (apply max (map :sensed-up-to sensors))]
-    (loop [est ep-state-tree]
-      (if (< (:time (current-ep-state est)) time-now)
-        (let [ep-state (current-ep-state est)
-              est-child (new-child-ep-state est ep-state (:time ep-state) problem)
-              ep-child (current-ep-state est-child)
-              ep-hyps ((:hypothesize-fn problem) ep-child sensors (:time ep-child) params)
-              ep-expl (explain ep-hyps)]
-          (recur (update-ep-state-tree est-child ep-expl)))
-        {:ep-state-tree est
-         :explain-cycles (:explain-cycles (:resources (:workspace (current-ep-state est))))
-         :score (ws/get-conf (:workspace (current-ep-state est)))}))))
+  (let [time-now (apply max (map :sensed-up-to sensors))
+        ep-state (current-ep-state ep-state-tree)
+        est-child (new-child-ep-state ep-state-tree ep-state (:time ep-state) problem)
+        ep-child (current-ep-state est-child)
+        ep-hyps ((:hypothesize-fn problem) ep-child sensors time-now params)
+        ep-expl (explain ep-hyps)]
+    {:ep-state-tree (update-ep-state-tree est-child ep-expl)
+     :explain-cycles (:explain-cycles (:resources (:workspace ep-expl)))
+     :score (ws/get-conf (:workspace ep-expl))}))
 
 (defn generate-ep-state-hyp
   [ep-state]
@@ -76,13 +73,13 @@
         ;; so that we don't cause another prepare-workspace before explaining
         ep-expl (assoc ep-state :workspace (ws/explain (:workspace ep-state)))
         est-new (update-ep-state-tree est ep-expl)
-        hyp (let [{score :score est-replayed :ep-state-tree ec :explain-cycles}
-                  (score-by-replaying problem est-new sensors params lazy)]
+        hyp (let [{score :score est-caught-up :ep-state-tree ec :explain-cycles}
+                  (score-by-catching-up problem est-new sensors params lazy)]
               (ws/new-hyp prefix :meta :meta score
                           (format "Marked impossible: %s"
                                   (if lconf (:id lconf)
                                       (apply str (interpose ", " (map :id hyps)))))
-                          {:ep-state-tree est-replayed :explain-cycles ec}))]
+                          {:ep-state-tree est-caught-up :explain-cycles ec}))]
     (ws/add workspace hyp [ep-state-hyp])))
 
 (defn add-uninformed-mark-impossible-hyp

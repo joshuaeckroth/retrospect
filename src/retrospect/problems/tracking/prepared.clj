@@ -60,6 +60,20 @@
      :truedata (build-truedata params (entity-paths ["1" red  0 5,4 4,4]
                                                     ["2" blue 0 5,5 5,4]))}))
 
+(def color-update
+  (let [params (merge basic-params {:Steps 3 :StepsBetween 3 :MaxWalk 10})]
+    {:params params
+     :sensors [(new-sensor (keyword "1") 0 3 0 9 false)
+               (new-sensor (keyword "2g") 4 7 0 9 true)
+               (new-sensor (keyword "3") 8 9 0 9 false)]
+     :truedata (build-truedata params (entity-paths ["1" red 0 9,5 5,5 2,5]))}))
+
+(def color-update-2
+  (let [{params :params sensors :sensors truedata :truedata} color-update]
+    {:params (assoc params :StepsBetween 1)
+     :sensors sensors
+     :truedata truedata}))
+
 (def intersection-ambiguity
   (let [params (merge basic-params {:Steps 3 :SensorSeesColor 80 :MaxWalk 3
                                     :MetaAbduction true})]
@@ -72,6 +86,11 @@
 
 (def intersection-ambiguity-nometa
   (assoc-in intersection-ambiguity [:params :MetaAbduction] false))
+
+(def intersection-ambiguity-nometa-allatonce
+  (-> intersection-ambiguity
+      (assoc-in [:params :MetaAbduction] false)
+      (assoc-in [:params :StepsBetween] 3)))
 
 (def split-ambiguity
   (let [params (merge basic-params {:Steps 4 :MaxWalk 2})]
@@ -130,12 +149,15 @@
                                                     ["5" red 0 4,5 5,5 6,5 7,5 8,5 9,5]))}))
 
 (def prepared-map
-  (sorted-map "simple-dis" simple-disappearance
+  (sorted-map "color-update" color-update
+              "color-update-2" color-update-2
               "intersect" intersection-ambiguity
               "intersect-nom" intersection-ambiguity-nometa
+              "intersect-nom-aao" intersection-ambiguity-nometa-allatonce
               "march" march
               "merge" merge-ambiguity
               "merge-2" merge-ambiguity-2
+              "simple-dis" simple-disappearance
               "split" split-ambiguity
               "split-2" split-ambiguity-2
               "split-merge" split-merge

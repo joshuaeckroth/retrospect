@@ -67,7 +67,7 @@
         (double (/ (reduce + 0 (vals hyp-map)) (count hyp-map))))))
 
 (defn believed-movements-conf
-  [prev-ep true-moves]
+  [prev-ep true-moves steps-between]
   (let [accepted (filter #(re-find #"^M?TH" (:id %))
                          (:accepted (:final (:log (:workspace prev-ep)))))
         movements (map (fn [h] {:movements (set (path-to-movements (:path (:data h))))
@@ -78,8 +78,9 @@
                  true-recent (set (filter #(<= (:time prev-ep) (:t %)) true-moves))]
              ;; the following requires that confidences are really numeric
              ;; and that neutral is 0
-             (- (* conf (count (set/intersection true-recent ms-recent)))
-                (* conf (count (set/difference ms-recent true-recent))))))
+             (/ (- (* conf (count (set/intersection true-recent ms-recent)))
+                   (* conf (count (set/difference ms-recent true-recent))))
+                steps-between)))
          movements)))
 
 (defn avg
@@ -90,7 +91,7 @@
   [ep-state results prev-ep sensors truedata params]
   (let [elmap (assoc-es-ls ep-state truedata)
         twl (reduce (partial assoc-es-twl elmap) {} (keys elmap))
-        true-moves (true-movements truedata (dec (:time prev-ep)))]
+        true-moves (true-movements truedata (dec (dec (:time ep-state))))]
     {:PercentEventsCorrect (percent-events-correct (:problem-data ep-state) true-moves)
      :MeanTimeWithLabel (avg (map #(avg (twl %)) (keys twl)))
      :MaxTimeWithLabel (avg (map #(apply max (twl %)) (keys twl)))
@@ -102,7 +103,7 @@
                   (avg (map #(dist (:ox %) (:oy %) (:x %) (:y %)) true-moves)))
      ;; average current plausibility accuracy with past
      :PlausibilityAccuracy
-     (let [bmc (believed-movements-conf prev-ep true-moves)
+     (let [bmc (believed-movements-conf prev-ep true-moves (:StepsBetween params))
            pa (if (empty? bmc) 0.0 (avg bmc))]
        (if (empty? results) pa
            (/ (+ (:PlausibilityAccuracy (last results)) pa) 2.0)))
@@ -152,6 +153,7 @@
    :ImprovePlausibilityAccuracy (calc-percent-improvement :PlausibilityAccuracy m b)
    
    :NumberEntities (:NumberEntities params)
+   :StepsBetween (:StepsBetween params)
    :AvgWalk (:AvgWalk b)
    :MaxWalk (:MaxWalk params)
    :ProbNewEntities (:ProbNewEntities params)})

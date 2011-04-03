@@ -102,7 +102,7 @@
         (let [new-e (entity-at t)
               {ox :x oy :y} (meta old-e)
               {x :x y :y} (meta new-e)
-              degree (int (- 255 (* 255 (/ (- @time-now @time-prev) (- @time-now t)))))
+              degree (int (- 255 (* 255 (/ (- @time-now t) (- @time-now @time-prev)))))
               width (double (+ 2 (* 5 (/ degree 255))))]
           (draw-move g ox oy x y (var-color degree) width))))))
 
@@ -220,7 +220,7 @@
 (defn player-update-stats
   []
   (if (> @time-now 0)
-    (let [t (dec @time-now)]
+    (let [t (int (/ (dec @time-now) (:StepsBetween @params)))]
       (. percent-events-correct-label
          (setText
           (format "%.2f%%"
@@ -248,7 +248,7 @@
                                    (:x %) (:y %) (:t %))
                           (sort-by :e (get-grid-movements
                                        @truedata
-                                       (dec @time-prev)
+                                       (max 0 (dec @time-prev))
                                        (dec (dec @time-now)))))))))
 
 (defn player-get-problem-log
