@@ -18,7 +18,7 @@
 
 (defn generate-problem-data
   [sensors params]
-  {:paths {}
+  {:paths (sorted-map)
    :sensors-seen-grid (sensors-seen-grid sensors params)
    :spotted-grid []
    :uncovered #{}

@@ -118,21 +118,60 @@
         (let [mov-hyps (make-movement-hyps (first unc) uncovered sg params)]
           (recur (concat hyps mov-hyps) (rest unc)))))))
 
-(defn find-color
-  "Find first non-gray color, if there is one."
-  [paths]
-  (let [c (find-first #(not= % gray) (map (comp :color meta) (flatten paths)))]
-    (or c gray)))
+(defn path-str
+  [path]
+  (apply str (interpose " -> " (map (fn [{:keys [x y time]}]
+                                      (format "%s,%s@%s" x y time)) path))))
 
 (defn paths-str
   [paths]
-  "")
+  (apply str (interpose "\n" (map (fn [label] (format "%s (%s): %s"
+                                                      label (color-str (:color (meta label)))
+                                                      (path-str (get paths label))))
+                                  (keys paths)))))
 
 (defn path-to-movements
   [paths]
   [])
 
+(defn find-color
+  ([move]
+     (if-let [c (find-first #(not= gray %) (map :color move))]
+       c gray))
+  ([move path]
+     (find-color (concat move path))))
+
+(defn new-label
+  [labels move]
+  (let [nth (inc (apply max -1 (map (comp :nth meta) labels)))
+        sym (if (empty? labels) (symbol "A")
+                (loop [i nth id ""]
+                  (if (<= i 25) (symbol (str id (char (+ 65 i))))
+                      (recur (int (- i 26)) (str id (char (+ 65 (mod i 26))))))))
+        color (find-color move)]
+    (with-meta sym {:color color :nth nth})))
+
+(defn is-extension?
+  [paths label det]
+  (let [last-det (last (get paths label))]
+    (and (= (select-keys last-det [:x :y :time])
+            (select-keys det [:x :y :time]))
+         (match-color? (:color det) (:color last-det)))))
+
+(defn extend-paths
+  [paths move]
+  (if-let [label (find-first #(is-extension? paths % (first move)) (keys paths))]
+    (let [path (get paths label)]
+      ;; update color
+      (-> paths
+          (dissoc label)
+          (assoc (with-meta label (merge (meta label) {:color (find-color move path)}))
+            (conj path (second move)))))
+    (assoc paths (new-label (keys paths) move) move)))
+
 (defn commit-decision
   [pdata accepted rejected shared-explains unexplained time-now]
-  pdata)
+  (let [moves (map (fn [h] [(:det (:data h)) (:det2 (:data h))])
+                   (sort-by (comp :time :det :data) accepted))]
+    (assoc pdata :paths (reduce extend-paths (:paths pdata) moves))))
 
