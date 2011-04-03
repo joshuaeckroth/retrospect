@@ -21,6 +21,7 @@
   {:paths {}
    :sensors-seen-grid (sensors-seen-grid sensors params)
    :spotted-grid []
+   :uncovered #{}
    :sensors-seen
    (list-sensors-seen (:GridWidth params) (:GridHeight params) sensors)
    :sensors-unseen
