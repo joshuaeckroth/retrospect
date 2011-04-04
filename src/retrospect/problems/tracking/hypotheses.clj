@@ -131,8 +131,15 @@
                                   (keys paths)))))
 
 (defn path-to-movements
+  [path]
+  (map (fn [[det det2]]
+         {:ox (:x det) :oy (:y det) :ot (:time det)
+          :x (:x det2) :y (:y det2) :t (:time det2)})
+       (partition 2 (interleave (butlast path) (rest path)))))
+
+(defn paths-to-movements
   [paths]
-  [])
+  (flatten (map (fn [label] (path-to-movements (get paths label))) (keys paths))))
 
 (defn find-color
   ([move]

@@ -3,16 +3,12 @@
   (:use [retrospect.confidences])
   (:use [retrospect.colors])
   (:use [retrospect.workspaces :only [hyp-conf]])
-  (:use [retrospect.problems.tracking.hypotheses :only [path-to-movements]])
+  (:use [retrospect.problems.tracking.hypotheses :only
+         [paths-to-movements path-to-movements]])
   (:use [retrospect.problems.tracking.truedata :only [get-grid-movements]])
   (:use [retrospect.problems.tracking.grid :only [dist]])
   (:require [clojure.set :as set])
   (:use [clojure.contrib.seq :only [find-first]]))
-
-(defn believed-movements
-  [pdata]
-  (let [paths (:paths pdata)]
-    (set (flatten (map path-to-movements (vals paths))))))
 
 (defn true-movements
   [truedata maxtime]
@@ -21,7 +17,9 @@
 (defn percent-events-correct
   [pdata true-moves]
   (if (empty? true-moves) 100.0
-      (double (* 100.0 (/ (count (set/intersection true-moves (believed-movements pdata)))
+      (double (* 100.0 (/ (count (set/intersection
+                                  true-moves
+                                  (set (paths-to-movements (:paths pdata)))))
                           (count true-moves))))))
 
 (defn assoc-es-ls
@@ -33,12 +31,12 @@
           (let [grid (nth truedata time)
                 es (flatten grid)
                 ;; does the path explain the entity?
-                match? (fn [p e] (some #(and (= (:x (meta %)) (:x (meta e)))
-                                             (= (:y (meta %)) (:y (meta e)))
-                                             (match-color?
-                                              (:color (meta %)) (:color (meta e)))
-                                             (= (:time (meta %)) (:time (meta e))))
-                                       (flatten p)))
+                match? (fn [path e] (some #(and (= (:x %) (:x (meta e)))
+                                                (= (:y %) (:y (meta e)))
+                                                (= (:time %) (:time (meta e)))
+                                                (match-color?
+                                                 (:color %) (:color (meta e))))
+                                          path))
                 ;; find the label associated with an entity's position/time;
                 ;; note that there is only zero or one such label
                 find-fn (fn [e] (find-first (fn [l] (match? (l paths) e)) (keys paths)))
