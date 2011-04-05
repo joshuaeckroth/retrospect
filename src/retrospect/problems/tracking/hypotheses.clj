@@ -50,14 +50,16 @@
            ep ep-state]
       (if (> t time-now)
         (update-in ep [:problem-data] assoc :spotted-grid sg :uncovered uncovered)
-        (let [spotted (sensors-to-spotted sensors t sensors-seen-grid)
-              flat-spotted (flatten spotted)]
+        (let [spotted (sensors-to-spotted sensors t sensors-seen-grid)]
           (recur (inc t) (conj sg spotted)
                  (reduce (fn [unc sp] (conj unc (select-keys (meta sp) [:x :y :time :color])))
-                         uncovered flat-spotted)
+                         uncovered (flatten spotted))
                  (reduce #(add-fact %1 %2 [])
-                         ep (mapcat (fn [s] [(:hyp-from (meta s)) (:hyp-to (meta s))])
-                                    flat-spotted))))))))
+                         ep (concat
+                             ;; get hyp-to hypotheses from prior spotted grid
+                             (map (comp :hyp-to meta) (flatten (or (last sg) [])))
+                             ;; and hyp-from hypotheses from current spotted grid
+                             (map (comp :hyp-from meta) (flatten spotted))))))))))
 
 (defn score-distance
   "Returns nil if movement is impossible."
@@ -141,50 +143,132 @@
   [paths]
   (flatten (map (fn [label] (path-to-movements (get paths label))) (keys paths))))
 
+(defn active-paths
+  [paths]
+  (vals (select-keys paths (filter (comp not :dead meta) (keys paths)))))
+
+(defn inactive-paths
+  [paths]
+  (vals (select-keys paths (filter (comp :dead meta) (keys paths)))))
+
 (defn find-color
-  ([move]
-     (if-let [c (find-first #(not= gray %) (map :color move))]
-       c gray))
-  ([move path]
-     (find-color (concat move path))))
+  [move path]
+  (if-let [c (find-first #(not= gray %) (map :color (concat move path)))]
+    c gray))
 
 (defn new-label
-  [labels move]
-  (let [nth (inc (apply max -1 (map (comp :nth meta) labels)))
-        sym (if (empty? labels) (symbol "A")
-                (loop [i nth id ""]
-                  (if (<= i 25) (symbol (str id (char (+ 65 i))))
-                      (recur (int (- i 26)) (str id (char (+ 65 (mod i 26))))))))
-        color (find-color move)]
-    (with-meta sym {:color color :nth nth})))
+  ([labels move path]
+     (let [nth (inc (apply max -1 (map (comp :nth meta) labels)))
+           sym (if (empty? labels) (symbol "A")
+                   (loop [i nth id ""]
+                     (if (<= i 25) (symbol (str id (char (+ 65 i))))
+                         (recur (int (- i 26)) (str id (char (+ 65 (mod i 26))))))))
+           color (find-color move path)]
+       (with-meta sym {:color color :nth nth})))
+  ([labels move] (new-label labels move [])))
 
 (defn is-extension?
-  [paths label [det det2]]
-  (println "is-extension?" label det det2)
-  (let [last-det (last (get paths label))]
-    (println "last-det" last-det)
-    (println "label color" (color-str (:color (meta label))))
-    (and (= (select-keys last-det [:x :y :time])
-            (select-keys det [:x :y :time]))
-         (match-color? (:color det2) (:color (meta label))))))
+  [paths label [det det2] live?]
+  (when (or (not live?) (not (:dead (meta label))))
+    (let [last-det (last (get paths label))]
+      (and (= (select-keys last-det [:x :y :time])
+              (select-keys det [:x :y :time]))
+           (match-color? (:color det2) (:color (meta label)))))))
+
+(defn update-label-color
+  "Update color if the label is gray."
+  [paths label move]
+  (if (not= gray (:color (meta label))) label
+      (let [path (get paths label)
+            color (find-color move path)]
+        (with-meta label (merge (meta label) {:color color})))))
 
 (defn extend-paths
+  [splits merges paths move]
+  (cond
+   ;; if we have a split, just mark this label dead
+   (some #{move} splits)
+   (if-let [label (find-first #(is-extension? paths % move true) (keys paths))]
+     (-> paths
+         (dissoc label)
+         (assoc (with-meta label (merge (meta label) {:dead true}))
+           (get paths label)))
+     ;; no label found, return paths
+     paths)
+   ;; if we have a merge, continue the relevant path one step, then call it dead
+   (some #{move} merges)
+   (if-let [label (find-first #(is-extension? paths % move false) (keys paths))]
+     ;; if we found what has been merged, process it
+     (let [path (get paths label)
+           label-color (update-label-color paths label move)
+           label-dead (with-meta label-color (merge (meta label-color) {:dead true}))]
+       (-> paths
+           (dissoc label)
+           (assoc label-dead (conj path (second move)))))
+     ;; otherwise just return paths
+     paths)
+   ;; otherwise, no split/merge, so find the 'live' extension
+   :else
+   (if-let [label (find-first #(is-extension? paths % move true) (keys paths))]
+     (let [path (get paths label)
+           label-color (update-label-color paths label move)]
+       (-> paths
+           (dissoc label)
+           (assoc label-color (conj path (second move)))))
+     ;; this movement continues no known path, so make a new label
+     (assoc paths (new-label (keys paths) move) move))))
+
+(defn split-path
+  "A split has a common first det and a unique second det2; we want to
+   create a new label for the det2, and give that label the color
+   discovered before the split occurred."
   [paths move]
-  (if-let [label (find-first #(is-extension? paths % move) (keys paths))]
-    (let [path (get paths label)]
-      ;; update color if the label is gray
-      (if (= gray (:color (meta label)))
-        (-> paths
-            (dissoc label)
-            (assoc (with-meta label (merge (meta label) {:color (find-color move path)}))
-              (conj path (second move))))
-        ;; if label is not gray, don't update color
-        (assoc paths label (conj path (second move)))))
-    (assoc paths (new-label (keys paths) move) move)))
+  (if (some #{(second move)} (flatten (active-paths paths)))
+    ;; split has already been incorporated; return original paths
+    paths
+    ;; otherwise, make our new label; find the path this split continues
+    ;; to obtain color information
+    (let [prior-path (find-first (fn [path] (= (last path) (first move)))
+                                 (inactive-paths paths))]
+      (assoc paths (new-label (keys paths) move prior-path) move))))
+
+(defn merge-path
+  "A merge has a common second det2 and a unique first det. We don't want
+   to make a new label for each of the unique first det's; we only want
+   one new label for each merge. This function accepts a single movement,
+   so we need to check if the merge has already been given a new label in
+   the paths map. If it has, we don't create another one."
+  [paths move]
+  (if (some #{(second move)} (flatten (active-paths paths)))
+    ;; merge has already been incorporated; return original paths
+    paths
+    ;; otherwise, make our new label; we gather all prior paths to obtain
+    ;; color information
+    (let [prior-paths (apply concat (filter (fn [path] (= (last path) (second move)))
+                                            (inactive-paths paths)))]
+      (assoc paths (new-label (keys paths) move prior-paths) [(second move)]))))
+
+(defn move-splits?
+  [moves move]
+  (some (fn [[det det2]] (and (= det (first move)) (not= det2 (second move)))) moves))
+
+(defn move-merges?
+  [moves move]
+  (some (fn [[det det2]] (and (not= det (first move)) (= det2 (second move)))) moves))
 
 (defn commit-decision
   [pdata accepted rejected shared-explains unexplained time-now]
   (let [moves (map (fn [h] [(:det (:data h)) (:det2 (:data h))])
-                   (sort-by (comp :time :det :data) accepted))]
-    (assoc pdata :paths (reduce extend-paths (:paths pdata) moves))))
+                   (sort-by (comp :time :det :data) accepted))
+        ;; find splits and merges
+        splits (filter (partial move-splits? moves) moves)
+        merges (filter (partial move-merges? moves) moves)
+        ;; extend the paths
+        ex-paths (reduce (partial extend-paths splits merges)
+                         (:paths pdata) moves)
+        ;; make new labels for splits (new label for each second det2 of movement)
+        split-paths (reduce split-path ex-paths splits)
+        ;; make new labels for merges (new label for each second det2 of movement)
+        merge-paths (reduce merge-path split-paths merges)]
+    (assoc pdata :paths merge-paths)))
 
