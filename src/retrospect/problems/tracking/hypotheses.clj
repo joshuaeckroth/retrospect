@@ -159,21 +159,27 @@
     (with-meta sym {:color color :nth nth})))
 
 (defn is-extension?
-  [paths label det]
+  [paths label [det det2]]
+  (println "is-extension?" label det det2)
   (let [last-det (last (get paths label))]
+    (println "last-det" last-det)
+    (println "label color" (color-str (:color (meta label))))
     (and (= (select-keys last-det [:x :y :time])
             (select-keys det [:x :y :time]))
-         (match-color? (:color det) (:color last-det)))))
+         (match-color? (:color det2) (:color (meta label))))))
 
 (defn extend-paths
   [paths move]
-  (if-let [label (find-first #(is-extension? paths % (first move)) (keys paths))]
+  (if-let [label (find-first #(is-extension? paths % move) (keys paths))]
     (let [path (get paths label)]
-      ;; update color
-      (-> paths
-          (dissoc label)
-          (assoc (with-meta label (merge (meta label) {:color (find-color move path)}))
-            (conj path (second move)))))
+      ;; update color if the label is gray
+      (if (= gray (:color (meta label)))
+        (-> paths
+            (dissoc label)
+            (assoc (with-meta label (merge (meta label) {:color (find-color move path)}))
+              (conj path (second move))))
+        ;; if label is not gray, don't update color
+        (assoc paths label (conj path (second move)))))
     (assoc paths (new-label (keys paths) move) move)))
 
 (defn commit-decision
