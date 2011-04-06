@@ -73,8 +73,6 @@
 
 (defn run-simulation-step
   [problem truedata or-state params monitor? player?]
-  (println "Running step from time" (:time (:ep-state or-state))
-           "meta" (:meta-abduction or-state))
   (let [time (:time (:ep-state or-state))
         ors-sensors (proceed-n-steps (:StepsBetween params) time truedata or-state)
         time-now (+ (dec (:StepsBetween params)) time)
@@ -103,7 +101,6 @@
 
 (defn run-comparative
   [problem monitor? params]
-  (println "Running comparative" params)
   (let [truedata ((:truedata-fn problem) params)
         sensors ((:sensor-gen-fn problem) params)
         problem-data ((:gen-problem-data-fn problem) sensors params)

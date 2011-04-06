@@ -7,10 +7,16 @@
   (:use [retrospect.problems.tracking.prepared])
   (:use [retrospect.problems.tracking.problem :only [tracking-problem]])
   (:use [retrospect.problems.tracking.hypotheses :only [paths-str]])
-  (:use [retrospect.confidences]))
+  (:use [retrospect.confidences])
+  (:use [retrospect.random]))
+
+(defn newlines
+  [& strs]
+  (apply str (interpose "\n" strs)))
 
 (defn run-for-or-state
   [prepared]
+  (set-seed 10)
   (let [params (:params prepared)
         meta-abduction (:MetaAbduction params)
         lazy (:Lazy params)
@@ -28,6 +34,7 @@
 
 (defn run-for-results
   [prepared]
+  (set-seed 10)
   (let [params (:params prepared)
         meta-abduction (:MetaAbduction params)
         lazy (:Lazy params)
@@ -39,85 +46,148 @@
     (binding [last-id 0]
       (run-simulation tracking-problem truedata or-state params false))))
 
-;; color-update
+;; color-updates
 (let [or-state (run-for-or-state color-update)
       results (last (:results or-state))]
-  (facts (:PercentEventsCorrect results) => (roughly 100.0)
-         (:MeanTimeWithLabel results) => (roughly 3.0)
-         (:MeanLabelCounts results) => (roughly 1.0)
-         (paths-str (:paths (:problem-data (:ep-state or-state))))
-         => "A (red): [9,5@0 5,5@1 2,5@2 ]"))
+  (facts
+   "Color update"
+   (:PercentEventsCorrect results) => (roughly 100.0)
+   (:MeanTimeWithLabel results) => (roughly 3.0)
+   (:MeanLabelCounts results) => (roughly 1.0)
+   (paths-str (:paths (:problem-data (:ep-state or-state))))
+   => "A (red): 9,5@0 -> 5,5@1 -> 2,5@2"))
 
-;; color-update-2
 (let [or-state (run-for-or-state color-update-2)
       results (last (:results or-state))]
-  (facts (:PercentEventsCorrect results) => (roughly 100.0)
-         (:MeanTimeWithLabel results) => (roughly 3.0)
-         (:MeanLabelCounts results) => (roughly 1.0)
-         (paths-str (:paths (:problem-data (:ep-state or-state))))
-         => "A (red): [9,5@0 5,5@1 2,5@2 ]"))
+  (facts
+   "Color update 2"
+   (:PercentEventsCorrect results) => (roughly 100.0)
+   (:MeanTimeWithLabel results) => (roughly 3.0)
+   (:MeanLabelCounts results) => (roughly 1.0)
+   (paths-str (:paths (:problem-data (:ep-state or-state))))
+   => "A (red): 9,5@0 -> 5,5@1 -> 2,5@2"))
 
+;; intersections
 (let [results (run-for-results intersection-ambiguity)]
-  (facts (:PercentEventsCorrect results) => (roughly 100.0)
-         (:MetaAbductions results) => 1
-         (:MeanTimeWithLabel results) => (roughly 3.0)
-         (:MeanLabelCounts results) => (roughly 1.0)))
+  (facts
+   "Intersection ambiguity (with meta)"
+   (:PercentEventsCorrect results) => (roughly 100.0)
+   (:MetaAbductions results) => 1
+   (:MeanTimeWithLabel results) => (roughly 3.0)
+   (:MeanLabelCounts results) => (roughly 1.0)))
 
-(let [results (run-for-results intersection-ambiguity-nometa)]
-  (facts (:PercentEventsCorrect results) => (roughly 0.0)
-         (:MetaAbductions results) => 0
-         (:MeanTimeWithLabel results) => (roughly 1.0)))
+(let [or-state (run-for-or-state intersection-ambiguity-nometa)
+      results (last (:results or-state))]
+  (facts
+   "Intersection ambiguity (no meta)"
+   (:PercentEventsCorrect results) => (roughly 50.0)
+   (:MetaAbductions results) => 0
+   (:MeanTimeWithLabel results) => (roughly 1.0)
+   (:MeanLabelCounts results) => (roughly 3.0)
+   (paths-str (:paths (:problem-data (:ep-state or-state))))
+   => (newlines "A (red): 5,7@0 -> 4,7@1"
+                "B (blue): 5,4@0 -> 4,4@1"
+                "C (red): 4,4@1 -> 2,3@2"
+                "D (blue): 4,7@1 -> 2,8@2")))
 
 (let [results (run-for-results intersection-ambiguity-nometa-allatonce)]
-  (facts (:PercentEventsCorrect results) => (roughly 100.0)
-         (:MetaAbductions results) => 0
-         (:MeanTimeWithLabel results) => (roughly 3.0)
-         (:MeanLabelCounts results) => (roughly 1.0)))
+  (facts
+   "Intersection ambiguity (no meta, all at once)"
+   (:PercentEventsCorrect results) => (roughly 100.0)
+   (:MetaAbductions results) => 0
+   (:MeanTimeWithLabel results) => (roughly 3.0)
+   (:MeanLabelCounts results) => (roughly 1.0)))
 
+;; splits
 (let [or-state (run-for-or-state split-ambiguity)
       results (last (:results or-state))]
-  (facts (:PercentEventsCorrect results) => (roughly 100.0)
-         (:MeanTimeWithLabel results) => (roughly 1.66 0.1)
-         (:MeanLabelCounts results) => (roughly 2.5)
-         (paths-str (:paths (:problem-data (:ep-state or-state))))
-         => "A (red): [4,0@0 4,2@1 ]\nB (red): [4,2@1 2,4@2 2,6@3 ]\nC (red): [4,2@1 6,4@2 6,6@3 ]"))
+  (facts
+   "Split ambiguity"
+   (:PercentEventsCorrect results) => (roughly 100.0)
+   (:MeanTimeWithLabel results) => (roughly 2.0)
+   (:MeanLabelCounts results) => (roughly 2.0)
+   (paths-str (:paths (:problem-data (:ep-state or-state))))
+   => (newlines "A (red): 4,0@0 -> 4,2@1"
+                "B (red): 4,2@1 -> 2,4@2 -> 2,6@3"
+                "C (red): 4,2@1 -> 6,4@2 -> 6,6@3")))
 
 (let [or-state (run-for-or-state split-ambiguity-2)
       results (last (:results or-state))]
-  (facts (:PercentEventsCorrect results) => (roughly 100.0)
-         (:MeanTimeWithLabel results) => (roughly 1.66 0.1)
-         (:MeanLabelCounts results) => (roughly 2.5)
-         (paths-str (:paths (:problem-data (:ep-state or-state))))
-         => "A (red): [1,0@0 1,1@1 ]\nB (blue): [6,0@0 6,1@1 ]\nC (red): [1,1@1 0,2@2 0,3@3 ]\nD (red): [1,1@1 2,2@2 2,3@3 ]\nE (blue): [6,1@1 5,2@2 5,3@3 ]\nF (blue): [6,1@1 7,2@2 7,3@3 ]"))
+  (facts
+   "Split ambiguity 2"
+   (:PercentEventsCorrect results) => (roughly 100.0)
+   (:MeanTimeWithLabel results) => (roughly 2.0)
+   (:MeanLabelCounts results) => (roughly 2.0)
+   (paths-str (:paths (:problem-data (:ep-state or-state))))
+   => (newlines "A (red): 1,0@0 -> 1,1@1"
+                "B (blue): 6,0@0 -> 6,1@1"
+                "C (red): 1,1@1 -> 0,2@2 -> 0,3@3"
+                "D (red): 1,1@1 -> 2,2@2 -> 2,3@3"
+                "E (blue): 6,1@1 -> 7,2@2 -> 7,3@3"
+                "F (blue): 6,1@1 -> 5,2@2 -> 5,3@3")))
 
+;; merges
 (let [or-state (run-for-or-state merge-ambiguity)
       results (last (:results or-state))]
-  (facts (:PercentEventsCorrect results) => (roughly 100.0)
-         (:MeanTimeWithLabel results) => (roughly 2.0)
-         (:MeanLabelCounts results) => (roughly 2.0)
-         (paths-str (:paths (:problem-data (:ep-state or-state))))
-         => "A (red): [4,0@0 4,2@1 5,4@2 ]\nB (red): [6,0@0 6,2@1 5,4@2 ]\nC (red): [5,4@2 5,6@3 ]"))
+  (facts
+   "Merge ambiguity"
+   (:PercentEventsCorrect results) => (roughly 100.0)
+   (:MeanTimeWithLabel results) => (roughly 1.66 0.1)
+   (:MeanLabelCounts results) => (roughly 2.5)
+   (paths-str (:paths (:problem-data (:ep-state or-state))))
+   => (newlines "A (red): 4,0@0 -> 4,2@1 -> 5,4@2"
+                "B (red): 6,0@0 -> 6,2@1 -> 5,4@2"
+                "C (red): 5,4@2 -> 5,6@3")))
 
 (let [or-state (run-for-or-state merge-ambiguity-2)
       results (last (:results or-state))]
-  (facts (:PercentEventsCorrect results) => (roughly 100.0)
-         (:MeanTimeWithLabel results) => (roughly 2.0)
-         (:MeanLabelCounts results) => (roughly 2.0)
-         (paths-str (:paths (:problem-data (:ep-state or-state))))
-         => "A (red): [0,0@0 0,2@1 1,4@2 ]\nB (red): [2,0@0 2,2@1 1,4@2 ]\nC (blue): [7,0@0 7,2@1 8,4@2 ]\nD (blue): [9,0@0 9,2@1 8,4@2 ]\nE (red): [1,4@2 1,6@3 ]\nF (blue): [8,4@2 8,6@3 ]"))
+  (facts
+   "Merge ambiguity 2"
+   (:PercentEventsCorrect results) => (roughly 100.0)
+   (:MeanTimeWithLabel results) => (roughly 1.66 0.1)
+   (:MeanLabelCounts results) => (roughly 2.5)
+   (paths-str (:paths (:problem-data (:ep-state or-state))))
+   => (newlines "A (blue): 7,0@0 -> 7,2@1 -> 8,4@2"
+                "B (red): 2,0@0 -> 2,2@1 -> 1,4@2"
+                "C (blue): 9,0@0 -> 9,2@1 -> 8,4@2"
+                "D (red): 0,0@0 -> 0,2@1 -> 1,4@2"
+                "E (blue): 8,4@2 -> 8,6@3"
+                "F (red): 1,4@2 -> 1,6@3")))
 
+;; splits + merges
 (let [or-state (run-for-or-state split-merge)
       results (last (:results or-state))]
-  (facts (:PercentEventsCorrect results) => (roughly 100.0)
-         (:MeanTimeWithLabel results) => (roughly 1.75)
-         (:MeanLabelCounts results) => (roughly 3.50)
-         (paths-str (:paths (:problem-data (:ep-state or-state))))
-         => "A (red): [5,0@0 5,1@1 ]\nB (red): [5,1@1 3,3@2 3,4@3 5,5@4 ]\nC (red): [5,1@1 7,3@2 7,4@3 5,5@4 ]\nD (red): [5,5@4 5,6@5 ]"))
+  (facts
+   "Split + merge"
+   (:PercentEventsCorrect results) => (roughly 100.0)
+   (:MeanTimeWithLabel results) => (roughly 1.75)
+   (:MeanLabelCounts results) => (roughly 3.50)
+   (paths-str (:paths (:problem-data (:ep-state or-state))))
+   => (newlines "A (red): 5,0@0 -> 5,1@1"
+                "B (red): 5,1@1 -> 3,3@2 -> 3,4@3 -> 5,5@4"
+                "C (red): 5,1@1 -> 7,3@2 -> 7,4@3 -> 5,5@4"
+                "D (red): 5,5@4 -> 5,6@5")))
 
+(let [or-state (run-for-or-state split-merge-allatonce)
+      results (last (:results or-state))]
+  (facts
+   "Split + merge (all at once)"
+   (:PercentEventsCorrect results) => (roughly 100.0)
+   (:MeanTimeWithLabel results) => (roughly 1.75)
+   (:MeanLabelCounts results) => (roughly 3.5)
+   (paths-str (:paths (:problem-data (:ep-state or-state))))
+   => (newlines "A (red): 5,0@0 -> 5,1@1"
+                "B (red): 5,1@1 -> 7,3@2 -> 7,4@3 -> 5,5@4"
+                "C (red): 5,1@1 -> 3,3@2 -> 3,4@3 -> 5,5@4"
+                "D (red): 5,5@4 -> 5,6@5")))
+
+;; non-splits
 (let [or-state (run-for-or-state split-non-ambiguity)
       results (last (:results or-state))]
-  (facts (:PercentEventsCorrect results) => (roughly 100.0)
-         (:MeanTimeWithLabel results) => (roughly 4.00)
-         (:MeanLabelCounts results) => (roughly 1.00)
-         (paths-str (:paths (:problem-data (:ep-state or-state))))
-         => "A (red): [4,3@0 4,4@1 5,5@2 5,6@3 ]\nB (blue): [4,3@0 4,4@1 3,5@2 3,6@3 ]"))
+  (facts "Non-split"
+   (:PercentEventsCorrect results) => (roughly 100.0)
+   (:MeanTimeWithLabel results) => (roughly 4.00)
+   (:MeanLabelCounts results) => (roughly 1.00)
+   (paths-str (:paths (:problem-data (:ep-state or-state))))
+   => (newlines "A (red): 4,3@0 -> 4,4@1 -> 5,5@2 -> 5,6@3"
+                "B (blue): 4,3@0 -> 4,4@1 -> 3,5@2 -> 3,6@3")))
