@@ -258,17 +258,28 @@
 
 (defn commit-decision
   [pdata accepted rejected shared-explains unexplained time-now]
-  (let [moves (map (fn [h] [(:det (:data h)) (:det2 (:data h))])
-                   (sort-by (comp :time :det :data) accepted))
-        ;; find splits and merges
-        splits (filter (partial move-splits? moves) moves)
-        merges (filter (partial move-merges? moves) moves)
-        ;; extend the paths
-        ex-paths (reduce (partial extend-paths splits merges)
-                         (:paths pdata) moves)
-        ;; make new labels for splits (new label for each second det2 of movement)
-        split-paths (reduce split-path ex-paths splits)
-        ;; make new labels for merges (new label for each second det2 of movement)
-        merge-paths (reduce merge-path split-paths merges)]
-    (assoc pdata :paths merge-paths)))
+  (if (empty? accepted) pdata
+      (let [moves (map (fn [h] [(:det (:data h)) (:det2 (:data h))])
+                       (sort-by (comp :time :det :data) accepted))
+            ;; find splits and merges
+            splits (filter (partial move-splits? moves) moves)
+            merges (filter (partial move-merges? moves) moves)
+            maxtime (dec (apply max (map :time (flatten moves))))]
+        ;; incorporate the decision one time step at a time
+        (loop [t (apply min (map :time (flatten moves)))
+               paths (:paths pdata)]
+          (if (> t maxtime) (assoc pdata :paths paths)
+              (let [tmoves (filter #(= t (:time (first %))) moves)
+                    tsplits (filter #(= t (:time (first %))) splits)
+                    tmerges (filter #(= t (:time (first %))) merges)
+                    
+                    ;; extend the paths
+                    ex-paths (reduce (partial extend-paths tsplits tmerges) paths tmoves)
+                    
+                    ;; make new labels for splits (new label for each second det2 of movement)
+                    split-paths (reduce split-path ex-paths tsplits)
+                    
+                    ;; make new labels for merges (new label for each second det2 of movement)
+                    merge-paths (reduce merge-path split-paths tmerges)]
+                (recur (inc t) merge-paths)))))))
 
