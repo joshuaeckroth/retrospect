@@ -91,8 +91,10 @@
                                      (grid-at (nth spotted-grid (:time d))
                                               (:x d) (:y d))))
         desc-fn (fn [det det2 explains]
-                  (format "%s->%s\nExplains: %s"
-                          det det2 (apply str (interpose "," (map :id explains)))))]
+                  (format "%d,%d@%d -> %d,%d@%d\nExplains: %s"
+                          (:x det) (:y det) (:time det)
+                          (:x det2) (:y det2) (:time det2)
+                          (apply str (interpose "," (map :id explains)))))]
     (filter identity
             (for [det2 uncovered]
               (when-let [score (matched-and-in-range? det det2 params)]

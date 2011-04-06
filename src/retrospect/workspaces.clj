@@ -29,7 +29,8 @@
       :graph-static (digraph)
       :hyp-confidences {}
       :log {:added [] :forced [] :best [] :accrej []
-            :final {:accepted [] :rejected [] :shared-explains [] :unexplained []}
+            :final {:accepted [] :rejected [] :shared-explains []
+                    :unexplained [] :unaccepted []}
             :confidence nil}
       :dot []
       :confidence nil
@@ -234,7 +235,12 @@
                      {:accepted (:accepted workspace)
                       :rejected (:rejected workspace)
                       :shared-explains (find-shared-explains workspace)
-                      :unexplained (find-unexplained workspace)})]
+                      :unexplained (find-unexplained workspace)
+                      :unaccepted (set/difference
+                                   (get-hyps workspace)
+                                   (:accepted workspace)
+                                   (:rejected workspace)
+                                   (:forced workspace))})]
     (assoc-in ws [:log :confidence] (measure-conf ws))))
 
 (defn find-best

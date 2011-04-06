@@ -53,7 +53,8 @@
                  "Final" {"Accepted" (list-hyps (:accepted (:final wslog)))
                           "Rejected" (list-hyps (:rejected (:final wslog)))
                           "Shared explains" (list-hyps (:shared-explains (:final wslog)))
-                          "Unexplained" (list-hyps (:unexplained (:final wslog)))}})
+                          "Unexplained" (list-hyps (:unexplained (:final wslog)))
+                          "Unaccepted" (list-hyps (:unaccepted (:final wslog)))}})
         ep-fn (fn [ep]
                 (let [mw (if (or in-meta? (not (:meta-abduction @or-state))) {}
                              {"Meta Workspace"
