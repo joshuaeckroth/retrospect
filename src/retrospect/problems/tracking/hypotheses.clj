@@ -186,17 +186,23 @@
         (with-meta label (merge (meta label) {:color color})))))
 
 (defn extend-paths
-  [splits merges paths move]
+  "Given a movement, try to extend an existing path to incorporate that movement.
+   Clearly, the only valid path to extend is the one that ends where
+   the movement begins, and such a path should only be extended if the
+   movement is not involved in a split or merge. If a movement cannot
+   be incorporated, mark it as 'bad'."
+  [splits merges {:keys [paths bad]} move]
   (cond
    ;; if we have a split, just mark this label dead
    (some #{move} splits)
    (if-let [label (find-first #(is-extension? paths % move true) (keys paths))]
-     (-> paths
-         (dissoc label)
-         (assoc (with-meta label (merge (meta label) {:dead true}))
-           (get paths label)))
+     {:paths (-> paths
+                 (dissoc label)
+                 (assoc (with-meta label (merge (meta label) {:dead true}))
+                   (get paths label)))
+      :bad bad}
      ;; no label found, return paths
-     paths)
+     {:paths paths :bad bad})
    ;; if we have a merge, continue the relevant path one step, then call it dead
    (some #{move} merges)
    (if-let [label (find-first #(is-extension? paths % move false) (keys paths))]
@@ -204,21 +210,25 @@
      (let [path (get paths label)
            label-color (update-label-color paths label move)
            label-dead (with-meta label-color (merge (meta label-color) {:dead true}))]
-       (-> paths
-           (dissoc label)
-           (assoc label-dead (conj path (second move)))))
+       {:paths (-> paths
+                   (dissoc label)
+                   (assoc label-dead (conj path (second move))))
+        :bad bad})
      ;; otherwise just return paths
-     paths)
+     {:paths paths :bad bad})
    ;; otherwise, no split/merge, so find the 'live' extension
    :else
    (if-let [label (find-first #(is-extension? paths % move true) (keys paths))]
      (let [path (get paths label)
            label-color (update-label-color paths label move)]
-       (-> paths
-           (dissoc label)
-           (assoc label-color (conj path (second move)))))
+       {:paths (-> paths
+                   (dissoc label)
+                   (assoc label-color (conj path (second move))))
+        :bad bad})
      ;; this movement continues no known path, so make a new label
-     (assoc paths (new-label (keys paths) move) move))))
+     (if (or (empty? paths) (= 0 (:time (first move))))
+       {:paths (assoc paths (new-label (keys paths) move) move) :bad bad}
+       {:paths paths :bad (conj bad move)}))))
 
 (defn split-path
   "A split has a common first det and a unique second det2; we want to
@@ -261,7 +271,8 @@
 (defn commit-decision
   [pdata accepted rejected shared-explains unexplained time-now]
   (if (empty? accepted) pdata
-      (let [moves (map (fn [h] [(:det (:data h)) (:det2 (:data h))])
+      (let [moves (map (fn [h]
+                         (with-meta [(:det (:data h)) (:det2 (:data h))] {:hyp h}))
                        (sort-by (comp :time :det :data) accepted))
             ;; find splits and merges
             splits (filter (partial move-splits? moves) moves)
@@ -269,19 +280,24 @@
             maxtime (dec (apply max (map :time (flatten moves))))]
         ;; incorporate the decision one time step at a time
         (loop [t (apply min (map :time (flatten moves)))
-               paths (:paths pdata)]
-          (if (> t maxtime) (assoc pdata :paths paths)
-              (let [tmoves (filter #(= t (:time (first %))) moves)
-                    tsplits (filter #(= t (:time (first %))) splits)
-                    tmerges (filter #(= t (:time (first %))) merges)
+               paths (:paths pdata)
+               bad #{}]
+          (if (> t maxtime)
+            (assoc pdata :paths paths :bad (map (comp :hyp meta) bad))
+            (let [tmoves (filter #(= t (:time (first %))) moves)
+                  tsplits (filter #(= t (:time (first %))) splits)
+                  tmerges (filter #(= t (:time (first %))) merges)
                     
-                    ;; extend the paths
-                    ex-paths (reduce (partial extend-paths tsplits tmerges) paths tmoves)
+                  ;; extend the paths
+                  {ex-paths :paths newbad :bad}
+                  (reduce (partial extend-paths tsplits tmerges)
+                          {:paths paths :bad bad} tmoves)
                     
-                    ;; make new labels for splits (new label for each second det2 of movement)
-                    split-paths (reduce split-path ex-paths tsplits)
+                  ;; make new labels for splits
+                  ;; (new label for each second det2 of movement)
+                  split-paths (reduce split-path ex-paths tsplits)
                     
-                    ;; make new labels for merges (new label for each second det2 of movement)
-                    merge-paths (reduce merge-path split-paths tmerges)]
-                (recur (inc t) merge-paths)))))))
-
+                  ;; make new labels for merges
+                  ;; (new label for each second det2 of movement)
+                  merge-paths (reduce merge-path split-paths tmerges)]
+              (recur (inc t) merge-paths newbad)))))))

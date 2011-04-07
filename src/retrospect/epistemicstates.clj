@@ -84,14 +84,6 @@
   [ep-state-tree]
   (nil? (zip/down ep-state-tree)))
 
-(defn goto-next-ep-state
-  [ep-state-tree]
-  (zip/next ep-state-tree))
-
-(defn left-ep-state
-  [ep-state-tree]
-  (zip/node (zip/left ep-state-tree)))
-
 (defn goto-ep-state
   [ep-state-tree id]
   (loop [loc (zip/down (zip-ep-state-tree (:children (zip/root ep-state-tree))))]
@@ -159,27 +151,6 @@
      (ws/init-workspace workspace)
      ((:commit-decision-fn problem) (:problem-data ep-state)
       accepted rejected shared-explains unexplained time-now))))
-
-(defn find-least-confident-decision
-  "Finds most recent (up the path) lowest-confidence decision; returns
-   the epistemic state; returns nil if there are no past states."
-  [ep-state-tree]
-  (if-not (root-ep-state? (zip/node (zip/up ep-state-tree)))
-    (loop [loc (zip/up ep-state-tree)
-           least-conf (zip/node loc)]
-      (cond
-       (root-ep-state? (zip/node loc)) least-conf
-
-       (< (ws/get-conf (:workspace (zip/node loc)))
-          (ws/get-conf (:workspace least-conf)))
-       (recur (zip/up loc) (zip/node loc))
-       
-       :else
-       (recur (zip/up loc) least-conf)))))
-
-(defn count-branches
-  [ep-state-tree branch]
-  (count (zip/children (zip/up (goto-ep-state ep-state-tree (:id branch))))))
 
 (defn new-branch-ep-state
   [ep-state-tree branch]

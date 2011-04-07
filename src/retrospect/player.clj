@@ -16,7 +16,7 @@
   (:use [retrospect.onerun :only [init-one-run-state]])
   (:use [retrospect.epistemicstates :only
          [list-ep-states current-ep-state goto-ep-state root-ep-state?
-          goto-next-ep-state previous-ep-state non-accepted-current-ep-state?]]))
+          previous-ep-state non-accepted-current-ep-state?]]))
 
 (. UIManager setLookAndFeel (. UIManager getSystemLookAndFeelClassName))
 
@@ -98,10 +98,8 @@
   (if @ep-selected
     (let [id (re-find #"^[A-Z]+" @ep-selected)
           est (goto-ep-state (:ep-state-tree @or-state) id)
-          ep-state (current-ep-state est)
-          est2 (if (non-accepted-current-ep-state? est) est
-                   (goto-next-ep-state est))]
-      (dosync (alter or-state assoc :ep-state-tree est2 :ep-state (current-ep-state est2)))
+          ep-state (current-ep-state est)]
+      (dosync (alter or-state assoc :ep-state-tree est :ep-state (current-ep-state est)))
       (update-everything))))
 
 (defn step

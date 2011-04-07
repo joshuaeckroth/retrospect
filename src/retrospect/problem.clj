@@ -76,15 +76,21 @@
   (let [time (:time (:ep-state or-state))
         ors-sensors (proceed-n-steps (:StepsBetween params) time truedata or-state)
         time-now (+ (dec (:StepsBetween params)) time)
-        start-time (. System (nanoTime)) ;; start the clock
+        ;; start the clock
+        start-time (. System (nanoTime))
         ors-hyps (hypothesize problem ors-sensors time-now params)
         ep-explained (explain (:ep-state ors-hyps))
-        ors-expl (update-one-run-state ors-sensors ep-explained)
-        ors-meta (explain-meta problem ors-expl params)
-        ep-meta (current-ep-state (:ep-state-tree ors-meta))
-        ors-next (proceed-one-run-state ors-meta ep-meta time-now problem)
-        ms (/ (- (. System (nanoTime)) start-time) 1000000.0) ;; stop the clock
-        ors-resources (update-in ors-next [:resources] assoc :milliseconds ms)
+        ors-expl (proceed-one-run-state ors-hyps ep-explained time-now problem)
+        ;; perform meta-abduction if the :bad set is non-empty
+        ;; and meta-abduction is turned 'on'
+        ors-meta
+        (let [bad (:bad (:problem-data (current-ep-state (:ep-state-tree ors-expl))))]
+          (if (or (empty? bad) (not (:meta-abduction ors-expl)))
+            ors-expl
+            (explain-meta problem ors-expl bad params)))
+        ;; stop the clock
+        ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
+        ors-resources (update-in ors-meta [:resources] assoc :milliseconds ms)
         ors-results (if-not (or player? monitor?) ors-resources
                             (evaluate problem truedata ors-resources params))]
     (if (and (not player?) monitor?)
