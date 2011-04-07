@@ -67,8 +67,9 @@
   (let [d (dist x1 y1 x2 y2)
         mw (* (math/sqrt 2.1) maxwalk)]
     (cond
-     (<= d (/ mw 4.0)) VERY-PLAUSIBLE
-     (<= d (/ mw 3.0)) PLAUSIBLE
+     (<= d (/ mw 8.0)) NEUTRAL
+     (<= d (/ mw 6.0)) PLAUSIBLE
+     (<= d (/ mw 3.0)) VERY-PLAUSIBLE
      (<= d (/ mw 2.0)) NEUTRAL
      (<= d (/ (* mw 2.0) 3.0)) IMPLAUSIBLE
      (<= d mw) VERY-IMPLAUSIBLE)))
