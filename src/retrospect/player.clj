@@ -140,7 +140,7 @@
   (frame :title "Player"
          :layout (GridBagLayout.)
          :constrains (java.awt.GridBagConstraints.)
-         :show true :size [800 600] :on-close :exit
+         :show true :size [900 600] :on-close :exit
          [:gridx 0 :gridy 0 :gridheight 8 :weightx 1.0 :weighty 1.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
           _ (doto (JTabbedPane.)
