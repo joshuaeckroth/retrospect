@@ -48,10 +48,14 @@
         est-child (new-child-ep-state ep-state-tree ep-state (dec time-now) problem)
         ep-child (current-ep-state est-child)
         ep-hyps ((:hypothesize-fn problem) ep-child sensors time-now params)
-        ep-expl (explain ep-hyps)]
-    {:ep-state-tree (new-child-ep-state est-child ep-expl time-now problem)
+        ep-expl (explain ep-hyps)
+        est-final (new-child-ep-state est-child ep-expl time-now problem)]
+    {:ep-state-tree est-final
      :explain-cycles (:explain-cycles (:resources (:workspace ep-expl)))
-     :score (ws/get-conf (:workspace ep-expl))}))
+     ;; penalize a result that has 'bad' hyps
+     :score (if (not-empty (:bad (:problem-data (current-ep-state est-final))))
+              (penalize (ws/get-conf (:workspace ep-expl)))
+              (ws/get-conf (:workspace ep-expl)))}))
 
 (defn add-branch-hyp
   [workspace ep-state-hyp branchable hyps problem ep-state-tree
