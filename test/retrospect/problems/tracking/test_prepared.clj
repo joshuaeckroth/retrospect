@@ -67,6 +67,12 @@
    (paths-str (:paths (:problem-data (:ep-state or-state))))
    => "A (red): 9,5@0 -> 5,5@1 -> 2,5@2"))
 
+(let [results (run-for-results gray-in-range)]
+  (facts "Grays did not cause a problem"
+         (:PercentEventsCorrect results) => (roughly 100.0)
+         (:MeanTimeWithLabel results) => (roughly 3.0)
+         (:MeanLabelCounts results) => (roughly 1.0)))
+
 ;; intersections
 (let [results (run-for-results intersection-ambiguity)]
   (facts
@@ -107,7 +113,7 @@
    (:MeanTimeWithLabel results) => (roughly 2.0)
    (:MeanLabelCounts results) => (roughly 2.0)
    (paths-str (:paths (:problem-data (:ep-state or-state))))
-   => (newlines "A (red): 4,0@0 -> 4,2@1"
+   => (newlines "A* (red): 4,0@0 -> 4,2@1"
                 "B (red): 4,2@1 -> 2,4@2 -> 2,6@3"
                 "C (red): 4,2@1 -> 6,4@2 -> 6,6@3")))
 
@@ -119,8 +125,8 @@
    (:MeanTimeWithLabel results) => (roughly 2.0)
    (:MeanLabelCounts results) => (roughly 2.0)
    (paths-str (:paths (:problem-data (:ep-state or-state))))
-   => (newlines "A (blue): 6,0@0 -> 6,1@1"
-                "B (red): 1,0@0 -> 1,1@1"
+   => (newlines "A* (blue): 6,0@0 -> 6,1@1"
+                "B* (red): 1,0@0 -> 1,1@1"
                 "C (red): 1,1@1 -> 0,2@2 -> 0,3@3"
                 "D (red): 1,1@1 -> 2,2@2 -> 2,3@3"
                 "E (blue): 6,1@1 -> 5,2@2 -> 5,3@3"
@@ -135,8 +141,8 @@
    (:MeanTimeWithLabel results) => (roughly 1.66 0.1)
    (:MeanLabelCounts results) => (roughly 2.5)
    (paths-str (:paths (:problem-data (:ep-state or-state))))
-   => (newlines "A (red): 6,0@0 -> 6,2@1 -> 5,4@2"
-                "B (red): 4,0@0 -> 4,2@1 -> 5,4@2"
+   => (newlines "A* (red): 6,0@0 -> 6,2@1 -> 5,4@2"
+                "B* (red): 4,0@0 -> 4,2@1 -> 5,4@2"
                 "C (red): 5,4@2 -> 5,6@3")))
 
 (let [or-state (run-for-or-state merge-ambiguity-2)
@@ -147,10 +153,10 @@
    (:MeanTimeWithLabel results) => (roughly 1.66 0.1)
    (:MeanLabelCounts results) => (roughly 2.5)
    (paths-str (:paths (:problem-data (:ep-state or-state))))
-   => (newlines "A (blue): 9,0@0 -> 9,2@1 -> 8,4@2"
-                "B (red): 0,0@0 -> 0,2@1 -> 1,4@2"
-                "C (red): 2,0@0 -> 2,2@1 -> 1,4@2"
-                "D (blue): 7,0@0 -> 7,2@1 -> 8,4@2"
+   => (newlines "A* (blue): 9,0@0 -> 9,2@1 -> 8,4@2"
+                "B* (red): 0,0@0 -> 0,2@1 -> 1,4@2"
+                "C* (red): 2,0@0 -> 2,2@1 -> 1,4@2"
+                "D* (blue): 7,0@0 -> 7,2@1 -> 8,4@2"
                 "E (blue): 8,4@2 -> 8,6@3"
                 "F (red): 1,4@2 -> 1,6@3")))
 
@@ -163,9 +169,9 @@
    (:MeanTimeWithLabel results) => (roughly 1.75)
    (:MeanLabelCounts results) => (roughly 3.50)
    (paths-str (:paths (:problem-data (:ep-state or-state))))
-   => (newlines "A (red): 5,0@0 -> 5,1@1"
-                "B (red): 5,1@1 -> 3,3@2 -> 3,4@3 -> 5,5@4"
-                "C (red): 5,1@1 -> 7,3@2 -> 7,4@3 -> 5,5@4"
+   => (newlines "A* (red): 5,0@0 -> 5,1@1"
+                "B* (red): 5,1@1 -> 3,3@2 -> 3,4@3 -> 5,5@4"
+                "C* (red): 5,1@1 -> 7,3@2 -> 7,4@3 -> 5,5@4"
                 "D (red): 5,5@4 -> 5,6@5")))
 
 (let [or-state (run-for-or-state split-merge-allatonce)
@@ -176,10 +182,24 @@
    (:MeanTimeWithLabel results) => (roughly 1.75)
    (:MeanLabelCounts results) => (roughly 3.5)
    (paths-str (:paths (:problem-data (:ep-state or-state))))
-   => (newlines "A (red): 5,0@0 -> 5,1@1"
-                "B (red): 5,1@1 -> 3,3@2 -> 3,4@3 -> 5,5@4"
-                "C (red): 5,1@1 -> 7,3@2 -> 7,4@3 -> 5,5@4"
+   => (newlines "A* (red): 5,0@0 -> 5,1@1"
+                "B* (red): 5,1@1 -> 3,3@2 -> 3,4@3 -> 5,5@4"
+                "C* (red): 5,1@1 -> 7,3@2 -> 7,4@3 -> 5,5@4"
                 "D (red): 5,5@4 -> 5,6@5")))
+
+(let [or-state (run-for-or-state split-merge-gray)
+      results (last (:results or-state))]
+  (facts "Split-merge-gray"
+         (:PercentEventsCorrect results) => (roughly 100.0)
+         (:MeanTimeWithLabel results) => (roughly 2.17 0.1)
+         (:MeanLabelCounts results) => (roughly 3.0)
+         (paths-str (:paths (:problem-data (:ep-state or-state))))
+         => (newlines "A* (red): 3,0@0 -> 3,3@1 -> 5,4@2"
+                      "B* (red): 7,0@0 -> 7,3@1 -> 5,4@2"
+                      "C (blue): 5,0@0 -> 5,3@1 -> 5,4@2 -> 5,6@3 -> 7,8@4 -> 7,9@5"
+                      "D* (red): 5,4@2 -> 5,6@3"
+                      "E (red): 5,6@3 -> 3,8@4 -> 3,9@5"
+                      "F (red): 5,6@3 -> 5,8@4 -> 5,9@5")))
 
 ;; non-splits
 (let [or-state (run-for-or-state split-non-ambiguity)
