@@ -33,22 +33,24 @@
 
 (def headers
   [:PercentEventsCorrect :MeanTimeWithLabel :MaxTimeWithLabel :MinTimeWithLabel
-   :MeanCountAlternatives :MeanLabelCounts :AvgWalk :PlausibilityAccuracy
+   :MeanCountAlternatives :MeanLabelCounts :DistinctLabels :PlausibilityAccuracy
    :SensorOverlap :EntityDensity])
 
 (def batch-headers
   [:MetaPercentEventsCorrect :BasePercentEventsCorrect :RatioPercentEventsCorrect
-   :ImprovePercentEventsCorrect :MetaMeanTimeWithLabel :BaseMeanTimeWithLabel
-   :RatioMeanTimeWithLabel :ImproveMeanTimeWithLabel
+   :IncreasePercentEventsCorrect :MetaMeanTimeWithLabel :BaseMeanTimeWithLabel
+   :RatioMeanTimeWithLabel :IncreaseMeanTimeWithLabel
    :MetaMaxTimeWithLabel :BaseMaxTimeWithLabel :RatioMaxTimeWithLabel
-   :ImproveMaxTimeWithLabel
+   :IncreaseMaxTimeWithLabel
    :MetaMinTimeWithLabel :BaseMinTimeWithLabel :RatioMinTimeWithLabel
-   :ImproveMinTimeWithLabel
+   :IncreaseMinTimeWithLabel
    :MetaMeanLabelCounts :BaseMeanLabelCounts :RatioMeanLabelCounts
-   :ImproveMeanLabelCounts
+   :IncreaseMeanLabelCounts
+   :MetaDistinctLabels :BaseDistinctLabels :RatioDistinctLabels
+   :IncreaseDistinctLabels
    :MetaPlausibilityAccuracy :BasePlausibilityAccuracy :RatioPlausibilityAccuracy
-   :ImprovePlausibilityAccuracy
-   :NumberEntities :AvgWalk :MaxWalk :ProbNewEntities])
+   :IncreasePlausibilityAccuracy
+   :NumberEntities :MaxWalk :ProbNewEntities])
 
 (def tracking-problem
   (Problem. "Tracking"

@@ -32,7 +32,6 @@
      {:NumberEntities (JSpinner. (SpinnerNumberModel. 1 1 100 1))
       :MaxWalk (JSpinner. (SpinnerNumberModel. 1 1 100 1))
       :ProbNewEntities (JSpinner. (SpinnerNumberModel. 0 0 100 10))
-      :ProbMovement (JSpinner. (SpinnerNumberModel. 50 0 100 10))
       :GridWidth (JSpinner. (SpinnerNumberModel. 30 1 100 1))
       :GridHeight (JSpinner. (SpinnerNumberModel. 30 1 100 1))
       :SensorCoverage (JSpinner. (SpinnerNumberModel. 100 0 100 10))
@@ -65,22 +64,18 @@
           :gridx 1
           _ (:ProbNewEntities param-spinners)
           :gridx 0 :gridy 3
-          _ (label "ProbMovement:")
-          :gridx 1
-          _ (:ProbMovement param-spinners)
-          :gridx 0 :gridy 4
           _ (label "GridWidth:")
           :gridx 1
           _ (:GridWidth param-spinners)
-          :gridx 0 :gridy 5
+          :gridx 0 :gridy 4
           _ (label "GridHeight:")
           :gridx 1
           _ (:GridHeight param-spinners)
-          :gridx 0 :gridy 6
+          :gridx 0 :gridy 5
           _ (label "SensorCoverage:")
           :gridx 1
           _ (:SensorCoverage param-spinners)
-          :gridx 0 :gridy 7
+          :gridx 0 :gridy 6
           _ (label "SensorSeesColor:")
           :gridx 1
           _ (:SensorSeesColor param-spinners)]))

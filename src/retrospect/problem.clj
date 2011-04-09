@@ -10,7 +10,8 @@
 
 (defn evaluate
   [problem truedata or-state params]
-  (let [prev-ep (previous-ep-state (:ep-state-tree or-state))]
+  (let [prev-ep (previous-ep-state (:ep-state-tree or-state))
+        ep-state (current-ep-state (:ep-state-tree or-state))]
     (update-in or-state [:results] conj
                (merge ((:evaluate-fn problem)
                        (:ep-state or-state)
@@ -25,14 +26,15 @@
                         :Milliseconds (:milliseconds (:resources or-state))
                         :Unexplained
                         (if prev-ep (count (:unexplained (:workspace prev-ep))) 0)
+                        ;; ExplainCycles are stored in current ep-state
                         :ExplainCycles
-                        (:explain-cycles (:resources (:workspace prev-ep)))
+                        (:explain-cycles (:resources (:workspace ep-state)))
                         :HypothesisCount
                         (:hyp-count (:resources (:workspace prev-ep)))
                         :HypothesesNew
                         (:hyps-new (:resources (:workspace prev-ep))))))))
 
-(defn calc-percent-improvement
+(defn calc-percent-increase
   [k m b]
   (if (= 0 (k b)) 0.0
       (double (* 100.0 (/ (- (k m) (k b)) (k b))))))
@@ -49,14 +51,14 @@
           :MetaMilliseconds (:Milliseconds m)
           :BaseMilliseconds (:Milliseconds b)
           :RatioMilliseconds (calc-ratio :Milliseconds m b)
-          :ImproveMilliseconds (calc-percent-improvement :Milliseconds m b)
+          :IncreaseMilliseconds (calc-percent-increase :Milliseconds m b)
           :MetaUnexplained (:Unexplained m)
           :BaseUnexplained (:Unexplained b)
           :RatioUnexplained (calc-ratio :Unexplained m b)
           :MetaExplainCycles (:ExplainCycles m)
           :BaseExplainCycles (:ExplainCycles b)
           :RatioExplainCycles (calc-ratio :ExplainCycles m b)
-          :ImproveExplainCycles (calc-percent-improvement :ExplainCycles m b)
+          :IncreaseExplainCycles (calc-percent-increase :ExplainCycles m b)
           :Steps (:Steps params)}))
 
 (defn proceed-n-steps
@@ -112,6 +114,7 @@
         problem-data ((:gen-problem-data-fn problem) sensors params)
         or-states (init-one-run-states {:MetaAbduction [true false] :Lazy [true]}
                                        sensors problem-data)]
+    (println "Running comparative" params)
     (doall (for [ors or-states]
              (binding [last-id 0]
                (run-simulation problem truedata ors params monitor?))))))
@@ -142,14 +145,14 @@
            :MetaMilliseconds
            :BaseMilliseconds
            :RatioMilliseconds
-           :ImproveMilliseconds
+           :IncreaseMilliseconds
            :MetaUnexplained
            :BaseUnexplained
            :RatioUnexplained
            :MetaExplainCycles
            :BaseExplainCycles
            :RatioExplainCycles
-           :ImproveExplainCycles
+           :IncreaseExplainCycles
            :Steps]))
 
 (defrecord Problem

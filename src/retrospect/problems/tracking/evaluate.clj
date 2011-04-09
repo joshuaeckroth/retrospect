@@ -2,7 +2,7 @@
   (:use [retrospect.epistemicstates :only [current-ep-state]])
   (:use [retrospect.confidences])
   (:use [retrospect.colors])
-  (:use [retrospect.workspaces :only [hyp-conf]])
+  (:use [retrospect.workspaces :only [get-hyps hyp-conf]])
   (:use [retrospect.problems.tracking.hypotheses :only
          [paths-to-movements path-to-movements]])
   (:use [retrospect.problems.tracking.truedata :only [get-grid-movements]])
@@ -27,7 +27,8 @@
   (let [paths (:paths (:problem-data ep-state))]
     (loop [elmap {}
            time 0]
-      (if (>= time (:time ep-state)) elmap
+      (if (or (>= time (:time ep-state))
+              (>= time (count truedata))) elmap
           (let [grid (nth truedata time)
                 es (flatten grid)
                 ;; does the path explain the entity?
@@ -64,32 +65,36 @@
     (if (empty? hyp-map) 0.0
         (double (/ (reduce + 0 (vals hyp-map)) (count hyp-map))))))
 
-(defn believed-movements-conf
-  [prev-ep true-moves steps-between]
-  (let [accepted (filter #(re-find #"^M?TH" (:id %))
-                         (:accepted (:final (:log (:workspace prev-ep)))))
-        movements (map (fn [h] {:movements (set (path-to-movements (:path (:data h))))
-                                :conf (hyp-conf (:workspace prev-ep) h)})
-                       accepted)]
-    (map (fn [{ms :movements conf :conf}]
-           (let [ms-recent (set (filter #(<= (:time prev-ep) (:t %)) ms))
-                 true-recent (set (filter #(<= (:time prev-ep) (:t %)) true-moves))]
-             ;; the following requires that confidences are really numeric
-             ;; and that neutral is 0
-             (/ (- (* conf (count (set/intersection true-recent ms-recent)))
-                   (* conf (count (set/difference ms-recent true-recent))))
-                steps-between)))
-         movements)))
-
 (defn avg
   [l]
   (double (/ (reduce + l) (count l))))
 
+(defn plausibility-accuracy
+  [prev-ep true-moves]
+  ;; the following requires that confidences are really numeric
+  ;; and that neutral is 0
+  (let [hyps (filter #(re-find #"^M?TH" (:id %)) (get-hyps (:workspace prev-ep)))
+        movements (map (fn [h] {:det (:det (:data h)) :det2 (:det2 (:data h))
+                                :conf (hyp-conf (:workspace prev-ep) h)})
+                       hyps)
+        scores (map (fn [{:keys [det det2 conf]}]
+                      (if (some
+                           #(and (= (:ot %) (:time det)) (= (:t %) (:time det2))
+                                 (= (:ox %) (:x det)) (= (:oy %) (:y det))
+                                 (= (:x %) (:x det2)) (= (:y %) (:y det2)))
+                           true-moves)
+                        conf (- 0 conf)))
+                    movements)]
+    (if (empty? scores) 0.0 (avg scores))))
+
 (defn evaluate
   [ep-state results prev-ep sensors truedata params]
-  (let [elmap (assoc-es-ls ep-state truedata)
+  (let [maxtime (min (dec (dec (count truedata))) (dec (dec (:time ep-state))))
+        ;; map of labels per true entity
+        elmap (assoc-es-ls ep-state truedata)
+        ;; map of time with label (for each label) per true entity
         twl (reduce (partial assoc-es-twl elmap) {} (keys elmap))
-        true-moves (true-movements truedata (dec (dec (:time ep-state))))]
+        true-moves (true-movements truedata maxtime)]
     {:PercentEventsCorrect (percent-events-correct (:problem-data ep-state) true-moves)
      :MeanTimeWithLabel (avg (map #(avg (twl %)) (keys twl)))
      :MaxTimeWithLabel (avg (map #(apply max (twl %)) (keys twl)))
@@ -97,18 +102,17 @@
      :MeanCountAlternatives (mean-count-alts (:workspace ep-state) :sensor)
      :MeanLabelCounts (double (/ (reduce + 0 (map #(count (set (elmap %))) (keys elmap)))
                                  (count (keys elmap))))
-     :AvgWalk (if (empty? true-moves) 0.0
-                  (avg (map #(dist (:ox %) (:oy %) (:x %) (:y %)) true-moves)))
+     :DistinctLabels (count (keys (:paths (:problem-data ep-state))))
      ;; average current plausibility accuracy with past
      :PlausibilityAccuracy
-     (let [bmc (believed-movements-conf prev-ep true-moves (:StepsBetween params))
-           pa (if (empty? bmc) 0.0 (avg bmc))]
-       (if (empty? results) pa
-           (/ (+ (:PlausibilityAccuracy (last results)) pa) 2.0)))
+     (let [pa (plausibility-accuracy prev-ep true-moves)
+           c (count results)]
+       (if (= c 0) pa
+           (/ (+ (* c (:PlausibilityAccuracy (last results))) pa) (inc c))))
      :SensorOverlap 0
      :EntityDensity 0}))
 
-(defn calc-percent-improvement
+(defn calc-percent-increase
   [k m b]
   (if (= 0 (k b)) 0.0
       (double (* 100.0 (/ (- (k m) (k b)) (k b))))))
@@ -123,35 +127,39 @@
   {:MetaPercentEventsCorrect (:PercentEventsCorrect m)
    :BasePercentEventsCorrect (:PercentEventsCorrect b)
    :RatioPercentEventsCorrect (calc-ratio :PercentEventsCorrect m b)
-   :ImprovePercentEventsCorrect (calc-percent-improvement :PercentEventsCorrect m b)
+   :IncreasePercentEventsCorrect (calc-percent-increase :PercentEventsCorrect m b)
    
    :MetaMeanTimeWithLabel (:MeanTimeWithLabel m)
    :BaseMeanTimeWithLabel (:MeanTimeWithLabel b)
    :RatioMeanTimeWithLabel (calc-ratio :MeanTimeWithLabel m b)
-   :ImproveMeanTimeWithLabel (calc-percent-improvement :MeanTimeWithLabel m b)
+   :IncreaseMeanTimeWithLabel (calc-percent-increase :MeanTimeWithLabel m b)
    
    :MetaMaxTimeWithLabel (:MaxTimeWithLabel m)
    :BaseMaxTimeWithLabel (:MaxTimeWithLabel b)
    :RatioMaxTimeWithLabel (calc-ratio :MaxTimeWithLabel m b)
-   :ImproveMaxTimeWithLabel (calc-percent-improvement :MaxTimeWithLabel m b)
+   :IncreaseMaxTimeWithLabel (calc-percent-increase :MaxTimeWithLabel m b)
 
    :MetaMinTimeWithLabel (:MinTimeWithLabel m)
    :BaseMinTimeWithLabel (:MinTimeWithLabel b)
    :RatioMinTimeWithLabel (calc-ratio :MinTimeWithLabel m b)
-   :ImproveMinTimeWithLabel (calc-percent-improvement :MinTimeWithLabel m b)
+   :IncreaseMinTimeWithLabel (calc-percent-increase :MinTimeWithLabel m b)
 
    :MetaMeanLabelCounts (:MeanLabelCounts m)
    :BaseMeanLabelCounts (:MeanLabelCounts b)
    :RatioMeanLabelCounts (calc-ratio :MeanLabelCounts m b)
-   :ImproveMeanLabelCounts (calc-percent-improvement :MeanLabelCounts m b)
+   :IncreaseMeanLabelCounts (calc-percent-increase :MeanLabelCounts m b)
+
+   :MetaDistinctLabels (:DistinctLabels m)
+   :BaseDistinctLabels (:DistinctLabels b)
+   :RatioDistinctLabels (calc-ratio :DistinctLabels m b)
+   :IncreaseDistinctLabels (calc-percent-increase :DistinctLabels m b)
 
    :MetaPlausibilityAccuracy (:PlausibilityAccuracy m)
    :BasePlausibilityAccuracy (:PlausibilityAccuracy b)
    :RatioPlausibilityAccuracy (calc-ratio :PlausibilityAccuracy m b)
-   :ImprovePlausibilityAccuracy (calc-percent-improvement :PlausibilityAccuracy m b)
+   :IncreasePlausibilityAccuracy (calc-percent-increase :PlausibilityAccuracy m b)
    
    :NumberEntities (:NumberEntities params)
    :StepsBetween (:StepsBetween params)
-   :AvgWalk (:AvgWalk b)
    :MaxWalk (:MaxWalk params)
    :ProbNewEntities (:ProbNewEntities params)})
