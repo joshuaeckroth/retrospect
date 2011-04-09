@@ -124,6 +124,16 @@
                                                     ["3" blue 0 7,0 7,2 8,4 8,6]
                                                     ["4" blue 0 9,0 9,2 8,4 8,6]))}))
 
+(def merge-ambiguity-gray
+     (let [params (merge basic-params {:Steps 6 :MaxWalk 3})]
+       {:params params
+        :sensors [(new-sensor (keyword "top") 0 9 0 3 true)
+                  (new-sensor (keyword "middle-gray") 0 9 4 6 false)
+                  (new-sensor (keyword "bottom") 0 9 7 9 true)]
+        :truedata (build-truedata params
+                                  (entity-paths ["1" red  0 3,0 3,2 5,4 5,6 3,8 3,9]
+                                                ["2" blue 0 7,0 7,2 5,4 5,6 7,8 7,9]))}))
+
 (def split-merge
   (let [params (merge basic-params {:Steps 6 :MaxWalk 2})]
     {:params params
@@ -160,6 +170,7 @@
               "march" march
               "merge" merge-ambiguity
               "merge-2" merge-ambiguity-2
+              "merge-gray" merge-ambiguity-gray
               "simple-dis" simple-disappearance
               "split" split-ambiguity
               "split-2" split-ambiguity-2

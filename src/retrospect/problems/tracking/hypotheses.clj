@@ -155,9 +155,21 @@
   (vals (select-keys paths (filter (comp :dead meta) (keys paths)))))
 
 (defn find-color
+  "Determine the color of a label given a movement and a prior
+  path. If the prior path + movement (in sum, the 'path') has no
+  color, than obviously the new color should be gray. Otherwise, if
+  the path consists of red (and gray) but no blue, it should be blue,
+  and vice versa; if the path consists of some red and some blue, the
+  new path should be gray."
   [move path]
-  (if-let [c (find-first #(not= gray %) (map :color (concat move path)))]
-    c gray))
+  (let [colors (map :color (concat move path))
+        c (find-first #(not= gray %) colors)
+        count-red (count (filter #{red} colors))
+        count-blue (count (filter #{blue} colors))]
+    (cond (nil? c) gray
+          (and (< 0 count-red) (= 0 count-blue)) red
+          (and (< 0 count-blue) (= 0 count-red)) blue
+          :else gray)))
 
 (defn new-label
   ([labels move path]
