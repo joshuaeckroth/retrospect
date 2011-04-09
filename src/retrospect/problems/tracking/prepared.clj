@@ -74,6 +74,15 @@
      :sensors sensors
      :truedata truedata}))
 
+(def gray-in-range
+     (let [params (merge basic-params {:Steps 3 :MaxWalk 10})]
+       {:params params
+        :sensors [(new-sensor (keyword "top") 0 9 0 3 true)
+                  (new-sensor (keyword "middle-gray") 0 9 4 6 false)
+                  (new-sensor (keyword "bottom") 0 9 7 9 true)]
+        :truedata (build-truedata params (entity-paths ["1" red  0 3,0 3,5 3,9]
+                                                       ["2" blue 0 7,0 7,5 7,9]))}))
+
 (def intersection-ambiguity
   (let [params (merge basic-params {:Steps 3 :SensorSeesColor 80 :MaxWalk 3
                                     :MetaAbduction true})]
@@ -151,6 +160,17 @@
      :truedata (build-truedata params (entity-paths ["1" red  0 4,3 4,4 5,5 5,6]
                                                     ["2" blue 0 4,3 4,4 3,5 3,6]))}))
 
+(def split-merge-gray
+     (let [params (merge basic-params {:Steps 6 :MaxWalk 5})]
+       {:params params
+        :sensors [(new-sensor (keyword "top") 0 9 0 3 true)
+                  (new-sensor (keyword "middle-gray") 0 9 4 6 false)
+                  (new-sensor (keyword "bottom") 0 9 7 9 true)]
+        :truedata (build-truedata params
+                                  (entity-paths ["1" red  0 3,0 3,3 5,4 5,6 3,8 3,9]
+                                                ["2" blue 0 5,0 5,3 5,4 5,6 7,8 7,9]
+                                                ["3" red  0 7,0 7,3 5,4 5,6 5,8 5,9]))}))
+
 (def march
   (let [params (merge basic-params {:Steps 6 :MaxWalk 1 :MetaAbduction true})]
     {:params params
@@ -164,6 +184,7 @@
 (def prepared-map
   (sorted-map "color-update" color-update
               "color-update-2" color-update-2
+              "gray-in-range" gray-in-range
               "intersect" intersection-ambiguity
               "intersect-nom" intersection-ambiguity-nometa
               "intersect-nom-aao" intersection-ambiguity-nometa-allatonce
@@ -176,4 +197,5 @@
               "split-2" split-ambiguity-2
               "split-merge" split-merge
               "split-merge-aao" split-merge-allatonce
+              "split-merge-gray" split-merge-gray
               "split-non-am" split-non-ambiguity))
