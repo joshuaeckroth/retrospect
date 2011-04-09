@@ -67,11 +67,11 @@
   (let [d (dist x1 y1 x2 y2)
         mw (* (math/sqrt 2.1) maxwalk)]
     (cond
-     (<= d (/ mw 8.0)) NEUTRAL
-     (<= d (/ mw 6.0)) PLAUSIBLE
-     (<= d (/ mw 3.0)) VERY-PLAUSIBLE
-     (<= d (/ mw 2.0)) NEUTRAL
-     (<= d (/ (* mw 2.0) 3.0)) IMPLAUSIBLE
+     (<= d (/ maxwalk 15.0)) PLAUSIBLE
+     (<= d (/ (* maxwalk 3.0) 10.0)) VERY-PLAUSIBLE
+     (<= d (/ (* maxwalk 4.0) 10.0)) PLAUSIBLE
+     (<= d (/ maxwalk 2.0)) NEUTRAL
+     (<= d maxwalk) IMPLAUSIBLE
      (<= d mw) VERY-IMPLAUSIBLE)))
 
 (defn score-movement
@@ -226,10 +226,13 @@
                    (dissoc label)
                    (assoc label-color (conj path (second move))))
         :bad bad})
-     ;; this movement continues no known path, so make a new label
-     (if (or (empty? paths) (= 0 (:time (first move))))
-       {:paths (assoc paths (new-label (keys paths) move) move) :bad bad}
-       {:paths paths :bad (conj bad move)}))))
+     ;; this movement continues no known path, so make a new label;
+     ;; also, add the movement to 'bad' if we shouldn't be making a
+     ;; new label (that is, the time is not 0 and we already have some
+     ;; labels
+     (let [new-bad (if (or (empty? paths) (= 0 (:time (first move))))
+                     bad (conj bad move))]
+       {:paths (assoc paths (new-label (keys paths) move) move) :bad new-bad}))))
 
 (defn split-path
   "A split has a common first det and a unique second det2; we want to
@@ -274,7 +277,7 @@
   (if (empty? accepted) pdata
       (let [moves (map (fn [h]
                          (with-meta [(:det (:data h)) (:det2 (:data h))] {:hyp h}))
-                       (sort-by (comp :time :det :data) accepted))
+                       (sort-by (comp :time :det :data) (sort-by :id accepted)))
             ;; find splits and merges
             splits (filter (partial move-splits? moves) moves)
             merges (filter (partial move-merges? moves) moves)

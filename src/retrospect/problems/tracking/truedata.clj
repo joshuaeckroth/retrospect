@@ -11,8 +11,7 @@
 (defn random-walks
   [grid params]
   (let [maxwalk (:MaxWalk params)
-        es (filter (fn [_] (<= (my-rand) (double (/ (:ProbMovement params) 100))))
-                   (grid-entities grid))
+        es (grid-entities grid)
         es-walk (my-shuffle
                  (flatten (map (fn [e] (repeat (inc (my-rand-int maxwalk)) e)) es)))]
     (reduce walk1 grid es-walk)))

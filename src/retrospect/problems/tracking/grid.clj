@@ -69,7 +69,8 @@
   (let [e (find-entity grid entity)]
     (loop []
       (let [{ox :x oy :y} (meta e)
-            {x :x y :y} (my-rand-nth [{:x (dec ox) :y oy}
+            {x :x y :y} (my-rand-nth [{:x ox :y oy} ;; don't move
+                                      {:x (dec ox) :y oy}
                                       {:x (inc ox) :y oy}
                                       {:x ox :y (inc oy)}
                                       {:x ox :y (dec oy)}
