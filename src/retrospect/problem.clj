@@ -11,7 +11,8 @@
 (defn evaluate
   [problem truedata or-state params]
   (let [prev-ep (previous-ep-state (:ep-state-tree or-state))
-        ep-state (current-ep-state (:ep-state-tree or-state))]
+        ep-state (current-ep-state (:ep-state-tree or-state))
+        res (:resources or-state)]
     (update-in or-state [:results] conj
                (merge ((:evaluate-fn problem)
                        (:ep-state or-state)
@@ -22,8 +23,12 @@
                         :Step (:time (:ep-state or-state))
                         :MetaAbduction (:meta-abduction or-state)
                         :Lazy (:lazy or-state)
-                        :MetaAbductions (:meta-abductions (:resources or-state))
-                        :Milliseconds (:milliseconds (:resources or-state))
+                        :MetaAbductions (:meta-abductions res)
+                        :MetaAcceptedBad (:meta-accepted-bad res)
+                        :MetaAcceptedImpossible (:meta-accepted-impossible res)
+                        :MetaAcceptedImpossibleLconf (:meta-accepted-impossible-lconf res)
+                        :MetaAcceptedNone (:meta-accepted-none res)
+                        :Milliseconds (:milliseconds res)
                         :Unexplained
                         (if prev-ep (count (:unexplained (:workspace prev-ep))) 0)
                         ;; ExplainCycles are stored in current ep-state
@@ -48,6 +53,10 @@
   [problem params [m b]]
   (merge ((:evaluate-batch-fn problem) params [m b])
          {:MetaAbductions (:MetaAbductions m)
+          :MetaAcceptedBad (:MetaAcceptedBad m)
+          :MetaAcceptedImpossible (:MetaAcceptedImpossible m)
+          :MetaAcceptedImpossibleLconf (:MetaAcceptedImpossibleLconf m)
+          :MetaAcceptedNone (:MetaAcceptedNone m)
           :MetaMilliseconds (:Milliseconds m)
           :BaseMilliseconds (:Milliseconds b)
           :RatioMilliseconds (calc-ratio :Milliseconds m b)
@@ -132,6 +141,10 @@
            :MetaAbduction
            :Lazy
            :MetaAbductions
+           :MetaAcceptedBad
+           :MetaAcceptedImpossible
+           :MetaAcceptedImpossibleLconf
+           :MetaAcceptedNone
            :Milliseconds
            :Unexplained
            :ExplainCycles
@@ -142,6 +155,10 @@
   [problem]
   (concat (:batch-headers problem)
           [:MetaAbductions
+           :MetaAcceptedBad
+           :MetaAcceptedImpossible
+           :MetaAcceptedImpossibleLconf
+           :MetaAcceptedNone
            :MetaMilliseconds
            :BaseMilliseconds
            :RatioMilliseconds

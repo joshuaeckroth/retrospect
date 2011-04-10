@@ -28,17 +28,27 @@
                         (explain))
           ;; we only expect one accepted meta hyp
           accepted-hyp (first (:accepted workspace))
+          accepted-type (let [t (:type accepted-hyp)]
+                          (cond
+                           (= t :meta-bad) :meta-accepted-bad
+                           (= t :meta-impossible) :meta-accepted-impossible
+                           (= t :meta-impossible-lconf) :meta-accepted-impossible-lconf
+                           :else :meta-accepted-none))
           est (:ep-state-tree (:data accepted-hyp))
           meta-hyps (filter #(and (not= :meta-accurate (:type %))
                                   (not= :meta-ep (:type %)))
                             (get-hyps workspace))
-          ors-meta (assoc-in or-state [:meta-workspaces (:id prev-ep)] workspace)]
+          ors-meta (-> or-state
+                       (update-in [:resources accepted-type] inc)
+                       (assoc-in [:meta-workspaces (:id prev-ep)] workspace))]
       (if (or (= :meta-accurate (:type accepted-hyp))
               ;; don't branch if accepted hyp is not any more confident
               (= (hyp-conf workspace accepted-hyp)
                  (hyp-conf workspace (find-first #(= :meta-accurate (:type %))
                                                  (get-hyps workspace)))))
         (update-explain-cycles ors-meta prev-ep meta-hyps)
-        (update-explain-cycles (assoc (update-in ors-meta [:resources :meta-abductions] inc)
-                                 :ep-state-tree est :ep-state (current-ep-state est))
-                               prev-ep meta-hyps)))))
+        (update-explain-cycles
+         (-> ors-meta
+             (update-in [:resources :meta-abductions] inc)
+             (assoc :ep-state-tree est :ep-state (current-ep-state est)))
+         prev-ep meta-hyps)))))

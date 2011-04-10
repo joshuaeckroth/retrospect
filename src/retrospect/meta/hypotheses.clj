@@ -59,7 +59,7 @@
 
 (defn add-branch-hyp
   [workspace ep-state-hyp branchable hyps problem ep-state-tree
-   sensors params lazy prefix least-conf?]
+   sensors params lazy prefix type least-conf?]
   (let [lconf (if least-conf?
                 (let [ws (:workspace branchable)
                       hs (if (not-empty hyps) hyps (:accepted ws))]
@@ -74,7 +74,7 @@
         hyp (let [{score :score est-caught-up :ep-state-tree ec :explain-cycles}
                   (score-by-catching-up problem est-new sensors params lazy)
                   rejected-hyps (sort-by :id (AlphanumComparator.) hyps)]
-              (ws/new-hyp prefix :meta :meta score
+              (ws/new-hyp prefix type :meta score
                           (format "Marked impossible: %s"
                                   (if lconf (:id lconf)
                                       (apply str (interpose ", " (map :id rejected-hyps)))))
@@ -88,14 +88,15 @@
     (if (empty? rejectors) workspace
         (add-branch-hyp
          workspace ep-state-hyp ep-state rejectors problem ep-state-tree
-         sensors params lazy (format "H:R:%s:*" (:id ep-state)) false))))
+         sensors params lazy (format "H:R:%s:*" (:id ep-state))
+         :meta-impossible false))))
 
 (defn add-mark-all-bad-hyp
   [workspace ep-state-hyp problem ep-state-tree sensors bad params lazy]
   (let [ep-state (previous-ep-state ep-state-tree)]
     (add-branch-hyp
      workspace ep-state-hyp ep-state bad problem ep-state-tree
-     sensors params lazy (format "H:B:%s" (:id ep-state)) false)))
+     sensors params lazy (format "H:B:%s" (:id ep-state)) :meta-bad false)))
 
 (defn add-mark-impossible-hyp-least-conf
   [workspace ep-state-hyp problem ep-state-tree branchable sensors params lazy]
@@ -104,7 +105,8 @@
     (if (empty? hyps) workspace
         (add-branch-hyp
          workspace ep-state-hyp branchable hyps problem ep-state-tree
-         sensors params lazy (format "H:LC:%s:L" (:id branchable)) true))))
+         sensors params lazy (format "H:LC:%s:L" (:id branchable))
+         :meta-impossible-lconf true))))
 
 (defn add-accurate-decision-hyp
   [workspace ep-state-hyp]

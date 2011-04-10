@@ -10,7 +10,9 @@
   (let [ep-state-tree (init-ep-state-tree problem-data)]
     {:meta-abduction meta-abduction :lazy lazy
      :meta-workspaces {}
-     :resources {:meta-abductions 0 :compute 0 :milliseconds 0 :memory 0}
+     :resources {:meta-abductions 0 :compute 0 :milliseconds 0 :memory 0
+                 :meta-accepted-bad 0 :meta-accepted-impossible 0
+                 :meta-accepted-impossible-lconf 0 :meta-accepted-none 0}
      :results [] :sensors sensors
      :ep-state-tree ep-state-tree
      :ep-state (current-ep-state ep-state-tree)}))
