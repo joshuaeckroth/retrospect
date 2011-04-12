@@ -110,7 +110,7 @@
 
 (defn next-step
   []
-  (when (<= @time-now (- (:Steps @params) (:StepsBetween @params)))
+  (when (<= @time-now (:Steps @params))
     (step)))
 
 (def generic-params

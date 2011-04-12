@@ -2,7 +2,7 @@
   (:import (java.util Date))
   (:use [clojure.java.io :as io :only (writer copy file)])
   (:use [clojure.stacktrace :only [print-cause-trace]])
-  (:use [retrospect.problem :only (run-many get-batch-headers)])
+  (:use [retrospect.problem :only (run-many get-comparative-headers get-headers)])
   (:use [retrospect.random]))
 
 (def write-agent (agent 0))
@@ -32,19 +32,19 @@
   (apply str (concat (interpose "," row) [\newline])))
 
 (defn write-csv
-  [progress filename problem results]
-  (let [headers (get-batch-headers problem)]
+  [progress filename problem meta? results]
+  (let [headers (if meta? (get-comparative-headers problem) (get-headers problem))]
     (with-open [writer (io/writer filename :append true)]
       (doseq [row (map (fn [r] (map (fn [h] (h r)) headers)) results)]
         (.write writer (format-csv-row row)))))
   (inc progress))
 
 (defn run-partition
-  [problem monitor? filename repetitions params]
+  [problem monitor? meta? filename repetitions params]
   (when (not-empty params)
-    (let [results (run-many problem monitor? (first params) repetitions)]
-      (send-off write-agent write-csv filename problem results)
-      (recur problem monitor? filename repetitions (rest params)))))
+    (let [results (run-many problem monitor? meta? (first params) repetitions)]
+      (send-off write-agent write-csv filename problem meta? results)
+      (recur problem monitor? meta? filename repetitions (rest params)))))
 
 (defn check-progress
   [remaining dir problem total start-time]
@@ -57,16 +57,18 @@
       (- total progress))))
 
 (defn run-partitions
-  [dir problem filename params nthreads monitor? repetitions]
+  [dir problem filename params nthreads monitor? meta? repetitions]
   (with-open [writer (io/writer filename)]
-    (.write writer (format-csv-row (map name (get-batch-headers problem)))))
+    (.write writer (format-csv-row (map name (if meta? (get-comparative-headers problem)
+                                                 (get-headers problem))))))
   (send (agent (count params)) check-progress dir problem (count params) (.getTime (Date.)))
   (let [partitions (partition-all (int (/ (count params) nthreads)) (my-shuffle params))
         workers (doall (for [part partitions]
-                         (future (run-partition problem monitor?
+                         (future (run-partition problem monitor? meta?
                                                 filename repetitions part))))]
     (doall (pmap (fn [w] @w) workers))))
 
 (defn run-local
-  [problem params dir nthreads monitor? repetitions]
-  (run-partitions dir problem (str dir "/results.csv") params nthreads monitor? repetitions))
+  [problem params dir nthreads monitor? meta? repetitions]
+  (run-partitions dir problem (str dir "/results.csv")
+                  params nthreads monitor? meta? repetitions))

@@ -56,7 +56,7 @@
   "Create a new folder for storing run data and execute the run. Then,
   depending on whether hadoop is true or false, execute a hadoop job
   control process or a local (this machine) runner."
-  [problem paramsfile recordsdir nthreads monitor? repetitions]
+  [problem paramsfile recordsdir nthreads monitor? meta? repetitions]
   (try
     (let [dir (str recordsdir "/" (. System (currentTimeMillis)))
           params (explode-params (read-params problem paramsfile))]
@@ -70,7 +70,7 @@
       (copy-params-file (str dir "/params.xml") paramsfile)
       (println "done.")
       (println (format "Running %d parameter combinations..." (count params)))
-      (run-local problem params dir nthreads monitor? repetitions)
+      (run-local problem params dir nthreads monitor? meta? repetitions)
       (println "Done.")
       (System/exit 0))
     (catch java.util.concurrent.ExecutionException e

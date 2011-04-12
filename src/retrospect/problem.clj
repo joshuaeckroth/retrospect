@@ -49,9 +49,9 @@
   (if (= 0 (k b)) 0.0
       (double (/ (k m) (k b)))))
 
-(defn evaluate-batch
+(defn evaluate-comparative
   [problem params [m b]]
-  (merge ((:evaluate-batch-fn problem) params [m b])
+  (merge ((:evaluate-comparative-fn problem) params [m b])
          {:MetaAbductions (:MetaAbductions m)
           :MetaAcceptedBad (:MetaAcceptedBad m)
           :MetaAcceptedImpossible (:MetaAcceptedImpossible m)
@@ -68,13 +68,16 @@
           :BaseExplainCycles (:ExplainCycles b)
           :RatioExplainCycles (calc-ratio :ExplainCycles m b)
           :IncreaseExplainCycles (calc-percent-increase :ExplainCycles m b)
-          :Steps (:Steps params)}))
+          :Steps (:Steps params)
+          :StepsBetween (:StepsBetween params)
+          :SensorNoise (:SensorNoise params)
+          :BeliefNoise (:BeliefNoise params)}))
 
 (defn proceed-n-steps
-  [n time truedata or-state]
+  [n steps time truedata or-state]
   (loop [t time
          ors or-state]
-    (if (= t (+ n time)) ors
+    (if (or (> t steps) (= t (+ n time))) ors
         (recur (inc t) (update-in ors [:sensors] update-sensors (get truedata t) t)))))
 
 (defn hypothesize
@@ -85,8 +88,9 @@
 (defn run-simulation-step
   [problem truedata or-state params monitor? player?]
   (let [time (:time (:ep-state or-state))
-        ors-sensors (proceed-n-steps (:StepsBetween params) time truedata or-state)
-        time-now (+ (dec (:StepsBetween params)) time)
+        ors-sensors (proceed-n-steps (:StepsBetween params) (:Steps params)
+                                     time truedata or-state)
+        time-now (min (:Steps params) (+ (dec (:StepsBetween params)) time))
         ;; start the clock
         start-time (. System (nanoTime))
         ors-hyps (hypothesize problem ors-sensors time-now params)
@@ -117,27 +121,36 @@
       (recur (run-simulation-step problem truedata ors params monitor? false)))))
 
 (defn run-comparative
-  [problem monitor? params]
+  [problem monitor? meta? params]
   (let [truedata ((:truedata-fn problem) params)
         sensors ((:sensor-gen-fn problem) params)
         problem-data ((:gen-problem-data-fn problem) sensors params)
-        or-states (init-one-run-states {:MetaAbduction [true false] :Lazy [true]}
-                                       sensors problem-data)]
-    (println "Running comparative" params)
+        or-states (init-one-run-states
+                   {:MetaAbduction (if meta? [true false] [false]) :Lazy [true]}
+                   sensors problem-data)]
     (doall (for [ors or-states]
              (binding [last-id 0]
                (run-simulation problem truedata ors params monitor?))))))
 
 (defn run-many
-  [problem monitor? params repetitions]
+  [problem monitor? meta? params repetitions]
   (doall
    (for [i (range repetitions)]
-     (evaluate-batch problem params (run-comparative problem monitor? params)))))
+     (let [runs (run-comparative problem monitor? meta? params)]
+       (if meta?
+         ;; if we have meta vs. non-meta, evaluate the 'batch' form
+         (evaluate-comparative problem params runs)
+         ;; otherwise, just keep the original results from the single (non-meta) run
+         (first runs))))))
 
 (defn get-headers
   [problem]
   (concat (:headers problem)
           [:Step
+           :Steps
+           :StepsBetween
+           :SensorNoise
+           :BeliefNoise
            :MetaAbduction
            :Lazy
            :MetaAbductions
@@ -151,9 +164,9 @@
            :HypothesisCount
            :HypothesesNew]))
 
-(defn get-batch-headers
+(defn get-comparative-headers
   [problem]
-  (concat (:batch-headers problem)
+  (concat (:comparative-headers problem)
           [:MetaAbductions
            :MetaAcceptedBad
            :MetaAcceptedImpossible
@@ -170,10 +183,13 @@
            :BaseExplainCycles
            :RatioExplainCycles
            :IncreaseExplainCycles
-           :Steps]))
+           :Steps
+           :StepsBetween
+           :SensorNoise
+           :BeliefNoise]))
 
 (defrecord Problem
-    [name headers batch-headers monitor-fn player-fns
+    [name headers comparative-headers monitor-fn player-fns
      truedata-fn sensor-gen-fn prepared-map
      hypothesize-fn commit-decision-fn gen-problem-data-fn
-     evaluate-fn evaluate-batch-fn])
+     evaluate-fn evaluate-comparative-fn])

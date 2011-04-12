@@ -1,7 +1,7 @@
 (ns retrospect.problems.tracking.problem
   (:require [retrospect problem])
   (:import [retrospect.problem Problem])
-  (:use [retrospect.problems.tracking.evaluate :only [evaluate evaluate-batch]])
+  (:use [retrospect.problems.tracking.evaluate :only [evaluate evaluate-comparative]])
   (:use [retrospect.problems.tracking.truedata :only [generate-truedata]])
   (:use [retrospect.problems.tracking.sensors :only [generate-sensors]])
   (:use [retrospect.problems.tracking.hypotheses :only
@@ -34,9 +34,10 @@
 (def headers
   [:PercentEventsCorrect :MeanTimeWithLabel :MaxTimeWithLabel :MinTimeWithLabel
    :MeanCountAlternatives :MeanLabelCounts :DistinctLabels :PlausibilityAccuracy
-   :SensorOverlap :EntityDensity])
+   :SensorOverlap :EntityDensity :NumberEntities :MaxWalk :ProbNewEntities
+   :GridWidth :GridHeight :SensorCoverage :SensorSeesColor])
 
-(def batch-headers
+(def comparative-headers
   [:MetaPercentEventsCorrect :BasePercentEventsCorrect :RatioPercentEventsCorrect
    :IncreasePercentEventsCorrect :MetaMeanTimeWithLabel :BaseMeanTimeWithLabel
    :RatioMeanTimeWithLabel :IncreaseMeanTimeWithLabel
@@ -55,7 +56,7 @@
 (def tracking-problem
   (Problem. "Tracking"
             headers
-            batch-headers
+            comparative-headers
             monitor
             {:get-params-fn player-get-params
              :set-params-fn player-set-params
@@ -73,4 +74,4 @@
             commit-decision
             generate-problem-data
             evaluate
-            evaluate-batch))
+            evaluate-comparative))

@@ -122,7 +122,7 @@
   (if (= 0 (k b)) 0.0
       (double (/ (k m) (k b)))))
 
-(defn evaluate-batch
+(defn evaluate-comparative
   [params [m b]]
   {:MetaPercentEventsCorrect (:PercentEventsCorrect m)
    :BasePercentEventsCorrect (:PercentEventsCorrect b)
