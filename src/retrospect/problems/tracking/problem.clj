@@ -32,10 +32,13 @@
    (measure-sensor-overlap (:GridWidth params) (:GridHeight params) sensors)})
 
 (def headers
-  [:PercentEventsCorrect :MeanTimeWithLabel :MaxTimeWithLabel :MinTimeWithLabel
-   :MeanCountAlternatives :MeanLabelCounts :DistinctLabels :PlausibilityAccuracy
-   :SensorOverlap :EntityDensity :NumberEntities :MaxWalk :ProbNewEntities
-   :GridWidth :GridHeight :SensorCoverage :SensorSeesColor])
+     [:PercentEventsCorrect :PlausibilityWorkspaceAccuracy
+      :MeanTimeWithLabel :MaxTimeWithLabel :MinTimeWithLabel
+      :MeanCountAlternatives :MeanLabelCounts :DistinctLabels :PlausibilityAccuracy
+      :SensorOverlap :EntityDensity :NumberEntities :MaxWalk :ProbNewEntities
+      :GridWidth :GridHeight :SensorCoverage :SensorSeesColor
+      :PlausibilityVIEvents :PlausibilityIEvents :PlausibilityNEvents
+      :PlausibilityPEvents :PlausibilityVPEvents])
 
 (def comparative-headers
   [:MetaPercentEventsCorrect :BasePercentEventsCorrect :RatioPercentEventsCorrect

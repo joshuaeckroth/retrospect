@@ -10,7 +10,7 @@
   (:require [clojure.set :as set :only [intersection difference]])
   (:use [loom.graph :only [digraph nodes add-nodes add-edges incoming neighbors]])
   (:use [loom.alg :only [post-traverse]])
-  (:use [loom.io :only [dot]]))
+  (:use [loom.io :only [dot-str]]))
 
 (defn make-sensor-hyps
   [sensor e]
@@ -55,8 +55,8 @@
         (update-in ep [:problem-data] assoc :spotted-grid sg :uncovered uncovered)
         (let [spotted (sensors-to-spotted sensors t sensors-seen-grid)]
           (recur (inc t) (conj sg spotted)
-                 (reduce (fn [unc sp] (conj unc (select-keys (meta sp) [:x :y :time :color])))
-                         uncovered (flatten spotted))
+                 (set/union uncovered (set (map #(select-keys (meta %) [:x :y :time :color])
+                                                (flatten spotted))))
                  (reduce #(add-fact %1 %2 [])
                          ep (concat
                              ;; get hyp-to hypotheses from prior spotted grid
@@ -70,11 +70,13 @@
   (let [d (dist x1 y1 x2 y2)
         mw (* (math/sqrt 2.1) maxwalk)]
     (cond
-     (<= d (/ maxwalk 15.0)) PLAUSIBLE
-     (<= d (/ (* maxwalk 3.0) 10.0)) VERY-PLAUSIBLE
-     (<= d (/ (* maxwalk 4.0) 10.0)) PLAUSIBLE
-     (<= d (/ maxwalk 2.0)) NEUTRAL
-     (<= d maxwalk) IMPLAUSIBLE
+     (<= d (* maxwalk 0.05)) IMPLAUSIBLE
+     (<= d (* maxwalk 0.15)) VERY-PLAUSIBLE
+     (<= d (* maxwalk 0.20)) PLAUSIBLE
+     (<= d (* maxwalk 0.25)) VERY-PLAUSIBLE
+     (<= d (* maxwalk 0.45)) PLAUSIBLE
+     (<= d (* maxwalk 0.55)) NEUTRAL
+     (<= d (* maxwalk 0.65)) IMPLAUSIBLE
      (<= d mw) VERY-IMPLAUSIBLE)))
 
 (defn score-movement
@@ -114,9 +116,10 @@
   "Process sensor reports, then make hypotheses for all possible movements,
    and add them to the epistemic state."
   [ep-state sensors time-now params]
-  (let [ep (process-sensors ep-state sensors time-now)
+  (let [path-heads (map last (vals (:paths (:problem-data ep-state))))
+        ep (process-sensors ep-state sensors time-now)
         sg (:spotted-grid (:problem-data ep))
-        uncovered (:uncovered (:problem-data ep))]
+        uncovered (set/union (set path-heads) (:uncovered (:problem-data ep)))]
     (loop [hyps []
            unc uncovered]
       (if (empty? unc)
@@ -315,7 +318,9 @@
                paths (:paths pdata)
                bad #{}]
           (if (> t maxtime)
-            (assoc pdata :paths paths :bad (map (comp :hyp meta) bad))
+            (assoc pdata :paths paths :bad (map (comp :hyp meta) bad)
+                   :uncovered (set/difference (:uncovered pdata)
+                                              (set (flatten (vals paths)))))
             ;; find splits and merges
             (let [moves-now (filter #(= t (:time (first %))) moves)
                   splits (filter (partial move-splits? paths moves-now) moves-now)
@@ -361,13 +366,14 @@
                           (and (= (select-keys det [:x :y :time])
                                   (select-keys (last p) [:x :y :time]))
                                (match-color? (:color det) (:color (last p))))))
-        find-label-color (fn [p] (if-let [l (find-first #(label-matches % p)
-                                                        (keys (:paths pdata)))]
-                                   (:color (meta l)) gray))
-        paths-colors (map (fn [p] {:path p :color (find-label-color p)}) paths)
-        consistent-color? (fn [{p :path c :color}]
+        find-label-colors (fn [p] (let [ls (filter #(label-matches % p)
+                                                   (keys (:paths pdata)))]
+                                    (if (not-empty ls)
+                                      (map (comp :color meta) ls)
+                                      [gray])))
+        paths-colors (map (fn [p] {:path p :colors (find-label-colors p)}) paths)
+        consistent-color? (fn [{p :path cs :colors}]
                             (let [colors (map :color p)]
-                              (and (every? #(match-color? % c) colors)
+                              (and (every? (fn [c] (some #(match-color? % c) cs)) colors)
                                    (not (and (some #{red} colors) (some #{blue} colors))))))]
-    (dot pathtree "pathtree.dot")
     (every? consistent-color? paths-colors)))

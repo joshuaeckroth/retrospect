@@ -215,7 +215,7 @@
   ;; if no accepted hyps, this is very implausible
   (if (empty? (:accepted workspace)) VERY-IMPLAUSIBLE
       ;; if accepted hyps exist, find the minimum confidence of them
-      (let [conf (apply min (vals (select-keys (:hyp-confidences workspace)
+      (let [conf (apply max (vals (select-keys (:hyp-confidences workspace)
                                                (:accepted workspace))))]
         (cond
          ;; if something is unexplained, give worst confidence score

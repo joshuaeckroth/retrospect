@@ -2,12 +2,13 @@
   (:use [retrospect.epistemicstates :only [current-ep-state]])
   (:use [retrospect.confidences])
   (:use [retrospect.colors])
-  (:use [retrospect.workspaces :only [get-hyps hyp-conf]])
+  (:use [retrospect.workspaces :only [get-hyps hyp-conf get-conf]])
   (:use [retrospect.problems.tracking.hypotheses :only
          [paths-to-movements path-to-movements]])
   (:use [retrospect.problems.tracking.truedata :only [get-grid-movements]])
   (:use [retrospect.problems.tracking.grid :only [dist]])
   (:require [clojure.set :as set])
+  (:use [clojure.contrib.math :as math :only [abs]])
   (:use [clojure.contrib.seq :only [find-first]]))
 
 (defn true-movements
@@ -87,6 +88,27 @@
                     movements)]
     (if (empty? scores) 0.0 (avg scores))))
 
+(defn plausibility-events
+  [prev-ep true-moves plausibility]
+  (let [hyps (filter #(re-find #"^M?TH" (:id %)) (get-hyps (:workspace prev-ep)))
+        movements (map (fn [h] {:det (:det (:data h)) :det2 (:det2 (:data h))})
+                       (filter #(= plausibility (hyp-conf (:workspace prev-ep) %)) hyps))
+        scores (map (fn [{:keys [det det2]}]
+                      (if (some
+                           #(and (= (:ot %) (:time det)) (= (:t %) (:time det2))
+                                 (= (:ox %) (:x det)) (= (:oy %) (:y det))
+                                 (= (:x %) (:x det2)) (= (:y %) (:y det2)))
+                           true-moves)
+                        1 0))
+                    movements)]
+    (if (empty? scores) 0.0 (avg scores))))
+
+(defn avg-with-prior
+  [results key val]
+  (let [c (count results)]
+    (if (= c 0) val
+        (double (/ (+ (* c (key (last results))) val) (inc c))))))
+
 (defn evaluate
   [ep-state results prev-ep sensors truedata params]
   (let [maxtime (min (dec (dec (count truedata))) (dec (dec (:time ep-state))))
@@ -94,8 +116,12 @@
         elmap (assoc-es-ls ep-state truedata)
         ;; map of time with label (for each label) per true entity
         twl (reduce (partial assoc-es-twl elmap) {} (keys elmap))
-        true-moves (true-movements truedata maxtime)]
-    {:PercentEventsCorrect (percent-events-correct (:problem-data ep-state) true-moves)
+        true-moves (true-movements truedata maxtime)
+        pec (percent-events-correct (:problem-data ep-state) true-moves)]
+    {:PercentEventsCorrect pec
+     :PlausibilityWorkspaceAccuracy (avg-with-prior results :PlausibilityWorkspaceAccuracy
+                                      (math/abs (- (prob-conf pec)
+                                                   (get-conf (:workspace prev-ep)))))
      :MeanTimeWithLabel (avg (map #(avg (twl %)) (keys twl)))
      :MaxTimeWithLabel (avg (map #(apply max (twl %)) (keys twl)))
      :MinTimeWithLabel (avg (map #(apply min (twl %)) (keys twl)))
@@ -104,11 +130,18 @@
                                  (count (keys elmap))))
      :DistinctLabels (count (keys (:paths (:problem-data ep-state))))
      ;; average current plausibility accuracy with past
-     :PlausibilityAccuracy
-     (let [pa (plausibility-accuracy prev-ep true-moves)
-           c (count results)]
-       (if (= c 0) pa
-           (/ (+ (* c (:PlausibilityAccuracy (last results))) pa) (inc c))))
+     :PlausibilityAccuracy (avg-with-prior results :PlausibilityAccuracy
+                             (plausibility-accuracy prev-ep true-moves))
+     :PlausibilityVIEvents (avg-with-prior results :PlausibilityVIEvents
+                             (plausibility-events prev-ep true-moves VERY-IMPLAUSIBLE))
+     :PlausibilityIEvents (avg-with-prior results :PlausibilityIEvents
+                            (plausibility-events prev-ep true-moves IMPLAUSIBLE))
+     :PlausibilityNEvents (avg-with-prior results :PlausibilityNEvents
+                            (plausibility-events prev-ep true-moves NEUTRAL))
+     :PlausibilityPEvents (avg-with-prior results :PlausibilityPEvents
+                            (plausibility-events prev-ep true-moves PLAUSIBLE))
+     :PlausibilityVPEvents (avg-with-prior results :PlausibilityVPEvents
+                             (plausibility-events prev-ep true-moves VERY-PLAUSIBLE))
      :SensorOverlap 0
      :EntityDensity 0}))
 

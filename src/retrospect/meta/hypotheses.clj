@@ -69,7 +69,9 @@
         ep-state (current-ep-state est)
         ;; bypass epistemicstate's explain, go directly to workspace's explain,
         ;; so that we don't cause another prepare-workspace before explaining
-        ep-expl (assoc ep-state :workspace (ws/explain (:workspace ep-state)))
+        ep-expl (assoc ep-state :workspace (ws/explain (:workspace ep-state)
+                                                       (:consistent?-fn problem)
+                                                       (:problem-data ep-state)))
         est-new (update-ep-state-tree est ep-expl)
         hyp (let [{score :score est-caught-up :ep-state-tree ec :explain-cycles}
                   (score-by-catching-up problem est-new sensors params lazy)

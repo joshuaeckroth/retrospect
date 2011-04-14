@@ -32,7 +32,7 @@
   [conf]
   (min VERY-PLAUSIBLE (inc conf)))
 
-(defn prob-apriori
+(defn prob-conf
   [prob]
   (cond
    (<= prob 20) VERY-IMPLAUSIBLE
@@ -41,6 +41,6 @@
    (<= prob 80) PLAUSIBLE
    :else VERY-PLAUSIBLE))
 
-(defn prob-neg-apriori
+(defn prob-neg-conf
   [prob]
-  (prob-apriori (- 100 prob)))
+  (prob-conf (- 100 prob)))

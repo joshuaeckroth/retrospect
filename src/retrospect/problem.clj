@@ -8,6 +8,12 @@
   (:use [retrospect.meta.explain :only [explain-meta]])
   (:use [retrospect.sensors :only [update-sensors]]))
 
+(defn avg-with-prior
+  [results key val]
+  (let [c (count results)]
+    (if (= c 0) val
+        (double (/ (+ (* c (key (last results))) val) (inc c))))))
+
 (defn evaluate
   [problem truedata or-state params]
   (let [prev-ep (previous-ep-state (:ep-state-tree or-state))
@@ -30,14 +36,15 @@
                         :MetaAcceptedNone (:meta-accepted-none res)
                         :Milliseconds (:milliseconds res)
                         :Unexplained
-                        (if prev-ep (count (:unexplained (:workspace prev-ep))) 0)
+                        (avg-with-prior (:results or-state) :Unexplained
+                          (if prev-ep
+                            (count (:unexplained (:final (:log (:workspace prev-ep)))))
+                            0))
                         ;; ExplainCycles are stored in current ep-state
                         :ExplainCycles
                         (:explain-cycles (:resources (:workspace ep-state)))
                         :HypothesisCount
-                        (:hyp-count (:resources (:workspace prev-ep)))
-                        :HypothesesNew
-                        (:hyps-new (:resources (:workspace prev-ep))))))))
+                        (:hyp-count (:resources (:workspace prev-ep))))))))
 
 (defn calc-percent-increase
   [k m b]
@@ -100,7 +107,10 @@
         ;; and meta-abduction is turned 'on'
         ors-meta
         (let [bad (:bad (:problem-data (current-ep-state (:ep-state-tree ors-expl))))]
-          (if (or (empty? bad) (not (:meta-abduction ors-expl)))
+          (if (or (and (empty? bad)
+                       (empty? (:unexplained (:final (:log (:workspace ep-explained))))))
+                  (= time-now 0)
+                  (not (:meta-abduction ors-expl)))
             ors-expl
             (explain-meta problem ors-expl bad params)))
         ;; stop the clock
@@ -161,8 +171,7 @@
            :Milliseconds
            :Unexplained
            :ExplainCycles
-           :HypothesisCount
-           :HypothesesNew]))
+           :HypothesisCount]))
 
 (defn get-comparative-headers
   [problem]
