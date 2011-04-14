@@ -48,7 +48,7 @@
         est-child (new-child-ep-state ep-state-tree ep-state (dec time-now) problem)
         ep-child (current-ep-state est-child)
         ep-hyps ((:hypothesize-fn problem) ep-child sensors time-now params)
-        ep-expl (explain ep-hyps)
+        ep-expl (explain ep-hyps (:consistent?-fn problem))
         est-final (new-child-ep-state est-child ep-expl time-now problem)]
     {:ep-state-tree est-final
      :explain-cycles (:explain-cycles (:resources (:workspace ep-expl)))

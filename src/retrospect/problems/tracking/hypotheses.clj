@@ -7,7 +7,10 @@
   (:use [retrospect.problems.tracking.grid :only [grid-at dist]])
   (:use [clojure.contrib.seq :only [find-first]])
   (:require [clojure.contrib.math :as math])
-  (:require [clojure.set :as set :only [intersection difference]]))
+  (:require [clojure.set :as set :only [intersection difference]])
+  (:use [loom.graph :only [digraph nodes add-nodes add-edges incoming neighbors]])
+  (:use [loom.alg :only [post-traverse]])
+  (:use [loom.io :only [dot]]))
 
 (defn make-sensor-hyps
   [sensor e]
@@ -163,14 +166,16 @@
   the path consists of red (and gray) but no blue, it should be blue,
   and vice versa; if the path consists of some red and some blue, the
   new path should be gray."
-  [move path]
-  (let [colors (map :color (concat move path))
-        has-red? (some #{red} colors)
-        has-blue? (some #{blue} colors)]
-    (cond (and (not has-red?) (not has-blue?)) gray
-          (and has-red? (not has-blue?)) red
-          (and has-blue? (not has-red?)) blue
-          :else gray)))
+  ([path]
+     (let [colors (map :color path)
+           has-red? (some #{red} colors)
+           has-blue? (some #{blue} colors)]
+       (cond (and (not has-red?) (not has-blue?)) gray
+             (and has-red? (not has-blue?)) red
+             (and has-blue? (not has-red?)) blue
+             :else gray)))
+  ([move path]
+     (find-color (concat move path))))
 
 (defn new-label
   ([labels move path]
@@ -189,6 +194,7 @@
     (let [last-det (last (get paths label))]
       (and (= (select-keys last-det [:x :y :time])
               (select-keys det [:x :y :time]))
+           (match-color? (:color det) (:color (meta label)))
            (match-color? (:color det2) (:color (meta label)))))))
 
 (defn update-label-color
@@ -198,13 +204,6 @@
       (let [path (get paths label)
             color (find-color move path)]
         (with-meta label (merge (meta label) {:color color})))))
-
-(defn filter-distinct-color-extensions
-  [paths move]
-  (mapcat (fn [c] (filter #(and (= (:color (meta %)) c)
-                                (is-extension? paths % move))
-                          (keys paths)))
-          [blue red gray]))
 
 (defn extend-paths
   "Given a movement, try to extend an existing path to incorporate that movement.
@@ -335,3 +334,40 @@
                   ;; (new label for each second det2 of movement)
                   merge-paths (reduce merge-path split-paths merges)]
               (recur (inc t) merge-paths newbad)))))))
+
+(defn dets-match?
+  [det1 det2]
+  (and (= (:x det1) (:x det2))
+       (= (:y det1) (:y det2))
+       (= (:time det1) (:time det2))))
+
+(defn moves-to-pathtree
+  [moves]
+  (reduce (fn [g [det det2]]
+            (-> g
+                (add-nodes det det2)
+                (add-edges [det det2])))
+          (digraph) moves))
+
+(defn consistent?
+  [hyps pdata]
+  (let [moves (map (fn [h] [(:det (:data h)) (:det2 (:data h))])
+                   (filter #(= :tracking (:type %)) hyps))
+        pathtree (moves-to-pathtree moves)
+        starts (filter (fn [mv] (empty? (incoming pathtree mv))) (nodes pathtree))
+        paths (map (fn [s] (post-traverse pathtree s)) starts)
+        label-matches (fn [l p]
+                        (let [det (last (get (:paths pdata) l))]
+                          (and (= (select-keys det [:x :y :time])
+                                  (select-keys (last p) [:x :y :time]))
+                               (match-color? (:color det) (:color (last p))))))
+        find-label-color (fn [p] (if-let [l (find-first #(label-matches % p)
+                                                        (keys (:paths pdata)))]
+                                   (:color (meta l)) gray))
+        paths-colors (map (fn [p] {:path p :color (find-label-color p)}) paths)
+        consistent-color? (fn [{p :path c :color}]
+                            (let [colors (map :color p)]
+                              (and (every? #(match-color? % c) colors)
+                                   (not (and (some #{red} colors) (some #{blue} colors))))))]
+    (dot pathtree "pathtree.dot")
+    (every? consistent-color? paths-colors)))

@@ -94,7 +94,7 @@
         ;; start the clock
         start-time (. System (nanoTime))
         ors-hyps (hypothesize problem ors-sensors time-now params)
-        ep-explained (explain (:ep-state ors-hyps))
+        ep-explained (explain (:ep-state ors-hyps) (:consistent?-fn problem))
         ors-expl (proceed-one-run-state ors-hyps ep-explained time-now problem)
         ;; perform meta-abduction if the :bad set is non-empty
         ;; and meta-abduction is turned 'on'
@@ -192,4 +192,4 @@
     [name headers comparative-headers monitor-fn player-fns
      truedata-fn sensor-gen-fn prepared-map
      hypothesize-fn commit-decision-fn gen-problem-data-fn
-     evaluate-fn evaluate-comparative-fn])
+     consistent?-fn evaluate-fn evaluate-comparative-fn])

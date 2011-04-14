@@ -173,6 +173,6 @@
     ep-tree-child))
 
 (defn explain
-  [ep-state]
+  [ep-state consistent?]
   (let [workspace (ws/prepare-workspace (:workspace ep-state))]
-    (assoc ep-state :workspace (ws/explain workspace))))
+    (assoc ep-state :workspace (ws/explain workspace consistent? (:problem-data ep-state)))))

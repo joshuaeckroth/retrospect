@@ -244,8 +244,8 @@
     (assoc-in ws [:log :confidence] (measure-conf ws))))
 
 (defn find-best
-  [workspace]
-  (let [explainers (find-explainers workspace)
+  [workspace attempted]
+  (let [explainers (set/difference (find-explainers workspace) attempted)
         essentials (doall (filter (partial essential? workspace) explainers))
         good-es (doall (filter #(empty? (set/intersection (set essentials)
                                                           (find-conflicts workspace %)))
@@ -259,13 +259,20 @@
         {:best best :alts (filter #(not= % best) explainers) :essential? false}))))
 
 (defn explain
-  [workspace]
-  (if (empty? (edges (:graph workspace))) (log-final workspace)
-      (let [{best :best alts :alts essential? :essential?} (find-best workspace)]
-        (if-not best
-          (log-final workspace)
-          (recur
-           (-> workspace
-               (update-in [:resources :explain-cycles] inc)
-               (update-in [:log :best] conj {:best best :alts alts :essential? essential?})
-               (accept best)))))))
+  [workspace consistent? pdata]
+  (loop [ws workspace
+         attempted #{}]
+    (if (empty? (edges (:graph ws))) (log-final ws)
+        (let [{best :best alts :alts essential? :essential?}
+              (find-best ws attempted)]
+          (if-not best
+            (log-final ws)
+            (if (not (consistent? (conj (:accepted ws) best) pdata))
+              (recur ws (conj attempted best))
+              (recur
+               (-> ws
+                   (update-in [:resources :explain-cycles] inc)
+                   (update-in [:log :best] conj
+                              {:best best :alts alts :essential? essential?})
+                   (accept best))
+               (conj attempted best))))))))

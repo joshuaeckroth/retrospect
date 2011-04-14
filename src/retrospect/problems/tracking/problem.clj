@@ -5,7 +5,7 @@
   (:use [retrospect.problems.tracking.truedata :only [generate-truedata]])
   (:use [retrospect.problems.tracking.sensors :only [generate-sensors]])
   (:use [retrospect.problems.tracking.hypotheses :only
-         [hypothesize commit-decision]])
+         [hypothesize commit-decision consistent?]])
   (:use [retrospect.problems.tracking.player :only
          [player-get-params player-set-params player-get-params-panel
           player-get-stats-panel player-update-stats player-get-truedata-log
@@ -73,5 +73,6 @@
             hypothesize
             commit-decision
             generate-problem-data
+            consistent?
             evaluate
             evaluate-comparative))
