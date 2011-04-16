@@ -61,8 +61,10 @@
                          ep (concat
                              ;; get hyp-to hypotheses from prior spotted grid
                              (map (comp :hyp-to meta) (flatten (or (last sg) [])))
-                             ;; and hyp-from hypotheses from current spotted grid
-                             (map (comp :hyp-from meta) (flatten spotted))))))))))
+                             ;; and hyp-from hypotheses from current spotted grid,
+                             ;; but only if the hyp's time != 0
+                             (filter #(not= 0 (:time (meta (:entity (:data %)))))
+                                     (map (comp :hyp-from meta) (flatten spotted)))))))))))
 
 (defn score-distance
   "Returns nil if movement is impossible."
