@@ -18,15 +18,13 @@
   [problem truedata or-state params]
   (let [prev-ep (previous-ep-state (:ep-state-tree or-state))
         ep-state (current-ep-state (:ep-state-tree or-state))
+        results (:results or-state)
         res (:resources or-state)]
     (update-in or-state [:results] conj
-               (merge ((:evaluate-fn problem)
-                       (:ep-state or-state)
-                       (:results or-state)
-                       (previous-ep-state (:ep-state-tree or-state))
+               (merge ((:evaluate-fn problem) ep-state results prev-ep
                        (:sensors or-state) truedata params)
                       (assoc params
-                        :Step (:time (:ep-state or-state))
+                        :Step (:time ep-state)
                         :MetaAbduction (:meta-abduction or-state)
                         :Lazy (:lazy or-state)
                         :MetaAbductions (:meta-abductions res)
@@ -36,10 +34,8 @@
                         :MetaAcceptedNone (:meta-accepted-none res)
                         :Milliseconds (:milliseconds res)
                         :Unexplained
-                        (avg-with-prior (:results or-state) :Unexplained
-                          (if prev-ep
-                            (count (:unexplained (:final (:log (:workspace prev-ep)))))
-                            0))
+                        (avg-with-prior results :Unexplained
+                          (count (:unexplained (:final (:log (:workspace ep-state))))))
                         ;; ExplainCycles are stored in current ep-state
                         :ExplainCycles
                         (:explain-cycles (:resources (:workspace ep-state)))
@@ -71,6 +67,7 @@
           :MetaUnexplained (:Unexplained m)
           :BaseUnexplained (:Unexplained b)
           :RatioUnexplained (calc-ratio :Unexplained m b)
+          :IncreaseUnexplained (calc-percent-increase :Unexplained m b)
           :MetaExplainCycles (:ExplainCycles m)
           :BaseExplainCycles (:ExplainCycles b)
           :RatioExplainCycles (calc-ratio :ExplainCycles m b)
@@ -188,6 +185,7 @@
            :MetaUnexplained
            :BaseUnexplained
            :RatioUnexplained
+           :IncreaseUnexplained
            :MetaExplainCycles
            :BaseExplainCycles
            :RatioExplainCycles

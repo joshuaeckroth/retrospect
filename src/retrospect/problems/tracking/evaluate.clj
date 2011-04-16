@@ -191,6 +191,12 @@
    :BasePlausibilityAccuracy (:PlausibilityAccuracy b)
    :RatioPlausibilityAccuracy (calc-ratio :PlausibilityAccuracy m b)
    :IncreasePlausibilityAccuracy (calc-percent-increase :PlausibilityAccuracy m b)
+
+   :MetaPlausibilityWorkspaceAccuracy (:PlausibilityWorkspaceAccuracy m)
+   :BasePlausibilityWorkspaceAccuracy (:PlausibilityWorkspaceAccuracy b)
+   :RatioPlausibilityWorkspaceAccuracy (calc-ratio :PlausibilityWorkspaceAccuracy m b)
+   :IncreasePlausibilityWorkspaceAccuracy
+   (calc-percent-increase :PlausibilityWorkspaceAccuracy m b)
    
    :NumberEntities (:NumberEntities params)
    :StepsBetween (:StepsBetween params)

@@ -54,6 +54,8 @@
    :IncreaseDistinctLabels
    :MetaPlausibilityAccuracy :BasePlausibilityAccuracy :RatioPlausibilityAccuracy
    :IncreasePlausibilityAccuracy
+   :MetaPlausibilityWorkspaceAccuracy :BasePlausibilityWorkspaceAccuracy
+   :RatioPlausibilityWorkspaceAccuracy :IncreasePlausibilityWorkspaceAccuracy
    :NumberEntities :MaxWalk :ProbNewEntities])
 
 (def tracking-problem
