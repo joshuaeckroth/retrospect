@@ -84,14 +84,14 @@
                                                        ["2" blue 0 7,0 7,5 7,9]))}))
 
 (def intersection-ambiguity
-  (let [params (merge basic-params {:Steps 3 :SensorSeesColor 80 :MaxWalk 3
+  (let [params (merge basic-params {:Steps 4 :SensorSeesColor 80 :MaxWalk 3
                                     :MetaAbduction true})]
     {:params params
      :sensors [(new-sensor (keyword "left") 0 2 0 9 true)
                (new-sensor (keyword "middle") 3 4 0 9 false)
                (new-sensor (keyword "right") 5 9 0 9 true)]
-     :truedata (build-truedata params (entity-paths ["1" red  0 5,7 4,4 2,3]
-                                                    ["2" blue 0 5,4 4,7 2,8]))}))
+     :truedata (build-truedata params (entity-paths ["1" red  0 5,7 4,4 2,3 0,3]
+                                                    ["2" blue 0 5,4 4,7 2,8 0,8]))}))
 
 (def intersection-ambiguity-nometa
   (assoc-in intersection-ambiguity [:params :MetaAbduction] false))
@@ -99,7 +99,7 @@
 (def intersection-ambiguity-nometa-allatonce
   (-> intersection-ambiguity
       (assoc-in [:params :MetaAbduction] false)
-      (assoc-in [:params :StepsBetween] 3)))
+      (assoc-in [:params :StepsBetween] 4)))
 
 (def split-ambiguity
   (let [params (merge basic-params {:Steps 4 :MaxWalk 2})]
@@ -181,6 +181,9 @@
                                                     ["4" red 0 3,5 4,5 5,5 6,5 7,5 8,5]
                                                     ["5" red 0 4,5 5,5 6,5 7,5 8,5 9,5]))}))
 
+(def march-aao
+     (assoc-in march [:params :StepsBetween] 6))
+
 (def prepared-map
   (sorted-map "color-update" color-update
               "color-update-2" color-update-2
@@ -189,6 +192,7 @@
               "intersect-nom" intersection-ambiguity-nometa
               "intersect-nom-aao" intersection-ambiguity-nometa-allatonce
               "march" march
+              "march-aao" march-aao
               "merge" merge-ambiguity
               "merge-2" merge-ambiguity-2
               "merge-gray" merge-ambiguity-gray

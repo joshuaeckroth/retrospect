@@ -79,30 +79,30 @@
    "Intersection ambiguity (with meta)"
    (:PercentEventsCorrect results) => (roughly 100.0)
    (:MetaAbductions results) => 1
-   (:MeanTimeWithLabel results) => (roughly 3.0)
+   (:MeanTimeWithLabel results) => (roughly 4.0)
    (:MeanLabelCounts results) => (roughly 1.0)))
 
 (let [or-state (run-for-or-state intersection-ambiguity-nometa)
       results (last (:results or-state))]
   (facts
    "Intersection ambiguity (no meta)"
-   (:PercentEventsCorrect results) => (roughly 50.0)
+   (:PercentEventsCorrect results) => (roughly 33.3 0.1)
    (:MetaAbductions results) => 0
-   (:MeanTimeWithLabel results) => (roughly 1.0)
+   (:MeanTimeWithLabel results) => (roughly 1.3 0.1)
    (:MeanLabelCounts results) => (roughly 3.0)
    (paths-str (:paths (:problem-data (:ep-state or-state))))
    => (newlines "A (blue): 5,4@0 -> 4,4@1"
                 "B (red): 5,7@0 -> 4,7@1"
-                "C (blue): 4,7@1 -> 2,8@2"
-                "D (red): 4,4@1 -> 2,3@2")))
+                "C (blue): 2,8@2 -> 0,8@3"
+                "D (red): 2,3@2 -> 0,3@3")))
 
 (let [results (run-for-results intersection-ambiguity-nometa-allatonce)]
   (facts
    "Intersection ambiguity (no meta, all at once)"
-   (:PercentEventsCorrect results) => (roughly 50.0)
+   (:PercentEventsCorrect results) => (roughly 100.0)
    (:MetaAbductions results) => 0
-   (:MeanTimeWithLabel results) => (roughly 1.0)
-   (:MeanLabelCounts results) => (roughly 3.0)))
+   (:MeanTimeWithLabel results) => (roughly 4.0)
+   (:MeanLabelCounts results) => (roughly 1.0)))
 
 ;; splits
 (let [or-state (run-for-or-state split-ambiguity)

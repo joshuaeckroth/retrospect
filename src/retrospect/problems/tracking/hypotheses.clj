@@ -76,8 +76,7 @@
      (<= d (* maxwalk 0.25)) VERY-PLAUSIBLE
      (<= d (* maxwalk 0.45)) PLAUSIBLE
      (<= d (* maxwalk 0.55)) NEUTRAL
-     (<= d (* maxwalk 0.65)) IMPLAUSIBLE
-     (<= d mw) VERY-IMPLAUSIBLE)))
+     (<= d mw) IMPLAUSIBLE)))
 
 (defn score-movement
   "Returns nil if movement is impossible."
