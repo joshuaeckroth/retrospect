@@ -88,10 +88,12 @@
           _ (panel)
           :gridx 0 :gridy 2 :weightx 1.0 :weighty 1.0 :gridwidth 5
           _ graph-panel
-          :gridx 0 :gridy 3 :weighty 0.0
-          _ (let [p (panel :layout (WrapLayout. FlowLayout/LEFT))]
+          :gridx 0 :gridy 3 :weighty 0.5
+          _ (let [cb (fn [h] (check-box :caption (name h)
+                                        :selected false
+                                        :action ([_] (toggle-header h)
+                                                   (update-results))))
+                  p (panel :layout (WrapLayout.))]
               (doseq [h (sort-by name (get-headers @problem))]
-                (doto p (.add (check-box :caption (name h) :selected false
-                                         :action ([_] (toggle-header h)
-                                                    (update-results))))))
-              p)]))
+                (doto p (.add (cb h))))
+              (scroll-panel p))]))

@@ -128,7 +128,8 @@
    (scroll-panel (text-area :str-ref truedata-log :editable false))
    (split-vertical
     (panel :layout (GridBagLayout.) :constrains (java.awt.GridBagConstraints.)
-           [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0 :fill :BOTH :insets (Insets. 5 0 5 0)
+           [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0
+            :fill :BOTH :insets (Insets. 5 0 5 0)
             _ problem-log-label
             :gridy 1 :weighty 1.0
             _ (scroll-panel (text-area :str-ref problem-log :editable false))])
