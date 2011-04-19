@@ -105,10 +105,12 @@
     (filter identity
             (for [det2 uncovered]
               (when-let [score (matched-and-in-range? det det2 params)]
-                ;; it is important that the hyp explains where det2 is 'from' and
-                ;; where det went 'to'
-                (let [explains (concat (map (comp :hyp-from meta) (find-spotted det2))
-                                       (map (comp :hyp-to meta) (find-spotted det)))]
+                ;; it is important that the hyp explains where det2 is
+                ;; 'from' and where det went 'to'
+                (let [explains (concat (map (comp :hyp-from meta)
+                                            (find-spotted det2))
+                                       (map (comp :hyp-to meta)
+                                            (find-spotted det)))]
                   [(new-hyp "TH" :tracking nil score (desc-fn det det2 explains)
                             {:det det :det2 det2})
                    explains]))))))
@@ -137,12 +139,12 @@
 
 (defn paths-str
   [paths]
-  (apply str (interpose "\n" (map (fn [label] (format "%s%s (%s): %s"
-                                                      label
-                                                      (if (:dead (meta label)) "*" "")
-                                                      (color-str (:color (meta label)))
-                                                      (path-str (get paths label))))
-                                  (keys paths)))))
+  (apply str (map (fn [label] (format "%s%s (%s): %s\n"
+                                      label
+                                      (if (:dead (meta label)) "*" "")
+                                      (color-str (:color (meta label)))
+                                      (path-str (get paths label))))
+                  (keys paths))))
 
 (defn path-to-movements
   [path]
@@ -187,7 +189,8 @@
            sym (if (empty? labels) (symbol "A")
                    (loop [i nth id ""]
                      (if (<= i 25) (symbol (str id (char (+ 65 i))))
-                         (recur (int (- i 26)) (str id (char (+ 65 (mod i 26))))))))
+                         (recur (int (- i 26))
+                                (str id (char (+ 65 (mod i 26))))))))
            color (find-color move path)]
        (with-meta sym {:color color :nth nth})))
   ([labels move] (new-label labels move [])))
@@ -197,9 +200,7 @@
   (when (not (:dead (meta label)))
     (let [last-det (last (get paths label))]
       (and (= (select-keys last-det [:x :y :time])
-              (select-keys det [:x :y :time]))
-           (match-color? (:color det) (:color (meta label)))
-           (match-color? (:color det2) (:color (meta label)))))))
+              (select-keys det [:x :y :time]))))))
 
 (defn update-label-color
   "Update color if the label is gray."
@@ -210,14 +211,20 @@
         (with-meta label (merge (meta label) {:color color})))))
 
 (defn extend-paths
-  "Given a movement, try to extend an existing path to incorporate that movement.
-   Clearly, the only valid path to extend is the one that ends where
-   the movement begins, and such a path should only be extended if the
-   movement is not involved in a split or merge. If a movement cannot
-   be incorporated, mark it as 'bad'. There may be multiple paths that
-   can be extended (see the 'merge-ambiguity-gray' prepared case)."
+  "Given a movement, try to extend an existing path to incorporate
+   that movement. Clearly, the only valid path to extend is the one
+   that ends where the movement begins, and such a path should only be
+   extended if the movement is not involved in a split or merge. If a
+   movement cannot be incorporated, mark it as 'bad'. There may be
+   multiple paths that can be extended (see the 'merge-ambiguity-gray'
+   prepared case)."
   [splits merges {:keys [paths bad]} move]
-  (let [labels (filter #(is-extension? paths % move) (keys paths))]
+  (let [potential-labels (filter #(is-extension? paths % move) (keys paths))
+        labels (filter #(and (match-color? (:color (first move))
+                                           (:color (meta %)))
+                             (match-color? (:color (second move))
+                                           (:color (meta %))))
+                       potential-labels)]
     (cond
      ;; if we have a split, just mark each applicable label as dead
      (some #{move} splits)
@@ -230,7 +237,8 @@
         :bad bad}
        ;; no label found, return paths
        {:paths paths :bad bad})
-     ;; if we have a merge, continue the relevant paths one step, then call them dead
+     ;; if we have a merge, continue the relevant paths one step,
+     ;; then call them dead
      (some #{move} merges)
      (if (not-empty labels)
        ;; if we found what has been merged, process them
@@ -238,31 +246,37 @@
         (reduce (fn [ps l]
                   (let [path (get ps l)
                         l-color (update-label-color ps l move)
-                        l-dead (with-meta l-color (merge (meta l-color) {:dead true}))]
+                        l-dead (with-meta l-color (merge (meta l-color)
+                                                         {:dead true}))]
                     (-> ps (dissoc l)
                         (assoc l-dead (conj path (second move))))))
                 paths labels)
         :bad bad}
        ;; otherwise just return paths
        {:paths paths :bad bad})
-     ;; otherwise, no split/merge, so find the 'live' extension(s)
-     :else
-     (if (empty? labels)
-       ;; this movement continues no known path, so make a new label;
-       ;; also, add the movement to 'bad' if we shouldn't be making a
-       ;; new label (that is, the time is not 0 and we already have some
-       ;; labels
-       (let [new-bad (if (or (empty? paths) (= 0 (:time (first move))))
-                       bad (conj bad move))]
-         {:paths (assoc paths (new-label (keys paths) move) move) :bad new-bad})
-       ;; otherwise, at least one prior path (label) can be extended, so do so
-       {:paths (reduce (fn [ps l]
-                         (let [path (get ps l)
-                               l-color (update-label-color ps l move)]
-                           (-> ps (dissoc l)
-                               (assoc l-color (conj path (second move))))))
-                       paths labels)
-        :bad bad}))))
+     ;; this movement continues no path, yet there is a label
+     ;; meeting the point of the movement; in such cases, the colors
+     ;; don't match; make a new label, but mark the movement as bad
+     (and (empty? labels) (not-empty potential-labels))
+     (let [new-bad (if (or (empty? paths) (= 0 (:time (first move))))
+                     bad (conj bad move))]
+       {:paths (assoc paths (new-label (keys paths) move) move) :bad new-bad})
+     ;; we don't even have an existing path coming up to touch the
+     ;; movement; so, just make a new label (don't mark bad because we
+     ;; have no information leading us to believe it's a bad movement,
+     ;; it's just an anomaly that needs to be resolved by introducing
+     ;; a label)
+     (and (empty? labels) (empty? potential-labels))
+     {:paths (assoc paths (new-label (keys paths) move) move) :bad bad}
+     ;; otherwise, at least one prior path (label) can be extended, so
+     ;; extend all of them
+     :else {:paths (reduce (fn [ps l]
+                             (let [path (get ps l)
+                                   l-color (update-label-color ps l move)]
+                               (-> ps (dissoc l)
+                                   (assoc l-color (conj path (second move))))))
+                           paths labels)
+            :bad bad})))
 
 (defn split-path
   "A split has a common first det and a unique second det2; we want to
@@ -292,7 +306,8 @@
     paths
     ;; otherwise, make our new label; we gather all prior paths to obtain
     ;; color information
-    (let [prior-paths (apply concat (filter (fn [path] (= (last path) (second move)))
+    (let [prior-paths (apply concat (filter (fn [path] (= (last path)
+                                                          (second move)))
                                             (inactive-paths paths)))]
       (assoc paths (new-label (keys paths) move prior-paths) [(second move)]))))
 
@@ -311,7 +326,8 @@
 (defn commit-decision
   [pdata accepted rejected shared-explains unexplained time-now]
   (if (empty? accepted) pdata
-      (let [moves (map (fn [h] (with-meta [(:det (:data h)) (:det2 (:data h))] {:hyp h}))
+      (let [moves (map (fn [h] (with-meta [(:det (:data h)) (:det2 (:data h))]
+                                 {:hyp h}))
                        (sort-by (comp :time :det :data) (sort-by :id accepted)))
             maxtime (dec (apply max (map :time (flatten moves))))]
         ;; incorporate the decision one time step at a time
@@ -356,25 +372,5 @@
           (digraph) moves))
 
 (defn consistent?
-  [hyps pdata]
-  (let [moves (map (fn [h] [(:det (:data h)) (:det2 (:data h))])
-                   (filter #(= :tracking (:type %)) hyps))
-        pathtree (moves-to-pathtree moves)
-        starts (filter (fn [mv] (empty? (incoming pathtree mv))) (nodes pathtree))
-        paths (map (fn [s] (post-traverse pathtree s)) starts)
-        label-matches (fn [l p]
-                        (let [det (last (get (:paths pdata) l))]
-                          (and (= (select-keys det [:x :y :time])
-                                  (select-keys (last p) [:x :y :time]))
-                               (match-color? (:color det) (:color (last p))))))
-        find-label-colors (fn [p] (let [ls (filter #(label-matches % p)
-                                                   (keys (:paths pdata)))]
-                                    (if (not-empty ls)
-                                      (map (comp :color meta) ls)
-                                      [gray])))
-        paths-colors (map (fn [p] {:path p :colors (find-label-colors p)}) paths)
-        consistent-color? (fn [{p :path cs :colors}]
-                            (let [colors (map :color p)]
-                              (and (every? (fn [c] (some #(match-color? % c) cs)) colors)
-                                   (not (and (some #{red} colors) (some #{blue} colors))))))]
-    (every? consistent-color? paths-colors)))
+  [pdata hyps]
+  (empty? (:bad (commit-decision pdata hyps [] [] [] 0))))

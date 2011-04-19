@@ -12,7 +12,7 @@
 
 (defn newlines
   [& strs]
-  (apply str (interpose "\n" strs)))
+  (apply str (map #(format "%s\n" %) strs)))
 
 (defn run-for-or-state
   [prepared]
@@ -55,7 +55,7 @@
    (:MeanTimeWithLabel results) => (roughly 3.0)
    (:MeanLabelCounts results) => (roughly 1.0)
    (paths-str (:paths (:problem-data (:ep-state or-state))))
-   => "A (red): 9,5@0 -> 5,5@1 -> 2,5@2"))
+   => "A (red): 9,5@0 -> 5,5@1 -> 2,5@2\n"))
 
 (let [or-state (run-for-or-state color-update-2)
       results (last (:results or-state))]
@@ -65,7 +65,7 @@
    (:MeanTimeWithLabel results) => (roughly 3.0)
    (:MeanLabelCounts results) => (roughly 1.0)
    (paths-str (:paths (:problem-data (:ep-state or-state))))
-   => "A (red): 9,5@0 -> 5,5@1 -> 2,5@2"))
+   => "A (red): 9,5@0 -> 5,5@1 -> 2,5@2\n"))
 
 (let [results (run-for-results gray-in-range)]
   (facts "Grays did not cause a problem"
