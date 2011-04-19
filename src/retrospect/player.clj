@@ -99,7 +99,8 @@
     (let [id (re-find #"^[A-Z]+" @ep-selected)
           est (goto-ep-state (:ep-state-tree @or-state) id)
           ep-state (current-ep-state est)]
-      (dosync (alter or-state assoc :ep-state-tree est :ep-state (current-ep-state est)))
+      (dosync (alter or-state assoc :ep-state-tree est
+                     :ep-state (current-ep-state est)))
       (update-everything))))
 
 (defn step
@@ -110,13 +111,14 @@
 
 (defn next-step
   []
-  (when (<= @time-now (:Steps @params))
+  (when (< @time-now (:Steps @params))
     (step)))
 
 (def generic-params
   (panel :layout (GridBagLayout.)
          :constrains (java.awt.GridBagConstraints.)
-         [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0 :fill :BOTH :insets (Insets. 5 5 5 5)
+         [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0
+          :fill :BOTH :insets (Insets. 5 5 5 5)
           _ (label "Steps:")
           :gridx 1
           _ (:Steps param-spinners)
