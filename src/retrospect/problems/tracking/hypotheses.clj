@@ -7,10 +7,7 @@
   (:use [retrospect.problems.tracking.grid :only [grid-at dist]])
   (:use [clojure.contrib.seq :only [find-first]])
   (:require [clojure.contrib.math :as math])
-  (:require [clojure.set :as set :only [intersection difference]])
-  (:use [loom.graph :only [digraph nodes add-nodes add-edges incoming neighbors]])
-  (:use [loom.alg :only [post-traverse]])
-  (:use [loom.io :only [dot-str]]))
+  (:require [clojure.set :as set :only [intersection difference]]))
 
 (defn make-sensor-hyps
   [sensor e]
@@ -356,20 +353,6 @@
                   ;; (new label for each second det2 of movement)
                   merge-paths (reduce merge-path split-paths merges)]
               (recur (inc t) merge-paths newbad)))))))
-
-(defn dets-match?
-  [det1 det2]
-  (and (= (:x det1) (:x det2))
-       (= (:y det1) (:y det2))
-       (= (:time det1) (:time det2))))
-
-(defn moves-to-pathtree
-  [moves]
-  (reduce (fn [g [det det2]]
-            (-> g
-                (add-nodes det det2)
-                (add-edges [det det2])))
-          (digraph) moves))
 
 (defn consistent?
   [pdata hyps]
