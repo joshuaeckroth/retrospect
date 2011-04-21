@@ -100,10 +100,30 @@
                                   only-best-conf)]
     (first (sort-by :id (AlphanumComparator.) only-max-explains))))
 
+(defn find-alternatives
+  [workspace hyp]
+  (let [g (:graph workspace)]
+    (disj (set (mapcat (fn [explained] (incoming g explained))
+                       (neighbors g hyp)))
+          hyp)))
+
+(defn filter-delta
+  [workspace hyps]
+  (letfn [(delta-better? [delta h1 h2] (<= delta (- (hyp-conf workspace h1)
+                                                    (hyp-conf workspace h2))))]
+    (loop [delta 5]
+      (if (= delta 0) {:hyps hyps :delta 0}
+          (let [good-hyps (set (filter #(every? (partial delta-better? delta %)
+                                                (find-alternatives workspace %))
+                                       hyps))]
+            (if (not-empty good-hyps) {:hyps good-hyps :delta delta}
+                (recur (dec delta))))))))
+
 (defn essential?
   [workspace hyp]
   (let [g (:graph workspace)]
-    (some (fn [explained] (= 1 (count (incoming g explained)))) (neighbors g hyp))))
+    (some (fn [explained] (= 1 (count (incoming g explained))))
+          (neighbors g hyp))))
 
 (defn find-conflicts
   "The conflicts of a hyp are those other hyps that share a :conflict-id"
@@ -152,8 +172,10 @@
   [workspace hyp explains]
   (let [expl (set/intersection (nodes (:graph-static workspace)) (set explains))]
     (-> workspace
-        (update-in [:graph-static] #(apply add-nodes % (conj expl hyp)))
-        (update-in [:graph-static] #(apply add-edges % (map (fn [e] [hyp e]) expl)))
+        (update-in [:graph-static]
+                   #(apply add-nodes % (conj expl hyp)))
+        (update-in [:graph-static]
+                   #(apply add-edges % (map (fn [e] [hyp e]) expl)))
         (update-in [:hyp-confidences] assoc hyp (:apriori hyp))
         (update-in [:log :added] conj {:hyp hyp :explains expl}))))
 
@@ -161,7 +183,8 @@
   [workspace hyps]
   (-> workspace
       (update-in [:graph] #(apply remove-nodes % hyps))
-      (update-in [:hyp-confidences] #(reduce (fn [c h] (assoc c h IMPOSSIBLE)) % hyps))
+      (update-in [:hyp-confidences]
+                 #(reduce (fn [c h] (assoc c h IMPOSSIBLE)) % hyps))
       (update-in [:rejected] set/union (set hyps))
       (update-in [:log :rejected] concat hyps)))
 
@@ -175,20 +198,22 @@
   [workspace hyp]
   (let [g (:graph workspace)
         conflicts (find-conflicts workspace hyp)
-        removable (concat (neighbors g hyp) (if (empty? (incoming g hyp)) [hyp] []))
+        removable (concat (neighbors g hyp)
+                          (if (empty? (incoming g hyp)) [hyp] []))
         ws (-> workspace
                (update-in [:accepted] conj hyp)
                (update-in [:graph] #(apply remove-nodes % removable))
                (reject-many conflicts))
         ;; find out what this hyp used to explain (in 'workspace'),
         ;; and what else still explains that
-        penalized (set/intersection
-                   (nodes (:graph ws))
-                   (set (filter #(not= % hyp)
-                                (mapcat (fn [e] (find-explainers workspace e))
-                                        (find-explains workspace hyp)))))]
+        penalized [] #_(set/intersection
+                        (nodes (:graph ws))
+                        (set (filter #(not= % hyp)
+                                     (mapcat (fn [e] (find-explainers workspace e))
+                                             (find-explains workspace hyp)))))]
     (update-in (penalize-hyps ws penalized)
-               [:log :accrej] conj {:acc hyp :rej conflicts :penalized  penalized})))
+               [:log :accrej] conj {:acc hyp :rej conflicts
+                                    :penalized  penalized})))
 
 (defn forced
   [workspace hyp]
@@ -246,27 +271,28 @@
 (defn find-best
   [workspace attempted]
   (let [explainers (set/difference (find-explainers workspace) attempted)
-        essentials (doall (filter (partial essential? workspace) explainers))
-        good-es (doall (filter #(empty? (set/intersection
-                                         (set essentials)
-                                         (find-conflicts workspace %)))
-                               essentials))]
+        essentials (set (filter (partial essential? workspace) explainers))
+        good-es (set (filter #(empty? (set/intersection
+                                       (set essentials)
+                                       (find-conflicts workspace %)))
+                             essentials))]
     (if (not-empty good-es)
       ;; choose first most-confident non-conflicting essential
       (let [best (pick-top-conf workspace good-es)]
-        {:best best :alts (filter #(not= % best) good-es)
-         :essential? true})
-      ;; otherwise, ...
-      (let [best (pick-top-conf workspace explainers)]
-        {:best best :alts (filter #(not= % best) explainers)
-         :essential? false}))))
+        {:best best :alts (find-alternatives workspace best)
+         :essential? true :delta nil})
+      ;; otherwise, choose any clear-best, weak-best, or make a guess (top-conf)
+      (let [{alts :hyps delta :delta} (filter-delta workspace explainers)
+            best (pick-top-conf workspace alts)]
+        {:best best :alts (find-alternatives workspace best)
+         :essential? false :delta delta}))))
 
 (defn explain
   [workspace consistent? pdata]
   (loop [ws workspace
          attempted #{}]
     (if (empty? (edges (:graph ws))) (log-final ws)
-        (let [{:keys [best alts essential?]} (find-best ws attempted)]
+        (let [{:keys [best alts essential? delta]} (find-best ws attempted)]
           (if-not best
             (log-final ws)
             (if (not (consistent? pdata (conj (:accepted ws) best)))
@@ -275,6 +301,7 @@
                (-> ws
                    (update-in [:resources :explain-cycles] inc)
                    (update-in [:log :best] conj
-                              {:best best :alts alts :essential? essential?})
+                              {:best best :alts alts
+                               :essential? essential? :delta delta})
                    (accept best))
                (conj attempted best))))))))
