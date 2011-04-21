@@ -112,10 +112,7 @@
   (letfn [(delta-better? [delta h1 h2] (<= delta (- (hyp-conf workspace h1)
                                                     (hyp-conf workspace h2))))]
     (loop [delta 5]
-<<<<<<< HEAD
       ;; change result when delta=0 to return #{} as hyps to prevent guessing
-=======
->>>>>>> 0bbe53d3f12217693364b7480babeb753bba450c
       (if (= delta 0) {:hyps hyps :delta 0}
           (let [good-hyps (set (filter #(every? (partial delta-better? delta %)
                                                 (find-alternatives workspace %))
