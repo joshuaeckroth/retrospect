@@ -9,7 +9,8 @@
   (:use [clj-swing.panel])
   (:use [clojure.contrib.seq :only [find-first]])
   (:use [retrospect.workspaces :only [get-hyps hyp-conf]])
-  (:use [retrospect.epistemicstates :only [previous-ep-state flatten-ep-state-tree]])
+  (:use [retrospect.epistemicstates :only
+         [previous-ep-state flatten-ep-state-tree]])
   (:use [retrospect.confidences])
   (:use [retrospect.state]))
 
@@ -42,8 +43,13 @@
                                            (let [b (nth (:best wslog) i)
                                                  ar (nth (:accrej wslog) i)]
                                              [(format "Cycle %d" (inc i))
-                                              {(format "Best%s" (if (:essential? b)
-                                                                  " (essential)" ""))
+                                              {(format "Best%s%s"
+                                                       (if (:essential? b)
+                                                         " (essential)" "")
+                                                       (if (:delta b)
+                                                         (format " (delta %d)"
+                                                                 (:delta b))
+                                                         ""))
                                                {(:id (:best b))
                                                 (expand-meta-hyp (:best b))}
                                                "Alternatives" (list-hyps (:alts b))
@@ -128,7 +134,7 @@
    (scroll-panel (text-area :str-ref truedata-log :editable false))
    (split-vertical
     (panel :layout (GridBagLayout.) :constrains (java.awt.GridBagConstraints.)
-           [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0
+           [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0
             :fill :BOTH :insets (Insets. 5 0 5 0)
             _ problem-log-label
             :gridy 1 :weighty 1.0
