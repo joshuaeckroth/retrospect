@@ -79,12 +79,16 @@
 
 (defn score-movement
   "Returns nil if movement is impossible."
-  [{x1 :x y1 :y t1 :time c1 :color} {x2 :x y2 :y t2 :time c2 :color} params]
+  [{x1 :x y1 :y t1 :time c1 :color}
+   {x2 :x y2 :y t2 :time c2 :color}
+   params]
   (score-distance x1 y1 x2 y2 (:MaxWalk params)))
 
 (defn matched-and-in-range?
   "Returns nil if not matched or not in range."
-  [{x1 :x y1 :y t1 :time c1 :color :as det} {x2 :x y2 :y t2 :time c2 :color :as det2} params]
+  [{x1 :x y1 :y t1 :time c1 :color :as det}
+   {x2 :x y2 :y t2 :time c2 :color :as det2}
+   params]
   (when (and (= (inc t1) t2) (match-color? c1 c2))
     (when-let [score (score-movement det det2 params)]
       score)))
@@ -95,9 +99,11 @@
                                      (grid-at (nth spotted-grid (:time d))
                                               (:x d) (:y d))))
         desc-fn (fn [det det2 explains]
-                  (format "%d,%d@%d -> %d,%d@%d\nExplains: %s"
+                  (format "%d,%d@%d (%s) -> %d,%d@%d (%s)\nExplains: %s"
                           (:x det) (:y det) (:time det)
+                          (color-str (:color det))
                           (:x det2) (:y det2) (:time det2)
+                          (color-str (:color det2))
                           (apply str (interpose "," (map :id explains)))))]
     (filter identity
             (for [det2 uncovered]
@@ -321,7 +327,7 @@
         moves))
 
 (defn commit-decision
-  [pdata accepted rejected shared-explains unexplained time-now]
+  [pdata accepted]
   (if (empty? accepted) pdata
       (let [moves (map (fn [h] (with-meta [(:det (:data h)) (:det2 (:data h))]
                                  {:hyp h}))
@@ -356,4 +362,4 @@
 
 (defn consistent?
   [pdata hyps]
-  (empty? (:bad (commit-decision pdata hyps [] [] [] 0))))
+  (empty? (:bad (commit-decision pdata hyps))))

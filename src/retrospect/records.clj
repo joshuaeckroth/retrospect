@@ -72,7 +72,7 @@
       (println (format "Running %d parameter combinations..." (count params)))
       (run-local problem params dir nthreads monitor? meta? repetitions)
       (println "Done.")
-      (System/exit 0))
+      #_(System/exit 0))
     (catch java.util.concurrent.ExecutionException e
       (println "Quitting early."))))
 

@@ -60,18 +60,21 @@
     (neighbors (:graph-static workspace) hyp)
     (neighbors (:graph workspace) hyp)))
 
+(defn shared-explains?
+  [workspace hyp hyps]
+  (not-empty
+   (apply set/union
+          (map #(set/intersection
+                 (find-explains workspace hyp :static)
+                 (find-explains workspace % :static))
+               (disj hyps hyp)))))
+
 (defn find-shared-explains
   [workspace]
   (let [hyps (:accepted workspace)]
     (if (>= 1 (count hyps)) []
         (sort-by :id (AlphanumComparator.)
-                 (filter (fn [hyp] (not-empty
-                                    (apply set/union
-                                           (map #(set/intersection
-                                                  (find-explains workspace hyp :static)
-                                                  (find-explains workspace % :static))
-                                                (disj hyps hyp)))))
-                         hyps)))))
+                 (filter #(shared-explains? workspace % hyps) hyps)))))
 
 (defn find-unexplained
   "Unexplained hyps are those that are forced and remain in the graph,
@@ -106,19 +109,6 @@
     (disj (set (mapcat (fn [explained] (incoming g explained))
                        (neighbors g hyp)))
           hyp)))
-
-(defn filter-delta
-  [workspace hyps]
-  (letfn [(delta-better? [delta h1 h2] (<= delta (- (hyp-conf workspace h1)
-                                                    (hyp-conf workspace h2))))]
-    (loop [delta 5]
-      ;; change result when delta=0 to return #{} as hyps to prevent guessing
-      (if (= delta 0) {:hyps hyps :delta 0}
-          (let [good-hyps (set (filter #(every? (partial delta-better? delta %)
-                                                (find-alternatives workspace %))
-                                       hyps))]
-            (if (not-empty good-hyps) {:hyps good-hyps :delta delta}
-                (recur (dec delta))))))))
 
 (defn essential?
   [workspace hyp]
@@ -189,6 +179,13 @@
       (update-in [:rejected] set/union (set hyps))
       (update-in [:log :rejected] concat hyps)))
 
+(defn reject-inconsistent
+  [workspace consistent? pdata]
+  (let [inconsistent
+        (set (filter #(not (consistent? pdata [%]))
+                     (find-explainers workspace)))]
+    (reject-many workspace inconsistent)))
+
 (defn penalize-hyps
   [workspace hyps]
   (update-in workspace [:hyp-confidences]
@@ -204,17 +201,8 @@
         ws (-> workspace
                (update-in [:accepted] conj hyp)
                (update-in [:graph] #(apply remove-nodes % removable))
-               (reject-many conflicts))
-        ;; find out what this hyp used to explain (in 'workspace'),
-        ;; and what else still explains that
-        penalized [] #_(set/intersection
-                        (nodes (:graph ws))
-                        (set (filter #(not= % hyp)
-                                     (mapcat (fn [e] (find-explainers workspace e))
-                                             (find-explains workspace hyp)))))]
-    (update-in (penalize-hyps ws penalized)
-               [:log :accrej] conj {:acc hyp :rej conflicts
-                                    :penalized  penalized})))
+               (reject-many conflicts))]
+    (update-in ws [:log :accrej] conj {:acc hyp :rej conflicts})))
 
 (defn forced
   [workspace hyp]
@@ -269,40 +257,72 @@
                                    (:forced workspace))})]
     (assoc-in ws [:log :confidence] (measure-conf ws))))
 
+(defn filter-delta
+  [workspace]
+  (let [delta-better? (fn [delta h1 h2] (<= delta (- (hyp-conf workspace h1)
+                                                     (hyp-conf workspace h2))))
+        unexplained (find-unexplained workspace)
+        explainers (set (map #(find-explainers workspace %) unexplained))]
+    (loop [delta 5]
+      ;; change result when delta=0 to return #{} as hyps to prevent guessing
+      (if (= delta 0) {:hyps (set (apply concat explainers)) :delta 0}
+          (let [hs (set (mapcat
+                         (fn [es] (filter
+                                   #(every? (partial delta-better? delta %)
+                                            (disj (set es) %))
+                                   es))
+                         explainers))
+                best (set (filter #(not (shared-explains? workspace % hs)) hs))]
+            (cond
+             (not-empty best) {:hyps best :delta delta}
+             (not-empty hs) {:hyps hs :delta delta}
+             :else (recur (dec delta))))))))
+
+;; TODO: check if essentials ever (when all added) are inconsistent --
+;; this should never happen
+
+;; maybe even quit explaining at delta=1 (don't go to delta=0)
 (defn find-best
-  [workspace attempted]
-  (let [explainers (set/difference (find-explainers workspace) attempted)
-        essentials (set (filter (partial essential? workspace) explainers))
-        good-es (set (filter #(empty? (set/intersection
-                                       (set essentials)
-                                       (find-conflicts workspace %)))
-                             essentials))]
-    (if (not-empty good-es)
-      ;; choose first most-confident non-conflicting essential
-      (let [best (pick-top-conf workspace good-es)]
-        {:best best :alts (find-alternatives workspace best)
+  [workspace consistent? pdata]
+  (let [explainers (find-explainers workspace)
+        essentials (set (filter #(essential? workspace %) explainers))]
+    (if (not-empty essentials)
+      ;; choose first most-confident essential
+      (let [best (pick-top-conf workspace essentials)]
+        {:best best :alts (disj essentials best)
          :essential? true :delta nil})
       ;; otherwise, choose any clear-best, weak-best, or make a guess (top-conf)
-      (let [{alts :hyps delta :delta} (filter-delta workspace explainers)
+      (let [{alts :hyps delta :delta} (filter-delta workspace)
             best (pick-top-conf workspace alts)]
-        {:best best :alts (find-alternatives workspace best)
+        ;; check for pairwise inconsistency with best set
+        (doseq [h alts]
+          (when (some #(not (consistent? pdata [h %]))
+                      (disj alts h))
+            ;; if this happens, just quit (leave it unexplained)
+            (println (:id h) "is consistent with anything else in best = "
+                     (map :id alts) "for delta" delta)))
+        {:best best :alts (disj alts best)
          :essential? false :delta delta}))))
 
+;; commit decision as you go (would make consistency-checks faster)?
+;; yes, but wipe it out before truly committing; we don't care about
+;; new labels at consistency-checking time
 (defn explain
-  [workspace consistent? pdata]
-  (loop [ws workspace
-         attempted #{}]
+  [workspace consistent? commit-decision pdata]
+  ;; start off by rejecting any inconsistent hyps even before
+  ;; we have accepted anything
+  (loop [ws (reject-inconsistent workspace consistent? pdata)
+         pd pdata]
     (if (empty? (edges (:graph ws))) (log-final ws)
-        (let [{:keys [best alts essential? delta]} (find-best ws attempted)]
+        (let [{:keys [best alts essential? delta]}
+              (find-best ws consistent? pd)]
           (if-not best
             (log-final ws)
-            (if (not (consistent? pdata (conj (:accepted ws) best)))
-              (recur ws (conj attempted best))
-              (recur
-               (-> ws
-                   (update-in [:resources :explain-cycles] inc)
-                   (update-in [:log :best] conj
-                              {:best best :alts alts
-                               :essential? essential? :delta delta})
-                   (accept best))
-               (conj attempted best))))))))
+            (recur (-> ws
+                       (update-in [:resources :explain-cycles] inc)
+                       (update-in [:log :best] conj
+                                  {:best best :alts alts
+                                   :essential? essential? :delta delta})
+                       (accept best)
+                       (reject-inconsistent consistent? pd))
+                   (commit-decision pd [best])))))))

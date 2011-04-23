@@ -141,16 +141,13 @@
   [ep-state id time-now problem]
   (let [workspace (:workspace ep-state)
         accepted (:accepted workspace)
-        rejected (:rejected workspace)
-        shared-explains (ws/find-shared-explains workspace)
-        unexplained (ws/find-unexplained workspace)]
+        rejected (:rejected workspace)]
     (EpistemicState.
      id
      []
      (inc time-now)
      (ws/init-workspace workspace)
-     ((:commit-decision-fn problem) (:problem-data ep-state)
-      accepted rejected shared-explains unexplained time-now))))
+     ((:commit-decision-fn problem) (:problem-data ep-state) accepted))))
 
 (defn new-branch-ep-state
   [ep-state-tree branch]
@@ -173,6 +170,8 @@
     ep-tree-child))
 
 (defn explain
-  [ep-state consistent?]
+  [ep-state consistent? commit-decision]
   (let [workspace (ws/prepare-workspace (:workspace ep-state))]
-    (assoc ep-state :workspace (ws/explain workspace consistent? (:problem-data ep-state)))))
+    (assoc ep-state :workspace
+           (ws/explain workspace consistent? commit-decision
+                       (:problem-data ep-state)))))

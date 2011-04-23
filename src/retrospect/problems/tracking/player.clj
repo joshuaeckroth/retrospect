@@ -14,7 +14,7 @@
   (:use [retrospect.colors])
   (:use [retrospect.state]))
 
-(. UIManager setLookAndFeel (. UIManager getSystemLookAndFeelClassName))
+(. UIManager setLookAndFeel "com.sun.java.swing.plaf.gtk.GTKLookAndFeel")
 
 (def diagram-width (ref nil))
 (def diagram-height (ref nil))
@@ -78,7 +78,9 @@
           :gridx 0 :gridy 6
           _ (label "SensorSeesColor:")
           :gridx 1
-          _ (:SensorSeesColor param-spinners)]))
+          _ (:SensorSeesColor param-spinners)
+          :gridy 7 :weighty 1.0
+          _ (panel)]))
 
 (defn draw-move [#^Graphics2D g oldx oldy newx newy color width]
   (let [oldpx (+ (* oldx @grid-cell-width) (/ @grid-cell-width 2))

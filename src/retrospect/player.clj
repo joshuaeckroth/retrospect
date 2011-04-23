@@ -18,7 +18,7 @@
          [list-ep-states current-ep-state goto-ep-state root-ep-state?
           previous-ep-state non-accepted-current-ep-state?]]))
 
-(. UIManager setLookAndFeel (. UIManager getSystemLookAndFeelClassName))
+(. UIManager setLookAndFeel "com.sun.java.swing.plaf.gtk.GTKLookAndFeel")
 
 (def prepared-selected (atom nil))
 (def ep-list (ref '[]))
@@ -137,12 +137,13 @@
           _ (panel)]))
 
 (defn mainframe
-  [on-close]
+  []
   (frame :title "Player"
          :layout (GridBagLayout.)
          :constrains (java.awt.GridBagConstraints.)
-         :show true :size [1000 700]
-         :on-close on-close
+         :size [1000 700]
+         :show true
+         :on-close :dispose
          [:gridx 0 :gridy 0 :gridheight 8 :weightx 1.0 :weighty 1.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
           _ (doto (JTabbedPane.)
@@ -214,4 +215,4 @@
       (new-simulation))
     ((:setup-diagram-fn (:player-fns @problem)) problem-diagram)
 
-    (mainframe (if (:repl options) nil :exit))))
+    (mainframe)))

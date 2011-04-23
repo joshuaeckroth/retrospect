@@ -110,9 +110,9 @@
          (assoc-in [:params :MetaAbduction] false)
          (assoc-in [:params :StepsBetween] 4)))
 
-(def intersection-ambiguity-many-allatonce
-     (let [params (merge basic-params {:Steps 10 :SensorSeesColor 80 :MaxWalk 10
-                                       :StepsBetween 10 :GridWidth 30
+(def intersection-ambiguity-many
+     (let [params (merge basic-params {:Steps 10 :SensorSeesColor 80 :MaxWalk 15
+                                       :StepsBetween 1 :GridWidth 30
                                        :GridHeight 30})]
        {:params params
         :sensors [(new-sensor (keyword "1") 0 4 0 29 true)
@@ -125,7 +125,11 @@
         (build-truedata
          params (entity-paths
                  ["1" red  0 29,0 27,3 24,5 20,3 15,3 14,2 10,4 11,1 5,0 0,0]
-                 ["2" blue 0 29,2 23,3 20,6 20,2 18,7 14,2 11,8 9,9 4,5 0,4]))}))
+                 ["2" blue 0 29,2 23,3 20,6 20,2 18,7 14,2 11,8 9,9 4,5 0,4]
+                 ["3" red  0 29,4 25,5 22,4 19,4 16,8 10,8 11,7 6,8 3,0 0,6]))}))
+
+(def intersection-ambiguity-many-allatonce
+     (assoc-in intersection-ambiguity-many [:params :StepsBetween] 10))
 
 (def split-ambiguity
      (let [params (merge basic-params {:Steps 4 :MaxWalk 2})]
@@ -222,6 +226,7 @@
                  "color-update-2" color-update-2
                  "gray-in-range" gray-in-range
                  "intersect" intersection-ambiguity
+                 "intersect-many" intersection-ambiguity-many
                  "intersect-many-aao" intersection-ambiguity-many-allatonce
                  "intersect-nom" intersection-ambiguity-nometa
                  "intersect-nom-aao" intersection-ambiguity-nometa-allatonce

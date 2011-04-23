@@ -42,14 +42,12 @@
                                  (mapcat (fn [i]
                                            (let [b (nth (:best wslog) i)
                                                  ar (nth (:accrej wslog) i)]
-                                             [(format "Cycle %d" (inc i))
-                                              {(format "Best%s%s"
-                                                       (if (:essential? b)
-                                                         " (essential)" "")
-                                                       (if (:delta b)
-                                                         (format " (delta %d)"
-                                                                 (:delta b))
-                                                         ""))
+                                             [(format "Cycle %d (%s)" (inc i)
+                                                      (if (:essential? b)
+                                                        "essential"
+                                                        (format "delta %d"
+                                                                (:delta b))))
+                                              {"Best"
                                                {(:id (:best b))
                                                 (expand-meta-hyp (:best b))}
                                                "Alternatives" (list-hyps (:alts b))

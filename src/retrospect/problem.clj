@@ -98,7 +98,9 @@
         ;; start the clock
         start-time (. System (nanoTime))
         ors-hyps (hypothesize problem ors-sensors time-now params)
-        ep-explained (explain (:ep-state ors-hyps) (:consistent?-fn problem))
+        ep-explained (explain (:ep-state ors-hyps)
+                              (:consistent?-fn problem)
+                              (:commit-decision-fn problem))
         ors-expl (proceed-one-run-state ors-hyps ep-explained time-now problem)
         ;; perform meta-abduction if the :bad set is non-empty
         ;; and meta-abduction is turned 'on'
