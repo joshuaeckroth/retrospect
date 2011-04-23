@@ -1,6 +1,6 @@
 (ns retrospect.player
   (:import (java.awt GridBagLayout Insets Dimension))
-  (:import (javax.swing JSpinner SpinnerNumberModel JTabbedPane UIManager))
+  (:import (javax.swing JSpinner SpinnerNumberModel JTabbedPane))
   (:use [clj-swing.frame])
   (:use [clj-swing.label])
   (:use [clj-swing.panel])
@@ -17,8 +17,6 @@
   (:use [retrospect.epistemicstates :only
          [list-ep-states current-ep-state goto-ep-state root-ep-state?
           previous-ep-state non-accepted-current-ep-state?]]))
-
-(. UIManager setLookAndFeel "com.sun.java.swing.plaf.gtk.GTKLookAndFeel")
 
 (def prepared-selected (atom nil))
 (def ep-list (ref '[]))

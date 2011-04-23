@@ -2,7 +2,8 @@
   (:require [retrospect problem])
   (:import [retrospect.problem Problem])
   (:use [retrospect.problems.tracking.evaluate :only [evaluate evaluate-comparative]])
-  (:use [retrospect.problems.tracking.truedata :only [generate-truedata]])
+  (:use [retrospect.problems.tracking.truedata :only
+         [generate-truedata export-truedata]])
   (:use [retrospect.problems.tracking.sensors :only [generate-sensors]])
   (:use [retrospect.problems.tracking.hypotheses :only
          [hypothesize commit-decision consistent?]])
@@ -74,6 +75,7 @@
              :update-diagram-fn player-update-diagram}
             generate-truedata
             generate-sensors
+            export-truedata
             prepared-map
             hypothesize
             commit-decision

@@ -177,7 +177,7 @@
       (update-in [:hyp-confidences]
                  #(reduce (fn [c h] (assoc c h IMPOSSIBLE)) % hyps))
       (update-in [:rejected] set/union (set hyps))
-      (update-in [:log :rejected] concat hyps)))
+      (update-in [:log :final :rejected] concat hyps)))
 
 (defn reject-inconsistent
   [workspace consistent? pdata]
@@ -295,12 +295,12 @@
       (let [{alts :hyps delta :delta} (filter-delta workspace)
             best (pick-top-conf workspace alts)]
         ;; check for pairwise inconsistency with best set
-        (doseq [h alts]
-          (when (some #(not (consistent? pdata [h %]))
-                      (disj alts h))
-            ;; if this happens, just quit (leave it unexplained)
-            (println (:id h) "is consistent with anything else in best = "
-                     (map :id alts) "for delta" delta)))
+        #_(doseq [h alts]
+            (when (some #(not (consistent? pdata [h %]))
+                        (disj alts h))
+              ;; if this happens, just quit (leave it unexplained)
+              (println (:id h) "is consistent with anything else in best = "
+                       (map :id alts) "for delta" delta)))
         {:best best :alts (disj alts best)
          :essential? false :delta delta}))))
 

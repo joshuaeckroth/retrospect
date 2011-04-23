@@ -199,6 +199,6 @@
 
 (defrecord Problem
     [name headers comparative-headers monitor-fn player-fns
-     truedata-fn sensor-gen-fn prepared-map
+     truedata-fn sensor-gen-fn export-truedata-fn prepared-map
      hypothesize-fn commit-decision-fn gen-problem-data-fn
      consistent?-fn evaluate-fn evaluate-comparative-fn])

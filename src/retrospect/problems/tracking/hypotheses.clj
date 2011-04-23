@@ -199,11 +199,14 @@
   ([labels move] (new-label labels move [])))
 
 (defn is-extension?
-  [paths label [det det2]]
+  [paths label [det det2] direction]
   (when (not (:dead (meta label)))
-    (let [last-det (last (get paths label))]
-      (and (= (select-keys last-det [:x :y :time])
-              (select-keys det [:x :y :time]))))))
+    (let [link-det (if (= direction :forward)
+                     (last (get paths label))
+                     (first (get paths label)))]
+      (and (= (select-keys link-det [:x :y :time])
+              (select-keys (if (= direction :forward) det det2)
+                           [:x :y :time]))))))
 
 (defn update-label-color
   "Update color if the label is gray."
@@ -222,28 +225,33 @@
    multiple paths that can be extended (see the 'merge-ambiguity-gray'
    prepared case)."
   [splits merges {:keys [paths bad]} move]
-  (let [potential-labels (filter #(is-extension? paths % move) (keys paths))
-        labels (filter #(and (match-color? (:color (first move))
-                                           (:color (meta %)))
-                             (match-color? (:color (second move))
-                                           (:color (meta %))))
-                       potential-labels)]
+  (let [filter-labels (fn [ls] (filter #(and (match-color? (:color (first move))
+                                                           (:color (meta %)))
+                                             (match-color? (:color (second move))
+                                                           (:color (meta %))))
+                                       ls))
+        maybe-before-labels (filter #(is-extension? paths % move :forward)
+                                    (keys paths))
+        maybe-after-labels (filter #(is-extension? paths % move :backward)
+                                   (keys paths))
+        before-labels (filter-labels maybe-before-labels)
+        after-labels (filter-labels maybe-after-labels)]
     (cond
      ;; if we have a split, just mark each applicable label as dead
      (some #{move} splits)
-     (if (not-empty labels)
+     (if (not-empty before-labels)
        {:paths (reduce (fn [ps l]
                          (-> ps (dissoc l)
                              (assoc (with-meta l (merge (meta l) {:dead true}))
                                (get ps l))))
-                       paths labels)
+                       paths before-labels)
         :bad bad}
        ;; no label found, return paths
        {:paths paths :bad bad})
      ;; if we have a merge, continue the relevant paths one step,
      ;; then call them dead
      (some #{move} merges)
-     (if (not-empty labels)
+     (if (not-empty before-labels)
        ;; if we found what has been merged, process them
        {:paths
         (reduce (fn [ps l]
@@ -253,33 +261,44 @@
                                                          {:dead true}))]
                     (-> ps (dissoc l)
                         (assoc l-dead (conj path (second move))))))
-                paths labels)
+                paths before-labels)
         :bad bad}
        ;; otherwise just return paths
        {:paths paths :bad bad})
      ;; this movement continues no path, yet there is a label
      ;; meeting the point of the movement; in such cases, the colors
      ;; don't match; make a new label, but mark the movement as bad
-     (and (empty? labels) (not-empty potential-labels))
-     (let [new-bad (if (or (empty? paths) (= 0 (:time (first move))))
-                     bad (conj bad move))]
-       {:paths (assoc paths (new-label (keys paths) move) move) :bad new-bad})
+     (or (and (empty? before-labels) (not-empty maybe-before-labels))
+         (and (empty? after-labels) (not-empty maybe-after-labels)))
+     {:paths (assoc paths (new-label (keys paths) move) move)
+      :bad (conj bad move)}
      ;; we don't even have an existing path coming up to touch the
      ;; movement; so, just make a new label (don't mark bad because we
      ;; have no information leading us to believe it's a bad movement,
      ;; it's just an anomaly that needs to be resolved by introducing
      ;; a label)
-     (and (empty? labels) (empty? potential-labels))
+     (and (empty? maybe-before-labels) (empty? maybe-after-labels))
      {:paths (assoc paths (new-label (keys paths) move) move) :bad bad}
-     ;; otherwise, at least one prior path (label) can be extended, so
+     ;; at least one prior path (before-label) can be extended, so
      ;; extend all of them
-     :else {:paths (reduce (fn [ps l]
-                             (let [path (get ps l)
-                                   l-color (update-label-color ps l move)]
-                               (-> ps (dissoc l)
-                                   (assoc l-color (conj path (second move))))))
-                           paths labels)
-            :bad bad})))
+     (not-empty before-labels)
+     {:paths (reduce (fn [ps l]
+                       (let [path (get ps l)
+                             l-color (update-label-color ps l move)]
+                         (-> ps (dissoc l)
+                             (assoc l-color (conj path (second move))))))
+                     paths before-labels)
+      :bad bad}
+     ;; at least one later path (after-label) can be extended, so
+     ;; extend all of them
+     :else
+     {:paths (reduce (fn [ps l]
+                       (let [path (get ps l)
+                             l-color (update-label-color ps l move)]
+                         (-> ps (dissoc l)
+                             (assoc l-color (concat [(first move)] path)))))
+                     paths after-labels)
+      :bad bad})))
 
 (defn split-path
   "A split has a common first det and a unique second det2; we want to

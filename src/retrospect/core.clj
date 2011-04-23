@@ -4,13 +4,13 @@
   (:use [retrospect.random])
   (:use [retrospect.problems.tracking.problem :only (tracking-problem)])
   ;(:use [retrospect.problems.circuit.problem :only (circuit-problem)])
-  (:use [retrospect.records :only [run-with-new-record list-records]])
+  (:use [retrospect.records :only [run-with-new-record list-records save]])
   (:use [retrospect.player :only (start-player)]))
 
 (defn -main [& args]
   (with-command-line args
     "retrospect"
-    [[action "Action (run/list/player)" "player"]
+    [[action "Action (run/list/player/save)" "player"]
      [problem "Problem" "tracking"]
      [paramsfile "Parameters XML file" "params.xml"]
      [recordsdir "Records directory" "records"]
@@ -37,6 +37,8 @@
             (list-records recordsdir)
             "player"
             (start-player prob)
+            "save"
+            (save prob paramsfile)
 
             (println "No action given.")))))
 
