@@ -9,7 +9,8 @@
   (:use [retrospect.problem :only [run-simulation-step]])
   (:use [retrospect.state])
   (:use [retrospect.gui.eptree :only [ep-tree-tab update-ep-tree]])
-  (:use [retrospect.gui.explainsgraph :only [explains-graph-tab update-explains-graph]])
+  (:use [retrospect.gui.explainsgraph :only
+         [explains-graph-tab update-explains-graph]])
   (:use [retrospect.gui.results :only [update-results results-tab]])
   (:use [retrospect.gui.logs :only [update-logs logs-tab]])
   (:use [retrospect.workspaces :only [last-id]])

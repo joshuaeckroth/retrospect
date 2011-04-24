@@ -9,8 +9,10 @@
   (:use [clj-swing.panel])
   (:use [retrospect.problems.tracking.sensors :only [sees]])
   (:use [retrospect.problems.tracking.grid :only [grid-at find-entity]])
-  (:use [retrospect.problems.tracking.truedata :only [get-grid-movements]])
-  (:use [retrospect.problems.tracking.hypotheses :only [paths-str]])
+  (:use [retrospect.problems.tracking.truedata :only
+         [get-entity-movements]])
+  (:use [retrospect.problems.tracking.hypotheses :only
+         [paths-str paths-to-movements]])
   (:use [retrospect.colors])
   (:use [retrospect.state]))
 
@@ -49,7 +51,8 @@
   []
   (panel :layout (GridBagLayout.)
          :constrains (java.awt.GridBagConstraints.)
-         [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0 :fill :BOTH :insets (Insets. 5 5 5 5)
+         [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0
+          :fill :BOTH :insets (Insets. 5 5 5 5)
           _ (label "NumberEntities:")
           :gridx 1
           _ (:NumberEntities param-spinners)
@@ -197,7 +200,8 @@
   []
   (panel :layout (GridBagLayout.)
          :constrains (java.awt.GridBagConstraints.)
-         [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0 :fill :BOTH :insets (Insets. 5 0 5 0)
+         [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0
+          :fill :BOTH :insets (Insets. 5 0 5 0)
           _ (label "PercentEventsCorrect:")
           :gridx 1
           _ percent-events-correct-label
@@ -210,7 +214,9 @@
           :gridx 1
           _ mean-label-counts-label
           :gridx 0 :gridy 3
-          _ mouse-xy]))
+          _ mouse-xy
+          :gridy 4 :weighty 1.0
+          _ (panel)]))
 
 (defn player-update-stats
   []
@@ -236,15 +242,9 @@
 (defn player-get-truedata-log
   []
   (if (<= @time-now 1) ""
-    (apply str (interpose
-                "\n" (map #(format "Entity %s: %d,%d@%d->%d,%d@%d"
-                                   (str (:e %))
-                                   (:ox %) (:oy %) (:ot %)
-                                   (:x %) (:y %) (:t %))
-                          (sort-by :e (get-grid-movements
-                                       @truedata
-                                       (max 0 (dec @time-prev))
-                                       (dec (dec @time-now)))))))))
+      (get-entity-movements
+       @truedata (max 0 (dec @time-prev)) (dec (dec @time-now))
+       (paths-to-movements (:paths (:problem-data (:ep-state @or-state)))))))
 
 (defn player-get-problem-log
   []

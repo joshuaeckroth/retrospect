@@ -1,5 +1,5 @@
 (ns retrospect.gui.logs
-  (:import (java.awt GridBagLayout Insets))
+  (:import (java.awt GridBagLayout Insets Dimension))
   (:import (javax.swing Box))
   (:import (misc AlphanumComparator))
   (:use [clj-swing.label])
@@ -128,18 +128,21 @@
 
 (defn logs-tab
   []
-  (split-vertical
-   (scroll-panel (text-area :str-ref truedata-log :editable false))
-   (split-vertical
-    (panel :layout (GridBagLayout.) :constrains (java.awt.GridBagConstraints.)
-           [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0
-            :fill :BOTH :insets (Insets. 5 0 5 0)
-            _ problem-log-label
-            :gridy 1 :weighty 1.0
-            _ (scroll-panel (text-area :str-ref problem-log :editable false))])
-    (split-horizontal
-     (tree :name tr
-           :model (mapref-tree-model
-                   abduction-tree-map "Epistemic states")
-           :action ([_ _] (show-log (.getSelectionPath tr))))
-     (scroll-panel (text-area :str-ref workspace-log :editable false))))))
+  (doto (split-vertical
+         (scroll-panel (text-area :str-ref truedata-log :editable false))
+         (doto (split-vertical
+                (panel :layout (GridBagLayout.) :constrains (java.awt.GridBagConstraints.)
+                       [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0
+                        :fill :BOTH :insets (Insets. 5 0 5 0)
+                        _ problem-log-label
+                        :gridy 1 :weighty 1.0
+                        _ (scroll-panel (text-area :str-ref problem-log :editable false))])
+                (doto (split-horizontal
+                       (tree :name tr
+                             :model (mapref-tree-model
+                                     abduction-tree-map "Epistemic states")
+                             :action ([_ _] (show-log (.getSelectionPath tr))))
+                       (scroll-panel (text-area :str-ref workspace-log :editable false)))
+                  (.setDividerLocation 200)))
+           (.setDividerLocation 200)))
+    (.setDividerLocation 100)))

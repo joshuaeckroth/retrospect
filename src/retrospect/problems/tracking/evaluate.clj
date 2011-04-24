@@ -5,15 +5,12 @@
   (:use [retrospect.workspaces :only [get-hyps hyp-conf get-conf]])
   (:use [retrospect.problems.tracking.hypotheses :only
          [paths-to-movements path-to-movements]])
-  (:use [retrospect.problems.tracking.truedata :only [get-grid-movements]])
+  (:use [retrospect.problems.tracking.truedata :only
+         [true-movements]])
   (:use [retrospect.problems.tracking.grid :only [dist]])
   (:require [clojure.set :as set])
   (:use [clojure.contrib.math :as math :only [abs]])
   (:use [clojure.contrib.seq :only [find-first]]))
-
-(defn true-movements
-  [truedata maxtime]
-  (set (map #(dissoc % :e) (get-grid-movements truedata 0 maxtime))))
 
 (defn percent-events-correct
   [pdata true-moves]

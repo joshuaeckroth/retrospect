@@ -3,7 +3,8 @@
   (:use [retrospect.colors])
   (:use [retrospect.problems.tracking.grid])
   (:use [retrospect.problems.tracking.prepared])
-  (:use [clojure.contrib.seq :only [find-first]]))
+  (:use [clojure.contrib.seq :only [find-first]])
+  (:require [clojure.set :as set]))
 
 (defn add-new-entities
   [grid numes]
@@ -44,9 +45,34 @@
          (let [grid-before (nth truedata time)
                grid-after (nth truedata (inc time))]
            (map (fn [e] (let [e2 (find-first #(= e %) (grid-entities grid-after))]
-                          {:e e :ox (:x (meta e)) :oy (:y (meta e)) :ot (:time (meta e))
-                           :x (:x (meta e2)) :y (:y (meta e2)) :t (:time (meta e2))}))
+                          {:e e :ox (:x (meta e)) :oy (:y (meta e))
+                           :ot (:time (meta e))
+                           :x (:x (meta e2)) :y (:y (meta e2))
+                           :t (:time (meta e2))}))
                 (grid-entities grid-before)))))))
+
+(defn true-movements
+  [truedata maxtime]
+  (set (map #(dissoc % :e) (get-grid-movements truedata 0 maxtime))))
+
+(defn get-entity-movements
+  [truedata mintime maxtime believed-moves]
+  (let [moves (get-grid-movements truedata mintime maxtime)
+        true-moves (true-movements truedata maxtime)
+        entities (sort (set (map :e moves)))
+        arrows (fn [ss] (apply str (interpose " -> " ss)))
+        entity-pos-list
+        (fn [e] (arrows (concat
+                         (let [m (find-first #(= e (:e %)) moves)]
+                           [(format "%d,%d@%d" (:ox m) (:oy m) (:ot m))])
+                         (for [m moves :when (= (:e m) e)]
+                           (if (some #{(dissoc m :e)} believed-moves)
+                             (format "%d,%d@%d" (:x m) (:y m) (:t m))
+                             (format "! %d,%d@%d" (:x m) (:y m) (:t m)))))))]
+    (apply str (map (fn [e] (format "%s (%s): %s\n"
+                                    (str e) (color-str (:color (meta e)))
+                                    (entity-pos-list e)))
+                    entities))))
 
 (defn export-truedata
   [truedata]
