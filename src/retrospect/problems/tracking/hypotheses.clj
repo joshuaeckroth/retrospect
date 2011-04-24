@@ -135,6 +135,12 @@
         (let [mov-hyps (make-movement-hyps (first unc) uncovered sg params)]
           (recur (concat hyps mov-hyps) (rest unc)))))))
 
+(defn move-str
+  [[det det2]]
+  (format "%d,%d@%d (%s) -> %d,%d@%d (%s)"
+          (:x det) (:y det) (:time det) (color-str (:color det))
+          (:x det2) (:y det2) (:time det2) (color-str (:color det2))))
+
 (defn path-str
   [path]
   (apply str (interpose " -> " (map (fn [{:keys [x y time]}]
@@ -220,11 +226,11 @@
   "Given a movement, try to extend an existing path to incorporate
    that movement. Clearly, the only valid path to extend is the one
    that ends where the movement begins, and such a path should only be
-   extended if the movement is not involved in a split or merge. If a
-   movement cannot be incorporated, mark it as 'bad'. There may be
-   multiple paths that can be extended (see the 'merge-ambiguity-gray'
-   prepared case)."
-  [splits merges {:keys [paths bad]} move]
+   extended if the movement is not involved in a merge (new labels
+   have already been established for splits). If a movement cannot be
+   incorporated, mark it as 'bad'. There may be multiple paths that
+   can be extended (see the 'merge-ambiguity-gray' prepared case)."
+  [splits merges {:keys [paths bad log]} move]
   (let [filter-labels (fn [ls] (filter #(and (match-color? (:color (first move))
                                                            (:color (meta %)))
                                              (match-color? (:color (second move))
@@ -262,23 +268,41 @@
                     (-> ps (dissoc l)
                         (assoc l-dead (conj path (second move))))))
                 paths before-labels)
+        :log (conj log (format
+                        "Merging %s with labels %s" (move-str move)
+                        (apply str (interpose "," (map str before-labels)))))
         :bad bad}
-       ;; otherwise just return paths
-       {:paths paths :bad bad})
+       ;; no label found, so make new (dead) label to participate in the merge
+       (let [label (new-label (keys paths) move)
+             dead-label (with-meta label (merge (meta label) {:dead true}))]
+         {:paths (assoc paths dead-label move)
+          :log (conj log (format "%s is a merge, new (dead) label %s"
+                                 (move-str move) dead-label))
+          :bad bad}))
      ;; this movement continues no path, yet there is a label
      ;; meeting the point of the movement; in such cases, the colors
      ;; don't match; make a new label, but mark the movement as bad
      (or (and (empty? before-labels) (not-empty maybe-before-labels))
          (and (empty? after-labels) (not-empty maybe-after-labels)))
-     {:paths (assoc paths (new-label (keys paths) move) move)
-      :bad (conj bad move)}
+     (let [label (new-label (keys paths) move)]
+       {:paths (assoc paths label move)
+        :log (conj log (format
+                        "Making new label %s / *bad* / before: %s; after: %s"
+                        label
+                        (apply str (interpose "," (map str maybe-before-labels)))
+                        (apply str (interpose "," (map str maybe-after-labels))))) 
+        :bad (conj bad move)})
      ;; we don't even have an existing path coming up to touch the
      ;; movement; so, just make a new label (don't mark bad because we
      ;; have no information leading us to believe it's a bad movement,
      ;; it's just an anomaly that needs to be resolved by introducing
      ;; a label)
      (and (empty? maybe-before-labels) (empty? maybe-after-labels))
-     {:paths (assoc paths (new-label (keys paths) move) move) :bad bad}
+     (let [label (new-label (keys paths) move)]
+       {:paths (assoc paths label move)
+        :log (conj log (format "New label, nothing nearby: %s for %s"
+                               label (move-str move)))
+        :bad bad})
      ;; at least one prior path (before-label) can be extended, so
      ;; extend all of them
      (not-empty before-labels)
@@ -288,9 +312,12 @@
                          (-> ps (dissoc l)
                              (assoc l-color (conj path (second move))))))
                      paths before-labels)
+      :log (conj log (format "Extending %s with %s"
+                             (apply str (interpose "," (map str before-labels)))
+                             (move-str move)))
       :bad bad}
-     ;; at least one later path (after-label) can be extended, so
-     ;; extend all of them
+     ;; at least one later path (after-label) can be prepended, so
+     ;; prepend all of them
      :else
      {:paths (reduce (fn [ps l]
                        (let [path (get ps l)
@@ -298,6 +325,9 @@
                          (-> ps (dissoc l)
                              (assoc l-color (concat [(first move)] path)))))
                      paths after-labels)
+      :log (conj log (format "Prepending %s with %s"
+                             (apply str (interpose "," (map str before-labels)))
+                             (move-str move)))
       :bad bad})))
 
 (defn split-path
@@ -313,25 +343,6 @@
     (let [prior-path (find-first (fn [path] (= (last path) (first move)))
                                  (inactive-paths paths))]
       (assoc paths (new-label (keys paths) move prior-path) move))))
-
-(defn merge-path
-  "A merge has a common second det2 and a unique first det. We don't want
-   to make a new label for each of the unique first det's; we only want
-   one new label for each merge. This function accepts a single movement,
-   so we need to check if the merge has already been given a new label in
-   the paths map. If it has, we don't create another one."
-  [paths move]
-  (if (some (fn [l] (and (match-color? (:color (meta l)) (find-color move []))
-                         (some #{(second move)} (get paths l))))
-            (filter (comp not :dead meta) (keys paths)))
-    ;; merge has already been incorporated; return original paths
-    paths
-    ;; otherwise, make our new label; we gather all prior paths to obtain
-    ;; color information
-    (let [prior-paths (apply concat (filter (fn [path] (= (last path)
-                                                          (second move)))
-                                            (inactive-paths paths)))]
-      (assoc paths (new-label (keys paths) move prior-paths) [(second move)]))))
 
 (defn move-splits?
   [paths moves move]
@@ -355,29 +366,35 @@
         ;; incorporate the decision one time step at a time
         (loop [t (apply min (map :time (flatten moves)))
                paths (:paths pdata)
+               log [] ;; log is reset each time
                bad #{}]
           (if (> t maxtime)
-            (assoc pdata :paths paths :bad (map (comp :hyp meta) bad)
+            (assoc pdata :paths paths
+                   :log log
+                   :bad (map (comp :hyp meta) bad)
                    :uncovered (set/difference (:uncovered pdata)
                                               (set (flatten (vals paths)))))
             ;; find splits and merges
             (let [moves-now (filter #(= t (:time (first %))) moves)
                   splits (filter (partial move-splits? paths moves-now) moves-now)
                   merges (filter (partial move-merges? moves-now) moves-now)
-                  
-                  ;; extend the paths
-                  {ex-paths :paths newbad :bad}
-                  (reduce (partial extend-paths splits merges)
-                          {:paths paths :bad bad} moves-now)
-                  
+
                   ;; make new labels for splits
                   ;; (new label for each second det2 of movement)
-                  split-paths (reduce split-path ex-paths splits)
+                  split-paths (reduce split-path paths splits)
+
+                  ;; extend the paths
+                  {ex-paths :paths newbad :bad newlog :log}
+                  (reduce (partial extend-paths splits merges)
+                          {:paths split-paths :bad bad :log log}
+                          moves-now)
                   
-                  ;; make new labels for merges
-                  ;; (new label for each second det2 of movement)
-                  merge-paths (reduce merge-path split-paths merges)]
-              (recur (inc t) merge-paths newbad)))))))
+                  split-merge-log
+                  (concat
+                   (map (fn [m] (format "Split: %s" (move-str m))) splits)
+                   (map (fn [m] (format "Merge: %s" (move-str m))) merges))]
+              (recur (inc t) ex-paths
+                     (concat newlog split-merge-log) newbad)))))))
 
 (defn consistent?
   [pdata hyps]

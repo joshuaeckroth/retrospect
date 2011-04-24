@@ -248,4 +248,6 @@
 
 (defn player-get-problem-log
   []
-  (str "Paths:\n" (paths-str (:paths (:problem-data (:ep-state @or-state))))))
+  (let [pdata (:problem-data (:ep-state @or-state))
+        log (apply str (interpose "\n" (:log pdata)))]
+    (format "%s\n\n%s" (paths-str (:paths pdata)) log)))

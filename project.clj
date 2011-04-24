@@ -3,7 +3,7 @@
   :dependencies [[org.clojure/clojure "1.2.0"]
                  [org.clojure/clojure-contrib "1.2.0"]
                  [org.clojars.overtone/vijual "0.2.1"]
-                 [cc.artifice/clj-swing "0.1.2-SNAPSHOT"]
+                 [cc.artifice/clj-swing "0.1.3"]
                  [org.satta/loom "0.1.0-SNAPSHOT"]]
   :dev-dependencies [[swank-clojure "1.3.0"]
                      [marginalia "0.5.0"]

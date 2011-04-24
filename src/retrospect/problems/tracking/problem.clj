@@ -20,6 +20,7 @@
 (defn generate-problem-data
   [sensors params]
   {:paths (sorted-map)
+   :log [] ;; log is reset each time by commit-decision
    :sensors-seen-grid (sensors-seen-grid sensors params)
    :spotted-grid []
    :uncovered #{}

@@ -129,20 +129,24 @@
 (defn logs-tab
   []
   (doto (split-vertical
-         (scroll-panel (text-area :str-ref truedata-log :editable false))
+         (scroll-panel (text-area :str-ref truedata-log
+                                  :editable false :wrap true))
          (doto (split-vertical
-                (panel :layout (GridBagLayout.) :constrains (java.awt.GridBagConstraints.)
+                (panel :layout (GridBagLayout.)
+                       :constrains (java.awt.GridBagConstraints.)
                        [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0
                         :fill :BOTH :insets (Insets. 5 0 5 0)
                         _ problem-log-label
                         :gridy 1 :weighty 1.0
-                        _ (scroll-panel (text-area :str-ref problem-log :editable false))])
+                        _ (scroll-panel (text-area :str-ref problem-log
+                                                   :editable false :wrap true))])
                 (doto (split-horizontal
                        (tree :name tr
                              :model (mapref-tree-model
                                      abduction-tree-map "Epistemic states")
                              :action ([_ _] (show-log (.getSelectionPath tr))))
-                       (scroll-panel (text-area :str-ref workspace-log :editable false)))
+                       (scroll-panel (text-area :str-ref workspace-log
+                                                :editable false :wrap true)))
                   (.setDividerLocation 200)))
            (.setDividerLocation 200)))
-    (.setDividerLocation 100)))
+    (.setDividerLocation 200)))
