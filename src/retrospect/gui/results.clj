@@ -1,12 +1,13 @@
 (ns retrospect.gui.results
   (:import [misc WrapLayout])
   (:import (java.awt GridBagLayout FlowLayout Insets))
-  (:import (javax.swing JViewport JTable UIManager))
+  (:import (javax.swing JViewport JTable UIManager BoxLayout))
   (:import (java.util Vector))
   (:use [clj-swing.panel])
   (:use [clj-swing.label])
   (:use [clj-swing.combo-box])
   (:use [clj-swing.button])
+  (:require [clojure.contrib.math :as math])
   (:use [retrospect.state])
   (:use [retrospect.problem :only [get-headers]]))
 
@@ -43,7 +44,20 @@
                                         :selected false
                                         :action ([_] (toggle-header h)
                                                    (update-results))))
-                  p (panel :layout (WrapLayout.))]
-              (doseq [h (sort-by name (get-headers @problem))]
-                (doto p (.add (cb h))))
+                  p-left (panel)
+                  p-right (panel)
+                  p (panel)
+                  headers (sort-by name (get-headers @problem))]
+              (.setLayout p (BoxLayout. p BoxLayout/X_AXIS))
+              (.setLayout p-left (BoxLayout. p-left BoxLayout/Y_AXIS))
+              (.setLayout p-right (BoxLayout. p-right BoxLayout/Y_AXIS))
+              (.add p p-left)
+              (.add p p-right)
+              (doseq [h (take (math/ceil (/ (count headers) 2))
+                              headers)]
+                (doto p-left (.add (cb h))))
+              (doseq [h (take-last (dec (math/ceil (/ (count headers) 2)))
+                                   headers)]
+                (doto p-right (.add (cb h))))
+              (doto p-right (.add (panel)))
               (scroll-panel p))]))
