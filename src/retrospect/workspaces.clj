@@ -181,9 +181,9 @@
 
 (defn reject-inconsistent
   [workspace consistent? pdata]
-  (let [inconsistent
-        (set (filter #(not (consistent? pdata [%]))
-                     (find-explainers workspace)))]
+  (let [alts (find-explainers workspace)
+        inconsistent (set (filter #(not (consistent? pdata [%] (disj alts %)))
+                                  alts))]
     (reject-many workspace inconsistent)))
 
 (defn penalize-hyps
@@ -245,6 +245,7 @@
 
 (defn log-final
   [workspace]
+  (println "truly committing")
   (let [ws (assoc-in workspace [:log :final]
                      {:accepted (:accepted workspace)
                       :rejected (:rejected workspace)

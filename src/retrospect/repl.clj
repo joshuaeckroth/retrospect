@@ -30,3 +30,4 @@
       (filter (fn [h] (some #(re-matches % (:id h))
                             (map re-pattern ids)))
               (map :hyp (:added (:log (:workspace ep-state))))))))
+

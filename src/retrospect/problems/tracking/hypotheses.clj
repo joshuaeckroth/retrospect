@@ -7,7 +7,9 @@
   (:use [retrospect.problems.tracking.grid :only [grid-at dist]])
   (:use [clojure.contrib.seq :only [find-first]])
   (:require [clojure.contrib.math :as math])
-  (:require [clojure.set :as set :only [intersection difference]]))
+  (:require [clojure.set :as set :only [intersection difference]])
+  (:use [loom.graph :only [digraph add-edges]])
+  (:use [loom.attr :only [add-attr]]))
 
 (defn make-sensor-hyps
   [sensor e]
@@ -27,7 +29,8 @@
   (let [width (:width (meta sensors-seen-grid))
         height (:height (meta sensors-seen-grid))]
     (with-meta
-      (doall (for [y (range height) x (range width)] ;; need height followed by width
+      (doall (for ;; need height followed by width
+                 [y (range height) x (range width)]
                (mapcat (fn [s]
                          (map #(make-sensor-hyps s %)
                               (filter (fn [e] (and (= x (:x (meta e)))
@@ -37,14 +40,16 @@
       {:width width :height height :time time})))
 
 (defn process-sensors
-  "For each time step between the last time we processed sensor data and the current time,
-   look at the sensor detections at that time step, incorporate them into our running
-   estimate of the grid, add those detections as 'facts,' and record those detections
-   as 'uncovered.'"
+  "For each time step between the last time we processed sensor data
+   and the current time, look at the sensor detections at that time
+   step, incorporate them into our running estimate of the grid, add
+   those detections as 'facts,' and record those detections as
+   'uncovered.'"
   [ep-state sensors time-now]
   (let [sensors-seen-grid (:sensors-seen-grid (:problem-data ep-state))]
-    (loop [t (inc (apply max -1 (map (comp :time meta)
-                                     (flatten (:spotted-grid (:problem-data ep-state))))))
+    (loop [t (inc (apply max -1
+                         (map (comp :time meta)
+                              (flatten (:spotted-grid (:problem-data ep-state))))))
            sg (:spotted-grid (:problem-data ep-state))
            uncovered (:uncovered (:problem-data ep-state))
            ep ep-state]
@@ -52,7 +57,8 @@
         (update-in ep [:problem-data] assoc :spotted-grid sg :uncovered uncovered)
         (let [spotted (sensors-to-spotted sensors t sensors-seen-grid)]
           (recur (inc t) (conj sg spotted)
-                 (set/union uncovered (set (map #(select-keys (meta %) [:x :y :time :color])
+                 (set/union uncovered (set (map #(select-keys
+                                                  (meta %) [:x :y :time :color])
                                                 (flatten spotted))))
                  (reduce #(add-fact %1 %2 [])
                          ep (concat
@@ -61,7 +67,8 @@
                              ;; and hyp-from hypotheses from current spotted grid,
                              ;; but only if the hyp's time != 0
                              (filter #(not= 0 (:time (meta (:entity (:data %)))))
-                                     (map (comp :hyp-from meta) (flatten spotted)))))))))))
+                                     (map (comp :hyp-from meta)
+                                          (flatten spotted)))))))))))
 
 (defn score-distance
   "Returns nil if movement is impossible."
@@ -118,6 +125,25 @@
                             {:det det :det2 det2})
                    explains]))))))
 
+(defn build-paths-graph
+  [hyps]
+  (reduce (fn [g h]
+            (let [det (:det (:data h))
+                  det2 (:det2 (:data h))
+                  edge [det det2]]
+              (-> g (add-edges edge)
+                  (add-attr det :color (color-str (:color det)))
+                  (add-attr det :fontcolor (color-str (:color det)))
+                  (add-attr det :label (format "%d,%d@%d"
+                                               (:x det) (:y det) (:time det)))
+                  (add-attr det2 :color (color-str (:color det2)))
+                  (add-attr det2 :fontcolor (color-str (:color det2)))
+                  (add-attr det2 :label (format "%d,%d@%d"
+                                                (:x det2) (:y det2) (:time det2)))
+                  (add-attr det det2 :hyp h)
+                  (add-attr det det2 :label (:id h)))))
+          (digraph) hyps))
+
 (defn hypothesize
   "Process sensor reports, then make hypotheses for all possible movements,
    and add them to the epistemic state."
@@ -130,7 +156,11 @@
            unc uncovered]
       (if (empty? unc)
         ;; ran out of uncovered detections; so add all the hyps
-        (reduce (fn [ep [hyp explains]] (add-hyp ep hyp explains)) ep hyps)
+        (let [paths-graph (build-paths-graph (map first hyps))
+              pdata (assoc (:problem-data ep-state) :paths-graph paths-graph)
+              ep-paths-graph (assoc ep :problem-data pdata)]
+          (reduce (fn [ep [hyp explains]] (add-hyp ep hyp explains))
+                  ep-paths-graph hyps))
         ;; take the first uncovered detection, and make movement hyps out of it
         (let [mov-hyps (make-movement-hyps (first unc) uncovered sg params)]
           (recur (concat hyps mov-hyps) (rest unc)))))))
@@ -230,7 +260,7 @@
    have already been established for splits). If a movement cannot be
    incorporated, mark it as 'bad'. There may be multiple paths that
    can be extended (see the 'merge-ambiguity-gray' prepared case)."
-  [splits merges {:keys [paths bad log]} move]
+  [splits merges alts {:keys [paths bad log]} move]
   (let [filter-labels (fn [ls] (filter #(and (match-color? (:color (first move))
                                                            (:color (meta %)))
                                              (match-color? (:color (second move))
@@ -241,7 +271,17 @@
         maybe-after-labels (filter #(is-extension? paths % move :backward)
                                    (keys paths))
         before-labels (filter-labels maybe-before-labels)
-        after-labels (filter-labels maybe-after-labels)]
+        after-labels (filter-labels maybe-after-labels)
+        alts-for-move
+        (filter (fn [h]
+                  (or (and (= (select-keys (:det (:data h)) [:x :y :time])
+                              (select-keys (second move) [:x :y :time])))
+                      (and (= (select-keys (:det2 (:data h)) [:x :y :time])
+                              (select-keys (first move) [:x :y :time])))))
+                alts)]
+    (println (move-str move))
+    (println "original alts:" (map :id alts))
+    (println "alts for move:" (map :id alts-for-move))
     (cond
      ;; if we have a split, just mark each applicable label as dead
      (some #{move} splits)
@@ -264,9 +304,16 @@
                   (let [path (get ps l)
                         l-color (update-label-color ps l move)
                         l-dead (with-meta l-color (merge (meta l-color)
-                                                         {:dead true}))]
-                    (-> ps (dissoc l)
-                        (assoc l-dead (conj path (second move))))))
+                                                         {:dead true}))
+                        ps-dead (-> ps (dissoc l)
+                                    (assoc l-dead (conj path (second move))))
+                        same-merge (find-first
+                                    (fn [l] (and (= (second move)
+                                                    (last (l paths)))))
+                                    (filter (comp not :dead meta) (keys paths)))]
+                    (if same-merge ps-dead
+                        (assoc ps-dead
+                          (new-label (keys ps-dead) move) [(second move)]))))
                 paths before-labels)
         :log (conj log (format
                         "Merging %s with labels %s" (move-str move)
@@ -279,11 +326,14 @@
           :log (conj log (format "%s is a merge, new (dead) label %s"
                                  (move-str move) dead-label))
           :bad bad}))
-     ;; this movement continues no path, yet there is a label
-     ;; meeting the point of the movement; in such cases, the colors
-     ;; don't match; make a new label, but mark the movement as bad
-     (or (and (empty? before-labels) (not-empty maybe-before-labels))
-         (and (empty? after-labels) (not-empty maybe-after-labels)))
+     ;; this movement continues no path, yet there is a label meeting
+     ;; the point of the movement; additionally, there are no possible
+     ;; alternative explainers for this move's head or tail; in such
+     ;; cases, the colors don't match; make a new label, but mark the
+     ;; movement as bad
+     (and (empty? alts-for-move)
+          (or (and (empty? before-labels) (not-empty maybe-before-labels))
+              (and (empty? after-labels) (not-empty maybe-after-labels))))
      (let [label (new-label (keys paths) move)]
        {:paths (assoc paths label move)
         :log (conj log (format
@@ -357,45 +407,55 @@
         moves))
 
 (defn commit-decision
-  [pdata accepted]
-  (if (empty? accepted) pdata
-      (let [moves (map (fn [h] (with-meta [(:det (:data h)) (:det2 (:data h))]
-                                 {:hyp h}))
-                       (sort-by (comp :time :det :data) (sort-by :id accepted)))
-            maxtime (dec (apply max (map :time (flatten moves))))]
-        ;; incorporate the decision one time step at a time
-        (loop [t (apply min (map :time (flatten moves)))
-               paths (:paths pdata)
-               log [] ;; log is reset each time
-               bad #{}]
-          (if (> t maxtime)
-            (assoc pdata :paths paths
-                   :log log
-                   :bad (map (comp :hyp meta) bad)
-                   :uncovered (set/difference (:uncovered pdata)
-                                              (set (flatten (vals paths)))))
-            ;; find splits and merges
-            (let [moves-now (filter #(= t (:time (first %))) moves)
-                  splits (filter (partial move-splits? paths moves-now) moves-now)
-                  merges (filter (partial move-merges? moves-now) moves-now)
+  ([pdata accepted]
+     (commit-decision pdata accepted []))
+  ([pdata accepted alts]
+     (if (empty? accepted) pdata
+         (let [moves (map (fn [h] (with-meta [(:det (:data h)) (:det2 (:data h))]
+                                    {:hyp h}))
+                          (sort-by (comp :time :det :data)
+                                   (sort-by :id accepted)))
+               maxtime (dec (apply max (map :time (flatten moves))))]
+           ;; incorporate the decision one time step at a time
+           (loop [t (apply min (map :time (flatten moves)))
+                  paths (:paths pdata)
+                  log [] ;; log is reset each time
+                  bad #{}]
+             (if (> t maxtime)
+               (assoc pdata :paths paths
+                      :log log
+                      :bad (map (comp :hyp meta) bad)
+                      :uncovered (set/difference (:uncovered pdata)
+                                                 (set (flatten (vals paths)))))
+               ;; find splits and merges
+               (let [moves-now (filter #(= t (:time (first %))) moves)
+                     splits (filter (partial move-splits? paths moves-now)
+                                    moves-now)
+                     merges (filter (partial move-merges? moves-now)
+                                    moves-now)
 
-                  ;; make new labels for splits
-                  ;; (new label for each second det2 of movement)
-                  split-paths (reduce split-path paths splits)
+                     ;; make new labels for splits
+                     ;; (new label for each second det2 of movement)
+                     split-paths (reduce split-path paths splits)
 
-                  ;; extend the paths
-                  {ex-paths :paths newbad :bad newlog :log}
-                  (reduce (partial extend-paths splits merges)
-                          {:paths split-paths :bad bad :log log}
-                          moves-now)
-                  
-                  split-merge-log
-                  (concat
-                   (map (fn [m] (format "Split: %s" (move-str m))) splits)
-                   (map (fn [m] (format "Merge: %s" (move-str m))) merges))]
-              (recur (inc t) ex-paths
-                     (concat newlog split-merge-log) newbad)))))))
+                     ;; extend the paths
+                     {ex-paths :paths newbad :bad newlog :log}
+                     (reduce (partial extend-paths splits merges alts)
+                             {:paths split-paths :bad bad :log log}
+                             moves-now)
+                     
+                     split-merge-log
+                     (concat
+                      (map (fn [m] (format "Split: %s" (move-str m))) splits)
+                      (map (fn [m] (format "Merge: %s" (move-str m))) merges))]
+                 (recur (inc t) ex-paths
+                        (vec (concat newlog split-merge-log)) newbad))))))))
 
 (defn consistent?
-  [pdata hyps]
-  (empty? (:bad (commit-decision pdata hyps))))
+  [pdata hyps alts]
+  (println "checking consistency")
+  (println "prior paths:" (paths-str (:paths pdata)))
+  (let [t (commit-decision pdata hyps alts)]
+    (println "conclusion:" (empty? (:bad t)))
+    (println "log:" (:log t))
+    (empty? (:bad t))))

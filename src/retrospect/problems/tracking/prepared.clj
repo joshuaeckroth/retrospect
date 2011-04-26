@@ -275,6 +275,9 @@
                             10,27 8,28 8,25 7,25 7,26 8,29 5,28 2,27 2,27 4,27
                             3,25 3,24 4,26]))}))
 
+(def random-1-sb4
+     (assoc-in random-1 [:params :StepsBetween] 4))
+
 (def prepared-map
      (sorted-map "color-update" color-update
                  "color-update-2" color-update-2
@@ -290,6 +293,7 @@
                  "merge-2" merge-ambiguity-2
                  "merge-gray" merge-ambiguity-gray
                  "random-1" random-1
+                 "random-1-sb4" random-1-sb4
                  "simple-dis" simple-disappearance
                  "split" split-ambiguity
                  "split-2" split-ambiguity-2
