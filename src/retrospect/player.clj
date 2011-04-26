@@ -32,8 +32,8 @@
    :BeliefNoise (JSpinner. (SpinnerNumberModel. 0 0 100 10))})
 
 (def param-checkbox
-  {:MetaAbduction (check-box)
-   :Lazy (check-box)})
+  {:MetaAbduction (check-box :caption "MetaAbduction")
+   :Lazy (check-box :caption "Lazy")})
 
 (defn get-params
   []
@@ -62,7 +62,8 @@
      (alter time-now (constantly time-n))
      (alter time-prev (constantly time-p)))
     (. steplabel (setText (if (nil? prev-ep) "Step: N/A"
-                              (format "Step: %d->%d" (dec @time-prev) (dec @time-now))))))
+                              (format "Step: %d->%d" (dec @time-prev)
+                                      (dec @time-now))))))
   (dosync
    (alter ep-list (constantly (sort (list-ep-states (:ep-state-tree @or-state))))))
   (update-ep-tree)
@@ -74,22 +75,42 @@
 
 (defn new-simulation
   []
-  (let [prepared (if (not= "None" @prepared-selected)
-                   (get (:prepared-map @problem) @prepared-selected))
-        ps (if prepared (:params prepared) (get-params))
+  (let [prepared? (and (not (nil? @prepared-selected))
+                       (not= "None" @prepared-selected))
+        ps (get-params)
         meta-abduction (:MetaAbduction ps)
-        lazy (:Lazy ps)
-        sens (if prepared (:sensors prepared) ((:sensor-gen-fn @problem) ps))
-        td (if prepared (:truedata prepared) ((:truedata-fn @problem) ps))
-        ors (init-one-run-state meta-abduction lazy sens
-                                ((:gen-problem-data-fn @problem) sens ps))]
+        lazy (:Lazy ps)]
+    (when (not prepared?)
+      (dosync
+       (alter sensors (constantly ((:sensor-gen-fn @problem) ps)))
+       (alter truedata (constantly ((:truedata-fn @problem) ps)))))
     (dosync
      (alter params (constantly ps))
-     (alter or-state (constantly ors))
-     (alter sensors (constantly sens))
-     (alter truedata (constantly td)))
-    (update-everything)
-    (when @prepared-selected (set-params))))
+     (alter or-state
+            (constantly (init-one-run-state meta-abduction lazy @sensors
+                                            ((:gen-problem-data-fn @problem)
+                                             @sensors ps)))))
+    (update-everything)))
+
+(defn set-prepared-action
+  []
+  (when (and (not (nil? @prepared-selected)) (not= "None" @prepared-selected))
+    (let [prepared (get (:prepared-map @problem) @prepared-selected)
+          ps (:params prepared)
+          meta-abduction (:MetaAbduction ps)
+          lazy (:Lazy ps)
+          td (:truedata prepared)
+          sens (:sensors prepared)]
+      (dosync
+       (alter params (constantly ps))
+       (alter truedata (constantly td))
+       (alter sensors (constantly sens))
+       (alter or-state
+              (constantly (init-one-run-state meta-abduction lazy sens
+                                              ((:gen-problem-data-fn @problem)
+                                               sens ps)))))
+      (update-everything)
+      (set-params))))
 
 (defn goto-ep-state-action
   []
@@ -143,7 +164,7 @@
          :size [1000 700]
          :show true
          :on-close :dispose
-         [:gridx 0 :gridy 0 :gridheight 8 :weightx 1.0 :weighty 1.0
+         [:gridx 0 :gridy 0 :gridheight 9 :weightx 1.0 :weighty 1.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
           _ (doto (JTabbedPane.)
               (.addTab "Problem diagram" problem-diagram)
@@ -153,45 +174,45 @@
               (.addTab "Results" (results-tab))
               (.setSelectedIndex 0))
 
-          :gridx 1 :gridy 0 :gridheight 1 :weightx 0.0 :weighty 0.0
-          _ (label "Prepared:")
-          :gridx 2
+          :gridx 1 :gridy 0 :gridheight 1 :gridwidth 2 :weightx 0.0 :weighty 0.0
           _ (combo-box
              [] :model (seq-ref-combobox-model
                         (ref (concat ["None"] (keys (:prepared-map @problem))))
                         prepared-selected))
-
           :gridx 1 :gridy 1
-          _ (label "MetaAbduction:")
-          :gridx 2
-          _ (:MetaAbduction param-checkbox)
+          _ (button "Set prepared" :action ([_] (set-prepared-action)))
 
           :gridx 1 :gridy 2
-          _ (label "Lazy:")
-          :gridx 2
+          _ (:MetaAbduction param-checkbox)
+
+          :gridx 1 :gridy 3
           _ (:Lazy param-checkbox)
 
-          :gridx 1 :gridy 3 :gridwidth 2 :weighty 1.0
+          :gridx 1 :gridy 4 :gridwidth 2 :weighty 1.0
           _ (doto (JTabbedPane.)
+              (.setMinimumSize (Dimension. 220 0))
               (.addTab "Generic"
                        (scroll-panel generic-params))
               (.addTab (:name @problem)
-                       (scroll-panel ((:get-params-panel-fn (:player-fns @problem))))))
+                       (scroll-panel
+                        ((:get-params-panel-fn (:player-fns @problem))))))
           
-          :gridx 1 :gridy 4 :gridwidth 1 :weighty 0.0
+          :gridx 1 :gridy 5 :gridwidth 1 :weighty 0.0
           _ (button "New" :action ([_] (new-simulation)))
-          :gridx 2 :gridy 4
+          :gridx 2
           _ (button "Next" :action ([_] (next-step)))
 
-          :gridx 1 :gridy 5
-          _ (combo-box [] :model (seq-ref-combobox-model ep-list ep-selected))
-          :gridx 2 :gridy 5
+          :gridx 1 :gridy 6
+          _ (doto (combo-box
+                   [] :model (seq-ref-combobox-model ep-list ep-selected))
+              (.setMinimumSize (Dimension. 100 0)))
+          :gridx 2
           _ (button "Goto" :action ([_] (goto-ep-state-action)))
 
-          :gridx 1 :gridy 6 :gridwidth 2
+          :gridx 1 :gridy 7 :gridwidth 2
           _ steplabel
 
-          :gridx 1 :gridy 7
+          :gridx 1 :gridy 8
           _ ((:get-stats-panel-fn (:player-fns @problem)))]))
 
 (defn start-player

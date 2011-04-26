@@ -279,9 +279,6 @@
                       (and (= (select-keys (:det2 (:data h)) [:x :y :time])
                               (select-keys (first move) [:x :y :time])))))
                 alts)]
-    (println (move-str move))
-    (println "original alts:" (map :id alts))
-    (println "alts for move:" (map :id alts-for-move))
     (cond
      ;; if we have a split, just mark each applicable label as dead
      (some #{move} splits)
@@ -453,9 +450,5 @@
 
 (defn consistent?
   [pdata hyps alts]
-  (println "checking consistency")
-  (println "prior paths:" (paths-str (:paths pdata)))
   (let [t (commit-decision pdata hyps alts)]
-    (println "conclusion:" (empty? (:bad t)))
-    (println "log:" (:log t))
     (empty? (:bad t))))
