@@ -8,8 +8,9 @@
   (:use [clojure.contrib.seq :only [find-first]])
   (:require [clojure.contrib.math :as math])
   (:require [clojure.set :as set :only [intersection difference]])
-  (:use [loom.graph :only [digraph add-edges]])
-  (:use [loom.attr :only [add-attr]]))
+  (:use [loom.graph :only
+         [digraph add-edges remove-edges remove-nodes nodes incoming neighbors]])
+  (:use [loom.attr :only [add-attr attr]]))
 
 (defn make-sensor-hyps
   [sensor e]
@@ -125,24 +126,73 @@
                             {:det det :det2 det2})
                    explains]))))))
 
+(defn paths-graph-add-edge
+  [paths-graph hyp]
+  (let [det (:det (:data hyp))
+        det2 (:det2 (:data hyp))]
+    (-> paths-graph
+        (add-edges [det det2])
+        (add-attr det :color (color-str (:color det)))
+        (add-attr det :fontcolor (color-str (:color det)))
+        (add-attr det :label (format "%d,%d@%d"
+                                     (:x det) (:y det) (:time det)))
+        (add-attr det2 :color (color-str (:color det2)))
+        (add-attr det2 :fontcolor (color-str (:color det2)))
+        (add-attr det2 :label (format "%d,%d@%d"
+                                      (:x det2) (:y det2) (:time det2)))
+        (add-attr det det2 :hyp hyp)
+        (add-attr det det2 :label (:id hyp)))))
+
 (defn build-paths-graph
   [hyps]
-  (reduce (fn [g h]
-            (let [det (:det (:data h))
-                  det2 (:det2 (:data h))
-                  edge [det det2]]
-              (-> g (add-edges edge)
-                  (add-attr det :color (color-str (:color det)))
-                  (add-attr det :fontcolor (color-str (:color det)))
-                  (add-attr det :label (format "%d,%d@%d"
-                                               (:x det) (:y det) (:time det)))
-                  (add-attr det2 :color (color-str (:color det2)))
-                  (add-attr det2 :fontcolor (color-str (:color det2)))
-                  (add-attr det2 :label (format "%d,%d@%d"
-                                                (:x det2) (:y det2) (:time det2)))
-                  (add-attr det det2 :hyp h)
-                  (add-attr det det2 :label (:id h)))))
-          (digraph) hyps))
+  (reduce paths-graph-add-edge (digraph) hyps))
+
+(defn change-paths-graph-color
+  [paths-graph det det-color]
+  (let [in (map (fn [d] {:det d :hyp (attr paths-graph d det :hyp)})
+                (incoming paths-graph det))
+        out (map (fn [d] {:det d :hyp (attr paths-graph det d :hyp)})
+                 (neighbors paths-graph det))
+        hyp-changes (concat (map (fn [{d :det h :hyp}]
+                                   [h (assoc-in h [:data :det2] det-color)]) in)
+                            (map (fn [{d :det h :hyp}]
+                                   [h (assoc-in h [:data :det] det-color)]) out))
+        change-edge (fn [g [h hnew]]
+                      (-> g (remove-nodes det)
+                          (remove-edges [(:det (:data h)) (:det2 (:data h))])
+                          (paths-graph-add-edge hnew)))]
+    (reduce change-edge paths-graph hyp-changes)))
+
+(defn update-paths-graph-colors
+  [paths-graph]
+  (let [grays #(filter (fn [det] (= gray (:color det))) %)]
+    (loop [unchecked (grays (nodes paths-graph))
+           modified #{}
+           g paths-graph]
+      (if (empty? unchecked)
+        (if (empty? modified) g
+            (recur (grays (mapcat #(concat (incoming g %) (neighbors g %))
+                                  modified))
+                   #{} g))
+        (let [det (first unchecked)
+              in (incoming g det)
+              out (neighbors g det)
+              count-color (fn [dets color]
+                            (count (filter #(= color (:color %)) dets)))
+              single-color (fn [dets]
+                             (let [c-red (count-color dets red)
+                                   c-blue (count-color dets blue)
+                                   c-gray (count-color dets gray)]
+                               (if (= 0 c-gray)
+                                 (cond (and (= 0 c-blue) (not= 0 c-red)) red
+                                       (and (= 0 c-red) (not= 0 c-blue)) blue))))
+              in-color (single-color in)
+              out-color (single-color out)
+              det-color (assoc det :color (or in-color out-color))]
+          (if (or in-color out-color)
+            (recur (rest unchecked) (conj modified det-color)
+                   (change-paths-graph-color g det det-color))
+            (recur (rest unchecked) modified g)))))))
 
 (defn hypothesize
   "Process sensor reports, then make hypotheses for all possible movements,
