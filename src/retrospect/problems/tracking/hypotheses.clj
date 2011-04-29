@@ -9,7 +9,8 @@
   (:require [clojure.contrib.math :as math])
   (:require [clojure.set :as set :only [intersection difference]])
   (:use [loom.graph :only
-         [digraph add-edges remove-edges remove-nodes nodes incoming neighbors]])
+         [digraph add-edges remove-edges remove-nodes nodes edges
+          incoming neighbors]])
   (:use [loom.attr :only [add-attr attr]]))
 
 (defn make-sensor-hyps
@@ -127,7 +128,7 @@
                    explains]))))))
 
 (defn paths-graph-add-edge
-  [paths-graph hyp]
+  [paths-graph [hyp explains]]
   (let [det (:det (:data hyp))
         det2 (:det2 (:data hyp))]
     (-> paths-graph
@@ -141,11 +142,8 @@
         (add-attr det2 :label (format "%d,%d@%d"
                                       (:x det2) (:y det2) (:time det2)))
         (add-attr det det2 :hyp hyp)
+        (add-attr det det2 :explains explains)
         (add-attr det det2 :label (:id hyp)))))
-
-(defn build-paths-graph
-  [hyps]
-  (reduce paths-graph-add-edge (digraph) hyps))
 
 (defn change-paths-graph-color
   [paths-graph det det-color]
@@ -158,9 +156,11 @@
                             (map (fn [{d :det h :hyp}]
                                    [h (assoc-in h [:data :det] det-color)]) out))
         change-edge (fn [g [h hnew]]
-                      (-> g (remove-nodes det)
-                          (remove-edges [(:det (:data h)) (:det2 (:data h))])
-                          (paths-graph-add-edge hnew)))]
+                      (let [explains (attr paths-graph (:det (:data h))
+                                           (:det2 (:data h)) :explains)]
+                        (-> g (remove-nodes det)
+                            (remove-edges [(:det (:data h)) (:det2 (:data h))])
+                            (paths-graph-add-edge [hnew explains]))))]
     (reduce change-edge paths-graph hyp-changes)))
 
 (defn update-paths-graph-colors
@@ -194,6 +194,20 @@
                    (change-paths-graph-color g det det-color))
             (recur (rest unchecked) modified g)))))))
 
+(defn remove-inconsistent-paths-graph-edges
+  [paths-graph]
+  (let [bad-edges (filter (fn [[det det2]]
+                            (not (match-color? (:color det) (:color det2))))
+                          (edges paths-graph))]
+    (apply remove-edges paths-graph bad-edges)))
+
+(defn build-paths-graph
+  [hyps]
+  (let [pg-inconsistent (reduce paths-graph-add-edge (digraph) hyps)
+        pg-updated-colors (update-paths-graph-colors pg-inconsistent)
+        pg-consistent (remove-inconsistent-paths-graph-edges pg-updated-colors)]
+    pg-consistent))
+
 (defn hypothesize
   "Process sensor reports, then make hypotheses for all possible movements,
    and add them to the epistemic state."
@@ -206,11 +220,15 @@
            unc uncovered]
       (if (empty? unc)
         ;; ran out of uncovered detections; so add all the hyps
-        (let [paths-graph (build-paths-graph (map first hyps))
+        (let [paths-graph (build-paths-graph hyps)
               pdata (assoc (:problem-data ep-state) :paths-graph paths-graph)
-              ep-paths-graph (assoc ep :problem-data pdata)]
+              ep-paths-graph (assoc ep :problem-data pdata)
+              consistent-hyps (map (fn [[det det2]]
+                                     [(attr paths-graph det det2 :hyp)
+                                      (attr paths-graph det det2 :explains)])
+                                   (edges paths-graph))]
           (reduce (fn [ep [hyp explains]] (add-hyp ep hyp explains))
-                  ep-paths-graph hyps))
+                  ep-paths-graph consistent-hyps))
         ;; take the first uncovered detection, and make movement hyps out of it
         (let [mov-hyps (make-movement-hyps (first unc) uncovered sg params)]
           (recur (concat hyps mov-hyps) (rest unc)))))))
