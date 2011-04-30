@@ -179,13 +179,6 @@
       (update-in [:rejected] set/union (set hyps))
       (update-in [:log :final :rejected] concat hyps)))
 
-(defn reject-inconsistent
-  [workspace consistent? pdata]
-  (let [alts (find-explainers workspace)
-        inconsistent (set (filter #(not (consistent? pdata [%] (disj alts %)))
-                                  alts))]
-    (reject-many workspace inconsistent)))
-
 (defn penalize-hyps
   [workspace hyps]
   (update-in workspace [:hyp-confidences]
@@ -245,7 +238,6 @@
 
 (defn log-final
   [workspace]
-  (println "truly committing")
   (let [ws (assoc-in workspace [:log :final]
                      {:accepted (:accepted workspace)
                       :rejected (:rejected workspace)
@@ -284,7 +276,7 @@
 
 ;; maybe even quit explaining at delta=1 (don't go to delta=0)
 (defn find-best
-  [workspace consistent? pdata]
+  [workspace]
   (let [explainers (find-explainers workspace)
         essentials (set (filter #(essential? workspace %) explainers))]
     (if (not-empty essentials)
@@ -295,35 +287,18 @@
       ;; otherwise, choose any clear-best, weak-best, or make a guess (top-conf)
       (let [{alts :hyps delta :delta} (filter-delta workspace)
             best (pick-top-conf workspace alts)]
-        ;; check for pairwise inconsistency with best set
-        #_(doseq [h alts]
-            (when (some #(not (consistent? pdata [h %]))
-                        (disj alts h))
-              ;; if this happens, just quit (leave it unexplained)
-              (println (:id h) "is consistent with anything else in best = "
-                       (map :id alts) "for delta" delta)))
         {:best best :alts (disj alts best)
          :essential? false :delta delta}))))
 
-;; commit decision as you go (would make consistency-checks faster)?
-;; yes, but wipe it out before truly committing; we don't care about
-;; new labels at consistency-checking time
 (defn explain
-  [workspace consistent? commit-decision pdata]
-  ;; start off by rejecting any inconsistent hyps even before
-  ;; we have accepted anything
-  (loop [ws (reject-inconsistent workspace consistent? pdata)
-         pd pdata]
-    (if (empty? (edges (:graph ws))) (log-final ws)
-        (let [{:keys [best alts essential? delta]}
-              (find-best ws consistent? pd)]
-          (if-not best
-            (log-final ws)
-            (recur (-> ws
-                       (update-in [:resources :explain-cycles] inc)
-                       (update-in [:log :best] conj
-                                  {:best best :alts alts
-                                   :essential? essential? :delta delta})
-                       (accept best)
-                       (reject-inconsistent consistent? pd))
-                   (commit-decision pd [best])))))))
+  [workspace]
+  (if (empty? (edges (:graph workspace))) (log-final workspace)
+      (let [{:keys [best alts essential? delta]} (find-best workspace)]
+        (if-not best
+          (log-final workspace)
+          (recur (-> workspace
+                     (update-in [:resources :explain-cycles] inc)
+                     (update-in [:log :best] conj
+                                {:best best :alts alts
+                                 :essential? essential? :delta delta})
+                     (accept best)))))))

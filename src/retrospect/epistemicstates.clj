@@ -170,8 +170,6 @@
     ep-tree-child))
 
 (defn explain
-  [ep-state consistent? commit-decision]
+  [ep-state]
   (let [workspace (ws/prepare-workspace (:workspace ep-state))]
-    (assoc ep-state :workspace
-           (ws/explain workspace consistent? commit-decision
-                       (:problem-data ep-state)))))
+    (assoc ep-state :workspace (ws/explain workspace))))

@@ -98,9 +98,7 @@
         ;; start the clock
         start-time (. System (nanoTime))
         ors-hyps (hypothesize problem ors-sensors time-now params)
-        ep-explained (explain (:ep-state ors-hyps)
-                              (:consistent?-fn problem)
-                              (:commit-decision-fn problem))
+        ep-explained (explain (:ep-state ors-hyps))
         ors-expl (proceed-one-run-state ors-hyps ep-explained time-now problem)
         ;; perform meta-abduction if the :bad set is non-empty
         ;; and meta-abduction is turned 'on'
@@ -143,14 +141,17 @@
 
 (defn run-many
   [problem monitor? meta? params repetitions]
+  (println "Running" params)
   (doall
    (for [i (range repetitions)]
-     (let [runs (run-comparative problem monitor? meta? params)]
-       (if meta?
-         ;; if we have meta vs. non-meta, evaluate the 'batch' form
-         (evaluate-comparative problem params runs)
-         ;; otherwise, just keep the original results from the single (non-meta) run
-         (first runs))))))
+     (do
+       (println "Repetition" i)
+       (let [runs (run-comparative problem monitor? meta? params)]
+         (if meta?
+           ;; if we have meta vs. non-meta, evaluate the 'batch' form
+           (evaluate-comparative problem params runs)
+           ;; otherwise, just keep the original results from the single (non-meta) run
+           (first runs)))))))
 
 (defn get-headers
   [problem]

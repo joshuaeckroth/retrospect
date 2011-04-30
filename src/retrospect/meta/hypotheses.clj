@@ -48,8 +48,7 @@
         est-child (new-child-ep-state ep-state-tree ep-state (dec time-now) problem)
         ep-child (current-ep-state est-child)
         ep-hyps ((:hypothesize-fn problem) ep-child sensors time-now params)
-        ep-expl (explain ep-hyps (:consistent?-fn problem)
-                         (:commit-decision-fn problem))
+        ep-expl (explain ep-hyps)
         est-final (new-child-ep-state est-child ep-expl time-now problem)]
     {:ep-state-tree est-final
      :explain-cycles (:explain-cycles (:resources (:workspace ep-expl)))
@@ -70,11 +69,7 @@
         ep-state (current-ep-state est)
         ;; bypass epistemicstate's explain, go directly to workspace's explain,
         ;; so that we don't cause another prepare-workspace before explaining
-        ep-expl (assoc ep-state :workspace
-                       (ws/explain (:workspace ep-state)
-                                   (:consistent?-fn problem)
-                                   (:commit-decision-fn problem)
-                                   (:problem-data ep-state)))
+        ep-expl (assoc ep-state :workspace (ws/explain (:workspace ep-state)))
         est-new (update-ep-state-tree est ep-expl)
         hyp (let [{score :score est-caught-up :ep-state-tree ec :explain-cycles}
                   (score-by-catching-up problem est-new sensors params lazy)

@@ -117,10 +117,13 @@
         pec (percent-events-correct (:problem-data ep-state) true-moves)
         log (:log (:workspace prev-ep))]
     {:PercentEventsCorrect pec
-     :CountRemoved (avg-with-prior results :CountRemoved
-                     (double (/ (:count-removed (:problem-data ep-state))
-                                (count (set/difference (set (:added log))
-                                                       (set (:forced log)))))))
+     :CountRemoved (let [tracking-hyps
+                         (count (set/difference (set (:added log))
+                                                (set (:forced log))))]
+                     (avg-with-prior results :CountRemoved
+                       (if (= 0 tracking-hyps) 0.0
+                           (double (/ (:count-removed (:problem-data ep-state))
+                                      tracking-hyps)))))
      :PlausibilityWorkspaceAccuracy (avg-with-prior results :PlausibilityWorkspaceAccuracy
                                       (math/abs (- (prob-conf pec)
                                                    (get-conf (:workspace prev-ep)))))

@@ -25,7 +25,7 @@
                                                   (:sensors or-state) bad params
                                                   (:lazy or-state))
                         (prepare-workspace)
-                        (explain (constantly true) (constantly nil) nil))
+                        (explain))
           ;; we only expect one accepted meta hyp
           accepted-hyp (first (:accepted workspace))
           accepted-type (let [t (:type accepted-hyp)]
