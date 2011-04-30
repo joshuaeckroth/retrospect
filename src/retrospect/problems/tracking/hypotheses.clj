@@ -199,14 +199,15 @@
   (let [bad-edges (filter (fn [[det det2]]
                             (not (match-color? (:color det) (:color det2))))
                           (edges paths-graph))]
-    (apply remove-edges paths-graph bad-edges)))
+    {:paths-graph
+     (apply remove-edges paths-graph bad-edges)
+     :count-removed (count bad-edges)}))
 
 (defn build-paths-graph
   [hyps]
   (let [pg-inconsistent (reduce paths-graph-add-edge (digraph) hyps)
-        pg-updated-colors (update-paths-graph-colors pg-inconsistent)
-        pg-consistent (remove-inconsistent-paths-graph-edges pg-updated-colors)]
-    pg-consistent))
+        pg-updated-colors (update-paths-graph-colors pg-inconsistent)]
+    (remove-inconsistent-paths-graph-edges pg-updated-colors)))
 
 (defn hypothesize
   "Process sensor reports, then make hypotheses for all possible movements,
@@ -220,8 +221,10 @@
            unc uncovered]
       (if (empty? unc)
         ;; ran out of uncovered detections; so add all the hyps
-        (let [paths-graph (build-paths-graph hyps)
-              pdata (assoc (:problem-data ep-state) :paths-graph paths-graph)
+        (let [{:keys [paths-graph count-removed]} (build-paths-graph hyps)
+              pdata (assoc (:problem-data ep)
+                      :paths-graph paths-graph
+                      :count-removed count-removed)
               ep-paths-graph (assoc ep :problem-data pdata)
               consistent-hyps (map (fn [[det det2]]
                                      [(attr paths-graph det det2 :hyp)
@@ -519,4 +522,5 @@
 (defn consistent?
   [pdata hyps alts]
   (let [t (commit-decision pdata hyps alts)]
-    (empty? (:bad t))))
+    #_(empty? (:bad t))
+    true))
