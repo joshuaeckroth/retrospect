@@ -54,23 +54,25 @@
                               (flatten (:spotted-grid (:problem-data ep-state))))))
            sg (:spotted-grid (:problem-data ep-state))
            uncovered (:uncovered (:problem-data ep-state))
-           ep ep-state]
+           hyps []]
       (if (> t time-now)
-        (update-in ep [:problem-data] assoc :spotted-grid sg :uncovered uncovered)
-        (let [spotted (sensors-to-spotted sensors t sensors-seen-grid)]
+        (let [ep (reduce #(add-fact %1 %2 []) ep-state (set hyps))]
+          (update-in ep [:problem-data] assoc :spotted-grid sg
+                     :uncovered (set uncovered)))
+        (let [spotted (sensors-to-spotted sensors t sensors-seen-grid)
+              spotted-flat (flatten spotted)]
           (recur (inc t) (conj sg spotted)
-                 (set/union uncovered (set (map #(select-keys
-                                                  (meta %) [:x :y :time :color])
-                                                (flatten spotted))))
-                 (reduce #(add-fact %1 %2 [])
-                         ep (concat
-                             ;; get hyp-to hypotheses from prior spotted grid
-                             (map (comp :hyp-to meta) (flatten (or (last sg) [])))
-                             ;; and hyp-from hypotheses from current spotted grid,
-                             ;; but only if the hyp's time != 0
-                             (filter #(not= 0 (:time (meta (:entity (:data %)))))
-                                     (map (comp :hyp-from meta)
-                                          (flatten spotted)))))))))))
+                 (concat uncovered (map #(select-keys
+                                          (meta %) [:x :y :time :color])
+                                        spotted-flat))
+                 (concat
+                  hyps
+                  ;; get hyp-to hypotheses from prior spotted grid
+                  (map (comp :hyp-to meta) (flatten (or (last sg) [])))
+                  ;; and hyp-from hypotheses from current spotted grid,
+                  ;; but only if the hyp's time != 0
+                  (filter #(not= 0 (:time (meta (:entity (:data %)))))
+                          (map (comp :hyp-from meta) spotted-flat)))))))))
 
 (defn score-distance
   "Returns nil if movement is impossible."
