@@ -1,6 +1,6 @@
 (ns retrospect.problems.tracking.grid
   (:use [retrospect.random])
-  (:use [retrospect.colors :only [red blue]])
+  (:use [retrospect.colors :only [red blue green]])
   (:use [clojure.contrib.seq :only [find-first]])
   (:require [clojure.contrib.math :as math]))
 
@@ -51,10 +51,10 @@
   {:x (my-rand-int (:width (meta grid))) :y (my-rand-int (:height (meta grid)))})
 
 (defn grid-new-entity
-  "Create a new entity with a random location."
+  "Create a new entity with a random location and random color."
   [grid time]
   (let [{x :x y :y} (rand-pos grid)
-        c (my-rand-nth [red blue])
+        c (my-rand-nth [red blue green])
         e (with-meta (symbol (str (grid-count grid)))
             {:x x :y y :color c :time time})]
     (grid-add grid x y e)))
@@ -90,6 +90,7 @@
 
 (defn update-all-entity-times
   [grid time]
-  (with-meta (vec (map (fn [es] (vec (map #(with-meta % (merge (meta %) {:time time}))
+  (with-meta (vec (map (fn [es] (vec (map #(with-meta
+                                             % (merge (meta %) {:time time}))
                                           es))) grid))
     (meta grid)))

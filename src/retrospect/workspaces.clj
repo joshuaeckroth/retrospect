@@ -124,6 +124,7 @@
         (set (filter #(and (not= % hyp) (= (:conflict-id hyp) (:conflict-id %)))
                      (nodes g))))))
 
+;; TODO: Update for green entity colors
 (defn dot-format
   [workspace boxed best]
   (let [id #(format "%s %s" (:id %) (confidence-str (hyp-conf workspace %)))

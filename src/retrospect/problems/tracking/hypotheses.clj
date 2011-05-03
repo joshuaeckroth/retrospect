@@ -182,10 +182,22 @@
               single-color (fn [dets]
                              (let [c-red (count-color dets red)
                                    c-blue (count-color dets blue)
+                                   c-green (count-color dets green)
                                    c-gray (count-color dets gray)]
                                (if (= 0 c-gray)
-                                 (cond (and (= 0 c-blue) (not= 0 c-red)) red
-                                       (and (= 0 c-red) (not= 0 c-blue)) blue))))
+                                 (cond
+                                  (and (= 0 c-blue)
+                                       (= 0 c-green)
+                                       (not= 0 c-red))
+                                  red
+                                  (and (= 0 c-red)
+                                       (= 0 c-green)
+                                       (not= 0 c-blue))
+                                  blue
+                                  (and (= 0 c-red)
+                                       (= 0 c-blue)
+                                       (not= 0 c-green))
+                                  green))))
               in-color (single-color in)
               out-color (single-color out)
               det-color (assoc det :color (or in-color out-color))]
@@ -278,17 +290,16 @@
 (defn find-color
   "Determine the color of a label given a movement and a prior
   path. If the prior path + movement (in sum, the 'path') has no
-  color, than obviously the new color should be gray. Otherwise, if
-  the path consists of red (and gray) but no blue, it should be blue,
-  and vice versa; if the path consists of some red and some blue, the
-  new path should be gray."
+  color, than obviously the new color should be gray."
   ([path]
      (let [colors (map :color path)
            has-red? (some #{red} colors)
-           has-blue? (some #{blue} colors)]
-       (cond (and (not has-red?) (not has-blue?)) gray
-             (and has-red? (not has-blue?)) red
-             (and has-blue? (not has-red?)) blue
+           has-blue? (some #{blue} colors)
+           has-green? (some #{green} colors)]
+       (cond (and (not has-red?) (not has-blue?) (not has-green?)) gray
+             (and has-red? (not has-blue?) (not has-green?)) red
+             (and has-blue? (not has-red?) (not has-green?)) blue
+             (and has-green? (not has-red?) (not has-blue?)) green
              :else gray)))
   ([move path]
      (find-color (concat move path))))

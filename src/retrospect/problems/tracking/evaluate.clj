@@ -117,21 +117,29 @@
         pec (percent-events-correct (:problem-data ep-state) true-moves)
         log (:log (:workspace prev-ep))]
     {:PercentEventsCorrect pec
-     :CountRemoved (let [tracking-hyps
-                         (count (set/difference (set (:added log))
-                                                (set (:forced log))))]
-                     (avg-with-prior results :CountRemoved
-                       (if (= 0 tracking-hyps) 0.0
-                           (double (/ (:count-removed (:problem-data ep-state))
-                                      tracking-hyps)))))
-     :PlausibilityWorkspaceAccuracy (avg-with-prior results :PlausibilityWorkspaceAccuracy
-                                      (math/abs (- (prob-conf pec)
-                                                   (get-conf (:workspace prev-ep)))))
+     :CountRemoved
+     (if (< 0 (count results))
+       (+ (:CountRemoved (last results))
+          (:count-removed (:problem-data ep-state)))
+       (:count-removed (:problem-data ep-state)))
+     :CountRemovedPercent
+     (let [tracking-hyps
+           (count (set/difference (set (:added log))
+                                  (set (:forced log))))]
+       (avg-with-prior results :CountRemovedPercent
+         (if (= 0 tracking-hyps) 0.0
+             (double (/ (:count-removed (:problem-data ep-state))
+                        tracking-hyps)))))
+     :PlausibilityWorkspaceAccuracy
+     (avg-with-prior results :PlausibilityWorkspaceAccuracy
+       (math/abs (- (prob-conf pec)
+                    (get-conf (:workspace prev-ep)))))
      :MeanTimeWithLabel (avg (map #(avg (twl %)) (keys twl)))
      :MaxTimeWithLabel (avg (map #(apply max (twl %)) (keys twl)))
      :MinTimeWithLabel (avg (map #(apply min (twl %)) (keys twl)))
      :MeanCountAlternatives (mean-count-alts (:workspace ep-state) :sensor)
-     :MeanLabelCounts (double (/ (reduce + 0 (map #(count (set (elmap %))) (keys elmap)))
+     :MeanLabelCounts (double (/ (reduce + 0 (map #(count (set (elmap %)))
+                                                  (keys elmap)))
                                  (count (keys elmap))))
      :DistinctLabels (count (keys (:paths (:problem-data ep-state))))
      ;; average current plausibility accuracy with past
