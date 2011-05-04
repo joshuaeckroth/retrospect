@@ -71,7 +71,9 @@
                                    sensors-seen-grid)
         sg-new-flat (flatten sg-new)
         ;; get all the from/to hyps; ignore 'from' hyps if time is 0
-        hyps-to-add (concat (map (comp :hyp-to meta) sg-new-flat)
+        hyps-to-add (concat (map (comp :hyp-to meta)
+                                 (concat (flatten (butlast sg-new))
+                                         (flatten (or (last sg) []))))
                             (filter #(not= 0 (:time (meta (:entity (:data %)))))
                                     (map (comp :hyp-from meta) sg-new-flat)))]
     (reduce
