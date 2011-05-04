@@ -19,6 +19,7 @@
                           "x: %d, y: %d, time: %d")
                      (:id sensor) (color-str (:color (meta e)))
                      (:x (meta e)) (:y (meta e)) (:time (meta e)))]
+    ;; return an 'entity' with hyp data in the meta map
     (with-meta e (merge (meta e)
                         (zipmap [:hyp-from :hyp-to]
                                 (map #(new-hyp % :sensor nil NEUTRAL desc
@@ -27,19 +28,33 @@
                                      ["SHF" "SHT"]))))))
 
 (defn sensors-to-spotted
-  [sensors time sensors-seen-grid]
+  "Pull the sensor detections between mintime and maxtime from each
+   sensor and incorporate into a collection of grids (one grid for each
+   time step)."
+  [sensors mintime maxtime sensors-seen-grid]
   (let [width (:width (meta sensors-seen-grid))
-        height (:height (meta sensors-seen-grid))]
-    (with-meta
-      (doall (for ;; need height followed by width
-                 [y (range height) x (range width)]
-               (mapcat (fn [s]
-                         (map #(make-sensor-hyps s %)
-                              (filter (fn [e] (and (= x (:x (meta e)))
-                                                   (= y (:y (meta e)))))
-                                      (sensed-at s time))))
-                       sensors)))
-      {:width width :height height :time time})))
+        height (:height (meta sensors-seen-grid))
+        ;; make entities/hyps of all detections between mintime and maxtime
+        ;; from all sensors
+        es (mapcat (fn [t] (mapcat (fn [s] (map #(make-sensor-hyps s %)
+                                                (sensed-at s t)))
+                                   sensors))
+                   (range mintime (inc maxtime)))
+        ;; create blank grids, one for each time
+        spotted-grids (vec (map #(with-meta
+                                   (vec (repeat (* width height) []))
+                                   {:width width :height height :time %})
+                                (range mintime (inc maxtime))))
+        ;; helper function to put a sensor hyp in appropriate grid
+        put-in-grid (fn [sgs e]
+                      (let [t (:time (meta e))
+                            x (:x (meta e))
+                            y (:y (meta e))
+                            sg (get sgs (- t mintime))]
+                        (assoc sgs (- t mintime)
+                               (update-in sg [(+ x (* y width))]
+                                          conj e))))]
+    (reduce put-in-grid spotted-grids es)))
 
 (defn process-sensors
   "For each time step between the last time we processed sensor data
@@ -48,31 +63,26 @@
    those detections as 'facts,' and record those detections as
    'uncovered.'"
   [ep-state sensors time-now]
-  (let [sensors-seen-grid (:sensors-seen-grid (:problem-data ep-state))]
-    (loop [t (inc (apply max -1
-                         (map (comp :time meta)
-                              (flatten (:spotted-grid (:problem-data ep-state))))))
-           sg (:spotted-grid (:problem-data ep-state))
-           uncovered (:uncovered (:problem-data ep-state))
-           hyps []]
-      (if (> t time-now)
-        (let [ep (reduce #(add-fact %1 %2 []) ep-state (set hyps))]
-          (update-in ep [:problem-data] assoc :spotted-grid sg
-                     :uncovered (set uncovered)))
-        (let [spotted (sensors-to-spotted sensors t sensors-seen-grid)
-              spotted-flat (flatten spotted)]
-          (recur (inc t) (conj sg spotted)
-                 (concat uncovered (map #(select-keys
-                                          (meta %) [:x :y :time :color])
-                                        spotted-flat))
-                 (concat
-                  hyps
-                  ;; get hyp-to hypotheses from prior spotted grid
-                  (map (comp :hyp-to meta) (flatten (or (last sg) [])))
-                  ;; and hyp-from hypotheses from current spotted grid,
-                  ;; but only if the hyp's time != 0
-                  (filter #(not= 0 (:time (meta (:entity (:data %)))))
-                          (map (comp :hyp-from meta) spotted-flat)))))))))
+  (let [sg (:spotted-grid (:problem-data ep-state))
+        mintime (inc (apply max -1 (map (comp :time meta)
+                                        (flatten sg))))
+        sensors-seen-grid (:sensors-seen-grid (:problem-data ep-state))
+        sg-new (sensors-to-spotted sensors mintime time-now
+                                   sensors-seen-grid)
+        sg-new-flat (flatten sg-new)
+        ;; get all the from/to hyps; ignore 'from' hyps if time is 0
+        hyps-to-add (concat (map (comp :hyp-to meta) sg-new-flat)
+                            (filter #(not= 0 (:time (meta (:entity (:data %)))))
+                                    (map (comp :hyp-from meta) sg-new-flat)))]
+    (reduce
+     #(add-fact %1 %2 [])
+     (-> ep-state
+         (assoc-in [:problem-data :uncovered]
+                   (set (concat (:uncovered (:problem-data ep-state))
+                                (map #(select-keys (meta %) [:x :y :time :color])
+                                     sg-new-flat))))
+         (update-in [:problem-data :spotted-grid] concat sg-new))
+     hyps-to-add)))
 
 (defn score-distance
   "Returns nil if movement is impossible."

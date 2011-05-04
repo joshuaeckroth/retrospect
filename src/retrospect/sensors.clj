@@ -12,7 +12,8 @@
 
 (defn sensed-at
   [sensor time]
-  (get (:sensed sensor) time))
+  (if-let [sensed (get (:sensed sensor) time)]
+    sensed []))
 
 (defn add-sensed
   [sensor time data]

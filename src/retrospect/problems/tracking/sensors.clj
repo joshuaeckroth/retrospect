@@ -52,9 +52,9 @@
   (let [spotted (find-spotted sensor grid time)
         color-adjusted (if (:sees-color (meta sensor))
                          (adjust-ids spotted true)
-                         (adjust-ids spotted false))]
-    (add-sensed sensor time
-                (vals (reduce (fn [m e] (assoc m (meta e) e)) {} color-adjusted)))))
+                         (adjust-ids spotted false))
+        sensed (vals (reduce (fn [m e] (assoc m (meta e) e)) {} color-adjusted))]
+    (add-sensed sensor time (if sensed sensed []))))
 
 (defn new-sensor
   "Generate a new sensor with provided values and an empty 'spotted' vector."
