@@ -13,6 +13,26 @@
           incoming neighbors]])
   (:use [loom.attr :only [add-attr attr]]))
 
+(defn move-str
+  [[det det2]]
+  (format "%d,%d@%d (%s) -> %d,%d@%d (%s)"
+          (:x det) (:y det) (:time det) (color-str (:color det))
+          (:x det2) (:y det2) (:time det2) (color-str (:color det2))))
+
+(defn path-str
+  [path]
+  (apply str (interpose " -> " (map (fn [{:keys [x y time]}]
+                                      (format "%s,%s@%s" x y time)) path))))
+
+(defn paths-str
+  [paths]
+  (apply str (map (fn [label] (format "%s%s (%s): %s\n"
+                                      label
+                                      (if (:dead (meta label)) "*" "")
+                                      (color-str (:color (meta label)))
+                                      (path-str (get paths label))))
+                  (keys paths))))
+
 (defn make-sensor-hyps
   [sensor e]
   (let [desc (format (str "Sensor detection by %s - color: %s, "
@@ -117,7 +137,7 @@
       score)))
 
 (defn make-movement-hyps
-  [det uncovered spotted-grid params]
+  [det uncovered spotted-grid entity-hyps params]
   (let [find-spotted (fn [d] (filter #(match-color? (:color d) (:color (meta %)))
                                      (grid-at (nth spotted-grid (:time d))
                                               (:x d) (:y d))))
@@ -133,19 +153,37 @@
               (when-let [score (matched-and-in-range? det det2 params)]
                 ;; it is important that the hyp explains where det2 is
                 ;; 'from' and where det went 'to'
-                (let [explains (concat (map (comp :hyp-from meta)
+                (let [e-hyp (find-first
+                             #(let [d (:det (:data %))
+                                    e (:entity (:data %))]
+                                (and (= (:x d) (:x det))
+                                     (= (:y d) (:y det))
+                                     (= (:time d) (:time det))
+                                     (match-color? (:color (meta e))
+                                                   (:color det))))
+                             entity-hyps)
+                      explains (concat (map (comp :hyp-from meta)
                                             (find-spotted det2))
                                        (map (comp :hyp-to meta)
-                                            (find-spotted det)))]
+                                            (find-spotted det))
+                                       (if e-hyp [e-hyp] []))]
                   [[(new-hyp "TH" :tracking :shared-explains
-                            score (desc-fn det det2 explains)
-                            {:det det :det2 det2})
+                             score (desc-fn det det2 explains)
+                             {:det det :det2 det2})
                     explains]
                    ;; split-merge hyp
                    [(new-hyp "TH" :tracking nil
                              score (desc-fn det det2 explains)
                              {:det det :det2 det2})
                     explains]]))))))
+
+(defn make-known-entities-hyps
+  [paths]
+  (letfn [(hyp-to [l t] (new-hyp "TE" :tracking-entity nil NEUTRAL
+                                 (format "Where did %s go at %d?" l t)
+                                 {:det (last (paths l)) :entity l}))]
+    (map #(hyp-to % (:time (last (paths %))))
+         (filter #(not (:dead (meta %))) (keys paths)))))
 
 (defn paths-graph-add-edge
   [paths-graph [hyp explains]]
@@ -235,14 +273,19 @@
                                           (= (:y det) (:y %))
                                           (= (:time det) (:time %)))
                                     path-heads))
-        bad-edges (filter (fn [[det det2]]
-                            (or
-                             (some #(not (match-color? (:color det) (:color %)))
-                                   (get-heads det))
-                             (some #(not (match-color? (:color det2) (:color %)))
-                                   (get-heads det2))
-                             (not (match-color? (:color det) (:color det2)))))
-                          (edges paths-graph))]
+        bad-edges (filter
+                   (fn [[det det2]]
+                     (let [heads-det (get-heads det)
+                           heads-det2 (get-heads det2)]
+                       (or
+                        (and (not-empty heads-det)
+                             (every? #(not (match-color? (:color det) (:color %)))
+                                     heads-det))
+                        (and (not-empty heads-det2)
+                             (every? #(not (match-color? (:color det2) (:color %)))
+                                     heads-det2))
+                        (not (match-color? (:color det) (:color det2))))))
+                   (edges paths-graph))]
     {:paths-graph
      (apply remove-edges paths-graph bad-edges)
      :count-removed (count bad-edges)}))
@@ -261,8 +304,11 @@
   "Process sensor reports, then make hypotheses for all possible movements,
    and add them to the epistemic state."
   [ep-state sensors time-now params]
-  (let [path-heads (get-path-heads (:paths (:problem-data ep-state)))
-        ep (process-sensors ep-state sensors time-now)
+  (let [paths (:paths (:problem-data ep-state))
+        path-heads (get-path-heads paths)
+        entity-hyps (make-known-entities-hyps paths)
+        ep-entities (reduce #(add-fact %1 %2 []) ep-state entity-hyps)
+        ep (process-sensors ep-entities sensors time-now)
         sg (:spotted-grid (:problem-data ep))
         uncovered (set/union (set path-heads) (:uncovered (:problem-data ep)))]
     (loop [hyps []
@@ -284,7 +330,8 @@
           (reduce (fn [ep [hyp explains]] (add-hyp ep hyp explains))
                   ep-paths-graph consistent-hyps))
         ;; take the first uncovered detection, and make movement hyps out of it
-        (let [mov-hyps (make-movement-hyps (first unc) uncovered sg params)]
+        (let [mov-hyps (make-movement-hyps (first unc) uncovered
+                                           sg entity-hyps params)]
           (recur (concat hyps (map first mov-hyps))
                  (concat split-merge-hyps (map second mov-hyps))
                  (rest unc)))))))
@@ -294,26 +341,6 @@
   (let [hyps (:split-merge-hyps (:problem-data ep-state))
         ep (assoc-in ep-state [:problem-data :split-merge-hyps] [])]
     (reduce (fn [ep [hyp explains]] (add-more-hyp ep hyp explains)) ep hyps)))
-
-(defn move-str
-  [[det det2]]
-  (format "%d,%d@%d (%s) -> %d,%d@%d (%s)"
-          (:x det) (:y det) (:time det) (color-str (:color det))
-          (:x det2) (:y det2) (:time det2) (color-str (:color det2))))
-
-(defn path-str
-  [path]
-  (apply str (interpose " -> " (map (fn [{:keys [x y time]}]
-                                      (format "%s,%s@%s" x y time)) path))))
-
-(defn paths-str
-  [paths]
-  (apply str (map (fn [label] (format "%s%s (%s): %s\n"
-                                      label
-                                      (if (:dead (meta label)) "*" "")
-                                      (color-str (:color (meta label)))
-                                      (path-str (get paths label))))
-                  (keys paths))))
 
 (defn path-to-movements
   [path]
