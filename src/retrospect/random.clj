@@ -11,10 +11,6 @@
   ([] (.nextDouble *rgen*))
   ([n] (* n (my-rand))))
 
-(defn my-rand-long
-  []
-  (.nextLong *rgen*))
-
 (defn my-rand-int
   [n]
   (int (my-rand n)))

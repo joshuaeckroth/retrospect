@@ -3,7 +3,8 @@
   (:use [retrospect.random])
   (:use [retrospect.colors :only [red blue green gray]])
   (:use [retrospect.problems.tracking.grid :only [grid-entities]])
-  (:use [retrospect.sensors :only [init-sensor add-sensed]]))
+  (:use [retrospect.sensors :only [init-sensor add-sensed]])
+  (:require [clojure.contrib.math :as math]))
 
 (defn sees
   [sensor x y]
@@ -62,62 +63,15 @@
   (init-sensor id sense {:left left :right right :bottom bottom :top top
                          :sees-color sees-color}))
 
-(defn measure-sensor-coverage
-  [width height sensors]
-  (let [markers (for [x (range width) y (range height)]
-		  (if (some #(sees % x y) sensors) 1 0))
-	covered (reduce + markers)]
-    (double (* 100 (/ covered (* width height))))))
-
-(defn measure-sensor-overlap
-  [width height sensors]
-  (let [count-xy
-	(for [x (range width) y (range height)]
-          (count (filter identity (map (fn [s] (sees s x y)) sensors))))]
-    (double (/ (reduce + count-xy) (* width height)))))
-
-(defn inside?
-  [s1 s2]
-  (and
-   (not= (:id s1) (:id s2))
-   (>= (:left (meta s1)) (:left (meta s2)))
-   (<= (:right (meta s1)) (:right (meta s2)))
-   (>= (:bottom (meta s1)) (:bottom (meta s2)))
-   (<= (:top (meta s1)) (:top (meta s2)))))
-
-(defn sensor-inside-another?
-  [sensor sensors]
-  (some #(inside? sensor %) sensors))
-
-(defn generate-sensors-sample
-  [width height sees-color-prob]
-  (doall (for [i (range (my-rand-int (* width height)))]
-           (let [left (my-rand-int width)
-                 right (+ left (my-rand-int (- width left)))
-                 bottom (my-rand-int height)
-                 top (+ bottom (my-rand-int (- height bottom)))]
-             (new-sensor (keyword (format "Sensor%d" (hash (my-rand))))
-                         left right bottom top
-                         (> (double (/ sees-color-prob 100)) (my-rand)))))))
-
-(defn generate-sensors-with-coverage
-  [width height coverage sees-color-prob]
-  (loop [sensors (generate-sensors-sample width height sees-color-prob)]
-    (let [measured (measure-sensor-coverage width height sensors)]
-      (if (and
-           (> 4.0 (measure-sensor-overlap width height sensors))
-           (> measured (- coverage 5.0)) (< measured (+ coverage 5.0)))
-        (filter #(not (sensor-inside-another? % sensors)) sensors)
-        (recur (generate-sensors-sample width height sees-color-prob))))))
-
 (defn generate-sensors
   [params]
-  [(new-sensor (keyword "1") 0 4 0 29 true)
-   (new-sensor (keyword "1g") 5 9 0 29 false)
-   (new-sensor (keyword "2") 10 14 0 29 true)
-   (new-sensor (keyword "2g") 15 19 0 29 false)
-   (new-sensor (keyword "3") 20 24 0 29 true)
-   (new-sensor (keyword "3g") 25 29 0 29 false)])
+  (let [num-sensors (inc (my-rand-int (:GridWidth params)))
+        width-each (math/ceil (/ (:GridWidth params) num-sensors))]
+    (for [i (range num-sensors)]
+      (let [gray? (< (my-rand) (/ (:SensorSeesColor params) 100))]
+        (new-sensor (keyword (format "%d%s" (inc i) (if gray? "g" "")))
+                    (* i width-each) (dec (* (inc i) width-each))
+                    0 (:GridHeight params) gray?)))))
 
 (comment [(new-sensor (keyword "1") 0 4 0 15 true)
           (new-sensor (keyword "2g") 0 4 16 20 false)
@@ -128,9 +82,4 @@
           (new-sensor (keyword "6") 15 29 0 20 true)
           (new-sensor (keyword "6g") 15 29 21 29 false)])
 
-(comment (defn generate-sensors
-           [params]
-           (generate-sensors-with-coverage
-             (:GridWidth params) (:GridHeight params)
-             (:SensorCoverage params) (:SensorSeesColor params))))
 

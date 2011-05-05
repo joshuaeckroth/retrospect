@@ -12,15 +12,9 @@
           player-get-stats-panel player-update-stats player-get-truedata-log
           player-get-problem-log player-setup-diagram player-update-diagram]])
   (:use [retrospect.problems.tracking.sensors :only
-         [measure-sensor-overlap measure-sensor-coverage
-          list-sensors-seen list-sensors-unseen sensors-seen-grid]])
+         [sensors-seen-grid]])
   (:use [retrospect.problems.tracking.monitor :only [monitor]])
   (:use [retrospect.problems.tracking.prepared :only [prepared-map]]))
-
-(comment (list-sensors-seen (:GridWidth params) (:GridHeight params) sensors)
-         (list-sensors-unseen (:GridWidth params) (:GridHeight params) sensors)
-         (measure-sensor-coverage (:GridWidth params) (:GridHeight params) sensors)
-         (measure-sensor-overlap (:GridWidth params) (:GridHeight params) sensors))
 
 (defn generate-problem-data
   [sensors params]

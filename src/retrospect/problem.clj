@@ -7,7 +7,7 @@
          [explain previous-ep-state current-ep-state]])
   (:use [retrospect.meta.explain :only [explain-meta]])
   (:use [retrospect.sensors :only [update-sensors]])
-  (:use [retrospect.random :only [set-seed my-rand-long]]))
+  (:use [retrospect.random :only [set-seed my-rand-int]]))
 
 (defn avg-with-prior
   [results key val]
@@ -133,7 +133,7 @@
 
 (defn run-comparative
   [problem monitor? meta? params]
-  (let [seed (my-rand-long)]
+  (let [seed (my-rand-int 10000)]
     (set-seed seed)
     (let [truedata ((:truedata-fn problem) params)
           sensors ((:sensor-gen-fn problem) params)
