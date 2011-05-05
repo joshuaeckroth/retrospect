@@ -400,9 +400,15 @@
                              (assoc (with-meta l (merge (meta l) {:dead true}))
                                (get ps l))))
                        paths before-labels)
+        :log (conj log (format
+                        "%s is a split of %s." (move-str move)
+                        (apply str (interpose "," (map str before-labels)))))
         :bad bad}
        ;; no label found, return paths
-       {:paths paths :bad bad})
+       {:paths paths
+        :log (conj log (format "%s is a split but no label found."
+                               (move-str move)))
+        :bad bad})
      ;; if we have a merge, continue the relevant paths one step,
      ;; then call them dead
      (some #{move} merges)

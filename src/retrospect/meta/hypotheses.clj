@@ -38,24 +38,32 @@
         ep (if least-conf
              (mark-many-impossible ep-state [least-conf])
              (mark-many-impossible ep-state hyps))
-        ep-expl-cycles (update-in ep [:workspace :resources] assoc :explain-cycles 0)]
+        ep-expl-cycles (update-in ep [:workspace :resources]
+                                  assoc :explain-cycles 0)]
     (update-ep-state-tree est ep-expl-cycles)))
 
 (defn score-by-catching-up
   [problem ep-state-tree sensors params lazy]
   (let [time-now (apply max (map :sensed-up-to sensors))
         ep-state (current-ep-state ep-state-tree)
-        est-child (new-child-ep-state ep-state-tree ep-state (dec time-now) problem)
-        ep-child (current-ep-state est-child)
-        ep-hyps ((:hypothesize-fn problem) ep-child sensors time-now params)
-        ep-expl (explain ep-hyps (:get-more-hyps-fn problem))
-        est-final (new-child-ep-state est-child ep-expl time-now problem)]
-    {:ep-state-tree est-final
-     :explain-cycles (:explain-cycles (:resources (:workspace ep-expl)))
-     ;; penalize a result that has 'bad' hyps
-     :score (if (not-empty (:bad (:problem-data (current-ep-state est-final))))
-              (penalize (ws/get-conf (:workspace ep-expl)))
-              (ws/get-conf (:workspace ep-expl)))}))
+        build-score
+        (fn [est ep]
+          (let [est-final (new-child-ep-state est ep time-now problem)
+                bad (:bad (:problem-data (current-ep-state est-final)))]
+            {:ep-state-tree est-final
+             :explain-cycles (:explain-cycles (:resources (:workspace ep)))
+             ;; penalize a result that has 'bad' hyps
+             :score (if (not-empty bad)
+                      (penalize (ws/get-conf (:workspace ep)))
+                      (ws/get-conf (:workspace ep)))}))]
+    (if (= (inc time-now) (+ (:StepsBetween params) (:time ep-state)))
+      (build-score ep-state-tree ep-state)
+      (let [est-child (new-child-ep-state ep-state-tree ep-state
+                                          (dec time-now) problem)
+            ep-child (current-ep-state est-child)
+            ep-hyps ((:hypothesize-fn problem) ep-child sensors time-now params)
+            ep-expl (explain ep-hyps (:get-more-hyps-fn problem))]
+        (build-score est-child ep-expl)))))
 
 (defn add-branch-hyp
   [workspace ep-state-hyp branchable hyps problem ep-state-tree

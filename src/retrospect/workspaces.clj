@@ -188,9 +188,17 @@
                 :graph-static
                 :graph)
         expl (set/intersection (nodes (get workspace gtype)) (set explains))]
-    (-> workspace
-        (update-in [gtype] #(apply add-nodes % (conj expl hyp)))
-        (update-in [gtype] #(apply add-edges % (map (fn [e] [hyp e]) expl)))
+    ;; add to :graph-static if :static was not indicated
+    (-> (if (not= gtype :graph) workspace
+            (-> workspace
+                (update-in [:graph-static]
+                           #(apply add-nodes % (conj expl hyp)))
+                (update-in [:graph-static]
+                           #(apply add-edges % (map (fn [e] [hyp e]) expl)))))
+        (update-in [gtype]
+                   #(apply add-nodes % (conj expl hyp)))
+        (update-in [gtype]
+                   #(apply add-edges % (map (fn [e] [hyp e]) expl)))
         (update-in [:hyp-confidences] assoc hyp (:apriori hyp))
         (update-in [:log :added] conj {:hyp hyp :explains expl}))))
 
