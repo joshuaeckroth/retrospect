@@ -6,7 +6,8 @@
   (:use [retrospect.epistemicstates :only
          [explain previous-ep-state current-ep-state]])
   (:use [retrospect.meta.explain :only [explain-meta]])
-  (:use [retrospect.sensors :only [update-sensors]]))
+  (:use [retrospect.sensors :only [update-sensors]])
+  (:use [retrospect.random :only [set-seed my-rand-long]]))
 
 (defn avg-with-prior
   [results key val]
@@ -40,7 +41,8 @@
                         :ExplainCycles
                         (:explain-cycles (:resources (:workspace ep-state)))
                         :HypothesisCount
-                        (:hyp-count (:resources (:workspace prev-ep))))))))
+                        (:hyp-count (:resources (:workspace prev-ep)))
+                        :Seed (:seed or-state))))))
 
 (defn calc-percent-increase
   [k m b]
@@ -75,7 +77,8 @@
           :Steps (:Steps params)
           :StepsBetween (:StepsBetween params)
           :SensorNoise (:SensorNoise params)
-          :BeliefNoise (:BeliefNoise params)}))
+          :BeliefNoise (:BeliefNoise params)
+          :Seed (:Seed m)}))
 
 (defn proceed-n-steps
   [n steps time truedata or-state]
@@ -122,22 +125,25 @@
 (defn run-simulation
   [problem truedata or-state params monitor?]
   (loop [ors or-state]
-    (when (nil? ors) (throw (ExecutionException. "Monitor took control." (Throwable.))))
+    (when (nil? ors)
+      (throw (ExecutionException. "Monitor took control." (Throwable.))))
     (if (>= (:time (:ep-state ors)) (:Steps params))
       (last (:results (evaluate problem truedata ors params)))
       (recur (run-simulation-step problem truedata ors params monitor? false)))))
 
 (defn run-comparative
   [problem monitor? meta? params]
-  (let [truedata ((:truedata-fn problem) params)
-        sensors ((:sensor-gen-fn problem) params)
-        problem-data ((:gen-problem-data-fn problem) sensors params)
-        or-states (init-one-run-states
-                   {:MetaAbduction (if meta? [true false] [false]) :Lazy [true]}
-                   sensors problem-data)]
-    (doall (for [ors or-states]
-             (binding [last-id 0]
-               (run-simulation problem truedata ors params monitor?))))))
+  (let [seed (my-rand-long)]
+    (set-seed seed)
+    (let [truedata ((:truedata-fn problem) params)
+          sensors ((:sensor-gen-fn problem) params)
+          problem-data ((:gen-problem-data-fn problem) sensors params)
+          or-states (init-one-run-states
+                     {:MetaAbduction (if meta? [true false] [false]) :Lazy [true]}
+                     sensors seed problem-data)]
+      (doall (for [ors or-states]
+               (binding [last-id 0]
+                 (run-simulation problem truedata ors params monitor?)))))))
 
 (defn run-many
   [problem monitor? meta? params repetitions]
@@ -150,7 +156,8 @@
          (if meta?
            ;; if we have meta vs. non-meta, evaluate the 'batch' form
            (evaluate-comparative problem params runs)
-           ;; otherwise, just keep the original results from the single (non-meta) run
+           ;; otherwise, just keep the original results from the
+           ;; single (non-meta) run
            (first runs)))))))
 
 (defn get-headers
@@ -171,7 +178,8 @@
            :Milliseconds
            :Unexplained
            :ExplainCycles
-           :HypothesisCount]))
+           :HypothesisCount
+           :Seed]))
 
 (defn get-comparative-headers
   [problem]
@@ -196,7 +204,8 @@
            :Steps
            :StepsBetween
            :SensorNoise
-           :BeliefNoise]))
+           :BeliefNoise
+           :Seed]))
 
 (defrecord Problem
     [name headers comparative-headers monitor-fn player-fns

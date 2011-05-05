@@ -8,9 +8,12 @@
   (def *rgen* (Random. n)))
 
 (defn my-rand
-  ([]
-     (if *rgen* (.nextDouble *rgen*) (rand)))
+  ([] (.nextDouble *rgen*))
   ([n] (* n (my-rand))))
+
+(defn my-rand-long
+  []
+  (.nextLong *rgen*))
 
 (defn my-rand-int
   [n]
@@ -22,7 +25,6 @@
 
 (defn my-shuffle
   [coll]
-  (if (nil? *rgen*) (shuffle coll)
-    (let [al (java.util.ArrayList. coll)]
-      (java.util.Collections/shuffle al *rgen*)
-      (clojure.lang.RT/vector (.toArray al)))))
+  (let [al (java.util.ArrayList. coll)]
+    (java.util.Collections/shuffle al *rgen*)
+    (clojure.lang.RT/vector (.toArray al))))

@@ -28,7 +28,7 @@
           prob (cond (= problem "tracking") tracking-problem
                      ;(= problem "circuit") circuit-problem
                      :else nil)]
-      (when (not= 0 seed) (set-seed seed))
+      (set-seed seed)
       (case action
             "run"
             (run-with-new-record prob paramsfile recordsdir nthreads

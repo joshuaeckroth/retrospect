@@ -17,13 +17,19 @@
   (:use [retrospect.onerun :only [init-one-run-state]])
   (:use [retrospect.epistemicstates :only
          [list-ep-states current-ep-state goto-ep-state root-ep-state?
-          previous-ep-state non-accepted-current-ep-state?]]))
+          previous-ep-state non-accepted-current-ep-state?]])
+  (:use [retrospect.random :only [set-seed]]))
 
 (def prepared-selected (atom nil))
 (def ep-list (ref '[]))
 (def ep-selected (atom nil))
 (def steplabel (label ""))
 (def problem-diagram (panel))
+
+(def seed-spinner (JSpinner. (SpinnerNumberModel. 10 nil nil 1)))
+
+(defn get-seed [] (->> seed-spinner .getModel .getNumber .intValue))
+(defn set-seed-spinner [seed] (. seed-spinner setValue seed))
 
 (def param-spinners
   {:Steps (JSpinner. (SpinnerNumberModel. 50 1 1000 1))
@@ -48,6 +54,7 @@
 (defn set-params
   []
   ((:set-params-fn (:player-fns @problem)))
+  (set-seed-spinner (:seed @or-state))
   (doseq [k (keys param-spinners)]
     (. (k param-spinners) setValue (k @params)))
   (. (:MetaAbduction param-checkbox) setSelected (:meta-abduction @or-state))
@@ -79,15 +86,17 @@
                        (not= "None" @prepared-selected))
         ps (get-params)
         meta-abduction (:MetaAbduction ps)
-        lazy (:Lazy ps)]
+        lazy (:Lazy ps)
+        seed (get-seed)]
+    (set-seed seed)
     (when (not prepared?)
       (dosync
-       (alter sensors (constantly ((:sensor-gen-fn @problem) ps)))
-       (alter truedata (constantly ((:truedata-fn @problem) ps)))))
+       (alter truedata (constantly ((:truedata-fn @problem) ps)))
+       (alter sensors (constantly ((:sensor-gen-fn @problem) ps)))))
     (dosync
      (alter params (constantly ps))
      (alter or-state
-            (constantly (init-one-run-state meta-abduction lazy @sensors
+            (constantly (init-one-run-state meta-abduction lazy @sensors seed
                                             ((:gen-problem-data-fn @problem)
                                              @sensors ps)))))
     (update-everything)))
@@ -164,7 +173,7 @@
          :size [1000 700]
          :show true
          :on-close :dispose
-         [:gridx 0 :gridy 0 :gridheight 9 :weightx 1.0 :weighty 1.0
+         [:gridx 0 :gridy 0 :gridheight 10 :weightx 1.0 :weighty 1.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
           _ (doto (JTabbedPane.)
               (.addTab "Problem diagram" problem-diagram)
@@ -188,7 +197,12 @@
           :gridx 1 :gridy 3
           _ (:Lazy param-checkbox)
 
-          :gridx 1 :gridy 4 :gridwidth 2 :weighty 1.0
+          :gridx 1 :gridy 4 :gridwidth 1
+          _ (label "Seed")
+          :gridx 2 :gridy 4
+          _ seed-spinner
+
+          :gridx 1 :gridy 5 :gridwidth 2 :weighty 1.0
           _ (doto (JTabbedPane.)
               (.setMinimumSize (Dimension. 220 0))
               (.addTab "Generic"
@@ -197,22 +211,22 @@
                        (scroll-panel
                         ((:get-params-panel-fn (:player-fns @problem))))))
           
-          :gridx 1 :gridy 5 :gridwidth 1 :weighty 0.0
+          :gridx 1 :gridy 6 :gridwidth 1 :weighty 0.0
           _ (button "New" :action ([_] (new-simulation)))
           :gridx 2
           _ (button "Next" :action ([_] (next-step)))
 
-          :gridx 1 :gridy 6
+          :gridx 1 :gridy 7
           _ (doto (combo-box
                    [] :model (seq-ref-combobox-model ep-list ep-selected))
               (.setMinimumSize (Dimension. 100 0)))
           :gridx 2
           _ (button "Goto" :action ([_] (goto-ep-state-action)))
 
-          :gridx 1 :gridy 7 :gridwidth 2
+          :gridx 1 :gridy 8 :gridwidth 2
           _ steplabel
 
-          :gridx 1 :gridy 8
+          :gridx 1 :gridy 9
           _ ((:get-stats-panel-fn (:player-fns @problem)))]))
 
 (defn start-player
