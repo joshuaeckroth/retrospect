@@ -109,13 +109,15 @@
           meta-abduction (:MetaAbduction ps)
           lazy (:Lazy ps)
           td (:truedata prepared)
-          sens (:sensors prepared)]
+          sens (:sensors prepared)
+          seed (get-seed)]
+      (set-seed seed)
       (dosync
        (alter params (constantly ps))
        (alter truedata (constantly td))
        (alter sensors (constantly sens))
        (alter or-state
-              (constantly (init-one-run-state meta-abduction lazy sens
+              (constantly (init-one-run-state meta-abduction lazy sens seed
                                               ((:gen-problem-data-fn @problem)
                                                sens ps)))))
       (update-everything)
