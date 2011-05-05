@@ -184,7 +184,7 @@
     (reduce change-edge paths-graph hyp-changes)))
 
 (defn update-paths-graph-colors
-  [paths-graph]
+  [paths-graph path-heads]
   (let [grays #(filter (fn [det] (= gray (:color det))) %)]
     (loop [unchecked (grays (nodes paths-graph))
            modified #{}
@@ -195,6 +195,8 @@
                                   modified))
                    #{} g))
         (let [det (first unchecked)
+              heads (filter #(and (= (:x det) (:x %)) (= (:y det) (:y %))
+                                  (= (:time det) (:time %))) path-heads)
               in (incoming g det)
               out (neighbors g det)
               count-color (fn [dets color]
@@ -218,34 +220,48 @@
                                        (= 0 c-blue)
                                        (not= 0 c-green))
                                   green))))
+              head-color (single-color heads)
               in-color (single-color in)
               out-color (single-color out)
-              det-color (assoc det :color (or in-color out-color))]
-          (if (or in-color out-color)
+              det-color (assoc det :color (or in-color out-color head-color))]
+          (if (or in-color out-color head-color)
             (recur (rest unchecked) (conj modified det-color)
                    (change-paths-graph-color g det det-color))
             (recur (rest unchecked) modified g)))))))
 
 (defn remove-inconsistent-paths-graph-edges
-  [paths-graph]
-  (let [bad-edges (filter (fn [[det det2]]
-                            (not (match-color? (:color det) (:color det2))))
+  [paths-graph path-heads]
+  (let [get-heads (fn [det] (filter #(and (= (:x det) (:x %))
+                                          (= (:y det) (:y %))
+                                          (= (:time det) (:time %)))
+                                    path-heads))
+        bad-edges (filter (fn [[det det2]]
+                            (or
+                             (some #(not (match-color? (:color det) (:color %)))
+                                   (get-heads det))
+                             (some #(not (match-color? (:color det2) (:color %)))
+                                   (get-heads det2))
+                             (not (match-color? (:color det) (:color det2)))))
                           (edges paths-graph))]
     {:paths-graph
      (apply remove-edges paths-graph bad-edges)
      :count-removed (count bad-edges)}))
 
 (defn build-paths-graph
-  [hyps]
+  [hyps path-heads]
   (let [pg-inconsistent (reduce paths-graph-add-edge (digraph) hyps)
-        pg-updated-colors (update-paths-graph-colors pg-inconsistent)]
-    (remove-inconsistent-paths-graph-edges pg-updated-colors)))
+        pg-updated-colors (update-paths-graph-colors pg-inconsistent path-heads)]
+    (remove-inconsistent-paths-graph-edges pg-updated-colors path-heads)))
+
+(defn get-path-heads
+  [paths]
+  (map (fn [l] (assoc (last (paths l)) :color (:color (meta l)))) (keys paths)))
 
 (defn hypothesize
   "Process sensor reports, then make hypotheses for all possible movements,
    and add them to the epistemic state."
   [ep-state sensors time-now params]
-  (let [path-heads (map last (vals (:paths (:problem-data ep-state))))
+  (let [path-heads (get-path-heads (:paths (:problem-data ep-state)))
         ep (process-sensors ep-state sensors time-now)
         sg (:spotted-grid (:problem-data ep))
         uncovered (set/union (set path-heads) (:uncovered (:problem-data ep)))]
@@ -254,7 +270,8 @@
            unc uncovered]
       (if (empty? unc)
         ;; ran out of uncovered detections; so add all the hyps
-        (let [{:keys [paths-graph count-removed]} (build-paths-graph hyps)
+        (let [{:keys [paths-graph count-removed]}
+              (build-paths-graph hyps path-heads)
               pdata (assoc (:problem-data ep)
                       :paths-graph paths-graph
                       :count-removed count-removed
@@ -568,6 +585,6 @@
 
 (defn consistent?
   [pdata hyps alts]
-  (let [t (commit-decision pdata hyps alts)]
-    #_(empty? (:bad t))
-    true))
+  true
+  #_(let [t (commit-decision pdata hyps alts)]
+    (empty? (:bad t))))

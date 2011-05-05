@@ -101,10 +101,11 @@
 
 (defn add-mark-all-bad-hyp
   [workspace ep-state-hyp problem ep-state-tree sensors bad params lazy]
-  (let [ep-state (previous-ep-state ep-state-tree)]
-    (add-branch-hyp
-     workspace ep-state-hyp ep-state bad problem ep-state-tree
-     sensors params lazy (format "H:B:%s" (:id ep-state)) :meta-bad false)))
+  (if (empty? bad) workspace
+      (let [ep-state (previous-ep-state ep-state-tree)]
+        (add-branch-hyp
+         workspace ep-state-hyp ep-state bad problem ep-state-tree
+         sensors params lazy (format "H:B:%s" (:id ep-state)) :meta-bad false))))
 
 (defn add-mark-impossible-hyp-least-conf
   [workspace ep-state-hyp problem ep-state-tree branchable sensors params lazy]
@@ -118,8 +119,6 @@
 
 (defn add-accurate-decision-hyp
   [workspace ep-state-hyp]
-  ;; penalize ep-state's confidence since we're attempting meta-abduction
-  ;; (so there was some 'bad' stuff that needs to be dealt with)
   (let [apriori (penalize (ws/get-conf (:workspace (:ep-state (:data ep-state-hyp)))))
         hyp (ws/new-hyp "HA" :meta-accurate :meta apriori "Decision is accurate" nil)]
     (ws/add workspace hyp [ep-state-hyp] :static)))

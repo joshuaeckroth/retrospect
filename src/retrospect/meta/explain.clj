@@ -44,8 +44,7 @@
       (if (or (= :meta-accurate (:type accepted-hyp))
               ;; don't branch if accepted hyp is not any more confident
               (= (hyp-conf workspace accepted-hyp)
-                 (hyp-conf workspace (find-first #(= :meta-accurate (:type %))
-                                                 (get-hyps workspace)))))
+                 (get-conf (:workspace prev-ep))))
         (update-explain-cycles ors-meta prev-ep meta-hyps)
         (update-explain-cycles
          (-> ors-meta
