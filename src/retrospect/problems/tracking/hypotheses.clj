@@ -54,7 +54,7 @@
                         (assoc sgs (- t mintime)
                                (update-in sg [(+ x (* y width))]
                                           conj e))))]
-    (reduce put-in-grid spotted-grids es)))
+    [(reduce put-in-grid spotted-grids es) es]))
 
 (defn process-sensors
   "For each time step between the last time we processed sensor data
@@ -64,18 +64,18 @@
    'uncovered.'"
   [ep-state sensors time-now]
   (let [sg (:spotted-grid (:problem-data ep-state))
-        mintime (inc (apply max -1 (map (comp :time meta)
-                                        (flatten sg))))
+        mintime (count sg)
         sensors-seen-grid (:sensors-seen-grid (:problem-data ep-state))
-        sg-new (sensors-to-spotted sensors mintime time-now
-                                   sensors-seen-grid)
-        sg-new-flat (flatten sg-new)
+        [sg-new sg-new-flat] (sensors-to-spotted sensors mintime time-now
+                                                 sensors-seen-grid)
         ;; get all the from/to hyps; ignore 'from' hyps if time is 0
-        hyps-to-add (concat (map (comp :hyp-to meta)
-                                 (concat (flatten (butlast sg-new))
-                                         (flatten (or (last sg) []))))
-                            (filter #(not= 0 (:time (meta (:entity (:data %)))))
-                                    (map (comp :hyp-from meta) sg-new-flat)))]
+        hyps-to-add (concat
+                     (map (comp :hyp-to meta)
+                          (concat (filter #(not= time-now (:time (meta %)))
+                                          sg-new-flat)
+                                  (flatten (or (last sg) []))))
+                     (filter #(not= 0 (:time (meta (:entity (:data %)))))
+                             (map (comp :hyp-from meta) sg-new-flat)))]
     (reduce
      #(add-fact %1 %2 [])
      (-> ep-state

@@ -17,6 +17,11 @@
   (:use [retrospect.problems.tracking.monitor :only [monitor]])
   (:use [retrospect.problems.tracking.prepared :only [prepared-map]]))
 
+(comment (list-sensors-seen (:GridWidth params) (:GridHeight params) sensors)
+         (list-sensors-unseen (:GridWidth params) (:GridHeight params) sensors)
+         (measure-sensor-coverage (:GridWidth params) (:GridHeight params) sensors)
+         (measure-sensor-overlap (:GridWidth params) (:GridHeight params) sensors))
+
 (defn generate-problem-data
   [sensors params]
   {:paths (sorted-map)
@@ -24,14 +29,10 @@
    :sensors-seen-grid (sensors-seen-grid sensors params)
    :spotted-grid []
    :uncovered #{}
-   :sensors-seen
-   (list-sensors-seen (:GridWidth params) (:GridHeight params) sensors)
-   :sensors-unseen
-   (list-sensors-unseen (:GridWidth params) (:GridHeight params) sensors)
-   :sensor-coverage
-   (measure-sensor-coverage (:GridWidth params) (:GridHeight params) sensors)
-   :sensor-overlap
-   (measure-sensor-overlap (:GridWidth params) (:GridHeight params) sensors)})
+   :sensors-seen []
+   :sensors-unseen []
+   :sensor-coverage 0.0 
+   :sensor-overlap 0.0})
 
 (def headers
      [:PercentEventsCorrect :CountRemoved :CountRemovedPercent
