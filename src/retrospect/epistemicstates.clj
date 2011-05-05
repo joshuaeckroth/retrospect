@@ -131,11 +131,16 @@
 
 (defn add-hyp
   [ep-state hyp explains]
+  (update-in ep-state [:workspace] ws/add hyp explains :static))
+
+(defn add-more-hyp
+  [ep-state hyp explains]
   (update-in ep-state [:workspace] ws/add hyp explains))
 
 (defn add-fact
   [ep-state hyp explains]
-  (update-in ep-state [:workspace] #(-> % (ws/add hyp explains) (ws/forced hyp))))
+  (update-in ep-state [:workspace]
+             #(-> % (ws/add hyp explains :static) (ws/forced hyp))))
 
 (defn commit-decision
   [ep-state id time-now problem]
@@ -170,6 +175,10 @@
     ep-tree-child))
 
 (defn explain
-  [ep-state]
-  (let [workspace (ws/prepare-workspace (:workspace ep-state))]
-    (assoc ep-state :workspace (ws/explain workspace))))
+  [ep-state get-more-hyps]
+  (let [workspace (ws/prepare-workspace (:workspace ep-state))
+        ws-explained (ws/explain workspace)
+        ep-explained (assoc ep-state :workspace ws-explained)
+        ep-more-hyps (get-more-hyps ep-explained)
+        ws-more-explained (ws/explain (:workspace ep-more-hyps))]
+    (assoc ep-more-hyps :workspace ws-more-explained)))

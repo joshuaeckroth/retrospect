@@ -48,7 +48,7 @@
         est-child (new-child-ep-state ep-state-tree ep-state (dec time-now) problem)
         ep-child (current-ep-state est-child)
         ep-hyps ((:hypothesize-fn problem) ep-child sensors time-now params)
-        ep-expl (explain ep-hyps)
+        ep-expl (explain ep-hyps (:get-more-hyps-fn problem))
         est-final (new-child-ep-state est-child ep-expl time-now problem)]
     {:ep-state-tree est-final
      :explain-cycles (:explain-cycles (:resources (:workspace ep-expl)))
@@ -79,7 +79,7 @@
                                   (if lconf (:id lconf)
                                       (apply str (interpose ", " (map :id rejected-hyps)))))
                           {:ep-state-tree est-caught-up :explain-cycles ec}))]
-    (ws/add workspace hyp [ep-state-hyp])))
+    (ws/add workspace hyp [ep-state-hyp] :static)))
 
 (defn add-mark-impossible-hyp
   [workspace ep-state-hyp problem ep-state-tree sensors params lazy]
@@ -114,7 +114,7 @@
   ;; (so there was some 'bad' stuff that needs to be dealt with)
   (let [apriori (penalize (ws/get-conf (:workspace (:ep-state (:data ep-state-hyp)))))
         hyp (ws/new-hyp "HA" :meta-accurate :meta apriori "Decision is accurate" nil)]
-    (ws/add workspace hyp [ep-state-hyp])))
+    (ws/add workspace hyp [ep-state-hyp] :static)))
 
 (defn generate-ep-state-hyp
   [ep-state]
@@ -125,7 +125,7 @@
   (let [ep-state (previous-ep-state ep-state-tree)
         ep-state-hyp (generate-ep-state-hyp ep-state)
         ws (-> workspace
-               (ws/add ep-state-hyp [])
+               (ws/add ep-state-hyp [] :static)
                (ws/forced ep-state-hyp)
                (add-accurate-decision-hyp ep-state-hyp)
                (add-mark-impossible-hyp

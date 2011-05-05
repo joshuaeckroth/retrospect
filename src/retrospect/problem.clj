@@ -21,28 +21,29 @@
         ep-state (current-ep-state (:ep-state-tree or-state))
         results (:results or-state)
         res (:resources or-state)]
-    (update-in or-state [:results] conj
-               (merge ((:evaluate-fn problem) ep-state results prev-ep
-                       (:sensors or-state) truedata params)
-                      (assoc params
-                        :Step (:time ep-state)
-                        :MetaAbduction (:meta-abduction or-state)
-                        :Lazy (:lazy or-state)
-                        :MetaAbductions (:meta-abductions res)
-                        :MetaAcceptedBad (:meta-accepted-bad res)
-                        :MetaAcceptedImpossible (:meta-accepted-impossible res)
-                        :MetaAcceptedImpossibleLconf (:meta-accepted-impossible-lconf res)
-                        :MetaAcceptedNone (:meta-accepted-none res)
-                        :Milliseconds (:milliseconds res)
-                        :Unexplained
-                        (avg-with-prior results :Unexplained
-                          (count (:unexplained (:final (:log (:workspace ep-state))))))
-                        ;; ExplainCycles are stored in current ep-state
-                        :ExplainCycles
-                        (:explain-cycles (:resources (:workspace ep-state)))
-                        :HypothesisCount
-                        (:hyp-count (:resources (:workspace prev-ep)))
-                        :Seed (:seed or-state))))))
+    (update-in
+     or-state [:results] conj
+     (merge ((:evaluate-fn problem) ep-state results prev-ep
+             (:sensors or-state) truedata params)
+            (assoc params
+              :Step (:time ep-state)
+              :MetaAbduction (:meta-abduction or-state)
+              :Lazy (:lazy or-state)
+              :MetaAbductions (:meta-abductions res)
+              :MetaAcceptedBad (:meta-accepted-bad res)
+              :MetaAcceptedImpossible (:meta-accepted-impossible res)
+              :MetaAcceptedImpossibleLconf (:meta-accepted-impossible-lconf res)
+              :MetaAcceptedNone (:meta-accepted-none res)
+              :Milliseconds (:milliseconds res)
+              :Unexplained
+              (avg-with-prior results :Unexplained
+                (count (:unexplained (:final (:log (:workspace prev-ep))))))
+              ;; ExplainCycles are stored in current ep-state
+              :ExplainCycles
+              (:explain-cycles (:resources (:workspace ep-state)))
+              :HypothesisCount
+              (:hyp-count (:resources (:workspace prev-ep)))
+              :Seed (:seed or-state))))))
 
 (defn calc-percent-increase
   [k m b]
@@ -101,7 +102,7 @@
         ;; start the clock
         start-time (. System (nanoTime))
         ors-hyps (hypothesize problem ors-sensors time-now params)
-        ep-explained (explain (:ep-state ors-hyps))
+        ep-explained (explain (:ep-state ors-hyps) (:get-more-hyps-fn problem))
         ors-expl (proceed-one-run-state ors-hyps ep-explained time-now problem)
         ;; perform meta-abduction if the :bad set is non-empty
         ;; and meta-abduction is turned 'on'
@@ -208,7 +209,8 @@
            :Seed]))
 
 (defrecord Problem
-    [name headers comparative-headers monitor-fn player-fns
-     truedata-fn sensor-gen-fn export-truedata-fn prepared-map
-     hypothesize-fn commit-decision-fn gen-problem-data-fn
-     consistent?-fn evaluate-fn evaluate-comparative-fn])
+  [name headers comparative-headers monitor-fn player-fns
+   truedata-fn sensor-gen-fn export-truedata-fn prepared-map
+   hypothesize-fn get-more-hyps-fn commit-decision-fn
+   gen-problem-data-fn consistent?-fn
+   evaluate-fn evaluate-comparative-fn])

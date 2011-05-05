@@ -1,5 +1,5 @@
 (ns retrospect.problems.tracking.hypotheses
-  (:use [retrospect.epistemicstates :only [add-hyp add-fact]])
+  (:use [retrospect.epistemicstates :only [add-hyp add-more-hyp add-fact]])
   (:use [retrospect.workspaces :only [new-hyp]])
   (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.colors])
@@ -137,9 +137,15 @@
                                             (find-spotted det2))
                                        (map (comp :hyp-to meta)
                                             (find-spotted det)))]
-                  [(new-hyp "TH" :tracking nil score (desc-fn det det2 explains)
+                  [[(new-hyp "TH" :tracking :shared-explains
+                            score (desc-fn det det2 explains)
                             {:det det :det2 det2})
-                   explains]))))))
+                    explains]
+                   ;; split-merge hyp
+                   [(new-hyp "TH" :tracking nil
+                             score (desc-fn det det2 explains)
+                             {:det det :det2 det2})
+                    explains]]))))))
 
 (defn paths-graph-add-edge
   [paths-graph [hyp explains]]
@@ -244,13 +250,15 @@
         sg (:spotted-grid (:problem-data ep))
         uncovered (set/union (set path-heads) (:uncovered (:problem-data ep)))]
     (loop [hyps []
+           split-merge-hyps []
            unc uncovered]
       (if (empty? unc)
         ;; ran out of uncovered detections; so add all the hyps
         (let [{:keys [paths-graph count-removed]} (build-paths-graph hyps)
               pdata (assoc (:problem-data ep)
                       :paths-graph paths-graph
-                      :count-removed count-removed)
+                      :count-removed count-removed
+                      :split-merge-hyps split-merge-hyps)
               ep-paths-graph (assoc ep :problem-data pdata)
               consistent-hyps (map (fn [[det det2]]
                                      [(attr paths-graph det det2 :hyp)
@@ -260,7 +268,15 @@
                   ep-paths-graph consistent-hyps))
         ;; take the first uncovered detection, and make movement hyps out of it
         (let [mov-hyps (make-movement-hyps (first unc) uncovered sg params)]
-          (recur (concat hyps mov-hyps) (rest unc)))))))
+          (recur (concat hyps (map first mov-hyps))
+                 (concat split-merge-hyps (map second mov-hyps))
+                 (rest unc)))))))
+
+(defn get-more-hyps
+  [ep-state]
+  (let [hyps (:split-merge-hyps (:problem-data ep-state))
+        ep (assoc-in ep-state [:problem-data :split-merge-hyps] [])]
+    (reduce (fn [ep [hyp explains]] (add-more-hyp ep hyp explains)) ep hyps)))
 
 (defn move-str
   [[det det2]]

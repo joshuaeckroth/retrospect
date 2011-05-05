@@ -22,7 +22,7 @@
         lazy (:Lazy params)
         sensors (:sensors prepared)
         truedata (:truedata prepared)
-        or-state (init-one-run-state meta-abduction lazy sensors
+        or-state (init-one-run-state meta-abduction lazy sensors 10
                                      ((:gen-problem-data-fn tracking-problem)
                                       sensors params))]
     (binding [last-id 0]
@@ -40,7 +40,7 @@
         lazy (:Lazy params)
         sensors (:sensors prepared)
         truedata (:truedata prepared)
-        or-state (init-one-run-state meta-abduction lazy sensors
+        or-state (init-one-run-state meta-abduction lazy sensors 10
                                      ((:gen-problem-data-fn tracking-problem)
                                       sensors params))]
     (binding [last-id 0]

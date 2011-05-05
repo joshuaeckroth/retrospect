@@ -19,8 +19,7 @@
       (var-set (var last-id) (inc last-id)))
     {:id (format "%s%d" (if meta? (str "M" prefix) prefix) id)
      :type type
-     ;; if conflict-id is nil, set it to the uniq :id
-     :conflict-id (if conflict-id conflict-id id)
+     :conflict-id conflict-id
      :apriori apriori :desc desc :data data}))
 
 (defn init-workspace
@@ -117,12 +116,35 @@
           (neighbors g hyp))))
 
 (defn find-conflicts
-  "The conflicts of a hyp are those other hyps that share a :conflict-id"
+  "The conflicts of a hyp are those other hyps that share
+   a :conflict-id. Some conflict ids are special: :shared-explains
+   means this hyp conflicts with any other that both has the
+   same :shared-explains conflict id and explains one of the same
+   hyps."
   [workspace hyp & opts]
-  (if (nil? (:conflict-id hyp)) []
-      (let [g (if (some #{:static} opts) (:graph-static workspace) (:graph workspace))]
-        (set (filter #(and (not= % hyp) (= (:conflict-id hyp) (:conflict-id %)))
-                     (nodes g))))))
+  (let [g (if (some #{:static} opts)
+            (:graph-static workspace)
+            (:graph workspace))
+        hyps (nodes g)
+        cid (:conflict-id hyp)]
+    (cond
+     ;; no conflict id; so it conflicts with nothing
+     (nil? cid) []
+
+     ;; :shared-explains conflict id; may conflict with other hyps
+     ;; that have :shared-explains id
+     (= cid :shared-explains)
+     (let [other-hyps (filter #(and (not= % hyp)
+                                    (= :shared-explains (:conflict-id %)))
+                              hyps)]
+       ;; :shared-explains hyps conflict if they shared an explains
+       ;; link (neighbor)
+       (set (filter #(not-empty (set/intersection (neighbors g %)
+                                                  (neighbors g hyp)))
+                    other-hyps)))
+     ;; otherwise, hyps conflict if their conflict ids are identical
+     :else
+     (set (filter #(and (not= % hyp) (= cid (:conflict-id %))) hyps)))))
 
 ;; TODO: Update for green entity colors
 (defn dot-format
@@ -161,13 +183,14 @@
 (defn add
   "Only adds edges for hyps that it explains if those explained hyps
    are already in the graph."
-  [workspace hyp explains]
-  (let [expl (set/intersection (nodes (:graph-static workspace)) (set explains))]
+  [workspace hyp explains & opts]
+  (let [gtype (if (some #{:static} opts)
+                :graph-static
+                :graph)
+        expl (set/intersection (nodes (get workspace gtype)) (set explains))]
     (-> workspace
-        (update-in [:graph-static]
-                   #(apply add-nodes % (conj expl hyp)))
-        (update-in [:graph-static]
-                   #(apply add-edges % (map (fn [e] [hyp e]) expl)))
+        (update-in [gtype] #(apply add-nodes % (conj expl hyp)))
+        (update-in [gtype] #(apply add-edges % (map (fn [e] [hyp e]) expl)))
         (update-in [:hyp-confidences] assoc hyp (:apriori hyp))
         (update-in [:log :added] conj {:hyp hyp :explains expl}))))
 
