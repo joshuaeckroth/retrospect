@@ -2,7 +2,6 @@
   (:use [retrospect.random])
   (:use [retrospect.colors])
   (:use [retrospect.problems.tracking.grid])
-  (:use [retrospect.problems.tracking.prepared])
   (:use [clojure.contrib.seq :only [find-first]])
   (:require [clojure.set :as set]))
 

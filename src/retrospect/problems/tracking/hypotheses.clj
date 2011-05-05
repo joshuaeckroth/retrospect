@@ -118,7 +118,7 @@
 
 (defn make-movement-hyps
   [det uncovered spotted-grid params]
-  (let [find-spotted (fn [d] (filter #(= (:color d) (:color (meta %)))
+  (let [find-spotted (fn [d] (filter #(match-color? (:color d) (:color (meta %)))
                                      (grid-at (nth spotted-grid (:time d))
                                               (:x d) (:y d))))
         desc-fn (fn [det det2 explains]
@@ -458,12 +458,15 @@
           :log (conj log (format "%s is a merge, new (dead) label %s"
                                  (move-str move) dead-label))
           :bad bad}))
+     ;; this movement's second det is not gray (because if it was,
+     ;; basically anything's possible because nothing can be said),
      ;; this movement continues no path, yet there is a label meeting
      ;; the point of the movement; additionally, there are no possible
      ;; alternative explainers for this move's head or tail; in such
      ;; cases, the colors don't match; make a new label, but mark the
      ;; movement as bad
      (and (empty? alts-for-move)
+          (not= gray (:color (second move)))
           (or (and (empty? before-labels) (not-empty maybe-before-labels))
               (and (empty? after-labels) (not-empty maybe-after-labels))))
      (let [label (new-label (keys paths) move)]

@@ -2,8 +2,12 @@
   (:use [retrospect.problems.tracking.grid :only
          [new-grid grid-add grid-move grid-at
           update-all-entity-times find-entity]])
-  (:use [retrospect.problems.tracking.sensors :only [new-sensor]])
-  (:use [retrospect.colors]))
+  (:use [retrospect.problems.tracking.truedata :only
+         [generate-truedata]])
+  (:use [retrospect.problems.tracking.sensors :only
+         [new-sensor generate-sensors]])
+  (:use [retrospect.colors])
+  (:use [retrospect.random :only [set-seed]]))
 
 (def basic-params
   {:GridHeight 10, :GridWidth 10, :MaxWalk 1, :Lazy false, :ProbMovement 50,
@@ -278,6 +282,18 @@
 (def random-1-sb4
      (assoc-in random-1 [:params :StepsBetween] 4))
 
+(def random-2
+     (let [params {:GridHeight 20, :GridWidth 20, :MaxWalk 10,
+                   :Lazy false, :ProbMovement 50,
+                   :SensorNoise 0, :SensorSeesColor 60,
+                   :SensorCoverage 100, :BeliefNoise 0, :StepsBetween 4,
+                   :Steps 50, :ProbNewEntities 0, :NumberEntities 5,
+                   :MetaAbduction false}]
+       (set-seed 10)
+       {:params params
+        :truedata (generate-truedata params)
+        :sensors (generate-sensors params)}))
+
 (def prepared-map
      (sorted-map "color-update" color-update
                  "color-update-2" color-update-2
@@ -294,6 +310,7 @@
                  "merge-gray" merge-ambiguity-gray
                  "random-1" random-1
                  "random-1-sb4" random-1-sb4
+                 "random-2" random-2
                  "simple-dis" simple-disappearance
                  "split" split-ambiguity
                  "split-2" split-ambiguity-2
