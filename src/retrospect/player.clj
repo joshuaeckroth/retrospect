@@ -13,7 +13,7 @@
          [explains-graph-tab update-explains-graph]])
   (:use [retrospect.gui.results :only [update-results results-tab]])
   (:use [retrospect.gui.logs :only [update-logs logs-tab]])
-  (:use [retrospect.workspaces :only [last-id]])
+  (:use [retrospect.workspaces :only [set-last-id]])
   (:use [retrospect.onerun :only [init-one-run-state]])
   (:use [retrospect.epistemicstates :only
          [list-ep-states current-ep-state goto-ep-state root-ep-state?
@@ -89,6 +89,7 @@
         lazy (:Lazy ps)
         seed (get-seed)]
     (set-seed seed)
+    (set-last-id 0)
     (when (not prepared?)
       (dosync
        (alter truedata (constantly ((:truedata-fn @problem) ps)))
@@ -112,6 +113,7 @@
           sens (:sensors prepared)
           seed (get-seed)]
       (set-seed seed)
+      (set-last-id 0)
       (dosync
        (alter params (constantly ps))
        (alter truedata (constantly td))

@@ -10,6 +10,10 @@
 
 (def meta? false)
 
+(defn set-last-id
+  [n]
+  (def last-id n))
+
 (defn new-hyp
   [prefix type conflict-id apriori desc data]
   (let [id (inc last-id)]
