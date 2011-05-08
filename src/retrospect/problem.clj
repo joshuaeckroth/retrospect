@@ -35,6 +35,8 @@
               :MetaAcceptedImpossibleLconf (:meta-accepted-impossible-lconf res)
               :MetaAcceptedNone (:meta-accepted-none res)
               :Milliseconds (:milliseconds res)
+              :BadCount (+ (if-let [c (:BadCount (last results))] c 0)
+                           (count (:bad (:problem-data ep-state))))
               :Unexplained
               (avg-with-prior results :Unexplained
                 (count (:unexplained (:final (:log (:workspace prev-ep))))))
@@ -67,6 +69,10 @@
           :BaseMilliseconds (:Milliseconds b)
           :RatioMilliseconds (calc-ratio :Milliseconds m b)
           :IncreaseMilliseconds (calc-percent-increase :Milliseconds m b)
+          :MetaBadCount (:BadCount m)
+          :BaseBadCount (:BadCount b)
+          :RatioBadCount (calc-ratio :BadCount m b)
+          :IncreaseBadCount (calc-percent-increase :BadCount m b)
           :MetaUnexplained (:Unexplained m)
           :BaseUnexplained (:Unexplained b)
           :RatioUnexplained (calc-ratio :Unexplained m b)
@@ -120,7 +126,7 @@
         ors-resources (update-in ors-meta [:resources] assoc :milliseconds ms)
         ors-results (if-not (or player? monitor?) ors-resources
                             (evaluate problem truedata ors-resources params))]
-    (when (not-empty bad) (println params bad))
+    #_(when (not-empty bad) (println params bad))
     (if (and (not player?) monitor?)
       ((:monitor-fn problem) problem truedata (:sensors ors-results)
        ors-results params)
@@ -180,6 +186,7 @@
            :MetaAcceptedImpossibleLconf
            :MetaAcceptedNone
            :Milliseconds
+           :BadCount
            :Unexplained
            :ExplainCycles
            :HypothesisCount
@@ -197,6 +204,10 @@
            :BaseMilliseconds
            :RatioMilliseconds
            :IncreaseMilliseconds
+           :MetaBadCount
+           :BaseBadCount
+           :RatioBadCount
+           :IncreaseBadCount
            :MetaUnexplained
            :BaseUnexplained
            :RatioUnexplained

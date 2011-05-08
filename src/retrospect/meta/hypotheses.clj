@@ -91,13 +91,14 @@
 
 (defn add-mark-impossible-hyp
   [workspace ep-state-hyp problem ep-state-tree sensors params lazy]
-  (let [ep-state (previous-ep-state ep-state-tree)
-        rejectors (find-rejectors (:workspace ep-state))]
-    (if (empty? rejectors) workspace
-        (add-branch-hyp
-         workspace ep-state-hyp ep-state rejectors problem ep-state-tree
-         sensors params lazy (format "H:R:%s:*" (:id ep-state))
-         :meta-impossible false))))
+  workspace
+  #_(let [ep-state (previous-ep-state ep-state-tree)
+          rejectors (find-rejectors (:workspace ep-state))]
+      (if (empty? rejectors) workspace
+          (add-branch-hyp
+           workspace ep-state-hyp ep-state rejectors problem ep-state-tree
+           sensors params lazy (format "H:R:%s:*" (:id ep-state))
+           :meta-impossible false))))
 
 (defn add-mark-all-bad-hyp
   [workspace ep-state-hyp problem ep-state-tree sensors bad params lazy]
@@ -109,13 +110,14 @@
 
 (defn add-mark-impossible-hyp-least-conf
   [workspace ep-state-hyp problem ep-state-tree branchable sensors params lazy]
-  (let [ws (:workspace branchable)
-        hyps (:accepted ws)]
-    (if (empty? hyps) workspace
-        (add-branch-hyp
-         workspace ep-state-hyp branchable hyps problem ep-state-tree
-         sensors params lazy (format "H:LC:%s:L" (:id branchable))
-         :meta-impossible-lconf true))))
+  workspace
+  #_(let [ws (:workspace branchable)
+          hyps (:accepted ws)]
+      (if (empty? hyps) workspace
+          (add-branch-hyp
+           workspace ep-state-hyp branchable hyps problem ep-state-tree
+           sensors params lazy (format "H:LC:%s:L" (:id branchable))
+           :meta-impossible-lconf true))))
 
 (defn add-accurate-decision-hyp
   [workspace ep-state-hyp]
