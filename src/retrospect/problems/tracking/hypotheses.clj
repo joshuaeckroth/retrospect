@@ -271,11 +271,19 @@
               head-color (single-color heads)
               in-color (single-color in)
               out-color (single-color out)
-              det-color (assoc det :color (or in-color out-color head-color))]
+              det-color (assoc det :color (or in-color out-color head-color))
+              possible-colors
+              (apply set/intersection #{blue green red}
+                     (filter not-empty
+                             (map (fn [dets]
+                                    (set (filter #(not= 0 (count-color dets %))
+                                                 [blue red green])))
+                                  [heads in out])))]
           (if (or in-color out-color head-color)
             (recur (rest unchecked) (conj modified det-color)
                    (change-paths-graph-color g det det-color))
-            (recur (rest unchecked) modified g)))))))
+            (recur (rest unchecked) modified
+                   (add-attr g det :possible-colors possible-colors))))))))
 
 (defn find-bad-edges
   [paths-graph path-heads]
@@ -285,15 +293,20 @@
     (filter
      (fn [[det det2]]
        (let [heads-det (get-heads det)
-             heads-det2 (get-heads det2)]
+             heads-det2 (get-heads det2)
+             possible-match?
+             (fn [det det-other]
+               (let [pc (attr paths-graph det :possible-colors)]
+                 (if (not-empty pc)
+                   (some #(match-color? (:color det-other) %) pc)
+                   (match-color? (:color det) (:color det-other)))))]
          (or
           (and (not-empty heads-det)
-               (every? #(not (match-color? (:color det) (:color %)))
-                       heads-det))
+               (every? #(not (possible-match? det %)) heads-det))
           (and (not-empty heads-det2)
-               (every? #(not (match-color? (:color det2) (:color %)))
-                       heads-det2))
-          (not (match-color? (:color det) (:color det2))))))
+               (every? #(not (possible-match? det2 %)) heads-det2))
+          (not (possible-match? det det2))
+          (not (possible-match? det2 det)))))
      (edges paths-graph))))
 
 (defn remove-inconsistent-paths-graph-edges

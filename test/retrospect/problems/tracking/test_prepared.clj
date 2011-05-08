@@ -189,6 +189,14 @@
                 "C* (red): 5,1@1 -> 7,3@2 -> 7,4@3 -> 5,5@4"
                 "D (red): 5,5@4 -> 5,6@5")))
 
+(let [results (run-for-results split-merge-twocolor)]
+  (facts
+   (:PercentEventsCorrect results) =not=> (roughly 100.0 0.1)))
+
+(let [results (run-for-results split-merge-twocolor-aao)]
+  (facts
+   (:PercentEventsCorrect results) => (roughly 100.0 0.1)))
+
 (let [or-state (run-for-or-state split-merge-gray)
       results (last (:results or-state))]
   (facts "Split-merge-gray"
@@ -223,4 +231,3 @@
                                   (set/intersection accepted rejected))
                                (flatten-ep-state-tree (:ep-state-tree or-state))))
          => (just #{})))
-

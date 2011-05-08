@@ -211,6 +211,20 @@
                                         ["2" blue 0 5,0 5,3 5,4 5,6 7,8 7,9]
                                         ["3" red  0 7,0 7,3 5,4 5,6 5,8 5,9]))}))
 
+(def split-merge-twocolor
+     (let [params (merge basic-params {:Steps 6 :MaxWalk 4})]
+       {:params params
+        :sensors [(new-sensor (keyword "top") 0 9 0 3 true)
+                  (new-sensor (keyword "middle-gray") 0 9 4 6 false)
+                  (new-sensor (keyword "bottom") 0 9 7 9 true)]
+        :truedata (build-truedata
+                   params (entity-paths ["1" red   0 1,0 1,3 1,4 3,6 1,8 1,9]
+                                        ["2" blue  0 5,0 5,3 5,4 5,6 7,8 7,9]
+                                        ["3" green 0 7,0 7,3 7,4 5,6 5,8 5,9]))}))
+
+(def split-merge-twocolor-aao
+     (assoc-in split-merge-twocolor [:params :StepsBetween] 6))
+
 (def march
      (let [params (merge basic-params {:Steps 6 :MaxWalk 1 :MetaAbduction true})]
        {:params params
@@ -317,4 +331,6 @@
                  "split-merge" split-merge
                  "split-merge-aao" split-merge-allatonce
                  "split-merge-gray" split-merge-gray
+                 "split-merge-twocolor" split-merge-twocolor
+                 "split-merge-twocolor-aao" split-merge-twocolor-aao
                  "split-non-am" split-non-ambiguity))
