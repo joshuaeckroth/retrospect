@@ -175,10 +175,16 @@
     ep-tree-child))
 
 (defn explain
-  [ep-state get-more-hyps]
-  (let [workspace (ws/prepare-workspace (:workspace ep-state))
-        ws-explained (ws/explain workspace)
-        ep-explained (assoc ep-state :workspace ws-explained)
-        ep-more-hyps (get-more-hyps ep-explained)
-        ws-more-explained (ws/explain (:workspace ep-more-hyps))]
-    (assoc ep-more-hyps :workspace ws-more-explained)))
+  [ep-state get-more-hyps inconsistent & opts]
+  (let [workspace (if (some #{:no-prepare} opts) (:workspace ep-state)
+                      (ws/prepare-workspace (:workspace ep-state)))
+        pdata (:problem-data ep-state)
+        ws-explained (ws/explain workspace inconsistent pdata)]
+    (if (not-empty (:unexplained (:final (:log ws-explained))))
+      (let [ep-explained (assoc ep-state :workspace ws-explained)
+            ep-more-hyps (get-more-hyps ep-explained)
+            ws-more-explained (ws/explain (:workspace ep-more-hyps)
+                                          inconsistent
+                                          (:problem-data ep-more-hyps))]
+        (assoc ep-more-hyps :workspace ws-more-explained))
+      (assoc ep-state :workspace ws-explained))))

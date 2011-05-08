@@ -1,14 +1,16 @@
 (ns retrospect.problems.tracking.test-prepared
   (:use [midje.sweet])
   (:use [retrospect.workspaces :only [last-id get-conf]])
-  (:use [retrospect.epistemicstates :only [previous-ep-state]])
+  (:use [retrospect.epistemicstates :only
+         [previous-ep-state flatten-ep-state-tree]])
   (:use [retrospect.onerun :only [init-one-run-state]])
   (:use [retrospect.problem :only [run-simulation run-simulation-step evaluate]])
   (:use [retrospect.problems.tracking.prepared])
   (:use [retrospect.problems.tracking.problem :only [tracking-problem]])
   (:use [retrospect.problems.tracking.hypotheses :only [paths-str]])
   (:use [retrospect.confidences])
-  (:use [retrospect.random]))
+  (:use [retrospect.random])
+  (:require [clojure.set :as set]))
 
 (defn newlines
   [& strs]
@@ -211,3 +213,14 @@
    (paths-str (:paths (:problem-data (:ep-state or-state))))
    => (newlines "A (blue): 4,3@0 -> 4,4@1 -> 3,5@2 -> 3,6@3"
                 "B (red): 4,3@0 -> 4,4@1 -> 5,5@2 -> 5,6@3")))
+
+;; rejected stuff is accepted bug
+(let [or-state (run-for-or-state random-2)]
+  (facts "Rejected are accepted bug"
+         (apply set/union (map #(let [final (:final (:log (:workspace %)))
+                                      accepted (set (map :id (:accepted final)))
+                                      rejected (set (map :id (:rejected final)))]
+                                  (set/intersection accepted rejected))
+                               (flatten-ep-state-tree (:ep-state-tree or-state))))
+         => (just #{})))
+

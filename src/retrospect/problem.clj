@@ -102,7 +102,9 @@
         ;; start the clock
         start-time (. System (nanoTime))
         ors-hyps (hypothesize problem ors-sensors time-now params)
-        ep-explained (explain (:ep-state ors-hyps) (:get-more-hyps-fn problem))
+        ep-state (:ep-state ors-hyps)
+        ep-explained (explain ep-state (:get-more-hyps-fn problem)
+                              (:inconsistent-fn problem))
         ors-expl (proceed-one-run-state ors-hyps ep-explained time-now problem)
         ;; perform meta-abduction if the :bad set is non-empty
         ;; and meta-abduction is turned 'on'
@@ -118,6 +120,7 @@
         ors-resources (update-in ors-meta [:resources] assoc :milliseconds ms)
         ors-results (if-not (or player? monitor?) ors-resources
                             (evaluate problem truedata ors-resources params))]
+    (when (not-empty bad) (println params bad))
     (if (and (not player?) monitor?)
       ((:monitor-fn problem) problem truedata (:sensors ors-results)
        ors-results params)
@@ -212,5 +215,5 @@
   [name headers comparative-headers monitor-fn player-fns
    truedata-fn sensor-gen-fn export-truedata-fn prepared-map
    hypothesize-fn get-more-hyps-fn commit-decision-fn
-   gen-problem-data-fn consistent?-fn
+   gen-problem-data-fn inconsistent-fn
    evaluate-fn evaluate-comparative-fn])

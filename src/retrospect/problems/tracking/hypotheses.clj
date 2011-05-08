@@ -8,6 +8,7 @@
   (:use [clojure.contrib.seq :only [find-first]])
   (:require [clojure.contrib.math :as math])
   (:require [clojure.set :as set :only [intersection difference]])
+  (:require [loom.io :as loom.io])
   (:use [loom.graph :only
          [digraph add-edges remove-edges remove-nodes nodes edges
           incoming neighbors]])
@@ -106,6 +107,10 @@
          (update-in [:problem-data :spotted-grid] concat sg-new))
      hyps-to-add)))
 
+(defn get-path-heads
+  [paths]
+  (map (fn [l] (assoc (last (paths l)) :color (:color (meta l)))) (keys paths)))
+
 (defn score-distance
   "Returns nil if movement is impossible."
   [x1 y1 x2 y2 maxwalk]
@@ -172,8 +177,9 @@
                              {:det det :det2 det2})
                     explains]
                    ;; split-merge hyp
-                   [(new-hyp "TH" :tracking nil
-                             score (desc-fn det det2 explains)
+                   [(new-hyp "THSM" :tracking nil
+                             score (format "%s\n\n(split-merge)"
+                                           (desc-fn det det2 explains))
                              {:det det :det2 det2})
                     explains]]))))))
 
@@ -186,7 +192,7 @@
          (filter #(not (:dead (meta %))) (keys paths)))))
 
 (defn paths-graph-add-edge
-  [paths-graph [hyp explains]]
+  [paths-graph hyp hyp-orig explains]
   (let [det (:det (:data hyp))
         det2 (:det2 (:data hyp))]
     (-> paths-graph
@@ -200,6 +206,7 @@
         (add-attr det2 :label (format "%d,%d@%d"
                                       (:x det2) (:y det2) (:time det2)))
         (add-attr det det2 :hyp hyp)
+        (add-attr det det2 :hyp-orig hyp-orig)
         (add-attr det det2 :explains explains)
         (add-attr det det2 :label (:id hyp)))))
 
@@ -209,17 +216,20 @@
                 (incoming paths-graph det))
         out (map (fn [d] {:det d :hyp (attr paths-graph det d :hyp)})
                  (neighbors paths-graph det))
-        hyp-changes (concat (map (fn [{d :det h :hyp}]
-                                   [h (assoc-in h [:data :det2] det-color)]) in)
-                            (map (fn [{d :det h :hyp}]
-                                   [h (assoc-in h [:data :det] det-color)]) out))
-        change-edge (fn [g [h hnew]]
-                      (let [explains (attr paths-graph (:det (:data h))
-                                           (:det2 (:data h)) :explains)]
-                        (-> g (remove-nodes det)
-                            (remove-edges [(:det (:data h)) (:det2 (:data h))])
-                            (paths-graph-add-edge [hnew explains]))))]
-    (reduce change-edge paths-graph hyp-changes)))
+        hyp-changes (concat
+                     (map (fn [{d :det h :hyp}]
+                            [h (assoc-in h [:data :det2] det-color)]) in)
+                     (map (fn [{d :det h :hyp}]
+                            [h (assoc-in h [:data :det] det-color)]) out))
+        paths-graph-no-det (remove-nodes paths-graph det)
+        change-edge
+        (fn [g [h hnew]]
+          (let [det (:det (:data h))
+                det2 (:det2 (:data h))
+                explains (attr paths-graph det det2 :explains)
+                hyp-orig (attr paths-graph det det2 :hyp-orig)]
+            (-> g (paths-graph-add-edge hnew hyp-orig explains))))]
+    (reduce change-edge paths-graph-no-det hyp-changes)))
 
 (defn update-paths-graph-colors
   [paths-graph path-heads]
@@ -267,38 +277,52 @@
                    (change-paths-graph-color g det det-color))
             (recur (rest unchecked) modified g)))))))
 
+(defn find-bad-edges
+  [paths-graph path-heads]
+  (let [get-heads
+        (fn [det] (filter #(and (= (:x det) (:x %)) (= (:y det) (:y %))
+                                (= (:time det) (:time %))) path-heads))]
+    (filter
+     (fn [[det det2]]
+       (let [heads-det (get-heads det)
+             heads-det2 (get-heads det2)]
+         (or
+          (and (not-empty heads-det)
+               (every? #(not (match-color? (:color det) (:color %)))
+                       heads-det))
+          (and (not-empty heads-det2)
+               (every? #(not (match-color? (:color det2) (:color %)))
+                       heads-det2))
+          (not (match-color? (:color det) (:color det2))))))
+     (edges paths-graph))))
+
 (defn remove-inconsistent-paths-graph-edges
   [paths-graph path-heads]
-  (let [get-heads (fn [det] (filter #(and (= (:x det) (:x %))
-                                          (= (:y det) (:y %))
-                                          (= (:time det) (:time %)))
-                                    path-heads))
-        bad-edges (filter
-                   (fn [[det det2]]
-                     (let [heads-det (get-heads det)
-                           heads-det2 (get-heads det2)]
-                       (or
-                        (and (not-empty heads-det)
-                             (every? #(not (match-color? (:color det) (:color %)))
-                                     heads-det))
-                        (and (not-empty heads-det2)
-                             (every? #(not (match-color? (:color det2) (:color %)))
-                                     heads-det2))
-                        (not (match-color? (:color det) (:color det2))))))
-                   (edges paths-graph))]
-    {:paths-graph
-     (apply remove-edges paths-graph bad-edges)
+  (let [bad-edges (find-bad-edges paths-graph path-heads)]
+    {:paths-graph (apply remove-edges paths-graph bad-edges)
      :count-removed (count bad-edges)}))
 
+(defn inconsistent
+  [pdata hyps rejected]
+  (let [relevant-hyps (filter #(= :tracking (:type %)) hyps)
+        path-heads (get-path-heads (:paths pdata))
+        paths-graph (:paths-graph pdata)
+        hyp-to-edge (fn [h] [(:det (:data h)) (:det2 (:data h))])
+        removable-edges (set/union (set (map hyp-to-edge rejected))
+                                   (set/difference
+                                    (set (edges paths-graph))
+                                    (set (map hyp-to-edge relevant-hyps))))
+        pg-clean (apply remove-edges paths-graph removable-edges)
+        pg-colors (update-paths-graph-colors pg-clean path-heads)
+        bad-edges (find-bad-edges pg-colors path-heads)]
+    (map (fn [[det det2]] (attr pg-colors det det2 :hyp-orig)) bad-edges)))
+
 (defn build-paths-graph
-  [hyps path-heads]
-  (let [pg-inconsistent (reduce paths-graph-add-edge (digraph) hyps)
+  [paths-graph hyps path-heads]
+  (let [pg-inconsistent (reduce (fn [g [h e]] (paths-graph-add-edge g h h e))
+                                paths-graph hyps)
         pg-updated-colors (update-paths-graph-colors pg-inconsistent path-heads)]
     (remove-inconsistent-paths-graph-edges pg-updated-colors path-heads)))
-
-(defn get-path-heads
-  [paths]
-  (map (fn [l] (assoc (last (paths l)) :color (:color (meta l)))) (keys paths)))
 
 (defn hypothesize
   "Process sensor reports, then make hypotheses for all possible movements,
@@ -317,7 +341,7 @@
       (if (empty? unc)
         ;; ran out of uncovered detections; so add all the hyps
         (let [{:keys [paths-graph count-removed]}
-              (build-paths-graph hyps path-heads)
+              (build-paths-graph (digraph) hyps path-heads)
               pdata (assoc (:problem-data ep)
                       :paths-graph paths-graph
                       :count-removed count-removed
@@ -339,7 +363,15 @@
 (defn get-more-hyps
   [ep-state]
   (let [hyps (:split-merge-hyps (:problem-data ep-state))
-        ep (assoc-in ep-state [:problem-data :split-merge-hyps] [])]
+        paths (:paths (:problem-data ep-state))
+        path-heads (get-path-heads paths)
+        paths-graph (:paths-graph (:problem-data ep-state))
+        {new-paths-graph :paths-graph count-removed :count-removed}
+        (build-paths-graph paths-graph hyps path-heads)
+        ep (-> ep-state
+               (assoc-in [:problem-data :split-merge-hyps] [])
+               (assoc-in [:problem-data :paths-graph] new-paths-graph)
+               (update-in [:problem-data :count-removed] + count-removed))]
     (reduce (fn [ep [hyp explains]] (add-more-hyp ep hyp explains)) ep hyps)))
 
 (defn path-to-movements
@@ -613,8 +645,3 @@
                  (recur (inc t) ex-paths
                         (vec (concat newlog split-merge-log)) newbad))))))))
 
-(defn consistent?
-  [pdata hyps alts]
-  true
-  #_(let [t (commit-decision pdata hyps alts)]
-    (empty? (:bad t))))

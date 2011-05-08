@@ -50,7 +50,9 @@
      (let [g (:graph workspace)]
        (set (mapcat #(incoming g %) (nodes g)))))
   ([workspace hyp & opts]
-     (let [g (if (some #{:static} opts) (:graph-static workspace) (:graph workspace))]
+     (let [g (if (some #{:static} opts)
+               (:graph-static workspace)
+               (:graph workspace))]
        (incoming g hyp))))
 
 (defn find-explains
@@ -204,12 +206,13 @@
 
 (defn reject-many
   [workspace hyps]
-  (-> workspace
-      (update-in [:graph] #(apply remove-nodes % hyps))
-      (update-in [:hyp-confidences]
-                 #(reduce (fn [c h] (assoc c h IMPOSSIBLE)) % hyps))
-      (update-in [:rejected] set/union (set hyps))
-      (update-in [:log :final :rejected] concat hyps)))
+  (let [rejectable (set/difference (set hyps) (:accepted workspace))]
+    (-> workspace
+        (update-in [:graph] #(apply remove-nodes % rejectable))
+        (update-in [:hyp-confidences]
+                   #(reduce (fn [c h] (assoc c h IMPOSSIBLE)) % rejectable))
+        (update-in [:rejected] set/union (set rejectable))
+        (update-in [:log :final :rejected] concat rejectable))))
 
 (defn penalize-hyps
   [workspace hyps]
@@ -218,16 +221,26 @@
                         % hyps)))
 
 (defn accept
-  [workspace hyp]
+  [workspace hyp inconsistent pdata]
   (let [g (:graph workspace)
-        conflicts (find-conflicts workspace hyp)
         removable (concat (neighbors g hyp)
                           (if (empty? (incoming g hyp)) [hyp] []))
+        new-g (apply remove-nodes g removable)
         ws (-> workspace
                (update-in [:accepted] conj hyp)
-               (update-in [:graph] #(apply remove-nodes % removable))
-               (reject-many conflicts))]
-    (update-in ws [:log :accrej] conj {:acc hyp :rej conflicts})))
+               (assoc :graph new-g))
+        conflicts (find-conflicts ws hyp)]
+    (loop [ws (reject-many ws conflicts)
+           rejected #{}]
+      (let [incon (set/difference
+                   (set (inconsistent
+                         pdata (concat (:accepted ws) (find-explainers ws))
+                         (:rejected ws)))
+                   rejected)]
+        (if (not-empty incon)
+          (recur (reject-many ws incon) (set/union rejected (set incon)))
+          (update-in ws [:log :accrej] conj
+                     {:acc hyp :rej (concat conflicts rejected)}))))))
 
 (defn forced
   [workspace hyp]
@@ -301,10 +314,6 @@
              (not-empty hs) {:hyps hs :delta delta}
              :else (recur (dec delta))))))))
 
-;; TODO: check if essentials ever (when all added) are inconsistent --
-;; this should never happen
-
-;; maybe even quit explaining at delta=1 (don't go to delta=0)
 (defn find-best
   [workspace]
   (let [explainers (find-explainers workspace)
@@ -321,14 +330,15 @@
          :essential? false :delta delta}))))
 
 (defn explain
-  [workspace]
-  (if (empty? (edges (:graph workspace))) (log-final workspace)
-      (let [{:keys [best alts essential? delta]} (find-best workspace)]
-        (if-not best
-          (log-final workspace)
-          (recur (-> workspace
-                     (update-in [:resources :explain-cycles] inc)
-                     (update-in [:log :best] conj
-                                {:best best :alts alts
-                                 :essential? essential? :delta delta})
-                     (accept best)))))))
+  [workspace inconsistent pdata]
+  (loop [ws workspace]
+    (if (empty? (edges (:graph ws))) (log-final ws)
+        (let [{:keys [best alts essential? delta]} (find-best ws)]
+          (if-not best
+            (log-final ws)
+            (recur (-> ws
+                       (update-in [:resources :explain-cycles] inc)
+                       (update-in [:log :best] conj
+                                  {:best best :alts alts
+                                   :essential? essential? :delta delta})
+                       (accept best inconsistent pdata))))))))

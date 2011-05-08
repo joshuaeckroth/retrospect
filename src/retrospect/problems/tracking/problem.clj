@@ -8,7 +8,7 @@
   (:use [retrospect.problems.tracking.sensors :only
          [generate-sensors]])
   (:use [retrospect.problems.tracking.hypotheses :only
-         [hypothesize get-more-hyps commit-decision consistent?]])
+         [hypothesize get-more-hyps commit-decision inconsistent]])
   (:use [retrospect.problems.tracking.player :only
          [player-get-params player-set-params player-get-params-panel
           player-get-stats-panel player-update-stats player-get-truedata-log
@@ -83,6 +83,6 @@
                get-more-hyps
                commit-decision
                generate-problem-data
-               consistent?
+               inconsistent
                evaluate
                evaluate-comparative))

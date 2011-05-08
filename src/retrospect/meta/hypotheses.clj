@@ -56,13 +56,14 @@
              :score (if (not-empty bad)
                       (penalize (ws/get-conf (:workspace ep)))
                       (ws/get-conf (:workspace ep)))}))]
-    (if (= (inc time-now) (+ (:StepsBetween params) (:time ep-state)))
+    (if (= (inc time-now) (dec (+ (:StepsBetween params) (:time ep-state))))
       (build-score ep-state-tree ep-state)
       (let [est-child (new-child-ep-state ep-state-tree ep-state
                                           (dec time-now) problem)
             ep-child (current-ep-state est-child)
             ep-hyps ((:hypothesize-fn problem) ep-child sensors time-now params)
-            ep-expl (explain ep-hyps (:get-more-hyps-fn problem))]
+            ep-expl (explain ep-hyps (:get-more-hyps-fn problem)
+                             (:inconsistent-fn problem))]
         (build-score est-child ep-expl)))))
 
 (defn add-branch-hyp
@@ -75,9 +76,8 @@
         est (branch-and-mark-impossible ep-state-tree branchable hyps lconf)
         ;; get new branched ep-state
         ep-state (current-ep-state est)
-        ;; bypass epistemicstate's explain, go directly to workspace's explain,
-        ;; so that we don't cause another prepare-workspace before explaining
-        ep-expl (assoc ep-state :workspace (ws/explain (:workspace ep-state)))
+        ep-expl (explain ep-state (:get-more-hyps-fn problem)
+                         (:inconsistent-fn problem) :no-prepare)
         est-new (update-ep-state-tree est ep-expl)
         hyp (let [{score :score est-caught-up :ep-state-tree ec :explain-cycles}
                   (score-by-catching-up problem est-new sensors params lazy)

@@ -25,7 +25,7 @@
                                                   (:sensors or-state) bad params
                                                   (:lazy or-state))
                         (prepare-workspace)
-                        (explain))
+                        (explain (constantly []) nil))
           ;; we only expect one accepted meta hyp
           accepted-hyp (first (:accepted workspace))
           accepted-type (let [t (:type accepted-hyp)]
@@ -44,7 +44,8 @@
       (if (or (= :meta-accurate (:type accepted-hyp))
               ;; don't branch if accepted hyp is not any more confident
               (= (hyp-conf workspace accepted-hyp)
-                 (get-conf (:workspace prev-ep))))
+                 (hyp-conf workspace (find-first #(= :meta-accurate (:type %))
+                                                 (get-hyps workspace)))))
         (update-explain-cycles ors-meta prev-ep meta-hyps)
         (update-explain-cycles
          (-> ors-meta
