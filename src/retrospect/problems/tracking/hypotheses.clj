@@ -184,12 +184,15 @@
                     explains]]))))))
 
 (defn make-known-entities-hyps
-  [paths]
-  (letfn [(hyp-to [l t] (new-hyp "TE" :tracking-entity nil NEUTRAL
-                                 (format "Where did %s go at %d?" l t)
-                                 {:det (last (paths l)) :entity l}))]
+  [paths time-now steps-between]
+  (let [earliest-time (- time-now steps-between)
+        hyp-to (fn [l t] (new-hyp "TE" :tracking-entity nil NEUTRAL
+                                  (format "Where did %s go at %d?" l t)
+                                  {:det (last (paths l)) :entity l}))]
     (map #(hyp-to % (:time (last (paths %))))
-         (filter #(not (:dead (meta %))) (keys paths)))))
+         (filter #(and (not (:dead (meta %)))
+                       (<= earliest-time (:time (last (paths %)))))
+                 (keys paths)))))
 
 (defn paths-graph-add-edge
   [paths-graph hyp hyp-orig explains]
@@ -343,7 +346,8 @@
   [ep-state sensors time-now params]
   (let [paths (:paths (:problem-data ep-state))
         path-heads (get-path-heads paths)
-        entity-hyps (make-known-entities-hyps paths)
+        entity-hyps (make-known-entities-hyps
+                     paths time-now (:StepsBetween params))
         ep-entities (reduce #(add-fact %1 %2 []) ep-state entity-hyps)
         ep (process-sensors ep-entities sensors time-now)
         sg (:spotted-grid (:problem-data ep))
