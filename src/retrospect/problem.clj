@@ -15,6 +15,12 @@
     (if (= c 0) val
         (double (/ (+ (* c (key (last results))) val) (inc c))))))
 
+(defn add-to-prior
+  [results key val]
+  (let [c (count results)]
+    (if (= c 0) val
+        (+ (key (last results)) val))))
+
 (defn evaluate
   [problem truedata or-state params]
   (let [prev-ep (previous-ep-state (:ep-state-tree or-state))
@@ -35,11 +41,16 @@
               :MetaAcceptedImpossibleLconf (:meta-accepted-impossible-lconf res)
               :MetaAcceptedNone (:meta-accepted-none res)
               :Milliseconds (:milliseconds res)
-              :BadCount (+ (if-let [c (:BadCount (last results))] c 0)
-                           (count (:bad (:problem-data ep-state))))
+              :BadCount (add-to-prior results :BadCount
+                                      (count (:bad (:problem-data ep-state))))
               :Unexplained
-              (avg-with-prior results :Unexplained
-                (count (:unexplained (:final (:log (:workspace prev-ep))))))
+              (add-to-prior
+               results :Unexplained
+               (count (:unexplained (:final (:log (:workspace prev-ep))))))
+              :SharedExplainsCount
+              (add-to-prior
+               results :SharedExplainsCount
+               (count (:shared-explains (:final (:log (:workspace prev-ep))))))
               ;; ExplainCycles are stored in current ep-state
               :ExplainCycles
               (:explain-cycles (:resources (:workspace ep-state)))
@@ -73,6 +84,11 @@
           :BaseBadCount (:BadCount b)
           :RatioBadCount (calc-ratio :BadCount m b)
           :IncreaseBadCount (calc-percent-increase :BadCount m b)
+          :MetaSharedExplainsCount (:SharedExplainsCount m)
+          :BaseSharedExplainsCount (:SharedExplainsCount b)
+          :RatioSharedExplainsCount (calc-ratio :SharedExplainsCount m b)
+          :IncreaseSharedExplainsCount (calc-percent-increase
+                                        :SharedExplainsCount m b)
           :MetaUnexplained (:Unexplained m)
           :BaseUnexplained (:Unexplained b)
           :RatioUnexplained (calc-ratio :Unexplained m b)
@@ -187,6 +203,7 @@
            :MetaAcceptedNone
            :Milliseconds
            :BadCount
+           :SharedExplainsCount
            :Unexplained
            :ExplainCycles
            :HypothesisCount
@@ -208,6 +225,10 @@
            :BaseBadCount
            :RatioBadCount
            :IncreaseBadCount
+           :MetaSharedExplainsCount
+           :BaseSharedExplainsCount
+           :RatioSharedExplainsCount
+           :IncreaseSharedExplainsCount
            :MetaUnexplained
            :BaseUnexplained
            :RatioUnexplained

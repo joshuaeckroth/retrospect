@@ -67,12 +67,12 @@
 
 (defn shared-explains?
   [workspace hyp hyps]
-  (not-empty
-   (apply set/union
-          (map #(set/intersection
-                 (find-explains workspace hyp :static)
-                 (find-explains workspace % :static))
-               (disj hyps hyp)))))
+  (let [expl (find-explains workspace hyp :static)]
+    (not-empty
+     (apply set/union
+            (map #(set/intersection expl
+                   (find-explains workspace % :static))
+                 (disj hyps hyp))))))
 
 (defn find-shared-explains
   [workspace]
@@ -187,26 +187,34 @@
      "}\n")))
 
 (defn add
-  "Only adds edges for hyps that it explains if those explained hyps
-   are already in the graph."
+  "Only add a hyp if it explains if those explained hyps are already
+   in the (live, non-static) graph. However, if the hyp is to be
+   added, add all its explain edges to the static graph, but only
+   those unexplained edges to the live graph."
   [workspace hyp explains & opts]
   (let [gtype (if (some #{:static} opts)
                 :graph-static
                 :graph)
-        expl (set/intersection (nodes (get workspace gtype)) (set explains))]
-    ;; add to :graph-static if :static was not indicated
-    (-> (if (not= gtype :graph) workspace
-            (-> workspace
-                (update-in [:graph-static]
-                           #(apply add-nodes % (conj expl hyp)))
-                (update-in [:graph-static]
-                           #(apply add-edges % (map (fn [e] [hyp e]) expl)))))
-        (update-in [gtype]
-                   #(apply add-nodes % (conj expl hyp)))
-        (update-in [gtype]
-                   #(apply add-edges % (map (fn [e] [hyp e]) expl)))
-        (update-in [:hyp-confidences] assoc hyp (:apriori hyp))
-        (update-in [:log :added] conj {:hyp hyp :explains expl}))))
+        expl (set/intersection (nodes (get workspace gtype))
+                               (set explains))
+        explains-something-unexplained?
+        (or (= gtype :graph-static) (not-empty expl))]
+    (if (not explains-something-unexplained?) workspace
+        ;; add to :graph-static if :static was not indicated;
+        ;; here, add even already-explains links
+        (-> (if (not= gtype :graph) workspace
+                (-> workspace
+                    (update-in [:graph-static]
+                               #(apply add-nodes % (conj explains hyp)))
+                    (update-in [:graph-static]
+                               #(apply add-edges % (map (fn [e] [hyp e]) explains)))))
+            ;; just add unexplained links
+            (update-in [gtype]
+                       #(apply add-nodes % (conj expl hyp)))
+            (update-in [gtype]
+                       #(apply add-edges % (map (fn [e] [hyp e]) expl)))
+            (update-in [:hyp-confidences] assoc hyp (:apriori hyp))
+            (update-in [:log :added] conj {:hyp hyp :explains expl})))))
 
 (defn reject-many
   [workspace hyps]
@@ -229,11 +237,13 @@
   (let [g (:graph workspace)
         removable (concat (neighbors g hyp)
                           (if (empty? (incoming g hyp)) [hyp] []))
+        ;; must find conflicts in original workspace, before explained
+        ;; hyps are removed
+        conflicts (find-conflicts workspace hyp)
         new-g (apply remove-nodes g removable)
         ws (-> workspace
                (update-in [:accepted] conj hyp)
-               (assoc :graph new-g))
-        conflicts (find-conflicts ws hyp)]
+               (assoc :graph new-g))]
     (loop [ws (reject-many ws conflicts)
            rejected #{}]
       (let [incon (set/difference
