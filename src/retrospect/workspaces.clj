@@ -274,7 +274,10 @@
   [workspace]
   (let [ws (assoc workspace :confidence nil :accepted #{} :rejected #{}
                   :graph (:graph-static workspace))]
-    (assoc-in ws [:resources :hyp-count] (count (nodes (:graph-static ws))))))
+    (-> ws
+        (assoc-in [:log :best] [])
+        (assoc-in [:log :accrej] [])
+        (assoc-in [:resources :hyp-count] (count (nodes (:graph-static ws)))))))
 
 (defn measure-conf
   [workspace]
