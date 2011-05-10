@@ -159,7 +159,8 @@
     (when (nil? ors)
       (throw (ExecutionException. "Monitor took control." (Throwable.))))
     (if (>= (:time (:ep-state ors)) (:Steps params))
-      (last (:results (evaluate problem truedata ors params)))
+      (if (:meta-abduction ors) (last (:results ors))
+          (last (:results (evaluate problem truedata ors ors params))))
       (recur (run-simulation-step problem truedata ors params monitor? false)))))
 
 (defn run-comparative
