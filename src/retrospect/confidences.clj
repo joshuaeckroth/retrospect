@@ -1,4 +1,5 @@
-(ns retrospect.confidences)
+(ns retrospect.confidences
+  (:use [clojure.contrib.math :only [round]]))
 
 (def IMPOSSIBLE -3)
 
@@ -44,3 +45,9 @@
 (defn prob-neg-conf
   [prob]
   (prob-conf (- 100 prob)))
+
+(defn avg-conf
+  [confs]
+  (if (empty? confs) NEUTRAL
+      (let [avg (/ (reduce + 0 confs) (count confs))]
+        (round avg))))

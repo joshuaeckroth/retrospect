@@ -115,7 +115,7 @@
          (assoc-in [:params :StepsBetween] 4)))
 
 (def intersection-ambiguity-long
-     (let [params (merge basic-params {:Steps 7 :SensorSeesColor 80 :MaxWalk 10
+     (let [params (merge basic-params {:Steps 5 :SensorSeesColor 80 :MaxWalk 10
                                        :MetaAbduction true
                                        :GridWidth 20 :GridHeight 20})]
        {:params params
@@ -124,8 +124,8 @@
                   (new-sensor (keyword "right") 16 19 0 19 true)]
         :truedata (build-truedata
                    params (entity-paths
-                           ["1" red  0 18,15 15,4  12,1  10,1  7,1  5,1  3,1]
-                           ["2" blue 0 18,1  15,15 12,19 10,19 7,19 5,19 3,19]))}))
+                           ["1" red  0 18,15 15,4  10,1  5,1  3,1]
+                           ["2" blue 0 18,1  15,15 10,19 5,19 3,19]))}))
 
 (def intersection-ambiguity-many
      (let [params (merge basic-params {:Steps 10 :SensorSeesColor 80 :MaxWalk 15

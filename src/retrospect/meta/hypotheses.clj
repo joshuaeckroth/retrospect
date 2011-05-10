@@ -91,14 +91,13 @@
 
 (defn add-mark-impossible-hyp
   [workspace ep-state-hyp problem ep-state-tree sensors params lazy]
-  workspace
-  #_(let [ep-state (previous-ep-state ep-state-tree)
-          rejectors (find-rejectors (:workspace ep-state))]
-      (if (empty? rejectors) workspace
-          (add-branch-hyp
-           workspace ep-state-hyp ep-state rejectors problem ep-state-tree
-           sensors params lazy (format "H:R:%s:*" (:id ep-state))
-           :meta-impossible false))))
+  (let [ep-state (previous-ep-state ep-state-tree)
+        rejectors (find-rejectors (:workspace ep-state))]
+    (if (empty? rejectors) workspace
+        (add-branch-hyp
+         workspace ep-state-hyp ep-state rejectors problem ep-state-tree
+         sensors params lazy (format "H:R:%s:*" (:id ep-state))
+         :meta-impossible false))))
 
 (defn add-mark-all-bad-hyp
   [workspace ep-state-hyp problem ep-state-tree sensors bad params lazy]
@@ -110,14 +109,13 @@
 
 (defn add-mark-impossible-hyp-least-conf
   [workspace ep-state-hyp problem ep-state-tree branchable sensors params lazy]
-  workspace
-  #_(let [ws (:workspace branchable)
-          hyps (:accepted ws)]
-      (if (empty? hyps) workspace
-          (add-branch-hyp
-           workspace ep-state-hyp branchable hyps problem ep-state-tree
-           sensors params lazy (format "H:LC:%s:L" (:id branchable))
-           :meta-impossible-lconf true))))
+  (let [ws (:workspace branchable)
+        hyps (:accepted ws)]
+    (if (empty? hyps) workspace
+        (add-branch-hyp
+         workspace ep-state-hyp branchable hyps problem ep-state-tree
+         sensors params lazy (format "H:LC:%s:L" (:id branchable))
+         :meta-impossible-lconf true))))
 
 (defn add-accurate-decision-hyp
   [workspace ep-state-hyp]
@@ -143,7 +141,7 @@
                 ep-state-hyp problem ep-state-tree sensors bad params lazy))
         ;; use (butlast) here because we don't want to branch
         ;; the empty child ep-state from the non-meta reasoning cycle
-        potential-branches (take 3 (reverse (butlast (flatten-ep-state-tree ep-state-tree))))]
+        potential-branches (take 4 (reverse (butlast (flatten-ep-state-tree ep-state-tree))))]
     (loop [ws2 ws
            states potential-branches]
       (if (or (empty? states) (have-enough-meta-hyps ws2)) ws2

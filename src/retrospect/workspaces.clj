@@ -187,10 +187,10 @@
      "}\n")))
 
 (defn add
-  "Only add a hyp if it explains if those explained hyps are already
-   in the (live, non-static) graph. However, if the hyp is to be
-   added, add all its explain edges to the static graph, but only
-   those unexplained edges to the live graph."
+  "Only add a hyp if its explained hyps are already in the (live,
+   non-static) graph. However, if the hyp is to be added, add all its
+   explain edges to the static graph, but only those unexplained edges
+   to the live graph."
   [workspace hyp explains & opts]
   (let [gtype (if (some #{:static} opts)
                 :graph-static
@@ -291,7 +291,8 @@
            (not-empty (find-unexplained workspace)) (penalize conf)
            ;; otherwise go with maximum accepted hypothesis confidence
            :else conf)
-        conf)))
+        (avg-conf (vals (select-keys (:hyp-confidences workspace)
+                                     (:accepted workspace)))))))
 
 (defn get-conf
   [workspace]

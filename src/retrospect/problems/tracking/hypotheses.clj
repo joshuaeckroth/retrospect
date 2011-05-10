@@ -178,7 +178,7 @@
                     explains]
                    ;; split-merge hyp
                    [(new-hyp "THSM" :tracking nil
-                             score (format "%s\n\n(split-merge)"
+                             (penalize score) (format "%s\n\n(split-merge)"
                                            (desc-fn det det2 explains))
                              {:det det :det2 det2})
                     explains]]))))))
