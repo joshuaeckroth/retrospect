@@ -283,11 +283,12 @@
       ;; if accepted hyps exist, find the maximum confidence of them
       (let [conf (apply max (vals (select-keys (:hyp-confidences workspace)
                                                (:accepted workspace))))]
-        (cond
-         ;; if something is unexplained, give a penalty
-         (not-empty (find-unexplained workspace)) (penalize conf)
-         ;; otherwise go with maximum accepted hypothesis confidence
-         :else conf))))
+        #_(cond
+           ;; if something is unexplained, give a penalty
+           (not-empty (find-unexplained workspace)) (penalize conf)
+           ;; otherwise go with maximum accepted hypothesis confidence
+           :else conf)
+        conf)))
 
 (defn get-conf
   [workspace]

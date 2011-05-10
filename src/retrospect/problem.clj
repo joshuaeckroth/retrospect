@@ -22,19 +22,24 @@
         (+ (key (last results)) val))))
 
 (defn evaluate
-  [problem truedata or-state params]
+  [problem truedata or-state or-state-meta params]
   (let [prev-ep (previous-ep-state (:ep-state-tree or-state))
+        prev-ep-meta (previous-ep-state (:ep-state-tree or-state-meta))
         ep-state (current-ep-state (:ep-state-tree or-state))
-        results (:results or-state)
-        res (:resources or-state)]
+        ep-state-meta (current-ep-state (:ep-state-tree or-state-meta))
+        results (:results or-state-meta)
+        res (:resources or-state-meta)]
     (update-in
-     or-state [:results] conj
-     (merge ((:evaluate-fn problem) ep-state results prev-ep
-             (:sensors or-state) truedata params)
+     or-state-meta [:results] conj
+     (merge ((:evaluate-fn problem) ep-state-meta results prev-ep-meta
+             (:sensors or-state-meta) truedata params)
+            (if (not (:meta-abduction or-state-meta)) {}
+                ((:evaluate-meta-fn problem) ep-state ep-state-meta results
+                 truedata params))
             (assoc params
-              :Step (:time ep-state)
-              :MetaAbduction (:meta-abduction or-state)
-              :Lazy (:lazy or-state)
+              :Step (:time ep-state-meta)
+              :MetaAbduction (:meta-abduction or-state-meta)
+              :Lazy (:lazy or-state-meta)
               :MetaAbductions (:meta-abductions res)
               :MetaAcceptedBad (:meta-accepted-bad res)
               :MetaAcceptedImpossible (:meta-accepted-impossible res)
@@ -42,21 +47,21 @@
               :MetaAcceptedNone (:meta-accepted-none res)
               :Milliseconds (:milliseconds res)
               :BadCount (add-to-prior results :BadCount
-                                      (count (:bad (:problem-data ep-state))))
+                                      (count (:bad (:problem-data ep-state-meta))))
               :Unexplained
               (add-to-prior
                results :Unexplained
-               (count (:unexplained (:final (:log (:workspace prev-ep))))))
+               (count (:unexplained (:final (:log (:workspace prev-ep-meta))))))
               :SharedExplainsCount
               (add-to-prior
                results :SharedExplainsCount
-               (count (:shared-explains (:final (:log (:workspace prev-ep))))))
+               (count (:shared-explains (:final (:log (:workspace prev-ep-meta))))))
               ;; ExplainCycles are stored in current ep-state
               :ExplainCycles
-              (:explain-cycles (:resources (:workspace ep-state)))
+              (:explain-cycles (:resources (:workspace ep-state-meta)))
               :HypothesisCount
-              (:hyp-count (:resources (:workspace prev-ep)))
-              :Seed (:seed or-state))))))
+              (:hyp-count (:resources (:workspace prev-ep-meta)))
+              :Seed (:seed or-state-meta))))))
 
 (defn calc-percent-increase
   [k m b]
@@ -140,9 +145,9 @@
         ;; stop the clock
         ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
         ors-resources (update-in ors-meta [:resources] assoc :milliseconds ms)
-        ors-results (if-not (or player? monitor?) ors-resources
-                            (evaluate problem truedata ors-resources params))]
-    #_(when (not-empty bad) (println params bad))
+        ors-results (if (or player? monitor? (:meta-abduction ors-resources))
+                      (evaluate problem truedata ors-expl ors-resources params)
+                      ors-resources)]
     (if (and (not player?) monitor?)
       ((:monitor-fn problem) problem truedata (:sensors ors-results)
        ors-results params)
@@ -248,4 +253,4 @@
    truedata-fn sensor-gen-fn export-truedata-fn prepared-map
    hypothesize-fn get-more-hyps-fn commit-decision-fn
    gen-problem-data-fn inconsistent-fn
-   evaluate-fn evaluate-comparative-fn])
+   evaluate-fn evaluate-meta-fn evaluate-comparative-fn])

@@ -56,7 +56,7 @@
              :score (if (not-empty bad)
                       (penalize (ws/get-conf (:workspace ep)))
                       (ws/get-conf (:workspace ep)))}))]
-    (if (= (inc time-now) (dec (+ (:StepsBetween params) (:time ep-state))))
+    (if (= time-now (dec (+ (:StepsBetween params) (:time ep-state))))
       (build-score ep-state-tree ep-state)
       (let [est-child (new-child-ep-state ep-state-tree ep-state
                                           (dec time-now) problem)

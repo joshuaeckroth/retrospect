@@ -103,8 +103,9 @@
 (defn avg-with-prior
   [results key val]
   (let [c (count results)]
-    (if (= c 0) val
-        (double (/ (+ (* c (key (last results))) val) (inc c))))))
+    (cond (= c 0) val
+          (= 0.0 val) (key (last results))
+          :else (double (/ (+ (* c (key (last results))) val) (inc c))))))
 
 (defn evaluate
   [ep-state results prev-ep sensors truedata params]
@@ -168,13 +169,47 @@
   (if (= 0 (k b)) 0.0
       (double (/ (k m) (k b)))))
 
+(defn evaluate-meta
+  [ep-state meta-ep-state results truedata params]
+  (let [maxtime (min (dec (dec (count truedata))) (dec (dec (:time ep-state))))
+        true-moves (true-movements truedata maxtime)
+        ;; map of labels per true entity
+        elmap (assoc-es-ls ep-state truedata)
+        elmap-meta (assoc-es-ls meta-ep-state truedata)
+        ;; map of time with label (for each label) per true entity
+        twl (reduce (partial assoc-es-twl elmap) {} (keys elmap))
+        twl-meta (reduce (partial assoc-es-twl elmap-meta) {} (keys elmap-meta))
+        pec (percent-events-correct
+             (:problem-data ep-state) true-moves)
+        pec-meta (percent-events-correct
+                  (:problem-data meta-ep-state) true-moves)]
+    {:AverageMetaDiffPercentEventsCorrect
+     (avg-with-prior results :AverageMetaDiffPercentEventsCorrect
+       (- pec-meta pec))
+     :AverageMetaDiffMeanTimeWithLabel
+     (avg-with-prior results :AverageMetaDiffMeanTimeWithLabel
+       (- (avg (map #(avg (twl-meta %)) (keys twl-meta)))
+          (avg (map #(avg (twl %)) (keys twl)))))
+     :AverageMetaDiffMeanLabelCounts
+     (avg-with-prior results :AverageMetaDiffMeanLabelCounts
+       (- (double (/ (reduce + 0 (map #(count (set (elmap-meta %)))
+                                      (keys elmap-meta)))
+                     (count (keys elmap-meta))))
+          (double (/ (reduce + 0 (map #(count (set (elmap %)))
+                                      (keys elmap)))
+                     (count (keys elmap))))))}))
+
 (defn evaluate-comparative
   [params [m b]]
-  {:MetaPercentEventsCorrect (:PercentEventsCorrect m)
+  {:AverageMetaDiffPercentEventsCorrect (:AverageMetaDiffPercentEventsCorrect m)
+   :AverageMetaDiffMeanTimeWithLabel (:AverageMetaDiffMeanTimeWithLabel m)
+   :AverageMetaDiffMeanLabelCounts (:AverageMetaDiffMeanLabelCounts m)
+
+   :MetaPercentEventsCorrect (:PercentEventsCorrect m)
    :BasePercentEventsCorrect (:PercentEventsCorrect b)
    :RatioPercentEventsCorrect (calc-ratio :PercentEventsCorrect m b)
    :IncreasePercentEventsCorrect (calc-percent-increase :PercentEventsCorrect m b)
-   
+
    :MetaMeanTimeWithLabel (:MeanTimeWithLabel m)
    :BaseMeanTimeWithLabel (:MeanTimeWithLabel b)
    :RatioMeanTimeWithLabel (calc-ratio :MeanTimeWithLabel m b)

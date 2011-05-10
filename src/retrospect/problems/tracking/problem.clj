@@ -2,7 +2,7 @@
   (:require [retrospect problem])
   (:import [retrospect.problem Problem])
   (:use [retrospect.problems.tracking.evaluate :only
-         [evaluate evaluate-comparative]])
+         [evaluate evaluate-meta evaluate-comparative]])
   (:use [retrospect.problems.tracking.truedata :only
          [generate-truedata export-truedata]])
   (:use [retrospect.problems.tracking.sensors :only
@@ -34,7 +34,10 @@
    :sensor-overlap 0.0})
 
 (def headers
-     [:PercentEventsCorrect :CountRemoved :CountRemovedPercent
+     [:AverageMetaDiffPercentEventsCorrect 
+      :AverageMetaDiffMeanTimeWithLabel 
+      :AverageMetaDiffMeanLabelCounts 
+      :PercentEventsCorrect :CountRemoved :CountRemovedPercent
       :PlausibilityWorkspaceAccuracy
       :MeanTimeWithLabel :MaxTimeWithLabel :MinTimeWithLabel
       :MeanCountAlternatives :MeanLabelCounts :DistinctLabels :PlausibilityAccuracy
@@ -44,22 +47,25 @@
       :PlausibilityPEvents :PlausibilityVPEvents])
 
 (def comparative-headers
-  [:MetaPercentEventsCorrect :BasePercentEventsCorrect :RatioPercentEventsCorrect
-   :IncreasePercentEventsCorrect :MetaMeanTimeWithLabel :BaseMeanTimeWithLabel
-   :RatioMeanTimeWithLabel :IncreaseMeanTimeWithLabel
-   :MetaMaxTimeWithLabel :BaseMaxTimeWithLabel :RatioMaxTimeWithLabel
-   :IncreaseMaxTimeWithLabel
-   :MetaMinTimeWithLabel :BaseMinTimeWithLabel :RatioMinTimeWithLabel
-   :IncreaseMinTimeWithLabel
-   :MetaMeanLabelCounts :BaseMeanLabelCounts :RatioMeanLabelCounts
-   :IncreaseMeanLabelCounts
-   :MetaDistinctLabels :BaseDistinctLabels :RatioDistinctLabels
-   :IncreaseDistinctLabels
-   :MetaPlausibilityAccuracy :BasePlausibilityAccuracy :RatioPlausibilityAccuracy
-   :IncreasePlausibilityAccuracy
-   :MetaPlausibilityWorkspaceAccuracy :BasePlausibilityWorkspaceAccuracy
-   :RatioPlausibilityWorkspaceAccuracy :IncreasePlausibilityWorkspaceAccuracy
-   :NumberEntities :MaxWalk :ProbNewEntities])
+     [:AverageMetaDiffPercentEventsCorrect 
+      :AverageMetaDiffMeanTimeWithLabel 
+      :AverageMetaDiffMeanLabelCounts 
+      :MetaPercentEventsCorrect :BasePercentEventsCorrect :RatioPercentEventsCorrect
+      :IncreasePercentEventsCorrect :MetaMeanTimeWithLabel :BaseMeanTimeWithLabel
+      :RatioMeanTimeWithLabel :IncreaseMeanTimeWithLabel
+      :MetaMaxTimeWithLabel :BaseMaxTimeWithLabel :RatioMaxTimeWithLabel
+      :IncreaseMaxTimeWithLabel
+      :MetaMinTimeWithLabel :BaseMinTimeWithLabel :RatioMinTimeWithLabel
+      :IncreaseMinTimeWithLabel
+      :MetaMeanLabelCounts :BaseMeanLabelCounts :RatioMeanLabelCounts
+      :IncreaseMeanLabelCounts
+      :MetaDistinctLabels :BaseDistinctLabels :RatioDistinctLabels
+      :IncreaseDistinctLabels
+      :MetaPlausibilityAccuracy :BasePlausibilityAccuracy :RatioPlausibilityAccuracy
+      :IncreasePlausibilityAccuracy
+      :MetaPlausibilityWorkspaceAccuracy :BasePlausibilityWorkspaceAccuracy
+      :RatioPlausibilityWorkspaceAccuracy :IncreasePlausibilityWorkspaceAccuracy
+      :NumberEntities :MaxWalk :ProbNewEntities])
 
 (def tracking-problem
      (Problem. "Tracking"
@@ -85,4 +91,5 @@
                generate-problem-data
                inconsistent
                evaluate
+               evaluate-meta
                evaluate-comparative))

@@ -298,12 +298,22 @@
 
 (def random-2
      (let [params {:GridHeight 20, :GridWidth 20, :MaxWalk 10,
-                   :Lazy false, :ProbMovement 50,
-                   :SensorNoise 0, :SensorSeesColor 60,
+                   :Lazy false, :SensorNoise 0, :SensorSeesColor 60,
                    :SensorCoverage 100, :BeliefNoise 0, :StepsBetween 4,
                    :Steps 50, :ProbNewEntities 0, :NumberEntities 5,
                    :MetaAbduction false}]
        (set-seed 10)
+       {:params params
+        :truedata (generate-truedata params)
+        :sensors (generate-sensors params)}))
+
+(def random-3
+     (let [params {:GridHeight 30, :GridWidth 30, :MaxWalk 10,
+                   :Lazy false, :SensorNoise 0, :SensorSeesColor 60,
+                   :SensorCoverage 100, :BeliefNoise 0, :StepsBetween 11,
+                   :Steps 100, :ProbNewEntities 0, :NumberEntities 12,
+                   :MetaAbduction true}]
+       (set-seed 5674)
        {:params params
         :truedata (generate-truedata params)
         :sensors (generate-sensors params)}))
@@ -325,6 +335,7 @@
                  "random-1" random-1
                  "random-1-sb4" random-1-sb4
                  "random-2" random-2
+                 "random-3" random-3
                  "simple-dis" simple-disappearance
                  "split" split-ambiguity
                  "split-2" split-ambiguity-2
