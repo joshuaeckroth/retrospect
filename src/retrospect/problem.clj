@@ -44,6 +44,7 @@
               :MetaAcceptedBad (:meta-accepted-bad res)
               :MetaAcceptedImpossible (:meta-accepted-impossible res)
               :MetaAcceptedImpossibleLconf (:meta-accepted-impossible-lconf res)
+              :MetaAcceptedBatch (:meta-accepted-batch res)
               :MetaAcceptedNone (:meta-accepted-none res)
               :Milliseconds (:milliseconds res)
               :BadCount (add-to-prior results :BadCount
@@ -80,6 +81,7 @@
           :MetaAcceptedBad (:MetaAcceptedBad m)
           :MetaAcceptedImpossible (:MetaAcceptedImpossible m)
           :MetaAcceptedImpossibleLconf (:MetaAcceptedImpossibleLconf m)
+          :MetaAcceptedBatch (:MetaAcceptedBatch m)
           :MetaAcceptedNone (:MetaAcceptedNone m)
           :MetaMilliseconds (:Milliseconds m)
           :BaseMilliseconds (:Milliseconds b)
@@ -165,7 +167,7 @@
 
 (defn run-comparative
   [problem monitor? meta? params]
-  (let [seed (my-rand-int 10000)]
+  (let [seed (my-rand-int 10000000)]
     (set-seed seed)
     (let [truedata ((:truedata-fn problem) params)
           sensors ((:sensor-gen-fn problem) params)
@@ -206,6 +208,7 @@
            :MetaAcceptedBad
            :MetaAcceptedImpossible
            :MetaAcceptedImpossibleLconf
+           :MetaAcceptedBatch
            :MetaAcceptedNone
            :Milliseconds
            :BadCount
@@ -222,6 +225,7 @@
            :MetaAcceptedBad
            :MetaAcceptedImpossible
            :MetaAcceptedImpossibleLconf
+           :MetaAcceptedBatch
            :MetaAcceptedNone
            :MetaMilliseconds
            :BaseMilliseconds

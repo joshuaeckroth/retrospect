@@ -275,18 +275,33 @@
               in-color (single-color in)
               out-color (single-color out)
               det-color (assoc det :color (or in-color out-color head-color))
-              possible-colors
-              (apply set/intersection #{blue green red}
-                     (filter not-empty
-                             (map (fn [dets]
-                                    (set (filter #(not= 0 (count-color dets %))
-                                                 [blue red green])))
-                                  [heads in out])))]
+              in-heads-possible (disj
+                                 (apply set/union
+                                        (if (and (empty? heads) (empty? in))
+                                          #{red blue green} #{})
+                                        (map #(set/union
+                                               (if (not= gray (:color %)) #{(:color %)}
+                                                   (if-let [p (attr g % :possible-colors)]
+                                                     p #{red blue green})))
+                                             (concat heads in)))
+                                 gray)
+              out-possible (if (or (empty? out) )
+                             #{red blue green}
+                             (apply set/union
+                                    (map #(set/union
+                                           (if (not= gray (:color %)) #{(:color %)}
+                                               (if-let [p (attr g % :possible-colors)]
+                                                 p #{red blue green})))
+                                         out)))
+              possible-colors (set/intersection in-heads-possible out-possible)
+              prior-possible-colors (attr g det :possible-colors)]
           (if (or in-color out-color head-color)
             (recur (rest unchecked) (conj modified det-color)
                    (change-paths-graph-color g det det-color))
-            (recur (rest unchecked) modified
-                   (add-attr g det :possible-colors possible-colors))))))))
+            (if (= possible-colors prior-possible-colors)
+              (recur (rest unchecked) modified g)
+              (recur (rest unchecked) (conj modified det)
+                     (add-attr g det :possible-colors possible-colors)))))))))
 
 (defn find-bad-edges
   [paths-graph path-heads]
@@ -439,15 +454,20 @@
        (with-meta sym {:color color :nth nth})))
   ([labels move] (new-label labels move [])))
 
+(defn dets-pos-match?
+  [det det2]
+  (and (= (:x det) (:x det2))
+       (= (:y det) (:y det2))
+       (= (:time det) (:time det2))))
+
 (defn is-extension?
   [paths label [det det2] direction]
   (when (not (:dead (meta label)))
     (let [link-det (if (= direction :forward)
                      (last (get paths label))
-                     (first (get paths label)))]
-      (and (= (select-keys link-det [:x :y :time])
-              (select-keys (if (= direction :forward) det det2)
-                           [:x :y :time]))))))
+                     (first (get paths label)))
+          other-det (if (= direction :forward) det det2)]
+      (dets-pos-match? link-det other-det))))
 
 (defn update-label-color
   "Update color if the label is gray."
@@ -478,11 +498,8 @@
         before-labels (filter-labels maybe-before-labels)
         after-labels (filter-labels maybe-after-labels)
         alts-for-move
-        (filter (fn [h]
-                  (or (and (= (select-keys (:det (:data h)) [:x :y :time])
-                              (select-keys (second move) [:x :y :time])))
-                      (and (= (select-keys (:det2 (:data h)) [:x :y :time])
-                              (select-keys (first move) [:x :y :time])))))
+        (filter (fn [h] (or (dets-pos-match? (:det (:data h)) (second move))
+                            (dets-pos-match? (:det2 (:data h)) (first move))))
                 alts)]
     (cond
      ;; if we have a split, just mark each applicable label as dead
@@ -516,8 +533,11 @@
                         ps-dead (-> ps (dissoc l)
                                     (assoc l-dead (conj path (second move))))
                         same-merge (find-first
-                                    (fn [l] (and (= (second move)
-                                                    (last (l paths)))))
+                                    (fn [l]
+                                      (let [head (last (l paths))]
+                                        (and (dets-pos-match? (second move) head)
+                                             (match-color? (:color (second move))
+                                                           (:color head)))))
                                     (filter (comp not :dead meta) (keys paths)))]
                     (if same-merge ps-dead
                         (assoc ps-dead
@@ -607,14 +627,17 @@
 
 (defn move-splits?
   [paths moves move]
-  (some (fn [[det det2]] (and (= det (first move)) (not= det2 (second move))
-                              (match-color? (:color det2) (:color (second move)))))
+  (some (fn [[det det2]] (and (dets-pos-match? det (first move))
+                              (not (dets-pos-match? det2 (second move)))
+                              (match-color? (:color det) (:color (first move)))))
         moves))
 
 (defn move-merges?
   [moves move]
-  (some (fn [[det det2]] (and (not= det (first move)) (= det2 (second move))
-                              (match-color? (:color det) (:color (first move)))))
+  (some (fn [[det det2]] (and (not (dets-pos-match? det (first move)))
+                              (dets-pos-match? det2 (second move))
+                              (match-color? (:color det) (:color (first move)))
+                              (match-color? (:color det2) (:color (second move)))))
         moves))
 
 (defn commit-decision
@@ -633,11 +656,16 @@
                   log [] ;; log is reset each time
                   bad #{}]
              (if (> t maxtime)
-               (assoc pdata :paths paths
-                      :log log
-                      :bad (map (comp :hyp meta) bad)
-                      :uncovered (set/difference (:uncovered pdata)
-                                                 (set (flatten (vals paths)))))
+               (let [covered (flatten (vals paths))]
+                 (assoc pdata :paths paths
+                        :log log
+                        :bad (map (comp :hyp meta) bad)
+                        :uncovered (set (filter (fn [det]
+                                                  (not-any? #(and (dets-pos-match? det %)
+                                                                  (match-color? (:color det)
+                                                                                (:color %)))
+                                                            covered))
+                                                (:uncovered pdata)))))
                ;; find splits and merges
                (let [moves-now (filter #(= t (:time (first %))) moves)
                      splits (filter (partial move-splits? paths moves-now)

@@ -249,4 +249,7 @@
    :NumberEntities (:NumberEntities params)
    :StepsBetween (:StepsBetween params)
    :MaxWalk (:MaxWalk params)
+   :SensorSeesColor (:SensorSeesColor params)
+   :GridWidth (:GridWidth params)
+   :GridHeight (:GridHeight params)
    :ProbNewEntities (:ProbNewEntities params)})

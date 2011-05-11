@@ -225,7 +225,7 @@
                                         ["3" red  0 7,0 7,3 5,4 5,6 5,8 5,9]))}))
 
 (def split-merge-twocolor
-     (let [params (merge basic-params {:Steps 6 :MaxWalk 4})]
+     (let [params (merge basic-params {:Steps 6 :MaxWalk 3})]
        {:params params
         :sensors [(new-sensor (keyword "top") 0 9 0 3 true)
                   (new-sensor (keyword "middle-gray") 0 9 4 6 false)
@@ -331,6 +331,39 @@
         :truedata (generate-truedata params)
         :sensors (generate-sensors params)}))
 
+(def random-4
+     (let [params {:GridHeight 30, :GridWidth 30, :MaxWalk 10,
+                   :Lazy false, :SensorNoise 0, :SensorSeesColor 40,
+                   :SensorCoverage 100, :BeliefNoise 0, :StepsBetween 10,
+                   :Steps 10, :ProbNewEntities 0, :NumberEntities 6,
+                   :MetaAbduction false}]
+       (set-seed 7847)
+       {:params params
+        :truedata (generate-truedata params)
+        :sensors (generate-sensors params)}))
+
+(def random-5
+     (let [params {:GridHeight 30 :GridWidth 30 :MaxWalk 10
+                   :Lazy false :SensorNoise 0 :SensorSeesColor 60
+                   :SensorCoverage 100 :BeliefNoise 0 :StepsBetween 1
+                   :Steps 10 :ProbNewEntities 0 :NumberEntities 6
+                   :MetaAbduction false}]
+       (set-seed 3135)
+       {:params params
+        :truedata (generate-truedata params)
+        :sensors (generate-sensors params)}))
+
+(def random-6
+     (let [params {:GridHeight 30 :GridWidth 30 :MaxWalk 10
+                   :Lazy false :SensorNoise 0 :SensorSeesColor 40
+                   :SensorCoverage 100 :BeliefNoise 0 :StepsBetween 1
+                   :Steps 20 :ProbNewEntities 0 :NumberEntities 6
+                   :MetaAbduction false}]
+       (set-seed 1571)
+       {:params params
+        :truedata (generate-truedata params)
+        :sensors (generate-sensors params)}))
+
 (def prepared-map
      (sorted-map "color-update" color-update
                  "color-update-2" color-update-2
@@ -350,6 +383,9 @@
                  "random-1-sb4" random-1-sb4
                  "random-2" random-2
                  "random-3" random-3
+                 "random-4" random-4
+                 "random-5" random-5
+                 "random-6" random-6
                  "simple-dis" simple-disappearance
                  "split" split-ambiguity
                  "split-2" split-ambiguity-2

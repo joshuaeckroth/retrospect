@@ -283,16 +283,14 @@
   [workspace]
   ;; if no accepted hyps, this is very implausible
   (if (empty? (:accepted workspace)) VERY-IMPLAUSIBLE
-      ;; if accepted hyps exist, find the maximum confidence of them
-      (let [conf (apply max (vals (select-keys (:hyp-confidences workspace)
-                                               (:accepted workspace))))]
-        #_(cond
-           ;; if something is unexplained, give a penalty
-           (not-empty (find-unexplained workspace)) (penalize conf)
-           ;; otherwise go with maximum accepted hypothesis confidence
-           :else conf)
-        (avg-conf (vals (select-keys (:hyp-confidences workspace)
-                                     (:accepted workspace)))))))
+      ;; if accepted hyps exist, find the average confidence of them
+      (let [conf (avg-conf (vals (select-keys (:hyp-confidences workspace)
+                                              (:accepted workspace))))]
+        (cond
+         ;; if something is unexplained, give low confidence
+         (not-empty (find-unexplained workspace)) IMPLAUSIBLE
+         ;; otherwise go with maximum accepted hypothesis confidence
+         :else conf))))
 
 (defn get-conf
   [workspace]

@@ -232,3 +232,15 @@
                                   (set/intersection accepted rejected))
                                (flatten-ep-state-tree (:ep-state-tree or-state))))
          => (just #{})))
+
+(let [results (run-for-results random-5)
+      results-meta (run-for-results (assoc-in random-5 [:params :MetaAbduction] true))]
+  (facts (:Unexplained results) => 1
+         (:Unexplained results-meta) => 0))
+
+(let [results (run-for-results random-6)
+      results-aao (run-for-results (assoc-in random-6 [:params :StepsBetween] 20))
+      results-meta (run-for-results (assoc-in random-6 [:params :MetaAbduction] true))]
+  (facts (:Unexplained results) => 3
+         (:Unexplained results-aao) => 0
+         (:Unexplained results-meta) => 0))

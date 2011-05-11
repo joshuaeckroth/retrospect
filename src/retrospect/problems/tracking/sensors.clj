@@ -65,13 +65,37 @@
 
 (defn generate-sensors
   [params]
-  (let [num-sensors (inc (my-rand-int (:GridWidth params)))
-        width-each (math/ceil (/ (:GridWidth params) num-sensors))]
-    (for [i (range num-sensors)]
-      (let [gray? (< (my-rand) (/ (:SensorSeesColor params) 100))]
-        (new-sensor (keyword (format "%d%s" (inc i) (if gray? "g" "")))
-                    (* i width-each) (dec (* (inc i) width-each))
-                    0 (:GridHeight params) gray?)))))
+  (let [width-height (math/ceil
+                      (math/sqrt (* (:GridHeight params)
+                                    (:GridWidth params)
+                                    (- 1.0 (* 0.01 (:SensorSeesColor params))))))
+        left-right (math/ceil (/ (- (:GridWidth params) width-height) 2))
+        top-bottom (math/ceil (/ (- (:GridHeight params) width-height) 2))]
+    [(new-sensor (keyword "middle-gray")
+                 left-right (- (:GridWidth params) left-right)
+                 top-bottom (- (:GridHeight params) top-bottom)
+                 false)
+     (new-sensor (keyword "left")
+                 0 (dec left-right) 0 (dec (:GridHeight params))
+                 true)
+     (new-sensor (keyword "right")
+                 (inc (- (:GridWidth params) left-right))
+                 (dec (:GridWidth params))
+                 0
+                 (dec (:GridHeight params))
+                 true)
+     (new-sensor (keyword "bottom")
+                 left-right
+                 (- (:GridWidth params) left-right)
+                 (inc (- (:GridHeight params) top-bottom))
+                 (dec (:GridHeight params))
+                 true)
+     (new-sensor (keyword "top")
+                 left-right
+                 (- (:GridWidth params) left-right)
+                 0
+                 (dec top-bottom)
+                 true)]))
 
 (comment [(new-sensor (keyword "1") 0 4 0 15 true)
           (new-sensor (keyword "2g") 0 4 16 20 false)

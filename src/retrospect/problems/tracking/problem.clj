@@ -65,7 +65,7 @@
       :IncreasePlausibilityAccuracy
       :MetaPlausibilityWorkspaceAccuracy :BasePlausibilityWorkspaceAccuracy
       :RatioPlausibilityWorkspaceAccuracy :IncreasePlausibilityWorkspaceAccuracy
-      :NumberEntities :MaxWalk :ProbNewEntities])
+      :NumberEntities :MaxWalk :ProbNewEntities :SensorSeesColor :GridWidth :GridHeight])
 
 (def tracking-problem
      (Problem. "Tracking"

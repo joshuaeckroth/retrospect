@@ -33,6 +33,7 @@
                            (= t :meta-bad) :meta-accepted-bad
                            (= t :meta-impossible) :meta-accepted-impossible
                            (= t :meta-impossible-lconf) :meta-accepted-impossible-lconf
+                           (= t :meta-batch) :meta-accepted-batch
                            :else :meta-accepted-none))
           est (:ep-state-tree (:data accepted-hyp))
           meta-hyps (filter #(and (not= :meta-accurate (:type %))
