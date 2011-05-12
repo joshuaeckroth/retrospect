@@ -147,9 +147,7 @@
         ;; stop the clock
         ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
         ors-resources (update-in ors-meta [:resources] assoc :milliseconds ms)
-        ors-results (if (or player? monitor? (:meta-abduction ors-resources))
-                      (evaluate problem truedata ors-expl ors-resources params)
-                      ors-resources)]
+        ors-results (evaluate problem truedata ors-expl ors-resources params)]
     (if (and (not player?) monitor?)
       ((:monitor-fn problem) problem truedata (:sensors ors-results)
        ors-results params)
@@ -161,8 +159,7 @@
     (when (nil? ors)
       (throw (ExecutionException. "Monitor took control." (Throwable.))))
     (if (>= (:time (:ep-state ors)) (:Steps params))
-      (if (:meta-abduction ors) (last (:results ors))
-          (last (:results (evaluate problem truedata ors ors params))))
+      (last (:results ors))
       (recur (run-simulation-step problem truedata ors params monitor? false)))))
 
 (defn run-comparative

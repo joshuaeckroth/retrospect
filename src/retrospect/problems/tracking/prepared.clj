@@ -125,7 +125,7 @@
         :truedata (build-truedata
                    params (entity-paths
                            ["1" red  0 18,15 15,4  10,1  5,1  3,1]
-                           ["2" blue 0 18,1  15,15 10,19 5,19 3,19]))}))
+                           ["2" blue 0 18,1  15,15 10,18 5,18 3,18]))}))
 
 (def intersection-ambiguity-many
      (let [params (merge basic-params {:Steps 10 :SensorSeesColor 80 :MaxWalk 15
