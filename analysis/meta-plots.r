@@ -1,7 +1,7 @@
 library(ggplot2)
 
-tango_axis_text <- theme_text(colour = "#000000", face="bold", size=14)
-tango_axis_text_vertical <- theme_text(colour = "#000000", face="bold", angle=90, size=14)
+tango_axis_text <- theme_text(colour = "#000000", face="bold", size=18)
+tango_axis_text_vertical <- theme_text(colour = "#000000", face="bold", angle=90, size=18)
 
 theme_update(panel.background = theme_rect(fill = "white"),
   panel.grid.major = theme_line(colour = "#ececec"),
