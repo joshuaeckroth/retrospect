@@ -20,7 +20,7 @@ avgpec <- avgpec + geom_hline(yintercept=0, size=2, colour="#a30000")
 avgpec <- avgpec + geom_jitter(colour="#bbbbbb", size=3)
 avgpec <- avgpec + geom_boxplot(outlier.colour="NA", fill="NA", size=1, colour="#000000")
 avgpec <- avgpec + scale_x_discrete("Number of entities")
-avgpec <- avgpec + scale_y_continuous("Average improvement in P.E.C.")
+avgpec <- avgpec + scale_y_continuous("Average difference in P.E.C.")
 
 ggsave("meta-avgpec-numes.pdf", plot = avgpec, dpi = 900, width = 10, height = 6)
 
@@ -31,7 +31,7 @@ avgmtl <- avgmtl + geom_hline(yintercept=0, size=2, colour="#a30000")
 avgmtl <- avgmtl + geom_jitter(colour="#bbbbbb", size=3)
 avgmtl <- avgmtl + geom_boxplot(outlier.colour="NA", fill="NA", size=1, colour="#000000")
 avgmtl <- avgmtl + scale_x_discrete("Number of entities")
-avgmtl <- avgmtl + scale_y_continuous("Average improvement in M.T.L.")
+avgmtl <- avgmtl + scale_y_continuous("Average difference in M.T.L.")
 
 ggsave("meta-avgmtl-numes.pdf", plot = avgmtl, dpi = 900, width = 10, height = 6)
 
@@ -42,7 +42,7 @@ avgmlc <- avgmlc + geom_hline(yintercept=0, size=2, colour="#a30000")
 avgmlc <- avgmlc + geom_jitter(colour="#bbbbbb", size=3)
 avgmlc <- avgmlc + geom_boxplot(outlier.colour="NA", fill="NA", size=1, colour="#000000")
 avgmlc <- avgmlc + scale_x_discrete("Number of entities")
-avgmlc <- avgmlc + scale_y_continuous("Average reduction in M.L.C.")
+avgmlc <- avgmlc + scale_y_continuous("Average difference in M.L.C.")
 
 ggsave("meta-avgmlc-numes.pdf", plot = avgmlc, dpi = 900, width = 10, height = 6)
 
@@ -63,7 +63,7 @@ cbpec <- ggplot(metaworked, aes(x=IncreaseExplainCycles, y=AverageMetaDiffPercen
 cbpec <- cbpec + geom_vline(xintercept=0, size=2, colour="#a30000")
 cbpec <- cbpec + geom_hline(yintercept=0, size=2, colour="#a30000")
 cbpec <- cbpec + geom_point(colour="#bbbbbb", size=3)
-cbpec <- cbpec + scale_y_continuous("Average improvement in P.E.C.")
+cbpec <- cbpec + scale_y_continuous("Average difference in P.E.C.")
 cbpec <- cbpec + scale_x_continuous("Percent increase in explain cycles",limits=c(0,800))
 
 ggsave("meta-cost-benefit-pec.pdf", plot = cbpec, dpi = 900, width = 10, height = 6)
@@ -75,7 +75,7 @@ cbmtl <- ggplot(metaworked, aes(x=IncreaseExplainCycles, y=AverageMetaDiffMeanTi
 cbmtl <- cbmtl + geom_vline(xintercept=0, size=2, colour="#a30000")
 cbmtl <- cbmtl + geom_hline(yintercept=0, size=2, colour="#a30000")
 cbmtl <- cbmtl + geom_point(colour="#bbbbbb", size=3)
-cbmtl <- cbmtl + scale_y_continuous("Average improvement in M.T.L.")
+cbmtl <- cbmtl + scale_y_continuous("Average difference in M.T.L.")
 cbmtl <- cbmtl + scale_x_continuous("Percent increase in explain cycles",limits=c(0,800))
 
 ggsave("meta-cost-benefit-mtl.pdf", plot = cbmtl, dpi = 900, width = 10, height = 6)
@@ -87,7 +87,7 @@ cbmlc <- ggplot(metaworked, aes(x=AverageMetaDiffMeanLabelCounts, y=IncreaseExpl
 cbmlc <- cbmlc + geom_vline(xintercept=0, size=2, colour="#a30000")
 cbmlc <- cbmlc + geom_hline(yintercept=0, size=2, colour="#a30000")
 cbmlc <- cbmlc + geom_point(colour="#bbbbbb", size=3)
-cbmlc <- cbmlc + scale_x_continuous("Average improvement in M.L.C.")
+cbmlc <- cbmlc + scale_x_continuous("Average difference in M.L.C.")
 cbmlc <- cbmlc + scale_y_continuous("Percent increase in explain cycles",limits=c(0,800))
 
 ggsave("meta-cost-benefit-mlc.pdf", plot = cbmlc, dpi = 900, width = 10, height = 6)
