@@ -17,7 +17,6 @@ meta <- read.csv("meta.csv")
 meta <- subset(meta, NumberEntities>4)
 
 pec <- ggplot(meta, aes(x=factor(NumberEntities), y=BasePercentEventsCorrect))
-pec <- pec + facet_grid(SensorSeesColor ~ .)
 pec <- pec + geom_jitter(colour="#bbbbbb")
 pec <- pec + geom_boxplot(outlier.colour="NA", fill="NA", size=1, colour="#000000")
 pec <- pec + scale_x_discrete("Number of entities")
@@ -28,7 +27,6 @@ ggsave("pec.pdf", plot = pec, dpi = 900, width = 10, height = 6)
 
 
 mtl <- ggplot(meta, aes(x=factor(NumberEntities), y=BaseMeanTimeWithLabel))
-mtl <- mtl + facet_grid(SensorSeesColor ~ .)
 mtl <- mtl + geom_jitter(colour="#bbbbbb")
 mtl <- mtl + geom_boxplot(outlier.colour="NA", fill="NA", size=1, colour="#000000")
 mtl <- mtl + scale_x_discrete("Number of entities")
@@ -38,7 +36,6 @@ mtl <- mtl + opts(strip.text.y = tango_axis_text_vertical_right, strip.text.x = 
 ggsave("mtl.pdf", plot = mtl, dpi = 900, width = 10, height = 6)
 
 mlc <- ggplot(meta, aes(x=factor(NumberEntities), y=BaseMeanLabelCounts))
-mlc <- mlc + facet_grid(SensorSeesColor ~ .)
 mlc <- mlc + geom_jitter(colour="#bbbbbb")
 mlc <- mlc + geom_boxplot(outlier.colour="NA", fill="NA", size=1, colour="#000000")
 mlc <- mlc + scale_x_discrete("Number of entities")

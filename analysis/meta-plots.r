@@ -59,24 +59,24 @@ ggsave("meta-ec-numes.pdf", plot = ec, dpi = 900, width = 10, height = 6)
 
 
 
-cbpec <- ggplot(metaworked, aes(x=AverageMetaDiffPercentEventsCorrect, y=IncreaseExplainCycles))
+cbpec <- ggplot(metaworked, aes(x=IncreaseExplainCycles, y=AverageMetaDiffPercentEventsCorrect))
 cbpec <- cbpec + geom_vline(xintercept=0, size=2, colour="#a30000")
 cbpec <- cbpec + geom_hline(yintercept=0, size=2, colour="#a30000")
 cbpec <- cbpec + geom_point(colour="#bbbbbb", size=3)
-cbpec <- cbpec + scale_x_continuous("Average improvement in P.E.C.")
-cbpec <- cbpec + scale_y_continuous("Percent increase in explain cycles",limits=c(0,800))
+cbpec <- cbpec + scale_y_continuous("Average improvement in P.E.C.")
+cbpec <- cbpec + scale_x_continuous("Percent increase in explain cycles",limits=c(0,800))
 
 ggsave("meta-cost-benefit-pec.pdf", plot = cbpec, dpi = 900, width = 10, height = 6)
 
 
 
 
-cbmtl <- ggplot(metaworked, aes(x=AverageMetaDiffMeanTimeWithLabel, y=IncreaseExplainCycles))
+cbmtl <- ggplot(metaworked, aes(x=IncreaseExplainCycles, y=AverageMetaDiffMeanTimeWithLabel))
 cbmtl <- cbmtl + geom_vline(xintercept=0, size=2, colour="#a30000")
 cbmtl <- cbmtl + geom_hline(yintercept=0, size=2, colour="#a30000")
 cbmtl <- cbmtl + geom_point(colour="#bbbbbb", size=3)
-cbmtl <- cbmtl + scale_x_continuous("Average improvement in M.T.L.")
-cbmtl <- cbmtl + scale_y_continuous("Percent increase in explain cycles",limits=c(0,800))
+cbmtl <- cbmtl + scale_y_continuous("Average improvement in M.T.L.")
+cbmtl <- cbmtl + scale_x_continuous("Percent increase in explain cycles",limits=c(0,800))
 
 ggsave("meta-cost-benefit-mtl.pdf", plot = cbmtl, dpi = 900, width = 10, height = 6)
 
