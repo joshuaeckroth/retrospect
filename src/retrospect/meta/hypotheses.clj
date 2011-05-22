@@ -151,7 +151,7 @@
                 ep-state-hyp problem ep-state-tree sensors params lazy))
         ;; use (butlast) here because we don't want to branch
         ;; the empty child ep-state from the non-meta reasoning cycle
-        potential-branches (reverse (butlast (flatten-ep-state-tree ep-state-tree)))]
+        potential-branches (take 10 (reverse (butlast (flatten-ep-state-tree ep-state-tree))))]
     (loop [ws2 ws
            states potential-branches]
       (if (or (empty? states) (have-enough-meta-hyps ws2)) ws2
