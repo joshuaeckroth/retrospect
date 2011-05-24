@@ -109,7 +109,8 @@
 
 (defn get-path-heads
   [paths]
-  (map (fn [l] (assoc (last (paths l)) :color (:color (meta l)))) (keys paths)))
+  (map (fn [l] (assoc (last (paths l)) :color (:color (meta l))))
+       (filter #(not (:dead (meta %))) (keys paths))))
 
 (defn score-distance
   "Returns nil if movement is impossible."
