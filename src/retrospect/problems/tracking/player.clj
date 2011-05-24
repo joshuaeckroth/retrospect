@@ -225,15 +225,15 @@
       (. percent-events-correct-label
          (setText
           (format "%.2f%%"
-                  (:PercentEventsCorrect (get (:results @or-state) t)))))
+                  (:PEC (get (:results @or-state) t)))))
       (. mean-time-with-label-label
          (setText
           (format "%.2f"
-                  (:MeanTimeWithLabel (get (:results @or-state) t)))))
+                  (:MTL (get (:results @or-state) t)))))
       (. mean-label-counts-label
          (setText
           (format "%.2f"
-                  (:MeanLabelCounts (get (:results @or-state) t))))))
+                  (:MLC (get (:results @or-state) t))))))
     (do
       (. percent-events-correct-label (setText "N/A"))
       (. mean-time-with-label-label (setText "N/A"))

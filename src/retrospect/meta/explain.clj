@@ -16,6 +16,9 @@
                          [:workspace :resources] assoc :explain-cycles
                          (reduce + expl-cyc-prior meta-expl-cycs)))))
 
+(def meta-types
+     [:MetaBad :MetaImpossible :MetaImpossibleLconf :MetaBatch :MetaNone])
+
 (defn explain-meta
   [problem or-state bad params]
   (binding [meta? true]
@@ -28,28 +31,21 @@
                         (explain (constantly []) nil))
           ;; we only expect one accepted meta hyp
           accepted-hyp (first (:accepted workspace))
-          accepted-type (let [t (:type accepted-hyp)]
-                          (cond
-                           (= t :meta-bad) :meta-accepted-bad
-                           (= t :meta-impossible) :meta-accepted-impossible
-                           (= t :meta-impossible-lconf) :meta-accepted-impossible-lconf
-                           (= t :meta-batch) :meta-accepted-batch
-                           :else :meta-accepted-none))
           est (:ep-state-tree (:data accepted-hyp))
-          meta-hyps (filter #(and (not= :meta-accurate (:type %))
-                                  (not= :meta-ep (:type %)))
+          meta-hyps (filter #(and (not= :MetaNone (:type %))
+                                  (not= :MetaEP (:type %)))
                             (get-hyps workspace))
-          ors-meta (-> or-state
-                       (update-in [:resources accepted-type] inc)
-                       (assoc-in [:meta-workspaces (:id prev-ep)] workspace))]
-      (if (or (= :meta-accurate (:type accepted-hyp))
+          ors-meta (assoc-in or-state [:meta-workspaces (:id prev-ep)] workspace)]
+      (if (or (= :MetaNone (:type accepted-hyp))
               ;; don't branch if accepted hyp is not any more confident
               (= (hyp-conf workspace accepted-hyp)
-                 (hyp-conf workspace (find-first #(= :meta-accurate (:type %))
+                 (hyp-conf workspace (find-first #(= :MetaNone (:type %))
                                                  (get-hyps workspace)))))
-        (update-explain-cycles ors-meta prev-ep meta-hyps)
-        (update-explain-cycles
-         (-> ors-meta
-             (update-in [:resources :meta-abductions] inc)
-             (assoc :ep-state-tree est :ep-state (current-ep-state est)))
-         prev-ep meta-hyps)))))
+        [(update-explain-cycles ors-meta prev-ep meta-hyps) :MetaNone 0]
+        [(update-explain-cycles
+          (-> ors-meta
+              (update-in [:resources :meta-abductions] inc)
+              (update-in [:resources (:type accepted-hyp)] inc)
+              (assoc :ep-state-tree est :ep-state (current-ep-state est)))
+          prev-ep meta-hyps)
+         (:type accepted-hyp) (:diff-time (:data accepted-hyp))]))))

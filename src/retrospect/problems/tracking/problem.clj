@@ -34,31 +34,25 @@
    :sensor-overlap 0.0})
 
 (def headers
-     [:AverageMetaDiffPercentEventsCorrect 
-      :AverageMetaDiffMeanTimeWithLabel 
-      :AverageMetaDiffMeanLabelCounts 
-      :PercentEventsCorrect :CountRemoved :CountRemovedPercent
+     [:PEC :CountRemoved :CountRemovedPercent
       :PlausibilityWorkspaceAccuracy
-      :MeanTimeWithLabel :MaxTimeWithLabel :MinTimeWithLabel
-      :MeanCountAlternatives :MeanLabelCounts :DistinctLabels :PlausibilityAccuracy
+      :MTL :MeanCountAlternatives :MLC :DistinctLabels :PlausibilityAccuracy
       :SensorOverlap :EntityDensity :NumberEntities :MaxWalk :ProbNewEntities
       :GridWidth :GridHeight :SensorCoverage :SensorSeesColor
       :PlausibilityVIEvents :PlausibilityIEvents :PlausibilityNEvents
       :PlausibilityPEvents :PlausibilityVPEvents])
 
+(def meta-headers
+     [:AvgMetaDiffPEC 
+      :AvgMetaDiffMTL 
+      :AvgMetaDiffMLC])
+
 (def comparative-headers
-     [:AverageMetaDiffPercentEventsCorrect 
-      :AverageMetaDiffMeanTimeWithLabel 
-      :AverageMetaDiffMeanLabelCounts 
-      :MetaPercentEventsCorrect :BasePercentEventsCorrect :RatioPercentEventsCorrect
-      :IncreasePercentEventsCorrect :MetaMeanTimeWithLabel :BaseMeanTimeWithLabel
-      :RatioMeanTimeWithLabel :IncreaseMeanTimeWithLabel
-      :MetaMaxTimeWithLabel :BaseMaxTimeWithLabel :RatioMaxTimeWithLabel
-      :IncreaseMaxTimeWithLabel
-      :MetaMinTimeWithLabel :BaseMinTimeWithLabel :RatioMinTimeWithLabel
-      :IncreaseMinTimeWithLabel
-      :MetaMeanLabelCounts :BaseMeanLabelCounts :RatioMeanLabelCounts
-      :IncreaseMeanLabelCounts
+     [:MetaPEC :BasePEC :RatioPEC
+      :IncreasePEC :MetaMTL :BaseMTL
+      :RatioMTL :IncreaseMTL
+      :MetaMLC :BaseMLC :RatioMLC
+      :IncreaseMLC
       :MetaDistinctLabels :BaseDistinctLabels :RatioDistinctLabels
       :IncreaseDistinctLabels
       :MetaPlausibilityAccuracy :BasePlausibilityAccuracy :RatioPlausibilityAccuracy
@@ -70,6 +64,7 @@
 (def tracking-problem
      (Problem. "Tracking"
                headers
+               meta-headers
                comparative-headers
                monitor
                {:get-params-fn player-get-params

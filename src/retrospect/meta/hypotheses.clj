@@ -86,7 +86,9 @@
                           (format "Marked impossible: %s"
                                   (if lconf (:id lconf)
                                       (apply str (interpose ", " (map :id rejected-hyps)))))
-                          {:ep-state-tree est-caught-up :explain-cycles ec}))]
+                          {:ep-state-tree est-caught-up :explain-cycles ec
+                           :diff-time (dec (- (:time (current-ep-state ep-state-tree))
+                                              (:time ep-state)))}))]
     (ws/add workspace hyp [ep-state-hyp] :static)))
 
 (defn add-mark-impossible-hyp
@@ -97,7 +99,7 @@
         (add-branch-hyp
          workspace ep-state-hyp ep-state rejectors problem ep-state-tree
          sensors params lazy (format "H:R:%s:*" (:id ep-state))
-         :meta-impossible false))))
+         :MetaImpossible false))))
 
 (defn add-mark-all-bad-hyp
   [workspace ep-state-hyp problem ep-state-tree sensors bad params lazy]
@@ -105,7 +107,7 @@
       (let [ep-state (previous-ep-state ep-state-tree)]
         (add-branch-hyp
          workspace ep-state-hyp ep-state bad problem ep-state-tree
-         sensors params lazy (format "H:B:%s" (:id ep-state)) :meta-bad false))))
+         sensors params lazy (format "H:B:%s" (:id ep-state)) :MetaBad false))))
 
 (defn add-mark-impossible-hyp-least-conf
   [workspace ep-state-hyp problem ep-state-tree branchable sensors params lazy]
@@ -115,7 +117,7 @@
         (add-branch-hyp
          workspace ep-state-hyp branchable hyps problem ep-state-tree
          sensors params lazy (format "H:LC:%s:L" (:id branchable))
-         :meta-impossible-lconf true))))
+         :MetaImpossibleLconf true))))
 
 (defn add-batch-from-beginning
   [workspace ep-state-hyp problem ep-state-tree sensors params lazy]
@@ -123,17 +125,17 @@
    workspace ep-state-hyp
    (current-ep-state (goto-ep-state ep-state-tree "A"))
    [] problem ep-state-tree sensors params lazy (format "H:Batch")
-   :meta-batch false))
+   :MetaBatch false))
 
 (defn add-accurate-decision-hyp
   [workspace ep-state-hyp]
   (let [apriori (penalize (ws/get-conf (:workspace (:ep-state (:data ep-state-hyp)))))
-        hyp (ws/new-hyp "HA" :meta-accurate :meta apriori "Decision is accurate" nil)]
+        hyp (ws/new-hyp "HN" :MetaNone :meta apriori "Decision is accurate" {:diff-time 0})]
     (ws/add workspace hyp [ep-state-hyp] :static)))
 
 (defn generate-ep-state-hyp
   [ep-state]
-  (ws/new-hyp "HEP" :meta-ep nil NEUTRAL "ep-state hyp" {:ep-state ep-state}))
+  (ws/new-hyp "HEP" :MetaEP nil NEUTRAL "ep-state hyp" {:ep-state ep-state}))
 
 (defn generate-meta-hypotheses
   [workspace problem ep-state-tree sensors bad params lazy]

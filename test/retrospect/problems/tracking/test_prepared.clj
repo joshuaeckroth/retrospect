@@ -31,7 +31,7 @@
       (loop [ors or-state]
         (if (>= (:time (:ep-state ors)) (:Steps params))
           ;; FIX THIS
-          (evaluate tracking-problem truedata ors ors params)
+          (evaluate tracking-problem truedata ors ors :MetaNone 0 params)
           (recur
            (run-simulation-step tracking-problem truedata ors params false true)))))))
 
@@ -54,9 +54,9 @@
       results (last (:results or-state))]
   (facts
    "Color update"
-   (:PercentEventsCorrect results) => (roughly 100.0)
-   (:MeanTimeWithLabel results) => (roughly 3.0)
-   (:MeanLabelCounts results) => (roughly 1.0)
+   (:PEC results) => (roughly 100.0)
+   (:MTL results) => (roughly 3.0)
+   (:MLC results) => (roughly 1.0)
    (paths-str (:paths (:problem-data (:ep-state or-state))))
    => "A (red): 9,5@0 -> 5,5@1 -> 2,5@2\n"))
 
@@ -64,35 +64,35 @@
       results (last (:results or-state))]
   (facts
    "Color update 2"
-   (:PercentEventsCorrect results) => (roughly 100.0)
-   (:MeanTimeWithLabel results) => (roughly 3.0)
-   (:MeanLabelCounts results) => (roughly 1.0)
+   (:PEC results) => (roughly 100.0)
+   (:MTL results) => (roughly 3.0)
+   (:MLC results) => (roughly 1.0)
    (paths-str (:paths (:problem-data (:ep-state or-state))))
    => "A (red): 9,5@0 -> 5,5@1 -> 2,5@2\n"))
 
 (let [results (run-for-results gray-in-range)]
   (facts "Grays did not cause a problem"
-         (:PercentEventsCorrect results) => (roughly 100.0)
-         (:MeanTimeWithLabel results) => (roughly 3.0)
-         (:MeanLabelCounts results) => (roughly 1.0)))
+         (:PEC results) => (roughly 100.0)
+         (:MTL results) => (roughly 3.0)
+         (:MLC results) => (roughly 1.0)))
 
 ;; intersections
 (let [results (run-for-results intersection-ambiguity)]
   (facts
    "Intersection ambiguity (with meta)"
-   (:PercentEventsCorrect results) => (roughly 100.0)
+   (:PEC results) => (roughly 100.0)
    (:MetaAbductions results) => 1
-   (:MeanTimeWithLabel results) => (roughly 4.0)
-   (:MeanLabelCounts results) => (roughly 1.0)))
+   (:MTL results) => (roughly 4.0)
+   (:MLC results) => (roughly 1.0)))
 
 (let [or-state (run-for-or-state intersection-ambiguity-nometa)
       results (last (:results or-state))]
   (facts
    "Intersection ambiguity (no meta)"
-   (:PercentEventsCorrect results) => (roughly 33.3 0.1)
+   (:PEC results) => (roughly 33.3 0.1)
    (:MetaAbductions results) => 0
-   (:MeanTimeWithLabel results) => (roughly 1.3 0.1)
-   (:MeanLabelCounts results) => (roughly 3.0)
+   (:MTL results) => (roughly 1.3 0.1)
+   (:MLC results) => (roughly 3.0)
    (paths-str (:paths (:problem-data (:ep-state or-state))))
    => (newlines "A (blue): 5,4@0 -> 4,4@1"
                 "B (red): 5,7@0 -> 4,7@1"
@@ -102,19 +102,19 @@
 (let [results (run-for-results intersection-ambiguity-nometa-allatonce)]
   (facts
    "Intersection ambiguity (no meta, all at once)"
-   (:PercentEventsCorrect results) => (roughly 100.0)
+   (:PEC results) => (roughly 100.0)
    (:MetaAbductions results) => 0
-   (:MeanTimeWithLabel results) => (roughly 4.0)
-   (:MeanLabelCounts results) => (roughly 1.0)))
+   (:MTL results) => (roughly 4.0)
+   (:MLC results) => (roughly 1.0)))
 
 ;; splits
 (let [or-state (run-for-or-state split-ambiguity)
       results (last (:results or-state))]
   (facts
    "Split ambiguity"
-   (:PercentEventsCorrect results) => (roughly 100.0)
-   (:MeanTimeWithLabel results) => (roughly 2.0)
-   (:MeanLabelCounts results) => (roughly 2.0)
+   (:PEC results) => (roughly 100.0)
+   (:MTL results) => (roughly 2.0)
+   (:MLC results) => (roughly 2.0)
    (paths-str (:paths (:problem-data (:ep-state or-state))))
    => (newlines "A* (red): 4,0@0 -> 4,2@1"
                 "B (red): 4,2@1 -> 2,4@2 -> 2,6@3"
@@ -124,9 +124,9 @@
       results (last (:results or-state))]
   (facts
    "Split ambiguity 2"
-   (:PercentEventsCorrect results) => (roughly 100.0)
-   (:MeanTimeWithLabel results) => (roughly 2.0)
-   (:MeanLabelCounts results) => (roughly 2.0)
+   (:PEC results) => (roughly 100.0)
+   (:MTL results) => (roughly 2.0)
+   (:MLC results) => (roughly 2.0)
    (paths-str (:paths (:problem-data (:ep-state or-state))))
    => (newlines "A* (blue): 6,0@0 -> 6,1@1"
                 "B* (red): 1,0@0 -> 1,1@1"
@@ -140,9 +140,9 @@
       results (last (:results or-state))]
   (facts
    "Merge ambiguity"
-   (:PercentEventsCorrect results) => (roughly 100.0)
-   (:MeanTimeWithLabel results) => (roughly 1.66 0.1)
-   (:MeanLabelCounts results) => (roughly 2.5)
+   (:PEC results) => (roughly 100.0)
+   (:MTL results) => (roughly 1.66 0.1)
+   (:MLC results) => (roughly 2.5)
    (paths-str (:paths (:problem-data (:ep-state or-state))))
    => (newlines "A* (red): 6,0@0 -> 6,2@1 -> 5,4@2"
                 "B* (red): 4,0@0 -> 4,2@1 -> 5,4@2"
@@ -152,9 +152,9 @@
       results (last (:results or-state))]
   (facts
    "Merge ambiguity 2"
-   (:PercentEventsCorrect results) => (roughly 100.0)
-   (:MeanTimeWithLabel results) => (roughly 1.66 0.1)
-   (:MeanLabelCounts results) => (roughly 2.5)
+   (:PEC results) => (roughly 100.0)
+   (:MTL results) => (roughly 1.66 0.1)
+   (:MLC results) => (roughly 2.5)
    (paths-str (:paths (:problem-data (:ep-state or-state))))
    => (newlines "A* (blue): 9,0@0 -> 9,2@1 -> 8,4@2"
                 "B* (red): 0,0@0 -> 0,2@1 -> 1,4@2"
@@ -168,9 +168,9 @@
       results (last (:results or-state))]
   (facts
    "Split + merge"
-   (:PercentEventsCorrect results) => (roughly 100.0)
-   (:MeanTimeWithLabel results) => (roughly 1.75)
-   (:MeanLabelCounts results) => (roughly 3.50)
+   (:PEC results) => (roughly 100.0)
+   (:MTL results) => (roughly 1.75)
+   (:MLC results) => (roughly 3.50)
    (paths-str (:paths (:problem-data (:ep-state or-state))))
    => (newlines "A* (red): 5,0@0 -> 5,1@1"
                 "B* (red): 5,1@1 -> 3,3@2 -> 3,4@3 -> 5,5@4"
@@ -181,9 +181,9 @@
       results (last (:results or-state))]
   (facts
    "Split + merge (all at once)"
-   (:PercentEventsCorrect results) => (roughly 100.0)
-   (:MeanTimeWithLabel results) => (roughly 1.75)
-   (:MeanLabelCounts results) => (roughly 3.5)
+   (:PEC results) => (roughly 100.0)
+   (:MTL results) => (roughly 1.75)
+   (:MLC results) => (roughly 3.5)
    (paths-str (:paths (:problem-data (:ep-state or-state))))
    => (newlines "A* (red): 5,0@0 -> 5,1@1"
                 "B* (red): 5,1@1 -> 3,3@2 -> 3,4@3 -> 5,5@4"
@@ -192,18 +192,18 @@
 
 (let [results (run-for-results split-merge-twocolor)]
   (facts
-   (:PercentEventsCorrect results) =not=> (roughly 100.0 0.1)))
+   (:PEC results) =not=> (roughly 100.0 0.1)))
 
 (let [results (run-for-results split-merge-twocolor-aao)]
   (facts
-   (:PercentEventsCorrect results) => (roughly 100.0 0.1)))
+   (:PEC results) => (roughly 100.0 0.1)))
 
 (let [or-state (run-for-or-state split-merge-gray)
       results (last (:results or-state))]
   (facts "Split-merge-gray"
-         (:PercentEventsCorrect results) => (roughly 100.0)
-         (:MeanTimeWithLabel results) => (roughly 2.17 0.1)
-         (:MeanLabelCounts results) => (roughly 3.0)
+         (:PEC results) => (roughly 100.0)
+         (:MTL results) => (roughly 2.17 0.1)
+         (:MLC results) => (roughly 3.0)
          (paths-str (:paths (:problem-data (:ep-state or-state))))
          => (newlines "A* (red): 3,0@0 -> 3,3@1 -> 5,4@2"
                       "B* (red): 7,0@0 -> 7,3@1 -> 5,4@2"
@@ -216,9 +216,9 @@
 (let [or-state (run-for-or-state split-non-ambiguity)
       results (last (:results or-state))]
   (facts "Non-split"
-   (:PercentEventsCorrect results) => (roughly 100.0)
-   (:MeanTimeWithLabel results) => (roughly 4.00)
-   (:MeanLabelCounts results) => (roughly 1.00)
+   (:PEC results) => (roughly 100.0)
+   (:MTL results) => (roughly 4.00)
+   (:MLC results) => (roughly 1.00)
    (paths-str (:paths (:problem-data (:ep-state or-state))))
    => (newlines "A (blue): 4,3@0 -> 4,4@1 -> 3,5@2 -> 3,6@3"
                 "B (red): 4,3@0 -> 4,4@1 -> 5,5@2 -> 5,6@3")))

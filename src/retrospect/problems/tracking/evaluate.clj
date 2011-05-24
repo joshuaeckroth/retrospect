@@ -117,7 +117,7 @@
         true-moves (true-movements truedata maxtime)
         pec (percent-events-correct (:problem-data ep-state) true-moves)
         log (:log (:workspace prev-ep))]
-    {:PercentEventsCorrect pec
+    {:PEC pec
      :CountRemoved
      (if (< 0 (count results))
        (+ (:CountRemoved (last results))
@@ -135,11 +135,9 @@
      (avg-with-prior results :PlausibilityWorkspaceAccuracy
        (math/abs (- (prob-conf pec)
                     (get-conf (:workspace prev-ep)))))
-     :MeanTimeWithLabel (avg (map #(avg (twl %)) (keys twl)))
-     :MaxTimeWithLabel (avg (map #(apply max (twl %)) (keys twl)))
-     :MinTimeWithLabel (avg (map #(apply min (twl %)) (keys twl)))
+     :MTL (avg (map #(avg (twl %)) (keys twl)))
      :MeanCountAlternatives (mean-count-alts (:workspace ep-state) :sensor)
-     :MeanLabelCounts (double (/ (reduce + 0 (map #(count (set (elmap %)))
+     :MLC (double (/ (reduce + 0 (map #(count (set (elmap %)))
                                                   (keys elmap)))
                                  (count (keys elmap))))
      :DistinctLabels (count (keys (:paths (:problem-data ep-state))))
@@ -170,7 +168,7 @@
       (double (/ (k m) (k b)))))
 
 (defn evaluate-meta
-  [ep-state meta-ep-state results truedata params]
+  [ep-state meta-ep-state meta-accepted-type results truedata params]
   (let [maxtime (min (dec (dec (count truedata))) (dec (dec (:time ep-state))))
         true-moves (true-movements truedata maxtime)
         ;; map of labels per true entity
@@ -183,15 +181,15 @@
              (:problem-data ep-state) true-moves)
         pec-meta (percent-events-correct
                   (:problem-data meta-ep-state) true-moves)]
-    {:AverageMetaDiffPercentEventsCorrect
-     (avg-with-prior results :AverageMetaDiffPercentEventsCorrect
+    {:AvgMetaDiffPEC
+     (avg-with-prior results (keyword (format "%s%s" (name meta-accepted-type) "AvgMetaDiffPEC"))
        (- pec-meta pec))
-     :AverageMetaDiffMeanTimeWithLabel
-     (avg-with-prior results :AverageMetaDiffMeanTimeWithLabel
+     :AvgMetaDiffMTL
+     (avg-with-prior results (keyword (format "%s%s" (name meta-accepted-type) "AvgMetaDiffMTL"))
        (- (avg (map #(avg (twl-meta %)) (keys twl-meta)))
           (avg (map #(avg (twl %)) (keys twl)))))
-     :AverageMetaDiffMeanLabelCounts
-     (avg-with-prior results :AverageMetaDiffMeanLabelCounts
+     :AvgMetaDiffMLC
+     (avg-with-prior results (keyword (format "%s%s" (name meta-accepted-type) "AvgMetaDiffMLC"))
        (- (double (/ (reduce + 0 (map #(count (set (elmap-meta %)))
                                       (keys elmap-meta)))
                      (count (keys elmap-meta))))
@@ -201,34 +199,20 @@
 
 (defn evaluate-comparative
   [params [m b]]
-  {:AverageMetaDiffPercentEventsCorrect (:AverageMetaDiffPercentEventsCorrect m)
-   :AverageMetaDiffMeanTimeWithLabel (:AverageMetaDiffMeanTimeWithLabel m)
-   :AverageMetaDiffMeanLabelCounts (:AverageMetaDiffMeanLabelCounts m)
+  {:MetaPEC (:PEC m)
+   :BasePEC (:PEC b)
+   :RatioPEC (calc-ratio :PEC m b)
+   :IncreasePEC (calc-percent-increase :PEC m b)
 
-   :MetaPercentEventsCorrect (:PercentEventsCorrect m)
-   :BasePercentEventsCorrect (:PercentEventsCorrect b)
-   :RatioPercentEventsCorrect (calc-ratio :PercentEventsCorrect m b)
-   :IncreasePercentEventsCorrect (calc-percent-increase :PercentEventsCorrect m b)
-
-   :MetaMeanTimeWithLabel (:MeanTimeWithLabel m)
-   :BaseMeanTimeWithLabel (:MeanTimeWithLabel b)
-   :RatioMeanTimeWithLabel (calc-ratio :MeanTimeWithLabel m b)
-   :IncreaseMeanTimeWithLabel (calc-percent-increase :MeanTimeWithLabel m b)
+   :MetaMTL (:MTL m)
+   :BaseMTL (:MTL b)
+   :RatioMTL (calc-ratio :MTL m b)
+   :IncreaseMTL (calc-percent-increase :MTL m b)
    
-   :MetaMaxTimeWithLabel (:MaxTimeWithLabel m)
-   :BaseMaxTimeWithLabel (:MaxTimeWithLabel b)
-   :RatioMaxTimeWithLabel (calc-ratio :MaxTimeWithLabel m b)
-   :IncreaseMaxTimeWithLabel (calc-percent-increase :MaxTimeWithLabel m b)
-
-   :MetaMinTimeWithLabel (:MinTimeWithLabel m)
-   :BaseMinTimeWithLabel (:MinTimeWithLabel b)
-   :RatioMinTimeWithLabel (calc-ratio :MinTimeWithLabel m b)
-   :IncreaseMinTimeWithLabel (calc-percent-increase :MinTimeWithLabel m b)
-
-   :MetaMeanLabelCounts (:MeanLabelCounts m)
-   :BaseMeanLabelCounts (:MeanLabelCounts b)
-   :RatioMeanLabelCounts (calc-ratio :MeanLabelCounts m b)
-   :IncreaseMeanLabelCounts (calc-percent-increase :MeanLabelCounts m b)
+   :MetaMLC (:MLC m)
+   :BaseMLC (:MLC b)
+   :RatioMLC (calc-ratio :MLC m b)
+   :IncreaseMLC (calc-percent-increase :MLC m b)
 
    :MetaDistinctLabels (:DistinctLabels m)
    :BaseDistinctLabels (:DistinctLabels b)

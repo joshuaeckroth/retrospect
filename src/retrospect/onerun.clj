@@ -11,9 +11,8 @@
     {:meta-abduction meta-abduction :lazy lazy
      :meta-workspaces {}
      :resources {:meta-abductions 0 :compute 0 :milliseconds 0 :memory 0
-                 :meta-accepted-bad 0 :meta-accepted-impossible 0
-                 :meta-accepted-batch 0
-                 :meta-accepted-impossible-lconf 0 :meta-accepted-none 0}
+                 :MetaBad 0 :MetaImpossible 0
+                 :MetaBatch 0 :MetaImpossibleLconf :MetaNone}
      :results [] :sensors sensors
      :seed seed
      :ep-state-tree ep-state-tree
