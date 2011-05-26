@@ -12,7 +12,7 @@
      :meta-workspaces {}
      :resources {:meta-abductions 0 :compute 0 :milliseconds 0 :memory 0
                  :MetaBad 0 :MetaImpossible 0
-                 :MetaBatch 0 :MetaImpossibleLconf :MetaNone}
+                 :MetaBatch 0 :MetaImpossibleLconf 0 :MetaNone 0}
      :results [] :sensors sensors
      :seed seed
      :ep-state-tree ep-state-tree

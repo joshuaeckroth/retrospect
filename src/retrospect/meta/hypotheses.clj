@@ -123,7 +123,7 @@
   [workspace ep-state-hyp problem ep-state-tree sensors params lazy]
   (add-branch-hyp
    workspace ep-state-hyp
-   (current-ep-state (goto-ep-state ep-state-tree "A"))
+   (last (take 10 (reverse (butlast (flatten-ep-state-tree ep-state-tree)))))
    [] problem ep-state-tree sensors params lazy (format "H:Batch")
    :MetaBatch false))
 
@@ -152,8 +152,8 @@
                (add-batch-from-beginning
                 ep-state-hyp problem ep-state-tree sensors params lazy))
         ;; use (butlast) here because we don't want to branch
-        ;; the empty child ep-state from the non-meta reasoning cycle
-        potential-branches (take 10 (reverse (butlast (flatten-ep-state-tree ep-state-tree))))]
+        ;; the empty child ep-state "X n ?" from the non-meta reasoning cycle
+        potential-branches [] #_(take 10 (reverse (butlast (flatten-ep-state-tree ep-state-tree))))]
     (loop [ws2 ws
            states potential-branches]
       (if (or (empty? states) (have-enough-meta-hyps ws2)) ws2
