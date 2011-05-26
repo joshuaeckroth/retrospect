@@ -136,6 +136,12 @@
                 "F (blue): 6,1@1 -> 7,2@2 -> 7,3@3")))
 
 ;; merges
+(let [or-state (run-for-or-state merge0)
+      results (last (:results or-state))]
+  (facts
+   "Merge at time 0"
+   (:Unexplained results) => 0))
+
 (let [or-state (run-for-or-state merge-ambiguity)
       results (last (:results or-state))]
   (facts

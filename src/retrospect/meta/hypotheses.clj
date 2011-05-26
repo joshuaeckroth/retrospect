@@ -119,12 +119,11 @@
          sensors params lazy (format "H:LC:%s:L" (:id branchable))
          :MetaImpossibleLconf true))))
 
-(defn add-batch-from-beginning
-  [workspace ep-state-hyp problem ep-state-tree sensors params lazy]
+(defn add-batch-hyp
+  [workspace ep-state-hyp problem ep-state-tree sensors branchable params lazy]
   (add-branch-hyp
-   workspace ep-state-hyp
-   (last (take 10 (reverse (butlast (flatten-ep-state-tree ep-state-tree)))))
-   [] problem ep-state-tree sensors params lazy (format "H:Batch")
+   workspace ep-state-hyp branchable
+   [] problem ep-state-tree sensors params lazy (format "H:%s:Batch" (:id branchable))
    :MetaBatch false))
 
 (defn add-accurate-decision-hyp
@@ -148,15 +147,13 @@
                (add-mark-impossible-hyp
                 ep-state-hyp problem ep-state-tree sensors params lazy)
                (add-mark-all-bad-hyp
-                ep-state-hyp problem ep-state-tree sensors bad params lazy)
-               (add-batch-from-beginning
-                ep-state-hyp problem ep-state-tree sensors params lazy))
+                ep-state-hyp problem ep-state-tree sensors bad params lazy))
         ;; use (butlast) here because we don't want to branch
         ;; the empty child ep-state "X n ?" from the non-meta reasoning cycle
-        potential-branches [] #_(take 10 (reverse (butlast (flatten-ep-state-tree ep-state-tree))))]
+        potential-branches (take 10 (reverse (butlast (flatten-ep-state-tree ep-state-tree))))]
     (loop [ws2 ws
            states potential-branches]
       (if (or (empty? states) (have-enough-meta-hyps ws2)) ws2
-          (recur (add-mark-impossible-hyp-least-conf
-                  ws2 ep-state-hyp problem ep-state-tree (first states) sensors params lazy)
+          (recur (add-batch-hyp ws2 ep-state-hyp problem ep-state-tree sensors
+                                (first states) params lazy)
                  (rest states))))))

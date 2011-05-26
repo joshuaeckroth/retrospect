@@ -548,12 +548,24 @@
                         "Merging %s with labels %s" (move-str move)
                         (apply str (interpose "," (map str before-labels)))))
         :bad bad}
-       ;; no label found, so make new (dead) label to participate in the merge
+       ;; no label found, so make new (dead) label to participate in the merge;
+       ;; and if there is no alive new merge label, make that too
        (let [label (new-label (keys paths) move)
-             dead-label (with-meta label (merge (meta label) {:dead true}))]
-         {:paths (assoc paths dead-label move)
-          :log (conj log (format "%s is a merge, new (dead) label %s"
-                                 (move-str move) dead-label))
+             dead-label (with-meta label (merge (meta label) {:dead true}))
+             merge-label (find-first (fn [l] (let [head (last (l paths))]
+                                               (and (dets-pos-match? (second move) head)
+                                                    (match-color? (:color (second move))
+                                                                  (:color head)))))
+                                     (filter (comp not :dead meta) (keys paths)))
+             ps-dead (assoc paths dead-label move)
+             new-merge-label (new-label (keys ps-dead) move)
+             ps (if merge-label ps-dead
+                    (assoc ps-dead new-merge-label [(second move)]))]
+         {:paths ps
+          :log (conj log (format "%s is a merge, new (dead) label %s%s"
+                                 (move-str move) dead-label
+                                 (if merge-label ""
+                                   (format " and new merge label %s" new-merge-label))))
           :bad bad}))
      ;; this movement's second det is not gray (because if it was,
      ;; basically anything's possible because nothing can be said),

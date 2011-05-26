@@ -132,9 +132,10 @@
              (double (/ (:count-removed (:problem-data ep-state))
                         tracking-hyps)))))
      :PlausibilityWorkspaceAccuracy
-     (avg-with-prior results :PlausibilityWorkspaceAccuracy
-       (math/abs (- (prob-conf pec)
-                    (get-conf (:workspace prev-ep)))))
+     (if (= "A" (:id prev-ep)) 0
+         (avg-with-prior results :PlausibilityWorkspaceAccuracy
+           (math/abs (- (prob-conf pec)
+                        (get-conf (:workspace prev-ep))))))
      :MTL (avg (map #(avg (twl %)) (keys twl)))
      :MeanCountAlternatives (mean-count-alts (:workspace ep-state) :sensor)
      :MLC (double (/ (reduce + 0 (map #(count (set (elmap %)))

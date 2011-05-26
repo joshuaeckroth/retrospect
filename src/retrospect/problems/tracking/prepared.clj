@@ -166,6 +166,22 @@
                                         ["3" blue 0 6,0 6,1 5,2 5,3]
                                         ["4" blue 0 6,0 6,1 7,2 7,3]))}))
 
+(def split0
+     (let [params (merge basic-params {:Steps 3 :MaxWalk 3})]
+       {:params params
+        :sensors [(new-sensor (keyword "x") 0 9 0 9 true)]
+        :truedata (build-truedata
+                   params (entity-paths ["1" red 0 3,3 4,6 4,8]
+                                        ["2" red 0 3,3 2,6 2,8]))}))
+
+(def merge0
+     (let [params (merge basic-params {:Steps 3 :MaxWalk 3})]
+       {:params params
+        :sensors [(new-sensor (keyword "x") 0 9 0 9 true)]
+        :truedata (build-truedata
+                   params (entity-paths ["1" red 0 5,3 3,6 3,8]
+                                        ["2" red 0 2,3 3,6 3,8]))}))
+
 (def merge-ambiguity
      (let [params (merge basic-params {:Steps 4 :MaxWalk 3})]
        {:params params
@@ -379,6 +395,7 @@
                  "merge" merge-ambiguity
                  "merge-2" merge-ambiguity-2
                  "merge-gray" merge-ambiguity-gray
+                 "merge0" merge0
                  "random-1" random-1
                  "random-1-sb4" random-1-sb4
                  "random-2" random-2
@@ -388,6 +405,7 @@
                  "random-6" random-6
                  "simple-dis" simple-disappearance
                  "split" split-ambiguity
+                 "split0" split0
                  "split-2" split-ambiguity-2
                  "split-merge" split-merge
                  "split-merge-aao" split-merge-allatonce
