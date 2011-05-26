@@ -7,7 +7,7 @@
          [paths-to-movements path-to-movements]])
   (:use [retrospect.problems.tracking.truedata :only
          [true-movements]])
-  (:use [retrospect.problems.tracking.grid :only [dist]])
+  (:use [retrospect.problems.tracking.grid :only [dist grid-entities]])
   (:require [clojure.set :as set])
   (:use [clojure.contrib.math :as math :only [abs]])
   (:use [clojure.contrib.seq :only [find-first]]))
@@ -28,20 +28,17 @@
       (if (or (>= time (:time ep-state))
               (>= time (count truedata))) elmap
           (let [grid (nth truedata time)
-                es (flatten grid)
+                es (grid-entities grid)
                 ;; does the path explain the entity?
-                match? (fn [path e] (some #(and (= (:x %) (:x (meta e)))
-                                                (= (:y %) (:y (meta e)))
-                                                (= (:time %) (:time (meta e)))
-                                                (match-color?
-                                                 (:color %) (:color (meta e))))
-                                          path))
-                ;; find the label associated with an entity's position/time;
-                ;; note that there is only zero or one such label
-                find-fn (fn [e] (find-first (fn [l] (match? (l paths) e)) (keys paths)))
+                match? (fn [path e]
+                         (let [{:keys [x y time color]} (meta e)]
+                           (some #(and (= (:x %) x) (= (:y %) y)
+                                       (= (:time %) time) (match-color? (:color %) color))
+                                 path)))
+                ;; find the label(s) associated with an entity's position/time
+                find-fn (fn [e] (filter (fn [l] (match? (l paths) e)) (keys paths)))
                 ;; add to the labels associated with an entity, if there are any such labels
-                assoc-fn (fn [elm e] (assoc elm e (if-let [l (find-fn e)]
-                                                    (conj (elm e) l) (elm e))))
+                assoc-fn (fn [elm e] (update-in elm [e] concat (find-fn e)))
                 ;; add in all the new/updated label associations
                 elmap-new (reduce assoc-fn elmap es)]
             (recur elmap-new (inc time)))))))
@@ -49,9 +46,7 @@
 (defn assoc-es-twl
   "Replace label repeats with counts of the label repeats for each entity."
   [elmap twl e]
-  (let [labels (set (elmap e))
-        label-counts (map count (for [l labels] (filter #(= l %) (elmap e))))]
-    (assoc twl e (if (empty? label-counts) [0] label-counts))))
+  (assoc twl e (frequencies (elmap e))))
 
 (defn mean-count-alts
   [workspace type]
@@ -65,7 +60,8 @@
 
 (defn avg
   [l]
-  (double (/ (reduce + l) (count l))))
+  (if (empty? l) 0
+      (double (/ (reduce + l) (count l)))))
 
 (defn plausibility-accuracy
   [prev-ep true-moves]
@@ -136,7 +132,7 @@
          (avg-with-prior results :PlausibilityWorkspaceAccuracy
            (math/abs (- (prob-conf pec)
                         (get-conf (:workspace prev-ep))))))
-     :MTL (avg (map #(avg (twl %)) (keys twl)))
+     :MTL (avg (map #(avg (vals (twl %))) (keys twl)))
      :MeanCountAlternatives (mean-count-alts (:workspace ep-state) :sensor)
      :MLC (double (/ (reduce + 0 (map #(count (set (elmap %)))
                                                   (keys elmap)))
@@ -187,8 +183,8 @@
        (- pec-meta pec))
      :AvgMetaDiffMTL
      (avg-with-prior results (keyword (format "%s%s" (name meta-accepted-type) "AvgMetaDiffMTL"))
-       (- (avg (map #(avg (twl-meta %)) (keys twl-meta)))
-          (avg (map #(avg (twl %)) (keys twl)))))
+       (- (avg (map #(avg (vals (twl-meta %))) (keys twl-meta)))
+          (avg (map #(avg (vals (twl %))) (keys twl)))))
      :AvgMetaDiffMLC
      (avg-with-prior results (keyword (format "%s%s" (name meta-accepted-type) "AvgMetaDiffMLC"))
        (- (double (/ (reduce + 0 (map #(count (set (elmap-meta %)))

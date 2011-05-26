@@ -14,7 +14,13 @@
 
 (defn grid-entities
   [grid]
-  (flatten grid))
+  (map #(with-meta (:e %) {:x (:x %) :y (:y %) :time (:t %) :color (:color (meta (:e %)))})
+       (vals (:movements (meta grid)))))
+
+(defn find-entity
+  [grid entity]
+  (let [{:keys [x y t color]} (get (:movements (meta grid)) entity)]
+    (with-meta entity {:x x :y y :time t :color color})))
 
 (defn grid-count
   [grid]
@@ -39,11 +45,13 @@
 (defn grid-move
   "Move the entity in the grid and update the entity's meta content."
   [grid e x y]
-  (let [{ox :x oy :y} (meta e)
-        new-e (with-meta e (merge (meta e) {:x x :y y}))]
-    (-> grid
-        (grid-del ox oy e)
-        (grid-add x y new-e))))
+  (let [{ox :x oy :y t :time} (meta e)
+        new-e (with-meta e (merge (meta e) {:x x :y y}))
+        old-moves-e (get (:movements (meta grid)) e)
+        g (-> grid
+              (grid-del ox oy e)
+              (grid-add x y new-e))]
+    (with-meta g (assoc-in (meta g) [:movements e] (assoc old-moves-e :x x :y y)))))
 
 (defn rand-pos
   "Generate a random position for a new entity. Returns a map {:x x :y y}."
@@ -51,17 +59,15 @@
   {:x (my-rand-int (:width (meta grid))) :y (my-rand-int (:height (meta grid)))})
 
 (defn grid-new-entity
-  "Create a new entity with a random location and random color."
+  "Create a new entity with a (possibly) random location and random color."
   [grid time]
   (let [{x :x y :y} (rand-pos grid)
         c (my-rand-nth [red blue green])
         e (with-meta (symbol (str (grid-count grid)))
-            {:x x :y y :color c :time time})]
-    (grid-add grid x y e)))
-
-(defn find-entity
-  [grid entity]
-  (find-first #{entity} (grid-entities grid)))
+            {:x x :y y :color c :time time})
+        g (with-meta grid (assoc-in (meta grid) [:movements e]
+                                    {:e e :ox x :oy y :ot time :x x :y y :t time}))]
+    (grid-add g x y e)))
 
 (defn walk1
   "Move an entity one step in a random direction."
@@ -88,9 +94,18 @@
   (math/sqrt (+ (* (- x1 x2) (- x1 x2))
                 (* (- y1 y2) (- y1 y2)))))
 
-(defn update-all-entity-times
+(defn update-all-entities
   [grid time]
-  (with-meta (vec (map (fn [es] (vec (map #(with-meta
-                                             % (merge (meta %) {:time time}))
-                                          es))) grid))
-    (meta grid)))
+  (let [moves (:movements (meta grid))
+        new-moves (reduce #(assoc %1 %2 {:e %2
+                                         :ox (:x (get moves %2))
+                                         :oy (:y (get moves %2))
+                                         :ot (:t (get moves %2))
+                                         :x (:x (get moves %2))
+                                         :y (:y (get moves %2))
+                                         :t time})
+                          {} (keys moves))]
+    (with-meta (vec (map (fn [es] (vec (map #(with-meta
+                                               % (merge (meta %) {:time time}))
+                                            es))) grid))
+      (assoc (meta grid) :movements new-moves))))

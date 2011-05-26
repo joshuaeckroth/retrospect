@@ -416,7 +416,7 @@
 
 (defn paths-to-movements
   [paths]
-  (flatten (map (fn [label] (path-to-movements (get paths label))) (keys paths))))
+  (mapcat (fn [label] (path-to-movements (get paths label))) (keys paths)))
 
 (defn active-paths
   [paths]

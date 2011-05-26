@@ -8,7 +8,7 @@
   (:use [clj-swing.frame])
   (:use [clj-swing.panel])
   (:use [retrospect.problems.tracking.sensors :only [sees]])
-  (:use [retrospect.problems.tracking.grid :only [grid-at find-entity]])
+  (:use [retrospect.problems.tracking.grid :only [grid-entities find-entity]])
   (:use [retrospect.problems.tracking.truedata :only
          [get-entity-movements]])
   (:use [retrospect.problems.tracking.hypotheses :only
@@ -140,11 +140,12 @@
            (fill-cell g x y yellow-alpha)
            (fill-cell g x y gray-alpha))))))
   (when (and @truedata (> @time-now 0))
-    (dorun
-     (for [x (range @grid-width) y (range @grid-height)]
-       (let [es (sort (grid-at (nth @truedata (dec @time-now)) x y))]
-         (when (not-empty es)
-           (fill-cell-entities g x y es)))))))
+    (let [es (grid-entities (nth @truedata (dec @time-now)))]
+      (dorun
+       (for [x (range @grid-width) y (range @grid-height)]
+         (let [es-here (sort (filter #(and (= x (:x (meta %))) (= y (:y (meta %)))) es))]
+           (when (not-empty es-here)
+             (fill-cell-entities g x y es-here))))))))
 
 (defn render [g]
   (dosync

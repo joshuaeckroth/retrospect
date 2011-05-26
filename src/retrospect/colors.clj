@@ -34,6 +34,6 @@
 (defn match-color?
   [c1 c2]
   (or
-   (. c1 equals gray)
-   (. c2 equals gray)
-   (. c1 equals c2)))
+   (= c1 gray)
+   (= c2 gray)
+   (= c1 c2)))

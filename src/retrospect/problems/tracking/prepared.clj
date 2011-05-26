@@ -1,7 +1,7 @@
 (ns retrospect.problems.tracking.prepared
   (:use [retrospect.problems.tracking.grid :only
          [new-grid grid-add grid-move grid-at
-          update-all-entity-times find-entity]])
+          update-all-entities find-entity]])
   (:use [retrospect.problems.tracking.truedata :only
          [generate-truedata]])
   (:use [retrospect.problems.tracking.sensors :only
@@ -23,10 +23,14 @@
     (loop [t 0
            td []]
       (if (= t steps) td
-          (let [g (last td)
+          (let [g (update-all-entities (last td) t)
                 g-new-es
                 (reduce (fn [grid e]
-                          (grid-add grid (:x (meta e)) (:y (meta e)) e))
+                          (let [{:keys [x y color]} (meta e)
+                                g (with-meta grid
+                                    (assoc-in (meta grid) [:movements e]
+                                              {:e e :ox x :oy y :ot t :x x :y y :t t :color color}))]
+                            (grid-add g (:x (meta e)) (:y (meta e)) e)))
                         (if (= t 0) (new-grid width height) g)
                         (filter (fn [e] (= (:time (meta e)) t)) (keys paths)))
                 g-moves
@@ -38,9 +42,8 @@
                                       :ox (:x (get (paths e) (dec t)))
                                       :oy (:y (get (paths e) (dec t)))})
                              (filter (fn [e] (< (:time (meta e)) t))
-                                     (keys paths))))
-                g-time (update-all-entity-times g-moves t)]
-            (recur (inc t) (conj td g-time)))))))
+                                     (keys paths))))]
+            (recur (inc t) (conj td g-moves)))))))
 
 (defn new-entity
   [id x y color time]
