@@ -77,8 +77,7 @@
               :ExplainCycles
               (:explain-cycles (:resources (:workspace ep-state-meta)))
               :HypothesisCount
-              (:hyp-count (:resources (:workspace prev-ep-meta)))
-              :Seed (:seed or-state-meta))))))
+              (:hyp-count (:resources (:workspace prev-ep-meta))))))))
 
 (defn calc-percent-increase
   [k m b]
@@ -187,32 +186,27 @@
 
 (defn run-comparative
   [problem monitor? meta? params]
-  (let [seed (my-rand-int 10000000)]
-    (set-seed seed)
-    (let [truedata ((:truedata-fn problem) params)
-          sensors ((:sensor-gen-fn problem) params)
-          problem-data ((:gen-problem-data-fn problem) sensors params)
-          or-states (init-one-run-states
-                     {:MetaAbduction (if meta? [true false] [false]) :Lazy [true]}
-                     sensors seed problem-data)]
-      (doall (for [ors or-states]
-               (binding [last-id 0]
-                 (run-simulation problem truedata ors params monitor?)))))))
+  (set-seed (:Seed params))
+  (let [truedata ((:truedata-fn problem) params)
+        sensors ((:sensor-gen-fn problem) params)
+        problem-data ((:gen-problem-data-fn problem) sensors params)
+        or-states (init-one-run-states
+                    {:MetaAbduction (if meta? [true false] [false]) :Lazy [true]}
+                    sensors problem-data)]
+    (doall (for [ors or-states]
+             (binding [last-id 0]
+               (run-simulation problem truedata ors params monitor?))))))
 
-(defn run-many
-  [problem monitor? meta? params repetitions]
+(defn run
+  [problem monitor? meta? params]
   (println "Running" params)
-  (doall
-   (for [i (range repetitions)]
-     (do
-       (println "Repetition" i)
-       (let [runs (run-comparative problem monitor? meta? params)]
-         (if meta?
-           ;; if we have meta vs. non-meta, evaluate the 'batch' form
-           (evaluate-comparative problem params runs)
-           ;; otherwise, just keep the original results from the
-           ;; single (non-meta) run
-           (first runs)))))))
+  (let [runs (run-comparative problem monitor? meta? params)]
+    (if meta?
+      ;; if we have meta vs. non-meta, evaluate the 'batch' form
+      (evaluate-comparative problem params runs)
+      ;; otherwise, just keep the original results from the
+      ;; single (non-meta) run
+      (first runs))))
 
 (defn get-headers
   [problem]
