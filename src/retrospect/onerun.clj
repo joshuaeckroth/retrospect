@@ -6,7 +6,7 @@
           new-child-ep-state]]))
 
 (defn init-one-run-state
-  [meta-abduction lazy sensors seed problem-data]
+  [meta-abduction lazy sensors problem-data]
   (let [ep-state-tree (init-ep-state-tree problem-data)]
     {:meta-abduction meta-abduction :lazy lazy
      :meta-workspaces {}
@@ -14,16 +14,14 @@
                  :MetaBad 0 :MetaImpossible 0
                  :MetaBatch 0 :MetaImpossibleLconf 0 :MetaNone 0}
      :results [] :sensors sensors
-     :seed seed
      :ep-state-tree ep-state-tree
      :ep-state (current-ep-state ep-state-tree)}))
 
 (defn init-one-run-states
-  [options sensors seed problem-data]
+  [options sensors problem-data]
   (for [meta-abduction (:MetaAbduction options)
         lazy (:Lazy options)]
-    (init-one-run-state meta-abduction lazy
-                        sensors seed problem-data)))
+    (init-one-run-state meta-abduction lazy sensors problem-data)))
 
 (defn update-one-run-state
   [or-state ep-state]
