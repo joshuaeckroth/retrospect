@@ -37,10 +37,10 @@
                             (get-hyps workspace))
           ors-meta (assoc-in or-state [:meta-workspaces (:id prev-ep)] workspace)]
       (if (or (= :MetaNone (:type accepted-hyp))
-              ;; don't branch if accepted hyp is not any more confident
-              (= (hyp-conf workspace accepted-hyp)
-                 (hyp-conf workspace (find-first #(= :MetaNone (:type %))
-                                                 (get-hyps workspace)))))
+              ;; don't branch if accepted hyp is not somewhat more confident
+              (<= 0.2 (- (hyp-conf workspace accepted-hyp) 
+                         (hyp-conf workspace (find-first #(= :MetaNone (:type %))
+                                                         (get-hyps workspace))))))
         [(update-explain-cycles ors-meta prev-ep meta-hyps) :MetaNone 0]
         [(update-explain-cycles
           (-> ors-meta
@@ -49,3 +49,4 @@
               (assoc :ep-state-tree est :ep-state (current-ep-state est)))
           prev-ep meta-hyps)
          (:type accepted-hyp) (:diff-time (:data accepted-hyp))]))))
+

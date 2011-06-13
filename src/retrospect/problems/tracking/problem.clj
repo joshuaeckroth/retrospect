@@ -38,9 +38,7 @@
       :PlausibilityWorkspaceAccuracy
       :MTL :MeanCountAlternatives :MLC :DistinctLabels :PlausibilityAccuracy
       :SensorOverlap :EntityDensity :NumberEntities :MaxWalk :ProbNewEntities
-      :GridWidth :GridHeight :SensorCoverage :SensorSeesColor
-      :PlausibilityVIEvents :PlausibilityIEvents :PlausibilityNEvents
-      :PlausibilityPEvents :PlausibilityVPEvents])
+      :GridWidth :GridHeight :SensorCoverage :SensorSeesColor])
 
 (def meta-headers
      [:AvgMetaDiffPEC 

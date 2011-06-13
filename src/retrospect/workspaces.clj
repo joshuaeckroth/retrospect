@@ -98,16 +98,6 @@
   [workspace hyps]
   (doall (reverse (sort-by (partial hyp-conf workspace) hyps))))
 
-(defn pick-top-conf
-  [workspace hyps]
-  (let [sorted (sort-by-conf workspace hyps)
-        best-conf (hyp-conf workspace (first sorted))
-        only-best-conf (take-while #(= best-conf (hyp-conf workspace %)) sorted)
-        max-explains (last (sort (map #(count (find-explains workspace %)) only-best-conf)))
-        only-max-explains (filter #(= max-explains (count (find-explains workspace %)))
-                                  only-best-conf)]
-    (first (sort-by :id (AlphanumComparator.) only-max-explains))))
-
 (defn find-alternatives
   [workspace hyp]
   (let [g (:graph workspace)]
@@ -222,7 +212,7 @@
     (-> workspace
         (update-in [:graph] #(apply remove-nodes % rejectable))
         (update-in [:hyp-confidences]
-                   #(reduce (fn [c h] (assoc c h IMPOSSIBLE)) % rejectable))
+                   #(reduce (fn [c h] (assoc c h 0.0)) % rejectable))
         (update-in [:rejected] set/union (set rejectable))
         (update-in [:log :final :rejected] concat rejectable))))
 
@@ -280,17 +270,16 @@
         (assoc-in [:resources :hyp-count] (count (nodes (:graph-static ws)))))))
 
 (defn measure-conf
+  "Confidence of a workspace is 1.0 minus the average doubt (among the accepted
+   hypotheses), where doubt is calculated as 1-conf of a hypothesis.  Note that if
+   no hyps have been accepted, there is no doubt (naturally)."
   [workspace]
-  ;; if no accepted hyps, this is very implausible
-  (if (empty? (:accepted workspace)) VERY-IMPLAUSIBLE
-      ;; if accepted hyps exist, find the average confidence of them
-      (let [conf (avg-conf (vals (select-keys (:hyp-confidences workspace)
-                                              (:accepted workspace))))]
-        (cond
-         ;; if something is unexplained, give low confidence
-         (not-empty (find-unexplained workspace)) IMPLAUSIBLE
-         ;; otherwise go with average accepted hypothesis confidence
-         :else conf))))
+  (if (= 0 (count (:accepted workspace))) 1.0 
+    (let [confs (vals (select-keys (:hyp-confidences workspace)
+                                   (:accepted workspace)))
+          doubts (map #(- 1.0 %) confs)
+          avg-doubt (/ (reduce + 0.0 doubts) (count doubts))]
+      (- 1.0 avg-doubt))))
 
 (defn get-conf
   [workspace]
@@ -310,41 +299,22 @@
                                    (:forced workspace))})]
     (assoc-in ws [:log :confidence] (measure-conf ws))))
 
-(defn filter-delta
-  [workspace]
-  (let [delta-better? (fn [delta h1 h2] (<= delta (- (hyp-conf workspace h1)
-                                                     (hyp-conf workspace h2))))
-        unexplained (find-unexplained workspace)
-        explainers (set (map #(find-explainers workspace %) unexplained))]
-    (loop [delta 5]
-      ;; change result when delta=0 to return #{} as hyps to prevent guessing
-      (if (= delta 0) {:hyps (set (apply concat explainers)) :delta 0}
-          (let [hs (set (mapcat
-                         (fn [es] (filter
-                                   #(every? (partial delta-better? delta %)
-                                            (disj (set es) %))
-                                   es))
-                         explainers))
-                best (set (filter #(not (shared-explains? workspace % hs)) hs))]
-            (cond
-             (not-empty best) {:hyps best :delta delta}
-             (not-empty hs) {:hyps hs :delta delta}
-             :else (recur (dec delta))))))))
-
 (defn find-best
   [workspace]
   (let [explainers (find-explainers workspace)
         essentials (set (filter #(essential? workspace %) explainers))]
     (if (not-empty essentials)
       ;; choose first most-confident essential
-      (let [best (pick-top-conf workspace essentials)]
+      (let [best (first (sort-by-conf workspace essentials))]
         {:best best :alts (disj essentials best)
          :essential? true :delta nil})
-      ;; otherwise, choose any clear-best, weak-best, or make a guess (top-conf)
-      (let [{alts :hyps delta :delta} (filter-delta workspace)
-            best (pick-top-conf workspace alts)]
-        {:best best :alts (disj alts best)
-         :essential? false :delta delta}))))
+      ;; otherwise, choose most-confident non-essential
+      (let [alts (sort-by-conf workspace explainers)
+            best (first alts)
+            delta (if (= 1 (count alts)) 1.0
+                      (- (hyp-conf workspace best)
+                         (hyp-conf workspace (second alts))))]
+        {:best best :alts alts :essential? false :delta delta}))))
 
 (defn explain
   [workspace inconsistent pdata]

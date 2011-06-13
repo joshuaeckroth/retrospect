@@ -45,7 +45,7 @@
                                              [(format "Cycle %d (%s)" (inc i)
                                                       (if (:essential? b)
                                                         "essential"
-                                                        (format "delta %d"
+                                                        (format "delta %.2f"
                                                                 (:delta b))))
                                               {"Best"
                                                {(:id (:best b))

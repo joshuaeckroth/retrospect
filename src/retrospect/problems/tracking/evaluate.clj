@@ -9,7 +9,6 @@
          [true-movements]])
   (:use [retrospect.problems.tracking.grid :only [dist grid-entities]])
   (:require [clojure.set :as set])
-  (:use [clojure.contrib.math :as math :only [abs]])
   (:use [clojure.contrib.seq :only [find-first]]))
 
 (defn percent-events-correct
@@ -63,6 +62,7 @@
   (if (empty? l) 0
       (double (/ (reduce + l) (count l)))))
 
+;; TODO: determine if this matches new continuous plausibilities
 (defn plausibility-accuracy
   [prev-ep true-moves]
   ;; the following requires that confidences are really numeric
@@ -130,8 +130,7 @@
      :PlausibilityWorkspaceAccuracy
      (if (= "A" (:id prev-ep)) 0
          (avg-with-prior results :PlausibilityWorkspaceAccuracy
-           (math/abs (- (prob-conf pec)
-                        (get-conf (:workspace prev-ep))))))
+           (- pec (get-conf (:workspace prev-ep)))))
      :MTL (avg (map #(avg (vals (twl %))) (keys twl)))
      :MeanCountAlternatives (mean-count-alts (:workspace ep-state) :sensor)
      :MLC (double (/ (reduce + 0 (map #(count (set (elmap %)))
@@ -141,16 +140,6 @@
      ;; average current plausibility accuracy with past
      :PlausibilityAccuracy (avg-with-prior results :PlausibilityAccuracy
                              (plausibility-accuracy prev-ep true-moves))
-     :PlausibilityVIEvents (avg-with-prior results :PlausibilityVIEvents
-                             (plausibility-events prev-ep true-moves VERY-IMPLAUSIBLE))
-     :PlausibilityIEvents (avg-with-prior results :PlausibilityIEvents
-                            (plausibility-events prev-ep true-moves IMPLAUSIBLE))
-     :PlausibilityNEvents (avg-with-prior results :PlausibilityNEvents
-                            (plausibility-events prev-ep true-moves NEUTRAL))
-     :PlausibilityPEvents (avg-with-prior results :PlausibilityPEvents
-                            (plausibility-events prev-ep true-moves PLAUSIBLE))
-     :PlausibilityVPEvents (avg-with-prior results :PlausibilityVPEvents
-                             (plausibility-events prev-ep true-moves VERY-PLAUSIBLE))
      :SensorOverlap 0
      :EntityDensity 0}))
 

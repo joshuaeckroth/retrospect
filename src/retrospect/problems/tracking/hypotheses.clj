@@ -43,7 +43,7 @@
     ;; return an 'entity' with hyp data in the meta map
     (with-meta e (merge (meta e)
                         (zipmap [:hyp-from :hyp-to]
-                                (map #(new-hyp % :sensor nil NEUTRAL desc
+                                (map #(new-hyp % :sensor nil 1.0 desc
                                                {:sensor sensor :entity e})
                                      ;; sensor hyp 'from', sensor hyp 'to'
                                      ["SHF" "SHT"]))))))
@@ -118,13 +118,13 @@
   (let [d (dist x1 y1 x2 y2)
         mw (* (math/sqrt 2.1) maxwalk)]
     (cond
-     (<= d (* maxwalk 0.05)) IMPLAUSIBLE
-     (<= d (* maxwalk 0.15)) VERY-PLAUSIBLE
-     (<= d (* maxwalk 0.20)) PLAUSIBLE
-     (<= d (* maxwalk 0.25)) VERY-PLAUSIBLE
-     (<= d (* maxwalk 0.45)) PLAUSIBLE
-     (<= d (* maxwalk 0.55)) NEUTRAL
-     (<= d mw) IMPLAUSIBLE)))
+     (<= d (* maxwalk 0.05)) 0.2
+     (<= d (* maxwalk 0.15)) 0.9
+     (<= d (* maxwalk 0.20)) 0.7
+     (<= d (* maxwalk 0.25)) 0.9
+     (<= d (* maxwalk 0.45)) 0.7
+     (<= d (* maxwalk 0.55)) 0.5
+     (<= d mw) 0.2)))
 
 (defn score-movement
   "Returns nil if movement is impossible."
@@ -187,7 +187,7 @@
 (defn make-known-entities-hyps
   [paths time-now steps-between]
   (let [earliest-time (- time-now steps-between)
-        hyp-to (fn [l t] (new-hyp "TE" :tracking-entity nil NEUTRAL
+        hyp-to (fn [l t] (new-hyp "TE" :tracking-entity nil 1.0
                                   (format "Where did %s go at %d?" l t)
                                   {:det (last (paths l)) :entity l}))]
     (map #(hyp-to % (:time (last (paths %))))

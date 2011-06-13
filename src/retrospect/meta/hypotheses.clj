@@ -14,7 +14,7 @@
   (let [unexplained (ws/find-unexplained workspace)
         accepted (:accepted workspace)
         explainers (mapcat #(ws/find-explainers workspace % :static) unexplained)
-        rejected-explainers (filter #(= IMPOSSIBLE (ws/hyp-conf workspace %)) explainers)]
+        rejected-explainers (filter #(= 0.0 (ws/hyp-conf workspace %)) explainers)]
     (filter (fn [hyp] (not-empty (set/intersection
                                   (set rejected-explainers)
                                   (ws/find-conflicts workspace hyp :static))))
@@ -29,7 +29,7 @@
 
 (defn branch-and-mark-impossible
   "A composite action that branches at the specified ep-state,
-   then marks the least confident hyp in 'hyps' as IMPOSSIBLE and
+   then marks the least confident hyp in 'hyps' as impossible and
    updates the OneRunState with all these changes."
   [ep-state-tree ep-state hyps least-conf]
   (let [est (new-branch-ep-state ep-state-tree ep-state)
@@ -134,7 +134,7 @@
 
 (defn generate-ep-state-hyp
   [ep-state]
-  (ws/new-hyp "HEP" :MetaEP nil NEUTRAL "ep-state hyp" {:ep-state ep-state}))
+  (ws/new-hyp "HEP" :MetaEP nil 1.0 "ep-state hyp" {:ep-state ep-state}))
 
 (defn generate-meta-hypotheses
   [workspace problem ep-state-tree sensors bad params lazy]
@@ -161,3 +161,4 @@
           (recur (add-batch-hyp ws2 ep-state-hyp problem ep-state-tree sensors
                                 (first states) params lazy)
                  (rest states))))))
+
