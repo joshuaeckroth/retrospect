@@ -86,9 +86,8 @@
                        (not= "None" @prepared-selected))
         ps (get-params)
         meta-abduction (:MetaAbduction ps)
-        lazy (:Lazy ps)
-        seed (get-seed)]
-    (set-seed seed)
+        lazy (:Lazy ps)]
+    (set-seed (get-seed))
     (set-last-id 0)
     (when (not prepared?)
       (dosync
@@ -97,7 +96,7 @@
     (dosync
      (alter params (constantly ps))
      (alter or-state
-            (constantly (init-one-run-state meta-abduction lazy @sensors seed
+            (constantly (init-one-run-state meta-abduction lazy @sensors
                                             ((:gen-problem-data-fn @problem)
                                              @sensors ps)))))
     (update-everything)))
@@ -110,16 +109,15 @@
           meta-abduction (:MetaAbduction ps)
           lazy (:Lazy ps)
           td (:truedata prepared)
-          sens (:sensors prepared)
-          seed (get-seed)]
-      (set-seed seed)
+          sens (:sensors prepared)]
+      (set-seed (get-seed))
       (set-last-id 0)
       (dosync
        (alter params (constantly ps))
        (alter truedata (constantly td))
        (alter sensors (constantly sens))
        (alter or-state
-              (constantly (init-one-run-state meta-abduction lazy sens seed
+              (constantly (init-one-run-state meta-abduction lazy sens
                                               ((:gen-problem-data-fn @problem)
                                                sens ps)))))
       (update-everything)
