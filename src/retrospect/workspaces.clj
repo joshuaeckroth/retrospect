@@ -289,7 +289,7 @@
         (cond
          ;; if something is unexplained, give low confidence
          (not-empty (find-unexplained workspace)) IMPLAUSIBLE
-         ;; otherwise go with maximum accepted hypothesis confidence
+         ;; otherwise go with average accepted hypothesis confidence
          :else conf))))
 
 (defn get-conf
