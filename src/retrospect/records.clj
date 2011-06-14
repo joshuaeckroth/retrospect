@@ -56,21 +56,21 @@
   "Create a new folder for storing run data and execute the run. Then,
   depending on whether hadoop is true or false, execute a hadoop job
   control process or a local (this machine) runner."
-  [problem paramsfile recordsdir nthreads monitor? meta? repetitions]
+  [problem paramsfile datadir recordsdir nthreads monitor? meta? repetitions]
   (try
-    (let [dir (str recordsdir "/" (. System (currentTimeMillis)))
+    (let [recorddir (str recordsdir "/" (. System (currentTimeMillis)))
           params (explode-params (read-params problem paramsfile))]
-      (print (format "Making new directory %s..." dir))
-      (.mkdir (File. dir))
+      (print (format "Making new directory %s..." recorddir))
+      (.mkdir (File. recorddir))
       (println "done.")
       (print "Writing meta.xml...")
-      (write-xml (str dir "/meta.xml"))
+      (write-xml (str recorddir "/meta.xml"))
       (println "done.")
       (print "Copying params file...")
-      (copy-params-file (str dir "/params.xml") paramsfile)
+      (copy-params-file (str recorddir "/params.xml") paramsfile)
       (println "done.")
       (println (format "Running %d parameter combinations..." (count params)))
-      (run-local problem params dir nthreads monitor? meta? repetitions)
+      (run-local problem params recorddir datadir nthreads monitor? meta? repetitions)
       (println "Done.")
       #_(System/exit 0))
     (catch java.util.concurrent.ExecutionException e

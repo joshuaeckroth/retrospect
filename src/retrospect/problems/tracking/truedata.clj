@@ -24,7 +24,7 @@
     grid))
 
 (defn generate-truedata
-  [params]
+  [datadir params]
   (let [grid (add-new-entities (new-grid (:GridWidth params) (:GridHeight params))
                                (:NumberEntities params))]
     (loop [time 1

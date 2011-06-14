@@ -43,11 +43,11 @@
     more-all-results))
 
 (defn run-partition
-  [problem monitor? meta? filename params]
+  [problem monitor? meta? filename datadir params]
   (when (not-empty params)
-    (let [results (run problem monitor? meta? (first params))]
+    (let [results (run problem monitor? meta? datadir (first params))]
       (send-off write-agent write-csv filename problem meta? results)
-      (recur problem monitor? meta? filename (rest params)))))
+      (recur problem monitor? meta? filename datadir (rest params)))))
 
 (defn check-progress
   [remaining dir problem total start-time]
@@ -60,19 +60,19 @@
       (- total progress))))
 
 (defn run-partitions
-  [dir problem filename params nthreads monitor? meta? repetitions]
+  [recorddir problem filename params datadir nthreads monitor? meta? repetitions]
   (send (agent (* repetitions (count params)))
-        check-progress dir problem (* repetitions (count params)) (.getTime (Date.)))
+        check-progress recorddir problem (* repetitions (count params)) (.getTime (Date.)))
   (let [seeded-params (for [p params i (range repetitions)]
                         (assoc p :Seed (my-rand-int 10000000)))
         partitions (partition-all (math/ceil (/ (count seeded-params) nthreads))
                                   (my-shuffle seeded-params))
         workers (doall (for [part partitions]
                          (future (run-partition problem monitor? meta?
-                                                filename part))))]
+                                                filename datadir part))))]
     (doall (pmap (fn [w] @w) workers))))
 
 (defn run-local
-  [problem params dir nthreads monitor? meta? repetitions]
-  (run-partitions dir problem (str dir "/results.csv")
-                  params nthreads monitor? meta? repetitions))
+  [problem params recorddir datadir nthreads monitor? meta? repetitions]
+  (run-partitions recorddir problem (str recorddir "/results.csv")
+                  params datadir nthreads monitor? meta? repetitions))

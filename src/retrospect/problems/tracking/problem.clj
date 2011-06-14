@@ -21,7 +21,7 @@
          [prepared-map]]))
 
 (defn generate-problem-data
-  [sensors params]
+  [sensors datadir params]
   {:paths (sorted-map)
    :split-merge-hyps []
    :log [] ;; log is reset each time by commit-decision

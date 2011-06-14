@@ -29,7 +29,8 @@
                           (let [{:keys [x y color]} (meta e)
                                 g (with-meta grid
                                     (assoc-in (meta grid) [:movements e]
-                                              {:e e :ox x :oy y :ot t :x x :y y :t t :color color}))]
+                                              {:e e :ox x :oy y :ot t
+                                               :x x :y y :t t :color color}))]
                             (grid-add g (:x (meta e)) (:y (meta e)) e)))
                         (if (= t 0) (new-grid width height) g)
                         (filter (fn [e] (= (:time (meta e)) t)) (keys paths)))
@@ -336,7 +337,7 @@
                    :MetaAbduction false}]
        (set-seed 10)
        {:params params
-        :truedata (generate-truedata params)
+        :truedata (generate-truedata "" params)
         :sensors (generate-sensors params)}))
 
 (def random-3
@@ -347,7 +348,7 @@
                    :MetaAbduction true}]
        (set-seed 5674)
        {:params params
-        :truedata (generate-truedata params)
+        :truedata (generate-truedata "" params)
         :sensors (generate-sensors params)}))
 
 (def random-4
@@ -358,7 +359,7 @@
                    :MetaAbduction false}]
        (set-seed 7847)
        {:params params
-        :truedata (generate-truedata params)
+        :truedata (generate-truedata "" params)
         :sensors (generate-sensors params)}))
 
 (def random-5
@@ -369,7 +370,7 @@
                    :MetaAbduction false}]
        (set-seed 3135)
        {:params params
-        :truedata (generate-truedata params)
+        :truedata (generate-truedata "" params)
         :sensors (generate-sensors params)}))
 
 (def random-6
@@ -380,7 +381,7 @@
                    :MetaAbduction false}]
        (set-seed 1571)
        {:params params
-        :truedata (generate-truedata params)
+        :truedata (generate-truedata "" params)
         :sensors (generate-sensors params)}))
 
 (def prepared-map

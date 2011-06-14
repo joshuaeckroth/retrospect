@@ -91,14 +91,14 @@
     (set-last-id 0)
     (when (not prepared?)
       (dosync
-       (alter truedata (constantly ((:truedata-fn @problem) ps)))
+       (alter truedata (constantly ((:truedata-fn @problem) datadir ps)))
        (alter sensors (constantly ((:sensor-gen-fn @problem) ps)))))
     (dosync
      (alter params (constantly ps))
      (alter or-state
             (constantly (init-one-run-state meta-abduction lazy @sensors
                                             ((:gen-problem-data-fn @problem)
-                                             @sensors ps)))))
+                                             @sensors @datadir ps)))))
     (update-everything)))
 
 (defn set-prepared-action
@@ -119,7 +119,7 @@
        (alter or-state
               (constantly (init-one-run-state meta-abduction lazy sens
                                               ((:gen-problem-data-fn @problem)
-                                               sens ps)))))
+                                               sens @datadir ps)))))
       (update-everything)
       (set-params))))
 
@@ -232,10 +232,11 @@
           _ ((:get-stats-panel-fn (:player-fns @problem)))]))
 
 (defn start-player
-  [prob & opts]
+  [prob ddir & opts]
 
   (dosync
    (alter problem (constantly prob))
+   (alter datadir (constantly ddir))
    (alter params (constantly (get-params))))
 
   (let [options (apply hash-map opts)]

@@ -185,11 +185,11 @@
       (recur (run-simulation-step problem truedata ors params monitor? false)))))
 
 (defn run-comparative
-  [problem monitor? meta? params]
+  [problem monitor? meta? datadir params]
   (set-seed (:Seed params))
-  (let [truedata ((:truedata-fn problem) params)
+  (let [truedata ((:truedata-fn problem) datadir params)
         sensors ((:sensor-gen-fn problem) params)
-        problem-data ((:gen-problem-data-fn problem) sensors params)
+        problem-data ((:gen-problem-data-fn problem) sensors datadir params)
         or-states (init-one-run-states
                     {:MetaAbduction (if meta? [true false] [false]) :Lazy [true]}
                     sensors problem-data)]
@@ -198,9 +198,9 @@
                (run-simulation problem truedata ors params monitor?))))))
 
 (defn run
-  [problem monitor? meta? params]
+  [problem monitor? meta? datadir params]
   (println "Running" params)
-  (let [runs (run-comparative problem monitor? meta? params)]
+  (let [runs (run-comparative problem monitor? meta? datadir params)]
     (if meta?
       ;; if we have meta vs. non-meta, evaluate the 'batch' form
       (evaluate-comparative problem params runs)

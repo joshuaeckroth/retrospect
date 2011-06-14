@@ -1,11 +1,12 @@
 (ns retrospect.core
   (:gen-class)
-  (:use [clojure.contrib.command-line :only (with-command-line)])
+  (:use [clojure.contrib.command-line :only [with-command-line]])
   (:use [retrospect.random])
-  (:use [retrospect.problems.tracking.problem :only (tracking-problem)])
-  ;(:use [retrospect.problems.circuit.problem :only (circuit-problem)])
+  (:use [retrospect.problems.tracking.problem :only [tracking-problem]])
+  (:use [retrospect.problems.words.problem :only [words-problem]])
+  ;(:use [retrospect.problems.circuit.problem :only [circuit-problem]])
   (:use [retrospect.records :only [run-with-new-record list-records save]])
-  (:use [retrospect.player :only (start-player)]))
+  (:use [retrospect.player :only [start-player]]))
 
 (defn -main [& args]
   (with-command-line args
@@ -13,6 +14,7 @@
     [[action "Action (run/list/player/save)" "player"]
      [problem "Problem" "tracking"]
      [paramsfile "Parameters XML file" "params.xml"]
+     [datadir "Data directory" "data"]
      [recordsdir "Records directory" "records"]
      [record "Record" ""]
      [nthreads "Number of threads" "1"]
@@ -26,17 +28,18 @@
           meta? (Boolean/parseBoolean meta)
           seed (Integer/parseInt seed)
           prob (cond (= problem "tracking") tracking-problem
+                     (= problem "words") words-problem
                      ;(= problem "circuit") circuit-problem
                      :else nil)]
       (set-seed seed)
       (case action
             "run"
-            (run-with-new-record prob paramsfile recordsdir nthreads
+            (run-with-new-record prob paramsfile recordsdir datadir nthreads
               monitor? meta? repetitions)
             "list"
             (list-records recordsdir)
             "player"
-            (start-player prob)
+            (start-player prob datadir)
             "save"
             (save prob paramsfile)
 

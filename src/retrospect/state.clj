@@ -1,6 +1,7 @@
 (ns retrospect.state)
 
 (def problem (ref nil))
+(def datadir (ref nil))
 (def params (ref nil))
 (def or-state (ref nil))
 (def sensors (ref nil))
