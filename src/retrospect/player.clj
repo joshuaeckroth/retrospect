@@ -91,7 +91,7 @@
     (set-last-id 0)
     (when (not prepared?)
       (dosync
-       (alter truedata (constantly ((:truedata-fn @problem) datadir ps)))
+       (alter truedata (constantly ((:truedata-fn @problem) @datadir ps)))
        (alter sensors (constantly ((:sensor-gen-fn @problem) ps)))))
     (dosync
      (alter params (constantly ps))

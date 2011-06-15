@@ -4,7 +4,7 @@
   (:use [retrospect.problems.tracking.evaluate :only
          [evaluate evaluate-meta evaluate-comparative]])
   (:use [retrospect.problems.tracking.truedata :only
-         [generate-truedata export-truedata]])
+         [generate-truedata]])
   (:use [retrospect.problems.tracking.sensors :only
          [generate-sensors]])
   (:use [retrospect.problems.tracking.hypotheses :only
@@ -76,7 +76,6 @@
                 :update-diagram-fn player-update-diagram}
                generate-truedata
                generate-sensors
-               export-truedata
                prepared-map
                hypothesize
                get-more-hyps

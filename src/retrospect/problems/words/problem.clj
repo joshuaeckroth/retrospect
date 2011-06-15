@@ -1,11 +1,23 @@
 (ns retrospect.problems.words.problem
   (:require [retrospect.problem])
   (:import [retrospect.problem Problem])
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str])
+  (:use [retrospect.problems.words.evaluate :only
+         [evaluate evaluate-meta evaluate-comparative]])
+  (:use [retrospect.problems.words.truedata :only [generate-truedata]])
+  (:use [retrospect.problems.words.sensors :only [generate-sensors]])
+  (:use [retrospect.problems.words.hypotheses :only
+         [hypothesize get-more-hyps commit-decision inconsistent]])
+  (:use [retrospect.problems.words.player :only
+         [player-get-params player-set-params player-get-params-panel
+          player-get-stats-panel player-update-stats player-get-truedata-log
+          player-get-problem-log player-setup-diagram player-update-diagram]])
+  (:use [retrospect.problems.words.monitor :only [monitor]])
+  (:use [retrospect.problems.words.prepared :only [prepared-map]]))
 
 (defn read-model-csv
   [file]
-  (reduce #(assoc %1 (butlast %2) (last %2)) {}
+  (reduce #(assoc %1 (butlast %2) (Double/parseDouble (last %2))) {}
           (map #(str/split % #",") (str/split-lines (slurp file)))))
 
 (defn generate-problem-data
@@ -39,7 +51,6 @@
             :update-diagram-fn player-update-diagram}
             generate-truedata
             generate-sensors
-            export-truedata
             prepared-map
             hypothesize
             get-more-hyps

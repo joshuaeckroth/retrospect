@@ -5,13 +5,13 @@
   (:use [retrospect.problems.tracking.problem :only [tracking-problem]])
   (:use [retrospect.problems.words.problem :only [words-problem]])
   ;(:use [retrospect.problems.circuit.problem :only [circuit-problem]])
-  (:use [retrospect.records :only [run-with-new-record list-records save]])
+  (:use [retrospect.records :only [run-with-new-record list-records]])
   (:use [retrospect.player :only [start-player]]))
 
 (defn -main [& args]
   (with-command-line args
     "retrospect"
-    [[action "Action (run/list/player/save)" "player"]
+    [[action "Action (run/list/player)" "player"]
      [problem "Problem" "tracking"]
      [paramsfile "Parameters XML file" "params.xml"]
      [datadir "Data directory" "data"]
@@ -34,14 +34,12 @@
       (set-seed seed)
       (case action
             "run"
-            (run-with-new-record prob paramsfile recordsdir datadir nthreads
+            (run-with-new-record prob paramsfile datadir recordsdir nthreads
               monitor? meta? repetitions)
             "list"
             (list-records recordsdir)
             "player"
             (start-player prob datadir)
-            "save"
-            (save prob paramsfile)
 
             (println "No action given.")))))
 

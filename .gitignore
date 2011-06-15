@@ -11,4 +11,6 @@ gitstats
 autodoc
 params.xml
 explains-graphs
+*.swp
+data
 

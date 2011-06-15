@@ -16,6 +16,14 @@
         <SensorSeesColor start="60" end="100" step="20" />
       </params>
     </problem>
+    <problem name="Words">
+      <params>
+        <Steps start="100" end="100" step="10" />
+        <StepsBetween start="1" end="1" step="5" />
+        <SensorNoise start="0" end="0" step="1" />
+        <BeliefNoise start="0" end="0" step="1" />
+      </params>
+    </problem>
     <problem name="Circuit">
       <params>
         <MinGates start="3" end="10" step="1" />

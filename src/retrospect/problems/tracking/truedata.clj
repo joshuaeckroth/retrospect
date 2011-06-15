@@ -65,19 +65,4 @@
                                     (entity-pos-list e)))
                     entities))))
 
-(defn export-truedata
-  [truedata]
-  (let [moves (get-grid-movements truedata 0 (dec (dec (count truedata))))
-        entities (set (map :e moves))
-        spaces (fn [ss] (apply str (interpose " " ss)))
-        entity-pos-list
-        (fn [e] (spaces (concat (let [m (find-first #(= e (:e %)) moves)]
-                                  [(format "%d,%d" (:ox m) (:oy m))])
-                                (for [m moves :when (= (:e m) e)]
-                                  (format "%d,%d" (:x m) (:y m))))))]
-    (format "(build-truedata params (entity-paths %s))"
-            (apply str (map (fn [e] (format "[\"%s\" %s %d %s]\n"
-                                            (str e) (color-str (:color (meta e)))
-                                            (:ot (find-first #(= e (:e %)) moves))
-                                            (entity-pos-list e)))
-                            entities)))))
+

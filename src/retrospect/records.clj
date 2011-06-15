@@ -112,11 +112,4 @@
 	   (record-str id date commit params))
 	 (catch Exception e))))))
 
-(defn save
-  [problem paramsfile]
-  (let [params (explode-params (read-params problem paramsfile))]
-    (doseq [p params]
-      (println (format "{:params %s\n:truedata %s}\n"
-                       (str p)
-                       ((:export-truedata-fn problem)
-                        ((:truedata-fn problem) p)))))))
+

@@ -277,7 +277,7 @@
 
 (defrecord Problem
   [name headers meta-headers comparative-headers monitor-fn player-fns
-   truedata-fn sensor-gen-fn export-truedata-fn prepared-map
+   truedata-fn sensor-gen-fn prepared-map
    hypothesize-fn get-more-hyps-fn commit-decision-fn
    gen-problem-data-fn inconsistent-fn
    evaluate-fn evaluate-meta-fn evaluate-comparative-fn])

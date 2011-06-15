@@ -3,6 +3,7 @@
 
 (defn sense
   [sensor letter time]
+  (println sensor letter time)
   (add-sensed sensor time letter))
 
 (defn generate-sensors
