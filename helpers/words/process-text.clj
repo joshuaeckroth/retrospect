@@ -7,7 +7,8 @@ exec java -cp "$HOME/.clojure/clojure.jar" clojure.main "$0" "$@"
 (defn build-markov-model
   "Build a Markov n-gram model of word transitions."
   [n truedata dictionary]
-  (loop [td (str/split truedata #" ") 
+  (loop [td (concat (repeat (dec n) "") ;; prepend n-1 blanks
+                    (str/split truedata #" ")) 
          occur {}
          model {}]
     (if (> n (count td))
@@ -43,7 +44,8 @@ exec java -cp "$HOME/.clojure/clojure.jar" clojure.main "$0" "$@"
 
 (when *command-line-args*
   (let [[truedata dictionary ambiguous] (process-text (first *command-line-args*))
-        model-csv (markov-model-to-csv (build-markov-model 1 truedata dictionary))] 
+        n (Integer/parseInt (second *command-line-args*))
+        model-csv (markov-model-to-csv (build-markov-model n truedata dictionary))] 
     (spit "truedata.txt" truedata)
     (spit "dictionary.txt" (apply str (interpose "\n" dictionary)))
     (spit "ambiguous.txt" ambiguous)

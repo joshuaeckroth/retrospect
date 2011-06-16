@@ -14,14 +14,18 @@
 (defn lookup-prob
   [model history word]
   (let [n (count (first (keys model))) 
-        prefix (drop-last n history)
-        prob (get model prefix)]
-    (cond (< (count prefix) n) 1.0
-          (nil? prob) 0.0
-          :else prob)))
+        padded-history (concat (repeat (dec n) "") history)
+        prefix (take-last (dec n) padded-history)
+        prob (get model (concat prefix [word]))]
+    (or prob 0.0)))
 
 (defn lookup-composite-prob
-  [model history composite] (rand (rand)))
+  [model history composite]
+  (let [probs (map #(lookup-prob
+                      model (concat history (take % composite))
+                      (nth composite %))
+                   (range (count composite)))]
+    (reduce * 1.0 probs)))
 
 (defn remove-prefix
   "Remove the common prefix a from the seq b; if there actually is
@@ -36,11 +40,10 @@
   [letters composite dict]
   (if (empty? letters) [composite] 
     (let [candidates (filter #(remove-prefix (seq %) letters false) dict)]
-      (concat (mapcat (fn [c] (build-composites
+      (mapcat (fn [c] (build-composites
                                 (remove-prefix c letters false)
                                 (conj composite c) dict))
-                      candidates)
-              [] #_(map #(conj composite %) candidates)))))
+                      candidates))))
 
 (defn make-hyp
   [model history composite active-word sens-hyps diff-letters letters time-now]
@@ -49,14 +52,18 @@
   (let [explains (take (+ diff-letters (count letters)) sens-hyps)
         predicted (remove-prefix (apply str composite) letters true)]
     [(new-hyp "W" :words nil
-              (lookup-composite-prob model history composite)
+              (lookup-composite-prob
+                model history
+                (if (= "" active-word) composite
+                  (concat [active-word] composite)))
               (format "The letters represent \"%s\"\nPredicting: %s\n\nExplains: %s"
                       (apply str (interpose " " composite))
                       (apply str predicted)
                       (apply str (interpose ", " (map :id explains))))
               {:predicted predicted
                :predicted-start (inc time-now)
-               :composite (concat [active-word] composite)})
+               :composite (if (= "" active-word) composite
+                            (concat [active-word] composite))})
      explains]))
 
 (defn hypothesize
@@ -100,7 +107,11 @@
 
 (defn commit-decision
   ([pdata accepted]
-   (if (empty? accepted) pdata
+   (if (empty? accepted)
+     (if (not-empty (:predicted pdata)) pdata
+       (-> pdata
+         (update-in [:history] conj (:active-word pdata)) 
+         (assoc :active-word "")))
      (let [data (:data (first accepted)) ;; only one hyp is accepted
            {:keys [predicted predicted-start composite]} data
            history (:history pdata)]
@@ -112,8 +123,8 @@
               ;; then the whole composite matches (and is added to the
               ;; history); otherwise, part of the last word is predicted, so
               ;; add all but the last word in the composite to the history
-              :history (if (empty? predicted) (concat history composite)
-                         (concat history (butlast composite))) 
+              :history (if (empty? predicted) (vec (concat history composite)) 
+                         (vec (concat history (butlast composite)))) 
               :active-word (if (empty? predicted) "" (last composite))))))
   ([pdata accepted alts]
    (commit-decision pdata accepted)))
