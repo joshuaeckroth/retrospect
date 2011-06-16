@@ -26,6 +26,7 @@
    :model (read-model-csv (str datadir "/words/model.csv"))
    :predicted []
    :predicted-start 0
+   :active-word ""
    :history []})
 
 (def headers

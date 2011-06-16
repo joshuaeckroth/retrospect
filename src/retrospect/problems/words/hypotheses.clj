@@ -40,17 +40,14 @@
                                 (remove-prefix c letters false)
                                 (conj composite c) dict))
                       candidates)
-              (map #(conj composite %) candidates)))))
+              [] #_(map #(conj composite %) candidates)))))
 
 (defn make-hyp
-  [model history composite sens-hyps full-letters time-now]
+  [model history composite active-word sens-hyps diff-letters letters time-now]
   ;; this hyp explains as many sensor hyps (each representing a letter,
   ;; in order) as the composite covers
-  (let [explains (take (- (count full-letters)
-                          (count (remove-prefix (apply str composite)
-                                                full-letters false))) 
-                       sens-hyps)
-        predicted (remove-prefix (apply str composite) full-letters true)]
+  (let [explains (take (+ diff-letters (count letters)) sens-hyps)
+        predicted (remove-prefix (apply str composite) letters true)]
     [(new-hyp "W" :words nil
               (lookup-composite-prob model history composite)
               (format "The letters represent \"%s\"\nPredicting: %s\n\nExplains: %s"
@@ -59,13 +56,13 @@
                       (apply str (interpose ", " (map :id explains))))
               {:predicted predicted
                :predicted-start (inc time-now)
-               :composite composite})
+               :composite (concat [active-word] composite)})
      explains]))
 
 (defn hypothesize
   [ep-state sensors time-now params]
   (let [sens (first sensors) ;; only one sensor
-        {:keys [predicted predicted-start]} (:problem-data ep-state)
+        {:keys [predicted predicted-start active-word]} (:problem-data ep-state)
         s-letters (map #(sensed-at sens %)
                        (range predicted-start (inc time-now)))
         letters (remove-prefix predicted s-letters false) 
@@ -78,20 +75,23 @@
       ;; predictions met, no new information to process, so just update the
       ;; prediction (whatever's left)
       (empty? letters)
-      (-> ep-state
-        (update-in [:problem-data :predicted] remove-prefix s-letters true)
-        (assoc-in [:problem-data :predicted-start] (inc time-now))) 
+      (let [new-predicted (remove-prefix predicted s-letters true)
+            new-active-word (if (empty? predicted) "" active-word)]
+        (-> ep-state
+          (assoc-in [:problem-data :predicted] new-predicted)
+          (assoc-in [:problem-data :predicted-start] (inc time-now))
+          (assoc-in [:problem-data :active-word] new-active-word))) 
       ;; otherwise, generate composite explainers
       :else
-      (let [dict (:dictionary (:problem-data ep-state)) 
-            full-letters (concat predicted letters)
-            composites (build-composites full-letters [] dict)  
+      (let [dict (:dictionary (:problem-data ep-state))
+            composites (build-composites letters [] dict)
             model (:model (:problem-data ep-state))
-            history (:history (:problem-data ep-state))]
+            history (:history (:problem-data ep-state))
+            diff-letters (- (count s-letters) (count letters))]
         (reduce (fn [ep c]
                   (apply add-hyp ep
-                         (make-hyp model history c sens-hyps
-                                   full-letters time-now))) 
+                         (make-hyp model history c active-word sens-hyps
+                                   diff-letters letters time-now))) 
                 ep-sensor-hyps composites)))))
 
 (defn get-more-hyps
@@ -113,6 +113,7 @@
               ;; history); otherwise, part of the last word is predicted, so
               ;; add all but the last word in the composite to the history
               :history (if (empty? predicted) (concat history composite)
-                         (concat history (butlast composite)))))))
+                         (concat history (butlast composite))) 
+              :active-word (if (empty? predicted) "" (last composite))))))
   ([pdata accepted alts]
    (commit-decision pdata accepted)))
