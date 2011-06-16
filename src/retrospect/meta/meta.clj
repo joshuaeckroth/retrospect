@@ -4,6 +4,7 @@
 
 (defn have-enough-meta-hyps
   [workspace]
-  (some #(and (not= :meta-ep (:type %)) (<= 0.8 (hyp-conf workspace %)))
-        (get-hyps workspace)))
+  #_(some #(and (not= :meta-ep (:type %)) (<= 0.8 (hyp-conf workspace %)))
+          (get-hyps workspace))
+  false)
 

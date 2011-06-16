@@ -272,14 +272,18 @@
 (defn measure-conf
   "Confidence of a workspace is 1.0 minus the average doubt (among the accepted
    hypotheses), where doubt is calculated as 1-conf of a hypothesis.  Note that if
-   no hyps have been accepted, there is no doubt (naturally)."
+   no hyps have been accepted and there is nothing to explain, there is no doubt
+   (naturally). If there are no hyps accepted and some stuff is left unexplained,
+   maximum doubt results."
   [workspace]
-  (if (= 0 (count (:accepted workspace))) 1.0 
-    (let [confs (vals (select-keys (:hyp-confidences workspace)
-                                   (:accepted workspace)))
-          doubts (map #(- 1.0 %) confs)
-          avg-doubt (/ (reduce + 0.0 doubts) (count doubts))]
-      (- 1.0 avg-doubt))))
+  (let [final (:final (:log workspace))]
+    (if (empty? (:accepted final)) 
+      (if (empty? (:unexplained final)) 1.0 0.0)
+      (let [confs (vals (select-keys (:hyp-confidences workspace)
+                                     (:accepted final)))
+            doubts (map #(- 1.0 %) confs)
+            avg-doubt (/ (reduce + 0.0 doubts) (count doubts))]
+        (- 1.0 avg-doubt)))))
 
 (defn get-conf
   [workspace]

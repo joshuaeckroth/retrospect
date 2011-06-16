@@ -23,7 +23,10 @@
 (defn generate-problem-data
   [sensors datadir params]
   {:dictionary (str/split-lines (slurp (str datadir "/words/dictionary.txt")))
-   :model (read-model-csv (str datadir "/words/model.csv"))})
+   :model (read-model-csv (str datadir "/words/model.csv"))
+   :predicted []
+   :predicted-start 0
+   :history []})
 
 (def headers
   [:PWC])
