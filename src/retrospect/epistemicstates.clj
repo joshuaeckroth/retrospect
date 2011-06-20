@@ -57,7 +57,8 @@
               id ""]
          (if (<= i 25)
            (str id (char (+ 65 i)))
-           (recur (- i 26) (str id (char (+ 65 (mod i 26))))))))))
+           (let [mult (int (/ i 26))]
+             (recur (- i (* mult 26)) (str id (char (+ 65 (dec mult)))))))))))
 
 (defn init-ep-state-tree
   [pdata]
