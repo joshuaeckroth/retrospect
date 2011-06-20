@@ -30,13 +30,13 @@
    :history []})
 
 (def headers
-  [:PWC])
+  [:LD])
 
 (def meta-headers
-  [:AvgMetaDiffPWC])
+  [:AvgMetaDiffLD])
 
 (def comparative-headers
-  [:MetaPWC :BasePWC :RatioPWC :IncreasePWC])
+  [:MetaLD :BaseLD :RatioLD :IncreaseLD])
 
 (def words-problem
   (Problem. "Words"
