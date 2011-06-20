@@ -44,10 +44,12 @@ exec java -cp "$HOME/.clojure/clojure.jar" clojure.main "$0" "$@"
 
 (when *command-line-args*
   (let [[truedata dictionary ambiguous] (process-text (first *command-line-args*))
-        n (Integer/parseInt (second *command-line-args*))
-        model-csv (markov-model-to-csv (build-markov-model n truedata dictionary))] 
+        maxn (Integer/parseInt (second *command-line-args*))
+        models-csv (for [n (range 1 (inc maxn))]
+                     (markov-model-to-csv (build-markov-model n truedata dictionary)))] 
     (spit "truedata.txt" truedata)
     (spit "dictionary.txt" (apply str (interpose "\n" dictionary)))
     (spit "ambiguous.txt" ambiguous)
-    (spit "model.csv" (apply str (interpose "\n" model-csv)))))
+    (doseq [n (range 1 (inc maxn))]
+      (spit (format "model-%d.csv" n) (apply str (interpose "\n" (nth models-csv (dec n))))))))
 

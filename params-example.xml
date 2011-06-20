@@ -22,6 +22,7 @@
         <StepsBetween start="1" end="1" step="5" />
         <SensorNoise start="0" end="0" step="1" />
         <BeliefNoise start="0" end="0" step="1" />
+        <MaxModelGrams start="1" end="3" step="1" />
       </params>
     </problem>
     <problem name="Circuit">

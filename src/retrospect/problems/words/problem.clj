@@ -23,11 +23,15 @@
 (defn generate-problem-data
   [sensors datadir params]
   {:dictionary (str/split-lines (slurp (str datadir "/words/dictionary.txt")))
-   :model (read-model-csv (str datadir "/words/model.csv"))
+   :models (zipmap (range 1 (inc (:MaxModelGrams params)))
+                   (for [n (range 1 (inc (:MaxModelGrams params)))]
+                     (read-model-csv (str datadir (format "/words/model-%d.csv" n))))) 
    :predicted []
    :predicted-start 0
+   :prediction-met false
    :active-word ""
-   :history []})
+   :history []
+   :history-conf 0})
 
 (def headers
   [:LD])

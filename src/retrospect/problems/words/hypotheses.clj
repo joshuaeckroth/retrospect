@@ -11,22 +11,6 @@
   [pdata hyps rejected]
   [])
 
-(defn lookup-prob
-  [model history word]
-  (let [n (count (first (keys model))) 
-        padded-history (concat (repeat (dec n) "") history)
-        prefix (take-last (dec n) padded-history)
-        prob (get model (concat prefix [word]))]
-    (or prob 0.0)))
-
-(defn lookup-composite-prob
-  [model history composite]
-  (let [probs (map #(lookup-prob
-                      model (concat history (take % composite))
-                      (nth composite %))
-                   (range (count composite)))]
-    (reduce * 1.0 probs)))
-
 (defn remove-prefix
   "Remove the common prefix a from the seq b; if there actually is
    no complete common prefix, return nil"
@@ -36,9 +20,23 @@
         (= (first a) (first b)) (recur (rest a) (rest b) save-first?)
         :else nil))
 
+(defn lookup-composite-prob
+  [models history back-n max-n composite]
+  ;; get the appropriate model; as the composite grows,
+  ;; get the bigger models (but max out at biggest model)
+  (let [probs (map #(let [n (min max-n (+ back-n %))
+                          model (get models n)
+                          words-long (concat history (take % composite))
+                          words (vec (take-last n words-long))]
+                      ;; actually pull the prob from the model
+                      ;; (or 0.0 if not in model)
+                      (or (get model words) 0.0))
+                   (range 1 (inc (count composite))))]
+    (reduce * 1.0 probs)))
+
 (defn build-composites
   [letters composite dict]
-  (if (empty? letters) [composite] 
+  (if (empty? letters) [composite]
     (let [candidates (filter #(remove-prefix (seq %) letters false) dict)]
       (mapcat (fn [c] (build-composites
                                 (remove-prefix c letters false)
@@ -46,24 +44,27 @@
                       candidates))))
 
 (defn make-hyp
-  [model history composite active-word sens-hyps diff-letters letters time-now]
+  [models history history-conf max-n composite active-word
+   sens-hyps diff-letters letters time-now]
   ;; this hyp explains as many sensor hyps (each representing a letter,
-  ;; in order) as the composite covers
-  (let [explains (take (+ diff-letters (count letters)) sens-hyps)
-        predicted (remove-prefix (apply str composite) letters true)]
-    [(new-hyp "W" :words nil
+  ;; in order) as the composite covers, starting from an offset
+  (let [words (:words composite) 
+        offset (:offset composite)
+        explains (take (+ diff-letters (count letters)) (drop offset sens-hyps))
+        predicted (remove-prefix (apply str words) (drop offset letters) true)]
+    [(new-hyp "W" :words :shared-explains
               (lookup-composite-prob
-                model history
-                (if (= "" active-word) composite
-                  (concat [active-word] composite)))
+                models history history-conf max-n
+                (if (= "" active-word) words 
+                  (concat [active-word] words)))
               (format "The letters represent \"%s\"\nPredicting: %s\n\nExplains: %s"
-                      (apply str (interpose " " composite))
+                      (apply str (interpose " " words))
                       (apply str predicted)
                       (apply str (interpose ", " (map :id explains))))
               {:predicted predicted
                :predicted-start (inc time-now)
-               :composite (if (= "" active-word) composite
-                            (concat [active-word] composite))})
+               :composite (if (= "" active-word) words
+                            (concat [active-word] words))})
      explains]))
 
 (defn hypothesize
@@ -82,23 +83,27 @@
       ;; predictions met, no new information to process, so just update the
       ;; prediction (whatever's left)
       (empty? letters)
-      (let [new-predicted (remove-prefix predicted s-letters true)
-            new-active-word (if (empty? predicted) "" active-word)]
+      (let [new-predicted (remove-prefix predicted s-letters true)]
         (-> ep-state
           (assoc-in [:problem-data :predicted] new-predicted)
           (assoc-in [:problem-data :predicted-start] (inc time-now))
-          (assoc-in [:problem-data :active-word] new-active-word))) 
+          (assoc-in [:problem-data :prediction-met] true)))
       ;; otherwise, generate composite explainers
       :else
       (let [dict (:dictionary (:problem-data ep-state))
-            composites (build-composites letters [] dict)
-            model (:model (:problem-data ep-state))
+            models (:models (:problem-data ep-state))
             history (:history (:problem-data ep-state))
+            history-conf (:history-conf (:problem-data ep-state))
+            composites (first
+                         (drop-while
+                           empty? (for [offset (range (count letters))]
+                                    (map (fn [composite] {:offset offset :words composite}) 
+                                         (build-composites (drop offset letters) [] dict))))) 
             diff-letters (- (count s-letters) (count letters))]
         (reduce (fn [ep c]
                   (apply add-hyp ep
-                         (make-hyp model history c active-word sens-hyps
-                                   diff-letters letters time-now))) 
+                         (make-hyp models history history-conf (:MaxModelGrams params)
+                                   c active-word sens-hyps diff-letters letters time-now))) 
                 ep-sensor-hyps composites)))))
 
 (defn get-more-hyps
@@ -108,11 +113,17 @@
 (defn commit-decision
   ([pdata accepted]
    (if (empty? accepted)
-     (if (not-empty (:predicted pdata)) pdata
+     (if (:prediction-met pdata)
        (-> pdata
          (update-in [:history] conj (:active-word pdata)) 
-         (assoc :active-word "")))
-     (let [data (:data (first accepted)) ;; only one hyp is accepted
+         (update-in [:history-conf] inc)
+         (assoc :active-word "" :predicted [] :prediction-met false))
+       ;; no accepted hyps, but had a prediction (so prediction not met);
+       ;; lose confidence in history, and drop prediction (keep old predicted-start),
+       ;; so we can start over on the next input
+       (assoc pdata :history-conf 0 :predicted [] :prediction-met false
+              :active-word ""))
+     (let [data (:data (first accepted))
            {:keys [predicted predicted-start composite]} data
            history (:history pdata)]
        (assoc pdata
@@ -125,6 +136,9 @@
               ;; add all but the last word in the composite to the history
               :history (if (empty? predicted) (vec (concat history composite)) 
                          (vec (concat history (butlast composite)))) 
+              :history-conf (+ (:history-conf pdata)
+                               (if (empty? predicted) (count composite)
+                                 (dec (count composite)))) 
               :active-word (if (empty? predicted) "" (last composite))))))
   ([pdata accepted alts]
    (commit-decision pdata accepted)))

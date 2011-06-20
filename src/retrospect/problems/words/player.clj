@@ -1,5 +1,6 @@
 (ns retrospect.problems.words.player
   (:import (java.awt GridBagLayout Insets))
+  (:import (javax.swing JSpinner SpinnerNumberModel))
   (:use [clj-swing.label])
   (:use [clj-swing.panel])
   (:require [clojure.string :as str])
@@ -7,16 +8,30 @@
 
 (def ld-label (label ""))
 
+(def param-spinners
+  {:MaxModelGrams (JSpinner. (SpinnerNumberModel. 1 1 10 1))})
+
 (defn player-get-params
   []
-  [])
+  (for [k (keys param-spinners)]
+    [k (->> (k param-spinners) .getModel .getNumber .intValue)]))
 
 (defn player-set-params
-  [])
+  []
+  (doseq [k (keys param-spinners)]
+    (. (k param-spinners) setValue (k @params))))
 
 (defn player-get-params-panel
   []
-  (panel))
+  (panel :layout (GridBagLayout.)
+         :constrains (java.awt.GridBagConstraints.)
+         [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0
+          :fill :BOTH :insets (Insets. 5 5 5 5)
+          _ (label "MaxModelGrams:")
+          :gridx 1
+          _ (:MaxModelGrams param-spinners)
+          :gridy 1 :weighty 1.0
+          _ (panel)]))
 
 (defn player-get-stats-panel
   []
@@ -35,6 +50,20 @@
       (. ld-label (setText (str (:LD (get (:results @or-state) t))))))
     (do (. ld-label (setText "N/A")))))
 
+(defn format-truedata-log
+  [log sb]
+  (loop [out []
+         s (seq log)
+         i 0]
+    (cond (empty? s) (apply str out)
+          ;; skip spaces (add to output, but don't "count")
+          (= \ (first s)) (recur (conj out \ ) (rest s) i)
+          ;; count maxed out, add | symbol, and add letter from log;
+          ;; recur with reset counter
+          (= i (dec sb)) (recur (conj out (first s) \|) (rest s) 0)
+          ;; count still not maxed out, add letter from log, increment count
+          :else (recur (conj out (first s)) (rest s) (inc i)))))
+
 (defn player-get-truedata-log
   []
   (if (= @time-now 0) ""
@@ -43,14 +72,16 @@
            log ""]
       (let [remaining (- @time-now t)
             next-word (first words)]
-        (cond (= remaining 0) log
+        (cond (= remaining 0) (format-truedata-log log (:StepsBetween @params)) 
 
               (< remaining (count next-word))
-              (str log " " (subs next-word 0 remaining)) 
+              (format-truedata-log (str log (if (= "" log) "" " ")
+                                        (subs next-word 0 remaining))
+                                   (:StepsBetween @params)) 
 
               :else
               (recur (+ t (count next-word)) (rest words)
-                     (str log " " next-word)))))))
+                     (str log (if (= "" log) "" " ") next-word)))))))
 
 (defn player-get-problem-log
   []
