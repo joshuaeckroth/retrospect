@@ -34,13 +34,13 @@
    :history-conf 0})
 
 (def headers
-  [:LD])
+  [:LD :MaxModelGrams])
 
 (def meta-headers
   [:AvgMetaDiffLD])
 
 (def comparative-headers
-  [:MetaLD :BaseLD :RatioLD :IncreaseLD])
+  [:MetaLD :BaseLD :RatioLD :IncreaseLD :MaxModelGrams])
 
 (def words-problem
   (Problem. "Words"

@@ -79,4 +79,5 @@
   {:MetaLD (:LD m)
    :BaseLD (:LD b)
    :RatioLD (calc-ratio :LD m b)
-   :IncreaseLD (calc-percent-increase :LD m b)})
+   :IncreaseLD (calc-percent-increase :LD m b)
+   :MaxModelGrams (:MaxModelGrams params)})
