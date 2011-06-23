@@ -128,13 +128,13 @@
 
 (defn add-accurate-decision-hyp
   [workspace ep-state-hyp]
-  (let [apriori (penalize (ws/get-conf (:workspace (:ep-state (:data ep-state-hyp)))))
+  (let [apriori (ws/get-conf (:workspace (:ep-state (:data ep-state-hyp))))
         hyp (ws/new-hyp "HN" :MetaNone :meta apriori "Decision is accurate" {:diff-time 0})]
     (ws/add workspace hyp [ep-state-hyp] :static)))
 
 (defn generate-ep-state-hyp
   [ep-state]
-  (ws/new-hyp "HEP" :MetaEP nil 1.0 "ep-state hyp" {:ep-state ep-state}))
+  (ws/new-hyp "HEP" :MetaEP nil 0.0 "ep-state hyp" {:ep-state ep-state}))
 
 (defn generate-meta-hypotheses
   [workspace problem ep-state-tree sensors bad params lazy]

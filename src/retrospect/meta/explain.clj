@@ -37,10 +37,11 @@
                             (get-hyps workspace))
           ors-meta (assoc-in or-state [:meta-workspaces (:id prev-ep)] workspace)]
       (if (or (= :MetaNone (:type accepted-hyp))
-              ;; don't branch if accepted hyp is not somewhat more confident
-              (<= 0.2 (- (hyp-conf workspace accepted-hyp) 
-                         (hyp-conf workspace (find-first #(= :MetaNone (:type %))
-                                                         (get-hyps workspace))))))
+              ;; don't branch if accepted hyp is not more confident;
+              ;; (note: a lower score means more confident) 
+              (>= (hyp-conf workspace accepted-hyp) 
+                  (hyp-conf workspace (find-first #(= :MetaNone (:type %))
+                                                  (get-hyps workspace)))))
         [(update-explain-cycles ors-meta prev-ep meta-hyps) :MetaNone 0]
         [(update-explain-cycles
           (-> ors-meta

@@ -95,8 +95,9 @@
   (get (:hyp-confidences workspace) hyp))
 
 (defn sort-by-conf
+  "Since we are using logprob, smaller values = more confidence."
   [workspace hyps]
-  (doall (reverse (sort-by (partial hyp-conf workspace) hyps))))
+  (doall (sort-by (partial hyp-conf workspace) hyps)))
 
 (defn find-alternatives
   [workspace hyp]
@@ -212,7 +213,7 @@
     (-> workspace
         (update-in [:graph] #(apply remove-nodes % rejectable))
         (update-in [:hyp-confidences]
-                   #(reduce (fn [c h] (assoc c h 0.0)) % rejectable))
+                   #(reduce (fn [c h] (assoc c h 100.0)) % rejectable))
         (update-in [:rejected] set/union (set rejectable))
         (update-in [:log :final :rejected] concat rejectable))))
 
@@ -270,20 +271,13 @@
         (assoc-in [:resources :hyp-count] (count (nodes (:graph-static ws)))))))
 
 (defn measure-conf
-  "Confidence of a workspace is 1.0 minus the average doubt (among the accepted
-   hypotheses), where doubt is calculated as 1-conf of a hypothesis.  Note that if
-   no hyps have been accepted and there is nothing to explain, there is no doubt
-   (naturally). If there are no hyps accepted and some stuff is left unexplained,
-   maximum doubt results."
   [workspace]
   (let [final (:final (:log workspace))]
     (if (empty? (:accepted final)) 
-      (if (empty? (:unexplained final)) 1.0 0.0)
+      (if (empty? (:unexplained final)) 0.0 100.0)
       (let [confs (vals (select-keys (:hyp-confidences workspace)
-                                     (:accepted final)))
-            doubts (map #(- 1.0 %) confs)
-            avg-doubt (/ (reduce + 0.0 doubts) (count doubts))]
-        (- 1.0 avg-doubt)))))
+                                     (:accepted final)))]
+        (reduce + 0.0 confs)))))
 
 (defn get-conf
   [workspace]
@@ -315,7 +309,7 @@
       ;; otherwise, choose most-confident non-essential
       (let [alts (sort-by-conf workspace explainers)
             best (first alts)
-            delta (if (= 1 (count alts)) 1.0
+            delta (if (= 1 (count alts)) 0.0
                       (- (hyp-conf workspace best)
                          (hyp-conf workspace (second alts))))]
         {:best best :alts alts :essential? false :delta delta}))))

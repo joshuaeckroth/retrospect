@@ -5,7 +5,7 @@
 
 (defn make-sensor-hyp
   [letter]
-  (new-hyp "WS" :sensor nil 1.0 (format "Letter: %c" letter) {}))
+  (new-hyp "WS" :sensor nil 0.0 (format "Letter: %c" letter) {}))
 
 (defn inconsistent
   [pdata hyps rejected]
@@ -29,10 +29,10 @@
                           words-long (concat history (take % composite))
                           words (vec (take-last n words-long))]
                       ;; actually pull the prob from the model
-                      ;; (or 0.0 if not in model)
-                      (or (get model words) 0.0))
+                      ;; (or 1e-9 if not in model)
+                      (- (Math/log (or (get model words) 1.0e-20))))
                    (range 1 (inc (count composite))))]
-    (reduce * 1.0 probs)))
+    (reduce + 0.0 probs)))
 
 (defn build-composites
   [letters composite dict]
@@ -45,12 +45,12 @@
 
 (defn make-hyp
   [models history history-conf max-n composite active-word
-   sens-hyps diff-letters letters time-now]
+   sens-hyps letters time-now]
   ;; this hyp explains as many sensor hyps (each representing a letter,
   ;; in order) as the composite covers, starting from an offset
   (let [words (:words composite) 
         offset (:offset composite)
-        explains (take (+ diff-letters (count letters)) (drop offset sens-hyps))
+        explains (take (count letters) (drop offset sens-hyps))
         predicted (remove-prefix (apply str words) (drop offset letters) true)]
     [(new-hyp "W" :words :shared-explains
               (lookup-composite-prob
@@ -73,8 +73,8 @@
         {:keys [predicted predicted-start active-word]} (:problem-data ep-state)
         s-letters (map #(sensed-at sens %)
                        (range predicted-start (inc time-now)))
-        letters (remove-prefix predicted s-letters false) 
-        sens-hyps (map #(make-sensor-hyp %) s-letters) 
+        letters (remove-prefix predicted s-letters false)
+        sens-hyps (map #(make-sensor-hyp %) (or letters s-letters)) 
         ep-sensor-hyps (reduce #(add-fact %1 %2 []) ep-state sens-hyps)]
     (cond
       ;; predictions not met (predicted was not a prefix of sensed-letters) so
@@ -98,12 +98,11 @@
                          (drop-while
                            empty? (for [offset (range (count letters))]
                                     (map (fn [composite] {:offset offset :words composite}) 
-                                         (build-composites (drop offset letters) [] dict))))) 
-            diff-letters (- (count s-letters) (count letters))]
+                                         (build-composites (drop offset letters) [] dict)))))]
         (reduce (fn [ep c]
                   (apply add-hyp ep
                          (make-hyp models history history-conf (:MaxModelGrams params)
-                                   c active-word sens-hyps diff-letters letters time-now))) 
+                                   c active-word sens-hyps letters time-now))) 
                 ep-sensor-hyps composites)))))
 
 (defn get-more-hyps
@@ -113,14 +112,20 @@
 (defn commit-decision
   ([pdata accepted]
    (if (empty? accepted)
-     (if (:prediction-met pdata)
+     (cond
+       ;; prediction met and prediction finished; add active word to history
+       (and (:prediction-met pdata) (empty? (:predicted pdata)))
        (-> pdata
          (update-in [:history] conj (:active-word pdata)) 
          (update-in [:history-conf] inc)
          (assoc :active-word "" :predicted [] :prediction-met false))
+       ;; prediction met but prediction not finished; don't change anything
+       (and (:prediction-met pdata) (not-empty (:predicted pdata)))
+       pdata
        ;; no accepted hyps, but had a prediction (so prediction not met);
        ;; lose confidence in history, and drop prediction (keep old predicted-start),
        ;; so we can start over on the next input
+       :else
        (assoc pdata :history-conf 0 :predicted [] :prediction-met false
               :active-word ""))
      (let [data (:data (first accepted))

@@ -6,10 +6,10 @@
 
 (defn penalize
   [conf]
-  (* 0.8 conf)) 
+  (* 1.2 conf)) 
 
 (defn boost
   [conf]
-  (- 1.0 (* 0.8 (- 1.0 conf))))
+  (* 0.8 conf))
 
 
