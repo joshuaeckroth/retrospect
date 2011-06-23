@@ -1,50 +1,25 @@
 (ns retrospect.problems.words.evaluate
+  (:import (misc LevenshteinDistance))
   (:use [clojure.contrib.map-utils :only [deep-merge-with]]))
 
-(defn levenshtein-distance
-  [a b]
-  (let [m (count a)
-        n (count b)
-        init (apply deep-merge-with (fn [a b] b)
-                    (concat
-                      ;;deletion
-                      (for [i (range 0 (+ 1 m))]
-                        {i {0 i}})
-                      ;;insertion
-                      (for [j (range 0 (+ 1 n))]
-                        {0 {j j}})))
-        table (reduce
-                (fn [d [i j]]
-                  (deep-merge-with
-                    (fn [a b] b)
-                    d
-                    {i {j (if (= (nth a (- i 1))
-                                 (nth b (- j 1)))
-                            ((d (- i 1)) (- j 1))
-                            (min
-                              (+ ((d (- i 1))
-                                  j) 1) ;;deletion
-                              (+ ((d i)
-                                  (- j 1)) 1) ;;insertion
-                              (+ ((d (- i 1))
-                                  (- j 1)) 1))) ;;substitution
-                    }}))
-                init
-                (for [j (range 1 (+ 1 n))
-                        i (range 1 (+ 1 m))] [i j]))]
-    ((table m) n)))
+(defn calc-ld
+ [seq1 seq2]
+ (LevenshteinDistance/ld (into-array String seq1) (into-array String seq2)))
 
 (defn get-truewords
   [truedata time]
-  (loop [ws [] td (:words (meta truedata))]
-    (if (< time (+ (reduce + 0 (map count ws)) (count (first td)))) ws 
-      (recur (conj ws (first td)) (rest td)))))
+  (loop [ws []
+         ws-count 0
+         td (:words (meta truedata))]
+    (let [c (+ ws-count (count (first td)))]
+      (if (< time c) ws 
+        (recur (conj ws (first td)) c (rest td))))))
 
 (defn evaluate
   [ep-state results prev-ep sensors truedata params]
   (let [time (:time ep-state)
         truewords (get-truewords truedata (:time ep-state))]
-    {:LD (levenshtein-distance (:history (:problem-data ep-state)) truewords)}))
+    {:LD (calc-ld (:history (:problem-data ep-state)) truewords)}))
 
 (defn avg-with-prior
   [results key val]
@@ -58,8 +33,8 @@
   (let [history (:history (:problem-data ep-state))
         history-meta (:history (:problem-data meta-ep-state))
         truewords (get-truewords truedata (:time ep-state))
-        ld (levenshtein-distance history truewords)
-        ld-meta (levenshtein-distance history-meta truewords)]
+        ld (calc-ld history truewords)
+        ld-meta (calc-ld history-meta truewords)]
     {:AvgMetaDiffLD 
      (avg-with-prior results (keyword (format "%s%s" (name meta-accepted-type) "AvgMetaDiffLD"))
                      (- ld-meta ld))}))
