@@ -51,10 +51,11 @@
     (do (. ld-label (setText "N/A")))))
 
 (defn format-truedata-log
-  [log sb]
-  (loop [out []
+  [log sb prefix]
+  (loop [out (vec (format "(%s) " (apply str prefix))) 
          s (seq log)
-         i 0]
+         ;; (+ 0 ...) to prevent error with boxing & recur
+         i (+ 0 (count prefix))] 
     (cond (empty? s) (apply str out)
           ;; skip spaces (add to output, but don't "count")
           (= \ (first s)) (recur (conj out \ ) (rest s) i)
@@ -67,21 +68,22 @@
 (defn player-get-truedata-log
   []
   (if (= @time-now 0) ""
-    (loop [t 0
-           words (:words (meta @truedata))
-           log ""]
-      (let [remaining (- @time-now t)
-            next-word (first words)]
-        (cond (= remaining 0) (format-truedata-log log (:StepsBetween @params)) 
+    (let [prefix (:prefix (meta @truedata))]
+      (loop [t (count prefix)
+             words (:words (meta @truedata))
+             log ""]
+        (let [remaining (- @time-now t)
+              next-word (first words)]
+          (cond (= remaining 0) (format-truedata-log log (:StepsBetween @params) prefix) 
 
-              (< remaining (count next-word))
-              (format-truedata-log (str log (if (= "" log) "" " ")
-                                        (subs next-word 0 remaining))
-                                   (:StepsBetween @params)) 
+                (< remaining (count next-word))
+                (format-truedata-log (str log (if (= "" log) "" " ")
+                                          (subs next-word 0 remaining))
+                                     (:StepsBetween @params) prefix) 
 
-              :else
-              (recur (+ t (count next-word)) (rest words)
-                     (str log (if (= "" log) "" " ") next-word)))))))
+                :else
+                (recur (+ t (count next-word)) (rest words)
+                       (str log (if (= "" log) "" " ") next-word))))))))
 
 (defn player-get-problem-log
   []
