@@ -37,11 +37,11 @@
 (defn build-composites
   [letters composite dict]
   (if (empty? letters) [composite]
-    (let [candidates (filter #(remove-prefix (seq %) letters false) dict)]
-      (mapcat (fn [c] (build-composites
-                                (remove-prefix c letters false)
-                                (conj composite c) dict))
-                      candidates))))
+    (let [cs (filter :remaining (map (fn [c] (let [r (remove-prefix (seq c) letters false)]
+                                               {:word c :remaining r})) dict))]
+      (mapcat (fn [{:keys [word remaining]}]
+                (build-composites remaining (conj composite word) dict))
+              cs))))
 
 (defn make-hyp
   [models history history-conf max-n composite active-word
