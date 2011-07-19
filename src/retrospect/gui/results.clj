@@ -48,6 +48,7 @@
                   p-right (panel)
                   p (panel)
                   headers (sort-by name (get-headers @problem))]
+              (println headers)
               (.setLayout p (BoxLayout. p BoxLayout/X_AXIS))
               (.setLayout p-left (BoxLayout. p-left BoxLayout/Y_AXIS))
               (.setLayout p-right (BoxLayout. p-right BoxLayout/Y_AXIS))

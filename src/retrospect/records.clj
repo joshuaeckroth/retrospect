@@ -8,7 +8,8 @@
   (:use [clojure.contrib.shell :only (sh)])
   (:use [clojure.java.io :as io :only (writer reader copy)])
   (:use [clojure.string :only (split)])
-  (:use [retrospect.local :only (run-local)]))
+  (:use [retrospect.local :only (run-local)])
+  (:use [retrospect.meta.reason :only [meta-strategies]]))
 
 (defn get-gitcommit []
   (first (split (sh "git" "rev-list" "HEAD") #"\n")))
@@ -56,7 +57,7 @@
   "Create a new folder for storing run data and execute the run. Then,
   depending on whether hadoop is true or false, execute a hadoop job
   control process or a local (this machine) runner."
-  [problem paramsfile datadir recordsdir nthreads monitor? meta? repetitions]
+  [problem paramsfile datadir recordsdir nthreads monitor? repetitions]
   (try
     (let [recorddir (str recordsdir "/" (. System (currentTimeMillis)))
           params (explode-params (read-params problem paramsfile))]
@@ -69,8 +70,11 @@
       (print "Copying params file...")
       (copy-params-file (str recorddir "/params.xml") paramsfile)
       (println "done.")
-      (println (format "Running %d parameter combinations..." (count params)))
-      (run-local problem params recorddir datadir nthreads monitor? meta? repetitions)
+      (println
+        (format "Running %d parameters, %d meta-strategies, %d repetitions = %d simulations..."
+                (count params) (count meta-strategies) repetitions
+                (* (count params) (count meta-strategies) repetitions)))
+      (run-local problem params recorddir datadir nthreads monitor? repetitions)
       (println "Done.")
       #_(System/exit 0))
     (catch java.util.concurrent.ExecutionException e

@@ -154,7 +154,7 @@
       (double (/ (k m) (k b)))))
 
 (defn evaluate-meta
-  [ep-state meta-ep-state meta-accepted-type results truedata params]
+  [ep-state meta-ep-state results truedata params]
   (let [maxtime (min (dec (dec (count truedata))) (dec (dec (:time ep-state))))
         true-moves (true-movements truedata maxtime)
         ;; map of labels per true entity
@@ -167,15 +167,13 @@
              (:problem-data ep-state) true-moves)
         pec-meta (percent-events-correct
                   (:problem-data meta-ep-state) true-moves)]
-    {:AvgMetaDiffPEC
-     (avg-with-prior results (keyword (format "%s%s" (name meta-accepted-type) "AvgMetaDiffPEC"))
-       (- pec-meta pec))
+    {:AvgMetaDiffPEC (avg-with-prior results :AvgMetaDiffPEC (- pec-meta pec))
      :AvgMetaDiffMTL
-     (avg-with-prior results (keyword (format "%s%s" (name meta-accepted-type) "AvgMetaDiffMTL"))
+     (avg-with-prior results :AvgMetaDiffMTL
        (- (avg (map #(avg (vals (twl-meta %))) (keys twl-meta)))
           (avg (map #(avg (vals (twl %))) (keys twl)))))
      :AvgMetaDiffMLC
-     (avg-with-prior results (keyword (format "%s%s" (name meta-accepted-type) "AvgMetaDiffMLC"))
+     (avg-with-prior results :AvgMetaDiffMLC
        (- (double (/ (reduce + 0 (map #(count (set (elmap-meta %)))
                                       (keys elmap-meta)))
                      (count (keys elmap-meta))))
@@ -184,7 +182,7 @@
                      (count (keys elmap))))))}))
 
 (defn evaluate-comparative
-  [params [m b]]
+  [params m b]
   {:MetaPEC (:PEC m)
    :BasePEC (:PEC b)
    :RatioPEC (calc-ratio :PEC m b)

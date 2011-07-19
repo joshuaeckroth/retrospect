@@ -15,12 +15,14 @@
   (:use [retrospect.gui.logs :only [update-logs logs-tab]])
   (:use [retrospect.workspaces :only [set-last-id]])
   (:use [retrospect.onerun :only [init-one-run-state]])
+  (:use [retrospect.meta.reason :only [meta-strategies]])
   (:use [retrospect.epistemicstates :only
          [list-ep-states current-ep-state goto-ep-state root-ep-state?
           previous-ep-state non-accepted-current-ep-state?]])
   (:use [retrospect.random :only [set-seed]]))
 
 (def prepared-selected (atom nil))
+(def metastrategy-selected (atom nil))
 (def ep-list (ref '[]))
 (def ep-selected (atom nil))
 (def steplabel (label ""))
@@ -37,19 +39,13 @@
    :SensorNoise (JSpinner. (SpinnerNumberModel. 0 0 100 10))
    :BeliefNoise (JSpinner. (SpinnerNumberModel. 0 0 100 10))})
 
-(def param-checkbox
-  {:MetaAbduction (check-box :caption "MetaAbduction")
-   :Lazy (check-box :caption "Lazy")})
-
 (defn get-params
   []
   (apply hash-map (flatten (concat
                             ((:get-params-fn (:player-fns @problem)))
                             (for [k (keys param-spinners)]
                               [k (->> (k param-spinners)
-                                      .getModel .getNumber .intValue)])
-                            (for [k (keys param-checkbox)]
-                              [k (.isSelected (k param-checkbox))])))))
+                                      .getModel .getNumber .intValue)])))))
 
 (defn set-params
   []
@@ -57,8 +53,7 @@
   (set-seed-spinner (:seed @or-state))
   (doseq [k (keys param-spinners)]
     (. (k param-spinners) setValue (k @params)))
-  (. (:MetaAbduction param-checkbox) setSelected (:meta-abduction @or-state))
-  (. (:Lazy param-checkbox) setSelected (:lazy @or-state)))
+  (dosync (alter metastrategy-selected (constantly (name (:meta-strategy @or-state))))))
 
 (defn update-everything
   []
@@ -85,8 +80,7 @@
   (let [prepared? (and (not (nil? @prepared-selected))
                        (not= "None" @prepared-selected))
         ps (get-params)
-        meta-abduction (:MetaAbduction ps)
-        lazy (:Lazy ps)]
+        meta-strategy (keyword @metastrategy-selected)]
     (set-seed (get-seed))
     (set-last-id 0)
     (when (not prepared?)
@@ -96,7 +90,7 @@
     (dosync
      (alter params (constantly ps))
      (alter or-state
-            (constantly (init-one-run-state meta-abduction lazy @sensors
+            (constantly (init-one-run-state meta-strategy true @sensors
                                             ((:gen-problem-data-fn @problem)
                                              @sensors @datadir ps)))))
     (update-everything)))
@@ -106,7 +100,7 @@
   (when (and (not (nil? @prepared-selected)) (not= "None" @prepared-selected))
     (let [prepared (get (:prepared-map @problem) @prepared-selected)
           ps (:params prepared)
-          meta-abduction (:MetaAbduction ps)
+          meta-strategy (:MetaStrategy ps)
           lazy (:Lazy ps)
           td (:truedata prepared)
           sens (:sensors prepared)]
@@ -117,7 +111,7 @@
        (alter truedata (constantly td))
        (alter sensors (constantly sens))
        (alter or-state
-              (constantly (init-one-run-state meta-abduction lazy sens
+              (constantly (init-one-run-state meta-strategy lazy sens
                                               ((:gen-problem-data-fn @problem)
                                                sens @datadir ps)))))
       (update-everything)
@@ -194,10 +188,10 @@
           _ (button "Set prepared" :action ([_] (set-prepared-action)))
 
           :gridx 1 :gridy 2
-          _ (:MetaAbduction param-checkbox)
-
-          :gridx 1 :gridy 3
-          _ (:Lazy param-checkbox)
+          _ (combo-box
+              [] :model (seq-ref-combobox-model
+                          (ref (concat ["NoMetareasoning"] (map name meta-strategies)))
+                          metastrategy-selected))
 
           :gridx 1 :gridy 4 :gridwidth 1
           _ (label "Seed")

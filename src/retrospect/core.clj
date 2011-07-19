@@ -20,12 +20,10 @@
      [nthreads "Number of threads" "1"]
      [repetitions "Number of repetitions" "10"]
      [monitor "Activate monitor?" "false"]
-     [meta "Meta-abduction?" "true"]
      [seed "Seed" "0"]]
     (let [nthreads (Integer/parseInt nthreads)
           repetitions (Integer/parseInt repetitions)
           monitor? (Boolean/parseBoolean monitor)
-          meta? (Boolean/parseBoolean meta)
           seed (Integer/parseInt seed)
           prob (cond (= problem "tracking") tracking-problem
                      (= problem "words") words-problem
@@ -35,7 +33,7 @@
       (case action
             "run"
             (run-with-new-record prob paramsfile datadir recordsdir nthreads
-              monitor? meta? repetitions)
+              monitor? repetitions)
             "list"
             (list-records recordsdir)
             "player"

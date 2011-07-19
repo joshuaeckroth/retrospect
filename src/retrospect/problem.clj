@@ -2,10 +2,12 @@
   (:import (java.util.concurrent ExecutionException))
   (:use [retrospect.workspaces :only [last-id]])
   (:use [retrospect.onerun :only
-         [init-one-run-states update-one-run-state proceed-one-run-state]])
+         [init-one-run-states init-one-run-state
+          update-one-run-state proceed-one-run-state]])
   (:use [retrospect.epistemicstates :only
          [explain previous-ep-state current-ep-state]])
-  (:use [retrospect.meta.explain :only [explain-meta meta-types]])
+  (:use [retrospect.meta.reason :only
+         [meta-strategies metareasoning-activated? metareason]])
   (:use [retrospect.sensors :only [update-sensors]])
   (:use [retrospect.random :only [set-seed my-rand-int]]))
 
@@ -21,24 +23,8 @@
     (if (= c 0) val
         (+ (key (last results)) val))))
 
-(defn evaluate-meta
-  [problem ep-state ep-state-meta meta-accepted-type diff-time results truedata params]
-  (let [prob-results ((:evaluate-meta-fn problem) ep-state ep-state-meta meta-accepted-type
-                      results truedata params)
-        prob-headers (mapcat (fn [mt] (map #(keyword (format "%s%s" (name mt) (name %)))
-                                           (:meta-headers problem))) meta-types)
-        other-headers (map #(keyword (format "%sSumDiffTime" (name %))) meta-types)]
-    (merge
-     (if (empty? results)
-       (reduce #(assoc %1 %2 0) {} (concat prob-headers other-headers))
-       (select-keys (last results) (concat prob-headers other-headers)))
-     (let [adt (keyword (format "%sSumDiffTime" (name meta-accepted-type)))]
-       {adt (add-to-prior results adt diff-time)})     
-     (reduce #(assoc %1 (keyword (format "%s%s" (name meta-accepted-type) (name %2)))
-                     (get prob-results %2)) {} (keys prob-results)))))
-
 (defn evaluate
-  [problem truedata or-state or-state-meta meta-accepted-type diff-time params]
+  [problem truedata or-state or-state-meta params]
   (let [prev-ep (previous-ep-state (:ep-state-tree or-state))
         prev-ep-meta (previous-ep-state (:ep-state-tree or-state-meta))
         ep-state (current-ep-state (:ep-state-tree or-state))
@@ -49,19 +35,13 @@
      or-state-meta [:results] conj
      (merge ((:evaluate-fn problem) ep-state-meta results prev-ep-meta
              (:sensors or-state-meta) truedata params)
-            (if (not (:meta-abduction or-state-meta)) {}
-                (evaluate-meta problem ep-state ep-state-meta meta-accepted-type diff-time
-                               results truedata params))
+            ((:evaluate-meta-fn problem) ep-state ep-state-meta
+             results truedata params)
             (assoc params
               :Step (:time ep-state-meta)
-              :MetaAbduction (:meta-abduction or-state-meta)
+              :MetaStrategy (name (:meta-strategy or-state-meta)) 
               :Lazy (:lazy or-state-meta)
-              :MetaAbductions (:meta-abductions res)
-              :MetaBad (:MetaBad res)
-              :MetaImpossible (:MetaImpossible res)
-              :MetaImpossibleLconf (:MetaImpossibleLconf res)
-              :MetaBatch (:MetaBatch res)
-              :MetaNone (:MetaNone res)
+              :MetaActivations (:meta-activations res)
               :Milliseconds (:milliseconds res)
               :BadCount (add-to-prior results :BadCount
                                       (count (:bad (:problem-data ep-state-meta))))
@@ -90,45 +70,36 @@
       (double (/ (k m) (k b)))))
 
 (defn evaluate-comparative
-  [problem params [m b]]
-  (let [meta-headers (concat
-                      (mapcat (fn [mt] (map #(keyword (format "%s%s" (name mt) (name %)))
-                                            (:meta-headers problem))) meta-types)
-                      (map #(keyword (format "%sSumDiffTime" (name %))) meta-types))]
-    (merge ((:evaluate-comparative-fn problem) params [m b])
-           (select-keys m meta-headers)
-           {:MetaAbductions (:MetaAbductions m)
-            :MetaBad (:MetaBad m)
-            :MetaImpossible (:MetaImpossible m)
-            :MetaImpossibleLconf (:MetaImpossibleLconf m)
-            :MetaBatch (:MetaBatch m)
-            :MetaNone (:MetaNone m)
-            :MetaMilliseconds (:Milliseconds m)
-            :BaseMilliseconds (:Milliseconds b)
-            :RatioMilliseconds (calc-ratio :Milliseconds m b)
-            :IncreaseMilliseconds (calc-percent-increase :Milliseconds m b)
-            :MetaBadCount (:BadCount m)
-            :BaseBadCount (:BadCount b)
-            :RatioBadCount (calc-ratio :BadCount m b)
-            :IncreaseBadCount (calc-percent-increase :BadCount m b)
-            :MetaSharedExplainsCount (:SharedExplainsCount m)
-            :BaseSharedExplainsCount (:SharedExplainsCount b)
-            :RatioSharedExplainsCount (calc-ratio :SharedExplainsCount m b)
-            :IncreaseSharedExplainsCount (calc-percent-increase
-                                          :SharedExplainsCount m b)
-            :MetaUnexplained (:Unexplained m)
-            :BaseUnexplained (:Unexplained b)
-            :RatioUnexplained (calc-ratio :Unexplained m b)
-            :IncreaseUnexplained (calc-percent-increase :Unexplained m b)
-            :MetaExplainCycles (:ExplainCycles m)
-            :BaseExplainCycles (:ExplainCycles b)
-            :RatioExplainCycles (calc-ratio :ExplainCycles m b)
-            :IncreaseExplainCycles (calc-percent-increase :ExplainCycles m b)
-            :Steps (:Steps params)
-            :StepsBetween (:StepsBetween params)
-            :SensorNoise (:SensorNoise params)
-            :BeliefNoise (:BeliefNoise params)
-            :Seed (:Seed m)})))
+  [problem params m b]
+  (merge ((:evaluate-comparative-fn problem) params m b)
+         {:MetaStrategy (name (:MetaStrategy m)) 
+          :MetaActivations (:MetaActivations m)
+          :MetaMilliseconds (:Milliseconds m)
+          :BaseMilliseconds (:Milliseconds b)
+          :RatioMilliseconds (calc-ratio :Milliseconds m b)
+          :IncreaseMilliseconds (calc-percent-increase :Milliseconds m b)
+          :MetaBadCount (:BadCount m)
+          :BaseBadCount (:BadCount b)
+          :RatioBadCount (calc-ratio :BadCount m b)
+          :IncreaseBadCount (calc-percent-increase :BadCount m b)
+          :MetaSharedExplainsCount (:SharedExplainsCount m)
+          :BaseSharedExplainsCount (:SharedExplainsCount b)
+          :RatioSharedExplainsCount (calc-ratio :SharedExplainsCount m b)
+          :IncreaseSharedExplainsCount (calc-percent-increase
+                                         :SharedExplainsCount m b)
+          :MetaUnexplained (:Unexplained m)
+          :BaseUnexplained (:Unexplained b)
+          :RatioUnexplained (calc-ratio :Unexplained m b)
+          :IncreaseUnexplained (calc-percent-increase :Unexplained m b)
+          :MetaExplainCycles (:ExplainCycles m)
+          :BaseExplainCycles (:ExplainCycles b)
+          :RatioExplainCycles (calc-ratio :ExplainCycles m b)
+          :IncreaseExplainCycles (calc-percent-increase :ExplainCycles m b)
+          :Steps (:Steps params)
+          :StepsBetween (:StepsBetween params)
+          :SensorNoise (:SensorNoise params)
+          :BeliefNoise (:BeliefNoise params)
+          :Seed (:Seed m)}))
 
 (defn proceed-n-steps
   [n steps time truedata or-state]
@@ -155,21 +126,12 @@
         ep-explained (explain ep-state (:get-more-hyps-fn problem)
                               (:inconsistent-fn problem))
         ors-expl (proceed-one-run-state ors-hyps ep-explained time-now problem)
-        ;; perform meta-abduction if the :bad set is non-empty
-        ;; and meta-abduction is turned 'on'
-        bad (:bad (:problem-data (current-ep-state (:ep-state-tree ors-expl))))
-        unexplained (:unexplained (:final (:log (:workspace ep-explained))))
-        [ors-meta meta-accepted-type diff-time]
-        (if (or (and (empty? bad) (empty? unexplained))
-                (= time-now 0)
-                (not (:meta-abduction ors-expl)))
-          [ors-expl :MetaNone 0]
-          (explain-meta problem ors-expl bad params))
+        ors-meta (if (metareasoning-activated? ors-expl params)
+                   (metareason ors-expl params) ors-expl)
         ;; stop the clock
         ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
         ors-resources (update-in ors-meta [:resources] assoc :milliseconds ms)
-        ors-results (evaluate problem truedata ors-expl ors-resources
-                              meta-accepted-type diff-time params)]
+        ors-results (evaluate problem truedata ors-expl ors-resources params)]
     (if (and (not player?) monitor?)
       ((:monitor-fn problem) problem truedata (:sensors ors-results)
        ors-results params)
@@ -184,50 +146,35 @@
       (last (:results ors))
       (recur (run-simulation-step problem truedata ors params monitor? false)))))
 
-(defn run-comparative
-  [problem monitor? meta? datadir params]
+(defn run
+  [problem monitor? datadir params]
+  (println "Running" params)
   (set-seed (:Seed params))
   (let [truedata ((:truedata-fn problem) datadir params)
         sensors ((:sensor-gen-fn problem) params)
         problem-data ((:gen-problem-data-fn problem) sensors datadir params)
-        or-states (init-one-run-states
-                    {:MetaAbduction (if meta? [true false] [false]) :Lazy [true]}
-                    sensors problem-data)]
-    (doall (for [ors or-states]
-             (binding [last-id 0]
-               (run-simulation problem truedata ors params monitor?))))))
-
-(defn run
-  [problem monitor? meta? datadir params]
-  (println "Running" params)
-  (let [runs (run-comparative problem monitor? meta? datadir params)]
-    (if meta?
-      ;; if we have meta vs. non-meta, evaluate the 'batch' form
-      (evaluate-comparative problem params runs)
-      ;; otherwise, just keep the original results from the
-      ;; single (non-meta) run
-      (first runs))))
+        nometa-or-state (init-one-run-state :NoMetareasoning true sensors problem-data)
+        meta-or-states (init-one-run-states {:MetaStrategy meta-strategies :Lazy [true]}
+                                            sensors problem-data)
+        nometa-result (binding [last-id 0]
+                        (run-simulation problem truedata nometa-or-state params monitor?)) 
+        meta-results (doall (for [ors meta-or-states]
+                              (binding [last-id 0]
+                                (run-simulation problem truedata ors params monitor?))))]
+    (for [m meta-results]
+      (evaluate-comparative problem params m nometa-result))))
 
 (defn get-headers
   [problem]
   (concat (:headers problem)
-          (concat (mapcat (fn [mt] (map #(keyword (format "%s%s" (name mt) (name %)))
-                                        (:meta-headers problem))) meta-types)
-                  (map #(keyword (format "%sSumDiffTime" (name %))) meta-types))
           [:Step
            :Steps
            :StepsBetween
            :SensorNoise
            :BeliefNoise
-           :MetaAbduction
+           :MetaStrategy
            :Lazy
-           :MetaAbductions
-           :SumDiffTime
-           :MetaBad
-           :MetaImpossible
-           :MetaImpossibleLconf
-           :MetaBatch
-           :MetaNone
+           :MetaActivations
            :Milliseconds
            :BadCount
            :SharedExplainsCount
@@ -239,16 +186,8 @@
 (defn get-comparative-headers
   [problem]
   (concat (:comparative-headers problem)
-          (concat (mapcat (fn [mt] (map #(keyword (format "%s%s" (name mt) (name %)))
-                                        (:meta-headers problem))) meta-types)
-                  (map #(keyword (format "%sSumDiffTime" (name %))) meta-types))
-          [:MetaAbductions
-           :SumDiffTime
-           :MetaBad
-           :MetaImpossible
-           :MetaImpossibleLconf
-           :MetaBatch
-           :MetaNone
+          [:MetaStrategy
+           :MetaActivations
            :MetaMilliseconds
            :BaseMilliseconds
            :RatioMilliseconds

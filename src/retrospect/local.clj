@@ -4,6 +4,7 @@
   (:use [clojure.stacktrace :only [print-cause-trace]])
   (:require [clojure.contrib.math :as math])
   (:use [retrospect.problem :only (run get-comparative-headers get-headers)])
+  (:use [retrospect.meta.reason :only [meta-strategies]])
   (:use [retrospect.random]))
 
 (def write-agent (agent []))
@@ -33,9 +34,9 @@
   (apply str (concat (interpose "," row) [\newline])))
 
 (defn write-csv
-  [all-results filename problem meta? results]
-  (let [more-all-results (sort-by :Seed (conj all-results results)) 
-        headers (if meta? (get-comparative-headers problem) (get-headers problem))]
+  [all-results filename problem results]
+  (let [more-all-results (sort-by :Seed (concat all-results results)) 
+        headers (get-comparative-headers problem)]
     (with-open [writer (io/writer filename)]
       (.write writer (format-csv-row (map name headers)))
       (doseq [row (map (fn [r] (map (fn [h] (h r)) headers)) more-all-results)]
@@ -43,11 +44,11 @@
     more-all-results))
 
 (defn run-partition
-  [problem monitor? meta? filename datadir params]
+  [problem monitor? filename datadir params]
   (when (not-empty params)
-    (let [results (run problem monitor? meta? datadir (first params))]
-      (send-off write-agent write-csv filename problem meta? results)
-      (recur problem monitor? meta? filename datadir (rest params)))))
+    (let [results (run problem monitor? datadir (first params))]
+      (send-off write-agent write-csv filename problem results)
+      (recur problem monitor? filename datadir (rest params)))))
 
 (defn check-progress
   [remaining dir problem total start-time]
@@ -60,19 +61,19 @@
       (- total progress))))
 
 (defn run-partitions
-  [recorddir problem filename params datadir nthreads monitor? meta? repetitions]
-  (send (agent (* repetitions (count params)))
-        check-progress recorddir problem (* repetitions (count params)) (.getTime (Date.)))
+  [recorddir problem filename params datadir nthreads monitor? repetitions]
+  (let [sim-count (* repetitions (count params) (count meta-strategies))]
+    (send (agent sim-count)
+          check-progress recorddir problem sim-count (.getTime (Date.)))) 
   (let [seeded-params (for [p params i (range repetitions)]
                         (assoc p :Seed (my-rand-int 10000000)))
         partitions (partition-all (math/ceil (/ (count seeded-params) nthreads))
                                   (my-shuffle seeded-params))
         workers (doall (for [part partitions]
-                         (future (run-partition problem monitor? meta?
-                                                filename datadir part))))]
+                         (future (run-partition problem monitor? filename datadir part))))]
     (doall (pmap (fn [w] @w) workers))))
 
 (defn run-local
-  [problem params recorddir datadir nthreads monitor? meta? repetitions]
+  [problem params recorddir datadir nthreads monitor? repetitions]
   (run-partitions recorddir problem (str recorddir "/results.csv")
-                  params datadir nthreads monitor? meta? repetitions))
+                  params datadir nthreads monitor? repetitions))

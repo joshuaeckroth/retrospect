@@ -29,15 +29,13 @@
           :else (double (/ (+ (* c (key (last results))) val) (inc c))))))
 
 (defn evaluate-meta
-  [ep-state meta-ep-state meta-accepted-type results truedata params]
+  [ep-state meta-ep-state results truedata params]
   (let [history (:history (:problem-data ep-state))
         history-meta (:history (:problem-data meta-ep-state))
         truewords (get-truewords truedata (:time ep-state))
         ld (calc-ld history truewords)
         ld-meta (calc-ld history-meta truewords)]
-    {:AvgMetaDiffLD 
-     (avg-with-prior results (keyword (format "%s%s" (name meta-accepted-type) "AvgMetaDiffLD"))
-                     (- ld-meta ld))}))
+    {:AvgMetaDiffLD (avg-with-prior results :AvgMetaDiffLD (- ld-meta ld))}))
 
 (defn calc-percent-increase
   [k m b]
@@ -50,7 +48,7 @@
     (double (/ (k m) (k b)))))
 
 (defn evaluate-comparative
-  [params [m b]]
+  [params m b]
   {:MetaLD (:LD m)
    :BaseLD (:LD b)
    :RatioLD (calc-ratio :LD m b)
