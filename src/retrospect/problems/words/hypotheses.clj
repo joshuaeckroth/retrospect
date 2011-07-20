@@ -79,7 +79,8 @@
     (cond
       ;; predictions not met (predicted was not a prefix of sensed-letters) so
       ;; just give back the ep-state with the sensor hyp but no explainers
-      (nil? letters) ep-sensor-hyps
+      (nil? letters)
+      (assoc-in ep-sensor-hyps [:problem-data :prediction-met] false)
       ;; predictions met, no new information to process, so just update the
       ;; prediction (whatever's left)
       (empty? letters)
