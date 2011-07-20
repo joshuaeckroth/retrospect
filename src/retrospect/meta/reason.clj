@@ -1,5 +1,10 @@
 (ns retrospect.meta.reason
-  (:use [retrospect.epistemicstates :only [previous-ep-state]]))
+  (:use [retrospect.epistemicstates :only
+         [previous-ep-state current-ep-state new-child-ep-state
+          new-branch-ep-state]])
+  (:use [retrospect.onerun :only
+         [proceed-one-run-state update-one-run-state]])
+  (:require [retrospect.workspaces :as ws]))
 
 
 ;; ## Metareasoning in retrospect
@@ -45,37 +50,59 @@
 (def meta-strategies [:BatchBeginning :DomainInformed :LowerThreshold :Gradual])
 
 (defn batch-from-beginning
-  [or-state params]
+  [problem or-state params]
   or-state)
 
 (defn domain-informed
-  [or-state params]
+  [problem or-state params]
   or-state)
 
 (defn lower-threshold
-  [or-state params]
-  or-state)
+  [problem or-state params]
+  (let [ep-state (current-ep-state (:ep-state-tree or-state))
+        new-est (new-branch-ep-state (:ep-state-tree or-state) ep-state)
+        new-ep (current-ep-state new-est)
+        ;; repeatedly lower threshold until new stuff is accepted
+        ;; or cannot lower it any more (or there's nothing left to accept)
+        final-ws
+        (loop [workspace (:workspace ep-state)]
+          (cond (or (empty? (:unaccepted (:final (:log workspace))))
+                    (= 1.0 (:threshold workspace)))
+                workspace
+                (not= (:accepted (:final (:log (:workspace ep-state))))
+                      (:accepted (:final (:log workspace))))
+                workspace
+                :else
+                (recur (-> workspace (ws/lower-threshold)
+                         (ws/explain (:inconsistent-fn problem)
+                                     (:problem-data new-ep))))))] 
+    ;; if resulting workspace is no different, return original or-state
+    (if (= (:accepted (:final (:log (:workspace ep-state))))
+           (:accepted (:final (:log final-ws))))
+      or-state
+      (update-one-run-state (assoc or-state :ep-state-tree new-est)
+                            (assoc new-ep :workspace final-ws)))))
 
 (defn gradual
-  [or-state params]
+  [problem or-state params]
   or-state)
 
 (defn metareasoning-activated?
   "Check if any of the metareasoning activation conditions are met."
   [or-state params]
-  (let [ep-state (previous-ep-state (:ep-state-tree or-state))]
+  (let [ep-state (current-ep-state (:ep-state-tree or-state))]
     ;; TODO: implement other conditions
     (or (not-empty (:unexplained (:final (:log (:workspace ep-state))))))))
 
 (defn metareason
   "Activate the appropriate metareasoning strategy (as given by
    the parameter :MetaStrategy)"
-  [or-state params]
+  [problem or-state params]
   (let [strat (:meta-strategy or-state)]
     (cond (= :NoMetareasoning strat) or-state
-          (= :BatchBeginning strat) (batch-from-beginning or-state params)
-          (= :DomainInformed strat) (domain-informed or-state params)
-          (= :LowerThreshold strat) (lower-threshold or-state params)
-          (= :Gradual strat) (gradual or-state params)
+          (= :BatchBeginning strat) (batch-from-beginning problem or-state params)
+          (= :DomainInformed strat) (domain-informed problem or-state params)
+          (= :LowerThreshold strat) (lower-threshold problem or-state params)
+          (= :Gradual strat) (gradual problem or-state params)
           :else or-state)))
 

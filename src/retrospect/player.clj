@@ -21,8 +21,8 @@
           previous-ep-state non-accepted-current-ep-state?]])
   (:use [retrospect.random :only [set-seed]]))
 
-(def prepared-selected (atom nil))
-(def metastrategy-selected (atom nil))
+(def prepared-selected (atom "None"))
+(def metastrategy-selected (atom "NoMetareasoning"))
 (def ep-list (ref '[]))
 (def ep-selected (atom nil))
 (def steplabel (label ""))

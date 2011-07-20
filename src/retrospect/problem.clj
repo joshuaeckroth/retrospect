@@ -5,7 +5,7 @@
          [init-one-run-states init-one-run-state
           update-one-run-state proceed-one-run-state]])
   (:use [retrospect.epistemicstates :only
-         [explain previous-ep-state current-ep-state]])
+         [explain previous-ep-state current-ep-state print-ep-state-tree]])
   (:use [retrospect.meta.reason :only
          [meta-strategies metareasoning-activated? metareason]])
   (:use [retrospect.sensors :only [update-sensors]])
@@ -125,13 +125,17 @@
         ep-state (:ep-state ors-hyps)
         ep-explained (explain ep-state (:get-more-hyps-fn problem)
                               (:inconsistent-fn problem))
-        ors-expl (proceed-one-run-state ors-hyps ep-explained time-now problem)
+        ors-expl (update-one-run-state ors-hyps ep-explained)
+        ors-committed (proceed-one-run-state ors-hyps ep-explained time-now problem)
         ors-meta (if (metareasoning-activated? ors-expl params)
-                   (metareason ors-expl params) ors-expl)
+                   (metareason problem ors-expl params) ors-expl)
         ;; stop the clock
         ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
-        ors-resources (update-in ors-meta [:resources] assoc :milliseconds ms)
-        ors-results (evaluate problem truedata ors-expl ors-resources params)]
+        ors-next (proceed-one-run-state
+                   ors-meta (current-ep-state (:ep-state-tree ors-meta))
+                   time-now problem)
+        ors-resources (update-in ors-next [:resources] assoc :milliseconds ms)
+        ors-results (evaluate problem truedata ors-committed ors-resources params)]
     (if (and (not player?) monitor?)
       ((:monitor-fn problem) problem truedata (:sensors ors-results)
        ors-results params)

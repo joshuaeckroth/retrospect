@@ -37,6 +37,7 @@
             :confidence nil}
       :dot []
       :confidence nil
+      :threshold 0.25 ;; to accept, delta must be <= log of this
       :accepted #{}
       :rejected #{}
       :forced #{}
@@ -297,6 +298,11 @@
                                    (:forced workspace))})]
     (assoc-in ws [:log :confidence] (measure-conf ws))))
 
+
+(defn lower-threshold
+  [workspace]
+  (update-in workspace [:threshold] + 0.25))
+
 (defn find-best
   [workspace]
   (let [explainers (find-explainers workspace)
@@ -312,7 +318,9 @@
             delta (if (= 1 (count alts)) 0.0
                       (- (hyp-conf workspace best)
                          (hyp-conf workspace (second alts))))]
-        {:best best :alts alts :essential? false :delta delta}))))
+        (if (<= delta (Math/log (:threshold workspace)))
+          {:best best :alts (disj (set alts) best)
+           :essential? false :delta delta})))))
 
 (defn explain
   [workspace inconsistent pdata]

@@ -60,9 +60,11 @@
                           "Unexplained" (list-hyps (:unexplained (:final wslog)))
                           "Unaccepted" (list-hyps (:unaccepted (:final wslog)))}})
         ep-fn (fn [ep]
-                (let [mw (if (or in-meta? (not (:meta-abduction @or-state))) {}
-                             {"Meta Workspace"
-                              (ws-fn (:log (get (:meta-workspaces @or-state) (:id ep))))})]
+                (let [mw (if (or in-meta?
+                                 (= :NoMetareasoning (:meta-strategy @or-state)))
+                           {}
+                           {"Meta Workspace"
+                            (ws-fn (:log (get (:meta-workspaces @or-state) (:id ep))))})]
                   (merge mw {"Workspace" (ws-fn (:log (:workspace ep)))})))]
     (apply sorted-map-by (AlphanumComparator.)
            (mapcat (fn [ep] [(str ep) (ep-fn ep)]) ep-states))))
