@@ -48,7 +48,15 @@
 ;; the strategy has done its work.
 
 ;(def meta-strategies [:BatchBeginning :DomainInformed :LowerThreshold :Gradual])
-(def meta-strategies [:BatchBeginning :LowerThreshold])
+(def meta-strategies [:BatchBeginning :LowerThreshold :Gradual])
+
+(defn metareasoning-activated?
+  "Check if any of the metareasoning activation conditions are met."
+  [or-state params]
+  (let [ep-state (current-ep-state (:ep-state-tree or-state))]
+    ;; TODO: implement other conditions
+    (or (not-empty (:unexplained (:final (:log (:workspace ep-state)))))
+        (< 15.0 (ws/get-conf (:workspace ep-state))))))
 
 (defn batch-from-beginning
   [problem or-state params]
@@ -59,7 +67,6 @@
                    time-now params)
         ep-expl (explain ep-hyps (:get-more-hyps-fn problem)
                          (:inconsistent-fn problem))]
-
     (update-in (update-one-run-state (assoc or-state :ep-state-tree est) ep-expl)
                [:resources :meta-activations] inc)))
 
@@ -85,26 +92,23 @@
                 :else
                 (recur (-> workspace (ws/lower-threshold)
                          (ws/explain (:inconsistent-fn problem)
-                                     (:problem-data new-ep))))))] 
-    ;; TODO: Fix this w.r.t. explain cycles (not accounted for)
-    ;; if resulting workspace is no different, return original or-state
-    (if (= (:accepted (:final (:log (:workspace ep-state))))
-           (:accepted (:final (:log final-ws))))
-      or-state
-      (update-in (update-one-run-state (assoc or-state :ep-state-tree new-est)
-                                       (assoc new-ep :workspace final-ws))
-                 [:resources :meta-activations] inc))))
+                                     (:problem-data new-ep))))))
+        final-or-state (update-one-run-state (assoc or-state :ep-state-tree new-est)
+                                             (assoc new-ep :workspace final-ws))]
+    (update-in final-or-state [:resources :meta-activations] inc)))
 
 (defn gradual
   [problem or-state params]
-  or-state)
-
-(defn metareasoning-activated?
-  "Check if any of the metareasoning activation conditions are met."
-  [or-state params]
-  (let [ep-state (current-ep-state (:ep-state-tree or-state))]
-    ;; TODO: implement other conditions
-    (or (not-empty (:unexplained (:final (:log (:workspace ep-state))))))))
+  (loop [ors or-state
+         attempt [:LowerThreshold :BatchBeginning :LowerThreshold]]
+    (if (or (not (metareasoning-activated? ors params))
+            (empty? attempt)) ors
+      (cond (= (first attempt) :LowerThreshold)
+            (recur (lower-threshold problem ors params)
+                   (rest attempt))
+            (= (first attempt) :BatchBeginning)
+            (recur (batch-from-beginning problem ors params)
+                   (rest attempt))))))
 
 (defn metareason
   "Activate the appropriate metareasoning strategy (as given by
