@@ -1,7 +1,7 @@
 (ns retrospect.meta.reason
   (:use [retrospect.epistemicstates :only
          [previous-ep-state current-ep-state new-child-ep-state
-          new-branch-ep-state]])
+          new-branch-ep-state new-branch-root explain]])
   (:use [retrospect.onerun :only
          [proceed-one-run-state update-one-run-state]])
   (:require [retrospect.workspaces :as ws]))
@@ -47,11 +47,21 @@
 ;; is "no good" if any of the metareasoning activation conditions are met after
 ;; the strategy has done its work.
 
-(def meta-strategies [:BatchBeginning :DomainInformed :LowerThreshold :Gradual])
+;(def meta-strategies [:BatchBeginning :DomainInformed :LowerThreshold :Gradual])
+(def meta-strategies [:BatchBeginning :LowerThreshold])
 
 (defn batch-from-beginning
   [problem or-state params]
-  or-state)
+  (let [est (new-branch-root (:ep-state-tree or-state))
+        ep-state (current-ep-state est)
+        time-now (apply max (map :sensed-up-to (:sensors or-state)))
+        ep-hyps ((:hypothesize-fn problem) ep-state (:sensors or-state)
+                   time-now params)
+        ep-expl (explain ep-hyps (:get-more-hyps-fn problem)
+                         (:inconsistent-fn problem))]
+
+    (update-in (update-one-run-state (assoc or-state :ep-state-tree est) ep-expl)
+               [:resources :meta-activations] inc)))
 
 (defn domain-informed
   [problem or-state params]
@@ -76,6 +86,7 @@
                 (recur (-> workspace (ws/lower-threshold)
                          (ws/explain (:inconsistent-fn problem)
                                      (:problem-data new-ep))))))] 
+    ;; TODO: Fix this w.r.t. explain cycles (not accounted for)
     ;; if resulting workspace is no different, return original or-state
     (if (= (:accepted (:final (:log (:workspace ep-state))))
            (:accepted (:final (:log final-ws))))
@@ -101,9 +112,13 @@
   [problem or-state params]
   (let [strat (:meta-strategy or-state)]
     (cond (= :NoMetareasoning strat) or-state
-          (= :BatchBeginning strat) (batch-from-beginning problem or-state params)
-          (= :DomainInformed strat) (domain-informed problem or-state params)
-          (= :LowerThreshold strat) (lower-threshold problem or-state params)
-          (= :Gradual strat) (gradual problem or-state params)
+          (= :BatchBeginning strat)
+          (batch-from-beginning problem or-state params)
+          (= :DomainInformed strat)
+          (domain-informed problem or-state params)
+          (= :LowerThreshold strat)
+          (lower-threshold problem or-state params)
+          (= :Gradual strat)
+          (gradual problem or-state params)
           :else or-state)))
 

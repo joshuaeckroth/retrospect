@@ -19,6 +19,8 @@
   Object
   (toString [_] (format "%s %d %s" id time (confidence-str (ws/get-conf workspace)))))
 
+(defrecord RootNode [children])
+
 (defn clone-ep-state
   [ep-state id children]
   (EpistemicState.
@@ -27,8 +29,6 @@
    (:time ep-state)
    (:workspace ep-state)
    (:problem-data ep-state)))
-
-(defrecord RootNode [children])
 
 (extend-protocol EpistemicStateTree
   EpistemicState
@@ -167,6 +167,16 @@
         ep-tree-branch
         (goto-ep-state (zip/insert-right (goto-ep-state ep-tree (:id branch)) ep) (:id ep))]
     ep-tree-branch))
+
+(defn new-branch-root
+  [ep-state-tree]
+  (let [ep-state (current-ep-state ep-state-tree)
+        est (goto-ep-state (zip/replace ep-state-tree ep-state) "A")
+        new-ep (clone-ep-state (current-ep-state est)
+                               (make-ep-state-id est) [])
+        new-ep-ws (assoc new-ep :workspace (ws/init-workspace))]
+    (goto-ep-state (zip/insert-right (goto-ep-state est "A") new-ep-ws)
+                   (:id new-ep-ws))))
 
 (defn new-child-ep-state
   [ep-state-tree ep-state time-now problem]
