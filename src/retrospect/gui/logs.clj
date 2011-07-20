@@ -26,17 +26,11 @@
 
 (defn build-abduction-tree-map
   [ep-state-tree in-meta?]
-  (let [expand-meta-hyp (fn [h] (if (:data h)
-                                  (if-let [est (:ep-state-tree (:data h))]
-                                    (build-abduction-tree-map est true))))
-        list-hyps #(apply sorted-map-by (AlphanumComparator.)
-                          (mapcat (fn [h] [(:id h) (expand-meta-hyp h)]) %))
+  (let [list-hyps #(apply sorted-map-by (AlphanumComparator.)
+                          (mapcat (fn [h] [(:id h) nil]) %))
         ep-states (flatten-ep-state-tree ep-state-tree)
         ws-fn (fn [wslog]
-                {"Added" (apply sorted-map-by (AlphanumComparator.)
-                                (mapcat (fn [h] [(:id (:hyp h))
-                                                 (expand-meta-hyp (:hyp h))])
-                                        (:added wslog)))
+                {"Added" (list-hyps (map :hyp (:added wslog)))
                  "Forced" (list-hyps (:forced wslog))
                  "Cycles" (apply sorted-map-by (AlphanumComparator.)
                                  (mapcat (fn [i]
@@ -47,9 +41,7 @@
                                                         "essential"
                                                         (format "delta %.2f"
                                                                 (:delta b))))
-                                              {"Best"
-                                               {(:id (:best b))
-                                                (expand-meta-hyp (:best b))}
+                                              {"Best" {(:id (:best b)) nil}
                                                "Alternatives" (list-hyps (:alts b))
                                                "Rejected" (list-hyps (:rej ar))
                                                "Penalized" (list-hyps (:penalized ar))}]))
@@ -58,16 +50,10 @@
                           "Rejected" (list-hyps (:rejected (:final wslog)))
                           "Shared explains" (list-hyps (:shared-explains (:final wslog)))
                           "Unexplained" (list-hyps (:unexplained (:final wslog)))
-                          "Unaccepted" (list-hyps (:unaccepted (:final wslog)))}})
-        ep-fn (fn [ep]
-                (let [mw (if (or in-meta?
-                                 (= :NoMetareasoning (:meta-strategy @or-state)))
-                           {}
-                           {"Meta Workspace"
-                            (ws-fn (:log (get (:meta-workspaces @or-state) (:id ep))))})]
-                  (merge mw {"Workspace" (ws-fn (:log (:workspace ep)))})))]
+                          "Unaccepted" (list-hyps (:unaccepted (:final wslog)))}})]
     (apply sorted-map-by (AlphanumComparator.)
-           (mapcat (fn [ep] [(str ep) (ep-fn ep)]) ep-states))))
+           (mapcat (fn [ep] [(str ep) {"Workspace" (ws-fn (:log (:workspace ep)))}])
+                   ep-states))))
 
 (defn hyp-info
   [workspace hyp]
@@ -85,34 +71,7 @@
                                              (str (. path getPathComponent 1)))]
                        (find-first #(= (:id %) ep-id) (flatten-ep-state-tree
                                                        (:ep-state-tree @or-state)))))
-          ;; is the selection below a meta-hyp?
-          submeta-hyp-id (if-let [i (find-first
-                                     (fn [i] (re-matches #"^MH.*"
-                                                         (str (. path getPathComponent i))))
-                                     (range (dec (. path getPathCount))))]
-                           (str (. path getPathComponent i)))
-          metahyp (if submeta-hyp-id
-                    (find-first #(= (:id %) submeta-hyp-id)
-                                (get-hyps (get (:meta-workspaces @or-state)
-                                               (:id ep-state)))))
-          meta-ep-state (if (and metahyp (:data metahyp) (:ep-state-tree (:data metahyp)))
-                          (if-let [i (find-first
-                                      (fn [i]
-                                        (re-matches #"^[A-Z]+ \d.*"
-                                                 (str (. path getPathComponent i))))
-                                      (range 5 (. path getPathCount)))]
-                            (find-first #(= (:id %)
-                                            (re-find #"^[A-Z]+"
-                                                     (str (. path getPathComponent i))))
-                                        (flatten-ep-state-tree
-                                         (:ep-state-tree (:data metahyp))))))
-          ws (cond meta-ep-state (:workspace meta-ep-state)
-                   (and (:meta-abduction @or-state)
-                        (<= 3 (. path getPathCount))
-                        (= "Meta Workspace" (str (. path getPathComponent 2))))
-                   (get (:meta-workspaces @or-state) (:id ep-state))
-                   ep-state (:workspace ep-state)
-                   :else nil)]
+          ws (if ep-state (:workspace ep-state))]
       (if-let [hyp (if ws (find-first #(= (:id %) last-comp) (get-hyps ws)))]
         (dosync (alter workspace-log (constantly (hyp-info ws hyp))))
         (dosync (alter workspace-log (constantly "")))))))

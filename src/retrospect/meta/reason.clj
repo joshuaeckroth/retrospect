@@ -80,8 +80,9 @@
     (if (= (:accepted (:final (:log (:workspace ep-state))))
            (:accepted (:final (:log final-ws))))
       or-state
-      (update-one-run-state (assoc or-state :ep-state-tree new-est)
-                            (assoc new-ep :workspace final-ws)))))
+      (update-in (update-one-run-state (assoc or-state :ep-state-tree new-est)
+                                       (assoc new-ep :workspace final-ws))
+                 [:resources :meta-activations] inc))))
 
 (defn gradual
   [problem or-state params]

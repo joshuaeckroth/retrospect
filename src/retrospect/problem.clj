@@ -53,9 +53,8 @@
               (add-to-prior
                results :SharedExplainsCount
                (count (:shared-explains (:final (:log (:workspace prev-ep-meta))))))
-              ;; ExplainCycles are stored in current ep-state
-              :ExplainCycles
-              (:explain-cycles (:resources (:workspace ep-state-meta)))
+              ;; ExplainCycles are stored in or-state
+              :ExplainCycles (:explain-cycles (:resources or-state-meta))
               :HypothesisCount
               (:hyp-count (:resources (:workspace prev-ep-meta))))))))
 

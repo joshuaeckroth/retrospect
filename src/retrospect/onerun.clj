@@ -11,7 +11,7 @@
     {:meta-strategy meta-strategy
      :lazy lazy
      :meta-workspaces {}
-     :resources {:meta-activations 0 :compute 0 :milliseconds 0 :memory 0}
+     :resources {:meta-activations 0 :explain-cycles 0 :milliseconds 0 :memory 0}
      :results [] :sensors sensors
      :ep-state-tree ep-state-tree
      :ep-state (current-ep-state ep-state-tree)}))
@@ -31,8 +31,10 @@
 
 (defn proceed-one-run-state
   [or-state ep-state time-now problem]
-  (let [ep-state-tree (new-child-ep-state (:ep-state-tree or-state)
+  (let [explain-cycles (:explain-cycles (:resources (:workspace ep-state)))
+        ep-state-tree (new-child-ep-state (:ep-state-tree or-state)
                                           ep-state time-now problem)]
     (-> or-state
-        (assoc :ep-state-tree ep-state-tree)
-        (assoc :ep-state (current-ep-state ep-state-tree)))))
+      (update-in [:resources :explain-cycles] + explain-cycles)
+      (assoc :ep-state-tree ep-state-tree)
+      (assoc :ep-state (current-ep-state ep-state-tree)))))
