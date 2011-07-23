@@ -23,18 +23,32 @@
     (grid-new-entity grid time)
     grid))
 
+(defn output-walk-sizes
+  [truedata params]
+  (let [dists (mapcat (fn [grid] (map #(dist (:ox %) (:oy %) (:x %) (:y %))
+                                      (vals (:movements (meta grid)))))
+                      (rest truedata))
+        dist-counts (reduce (fn [dc d] (if (dc (str d))
+                                         (update-in dc [(str d)] inc)
+                                         (assoc dc (str d) 1))) {} dists)
+        dc-strs (map #(format "%s,%d" % (dist-counts %)) (sort (keys dist-counts)))]
+    (spit "walks.txt" (str (count dists) "\n"
+                           (apply str (interpose "\n" dc-strs))))))
+
 (defn generate-truedata
   [datadir params]
   (let [grid (add-new-entities (new-grid (:GridWidth params) (:GridHeight params))
                                (:NumberEntities params))]
     (loop [time 1
            truedata [grid]]
-      (if (> time (:Steps params)) truedata
-          (let [newgrid (-> (last truedata)
-                            (update-all-entities time)
-                            (random-walks params)
-                            (possibly-add-new-entity time params))]
-            (recur (inc time) (conj truedata newgrid)))))))
+      (if (> time (:Steps params))
+        ;(do (output-walk-sizes truedata params) truedata) 
+        truedata
+        (let [newgrid (-> (last truedata)
+                        (update-all-entities time)
+                        (random-walks params)
+                        (possibly-add-new-entity time params))]
+          (recur (inc time) (conj truedata newgrid)))))))
 
 (defn get-grid-movements
   [truedata mintime maxtime]

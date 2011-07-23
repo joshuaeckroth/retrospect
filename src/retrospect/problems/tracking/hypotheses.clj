@@ -114,36 +114,29 @@
 
 (defn score-distance
   "Returns nil if movement is impossible."
-  [x1 y1 x2 y2 maxwalk]
-  (let [d (dist x1 y1 x2 y2)
-        mw (* (math/sqrt 2.1) maxwalk)]
-    (cond
-     (<= d (* maxwalk 0.05)) 0.2
-     (<= d (* maxwalk 0.15)) 0.9
-     (<= d (* maxwalk 0.20)) 0.7
-     (<= d (* maxwalk 0.25)) 0.9
-     (<= d (* maxwalk 0.45)) 0.7
-     (<= d (* maxwalk 0.55)) 0.5
-     (<= d mw) 0.2)))
+  [x1 y1 x2 y2 walk-dist]
+  (let [d (dist x1 y1 x2 y2) 
+        dist-count (walk-dist d)]
+    (if dist-count (- (Math/log (/ dist-count (:walk-count (meta walk-dist))))))))
 
 (defn score-movement
   "Returns nil if movement is impossible."
   [{x1 :x y1 :y t1 :time c1 :color}
    {x2 :x y2 :y t2 :time c2 :color}
-   params]
-  (score-distance x1 y1 x2 y2 (:MaxWalk params)))
+   walk-dist]
+  (score-distance x1 y1 x2 y2 walk-dist))
 
 (defn matched-and-in-range?
   "Returns nil if not matched or not in range."
   [{x1 :x y1 :y t1 :time c1 :color :as det}
    {x2 :x y2 :y t2 :time c2 :color :as det2}
-   params]
+   walk-dist]
   (when (and (= (inc t1) t2) (match-color? c1 c2))
-    (when-let [score (score-movement det det2 params)]
+    (when-let [score (score-movement det det2 walk-dist)]
       score)))
 
 (defn make-movement-hyps
-  [det uncovered spotted-grid entity-hyps params]
+  [det uncovered spotted-grid entity-hyps walk-dist]
   (let [find-spotted (fn [d] (filter #(match-color? (:color d) (:color (meta %)))
                                      (grid-at (nth spotted-grid (:time d))
                                               (:x d) (:y d))))
@@ -156,7 +149,7 @@
                           (apply str (interpose "," (map :id explains)))))]
     (filter identity
             (for [det2 uncovered]
-              (when-let [score (matched-and-in-range? det det2 params)]
+              (when-let [score (matched-and-in-range? det det2 walk-dist)]
                 ;; it is important that the hyp explains where det2 is
                 ;; 'from' and where det went 'to'
                 (let [e-hyp (find-first
@@ -387,8 +380,9 @@
           (reduce (fn [ep [hyp explains]] (add-hyp ep hyp explains))
                   ep-paths-graph consistent-hyps))
         ;; take the first uncovered detection, and make movement hyps out of it
-        (let [mov-hyps (make-movement-hyps (first unc) uncovered
-                                           sg entity-hyps params)]
+        (let [mov-hyps (make-movement-hyps
+                         (first unc) uncovered sg entity-hyps
+                         (:walk-dist (:problem-data ep-state)))]
           (recur (concat hyps (map first mov-hyps))
                  (concat split-merge-hyps (map second mov-hyps))
                  (rest unc)))))))

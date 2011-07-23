@@ -1,6 +1,7 @@
 (ns retrospect.problems.tracking.problem
   (:require [retrospect problem])
   (:import [retrospect.problem Problem])
+  (:require [clojure.string :as str])
   (:use [retrospect.problems.tracking.evaluate :only
          [evaluate evaluate-meta evaluate-comparative]])
   (:use [retrospect.problems.tracking.truedata :only
@@ -20,9 +21,19 @@
   (:use [retrospect.problems.tracking.prepared :only
          [prepared-map]]))
 
+(defn read-walk-dist
+  [file]
+  (let [lines (str/split-lines (slurp file))
+        walk-count (Integer/parseInt (first lines))]
+    (with-meta (reduce #(assoc %1 (Double/parseDouble (first %2))
+                               (Integer/parseInt (second %2)))
+                       {} (map #(str/split % #",") (rest lines)))
+               {:walk-count walk-count})))
+
 (defn generate-problem-data
   [sensors datadir params]
   {:paths (sorted-map)
+   :walk-dist (read-walk-dist (str datadir "/tracking/walks.txt")) 
    :split-merge-hyps []
    :log [] ;; log is reset each time by commit-decision
    :sensors-seen-grid (sensors-seen-grid sensors params)
