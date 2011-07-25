@@ -5,7 +5,7 @@
 
 (defn make-sensor-hyp
   [letter]
-  (new-hyp "WS" :sensor nil 0.0 (format "Letter: %c" letter) {}))
+  (new-hyp "WS" :sensor nil 1.0 (format "Letter: %c" letter) {}))
 
 (defn inconsistent
   [pdata hyps rejected]
@@ -29,10 +29,9 @@
                           words-long (concat history (take % composite))
                           words (vec (take-last n words-long))]
                       ;; actually pull the prob from the model
-                      ;; (or 1e-9 if not in model)
-                      (- (Math/log (or (get model words) 1.0e-20))))
+                      (or (get model words) 0.0))
                    (range 1 (inc (count composite))))]
-    (reduce + 0.0 probs)))
+    (reduce * 1.0 probs)))
 
 (defn build-composites
   [letters composite dict]
@@ -43,9 +42,23 @@
                 (build-composites remaining (conj composite word) dict))
               cs))))
 
+(defn non-zero-composites
+  [letters models history history-conf max-n active-word dict]
+  (first
+    (drop-while
+      empty?
+      (for [offset (range (count letters))]
+        (filter #(< 0.0 (:apriori %))
+                (map (fn [composite]
+                       {:offset offset :words composite
+                        :apriori (lookup-composite-prob
+                                   models history history-conf max-n
+                                   (if (= "" active-word) composite
+                                     (concat [active-word] composite)))}) 
+                     (build-composites (drop offset letters) [] dict)))))))
+
 (defn make-hyp
-  [models history history-conf max-n composite active-word
-   sens-hyps letters time-now]
+  [composite active-word sens-hyps letters time-now]
   ;; this hyp explains as many sensor hyps (each representing a letter,
   ;; in order) as the composite covers, starting from an offset
   (let [words (:words composite) 
@@ -53,10 +66,7 @@
         explains (take (count letters) (drop offset sens-hyps))
         predicted (remove-prefix (apply str words) (drop offset letters) true)]
     [(new-hyp "W" :words :shared-explains
-              (lookup-composite-prob
-                models history history-conf max-n
-                (if (= "" active-word) words 
-                  (concat [active-word] words)))
+              (:apriori composite)
               (format "The letters represent \"%s\"\nPredicting: %s\n\nExplains: %s"
                       (apply str (interpose " " words))
                       (apply str predicted)
@@ -95,16 +105,12 @@
             models (:models (:problem-data ep-state))
             history (:history (:problem-data ep-state))
             history-conf (:history-conf (:problem-data ep-state))
-            composites (first
-                         (drop-while
-                           empty? (for [offset (range (count letters))]
-                                    (map (fn [composite] {:offset offset :words composite}) 
-                                         (build-composites (drop offset letters) [] dict)))))]
-        (reduce (fn [ep c]
-                  (apply add-hyp ep
-                         (make-hyp models history history-conf (:MaxModelGrams params)
-                                   c active-word sens-hyps letters time-now))) 
-                ep-sensor-hyps composites)))))
+            composites (non-zero-composites
+                         letters models history history-conf
+                         (:MaxModelGrams params) active-word dict)
+            hyps (map #(make-hyp % active-word sens-hyps letters time-now)
+                      composites)]
+        (reduce #(apply add-hyp %1 %2) ep-sensor-hyps hyps)))))
 
 (defn get-more-hyps
   [ep-state]

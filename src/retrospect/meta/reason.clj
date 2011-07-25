@@ -1,7 +1,8 @@
 (ns retrospect.meta.reason
   (:use [retrospect.epistemicstates :only
          [previous-ep-state current-ep-state new-child-ep-state
-          new-branch-ep-state new-branch-root explain]])
+          new-branch-ep-state new-branch-root explain goto-ep-state
+          update-ep-state-tree]])
   (:use [retrospect.onerun :only
          [proceed-one-run-state update-one-run-state]])
   (:require [retrospect.workspaces :as ws]))
@@ -47,7 +48,6 @@
 ;; is "no good" if any of the metareasoning activation conditions are met after
 ;; the strategy has done its work.
 
-;(def meta-strategies [:BatchBeginning :DomainInformed :LowerThreshold :Gradual])
 (def meta-strategies [:BatchBeginning :LowerThreshold :Gradual])
 
 (defn metareasoning-activated?
@@ -56,19 +56,39 @@
   (let [ep-state (current-ep-state (:ep-state-tree or-state))]
     ;; TODO: implement other conditions
     (or (not-empty (:unexplained (:final (:log (:workspace ep-state)))))
-        (< 15.0 (ws/get-conf (:workspace ep-state))))))
+        (< 0.15 (ws/get-doubt (:workspace ep-state))))))
 
 (defn batch-from-beginning
   [problem or-state params]
-  (let [est (new-branch-root (:ep-state-tree or-state))
+  (let [prior-est (:ep-state-tree or-state)
+        prior-ep (current-ep-state prior-est)
+        est (new-branch-root prior-est (:original-problem-data or-state))
         ep-state (current-ep-state est)
         time-now (apply max (map :sensed-up-to (:sensors or-state)))
         ep-hyps ((:hypothesize-fn problem) ep-state (:sensors or-state)
                    time-now params)
         ep-expl (explain ep-hyps (:get-more-hyps-fn problem)
-                         (:inconsistent-fn problem))]
-    (update-in (update-one-run-state (assoc or-state :ep-state-tree est) ep-expl)
-               [:resources :meta-activations] inc)))
+                         (:inconsistent-fn problem)
+                         (double (/ (:Threshold params) 100.0)))
+        est-expl (update-ep-state-tree est ep-expl)
+        ors (assoc or-state :ep-state-tree est-expl)
+        final-ors (if (< (ws/get-doubt (:workspace ep-expl))
+                         (ws/get-doubt (:workspace prior-ep)))
+                    ;; if new doubt is lower, stick with this branch,
+                    ;; but also add on original explain cycles
+                    (update-in
+                      (assoc ors :ep-state ep-expl)
+                      [:resources :explain-cycles]
+                      + (:explain-cycles (:resources (:workspace prior-ep)))) 
+                    ;; otherwise, go back to prior (original) branch
+                    ;; but also update explain cycles
+                    (update-in
+                      (assoc ors :ep-state-tree
+                             (goto-ep-state est-expl (:id prior-ep))
+                             :ep-state prior-ep)
+                      [:resources :explain-cycles]
+                      + (:explain-cycles (:resources (:workspace ep-expl)))))]
+    (update-in final-ors [:resources :meta-activations] inc)))
 
 (defn domain-informed
   [problem or-state params]
@@ -82,17 +102,19 @@
         ;; repeatedly lower threshold until new stuff is accepted
         ;; or cannot lower it any more (or there's nothing left to accept)
         final-ws
-        (loop [workspace (:workspace ep-state)]
+        (loop [workspace (:workspace ep-state)
+               threshold (- (:Threshold params) 25)]
           (cond (or (empty? (:unaccepted (:final (:log workspace))))
-                    (= 1.0 (:threshold workspace)))
+                    (> 0 threshold))
                 workspace
-                (not= (:accepted (:final (:log (:workspace ep-state))))
-                      (:accepted (:final (:log workspace))))
+                (< (ws/get-doubt workspace) (ws/get-doubt (:workspace ep-state)))
                 workspace
                 :else
-                (recur (-> workspace (ws/lower-threshold)
-                         (ws/explain (:inconsistent-fn problem)
-                                     (:problem-data new-ep))))))
+                (recur (ws/explain workspace
+                                   (:inconsistent-fn problem)
+                                   (:problem-data new-ep)
+                                   (double (/ threshold 100.0)))
+                       (- threshold 25))))
         final-or-state (update-one-run-state (assoc or-state :ep-state-tree new-est)
                                              (assoc new-ep :workspace final-ws))]
     (update-in final-or-state [:resources :meta-activations] inc)))

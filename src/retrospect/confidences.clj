@@ -2,14 +2,14 @@
 
 (defn confidence-str
   [conf]
-  (format "%.2f" conf))
+  (if conf (format "%.2f" conf) "?"))
 
 (defn penalize
   [conf]
-  (* 1.2 conf)) 
+  (* 0.8 conf)) 
 
 (defn boost
   [conf]
-  (* 0.8 conf))
+  (* 1.2 conf))
 
 

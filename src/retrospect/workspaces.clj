@@ -34,10 +34,9 @@
       :log {:added [] :forced [] :best [] :accrej []
             :final {:accepted [] :rejected [] :shared-explains []
                     :unexplained [] :unaccepted []}
-            :confidence nil}
+            :doubt nil}
       :dot []
-      :confidence nil
-      :threshold 0.25 ;; to accept, delta must be <= log of this
+      :doubt nil
       :accepted #{}
       :rejected #{}
       :forced #{}
@@ -49,16 +48,6 @@
 (defn get-hyps
   [workspace]
   (nodes (:graph-static workspace)))
-
-(defn find-explainers
-  ([workspace]
-     (let [g (:graph workspace)]
-       (set (mapcat #(incoming g %) (nodes g)))))
-  ([workspace hyp & opts]
-     (let [g (if (some #{:static} opts)
-               (:graph-static workspace)
-               (:graph workspace))]
-       (incoming g hyp))))
 
 (defn find-explains
   [workspace hyp & opts]
@@ -96,22 +85,54 @@
   (get (:hyp-confidences workspace) hyp))
 
 (defn sort-by-conf
-  "Since we are using logprob, smaller values = more confidence."
+  "Since we are using probabilities, smaller values = less confidence."
   [workspace hyps]
-  (doall (sort-by (partial hyp-conf workspace) hyps)))
+  (doall (reverse (sort-by (partial hyp-conf workspace) hyps))))
 
-(defn find-alternatives
-  [workspace hyp]
-  (let [g (:graph workspace)]
-    (disj (set (mapcat (fn [explained] (incoming g explained))
-                       (neighbors g hyp)))
-          hyp)))
+(defn find-explainers
+  "Given no hyp argument, returns a sequence of sequences containing
+   alternative explainers of a hyp (essentials are therefore seqs with
+   one explainer); the explainers are sorted by conf (best first), and
+   the seq of seqs is sorted by difference between first- and second-best
+   alternatives, so that first seq of alts in seq of seqs has greatest
+   difference."
+  ([workspace]
+     (let [g (:graph workspace)]
+       (reverse
+         (sort-by #(if (second %)
+                     (- (hyp-conf workspace (first %))
+                        (hyp-conf workspace (second %)))
+                     (hyp-conf workspace (first %)))
+                  (map #(sort-by-conf workspace (incoming g %)) (nodes g))))))
+  ([workspace hyp & opts]
+     (let [g (if (some #{:static} opts)
+               (:graph-static workspace)
+               (:graph workspace))]
+       (incoming g hyp))))
 
-(defn essential?
-  [workspace hyp]
-  (let [g (:graph workspace)]
-    (some (fn [explained] (= 1 (count (incoming g explained))))
-          (neighbors g hyp))))
+(defn normalize-confidences
+  "Normalize the apriori confidences of a collection of hyps.
+   Returns a map with hyps as keys and new conf's as values."
+  [hyps]
+  (let [sum (reduce + 0.0 (map #(:apriori %) hyps))]
+    (reduce #(assoc %1 %2 (/ (:apriori %2) sum)) {} hyps)))
+
+(defn update-confidences
+  "Update confidences of hyps based on their normalized apriori confidences;
+   if a normalized apriori confidence is better than the recorded confidence,
+   update the recorded confidence."
+  [workspace explainers]
+  ;; for each seq of explainers
+  (reduce (fn [ws alts]
+            (let [norm-alts (normalize-confidences alts)]
+              ;; for each normalized confidence hyp
+              (reduce (fn [ws2 hyp]
+                        ;; if the normalized confidence is greater than
+                        ;; the existing confidence, then update it
+                        (if (<= (norm-alts hyp) (hyp-conf ws hyp)) ws2
+                          (assoc-in ws2 [:hyp-confidences hyp] (norm-alts hyp))))
+                      ws (keys norm-alts))))
+          workspace explainers))
 
 (defn find-conflicts
   "The conflicts of a hyp are those other hyps that share
@@ -213,8 +234,6 @@
   (let [rejectable (set/difference (set hyps) (:accepted workspace))]
     (-> workspace
         (update-in [:graph] #(apply remove-nodes % rejectable))
-        (update-in [:hyp-confidences]
-                   #(reduce (fn [c h] (assoc c h 100.0)) % rejectable))
         (update-in [:rejected] set/union (set rejectable))
         (update-in [:log :final :rejected] concat rejectable))))
 
@@ -240,7 +259,8 @@
            rejected #{}]
       (let [incon (set/difference
                    (set (inconsistent
-                         pdata (concat (:accepted ws) (find-explainers ws))
+                         pdata (set/union (:accepted ws)
+                                          (apply concat (find-explainers ws)))
                          (:rejected ws)))
                    rejected)]
         (if (not-empty incon)
@@ -264,25 +284,27 @@
 (defn prepare-workspace
   "Clear the decision, except for what was 'forced'."
   [workspace]
-  (let [ws (assoc workspace :confidence nil :accepted #{} :rejected #{}
+  (let [ws (assoc workspace :doubt nil :accepted #{} :rejected #{}
                   :graph (:graph-static workspace))]
     (-> ws
         (assoc-in [:log :best] [])
         (assoc-in [:log :accrej] [])
         (assoc-in [:resources :hyp-count] (count (nodes (:graph-static ws)))))))
 
-(defn measure-conf
+(defn measure-doubt
   [workspace]
   (let [final (:final (:log workspace))]
     (if (empty? (:accepted final)) 
-      (if (empty? (:unexplained final)) 0.0 100.0)
+      (if (empty? (:unexplained final)) 0.0 1.0)
       (let [confs (vals (select-keys (:hyp-confidences workspace)
-                                     (:accepted final)))]
-        (reduce + 0.0 confs)))))
+                                     (:accepted final)))
+            confs-unexpl (concat confs (repeat (count (:unexplained final)) 1.0))]
+        (double (/ (reduce + 0.0 (map #(- 1.0 %) confs-unexpl))
+                   (count confs-unexpl)))))))
 
-(defn get-conf
+(defn get-doubt
   [workspace]
-  (:confidence (:log workspace)))
+  (:doubt (:log workspace)))
 
 (defn log-final
   [workspace]
@@ -296,40 +318,36 @@
                                    (:accepted workspace)
                                    (:rejected workspace)
                                    (:forced workspace))})]
-    (assoc-in ws [:log :confidence] (measure-conf ws))))
-
-
-(defn lower-threshold
-  [workspace]
-  (update-in workspace [:threshold] + 0.25))
+    (assoc-in ws [:log :doubt] (measure-doubt ws))))
 
 (defn find-best
-  [workspace]
-  (let [explainers (find-explainers workspace)
-        essentials (set (filter #(essential? workspace %) explainers))]
+  [workspace explainers threshold]
+  (let [essentials (apply concat (filter #(= 1 (count %)) explainers))]
     (if (not-empty essentials)
       ;; choose first most-confident essential
-      (let [best (first (sort-by-conf workspace essentials))]
-        {:best best :alts (disj essentials best)
+      (let [best (first essentials)]
+        {:best best :alts (disj (set essentials) best)
          :essential? true :delta nil})
-      ;; otherwise, choose most-confident non-essential
-      (let [alts (sort-by-conf workspace explainers)
+      ;; otherwise, choose highest-delta non-essential
+      (let [alts (first explainers)
             best (first alts)
-            delta (if (= 1 (count alts)) 0.0
-                      (- (hyp-conf workspace best)
-                         (hyp-conf workspace (second alts))))]
-        (if (<= delta (Math/log (:threshold workspace)))
-          {:best best :alts (disj (set alts) best)
+            delta (- (hyp-conf workspace (first alts))
+                     (hyp-conf workspace (second alts)))]
+        (if (>= delta threshold)
+          {:best best :alts (rest alts)
            :essential? false :delta delta})))))
 
 (defn explain
-  [workspace inconsistent pdata]
+  [workspace inconsistent pdata threshold]
   (loop [ws workspace]
     (if (empty? (edges (:graph ws))) (log-final ws)
-        (let [{:keys [best alts essential? delta]} (find-best ws)]
+        (let [explainers (find-explainers ws)
+              ws-confs (update-confidences ws explainers)
+              {:keys [best alts essential? delta]}
+              (find-best ws-confs explainers threshold)]
           (if-not best
-            (log-final ws)
-            (recur (-> ws
+            (log-final ws-confs)
+            (recur (-> ws-confs
                        (update-in [:resources :explain-cycles] inc)
                        (update-in [:log :best] conj
                                   {:best best :alts alts

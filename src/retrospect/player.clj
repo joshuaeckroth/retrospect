@@ -36,6 +36,7 @@
 (def param-spinners
   {:Steps (JSpinner. (SpinnerNumberModel. 50 1 1000 1))
    :StepsBetween (JSpinner. (SpinnerNumberModel. 1 1 1000 1))
+   :Threshold (JSpinner. (SpinnerNumberModel. 25 0 100 25))
    :SensorNoise (JSpinner. (SpinnerNumberModel. 0 0 100 10))
    :BeliefNoise (JSpinner. (SpinnerNumberModel. 0 0 100 10))})
 
@@ -67,7 +68,7 @@
                               (format "Step: %d->%d" (dec @time-prev)
                                       (dec @time-now))))))
   (dosync
-   (alter ep-list (constantly (sort (list-ep-states (:ep-state-tree @or-state))))))
+    (alter ep-list (constantly (sort (list-ep-states (:ep-state-tree @or-state))))))
   (update-ep-tree)
   (update-explains-graph)
   (update-results)
@@ -151,14 +152,18 @@
           :gridx 1
           _ (:StepsBetween param-spinners)
           :gridx 0 :gridy 2
+          _ (label "Threshold:")
+          :gridx 1
+          _ (:Threshold param-spinners)
+          :gridx 0 :gridy 3
           _ (label "SensorNoise:")
           :gridx 1
           _ (:SensorNoise param-spinners)
-          :gridx 0 :gridy 3
+          :gridx 0 :gridy 4
           _ (label "BeliefNoise:")
           :gridx 1
           _ (:BeliefNoise param-spinners)
-          :gridy 4 :weighty 1.0
+          :gridy 5 :weighty 1.0
           _ (panel)]))
 
 (defn mainframe

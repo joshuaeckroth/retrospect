@@ -2,7 +2,7 @@
   (:use [retrospect.epistemicstates :only [current-ep-state]])
   (:use [retrospect.confidences])
   (:use [retrospect.colors])
-  (:use [retrospect.workspaces :only [get-hyps hyp-conf get-conf]])
+  (:use [retrospect.workspaces :only [get-hyps hyp-conf get-doubt]])
   (:use [retrospect.problems.tracking.hypotheses :only
          [paths-to-movements path-to-movements]])
   (:use [retrospect.problems.tracking.truedata :only
@@ -130,7 +130,7 @@
      :PlausibilityWorkspaceAccuracy
      (if (= "A" (:id prev-ep)) 0
          (avg-with-prior results :PlausibilityWorkspaceAccuracy
-           (- pec (get-conf (:workspace prev-ep)))))
+           (- pec (get-doubt (:workspace prev-ep)))))
      :MTL (avg (map #(avg (vals (twl %))) (keys twl)))
      :MeanCountAlternatives (mean-count-alts (:workspace ep-state) :sensor)
      :MLC (double (/ (reduce + 0 (map #(count (set (elmap %)))

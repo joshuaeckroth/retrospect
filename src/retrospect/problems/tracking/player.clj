@@ -100,7 +100,7 @@
         (let [new-e (entity-at t)
               {ox :x oy :y} (meta old-e)
               {x :x y :y} (meta new-e)
-              degree (int (- 255 (* 255 (/ (- @time-now t) (- @time-now @time-prev)))))
+              degree (int (* 255 (/ (- @time-now t) (- @time-now @time-prev))))
               width (double (+ 2 (* 5 (/ degree 255))))]
           (draw-move g ox oy x y (var-color degree) width))))))
 

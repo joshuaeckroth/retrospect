@@ -117,7 +117,7 @@
   [x1 y1 x2 y2 walk-dist]
   (let [d (dist x1 y1 x2 y2) 
         dist-count (walk-dist d)]
-    (if dist-count (- (Math/log (/ dist-count (:walk-count (meta walk-dist))))))))
+    (if dist-count (double (/ dist-count (:walk-count (meta walk-dist)))))))
 
 (defn score-movement
   "Returns nil if movement is impossible."

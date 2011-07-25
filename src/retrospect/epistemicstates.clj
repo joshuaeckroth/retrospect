@@ -17,7 +17,7 @@
      workspace
      problem-data]
   Object
-  (toString [_] (format "%s %d %s" id time (confidence-str (ws/get-conf workspace)))))
+  (toString [_] (format "%s %d %s" id time (confidence-str (ws/get-doubt workspace)))))
 
 (defrecord RootNode [children])
 
@@ -98,14 +98,12 @@
 
 (defn ep-state-tree-to-nested-helper
   [ep-state]
-  (let [deeper (map ep-state-tree-to-nested-helper
-                    (filter (comp ws/get-conf :workspace) (:children ep-state)))]
+  (let [deeper (map ep-state-tree-to-nested-helper (:children ep-state))]
     (conj deeper (str ep-state))))
 
 (defn ep-state-tree-to-nested
   [ep-state-tree]
-  (conj (map ep-state-tree-to-nested-helper
-             (filter (comp ws/get-conf :workspace) (:children (zip/root ep-state-tree))))
+  (conj (map ep-state-tree-to-nested-helper (:children (zip/root ep-state-tree)))
         "root"))
 
 (defn print-ep-state-tree
@@ -127,7 +125,7 @@
   "List ep-states in the order that they were created (i.e., sorted by id,
    which is the same as a depth-first left-first walk)."
   [ep-state-tree]
-  (map str (filter (comp ws/get-conf :workspace)
+  (map str (filter (comp ws/get-doubt :workspace)
                    (flatten-ep-state-tree ep-state-tree))))
 
 (defn add-hyp
@@ -169,14 +167,12 @@
     ep-tree-branch))
 
 (defn new-branch-root
-  [ep-state-tree]
+  [ep-state-tree pdata]
   (let [ep-state (current-ep-state ep-state-tree)
         est (goto-ep-state (zip/replace ep-state-tree ep-state) "A")
-        new-ep (clone-ep-state (current-ep-state est)
-                               (make-ep-state-id est) [])
-        new-ep-ws (assoc new-ep :workspace (ws/init-workspace))]
-    (goto-ep-state (zip/insert-right (goto-ep-state est "A") new-ep-ws)
-                   (:id new-ep-ws))))
+        new-ep (EpistemicState. (make-ep-state-id est) [] 0
+                                (ws/init-workspace) pdata)]
+    (goto-ep-state (zip/insert-right (goto-ep-state est "A") new-ep) (:id new-ep))))
 
 (defn new-child-ep-state
   [ep-state-tree ep-state time-now problem]
@@ -186,16 +182,17 @@
     ep-tree-child))
 
 (defn explain
-  [ep-state get-more-hyps inconsistent & opts]
+  [ep-state get-more-hyps inconsistent threshold & opts]
   (let [workspace (if (some #{:no-prepare} opts) (:workspace ep-state)
                       (ws/prepare-workspace (:workspace ep-state)))
         pdata (:problem-data ep-state)
-        ws-explained (ws/explain workspace inconsistent pdata)]
+        ws-explained (ws/explain workspace inconsistent pdata threshold)]
     (if (not-empty (:unexplained (:final (:log ws-explained))))
       (let [ep-explained (assoc ep-state :workspace ws-explained)
             ep-more-hyps (get-more-hyps ep-explained)
             ws-more-explained (ws/explain (:workspace ep-more-hyps)
                                           inconsistent
-                                          (:problem-data ep-more-hyps))]
+                                          (:problem-data ep-more-hyps)
+                                          threshold)]
         (assoc ep-more-hyps :workspace ws-more-explained))
       (assoc ep-state :workspace ws-explained))))

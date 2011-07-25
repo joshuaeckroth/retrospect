@@ -95,6 +95,7 @@
           :RatioExplainCycles (calc-ratio :ExplainCycles m b)
           :IncreaseExplainCycles (calc-percent-increase :ExplainCycles m b)
           :Steps (:Steps params)
+          :Threshold (:Threshold params)
           :StepsBetween (:StepsBetween params)
           :SensorNoise (:SensorNoise params)
           :BeliefNoise (:BeliefNoise params)
@@ -123,7 +124,8 @@
         ors-hyps (hypothesize problem ors-sensors time-now params)
         ep-state (:ep-state ors-hyps)
         ep-explained (explain ep-state (:get-more-hyps-fn problem)
-                              (:inconsistent-fn problem))
+                              (:inconsistent-fn problem)
+                              (double (/ (:Threshold params) 100.0)))
         ors-expl (update-one-run-state ors-hyps ep-explained)
         ors-committed (proceed-one-run-state ors-hyps ep-explained time-now problem)
         ors-meta (if (metareasoning-activated? ors-expl params)
@@ -142,6 +144,7 @@
 
 (defn run-simulation
   [problem truedata or-state params monitor?]
+  (println "Running meta-strategy" (name (:meta-strategy or-state)))
   (loop [ors or-state]
     (when (nil? ors)
       (throw (ExecutionException. "Monitor took control." (Throwable.))))
@@ -172,6 +175,7 @@
   (concat (:headers problem)
           [:Step
            :Steps
+           :Threshold
            :StepsBetween
            :SensorNoise
            :BeliefNoise
@@ -212,6 +216,7 @@
            :RatioExplainCycles
            :IncreaseExplainCycles
            :Steps
+           :Threshold
            :StepsBetween
            :SensorNoise
            :BeliefNoise
