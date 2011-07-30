@@ -30,6 +30,7 @@
    :predicted-start 0
    :prediction-met false
    :active-word ""
+   :left-off 0
    :history []
    :history-conf 0})
 

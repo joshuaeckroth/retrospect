@@ -19,7 +19,8 @@
   [ep-state results prev-ep sensors truedata params]
   (let [time (:time ep-state)
         truewords (get-truewords truedata (:time ep-state))]
-    {:LD (calc-ld (:history (:problem-data ep-state)) truewords)}))
+    {:LD (double (/ (calc-ld (:history (:problem-data ep-state)) truewords)
+                    (if (empty? truewords) 1 (count truewords)))) }))
 
 (defn avg-with-prior
   [results key val]

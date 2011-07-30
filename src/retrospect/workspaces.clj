@@ -15,15 +15,17 @@
   (def last-id n))
 
 (defn new-hyp
-  [prefix type conflict-id apriori desc data]
+  [prefix type conflict apriori desc data]
   (let [id (inc last-id)]
-    ;; use var-set if running batch mode; def if using player
-    (if (= "AWT-EventQueue-0" (. (Thread/currentThread) getName))
+    ;; use var-set if running batch mode; def if using player or repl
+    ;; (in batch mode, thread is called something like pool-2-thread-1)
+    (if (or (= "AWT-EventQueue-0" (. (Thread/currentThread) getName))
+            (= "Thread-1" (. (Thread/currentThread) getName))) 
       (def last-id (inc last-id))
       (var-set (var last-id) (inc last-id)))
     {:id (format "%s%d" (if meta? (str "M" prefix) prefix) id)
      :type type
-     :conflict-id conflict-id
+     :conflict conflict
      :apriori apriori :desc desc :data data}))
 
 (defn init-workspace
@@ -33,7 +35,7 @@
       :hyp-confidences {}
       :log {:added [] :forced [] :best [] :accrej []
             :final {:accepted [] :rejected [] :shared-explains []
-                    :unexplained [] :unaccepted []}
+                    :unexplained [] :no-explainers [] :unaccepted []}
             :doubt nil}
       :dot []
       :doubt nil
@@ -80,12 +82,18 @@
     (set (concat (set/intersection (set (:forced workspace)) (set hyps))
                  (filter #(not-empty (incoming g %)) hyps)))))
 
+(defn find-no-explainers
+  [workspace]
+  (let [g (:graph-static workspace)]
+    (set (filter #(empty? (incoming g %)) (:forced workspace)))))
+
 (defn hyp-conf
   [workspace hyp]
   (get (:hyp-confidences workspace) hyp))
 
 (defn sort-by-conf
-  "Since we are using probabilities, smaller values = less confidence."
+  "Since we are using probabilities, smaller value = less confidence. We want
+   most confident first."
   [workspace hyps]
   (doall (reverse (sort-by (partial hyp-conf workspace) hyps))))
 
@@ -135,35 +143,39 @@
           workspace explainers))
 
 (defn find-conflicts
-  "The conflicts of a hyp are those other hyps that share
-   a :conflict-id. Some conflict ids are special: :shared-explains
-   means this hyp conflicts with any other that both has the
-   same :shared-explains conflict id and explains one of the same
-   hyps."
+  "If a hypothesis's :conflict value is a function (a predicate), that function
+   is called with the hyp and each other hyp. If the :conflict value is
+   a keyword, the conflicts of a hyp are those other hyps that share the
+   :conflict keyword, except if the keyword is :shared-explains. In that case,
+   the hyp conflicts with any other that also indicates :shared-explains and
+   shares at least one explainer."
   [workspace hyp & opts]
   (let [g (if (some #{:static} opts)
             (:graph-static workspace)
             (:graph workspace))
         hyps (nodes g)
-        cid (:conflict-id hyp)]
+        c (:conflict hyp)]
     (cond
-     ;; no conflict id; so it conflicts with nothing
-     (nil? cid) []
+      ;; no conflict id; so it conflicts with nothing
+      (nil? c) []
 
-     ;; :shared-explains conflict id; may conflict with other hyps
-     ;; that have :shared-explains id
-     (= cid :shared-explains)
-     (let [other-hyps (filter #(and (not= % hyp)
-                                    (= :shared-explains (:conflict-id %)))
-                              hyps)]
-       ;; :shared-explains hyps conflict if they shared an explains
-       ;; link (neighbor)
-       (set (filter #(not-empty (set/intersection (neighbors g %)
-                                                  (neighbors g hyp)))
-                    other-hyps)))
-     ;; otherwise, hyps conflict if their conflict ids are identical
-     :else
-     (set (filter #(and (not= % hyp) (= cid (:conflict-id %))) hyps)))))
+      ;; we have a function (predicate), so call the function on other hyps
+      (fn? c) (set (filter #(and (not= % hyp) (c hyp %)) hyps))
+
+      ;; :shared-explains conflict id; may conflict with other hyps
+      ;; that have :shared-explains id
+      (= c :shared-explains)
+      (let [other-hyps (filter #(and (not= % hyp)
+                                     (= :shared-explains (:conflict %)))
+                               hyps)]
+        ;; :shared-explains hyps conflict if they shared an explains
+        ;; link (neighbor)
+        (set (filter #(not-empty (set/intersection (neighbors g %)
+                                                   (neighbors g hyp)))
+                     other-hyps)))
+      ;; otherwise, hyps conflict if their conflict ids are identical
+      :else
+      (set (filter #(and (not= % hyp) (= c (:conflict %))) hyps)))))
 
 ;; TODO: Update for green entity colors
 (defn dot-format
@@ -299,8 +311,10 @@
       (let [confs (vals (select-keys (:hyp-confidences workspace)
                                      (:accepted final)))
             confs-unexpl (concat confs (repeat (count (:unexplained final)) 1.0))]
-        (double (/ (reduce + 0.0 (map #(- 1.0 %) confs-unexpl))
-                   (count confs-unexpl)))))))
+        (apply max (map #(- 1.0 %) confs))))))
+
+(comment (double (/ (reduce + 0.0 (map #(- 1.0 %) confs-unexpl))
+                   (count confs-unexpl))))
 
 (defn get-doubt
   [workspace]
@@ -313,6 +327,7 @@
                       :rejected (:rejected workspace)
                       :shared-explains (find-shared-explains workspace)
                       :unexplained (find-unexplained workspace)
+                      :no-explainers (find-no-explainers workspace)
                       :unaccepted (set/difference
                                    (get-hyps workspace)
                                    (:accepted workspace)
@@ -343,8 +358,9 @@
     (if (empty? (edges (:graph ws))) (log-final ws)
         (let [explainers (find-explainers ws)
               ws-confs (update-confidences ws explainers)
+              explainers-updated (find-explainers ws-confs)
               {:keys [best alts essential? delta]}
-              (find-best ws-confs explainers threshold)]
+              (find-best ws-confs explainers-updated threshold)]
           (if-not best
             (log-final ws-confs)
             (recur (-> ws-confs
