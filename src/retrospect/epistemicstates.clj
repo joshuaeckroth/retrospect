@@ -151,7 +151,8 @@
      []
      (inc time-now)
      (ws/init-workspace workspace)
-     ((:commit-decision-fn problem) (:problem-data ep-state) accepted))))
+     ((:commit-decision-fn problem) (:problem-data ep-state)
+        accepted rejected time-now))))
 
 (defn new-branch-ep-state
   [ep-state-tree branch]
@@ -188,11 +189,10 @@
         pdata (:problem-data ep-state)
         ws-explained (ws/explain workspace inconsistent pdata threshold)]
     (if (not-empty (:unexplained (:final (:log ws-explained))))
-      (let [ep-explained (assoc ep-state :workspace ws-explained)
-            ep-more-hyps (get-more-hyps ep-explained)
-            ws-more-explained (ws/explain (:workspace ep-more-hyps)
-                                          inconsistent
-                                          (:problem-data ep-more-hyps)
-                                          threshold)]
-        (assoc ep-more-hyps :workspace ws-more-explained))
+      (if-let [ep-more-hyps (get-more-hyps (assoc ep-state :workspace ws-explained))]
+        (assoc ep-more-hyps :workspace (ws/explain (:workspace ep-more-hyps)
+                                                   inconsistent
+                                                   (:problem-data ep-more-hyps)
+                                                   threshold))
+        (assoc ep-state :workspace ws-explained))
       (assoc ep-state :workspace ws-explained))))

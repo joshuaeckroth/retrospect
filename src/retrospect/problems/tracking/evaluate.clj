@@ -11,13 +11,33 @@
   (:require [clojure.set :as set])
   (:use [clojure.contrib.seq :only [find-first]]))
 
-(defn percent-events-correct
+(defn percent-events-correct-wrong
   [pdata true-moves]
-  (if (empty? true-moves) 100.0
-      (double (* 100.0 (/ (count (set/intersection
-                                  true-moves
-                                  (set (paths-to-movements (:paths pdata)))))
-                          (count true-moves))))))
+  (if (empty? true-moves) [100.0 0.0] 
+    (let [moves (set (paths-to-movements (:paths pdata)))
+          correct (set/intersection true-moves moves)]
+      [(double (* 100.0 (/ (count correct) (count true-moves))))
+       (double (* 100.0 (/ (- (count moves) (count correct)) (count true-moves))))])))
+
+(defn precision-recall
+  [pdata true-moves]
+  (if (empty? true-moves) [1.0 1.0 1.0 1.0]
+    (let [believed-moves (set (paths-to-movements (:paths pdata)))
+          disbelieved-moves (set (:disbelieved-moves pdata))
+          true-pos (count (set/intersection true-moves believed-moves))
+          false-pos (- (count believed-moves) true-pos)
+          false-neg (count (set/intersection true-moves disbelieved-moves))
+          true-neg (- (count disbelieved-moves) false-neg)]
+      ;; precision
+      [(double (/ true-pos (+ true-pos false-pos)))
+       ;; recall
+       (double (/ true-pos (+ true-pos false-neg)))
+       ;; specificity
+       (if (= 0 (+ true-neg false-pos)) 1.0
+         (double (/ true-neg (+ true-neg false-pos)))) 
+       ;; accuracy
+       (double (/ (+ true-pos true-neg)
+                  (+ true-neg true-pos false-neg false-pos)))])))
 
 (defn assoc-es-ls
   [ep-state truedata]
@@ -111,9 +131,15 @@
         ;; map of time with label (for each label) per true entity
         twl (reduce (partial assoc-es-twl elmap) {} (keys elmap))
         true-moves (true-movements truedata maxtime)
-        pec (percent-events-correct (:problem-data ep-state) true-moves)
+        [pec pew] (percent-events-correct-wrong (:problem-data ep-state) true-moves)
+        [p r s a] (precision-recall (:problem-data ep-state) true-moves)
         log (:log (:workspace prev-ep))]
     {:PEC pec
+     :PEW pew
+     :Precision p
+     :Recall r
+     :Specificity s
+     :Accuracy a
      :CountRemoved
      (if (< 0 (count results))
        (+ (:CountRemoved (last results))
@@ -163,11 +189,23 @@
         ;; map of time with label (for each label) per true entity
         twl (reduce (partial assoc-es-twl elmap) {} (keys elmap))
         twl-meta (reduce (partial assoc-es-twl elmap-meta) {} (keys elmap-meta))
-        pec (percent-events-correct
-             (:problem-data ep-state) true-moves)
-        pec-meta (percent-events-correct
-                  (:problem-data meta-ep-state) true-moves)]
+        [pec pew] (percent-events-correct-wrong
+                    (:problem-data ep-state) true-moves)
+        [pec-meta pew-meta] (percent-events-correct-wrong
+                              (:problem-data meta-ep-state) true-moves)
+        [p r s a] (precision-recall (:problem-data ep-state) true-moves) 
+        [p-meta r-meta s-meta a-meta]
+        (precision-recall (:problem-data meta-ep-state) true-moves)] 
     {:AvgMetaDiffPEC (avg-with-prior results :AvgMetaDiffPEC (- pec-meta pec))
+     :AvgMetaDiffPEW (avg-with-prior results :AvgMetaDiffPEW (- pew-meta pew))
+     :AvgMetaDiffPrecision (avg-with-prior results :AvgMetaDiffPrecision
+                                           (- p-meta p))
+     :AvgMetaDiffRecall (avg-with-prior results :AvgMetaDiffRecall
+                                           (- r-meta r))
+     :AvgMetaDiffSpecificity (avg-with-prior results :AvgMetaDiffSpecificity
+                                             (- s-meta s))
+     :AvgMetaDiffAccuracy (avg-with-prior results :AvgMetaDiffAccuracy
+                                          (- a-meta a))
      :AvgMetaDiffMTL
      (avg-with-prior results :AvgMetaDiffMTL
        (- (avg (map #(avg (vals (twl-meta %))) (keys twl-meta)))
@@ -187,6 +225,37 @@
    :BasePEC (:PEC b)
    :RatioPEC (calc-ratio :PEC m b)
    :IncreasePEC (calc-percent-increase :PEC m b)
+   :AvgMetaDiffPEC (:AvgMetaDiffPEC m)
+
+   :MetaPEW (:PEW m)
+   :BasePEW (:PEW b)
+   :RatioPEW (calc-ratio :PEW m b)
+   :IncreasePEW (calc-percent-increase :PEW m b)
+   :AvgMetaDiffPEW (:AvgMetaDiffPEW m)
+
+   :MetaPrecision (:Precision m)
+   :BasePrecision (:Precision b)
+   :RatioPrecision (calc-ratio :Precision m b)
+   :IncreasePrecision (calc-percent-increase :Precision m b)
+   :AvgMetaDiffPrecision (:AvgMetaDiffPrecision m)
+
+   :MetaRecall (:Recall m)
+   :BaseRecall (:Recall b)
+   :RatioRecall (calc-ratio :Recall m b)
+   :IncreaseRecall (calc-percent-increase :Recall m b)
+   :AvgMetaDiffRecall (:AvgMetaDiffRecall m)
+
+   :MetaSpecificity (:Specificity m)
+   :BaseSpecificity (:Specificity b)
+   :RatioSpecificity (calc-ratio :Specificity m b)
+   :IncreaseSpecificity (calc-percent-increase :Specificity m b)
+   :AvgMetaDiffSpecificity (:AvgMetaDiffSpecificity m)
+
+   :MetaAccuracy (:Accuracy m)
+   :BaseAccuracy (:Accuracy b)
+   :RatioAccuracy (calc-ratio :Accuracy m b)
+   :IncreaseAccuracy (calc-percent-increase :Accuracy m b)
+   :AvgMetaDiffAccuracy (:AvgMetaDiffAccuracy m)
 
    :MetaMTL (:MTL m)
    :BaseMTL (:MTL b)

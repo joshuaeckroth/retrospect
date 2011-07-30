@@ -48,14 +48,15 @@
 ;; is "no good" if any of the metareasoning activation conditions are met after
 ;; the strategy has done its work.
 
-(def meta-strategies [:BatchBeginning :LowerThreshold :Gradual])
+;(def meta-strategies [:BatchBeginning :LowerThreshold :Gradual])
+(def meta-strategies [:BatchBeginning])
 
 (defn metareasoning-activated?
   "Check if any of the metareasoning activation conditions are met."
   [or-state params]
   (let [ep-state (current-ep-state (:ep-state-tree or-state))]
     ;; TODO: implement other conditions
-    (or (not-empty (:unexplained (:final (:log (:workspace ep-state)))))
+    (or (not-empty (:no-explainers (:final (:log (:workspace ep-state)))))
         (< 0.15 (ws/get-doubt (:workspace ep-state))))))
 
 (defn batch-from-beginning
@@ -69,11 +70,10 @@
                    time-now params)
         ep-expl (explain ep-hyps (:get-more-hyps-fn problem)
                          (:inconsistent-fn problem)
-                         (double (/ (:Threshold params) 100.0)))
+                         (:Threshold params))
         est-expl (update-ep-state-tree est ep-expl)
         ors (assoc or-state :ep-state-tree est-expl)
-        final-ors (if (< (ws/get-doubt (:workspace ep-expl))
-                         (ws/get-doubt (:workspace prior-ep)))
+        final-ors (if true
                     ;; if new doubt is lower, stick with this branch,
                     ;; but also add on original explain cycles
                     (update-in
@@ -89,6 +89,9 @@
                       [:resources :explain-cycles]
                       + (:explain-cycles (:resources (:workspace ep-expl)))))]
     (update-in final-ors [:resources :meta-activations] inc)))
+
+(comment (< (ws/get-doubt (:workspace ep-expl))
+                         (ws/get-doubt (:workspace prior-ep))))
 
 (defn domain-informed
   [problem or-state params]
@@ -122,7 +125,7 @@
 (defn gradual
   [problem or-state params]
   (loop [ors or-state
-         attempt [:LowerThreshold :BatchBeginning :LowerThreshold]]
+         attempt [:BatchBeginning :LowerThreshold]]
     (if (or (not (metareasoning-activated? ors params))
             (empty? attempt)) ors
       (cond (= (first attempt) :LowerThreshold)

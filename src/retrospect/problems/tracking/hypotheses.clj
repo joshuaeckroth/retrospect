@@ -480,7 +480,7 @@
    have already been established for splits). If a movement cannot be
    incorporated, mark it as 'bad'. There may be multiple paths that
    can be extended (see the 'merge-ambiguity-gray' prepared case)."
-  [splits merges alts {:keys [paths bad log]} move]
+  [splits merges {:keys [paths bad log]} move]
   (let [filter-labels (fn [ls] (filter #(and (match-color? (:color (first move))
                                                            (:color (meta %)))
                                              (match-color? (:color (second move))
@@ -491,11 +491,7 @@
         maybe-after-labels (filter #(is-extension? paths % move :backward)
                                    (keys paths))
         before-labels (filter-labels maybe-before-labels)
-        after-labels (filter-labels maybe-after-labels)
-        alts-for-move
-        (filter (fn [h] (or (dets-pos-match? (:det (:data h)) (second move))
-                            (dets-pos-match? (:det2 (:data h)) (first move))))
-                alts)]
+        after-labels (filter-labels maybe-after-labels)]
     (cond
      ;; if we have a split, just mark each applicable label as dead
      (some #{move} splits)
@@ -568,8 +564,7 @@
      ;; alternative explainers for this move's head or tail; in such
      ;; cases, the colors don't match; make a new label, but mark the
      ;; movement as bad
-     (and (empty? alts-for-move)
-          (not= gray (:color (second move)))
+     (and (not= gray (:color (second move)))
           (or (and (empty? before-labels) (not-empty maybe-before-labels))
               (and (empty? after-labels) (not-empty maybe-after-labels))))
      (let [label (new-label (keys paths) move)]
@@ -648,52 +643,56 @@
         moves))
 
 (defn commit-decision
-  ([pdata accepted]
-     (commit-decision pdata accepted []))
-  ([pdata accepted alts]
-     (if (empty? accepted) pdata
-         (let [moves (map (fn [h] (with-meta [(:det (:data h)) (:det2 (:data h))]
-                                    {:hyp h}))
-                          (sort-by (comp :time :det :data)
-                                   (sort-by :id accepted)))
-               maxtime (dec (apply max (map :time (flatten moves))))]
-           ;; incorporate the decision one time step at a time
-           (loop [t (apply min (map :time (flatten moves)))
-                  paths (:paths pdata)
-                  log [] ;; log is reset each time
-                  bad #{}]
-             (if (> t maxtime)
-               (let [covered (flatten (vals paths))]
-                 (assoc pdata :paths paths
-                        :log log
-                        :bad (map (comp :hyp meta) bad)
-                        :uncovered (set (filter (fn [det]
-                                                  (not-any? #(and (dets-pos-match? det %)
-                                                                  (match-color? (:color det)
-                                                                                (:color %)))
-                                                            covered))
-                                                (:uncovered pdata)))))
-               ;; find splits and merges
-               (let [moves-now (filter #(= t (:time (first %))) moves)
-                     splits (filter (partial move-splits? paths moves-now)
-                                    moves-now)
-                     merges (filter (partial move-merges? moves-now)
-                                    moves-now)
+  [pdata accepted rejected time-now]
+  (let [pd (reduce (fn [pd hyp] (update-in pd [:disbelieved-moves]
+                                           concat (path-to-movements
+                                                    [(:det (:data hyp))
+                                                     (:det2 (:data hyp))])))
+                   pdata rejected)]
+    (if (empty? accepted) pd
+      (let [moves (map (fn [h] (with-meta [(:det (:data h)) (:det2 (:data h))]
+                                          {:hyp h}))
+                       (sort-by (comp :time :det :data)
+                                (sort-by :id accepted)))
+            maxtime (dec (apply max (map :time (flatten moves))))]
+        ;; incorporate the decision one time step at a time
+        (loop [t (apply min (map :time (flatten moves)))
+               paths (:paths pd)
+               log [] ;; log is reset each time
+               bad #{}]
+          (if (> t maxtime)
+            (let [covered (flatten (vals paths))]
+              (assoc pd :paths paths
+                     :log log
+                     :bad (map (comp :hyp meta) bad)
+                     :uncovered
+                     (set (filter (fn [det]
+                                    (not-any? #(and (dets-pos-match? det %)
+                                                    (match-color? (:color det)
+                                                                  (:color %)))
+                                              covered))
+                                  (:uncovered pd)))))
+            ;; find splits and merges
+            (let [moves-now (filter #(= t (:time (first %))) moves)
+                  splits (filter (partial move-splits? paths moves-now)
+                                 moves-now)
+                  merges (filter (partial move-merges? moves-now)
+                                 moves-now)
 
-                     ;; make new labels for splits
-                     ;; (new label for each second det2 of movement)
-                     split-paths (reduce split-path paths splits)
+                  ;; make new labels for splits
+                  ;; (new label for each second det2 of movement)
+                  split-paths (reduce split-path paths splits)
 
-                     ;; extend the paths
-                     {ex-paths :paths newbad :bad newlog :log}
-                     (reduce (partial extend-paths splits merges alts)
-                             {:paths split-paths :bad bad :log log}
-                             moves-now)
-                     
-                     split-merge-log
-                     (concat
-                      (map (fn [m] (format "Split: %s" (move-str m))) splits)
-                      (map (fn [m] (format "Merge: %s" (move-str m))) merges))]
-                 (recur (inc t) ex-paths
-                        (vec (concat newlog split-merge-log)) newbad))))))))
+                  ;; extend the paths
+                  {ex-paths :paths newbad :bad newlog :log}
+                  (reduce (partial extend-paths splits merges)
+                          {:paths split-paths :bad bad :log log}
+                          moves-now)
+
+                  split-merge-log
+                  (concat
+                    (map (fn [m] (format "Split: %s" (move-str m))) splits)
+                    (map (fn [m] (format "Merge: %s" (move-str m))) merges))]
+              (recur (inc t) ex-paths
+                     (vec (concat newlog split-merge-log)) newbad))))))))
 

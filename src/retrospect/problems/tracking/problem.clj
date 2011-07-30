@@ -33,6 +33,7 @@
 (defn generate-problem-data
   [sensors datadir params]
   {:paths (sorted-map)
+   :disbelieved-moves []
    :walk-dist (read-walk-dist (str datadir "/tracking/walks.txt")) 
    :split-merge-hyps []
    :log [] ;; log is reset each time by commit-decision
@@ -45,20 +46,31 @@
    :sensor-overlap 0.0})
 
 (def headers
-     [:PEC :CountRemoved :CountRemovedPercent
+     [:PEC :PEW :Precision :Recall :Specificity :Accuracy
+      :CountRemoved :CountRemovedPercent
       :PlausibilityWorkspaceAccuracy
       :MTL :MeanCountAlternatives :MLC :DistinctLabels :PlausibilityAccuracy
       :SensorOverlap :EntityDensity :NumberEntities :MaxWalk :ProbNewEntities
       :GridWidth :GridHeight :SensorCoverage :SensorSeesColor])
 
 (def meta-headers
-     [:AvgMetaDiffPEC 
-      :AvgMetaDiffMTL 
+     [:AvgMetaDiffPEC
+      :AvgMetaDiffPEW
+      :AvgMetaDiffPrecision
+      :AvgMetaDiffRecall
+      :AvgMetaDiffSpecificity
+      :AvgMetaDiffAccuracy
+      :AvgMetaDiffMTL
       :AvgMetaDiffMLC])
 
 (def comparative-headers
-     [:MetaPEC :BasePEC :RatioPEC
-      :IncreasePEC :MetaMTL :BaseMTL
+     [:MetaPEC :BasePEC :RatioPEC :IncreasePEC :AvgMetaDiffPEC
+      :MetaPEW :BasePEW :RatioPEW :IncreasePEW :AvgMetaDiffPEW
+      :MetaPrecision :BasePrecision :RatioPrecision :IncreasePrecision :AvgMetaDiffPrecision
+      :MetaRecall :BaseRecall :RatioRecall :IncreaseRecall :AvgMetaDiffRecall
+      :MetaSpecificity :BaseSpecificity :RatioSpecificity :IncreaseSpecificity :AvgMetaDiffSpecificity
+      :MetaAccuracy :BaseAccuracy :RatioAccuracy :IncreaseAccuracy :AvgMetaDiffAccuracy
+      :MetaMTL :BaseMTL
       :RatioMTL :IncreaseMTL
       :MetaMLC :BaseMLC :RatioMLC
       :IncreaseMLC
