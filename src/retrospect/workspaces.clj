@@ -123,7 +123,8 @@
    Returns a map with hyps as keys and new conf's as values."
   [hyps]
   (let [sum (reduce + 0.0 (map #(:apriori %) hyps))]
-    (reduce #(assoc %1 %2 (/ (:apriori %2) sum)) {} hyps)))
+    (if (= 0.0 sum) {}
+      (reduce #(assoc %1 %2 (/ (:apriori %2) sum)) {} hyps))))
 
 (defn update-confidences
   "Update confidences of hyps based on their normalized apriori confidences;
@@ -153,7 +154,9 @@
   (let [g (if (some #{:static} opts)
             (:graph-static workspace)
             (:graph workspace))
-        hyps (nodes g)
+        ;; a hyp can't conflict with what it explains, so remove those hyps
+        ;; first
+        hyps (set/difference (nodes g) (find-explainers workspace hyp opts)) 
         c (:conflict hyp)]
     (cond
       ;; no conflict id; so it conflicts with nothing

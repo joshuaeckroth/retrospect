@@ -26,13 +26,8 @@
    :models (zipmap (range 1 (inc (:MaxModelGrams params)))
                    (for [n (range 1 (inc (:MaxModelGrams params)))]
                      (read-model-csv (str datadir (format "/words/model-%d.csv" n))))) 
-   :predicted []
-   :predicted-start 0
-   :prediction-met false
-   :active-word ""
    :left-off 0
-   :history []
-   :history-conf 0})
+   :history []})
 
 (def headers
   [:LD :MaxModelGrams])
