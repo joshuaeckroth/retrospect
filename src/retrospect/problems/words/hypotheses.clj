@@ -91,7 +91,7 @@
                       word (str adjusted-pos-seq)
                       (apply str (interpose ", " (map :id explains))))
               {:start (first adjusted-pos-seq) :end (last adjusted-pos-seq)
-               :words [word] :pos-seq adjusted-pos-seq})
+               :words [word] :pos-seqs [adjusted-pos-seq]})
      explains]))
 
 (defn make-word-hyps
@@ -137,10 +137,10 @@
                                    (make-starts-ends c))
                   (format "Word sequence \"%s\" at positions %s"
                           (apply str (interpose " " (mapcat (comp :words :data) c)))
-                          (apply str (interpose ", " (map (comp :pos-seq :data) c)))
+                          (apply str (interpose ", " (mapcat (comp :pos-seqs :data) c)))
                           (apply str (interpose ", " (map :id c))))
                   {:start (:start (:data (first c))) :end (:end (:data (last c)))
-                   :pos-seqs (map (comp :pos-seq :data) c)
+                   :pos-seqs (mapcat (comp :pos-seqs :data) c)
                    :words (mapcat (comp :words :data) c)})
          c]))))
 
@@ -176,15 +176,22 @@
 
 (defn commit-decision
   [pdata accepted rejected time-now]
-  (let [[words left-off]
+  (let [words-pos-seqs
+        (sort-by (comp first second)
+                 (partition 2 (mapcat (fn [hyp]
+                                        (interleave (:words (:data hyp))
+                                                    (:pos-seqs (:data hyp))))
+                                      accepted))) 
+        [words left-off]
         (loop [words []
-               hyps (sort-by (comp :start :data) accepted)
+               wps words-pos-seqs
                end-time (:left-off pdata)]
-          (cond (empty? hyps) [words end-time]
-                (>= end-time (:start (:data (first hyps))))
-                (recur words (rest hyps) end-time)
-                :else (recur (concat words (:words (:data (first hyps))))
-                             (rest hyps) (:end (:data (first hyps))))))]
+          (let [[word pos-seq] (first wps)]
+            (cond (empty? wps) [words end-time]
+                  (>= end-time (first pos-seq))
+                  (recur words (rest wps) end-time)
+                  :else (recur (conj words word)
+                               (rest wps) (last pos-seq)))))]
     (-> pdata
       (update-in [:history] concat words)
       (assoc :left-off left-off))))
