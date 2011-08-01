@@ -89,9 +89,7 @@
   []
   (let [pdata (:problem-data (:ep-state @or-state))
         {:keys [predicted active-word history]} pdata]
-    (format "History: %s\n\nActive word: %s\nPredicted: %s"
-            (apply str (interpose " " history))
-            active-word (str/join predicted))))
+    (format "History: %s" (apply str (interpose " " history)))))
 
 (defn player-setup-diagram
   [p])
