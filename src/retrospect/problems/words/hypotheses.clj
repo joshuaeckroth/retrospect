@@ -100,7 +100,8 @@
                       (search-dict-words index dict) dict)]
     (filter
       (comp :apriori first)
-      (for [word (keys words) pos-seq (words word)]
+      (for [word (keys words) pos-seq (words word)
+            :when (> 2 (apply max 0 (gap-sizes (map (fn [p] [p p]) pos-seq))))]
         (make-word-hyp word pos-seq left-off sensor-hyps models)))))
 
 (defn make-starts-ends
@@ -109,8 +110,9 @@
 
 (defn valid-composite?
   [hyps]
-  (and (< 0 (apply min (gap-sizes (make-starts-ends hyps))))
-       (not-any? (fn [[h1 h2]] (conflicts? h1 h2)) (partition 2 1 hyps))))
+  (let [min-gap (apply min (gap-sizes (make-starts-ends hyps)))]
+    (and (> 2 min-gap) (< 0 min-gap)
+         (not-any? (fn [[h1 h2]] (conflicts? h1 h2)) (partition 2 1 hyps)))))
 
 (defn gen-valid-composites
   [word-hyps max-n]
