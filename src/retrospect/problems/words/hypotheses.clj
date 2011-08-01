@@ -87,7 +87,7 @@
         adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))]
     [(new-hyp "W" :single-word conflicts?
               (compute-apriori models [word] (map (fn [p] [p p]) adjusted-pos-seq))
-              (format "Word: \"%s\" at positions %s; Explains: %s"
+              (format "Word: \"%s\" at positions %s"
                       word (str adjusted-pos-seq)
                       (apply str (interpose ", " (map :id explains))))
               {:start (first adjusted-pos-seq) :end (last adjusted-pos-seq)
@@ -133,7 +133,7 @@
         [(new-hyp "W" :words conflicts?
                   (compute-apriori models (mapcat (comp :words :data) c)
                                    (make-starts-ends c))
-                  (format "Word sequence \"%s\" at positions %s; Explains: %s"
+                  (format "Word sequence \"%s\" at positions %s"
                           (apply str (interpose " " (mapcat (comp :words :data) c)))
                           (apply str (interpose ", " (map (comp :pos-seq :data) c)))
                           (apply str (interpose ", " (map :id c))))

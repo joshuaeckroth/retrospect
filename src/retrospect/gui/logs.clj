@@ -8,7 +8,7 @@
   (:import (clj-swing.tree Pathed))
   (:use [clj-swing.panel])
   (:use [clojure.contrib.seq :only [find-first]])
-  (:use [retrospect.workspaces :only [get-hyps hyp-conf]])
+  (:require [retrospect.workspaces :as ws])
   (:use [retrospect.epistemicstates :only
          [previous-ep-state flatten-ep-state-tree]])
   (:use [retrospect.confidences])
@@ -20,7 +20,6 @@
 (def hyp-choices (ref []))
 (def hyp-selected (atom nil))
 (def hyp-info (ref ""))
-
 (def abduction-tree-map (ref {}))
 (def workspace-log (ref ""))
 
@@ -57,9 +56,17 @@
 
 (defn hyp-info
   [workspace hyp]
-  (format "%s\n\nApriori: %s\nConfidence: %s"
-          (:desc hyp) (confidence-str (:apriori hyp))
-          (confidence-str (hyp-conf workspace hyp))))
+  (format "%s\n\nExplains: %s\n\nExplainers: %s\n\nConflicts: %s\n\nApriori: %s\nConfidence: %s\n\nLog:\n%s"
+          (:desc hyp)
+          (apply str (interpose ", " (map (comp str :id)
+                                          (ws/find-explains workspace hyp :static)))) 
+          (apply str (interpose ", " (map (comp str :id)
+                                          (ws/find-explainers workspace hyp :static))))
+          (apply str (interpose ", " (map (comp str :id)
+                                          (ws/find-conflicts workspace hyp :static))))
+          (confidence-str (:apriori hyp))
+          (confidence-str (ws/hyp-conf workspace hyp))
+          (apply str (interpose "\n" (ws/hyp-log workspace hyp)))))
 
 (defn show-log
   [path]
@@ -72,7 +79,7 @@
                        (find-first #(= (:id %) ep-id) (flatten-ep-state-tree
                                                        (:ep-state-tree @or-state)))))
           ws (if ep-state (:workspace ep-state))]
-      (if-let [hyp (if ws (find-first #(= (:id %) last-comp) (get-hyps ws)))]
+      (if-let [hyp (if ws (find-first #(= (:id %) last-comp) (ws/get-hyps ws)))]
         (dosync (alter workspace-log (constantly (hyp-info ws hyp))))
         (dosync (alter workspace-log (constantly "")))))))
 
@@ -82,7 +89,7 @@
    (alter truedata-log (constantly ((:get-truedata-log (:player-fns @problem)))))
    (alter problem-log (constantly ((:get-problem-log (:player-fns @problem)))))
    (alter hyp-choices
-          (constantly (sort (map :id (get-hyps (:workspace (:ep-state @or-state)))))))
+          (constantly (sort (map :id (ws/get-hyps (:workspace (:ep-state @or-state)))))))
    (alter abduction-tree-map
           (constantly (build-abduction-tree-map (:ep-state-tree @or-state) false))))
   (. problem-log-label setText (format "Problem log for: %s" (str (:ep-state @or-state)))))

@@ -37,6 +37,7 @@
             :final {:accepted [] :rejected [] :shared-explains []
                     :unexplained [] :no-explainers [] :unaccepted []}
             :doubt nil}
+      :hyp-log {}
       :dot []
       :doubt nil
       :accepted #{}
@@ -46,6 +47,10 @@
   ([workspace-old]
      (assoc-in (init-workspace) [:resources :explain-cycles]
                (:explain-cycles (:resources workspace-old)))))
+
+(defn hyp-log
+  [workspace hyp]
+  (get (:hyp-log workspace) hyp))
 
 (defn get-hyps
   [workspace]
@@ -245,21 +250,17 @@
             (update-in [:log :added] conj {:hyp hyp :explains expl})))))
 
 (defn reject-many
-  [workspace hyps]
+  [workspace hyps this-cycle]
   (let [rejectable (set/difference (set hyps) (:accepted workspace))]
-    (-> workspace
+    (-> (reduce (fn [ws hyp] (update-in ws [:hyp-log hyp] conj
+                                      (format "Rejected in cycle %d" this-cycle)))
+                  workspace rejectable)
         (update-in [:graph] #(apply remove-nodes % rejectable))
         (update-in [:rejected] set/union (set rejectable))
         (update-in [:log :final :rejected] concat rejectable))))
 
-(defn penalize-hyps
-  [workspace hyps]
-  (update-in workspace [:hyp-confidences]
-               #(reduce (fn [c h] (assoc c h (penalize (hyp-conf workspace h))))
-                        % hyps)))
-
 (defn accept
-  [workspace hyp inconsistent pdata]
+  [workspace hyp this-cycle inconsistent pdata]
   (let [g (:graph workspace)
         removable (concat (neighbors g hyp)
                           (if (empty? (incoming g hyp)) [hyp] []))
@@ -268,9 +269,11 @@
         conflicts (find-conflicts workspace hyp)
         new-g (apply remove-nodes g removable)
         ws (-> workspace
-               (update-in [:accepted] conj hyp)
-               (assoc :graph new-g))]
-    (loop [ws (reject-many ws conflicts)
+             (update-in [:hyp-log hyp] conj
+                        (format "Accepted in cycle %d" this-cycle))
+             (update-in [:accepted] conj hyp)
+             (assoc :graph new-g))]
+    (loop [ws (reject-many ws conflicts this-cycle)
            rejected #{}]
       (let [incon (set/difference
                    (set (inconsistent
@@ -279,7 +282,7 @@
                          (:rejected ws)))
                    rejected)]
         (if (not-empty incon)
-          (recur (reject-many ws incon) (set/union rejected (set incon)))
+          (recur (reject-many ws incon this-cycle) (set/union rejected (set incon)))
           (update-in ws [:log :accrej] conj
                      {:acc hyp :rej (concat conflicts rejected)}))))))
 
@@ -363,12 +366,13 @@
               ws-confs (update-confidences ws explainers)
               explainers-updated (find-explainers ws-confs)
               {:keys [best alts essential? delta]}
-              (find-best ws-confs explainers-updated threshold)]
+              (find-best ws-confs explainers-updated threshold)
+              this-cycle (inc (:explain-cycles (:resources ws-confs)))]
           (if-not best
             (log-final ws-confs)
             (recur (-> ws-confs
-                       (update-in [:resources :explain-cycles] inc)
+                       (assoc-in [:resources :explain-cycles] this-cycle)
                        (update-in [:log :best] conj
                                   {:best best :alts alts
                                    :essential? essential? :delta delta})
-                       (accept best inconsistent pdata))))))))
+                       (accept best this-cycle inconsistent pdata))))))))
