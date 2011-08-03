@@ -43,10 +43,13 @@
       :accepted #{}
       :rejected #{}
       :forced #{}
-      :resources {:explain-cycles 0 :hyp-count 0}})
+      :resources {:explain-cycles 0 :hypothesis-count 0}})
   ([workspace-old]
-     (assoc-in (init-workspace) [:resources :explain-cycles]
-               (:explain-cycles (:resources workspace-old)))))
+   (-> (init-workspace)
+     (assoc-in [:resources :explain-cycles]
+               (:explain-cycles (:resources workspace-old)))
+     (assoc-in [:resources :hypothesis-count]
+               (:hypothesis-count (:resources workspace-old))))))
 
 (defn hyp-log
   [workspace hyp]
@@ -104,11 +107,12 @@
 
 (defn find-explainers
   "Given no hyp argument, returns a sequence of sequences containing
-   alternative explainers of a hyp (essentials are therefore seqs with
-   one explainer); the explainers are sorted by conf (best first), and
-   the seq of seqs is sorted by difference between first- and second-best
-   alternatives, so that first seq of alts in seq of seqs has greatest
-   difference."
+  alternative explainers of hyps needing explanation (essentials are therefore
+  seqs with one explainer). A hyp needing explanation is one that has been
+  accepted and has explainers or has been forced and has explainers.The
+  explainers are sorted by conf (best first), and the seq of seqs is sorted by
+  difference between first- and second-best alternatives, so that first seq of
+  alts in seq of seqs has greatest difference."
   ([workspace]
      (let [g (:graph workspace)]
        (reverse
@@ -116,7 +120,10 @@
                      (- (hyp-conf workspace (first %))
                         (hyp-conf workspace (second %)))
                      (hyp-conf workspace (first %)))
-                  (map #(sort-by-conf workspace (incoming g %)) (nodes g))))))
+                  (map #(sort-by-conf workspace (incoming g %))
+                       (filter #(not-empty (incoming g %)) 
+                               (set/union (:forced workspace)
+                                          (:accepted workspace))))))))
   ([workspace hyp & opts]
      (let [g (if (some #{:static} opts)
                (:graph-static workspace)
@@ -307,7 +314,8 @@
     (-> ws
         (assoc-in [:log :best] [])
         (assoc-in [:log :accrej] [])
-        (assoc-in [:resources :hyp-count] (count (nodes (:graph-static ws)))))))
+        (update-in [:resources :hypothesis-count]
+                   + (count (nodes (:graph-static ws)))))))
 
 (defn measure-doubt
   [workspace]
