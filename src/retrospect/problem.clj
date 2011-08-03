@@ -38,25 +38,27 @@
             ((:evaluate-meta-fn problem) ep-state ep-state-meta
              results truedata params)
             (assoc params
-              :Step (:time ep-state-meta)
-              :MetaStrategy (name (:meta-strategy or-state-meta)) 
-              :Lazy (:lazy or-state-meta)
-              :MetaActivations (:meta-activations res)
-              :Milliseconds (:milliseconds res)
-              :BadCount (add-to-prior results :BadCount
-                                      (count (:bad (:problem-data ep-state-meta))))
-              :Unexplained
-              (add-to-prior
-               results :Unexplained
-               (count (:unexplained (:final (:log (:workspace prev-ep-meta))))))
-              :SharedExplainsCount
-              (add-to-prior
-               results :SharedExplainsCount
-               (count (:shared-explains (:final (:log (:workspace prev-ep-meta))))))
-              ;; ExplainCycles are stored in or-state
-              :ExplainCycles (:explain-cycles (:resources or-state-meta))
-              :HypothesisCount
-              (:hyp-count (:resources (:workspace prev-ep-meta))))))))
+                   :Step (:time ep-state-meta)
+                   :MetaStrategy (name (:meta-strategy or-state-meta)) 
+                   :Lazy (:lazy or-state-meta)
+                   :MetaActivations (:meta-activations res)
+                   :Milliseconds (add-to-prior results :Milliseconds
+                                               (:milliseconds res)) 
+                   :BadCount (add-to-prior results :BadCount
+                                           (count (:bad (:problem-data ep-state-meta))))
+                   :Unexplained
+                   (add-to-prior
+                     results :Unexplained
+                     (count (:unexplained (:final (:log (:workspace prev-ep-meta))))))
+                   :SharedExplainsCount
+                   (add-to-prior
+                     results :SharedExplainsCount
+                     (count (:shared-explains (:final (:log (:workspace prev-ep-meta))))))
+                   ;; ExplainCycles are stored in or-state
+                   :ExplainCycles (:explain-cycles (:resources or-state-meta))
+                   :HypothesisCount (:hypothesis-count (:resources or-state-meta))
+                   :Compute (:compute (:resources or-state-meta))
+                   :Memory (:memory (:resources or-state-meta)))))))
 
 (defn calc-percent-increase
   [k m b]
@@ -94,6 +96,18 @@
           :BaseExplainCycles (:ExplainCycles b)
           :RatioExplainCycles (calc-ratio :ExplainCycles m b)
           :IncreaseExplainCycles (calc-percent-increase :ExplainCycles m b)
+          :MetaHypothesisCount (:HypothesisCount m)
+          :BaseHypothesisCount (:HypothesisCount b)
+          :RatioHypothesisCount (calc-ratio :HypothesisCount m b)
+          :IncreaseHypothesisCount (calc-percent-increase :HypothesisCount m b)
+          :MetaCompute (:Compute m)
+          :BaseCompute (:Compute b)
+          :RatioCompute (calc-ratio :Compute m b)
+          :IncreaseCompute (calc-percent-increase :Compute m b)
+          :MetaMemory (:Memory m)
+          :BaseMemory (:Memory b)
+          :RatioMemory (calc-ratio :Memory m b)
+          :IncreaseMemory (calc-percent-increase :Memory m b)
           :Steps (:Steps params)
           :Threshold (:Threshold params)
           :StepsBetween (:StepsBetween params)
@@ -110,8 +124,9 @@
 
 (defn hypothesize
   [problem or-state time-now params]
-  (update-one-run-state or-state
-   ((:hypothesize-fn problem) (:ep-state or-state) (:sensors or-state) time-now params)))
+  (let [[ep resources] ((:hypothesize-fn problem) (:ep-state or-state)
+                          (:sensors or-state) time-now params)]
+    (update-one-run-state or-state ep resources)))
 
 (defn run-simulation-step
   [problem truedata or-state params monitor? player?]
@@ -126,7 +141,7 @@
         ep-explained (explain ep-state (:get-more-hyps-fn problem)
                               (:inconsistent-fn problem)
                               (double (/ (:Threshold params) 100.0)))
-        ors-expl (update-one-run-state ors-hyps ep-explained)
+        ors-expl (update-one-run-state ors-hyps ep-explained {:compute 0 :memory 0})
         ors-committed (proceed-one-run-state ors-hyps ep-explained time-now problem)
         ors-meta (if (metareasoning-activated? ors-expl params)
                    (metareason problem ors-expl params) ors-expl)
@@ -188,6 +203,8 @@
            :Unexplained
            :ExplainCycles
            :HypothesisCount
+           :Compute
+           :Memory
            :Seed]))
 
 (defn get-comparative-headers
@@ -215,6 +232,18 @@
            :BaseExplainCycles
            :RatioExplainCycles
            :IncreaseExplainCycles
+           :MetaHypothesisCount
+           :BaseHypothesisCount
+           :RatioHypothesisCount
+           :IncreaseHypothesisCount
+           :MetaCompute
+           :BaseCompute
+           :RatioCompute
+           :IncreaseCompute
+           :MetaMemory
+           :BaseMemory
+           :RatioMemory
+           :IncreaseMemory
            :Steps
            :Threshold
            :StepsBetween
