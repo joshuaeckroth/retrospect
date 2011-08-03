@@ -377,8 +377,9 @@
                                      [(attr paths-graph det det2 :hyp)
                                       (attr paths-graph det det2 :explains)])
                                    (edges paths-graph))]
-          (reduce (fn [ep [hyp explains]] (add-hyp ep hyp explains))
-                  ep-paths-graph consistent-hyps))
+          [(reduce (fn [ep [hyp explains]] (add-hyp ep hyp explains))
+                   ep-paths-graph consistent-hyps)
+           {:compute 0 :memory 0}])
         ;; take the first uncovered detection, and make movement hyps out of it
         (let [mov-hyps (make-movement-hyps
                          (first unc) uncovered sg entity-hyps

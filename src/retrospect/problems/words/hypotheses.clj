@@ -3,6 +3,9 @@
   (:use [retrospect.workspaces :only [new-hyp]])
   (:use [retrospect.epistemicstates :only [add-hyp add-fact]]))
 
+(def compute 0)
+(def memory 0)
+
 (defn build-letter-index
   "Build a map indexed by letter, where each value is that letter's positions
    as a vector."
@@ -83,6 +86,7 @@
 
 (defn make-word-hyp
   [word pos-seq left-off sensor-hyps models]
+  (var-set (var compute) (inc compute))
   (let [explains (map #(nth sensor-hyps %) pos-seq)
         adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))]
     [(new-hyp "W" :single-word conflicts?
@@ -110,6 +114,7 @@
 
 (defn valid-composite?
   [hyps]
+  (var-set (var compute) (inc compute))
   (let [min-gap (apply min (gap-sizes (make-starts-ends hyps)))]
     (and (> 2 min-gap) (< 0 min-gap)
          (not-any? (fn [[h1 h2]] (conflicts? h1 h2)) (partition 2 1 hyps)))))
@@ -159,17 +164,20 @@
 
 (defn hypothesize
   [ep-state sensors time-now params]
-  (let [sens (first sensors) ;; only one sensor
-        {:keys [dictionary left-off models]} (:problem-data ep-state)
-        max-n (:MaxModelGrams params)
-        letters (map #(sensed-at sens %) (range (inc left-off) (inc time-now)))
-        sensor-hyps (make-sensor-hyps letters)
-        ep-sensor-hyps (reduce #(add-fact %1 %2 []) ep-state sensor-hyps)
-        index (build-letter-index letters)
-        word-hyps (make-word-hyps index left-off dictionary sensor-hyps models)
-        composite-hyps (make-composite-hyps models (map first word-hyps) max-n)]
-    (reduce #(apply add-hyp %1 %2) ep-sensor-hyps
-            (concat word-hyps composite-hyps))))
+  (binding [compute 0 memory 0]
+    (let [sens (first sensors) ;; only one sensor
+          {:keys [dictionary left-off models]} (:problem-data ep-state)
+          max-n (:MaxModelGrams params)
+          letters (map #(sensed-at sens %) (range (inc left-off) (inc time-now)))
+          sensor-hyps (make-sensor-hyps letters)
+          ep-sensor-hyps (reduce #(add-fact %1 %2 []) ep-state sensor-hyps)
+          index (build-letter-index letters)
+          word-hyps (make-word-hyps index left-off dictionary sensor-hyps models)
+          composite-hyps (make-composite-hyps models (map first word-hyps) max-n)]
+      [(reduce #(apply add-hyp %1 %2)
+               ep-sensor-hyps
+               (concat word-hyps composite-hyps))
+       {:compute compute :memory memory}])))
 (defn get-more-hyps
   [ep-state]
   nil)
