@@ -29,15 +29,18 @@
           false-neg (count (set/intersection true-moves disbelieved-moves))
           true-neg (- (count disbelieved-moves) false-neg)]
       ;; precision
-      [(double (/ true-pos (+ true-pos false-pos)))
+      [(if (= 0 (+ true-pos false-pos)) 0.0
+         (double (/ true-pos (+ true-pos false-pos)))) 
        ;; recall
-       (double (/ true-pos (+ true-pos false-neg)))
+       (if (= 0 (+ true-pos false-neg)) 0.0
+         (double (/ true-pos (+ true-pos false-neg)))) 
        ;; specificity
-       (if (= 0 (+ true-neg false-pos)) 1.0
+       (if (= 0 (+ true-neg false-pos)) 0.0
          (double (/ true-neg (+ true-neg false-pos)))) 
        ;; accuracy
-       (double (/ (+ true-pos true-neg)
-                  (+ true-neg true-pos false-neg false-pos)))])))
+       (if (= 0 (+ true-neg true-pos false-neg false-pos)) 0.0
+         (double (/ (+ true-pos true-neg)
+                    (+ true-neg true-pos false-neg false-pos))))])))
 
 (defn assoc-es-ls
   [ep-state truedata]
