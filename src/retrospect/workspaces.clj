@@ -368,19 +368,20 @@
 
 (defn explain
   [workspace inconsistent pdata threshold]
-  (loop [ws workspace]
+  (loop [ws workspace
+         this-cycle 1]
     (if (empty? (edges (:graph ws))) (log-final ws)
-        (let [explainers (find-explainers ws)
-              ws-confs (update-confidences ws explainers)
-              explainers-updated (find-explainers ws-confs)
-              {:keys [best alts essential? delta]}
-              (find-best ws-confs explainers-updated threshold)
-              this-cycle (inc (:explain-cycles (:resources ws-confs)))]
-          (if-not best
-            (log-final ws-confs)
-            (recur (-> ws-confs
-                       (assoc-in [:resources :explain-cycles] this-cycle)
-                       (update-in [:log :best] conj
-                                  {:best best :alts alts
-                                   :essential? essential? :delta delta})
-                       (accept best this-cycle inconsistent pdata))))))))
+      (let [explainers (find-explainers ws)
+            ws-confs (update-confidences ws explainers)
+            explainers-updated (find-explainers ws-confs)
+            {:keys [best alts essential? delta]}
+            (find-best ws-confs explainers-updated threshold)]
+        (if-not best
+          (log-final ws-confs)
+          (recur (-> ws-confs
+                   (update-in [:resources :explain-cycles] inc)
+                   (update-in [:log :best] conj
+                              {:best best :alts alts
+                               :essential? essential? :delta delta})
+                   (accept best this-cycle inconsistent pdata))
+                 (inc this-cycle)))))))
