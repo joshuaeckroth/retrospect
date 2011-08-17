@@ -70,7 +70,7 @@
   (dosync
     (alter ep-list (constantly (sort (list-ep-states (:ep-state-tree @or-state))))))
   (update-ep-tree)
-  (update-explains-graph)
+  #_(update-explains-graph)
   (update-results)
   (update-logs)
   ((:update-stats-fn (:player-fns @problem)))
