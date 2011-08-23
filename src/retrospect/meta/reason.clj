@@ -61,43 +61,47 @@
 
 (defn batch-from-beginning
   [problem or-state params]
-  (let [prior-est (:ep-state-tree or-state)
-        prior-ep (current-ep-state prior-est)
-        est (new-branch-root prior-est (:original-problem-data or-state))
-        ep-state (current-ep-state est)
-        time-now (apply max (map :sensed-up-to (:sensors or-state)))
-        [ep-hyps resources] ((:hypothesize-fn problem) ep-state (:sensors or-state)
-                               time-now params)
-        ep-expl (explain ep-hyps (:get-more-hyps-fn problem)
-                         (:inconsistent-fn problem)
-                         0.0)
-        est-expl (update-ep-state-tree est ep-expl)
-        ors (assoc or-state :ep-state-tree est-expl)
-        final-ors (if true
-                    ;; if new doubt is lower, stick with this branch,
-                    ;; but also add on original explain cycles
-                    ;; and hypothesis count and other resources
-                    (-> (assoc ors :ep-state ep-expl)
-                      (update-in [:resources :explain-cycles]
-                                 + (:explain-cycles (:resources (:workspace prior-ep))))
-                      (update-in [:resources :hypothesis-count]
-                                 + (:hypothesis-count (:resources (:workspace prior-ep))))
-                      (update-in [:resources :compute] + (:compute resources))
-                      (update-in [:resources :memory] + (:memory resources)))
-                    ;; otherwise, go back to prior (original) branch
-                    ;; but also update explain cycles and hypothesis count
-                    ;; and other resources
-                    (-> (assoc ors :ep-state-tree
-                               (goto-ep-state est-expl (:id prior-ep))
-                               :ep-state prior-ep)
-                      (update-in [:resources :explain-cycles]
-                                 + (:explain-cycles (:resources (:workspace ep-expl))))
-                      (update-in [:resources :hypothesis-count]
-                                 + (:hypothesis-count (:resources (:workspace ep-expl))))))]
-    (update-in final-ors [:resources :meta-activations] inc)))
-
-(comment (< (ws/get-doubt (:workspace ep-expl))
-                         (ws/get-doubt (:workspace prior-ep))))
+  (if-not
+      ;; skip all of this if we are just an ep-state off the root
+      (previous-ep-state (:ep-state-tree or-state)) or-state
+      ;; otherwise, we're not straight out of the root, so do the batching
+      (let [prior-est (:ep-state-tree or-state)
+            prior-ep (current-ep-state prior-est)
+            est (new-branch-root prior-est (:original-problem-data or-state))
+            ep-state (current-ep-state est)
+            time-now (apply max (map :sensed-up-to (:sensors or-state)))
+            [ep-hyps resources] ((:hypothesize-fn problem) ep-state (:sensors or-state)
+                                 time-now params)
+            ep-expl (explain ep-hyps (:get-more-hyps-fn problem)
+                             (:inconsistent-fn problem)
+                             (:Threshold params))
+            est-expl (update-ep-state-tree est ep-expl)
+            ors (assoc or-state :ep-state-tree est-expl)
+            final-ors (if (< (ws/get-doubt (:workspace ep-expl))
+                             (ws/get-doubt (:workspace prior-ep)))
+                        ;; if new doubt is lower, stick with this (newer) branch,
+                        ;; but also add on original explain cycles
+                        ;; and hypothesis count and other resources
+                        (-> (assoc ors :ep-state ep-expl)
+                            (update-in [:resources :explain-cycles]
+                                       + (:explain-cycles (:resources (:workspace prior-ep))))
+                            (update-in [:resources :hypothesis-count]
+                                       + (:hypothesis-count (:resources (:workspace prior-ep))))
+                            (update-in [:resources :compute] + (:compute resources))
+                            (update-in [:resources :memory] + (:memory resources)))
+                        ;; otherwise, go back to prior (original) branch
+                        ;; but also update explain cycles and hypothesis count
+                        ;; and other resources
+                        (-> (assoc ors :ep-state-tree
+                                   (goto-ep-state est-expl (:id prior-ep))
+                                   :ep-state prior-ep)
+                            (update-in [:resources :explain-cycles]
+                                       + (:explain-cycles (:resources (:workspace ep-expl))))
+                            (update-in [:resources :hypothesis-count]
+                                       + (:hypothesis-count (:resources (:workspace ep-expl))))
+                            (update-in [:resources :compute] + (:compute resources))
+                            (update-in [:resources :memory] + (:memory resources))))]
+        (update-in final-ors [:resources :meta-activations] inc))))
 
 (defn domain-informed
   [problem or-state params]
