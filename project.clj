@@ -14,5 +14,5 @@
   :main retrospect.core
   :keep-non-project-classes true
   :java-source-path "src/jvm"
-  :jvm-opts ["-Dawt.useSystemAAFontSettings=on" "-Xmx1800m"
+  :jvm-opts ["-Dawt.useSystemAAFontSettings=on" "-Xmx1800m" "-Xss2m"
              "-Dswing.defaultlaf=com.sun.java.swing.plaf.gtk.GTKLookAndFeel"])
