@@ -14,6 +14,9 @@
           incoming neighbors]])
   (:use [loom.attr :only [add-attr attr]]))
 
+(def compute 0)
+(def memory 0)
+
 (defn move-str
   [[det det2]]
   (format "%d,%d@%d (%s) -> %d,%d@%d (%s)"
@@ -115,6 +118,7 @@
 (defn score-distance
   "Returns nil if movement is impossible."
   [x1 y1 x2 y2 walk-dist]
+  (var-set (var compute) (inc compute))
   (let [d (dist x1 y1 x2 y2) 
         dist-count (walk-dist d)]
     (if dist-count (double (/ dist-count (:walk-count (meta walk-dist)))))))
@@ -353,40 +357,41 @@
   "Process sensor reports, then make hypotheses for all possible movements,
    and add them to the epistemic state."
   [ep-state sensors time-now params]
-  (let [paths (:paths (:problem-data ep-state))
-        path-heads (get-path-heads paths)
-        entity-hyps (make-known-entities-hyps
-                     paths time-now (:StepsBetween params))
-        ep-entities (reduce #(add-fact %1 %2 []) ep-state entity-hyps)
-        ep (process-sensors ep-entities sensors time-now)
-        sg (:spotted-grid (:problem-data ep))
-        uncovered (set/union (set path-heads) (:uncovered (:problem-data ep)))]
-    (loop [hyps []
-           split-merge-hyps []
-           unc uncovered]
-      (if (empty? unc)
-        ;; ran out of uncovered detections; so add all the hyps
-        (let [{:keys [paths-graph count-removed]}
-              (build-paths-graph (digraph) hyps path-heads)
-              pdata (assoc (:problem-data ep)
-                      :paths-graph paths-graph
-                      :count-removed count-removed
-                      :split-merge-hyps split-merge-hyps)
-              ep-paths-graph (assoc ep :problem-data pdata)
-              consistent-hyps (map (fn [[det det2]]
-                                     [(attr paths-graph det det2 :hyp)
-                                      (attr paths-graph det det2 :explains)])
-                                   (edges paths-graph))]
-          [(reduce (fn [ep [hyp explains]] (add-hyp ep hyp explains))
-                   ep-paths-graph consistent-hyps)
-           {:compute 0 :memory 0}])
-        ;; take the first uncovered detection, and make movement hyps out of it
-        (let [mov-hyps (make-movement-hyps
-                         (first unc) uncovered sg entity-hyps
-                         (:walk-dist (:problem-data ep-state)))]
-          (recur (concat hyps (map first mov-hyps))
-                 (concat split-merge-hyps (map second mov-hyps))
-                 (rest unc)))))))
+  (binding [compute 0 memory 0]
+    (let [paths (:paths (:problem-data ep-state))
+          path-heads (get-path-heads paths)
+          entity-hyps (make-known-entities-hyps
+                       paths time-now (:StepsBetween params))
+          ep-entities (reduce #(add-fact %1 %2 []) ep-state entity-hyps)
+          ep (process-sensors ep-entities sensors time-now)
+          sg (:spotted-grid (:problem-data ep))
+          uncovered (set/union (set path-heads) (:uncovered (:problem-data ep)))]
+      (loop [hyps []
+             split-merge-hyps []
+             unc uncovered]
+        (if (empty? unc)
+          ;; ran out of uncovered detections; so add all the hyps
+          (let [{:keys [paths-graph count-removed]}
+                (build-paths-graph (digraph) hyps path-heads)
+                pdata (assoc (:problem-data ep)
+                        :paths-graph paths-graph
+                        :count-removed count-removed
+                        :split-merge-hyps split-merge-hyps)
+                ep-paths-graph (assoc ep :problem-data pdata)
+                consistent-hyps (map (fn [[det det2]]
+                                       [(attr paths-graph det det2 :hyp)
+                                        (attr paths-graph det det2 :explains)])
+                                     (edges paths-graph))]
+            [(reduce (fn [ep [hyp explains]] (add-hyp ep hyp explains))
+                     ep-paths-graph consistent-hyps)
+             {:compute compute :memory memory}])
+          ;; take the first uncovered detection, and make movement hyps out of it
+          (let [mov-hyps (make-movement-hyps
+                          (first unc) uncovered sg entity-hyps
+                          (:walk-dist (:problem-data ep-state)))]
+            (recur (concat hyps (map first mov-hyps))
+                   (concat split-merge-hyps (map second mov-hyps))
+                   (rest unc))))))))
 
 (defn get-more-hyps
   [ep-state]
