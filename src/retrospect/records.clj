@@ -11,9 +11,6 @@
   (:use [retrospect.local :only (run-local)])
   (:use [retrospect.meta.reason :only [meta-strategies]]))
 
-(defn get-gitcommit []
-  (first (split (sh "git" "rev-list" "HEAD") #"\n")))
-
 (defn copy-params-file [destfile paramsfile] (io/copy (File. paramsfile) (File. destfile)))
 
 (defn read-params
@@ -50,8 +47,7 @@
     (.write writer
 	    (with-out-str
 	      (prxml [:decl! {:version "1.0"}]
-		     [:record
-		      [:git-commit (get-gitcommit)]])))))
+		     [:record])))))
 
 (defn run-with-new-record
   "Create a new folder for storing run data and execute the run. Then,
@@ -59,7 +55,8 @@
   control process or a local (this machine) runner."
   [problem paramsfile datadir recordsdir nthreads monitor? repetitions]
   (try
-    (let [recorddir (str recordsdir "/" (. System (currentTimeMillis)))
+    (let [recorddir (str recordsdir "/"
+                         (int (/ (. System (currentTimeMillis)) 1000)))
           params (explode-params (read-params problem paramsfile))]
       (print (format "Making new directory %s..." recorddir))
       (.mkdir (File. recorddir))
