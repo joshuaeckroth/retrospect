@@ -22,31 +22,18 @@
          incomplete []
          complete []]
     (if (empty? letters) complete
-      (let [letter (first letters)
-            newic (filter (fn [ic] (apply < ic))
-                          (mapcat (fn [ic] (map #(conj ic %) (index letter)))
-                                  incomplete))
-            newic2 (if (not= letter (first word)) newic
-                     (concat newic (for [i (index letter)] [i])))]
-        (recur (rest letters) (filter #(not= (count word) (count %)) newic2)
-               (concat complete (filter #(= (count word) (count %)) newic2)))))))
+        (let [letter (first letters)
+              newic (filter (fn [ic] (apply < ic))
+                            (mapcat (fn [ic] (map #(conj ic %) (index letter)))
+                                    incomplete))
+              newic2 (if (not= letter (first word)) newic
+                         (concat newic (for [i (index letter)] [i])))]
+          (recur (rest letters) (filter #(not= (count word) (count %)) newic2)
+                 (concat complete (filter #(= (count word) (count %)) newic2)))))))
 
 (defn search-dict-words
   [index dict]
   (reduce (fn [m w] (assoc m w (search-word index w))) {} dict))
-
-(defn lookup-composite-prob2
-  [models history back-n max-n composite]
-  ;; get the appropriate model; as the composite grows,
-  ;; get the bigger models (but max out at biggest model)
-  (let [probs (map #(let [n (min max-n (+ back-n %))
-                          model (get models n)
-                          words-long (concat history (take % composite))
-                          words (vec (take-last n words-long))]
-                      ;; actually pull the prob from the model
-                      (or (get model words) 0.0))
-                   (range 1 (inc (count composite))))]
-    (reduce * 1.0 probs)))
 
 (defn conflicts?
   "Two words-domain hypotheses conflict if: (1) they are both composite
@@ -103,10 +90,10 @@
   (let [words (reduce (fn [m w] (if (not-empty (m w)) m (dissoc m w)))
                       (search-dict-words index dict) dict)]
     (filter
-      (comp :apriori first)
-      (for [word (keys words) pos-seq (words word)
-            :when (> 2 (apply max 0 (gap-sizes (map (fn [p] [p p]) pos-seq))))]
-        (make-word-hyp word pos-seq left-off sensor-hyps models)))))
+     (comp :apriori first)
+     (for [word (keys words) pos-seq (words word)
+           :when (> 2 (apply max 0 (gap-sizes (map (fn [p] [p p]) pos-seq))))]
+       (make-word-hyp word pos-seq left-off sensor-hyps models)))))
 
 (defn make-starts-ends
   [hyps]
@@ -124,30 +111,30 @@
   (loop [i max-n
          composites []]
     (if (= 0 i) (filter #(< 1 (count %)) composites) 
-      (let [next-hyps (concat composites
-                              (map (fn [h] [h]) word-hyps)
-                              (filter valid-composite?
-                                      (mapcat (fn [c] (map #(conj c %) word-hyps))
-                                              composites)))]
-        (recur (dec i) next-hyps)))))
+        (let [next-hyps (concat composites
+                                (map (fn [h] [h]) word-hyps)
+                                (filter valid-composite?
+                                        (mapcat (fn [c] (map #(conj c %) word-hyps))
+                                                composites)))]
+          (recur (dec i) next-hyps)))))
 
 (defn make-composite-hyps
   [models word-hyps max-n]
   (let [composites (gen-valid-composites word-hyps max-n)]
     (filter
-      (comp :apriori first)
-      (for [c composites]
-        [(new-hyp "W" :words conflicts?
-                  (compute-apriori models (mapcat (comp :words :data) c)
-                                   (make-starts-ends c))
-                  (format "Word sequence \"%s\" at positions %s"
-                          (apply str (interpose " " (mapcat (comp :words :data) c)))
-                          (apply str (interpose ", " (mapcat (comp :pos-seqs :data) c)))
-                          (apply str (interpose ", " (map :id c))))
-                  {:start (:start (:data (first c))) :end (:end (:data (last c)))
-                   :pos-seqs (mapcat (comp :pos-seqs :data) c)
-                   :words (mapcat (comp :words :data) c)})
-         c]))))
+     (comp :apriori first)
+     (for [c composites]
+       [(new-hyp "W" :words conflicts?
+                 (compute-apriori models (mapcat (comp :words :data) c)
+                                  (make-starts-ends c))
+                 (format "Word sequence \"%s\" at positions %s"
+                         (apply str (interpose " " (mapcat (comp :words :data) c)))
+                         (apply str (interpose ", " (mapcat (comp :pos-seqs :data) c)))
+                         (apply str (interpose ", " (map :id c))))
+                 {:start (:start (:data (first c))) :end (:end (:data (last c)))
+                  :pos-seqs (mapcat (comp :pos-seqs :data) c)
+                  :words (mapcat (comp :words :data) c)})
+        c]))))
 
 (defn make-sensor-hyp
   [pos letter]
@@ -178,6 +165,7 @@
                ep-sensor-hyps
                (concat word-hyps composite-hyps))
        {:compute compute :memory memory}])))
+
 (defn get-more-hyps
   [ep-state]
   nil)
@@ -201,6 +189,6 @@
                   :else (recur (conj words word)
                                (rest wps) (last pos-seq)))))]
     (-> pdata
-      (update-in [:history] concat words)
-      (assoc :left-off left-off))))
+        (update-in [:history] concat words)
+        (assoc :left-off left-off))))
 
