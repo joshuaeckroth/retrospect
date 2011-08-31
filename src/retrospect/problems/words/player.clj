@@ -51,39 +51,43 @@
     (do (. ld-label (setText "N/A")))))
 
 (defn format-truedata-log
-  [log sb prefix]
-  (loop [out (vec (format "(%s) " (apply str prefix))) 
-         s (seq log)
-         ;; (+ 0 ...) to prevent error with boxing & recur
-         i (+ 0 (count prefix))] 
-    (cond (empty? s) (apply str out)
-          ;; skip spaces (add to output, but don't "count")
-          (= \ (first s)) (recur (conj out \ ) (rest s) i)
-          ;; count maxed out, add | symbol, and add letter from log;
-          ;; recur with reset counter
-          (= i (dec sb)) (recur (conj out (first s) \|) (rest s) 0)
-          ;; count still not maxed out, add letter from log, increment count
-          :else (recur (conj out (first s)) (rest s) (inc i)))))
+  [noisy log sb prefix]
+  (let [trueends (map (fn [chunk] (second (last chunk)))
+                      (partition sb (take @time-now noisy)))]
+    (loop [out (vec (format "%s\n\n(%s) "
+                            (apply str (map first (take @time-now noisy)))
+                            (apply str prefix)))
+           s (seq log)
+           ends trueends
+           lastend (dec (count prefix))]
+      (cond (empty? ends) (apply str out)
+            (= lastend (first ends)) (recur (conj out \|) s (rest ends) lastend)
+            (= \ (first s)) (recur (conj out \ ) (rest s) ends lastend)
+            :else (recur (conj out (first s)) (rest s) ends (inc lastend))))))
 
 (defn player-get-truedata-log
   []
   (if (= @time-now 0) ""
-    (let [prefix (:prefix (meta @truedata))]
-      (loop [t (count prefix)
-             words (:words (meta @truedata))
-             log ""]
-        (let [remaining (- @time-now t)
-              next-word (first words)]
-          (cond (= remaining 0) (format-truedata-log log (:StepsBetween @params) prefix) 
-
-                (< remaining (count next-word))
-                (format-truedata-log (str log (if (= "" log) "" " ")
-                                          (subs next-word 0 remaining))
-                                     (:StepsBetween @params) prefix) 
-
-                :else
-                (recur (+ t (count next-word)) (rest words)
-                       (str log (if (= "" log) "" " ") next-word))))))))
+      (let [noisy (:noisy (meta @truedata))
+            ;; amount of truedata letters presented
+            truetime (second (nth noisy @time-now))
+            prefix (:prefix (meta @truedata))]
+        (loop [t (count prefix)
+               words (:words (meta @truedata))
+               log ""]
+          (let [remaining (- truetime t)
+                next-word (first words)]
+            (cond (= remaining 0)
+                  (format-truedata-log noisy log (:StepsBetween @params) prefix) 
+                  
+                  (< remaining (count next-word))
+                  (format-truedata-log noisy (str log (if (= "" log) "" " ")
+                                                  (subs next-word 0 remaining))
+                                       (:StepsBetween @params) prefix) 
+                  
+                  :else
+                  (recur (+ t (count next-word)) (rest words)
+                         (str log (if (= "" log) "" " ") next-word))))))))
 
 (defn player-get-problem-log
   []

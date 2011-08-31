@@ -33,7 +33,8 @@
   [ep-state meta-ep-state results truedata params]
   (let [history (:history (:problem-data ep-state))
         history-meta (:history (:problem-data meta-ep-state))
-        truewords (get-truewords truedata (:time ep-state))
+        noisy (:noisy (meta truedata))
+        truewords (get-truewords truedata (second (nth noisy (:time ep-state))))
         ld (calc-ld history truewords)
         ld-meta (calc-ld history-meta truewords)]
     {:AvgMetaDiffLD (avg-with-prior results :AvgMetaDiffLD (- ld-meta ld))}))

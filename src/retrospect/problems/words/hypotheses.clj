@@ -1,4 +1,5 @@
 (ns retrospect.problems.words.hypotheses
+  (:import (misc LevenshteinDistance))
   (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.workspaces :only [new-hyp]])
   (:use [retrospect.epistemicstates :only [add-hyp add-fact]]))
@@ -108,33 +109,32 @@
 
 (defn gen-valid-composites
   [word-hyps max-n]
-  (loop [i max-n
-         composites []]
-    (if (= 0 i) (filter #(< 1 (count %)) composites) 
-        (let [next-hyps (concat composites
-                                (map (fn [h] [h]) word-hyps)
-                                (filter valid-composite?
-                                        (mapcat (fn [c] (map #(conj c %) word-hyps))
-                                                composites)))]
-          (recur (dec i) next-hyps)))))
+  (let [singular-word-hyps (map (fn [h] [h]) word-hyps)]
+    (loop [i max-n
+           composites []]
+      (if (= 0 i) (filter #(< 1 (count %)) composites)
+          (recur (dec i) (concat composites
+                                 singular-word-hyps
+                                 (filter valid-composite?
+                                         (mapcat (fn [c] (map #(conj c %) word-hyps))
+                                                 composites))))))))
 
 (defn make-composite-hyps
   [models word-hyps max-n]
   (let [composites (gen-valid-composites word-hyps max-n)]
-    (filter
-     (comp :apriori first)
-     (for [c composites]
-       [(new-hyp "W" :words conflicts?
-                 (compute-apriori models (mapcat (comp :words :data) c)
-                                  (make-starts-ends c))
-                 (format "Word sequence \"%s\" at positions %s"
-                         (apply str (interpose " " (mapcat (comp :words :data) c)))
-                         (apply str (interpose ", " (mapcat (comp :pos-seqs :data) c)))
-                         (apply str (interpose ", " (map :id c))))
-                 {:start (:start (:data (first c))) :end (:end (:data (last c)))
-                  :pos-seqs (mapcat (comp :pos-seqs :data) c)
-                  :words (mapcat (comp :words :data) c)})
-        c]))))
+    (filter (comp :apriori first)
+            (for [c composites]
+              [(new-hyp "W" :words conflicts?
+                        (compute-apriori models (mapcat (comp :words :data) c)
+                                         (make-starts-ends c))
+                        (format "Word sequence \"%s\" at positions %s"
+                                (apply str (interpose " " (mapcat (comp :words :data) c)))
+                                (apply str (interpose ", " (mapcat (comp :pos-seqs :data) c)))
+                                (apply str (interpose ", " (map :id c))))
+                        {:start (:start (:data (first c))) :end (:end (:data (last c)))
+                         :pos-seqs (mapcat (comp :pos-seqs :data) c)
+                         :words (mapcat (comp :words :data) c)})
+               c]))))
 
 (defn make-sensor-hyp
   [pos letter]
@@ -149,6 +149,23 @@
   [pdata hyps rejected]
   [])
 
+(defn search-composite-hyp
+  [composite letters max-offset]
+  (let [letters-str (apply str letters)
+        comp-letters (apply str (apply concat composite))
+        comp-array (into-array String (map str comp-letters))
+        n (count comp-letters)
+        min-n (max 1 (- n max-offset))
+        max-n (+ n max-offset)
+        sub-letters (mapcat (fn [n] (map (fn [i] {:composite composite :offset i
+                                                  :letters (subs letters-str i (+ i n))})
+                                         (range (max 0 (- (count letters) n)))))
+                            (range min-n max-n))]
+    (map (fn [sl]
+           (let [ld (LevenshteinDistance/ld (into-array String (map str (:letters sl))) comp-array)]
+             (merge sl {:ld ld :ld-percent (double (/ ld (count (:letters sl))))})))
+         sub-letters)))
+
 (defn hypothesize
   [ep-state sensors time-now params]
   (binding [compute 0 memory 0]
@@ -158,9 +175,14 @@
           letters (map #(sensed-at sens %) (range (inc left-off) (inc time-now)))
           sensor-hyps (make-sensor-hyps letters)
           ep-sensor-hyps (reduce #(add-fact %1 %2 []) ep-state sensor-hyps)
-          index (build-letter-index letters)
-          word-hyps (make-word-hyps index left-off dictionary sensor-hyps models)
-          composite-hyps (make-composite-hyps models (map first word-hyps) max-n)]
+          index [] ;(build-letter-index letters)
+          word-hyps [] ;(make-word-hyps index left-off dictionary sensor-hyps models)
+          composite-hyps [] ;(make-composite-hyps models (map first word-hyps) max-n)
+          ;;(mapcat keys (map #(get models %) (range 1 (inc max-n))))
+          model-composites (filter #(>= (count letters) (reduce + 0 (map count %)))
+                                   (keys (get models 1)))
+          lds (sort-by :ld-percent (mapcat #(search-composite-hyp % letters 2) model-composites))]
+      (println (apply str (interpose "\n" (filter #(< (:ld-percent %) 0.5) lds))))
       [(reduce #(apply add-hyp %1 %2)
                ep-sensor-hyps
                (concat word-hyps composite-hyps))
