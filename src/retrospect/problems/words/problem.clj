@@ -27,6 +27,7 @@
                    (for [n (range 1 (inc (:MaxModelGrams params)))]
                      (read-model-csv (str datadir (format "/words/model-%d.csv" n))))) 
    :left-off 0
+   :accepted []
    :history []})
 
 (def headers

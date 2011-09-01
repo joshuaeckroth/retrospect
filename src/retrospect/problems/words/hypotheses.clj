@@ -4,6 +4,82 @@
   (:use [retrospect.workspaces :only [new-hyp]])
   (:use [retrospect.epistemicstates :only [add-hyp add-fact]]))
 
+;; Sensor detections in the words domain come in the form of a string
+;; of letters. These letters correspond to letters in the true words,
+;; although the letters sensed may not be the true letters (depending
+;; on the parameter :SensorNoise). Each sensed letter corresponds to a
+;; single true letter (there are no additions or deletions).
+;;
+;; The task of the words domain hypothesizer is to offer hypotheses
+;; about which words the letters represent (i.e. find word
+;; boundaries). Finding the true words is somewhat ambiguous because
+;; letter sequences like "looking" may come from the words "look in
+;; g---" (for some word starting with "g") or "looking." The task is
+;; much more ambiguous when :SensorNoise is positive, so the true
+;; words "look in glass" may appear, for example, as "lokking" (with
+;; only the "g" of "glass" being presented, as before). Since the
+;; first "k" does not match any word, the hypothesizer may consider it
+;; to be noise, and offer "locking" and "looking" and "look in g---"
+;; and "lock in g---," etc. as alternative explanations of the letter
+;; sequence.
+;;
+;; ## Algorithm
+;;
+;; A high-level overview of the hypothesizer follows. Assume the agent
+;; has no beliefs resulting from past reasoning (i.e. the simulation
+;; just started). The sensors are queried for all detections up to
+;; "now." All possible word extractions are found, assuming no
+;; noise. Each word is established as a hypothesis (that explains the
+;; letters, i.e. sensor detections, that make up the word). The score
+;; of each word (between 0.0 and 1.0) is a function of how closely the
+;; word matches the sensor detections (in this case, the match is
+;; perfect, since no noise is assumed) and the word's a-priori score
+;; (from the unigram model of the text). Word hypotheses conflict with
+;; other word hypotheses that explain the same sensor detections
+;; (words that use the same letters from the same positions in the
+;; stream).
+;;
+;; Then composite hypotheses are constructed from these word
+;; hypotheses. A composite hypothesis is a sequence of words and
+;; explains each of the word hypotheses. The word sequence must not
+;; have any gaps in order to be a composite. Composite hypotheses are
+;; scored by referring to the appropriate n-gram model (where n is the
+;; length of the composite). Note that composite hypothesis scores do
+;; not take into account how closely the words match the sensor
+;; detections---the word hypotheses' scores already account for
+;; that. Composite hypotheses conflict with other composite hypotheses
+;; and word hypotheses that do not overlap (i.e. two composites
+;; conflict if they cover some common part of the stream but not using
+;; the same words, and a composite hypothesis and word hypothesis
+;; conflict if the two hypotheses overlap in some part of the stream
+;; and the composite hypothesis does not explain the word hypothesis,
+;; meaning the word is not part of the composite).
+;;
+;; ## Boundary effects
+;;
+;; Typically, the hypothesizer is asked to produce hypotheses for a
+;; sequence of letters (sensor detections) at a time when the sequence
+;; of letters ends without completing a word. For example,
+;; "lookinggla" likely comes from the true words "looking glass"
+;; (which is a common phrase in /Through the looking glass/) but the
+;; hypothesizer may only see the sequence "lookinggla." Presumably,
+;; there is no other word that matches "gla" (and following "looking")
+;; with a non-zero a-priori score, as read off the model. So the agent
+;; would be find it reasonable to hypothesize, as a prediction, that
+;; the next word is "glass." If, at the next reasoning cycle, the
+;; prediction is not met, perhaps the agent should engage in
+;; meta-reasoning.
+;;
+;; However, the code complexity for supporting predictions makes the
+;; alternative more enticing: just don't hypothesize any explanations
+;; for "gla" since no word matches it sufficiently well (especially
+;; following "looking"). At the next reasoning cycle, "gla" will still
+;; be unexplained, so it can be handled then, when more letters are
+;; available.
+;;
+;; Both the predictive approach and the latter, adopted approach
+;; mitigate the impact of boundary effects.
+
 (def compute 0)
 (def memory 0)
 
@@ -16,8 +92,9 @@
 
 (defn search-word
   "Find all possible occurrences (including jumps forward) of word in the index
-   (built from build-letter-index). Each possible occurrence is a vector of
-   positions (which are in increasing order, representing letter positions)."
+   (built from build-letter-index). Each possible occurrence is a
+   vector of positions (which are in increasing order, representing
+   letter positions)."
   [index word]
   (loop [letters word
          incomplete []
@@ -68,9 +145,7 @@
 
 (defn compute-apriori
   [models words starts-ends]
-  (let [max-gap (apply max 1 (gap-sizes starts-ends))
-        prob (lookup-prob models words)]
-    (if prob (* (Math/pow 0.75 (dec max-gap)) prob))))
+  (lookup-prob models words))
 
 (defn make-word-hyp
   [word pos-seq left-off sensor-hyps models]
@@ -93,7 +168,7 @@
     (filter
      (comp :apriori first)
      (for [word (keys words) pos-seq (words word)
-           :when (> 2 (apply max 0 (gap-sizes (map (fn [p] [p p]) pos-seq))))]
+           :when (= 1 (apply max 0 (gap-sizes (map (fn [p] [p p]) pos-seq))))]
        (make-word-hyp word pos-seq left-off sensor-hyps models)))))
 
 (defn make-starts-ends
@@ -108,8 +183,8 @@
          (not-any? (fn [[h1 h2]] (conflicts? h1 h2)) (partition 2 1 hyps)))))
 
 (defn gen-valid-composites
-  [word-hyps max-n]
-  (let [singular-word-hyps (map (fn [h] [h]) word-hyps)]
+  [word-hyps accepted max-n]
+  (let [singular-word-hyps (map (fn [h] [h]) (concat word-hyps (take-last (dec max-n) accepted)))]
     (loop [i max-n
            composites []]
       (if (= 0 i) (filter #(< 1 (count %)) composites)
@@ -120,8 +195,8 @@
                                                  composites))))))))
 
 (defn make-composite-hyps
-  [models word-hyps max-n]
-  (let [composites (gen-valid-composites word-hyps max-n)]
+  [models word-hyps accepted max-n]
+  (let [composites (set (gen-valid-composites word-hyps accepted max-n))]
     (filter (comp :apriori first)
             (for [c composites]
               [(new-hyp "W" :words conflicts?
@@ -149,46 +224,19 @@
   [pdata hyps rejected]
   [])
 
-(defn search-word-hyp
-  [word letters model sensor-noise]
-  (let [letters-str (apply str letters)
-        n (count word)
-        expected-ld (int (Math/ceil (* n sensor-noise)))
-        ;; min word length
-        min-n (max 1 (- n expected-ld))
-        ;; max word length
-        max-n (+ n expected-ld)
-        sub-letters (mapcat (fn [n] (map (fn [i] {:word word :offset i
-                                                  :expected-ld expected-ld
-                                                  :subword (subs letters-str i (+ i n))})
-                                         (range (max 0 (- (count letters) n)))))
-                            (range min-n (inc max-n)))]
-    (map (fn [sl]
-           (let [ld (LevenshteinDistance/ld (into-array String (map str (:subword sl)))
-                                            (into-array String (map str word)))
-                 ld-percent (double (/ ld n))
-                 match (- 1.0 (Math/abs (- ld-percent sensor-noise)))]
-             (merge sl {:ld ld :ld-percent ld-percent :match match
-                        :apriori (get model [word])})))
-         sub-letters)))
-
 (defn hypothesize
   [ep-state sensors time-now params]
   (binding [compute 0 memory 0]
     (let [sens (first sensors) ;; only one sensor
-          {:keys [dictionary left-off models]} (:problem-data ep-state)
+          {:keys [dictionary left-off accepted models]} (:problem-data ep-state)
           max-n (:MaxModelGrams params)
           letters (map #(sensed-at sens %) (range (inc left-off) (inc time-now)))
           sensor-hyps (make-sensor-hyps letters)
           ep-sensor-hyps (reduce #(add-fact %1 %2 []) ep-state sensor-hyps)
-          words (filter #(>= (count letters) (count %)) dictionary)
-          lds (sort-by :match
-                       (mapcat #(search-word-hyp % letters (get models 1)
-                                                 (double (/ (:SensorNoise params) 100.0)))
-                               words))]
-      (println (apply str (interpose "\n" (map str (filter #(> (:match %) 0.7) lds)))))
-      [(reduce #(apply add-hyp %1 %2)
-               ep-sensor-hyps [])
+          index (build-letter-index letters)
+          word-hyps (make-word-hyps index left-off dictionary sensor-hyps models)
+          composite-hyps (make-composite-hyps models (map first word-hyps) accepted max-n)]
+      [(reduce #(apply add-hyp %1 %2) ep-sensor-hyps (concat word-hyps composite-hyps))
        {:compute compute :memory memory}])))
 
 (defn get-more-hyps
@@ -214,6 +262,7 @@
                   :else (recur (conj words word)
                                (rest wps) (last pos-seq)))))]
     (-> pdata
+        (update-in [:accepted] concat accepted)
         (update-in [:history] concat words)
         (assoc :left-off left-off))))
 
