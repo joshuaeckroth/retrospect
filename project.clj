@@ -7,7 +7,8 @@
                  [cc.artifice/loom "0.1.1"]]
   :dev-dependencies [[swank-clojure "1.3.0"]
                      [midje "1.1"]
-                     [clj-stacktrace "0.2.1"]]
+                     [clj-stacktrace "0.2.1"]
+                     [lein-marginalia "0.6.0"]]
   :hooks [leiningen.hooks.clj-stacktrace-test]
   :repl-options [:caught clj-stacktrace.repl/pst+]
   :clj-stacktrace {:color true}
