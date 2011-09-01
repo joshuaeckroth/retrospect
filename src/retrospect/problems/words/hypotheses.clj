@@ -149,21 +149,27 @@
   [pdata hyps rejected]
   [])
 
-(defn search-composite-hyp
-  [composite letters max-offset]
+(defn search-word-hyp
+  [word letters model sensor-noise]
   (let [letters-str (apply str letters)
-        comp-letters (apply str (apply concat composite))
-        comp-array (into-array String (map str comp-letters))
-        n (count comp-letters)
-        min-n (max 1 (- n max-offset))
-        max-n (+ n max-offset)
-        sub-letters (mapcat (fn [n] (map (fn [i] {:composite composite :offset i
-                                                  :letters (subs letters-str i (+ i n))})
+        n (count word)
+        expected-ld (int (Math/ceil (* n sensor-noise)))
+        ;; min word length
+        min-n (max 1 (- n expected-ld))
+        ;; max word length
+        max-n (+ n expected-ld)
+        sub-letters (mapcat (fn [n] (map (fn [i] {:word word :offset i
+                                                  :expected-ld expected-ld
+                                                  :subword (subs letters-str i (+ i n))})
                                          (range (max 0 (- (count letters) n)))))
-                            (range min-n max-n))]
+                            (range min-n (inc max-n)))]
     (map (fn [sl]
-           (let [ld (LevenshteinDistance/ld (into-array String (map str (:letters sl))) comp-array)]
-             (merge sl {:ld ld :ld-percent (double (/ ld (count (:letters sl))))})))
+           (let [ld (LevenshteinDistance/ld (into-array String (map str (:subword sl)))
+                                            (into-array String (map str word)))
+                 ld-percent (double (/ ld n))
+                 match (- 1.0 (Math/abs (- ld-percent sensor-noise)))]
+             (merge sl {:ld ld :ld-percent ld-percent :match match
+                        :apriori (get model [word])})))
          sub-letters)))
 
 (defn hypothesize
@@ -175,17 +181,14 @@
           letters (map #(sensed-at sens %) (range (inc left-off) (inc time-now)))
           sensor-hyps (make-sensor-hyps letters)
           ep-sensor-hyps (reduce #(add-fact %1 %2 []) ep-state sensor-hyps)
-          index [] ;(build-letter-index letters)
-          word-hyps [] ;(make-word-hyps index left-off dictionary sensor-hyps models)
-          composite-hyps [] ;(make-composite-hyps models (map first word-hyps) max-n)
-          ;;(mapcat keys (map #(get models %) (range 1 (inc max-n))))
-          model-composites (filter #(>= (count letters) (reduce + 0 (map count %)))
-                                   (keys (get models 1)))
-          lds (sort-by :ld-percent (mapcat #(search-composite-hyp % letters 2) model-composites))]
-      (println (apply str (interpose "\n" (filter #(< (:ld-percent %) 0.5) lds))))
+          words (filter #(>= (count letters) (count %)) dictionary)
+          lds (sort-by :match
+                       (mapcat #(search-word-hyp % letters (get models 1)
+                                                 (double (/ (:SensorNoise params) 100.0)))
+                               words))]
+      (println (apply str (interpose "\n" (map str (filter #(> (:match %) 0.7) lds)))))
       [(reduce #(apply add-hyp %1 %2)
-               ep-sensor-hyps
-               (concat word-hyps composite-hyps))
+               ep-sensor-hyps [])
        {:compute compute :memory memory}])))
 
 (defn get-more-hyps
