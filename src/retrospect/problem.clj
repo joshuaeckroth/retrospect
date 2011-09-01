@@ -133,7 +133,7 @@
   (let [time (:time (:ep-state or-state))
         ors-sensors (proceed-n-steps (:StepsBetween params) (:Steps params)
                                      time truedata or-state)
-        time-now (min (:Steps params) (+ (dec (:StepsBetween params)) time))
+        time-now (min (dec (:Steps params)) (+ (dec (:StepsBetween params)) time))
         ;; start the clock
         start-time (. System (nanoTime))
         ors-hyps (hypothesize problem ors-sensors time-now params)
