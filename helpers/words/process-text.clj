@@ -1,5 +1,5 @@
 #^:shebang '[
-exec java -cp "$HOME/.clojure/clojure.jar" clojure.main "$0" "$@"
+exec java -cp "$HOME/clojure/clojure-1.2.1/clojure.jar" clojure.main "$0" "$@"
 ]
 
 (require '[clojure.string :as str])
@@ -37,10 +37,12 @@ exec java -cp "$HOME/.clojure/clojure.jar" clojure.main "$0" "$@"
                    (str/replace #"[\-/]" " ")
                    (str/replace #"[^a-zA-Z\s]" "")
                    (str/replace #"\s+" " ")
-                   (str/lower-case)) 
-        dictionary (sort (set (str/split truedata #" "))) 
-        ambiguous (str/replace truedata #"\s" "")]
-    [truedata dictionary ambiguous]))
+                   (str/lower-case))
+        ;; consider only words with 4 or more letters
+        truedata-large-words (filter #(>= (count %) 4) (str/split truedata #"\s+"))
+        dictionary (sort (set truedata-large-words)) 
+        ambiguous (apply str truedata-large-words)]
+    [(apply str (interpose " " truedata-large-words)) dictionary ambiguous]))
 
 (when *command-line-args*
   (let [[truedata dictionary ambiguous] (process-text (first *command-line-args*))
