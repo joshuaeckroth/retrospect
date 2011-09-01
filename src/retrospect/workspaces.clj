@@ -166,9 +166,10 @@
   (let [g (if (some #{:static} opts)
             (:graph-static workspace)
             (:graph workspace))
-        ;; a hyp can't conflict with what it explains, so remove those hyps
-        ;; first
-        hyps (set/difference (nodes g) (find-explainers workspace hyp opts)) 
+        ;; a hyp can't conflict with what it explains and what
+        ;; explains it, so remove those hyps first
+        hyps (set/difference (nodes g) (find-explainers workspace hyp opts)
+                             (find-explains workspace hyp opts))
         c (:conflict hyp)]
     (cond
       ;; no conflict id; so it conflicts with nothing
