@@ -83,25 +83,15 @@
 (def compute 0)
 (def memory 0)
 
-(defn measure-noise
-  [letters word]
-  (count (filter #(not= (first %) (second %)) (partition 2 (interleave letters word)))))
+(defn lookup-prob
+  [models words]
+  (get (get models (count words)) words))
 
-(defn search-word
-  "Find all possible occurrences (including jumps forward) of word in
-   letters. Each possible occurrence is a vector of positions (which
-   are in increasing order, representing letter positions). Allow a
-   maximum of max-noise letters to differ from word."
-  [letters word max-noise]
-  (let [letter-pos-seqs (partition (count word) 1 (map (fn [i] [i (nth letters i)])
-                                                       (range (count letters))))]
-    (filter (fn [[_ noise]] (>= max-noise noise))
-            (map (fn [lps] [(map first lps) (measure-noise word (map second lps))])
-                 letter-pos-seqs))))
-
-(defn search-dict-words
-  [letters dict max-noise]
-  (reduce (fn [m w] (assoc m w (search-word letters w max-noise))) {} dict))
+(defn gap-sizes
+  [starts-ends]
+  (map #(- (second %) (first %))
+       (partition 2 (interleave (map second (butlast starts-ends))
+                                (map first (rest starts-ends))))))
 
 (defn conflicts?
   "Two words-domain hypotheses conflict if: (1) they are both composite
@@ -123,33 +113,49 @@
             end2 (:end (:data hyp2))]
         (not (or (< end1 start2) (< end2 start1)))))))
 
-(defn lookup-prob
-  [models words]
-  (get (get models (count words)) words))
-
-(defn gap-sizes
-  [starts-ends]
-  (map #(- (second %) (first %))
-       (partition 2 (interleave (map second (butlast starts-ends))
-                                (map first (rest starts-ends))))))
-
 (defn compute-apriori
-  [models words starts-ends noise]
+  [models words starts-ends max-noise]
   (if-let [prob (lookup-prob models words)]
-    (/ prob (inc noise))))
+    (/ prob (inc max-noise))))
 
 (defn make-word-hyp
-  [word pos-seq noise left-off sensor-hyps models]
+  [word pos-seq letters max-noise left-off sensor-hyps models]
   (var-set (var compute) (inc compute))
   (let [explains (map #(nth sensor-hyps %) pos-seq)
         adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))]
     [(new-hyp "W" :single-word conflicts?
-              (compute-apriori models [word] (map (fn [p] [p p]) adjusted-pos-seq) noise)
-              (format "Word: \"%s\" at positions %s (noise %d)"
-                      word (str adjusted-pos-seq) noise)
+              (compute-apriori models [word] (map (fn [p] [p p]) adjusted-pos-seq) max-noise)
+              (format "Word: \"%s\" at positions %s (%s) (max-noise %d)"
+                      word (str adjusted-pos-seq) (apply str letters) max-noise)
               {:start (first adjusted-pos-seq) :end (last adjusted-pos-seq)
                :words [word] :pos-seqs [adjusted-pos-seq]})
      explains]))
+
+(defn acceptable-noise?
+  [letters word max-noise]
+  (if (= max-noise 0) (= (apply str letters) (apply str word))
+      (>= max-noise (count (filter #(not= (first %) (second %))
+                                   (partition 2 (interleave letters word)))))))
+
+(defn search-word
+  "Find all possible occurrences (including jumps forward) of word in
+   parts (partitions of the letters having same length as word). Each
+   possible occurrence is a vector of positions (which are in
+   increasing order, representing letter positions). Allow a maximum
+   of max-noise letters to differ from word."
+  [word parts max-noise]
+  (filter (fn [[_ letters]] (acceptable-noise? word letters max-noise))
+          (map (fn [lps] [(map first lps) (map second lps)]) parts)))
+
+(defn search-dict-words
+  [letters dict max-noise]
+  ;; pre-compute all possible partitions (for all word lengths)
+  (let [max-word-length (apply max 0 (map count dict))
+        parts (map (fn [length] (partition length 1 (map (fn [i] [i (nth letters i)])
+                                                         (range (count letters)))))
+                   (range 1 (inc max-word-length)))]
+    (reduce (fn [m w] (assoc m w (search-word w (nth parts (dec (count w)))
+                                              max-noise))) {} dict)))
 
 (defn make-word-hyps
   [letters left-off dict max-noise sensor-hyps models]
@@ -157,9 +163,9 @@
                       (search-dict-words letters dict max-noise) dict)]
     (filter
      (comp :apriori first)
-     (for [word (keys words) [pos-seq noise] (get words word)
+     (for [word (keys words) [pos-seq letters] (get words word)
            :when (= 1 (apply max 0 (gap-sizes (map (fn [p] [p p]) pos-seq))))]
-       (make-word-hyp word pos-seq noise left-off sensor-hyps models)))))
+       (make-word-hyp word pos-seq letters max-noise left-off sensor-hyps models)))))
 
 (defn make-starts-ends
   [hyps]
@@ -174,7 +180,8 @@
 
 (defn gen-valid-composites
   [word-hyps accepted max-n]
-  (let [singular-word-hyps (map (fn [h] [h]) (concat word-hyps (take-last (dec max-n) accepted)))]
+  (let [singular-word-hyps (map (fn [h] [h])
+                                (concat word-hyps (take-last (dec max-n) accepted)))]
     (loop [i max-n
            composites []]
       (if (= 0 i) (filter #(< 1 (count %)) composites)
@@ -222,7 +229,7 @@
           letters (map #(sensed-at sens %) (range (inc left-off) (inc time-now)))
           sensor-hyps (make-sensor-hyps letters)
           ep-sensor-hyps (reduce #(add-fact %1 %2 []) ep-state sensor-hyps)
-          word-hyps (make-word-hyps letters left-off dictionary 2 sensor-hyps models)
+          word-hyps (make-word-hyps letters left-off dictionary 1 sensor-hyps models)
           composite-hyps (make-composite-hyps models (map first word-hyps) accepted max-n)]
       [(reduce #(apply add-hyp %1 %2) ep-sensor-hyps (concat word-hyps composite-hyps))
        {:compute compute :memory memory}])))
