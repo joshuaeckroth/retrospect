@@ -33,7 +33,7 @@
      {:graph nil
       :graph-static (digraph)
       :hyp-confidences {}
-      :log {:added [] :forced [] :best [] :accrej []
+      :log {:added [] :forced [] :best [] :accrej {}
             :final {:accepted [] :rejected [] :shared-explains []
                     :unexplained [] :no-explainers [] :unaccepted []}
             :doubt nil}
@@ -107,12 +107,14 @@
 
 (defn find-explainers
   "Given no hyp argument, returns a sequence of sequences containing
-  alternative explainers of hyps needing explanation (essentials are therefore
-  seqs with one explainer). A hyp needing explanation is one that has been
-  accepted and has explainers or has been forced and has explainers.The
-  explainers are sorted by conf (best first), and the seq of seqs is sorted by
-  difference between first- and second-best alternatives, so that first seq of
-  alts in seq of seqs has greatest difference."
+   alternative explainers of hyps needing explanation (essentials are
+   therefore seqs with one explainer). A hyp needing explanation is
+   one that has been forced and remains in the graph or a hyp in the
+   graph that has incoming edges (same criteria as (find-unexplained)
+   above). The explainers are sorted by conf (best first), and the seq
+   of seqs is sorted by difference between first- and second-best
+   alternatives, so that first seq of alts in seq of seqs has greatest
+   difference."
   ([workspace]
      (let [g (:graph workspace)]
        (reverse
@@ -121,9 +123,7 @@
                         (hyp-conf workspace (second %)))
                      (hyp-conf workspace (first %)))
                   (map #(sort-by-conf workspace (incoming g %))
-                       (filter #(not-empty (incoming g %)) 
-                               (set/union (:forced workspace)
-                                          (:accepted workspace))))))))
+                       (find-unexplained workspace))))))
   ([workspace hyp & opts]
      (let [g (if (some #{:static} opts)
                (:graph-static workspace)
@@ -168,8 +168,9 @@
             (:graph workspace))
         ;; a hyp can't conflict with what it explains and what
         ;; explains it, so remove those hyps first
-        hyps (set/difference (nodes g) (find-explainers workspace hyp opts)
-                             (find-explains workspace hyp opts))
+        hyps (set/difference (nodes g)
+                             (apply find-explainers workspace hyp opts)
+                             (apply find-explains workspace hyp opts))
         c (:conflict hyp)]
     (cond
       ;; no conflict id; so it conflicts with nothing
@@ -278,7 +279,9 @@
         new-g (apply remove-nodes g removable)
         ws (-> workspace
              (update-in [:hyp-log hyp] conj
-                        (format "Accepted in cycle %d" this-cycle))
+                        (format "Accepted in cycle %d (removed %s)"
+                                this-cycle
+                                (apply str (interpose ", " (sort (map :id removable))))))
              (update-in [:accepted] conj hyp)
              (assoc :graph new-g))]
     (loop [ws (reject-many ws conflicts this-cycle)
@@ -291,8 +294,19 @@
                    rejected)]
         (if (not-empty incon)
           (recur (reject-many ws incon this-cycle) (set/union rejected (set incon)))
-          (update-in ws [:log :accrej] conj
+          (update-in ws [:log :accrej this-cycle] conj
                      {:acc hyp :rej (concat conflicts rejected)}))))))
+
+(defn transitive-accept
+  [workspace hyp this-cycle inconsistent pdata]
+  (loop [acceptable [hyp]
+         ws workspace]
+    (if (empty? acceptable) ws
+        (let [to-accept (first acceptable)
+              explained (set/difference (find-explains ws to-accept)
+                                        (:forced ws) (:accepted ws))]
+          (recur (concat (rest acceptable) explained)
+                 (accept ws to-accept this-cycle inconsistent pdata))))))
 
 (defn forced
   [workspace hyp]
@@ -314,7 +328,7 @@
                   :graph (:graph-static workspace))]
     (-> ws
         (assoc-in [:log :best] [])
-        (assoc-in [:log :accrej] [])
+        (assoc-in [:log :accrej] {})
         (update-in [:resources :hypothesis-count]
                    + (count (nodes (:graph-static ws)))))))
 
@@ -384,5 +398,5 @@
                    (update-in [:log :best] conj
                               {:best best :alts alts
                                :essential? essential? :delta delta})
-                   (accept best this-cycle inconsistent pdata))
+                   (transitive-accept best this-cycle inconsistent pdata))
                  (inc this-cycle)))))))

@@ -34,16 +34,22 @@
                  "Cycles" (apply sorted-map-by (AlphanumComparator.)
                                  (mapcat (fn [i]
                                            (let [b (nth (:best wslog) i)
-                                                 ar (nth (:accrej wslog) i)]
+                                                 ;; seq of {:acc :rej} pairs (maps)
+                                                 ars (get (:accrej wslog) (inc i))]
                                              [(format "Cycle %d (%s)" (inc i)
                                                       (if (:essential? b)
                                                         "essential"
                                                         (format "delta %.2f"
                                                                 (:delta b))))
-                                              {"Best" {(:id (:best b)) nil}
-                                               "Alternatives" (list-hyps (:alts b))
-                                               "Rejected" (list-hyps (:rej ar))
-                                               "Penalized" (list-hyps (:penalized ar))}]))
+                                              {"Best"
+                                               {(:id (:best b)) nil}
+                                               "Accepted (trans)"
+                                               (list-hyps (disj (set (map :acc ars))
+                                                                (:best b)))
+                                               "Alternatives"
+                                               (list-hyps (:alts b))
+                                               "Rejected"
+                                               (list-hyps (mapcat :rej ars))}]))
                                          (range (count (:best wslog)))))
                  "Final" {"Accepted" (list-hyps (:accepted (:final wslog)))
                           "Rejected" (list-hyps (:rejected (:final wslog)))
