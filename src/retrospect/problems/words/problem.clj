@@ -26,7 +26,7 @@
    :models (zipmap (range 1 (inc (:MaxModelGrams params)))
                    (for [n (range 1 (inc (:MaxModelGrams params)))]
                      (read-model-csv (str datadir (format "/words/model-%d.csv" n))))) 
-   :left-off 0
+   :left-off -1
    :accepted []
    :history []})
 
