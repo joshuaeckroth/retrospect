@@ -337,13 +337,12 @@
   (let [final (:final (:log workspace))]
     (if (empty? (:accepted final)) 
       (if (empty? (:unexplained final)) 0.0 1.0)
-      (let [confs (vals (select-keys (:hyp-confidences workspace)
-                                     (:accepted final)))
-            confs-unexpl (concat confs (repeat (count (:unexplained final)) 1.0))]
-        (apply max (map #(- 1.0 %) confs))))))
+      (let [confs (vals (select-keys (:hyp-confidences workspace) (:accepted final)))
+            doubt-unexpl (concat (map #(- 1.0 %) confs)
+                                 (repeat (count (:unexplained final)) 1.0))]
+        (double (/ (reduce + 0.0 doubt-unexpl) (count doubt-unexpl)))))))
 
-(comment (double (/ (reduce + 0.0 (map #(- 1.0 %) confs-unexpl))
-                   (count confs-unexpl))))
+(comment (apply max (map #(- 1.0 %) confs)))
 
 (defn get-doubt
   [workspace]
