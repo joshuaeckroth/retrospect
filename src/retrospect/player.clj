@@ -51,10 +51,10 @@
 (defn set-params
   []
   ((:set-params-fn (:player-fns @problem)))
-  (set-seed-spinner (:seed @or-state))
+  (set-seed-spinner (if (:Seed @params) (:Seed @params) 1))
   (doseq [k (keys param-spinners)]
     (. (k param-spinners) setValue (k @params)))
-  (dosync (alter metastrategy-selected (constantly (name (:meta-strategy @or-state))))))
+  (dosync (swap! metastrategy-selected (constantly (name (:meta-strategy @or-state))))))
 
 (defn update-everything
   []
@@ -101,20 +101,20 @@
   (when (and (not (nil? @prepared-selected)) (not= "None" @prepared-selected))
     (let [prepared (get (:prepared-map @problem) @prepared-selected)
           ps (:params prepared)
+          seed (if (:seed ps) (:seed ps) 1)
           meta-strategy (:MetaStrategy ps)
           lazy (:Lazy ps)
           td (:truedata prepared)
           sens (:sensors prepared)]
-      (set-seed (get-seed))
+      (set-seed seed)
       (set-last-id 0)
       (dosync
        (alter params (constantly ps))
        (alter truedata (constantly td))
        (alter sensors (constantly sens))
-       (alter or-state
-              (constantly (init-one-run-state meta-strategy lazy sens
-                                              ((:gen-problem-data-fn @problem)
-                                               sens @datadir ps)))))
+       (alter or-state (constantly (init-one-run-state
+                                    meta-strategy lazy sens
+                                    ((:gen-problem-data-fn @problem) sens @datadir ps)))))
       (update-everything)
       (set-params))))
 

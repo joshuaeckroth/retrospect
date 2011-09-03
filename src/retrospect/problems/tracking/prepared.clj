@@ -13,7 +13,8 @@
   {:GridHeight 10, :GridWidth 10, :MaxWalk 1, :Lazy false,
    :SensorNoise 0, :SensorSeesColor 100, :SensorCoverage 100,
    :BeliefNoise 0, :StepsBetween 1, :Steps 50,
-   :ProbNewEntities 0, :NumberEntities 1, :MetaAbduction false})
+   :ProbNewEntities 0, :NumberEntities 1, :MetaStrategy :NoMetareasoning
+   :Threshold 0})
 
 (defn build-truedata
   [params paths]
@@ -101,7 +102,7 @@
 
 (def intersection-ambiguity
      (let [params (merge basic-params {:Steps 4 :SensorSeesColor 80 :MaxWalk 3
-                                       :MetaAbduction true})]
+                                       :MetaStrategy :BatchBeginning})]
        {:params params
         :sensors [(new-sensor (keyword "left") 0 2 0 9 true)
                   (new-sensor (keyword "middle") 3 4 0 9 false)
@@ -111,7 +112,7 @@
                                         ["2" blue 0 5,4 4,7 2,8 0,8]))}))
 
 (def intersection-ambiguity-nometa
-     (assoc-in intersection-ambiguity [:params :MetaAbduction] false))
+     (assoc-in intersection-ambiguity [:params :MetaStrategy] :NoMetareasoning))
 
 (def intersection-ambiguity-nometa-allatonce
      (-> intersection-ambiguity
@@ -120,7 +121,7 @@
 
 (def intersection-ambiguity-long
      (let [params (merge basic-params {:Steps 5 :SensorSeesColor 80 :MaxWalk 10
-                                       :MetaAbduction true
+                                       :MetaStrategy :BatchBeginning
                                        :GridWidth 20 :GridHeight 20})]
        {:params params
         :sensors [(new-sensor (keyword "left") 0 4 0 19 true)
@@ -259,7 +260,7 @@
      (assoc-in split-merge-twocolor [:params :StepsBetween] 6))
 
 (def march
-     (let [params (merge basic-params {:Steps 6 :MaxWalk 1 :MetaAbduction true})]
+     (let [params (merge basic-params {:Steps 6 :MaxWalk 1 :MetaStrategy :BatchBeginning})]
        {:params params
         :sensors [(new-sensor (keyword "x") 0 9 0 9 true)]
         :truedata (build-truedata
@@ -277,7 +278,7 @@
                    :SensorSeesColor 60 :SensorCoverage 100 :BeliefNoise 0
                    :StepsBetween 1 :GridWidth 30 :Steps 30
                    :ProbNewEntities 0 :NumberEntities 10
-                   :MetaAbduction false :Lazy false}]
+                   :MetaStrategy :NoMetareasoning :Lazy false :Threshold 0}]
        {:params params
         :sensors [(new-sensor (keyword "1") 0 4 0 29 true)
                   (new-sensor (keyword "1g") 5 9 0 29 false)
@@ -334,7 +335,7 @@
                    :Lazy false, :SensorNoise 0, :SensorSeesColor 60,
                    :SensorCoverage 100, :BeliefNoise 0, :StepsBetween 4,
                    :Steps 50, :ProbNewEntities 0, :NumberEntities 5,
-                   :MetaAbduction false}]
+                   :MetaStrategy :NoMetareasoning :Seed 10 :Threshold 0}]
        (set-seed 10)
        {:params params
         :truedata (generate-truedata "" params)
@@ -345,7 +346,7 @@
                    :Lazy false, :SensorNoise 0, :SensorSeesColor 60,
                    :SensorCoverage 100, :BeliefNoise 0, :StepsBetween 11,
                    :Steps 100, :ProbNewEntities 0, :NumberEntities 12,
-                   :MetaAbduction true}]
+                   :MetaStrategy :BatchBeginning :Seed 5674 :Threshold 0}]
        (set-seed 5674)
        {:params params
         :truedata (generate-truedata "" params)
@@ -356,7 +357,7 @@
                    :Lazy false, :SensorNoise 0, :SensorSeesColor 40,
                    :SensorCoverage 100, :BeliefNoise 0, :StepsBetween 10,
                    :Steps 10, :ProbNewEntities 0, :NumberEntities 6,
-                   :MetaAbduction false}]
+                   :MetaStrategy :NoMetareasoning :Seed 7847 :Threshold 0}]
        (set-seed 7847)
        {:params params
         :truedata (generate-truedata "" params)
@@ -367,7 +368,7 @@
                    :Lazy false :SensorNoise 0 :SensorSeesColor 60
                    :SensorCoverage 100 :BeliefNoise 0 :StepsBetween 1
                    :Steps 10 :ProbNewEntities 0 :NumberEntities 6
-                   :MetaAbduction false}]
+                   :MetaStrategy :NoMetaReasoning :Seed 3135 :Threshold 0}]
        (set-seed 3135)
        {:params params
         :truedata (generate-truedata "" params)
@@ -378,7 +379,7 @@
                    :Lazy false :SensorNoise 0 :SensorSeesColor 40
                    :SensorCoverage 100 :BeliefNoise 0 :StepsBetween 1
                    :Steps 20 :ProbNewEntities 0 :NumberEntities 6
-                   :MetaAbduction false}]
+                   :MetaStrategy :NoMetareasoning :Seed 1571 :Threshold 0}]
        (set-seed 1571)
        {:params params
         :truedata (generate-truedata "" params)
