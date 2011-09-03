@@ -1,8 +1,9 @@
 (ns retrospect.problems.words.hypotheses
   (:import (misc LevenshteinDistance))
+  (:require [clojure.set :as set])
   (:use [retrospect.sensors :only [sensed-at]])
-  (:use [retrospect.workspaces :only [new-hyp]])
-  (:use [retrospect.epistemicstates :only [add-hyp add-fact]]))
+  (:use [retrospect.workspaces :only [find-unexplained new-hyp]])
+  (:use [retrospect.epistemicstates :only [add-hyp add-fact add-more-hyp]]))
 
 ;; Sensor detections in the words domain come in the form of a string
 ;; of letters. These letters correspond to letters in the true words,
@@ -90,8 +91,8 @@
 (defn gap-sizes
   [starts-ends]
   (map #(- (second %) (first %))
-       (partition 2 (interleave (map second (butlast starts-ends))
-                                (map first (rest starts-ends))))))
+       (partition 2 (interleave (butlast (map second starts-ends))
+                                (rest (map first starts-ends))))))
 
 (defn conflicts?
   "Two words-domain hypotheses conflict if: (1) they are both composite
@@ -114,17 +115,16 @@
         (not (or (< end1 start2) (< end2 start1)))))))
 
 (defn compute-apriori
-  [models words starts-ends max-noise]
+  [models words max-noise]
   (if-let [prob (lookup-prob models words)]
     (/ prob (inc max-noise))))
 
 (defn make-word-hyp
   [word pos-seq letters max-noise left-off sensor-hyps models]
-  (var-set (var compute) (inc compute))
   (let [explains (map #(nth sensor-hyps %) pos-seq)
         adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))]
     [(new-hyp "W" :single-word conflicts?
-              (compute-apriori models [word] (map (fn [p] [p p]) adjusted-pos-seq) max-noise)
+              (compute-apriori models [word] max-noise)
               (format "Word: \"%s\" at positions %s (%s) (max-noise %d)"
                       word (str adjusted-pos-seq) (apply str letters) max-noise)
               {:start (first adjusted-pos-seq) :end (last adjusted-pos-seq)
@@ -148,23 +148,25 @@
           (map (fn [lps] [(map first lps) (map second lps)]) parts)))
 
 (defn search-dict-words
-  [letters dict max-noise]
+  [indexed-letters dict max-noise]
   ;; pre-compute all possible partitions (for all word lengths)
   (let [max-word-length (apply max 0 (map count dict))
-        parts (map (fn [length] (partition length 1 (map (fn [i] [i (nth letters i)])
-                                                         (range (count letters)))))
+        filter-gaps (fn [i-ls]
+                      ;; create a starts-ends list like ([1 1] [2 2] ...)
+                      (filter #(let [starts-ends (map (fn [i] [i i]) (map first %))]
+                                 (= 1 (apply max 1 (gap-sizes starts-ends)))) i-ls))
+        parts (map (fn [length] (filter-gaps (partition length 1 indexed-letters)))
                    (range 1 (inc max-word-length)))]
     (reduce (fn [m w] (assoc m w (search-word w (nth parts (dec (count w)))
                                               max-noise))) {} dict)))
 
 (defn make-word-hyps
-  [letters left-off dict max-noise sensor-hyps models]
+  [indexed-letters left-off dict max-noise sensor-hyps models]
   (let [words (reduce (fn [m w] (if (not-empty (m w)) m (dissoc m w)))
-                      (search-dict-words letters dict max-noise) dict)]
+                      (search-dict-words indexed-letters dict max-noise) dict)]
     (filter
      (comp :apriori first)
-     (for [word (keys words) [pos-seq letters] (get words word)
-           :when (= 1 (apply max 0 (gap-sizes (map (fn [p] [p p]) pos-seq))))]
+     (for [word (keys words) [pos-seq letters] (get words word)]
        (make-word-hyp word pos-seq letters max-noise left-off sensor-hyps models)))))
 
 (defn make-starts-ends
@@ -173,15 +175,13 @@
 
 (defn valid-composite?
   [hyps]
-  (var-set (var compute) (inc compute))
-  (let [min-gap (apply min (gap-sizes (make-starts-ends hyps)))]
-    (and (> 2 min-gap) (< 0 min-gap)
-         (not-any? (fn [[h1 h2]] (conflicts? h1 h2)) (partition 2 1 hyps)))))
+  (and (every? #(= 1 %) (gap-sizes (make-starts-ends hyps)))
+       (not-any? (fn [[h1 h2]] (conflicts? h1 h2)) (partition 2 1 hyps))))
 
 (defn gen-valid-composites
   [word-hyps accepted max-n]
   (let [singular-word-hyps (map (fn [h] [h])
-                                (concat word-hyps (take-last (dec max-n) accepted)))]
+                                (apply concat word-hyps (partition (dec max-n) accepted)))]
     (loop [i max-n
            composites []]
       (if (= 0 i) (filter #(< 1 (count %)) composites)
@@ -197,8 +197,7 @@
     (filter (comp :apriori first)
             (for [c composites]
               [(new-hyp "W" :words conflicts?
-                        (compute-apriori models (mapcat (comp :words :data) c)
-                                         (make-starts-ends c) 0)
+                        (compute-apriori models (mapcat (comp :words :data) c) 0)
                         (format "Word sequence \"%s\" at positions %s"
                                 (apply str (interpose " " (mapcat (comp :words :data) c)))
                                 (apply str (interpose ", " (mapcat (comp :pos-seqs :data) c))))
@@ -209,12 +208,12 @@
 
 (defn make-sensor-hyp
   [pos letter]
-  (new-hyp "WS" :sensor nil 1.0 (format "Letter: '%c' at position %d" letter pos) {}))
+  (new-hyp "WS" :sensor nil 1.0 (format "Letter: '%c' at position %d" letter pos)
+           {:pos pos}))
 
 (defn make-sensor-hyps
-  [letters]
-  (for [i (range (count letters))]
-    (make-sensor-hyp i (nth letters i))))
+  [indexed-letters]
+  (map (fn [[i letter]] (make-sensor-hyp i letter)) indexed-letters))
 
 (defn inconsistent
   [pdata hyps rejected]
@@ -225,18 +224,46 @@
   (binding [compute 0 memory 0]
     (let [sens (first sensors) ;; only one sensor
           {:keys [dictionary left-off accepted models]} (:problem-data ep-state)
-          max-n (:MaxModelGrams params)
+          max-n (apply max (keys models))
           letters (map #(sensed-at sens %) (range (inc left-off) (inc time-now)))
-          sensor-hyps (make-sensor-hyps letters)
+          indexed-letters (map (fn [i] [i (nth letters i)]) (range (count letters)))
+          sensor-hyps (make-sensor-hyps indexed-letters)
           ep-sensor-hyps (reduce #(add-fact %1 %2 []) ep-state sensor-hyps)
-          word-hyps (make-word-hyps letters left-off dictionary 1 sensor-hyps models)
+          ep-letters (assoc-in ep-sensor-hyps [:problem-data :indexed-letters] indexed-letters)
+          word-hyps (make-word-hyps indexed-letters left-off dictionary 0 sensor-hyps models)
           composite-hyps (make-composite-hyps models (map first word-hyps) accepted max-n)]
-      [(reduce #(apply add-hyp %1 %2) ep-sensor-hyps (concat word-hyps composite-hyps))
+      [(reduce #(apply add-hyp %1 %2) ep-letters (concat word-hyps composite-hyps))
        {:compute compute :memory memory}])))
 
 (defn get-more-hyps
+  "The `(hypothesize)` function only offers word hypotheses that have
+   no noise correction (no replaced characters; so the words must
+   match identically with some part of the input stream). However,
+   there may actually be noise in the sensors (i.e. the :SensorNoise
+   parameter is positive), so it may be warranted to hypothesize noisy
+   words (words with some letters replaced in order to match the input
+   stream). We only want to hypothesize these noisy words
+   in `(get-more-hyps)` since to do so in `(hypothesize)` would cause
+   an unwanted (and unwarranted) proliferation of hypotheses.
+
+   The difficulty in offering noisy word hypotheses is that some
+   hypotheses have already been accepted, and we also want to generate
+   composite hypotheses that are based on the offered noisy hypotheses
+   and the already accepted, and not accepted, hypotheses found in the
+   workspace of `ep-state`. "
   [ep-state]
-  nil)
+  (let [{:keys [dictionary models left-off indexed-letters]} (:problem-data ep-state)
+        max-n (apply max (keys models))
+        ws (:workspace ep-state)
+        sensor-hyps (sort-by (comp :pos :data) (:forced ws))
+        unexp-pos (map (comp :pos :data)
+                       (set/intersection (find-unexplained ws) (:forced ws)))
+        sub-indexed-letters (sort-by first (map (fn [i] (nth indexed-letters i)) unexp-pos))
+        word-hyps (make-word-hyps sub-indexed-letters left-off dictionary 2 sensor-hyps models)
+        accepted (sort-by (comp :start :data) (:accepted ws))
+        composite-hyps (make-composite-hyps models (map first word-hyps) accepted max-n)]
+    (reduce (fn [ep [hyp explains]] (add-more-hyp ep hyp explains)) ep-state
+            (concat word-hyps composite-hyps))))
 
 (defn commit-decision
   [pdata accepted rejected time-now]
@@ -259,5 +286,6 @@
     (-> pdata
         (update-in [:accepted] concat accepted)
         (update-in [:history] concat words)
+        (assoc :letters [])
         (assoc :left-off left-off))))
 

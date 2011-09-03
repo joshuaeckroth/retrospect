@@ -25,8 +25,9 @@
   {:dictionary (str/split-lines (slurp (str datadir "/words/dictionary.txt")))
    :models (zipmap (range 1 (inc (:MaxModelGrams params)))
                    (for [n (range 1 (inc (:MaxModelGrams params)))]
-                     (read-model-csv (str datadir (format "/words/model-%d.csv" n))))) 
+                     (read-model-csv (str datadir (format "/words/model-%d.csv" n)))))
    :left-off -1
+   :indexed-letters []
    :accepted []
    :history []})
 
