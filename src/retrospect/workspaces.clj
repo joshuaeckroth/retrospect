@@ -56,8 +56,10 @@
   (get (:hyp-log workspace) hyp))
 
 (defn get-hyps
-  [workspace]
-  (nodes (:graph-static workspace)))
+  [workspace & opts]
+  (if (some #{:static} opts)
+    (nodes (:graph-static workspace))
+    (nodes (:graph workspace))))
 
 (defn find-explains
   [workspace hyp & opts]
@@ -116,13 +118,20 @@
    alternatives, so that first seq of alts in seq of seqs has greatest
    difference."
   ([workspace]
-     (let [g (:graph workspace)]
+     (let [g (:graph workspace)
+           cmp (fn [hyps1 hyps2]
+                 (let [delta-fn (fn [hyps] (if (second hyps)
+                                             (- (hyp-conf workspace (first hyps))
+                                                (hyp-conf workspace (second hyps)))
+                                             (hyp-conf workspace (first hyps))))
+                       hyps1-delta (delta-fn hyps1)
+                       hyps2-delta (delta-fn hyps2)]
+                   (if (= 0 (compare hyps1-delta hyps2-delta))
+                     (compare (hyp-conf workspace (first hyps1))
+                              (hyp-conf workspace (first hyps2)))
+                     (compare hyps1-delta hyps2-delta))))]
        (reverse
-         (sort-by #(if (second %)
-                     (- (hyp-conf workspace (first %))
-                        (hyp-conf workspace (second %)))
-                     (hyp-conf workspace (first %)))
-                  (filter #(> (count %) 1)
+        (sort cmp (filter #(>= (count %) 1)
                           (map #(sort-by-conf workspace (incoming g %))
                                (find-unexplained workspace)))))))
   ([workspace hyp & opts]
