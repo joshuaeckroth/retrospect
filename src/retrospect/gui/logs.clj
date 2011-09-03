@@ -88,7 +88,7 @@
                        (find-first #(= (:id %) ep-id) (flatten-ep-state-tree
                                                        (:ep-state-tree @or-state)))))
           ws (if ep-state (:workspace ep-state))]
-      (if-let [hyp (if ws (find-first #(= (:id %) last-comp) (ws/get-hyps ws)))]
+      (if-let [hyp (if ws (find-first #(= (:id %) last-comp) (ws/get-hyps ws :static)))]
         (dosync (alter workspace-log (constantly (hyp-info ws hyp))))
         (dosync (alter workspace-log (constantly "")))))))
 
@@ -98,7 +98,7 @@
    (alter truedata-log (constantly ((:get-truedata-log (:player-fns @problem)))))
    (alter problem-log (constantly ((:get-problem-log (:player-fns @problem)))))
    (alter hyp-choices
-          (constantly (sort (map :id (ws/get-hyps (:workspace (:ep-state @or-state)))))))
+          (constantly (sort (map :id (ws/get-hyps (:workspace (:ep-state @or-state)) :static)))))
    (alter abduction-tree-map
           (constantly (build-abduction-tree-map (:ep-state-tree @or-state) false))))
   (. problem-log-label setText (format "Problem log for: %s" (str (:ep-state @or-state)))))
