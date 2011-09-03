@@ -306,15 +306,20 @@
                      {:acc hyp :rej (concat conflicts rejected)}))))))
 
 (defn transitive-accept
+  "Need to accept the transitive explainer last (so what it explains
+   can be accepted first and remove what they explain)."
   [workspace hyp this-cycle inconsistent pdata]
   (loop [acceptable [hyp]
          ws workspace]
     (if (empty? acceptable) ws
-        (let [to-accept (first acceptable)
-              explained (set/difference (find-explains ws to-accept)
+        (let [accept-later (first acceptable)
+              explained (set/difference (find-explains ws accept-later)
                                         (:forced ws) (:accepted ws))]
-          (recur (concat (rest acceptable) explained)
-                 (accept ws to-accept this-cycle inconsistent pdata))))))
+          (if (empty? explained)
+            ;; nothing else to push to the front of the queue, so accept 'accept-later' hyp
+            (recur (rest acceptable) (accept ws accept-later this-cycle inconsistent pdata))
+            ;; otherwise, have something to accept first; put in front of queue
+            (recur (concat explained acceptable) ws))))))
 
 (defn forced
   [workspace hyp]
