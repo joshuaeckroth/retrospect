@@ -122,8 +122,9 @@
                      (- (hyp-conf workspace (first %))
                         (hyp-conf workspace (second %)))
                      (hyp-conf workspace (first %)))
-                  (map #(sort-by-conf workspace (incoming g %))
-                       (find-unexplained workspace))))))
+                  (filter #(> (count %) 1)
+                          (map #(sort-by-conf workspace (incoming g %))
+                               (find-unexplained workspace)))))))
   ([workspace hyp & opts]
      (let [g (if (some #{:static} opts)
                (:graph-static workspace)
@@ -230,9 +231,10 @@
 
 (defn add
   "Only add a hyp if its explained hyps are already in the (live,
-   non-static) graph. However, if the hyp is to be added, add all its
-   explain edges to the static graph, but only those unexplained edges
-   to the live graph."
+   non-static) graph, and if it does not conflict with an accepted or
+   forced hyp. However, if the hyp is to be added, add all its explain
+   edges to the static graph, but only those unexplained edges to the
+   live graph."
   [workspace hyp explains & opts]
   (let [gtype (if (some #{:static} opts)
                 :graph-static
@@ -244,19 +246,25 @@
     (if (not explains-something-unexplained?) workspace
         ;; add to :graph-static if :static was not indicated;
         ;; here, add even already-explains links
-        (-> (if (not= gtype :graph) workspace
-                (-> workspace
-                    (update-in [:graph-static]
-                               #(apply add-nodes % (conj explains hyp)))
-                    (update-in [:graph-static]
-                               #(apply add-edges % (map (fn [e] [hyp e]) explains)))))
-            ;; just add unexplained links
-            (update-in [gtype]
-                       #(apply add-nodes % (conj expl hyp)))
-            (update-in [gtype]
-                       #(apply add-edges % (map (fn [e] [hyp e]) expl)))
-            (update-in [:hyp-confidences] assoc hyp (:apriori hyp))
-            (update-in [:log :added] conj {:hyp hyp :explains expl})))))
+        (let [ws
+              (-> (if (not= gtype :graph) workspace
+                      (-> workspace
+                          (update-in [:graph-static]
+                                     #(apply add-nodes % (conj explains hyp)))
+                          (update-in [:graph-static]
+                                     #(apply add-edges % (map (fn [e] [hyp e]) explains)))))
+                  ;; just add unexplained links
+                  (update-in [gtype]
+                             #(apply add-nodes % (conj expl hyp)))
+                  (update-in [gtype]
+                             #(apply add-edges % (map (fn [e] [hyp e]) expl)))
+                  (update-in [:hyp-confidences] assoc hyp (:apriori hyp))
+                  (update-in [:log :added] conj {:hyp hyp :explains expl}))
+              conflicts (find-conflicts ws hyp :static)]
+          ;; abort if added hyp conflicts with something accepted or forced
+          (if (or (not-empty (set/intersection conflicts (:accepted ws)))
+                  (not-empty (set/intersection conflicts (:forced ws))))
+            workspace ws)))))
 
 (defn reject-many
   [workspace hyps this-cycle]
@@ -385,17 +393,18 @@
   (loop [ws workspace
          this-cycle 1]
     (if (empty? (edges (:graph ws))) (log-final ws)
-      (let [explainers (find-explainers ws)
-            ws-confs (update-confidences ws explainers)
-            explainers-updated (find-explainers ws-confs)
-            {:keys [best alts essential? delta]}
-            (find-best ws-confs explainers-updated threshold)]
-        (if-not best
-          (log-final ws-confs)
-          (recur (-> ws-confs
-                   (update-in [:resources :explain-cycles] inc)
-                   (update-in [:log :best] conj
-                              {:best best :alts alts
-                               :essential? essential? :delta delta})
-                   (transitive-accept best this-cycle inconsistent pdata))
-                 (inc this-cycle)))))))
+        (let [explainers (find-explainers ws)]
+          (if (empty? explainers) (log-final ws)
+              (let [ws-confs (update-confidences ws explainers)
+                    explainers-updated (find-explainers ws-confs)
+                    {:keys [best alts essential? delta]}
+                    (find-best ws-confs explainers-updated threshold)]
+                (if-not best
+                  (log-final ws-confs)
+                  (recur (-> ws-confs
+                             (update-in [:resources :explain-cycles] inc)
+                             (update-in [:log :best] conj
+                                        {:best best :alts alts
+                                         :essential? essential? :delta delta})
+                             (transitive-accept best this-cycle inconsistent pdata))
+                         (inc this-cycle)))))))))
