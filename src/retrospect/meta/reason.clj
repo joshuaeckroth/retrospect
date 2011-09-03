@@ -74,7 +74,7 @@
                                  time-now params)
             ep-expl (explain ep-hyps (:get-more-hyps-fn problem)
                              (:inconsistent-fn problem)
-                             (:Threshold params))
+                             (:Threshold params) params)
             est-expl (update-ep-state-tree est ep-expl)
             ors (assoc or-state :ep-state-tree est-expl)
             final-ors (if (< (ws/get-doubt (:workspace ep-expl))
@@ -126,7 +126,7 @@
                 (recur (ws/explain workspace
                                    (:inconsistent-fn problem)
                                    (:problem-data new-ep)
-                                   (double (/ threshold 100.0)))
+                                   (double (/ threshold 100.0)) params)
                        (- threshold 25))))
         final-or-state (update-one-run-state
                          (assoc or-state :ep-state-tree new-est)

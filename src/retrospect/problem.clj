@@ -140,7 +140,7 @@
         ep-state (:ep-state ors-hyps)
         ep-explained (explain ep-state (:get-more-hyps-fn problem)
                               (:inconsistent-fn problem)
-                              (double (/ (:Threshold params) 100.0)))
+                              (double (/ (:Threshold params) 100.0)) params)
         ors-expl (update-one-run-state ors-hyps ep-explained {:compute 0 :memory 0})
         ors-committed (proceed-one-run-state ors-hyps ep-explained time-now problem)
         ors-meta (if (metareasoning-activated? ors-expl params)

@@ -90,7 +90,7 @@
   [prev-ep true-moves]
   ;; the following requires that confidences are really numeric
   ;; and that neutral is 0
-  (let [hyps (filter #(re-find #"^M?TH" (:id %)) (get-hyps (:workspace prev-ep)))
+  (let [hyps (filter #(re-find #"^M?TH" (:id %)) (get-hyps (:workspace prev-ep) :static))
         movements (map (fn [h] {:det (:det (:data h)) :det2 (:det2 (:data h))
                                 :conf (hyp-conf (:workspace prev-ep) h)})
                        hyps)
@@ -106,7 +106,7 @@
 
 (defn plausibility-events
   [prev-ep true-moves plausibility]
-  (let [hyps (filter #(re-find #"^M?TH" (:id %)) (get-hyps (:workspace prev-ep)))
+  (let [hyps (filter #(re-find #"^M?TH" (:id %)) (get-hyps (:workspace prev-ep) :static))
         movements (map (fn [h] {:det (:det (:data h)) :det2 (:det2 (:data h))})
                        (filter #(= plausibility (hyp-conf (:workspace prev-ep) %)) hyps))
         scores (map (fn [{:keys [det det2]}]

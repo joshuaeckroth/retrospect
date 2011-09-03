@@ -183,13 +183,13 @@
     ep-tree-child))
 
 (defn explain
-  [ep-state get-more-hyps inconsistent threshold & opts]
+  [ep-state get-more-hyps inconsistent threshold params & opts]
   (let [workspace (if (some #{:no-prepare} opts) (:workspace ep-state)
                       (ws/prepare-workspace (:workspace ep-state)))
         pdata (:problem-data ep-state)
         ws-explained (ws/explain workspace inconsistent pdata threshold)]
     (if (not-empty (:unexplained (:final (:log ws-explained))))
-      (if-let [ep-more-hyps (get-more-hyps (assoc ep-state :workspace ws-explained))]
+      (if-let [ep-more-hyps (get-more-hyps (assoc ep-state :workspace ws-explained) params)]
         (assoc ep-more-hyps :workspace (ws/explain (:workspace ep-more-hyps)
                                                    inconsistent
                                                    (:problem-data ep-more-hyps)

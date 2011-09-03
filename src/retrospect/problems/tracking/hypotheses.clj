@@ -394,7 +394,7 @@
                    (rest unc))))))))
 
 (defn get-more-hyps
-  [ep-state]
+  [ep-state params]
   (let [hyps (:split-merge-hyps (:problem-data ep-state))
         paths (:paths (:problem-data ep-state))
         path-heads (get-path-heads paths)
