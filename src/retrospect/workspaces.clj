@@ -376,7 +376,9 @@
                      {:accepted (:accepted workspace)
                       :rejected (:rejected workspace)
                       :shared-explains (find-shared-explains workspace)
-                      :unexplained (find-unexplained workspace)
+                      ;; only record unexplained sensor detections
+                      :unexplained (set/intersection (:forced workspace)
+                                                     (find-unexplained workspace))
                       :no-explainers (find-no-explainers workspace)
                       :unaccepted (set/difference
                                    (get-hyps workspace)
