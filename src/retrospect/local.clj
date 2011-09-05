@@ -32,7 +32,9 @@
 
 (defn format-csv-row
   [row]
-  (apply str (concat (interpose "," row) [\newline])))
+  ;; add quotes around string data (e.g. "meta,trans,lazy")
+  (apply str (concat (interpose "," (map #(if (= String (type %)) (format "\"%s\"" %) %) row))
+                     [\newline])))
 
 (defn write-csv
   [numwrites results-type filename problem results]
