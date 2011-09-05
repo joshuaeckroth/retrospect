@@ -3,7 +3,7 @@
   (:import [retrospect.problem Problem])
   (:require [clojure.string :as str])
   (:use [retrospect.problems.words.evaluate :only
-         [evaluate evaluate-meta evaluate-comparative]])
+         [evaluate evaluate-comparative]])
   (:use [retrospect.problems.words.truedata :only [generate-truedata]])
   (:use [retrospect.problems.words.sensors :only [generate-sensors]])
   (:use [retrospect.problems.words.hypotheses :only
@@ -31,20 +31,8 @@
    :accepted []
    :history []})
 
-(def headers
-  [:LD :MaxModelGrams])
-
-(def meta-headers
-  [:AvgMetaDiffLD])
-
-(def comparative-headers
-  [:MetaLD :BaseLD :RatioLD :IncreaseLD :MaxModelGrams])
-
 (def words-problem
   (Problem. "Words"
-            headers
-            meta-headers
-            comparative-headers
             monitor
             {:get-params-fn player-get-params
             :set-params-fn player-set-params
@@ -64,6 +52,5 @@
             generate-problem-data
             inconsistent
             evaluate
-            evaluate-meta
             evaluate-comparative))
 

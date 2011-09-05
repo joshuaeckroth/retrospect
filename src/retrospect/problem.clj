@@ -1,119 +1,16 @@
 (ns retrospect.problem
   (:import (java.util.concurrent ExecutionException))
+  (:use [clojure.string :only [split]])
   (:use [retrospect.workspaces :only [last-id]])
   (:use [retrospect.onerun :only
-         [init-one-run-states init-one-run-state
-          update-one-run-state proceed-one-run-state]])
+         [init-one-run-state update-one-run-state proceed-one-run-state]])
   (:use [retrospect.epistemicstates :only
-         [explain previous-ep-state current-ep-state print-ep-state-tree]])
+         [explain current-ep-state]])
   (:use [retrospect.meta.reason :only
-         [meta-strategies metareasoning-activated? metareason]])
+         [metareasoning-activated? metareason]])
+  (:use [retrospect.evaluate :only [evaluate evaluate-comparative]])
   (:use [retrospect.sensors :only [update-sensors]])
   (:use [retrospect.random :only [set-seed my-rand-int]]))
-
-(defn avg-with-prior
-  [results key val]
-  (let [c (count results)]
-    (if (= c 0) val
-        (double (/ (+ (* c (key (last results))) val) (inc c))))))
-
-(defn add-to-prior
-  [results key val]
-  (let [c (count results)]
-    (if (= c 0) val
-        (+ (key (last results)) val))))
-
-(defn evaluate
-  [problem truedata or-state or-state-meta params]
-  (let [prev-ep (previous-ep-state (:ep-state-tree or-state))
-        prev-ep-meta (previous-ep-state (:ep-state-tree or-state-meta))
-        ep-state (current-ep-state (:ep-state-tree or-state))
-        ep-state-meta (current-ep-state (:ep-state-tree or-state-meta))
-        results (:results or-state-meta)
-        res (:resources or-state-meta)]
-    (update-in
-     or-state-meta [:results] conj
-     (merge ((:evaluate-fn problem) ep-state-meta results prev-ep-meta
-             (:sensors or-state-meta) truedata params)
-            ((:evaluate-meta-fn problem) ep-state ep-state-meta
-             results truedata params)
-            (assoc params
-                   :Step (:time ep-state-meta)
-                   :MetaStrategy (name (:meta-strategy or-state-meta)) 
-                   :Lazy (:lazy or-state-meta)
-                   :MetaActivations (:meta-activations res)
-                   :Milliseconds (add-to-prior results :Milliseconds
-                                               (:milliseconds res)) 
-                   :BadCount (add-to-prior results :BadCount
-                                           (count (:bad (:problem-data ep-state-meta))))
-                   :Unexplained
-                   (add-to-prior
-                     results :Unexplained
-                     (count (:unexplained (:final (:log (:workspace prev-ep-meta))))))
-                   :SharedExplainsCount
-                   (add-to-prior
-                     results :SharedExplainsCount
-                     (count (:shared-explains (:final (:log (:workspace prev-ep-meta))))))
-                   ;; ExplainCycles are stored in or-state
-                   :ExplainCycles (:explain-cycles (:resources or-state-meta))
-                   :HypothesisCount (:hypothesis-count (:resources or-state-meta))
-                   :Compute (:compute (:resources or-state-meta))
-                   :Memory (:memory (:resources or-state-meta)))))))
-
-(defn calc-percent-increase
-  [k m b]
-  (if (= 0 (k b)) 0.0
-      (double (* 100.0 (/ (- (k m) (k b)) (k b))))))
-
-(defn calc-ratio
-  [k m b]
-  (if (= 0 (k b)) 0.0
-      (double (/ (k m) (k b)))))
-
-(defn evaluate-comparative
-  [problem params m b]
-  (merge ((:evaluate-comparative-fn problem) params m b)
-         {:MetaStrategy (name (:MetaStrategy m)) 
-          :MetaActivations (:MetaActivations m)
-          :MetaMilliseconds (:Milliseconds m)
-          :BaseMilliseconds (:Milliseconds b)
-          :RatioMilliseconds (calc-ratio :Milliseconds m b)
-          :IncreaseMilliseconds (calc-percent-increase :Milliseconds m b)
-          :MetaBadCount (:BadCount m)
-          :BaseBadCount (:BadCount b)
-          :RatioBadCount (calc-ratio :BadCount m b)
-          :IncreaseBadCount (calc-percent-increase :BadCount m b)
-          :MetaSharedExplainsCount (:SharedExplainsCount m)
-          :BaseSharedExplainsCount (:SharedExplainsCount b)
-          :RatioSharedExplainsCount (calc-ratio :SharedExplainsCount m b)
-          :IncreaseSharedExplainsCount (calc-percent-increase
-                                         :SharedExplainsCount m b)
-          :MetaUnexplained (:Unexplained m)
-          :BaseUnexplained (:Unexplained b)
-          :RatioUnexplained (calc-ratio :Unexplained m b)
-          :IncreaseUnexplained (calc-percent-increase :Unexplained m b)
-          :MetaExplainCycles (:ExplainCycles m)
-          :BaseExplainCycles (:ExplainCycles b)
-          :RatioExplainCycles (calc-ratio :ExplainCycles m b)
-          :IncreaseExplainCycles (calc-percent-increase :ExplainCycles m b)
-          :MetaHypothesisCount (:HypothesisCount m)
-          :BaseHypothesisCount (:HypothesisCount b)
-          :RatioHypothesisCount (calc-ratio :HypothesisCount m b)
-          :IncreaseHypothesisCount (calc-percent-increase :HypothesisCount m b)
-          :MetaCompute (:Compute m)
-          :BaseCompute (:Compute b)
-          :RatioCompute (calc-ratio :Compute m b)
-          :IncreaseCompute (calc-percent-increase :Compute m b)
-          :MetaMemory (:Memory m)
-          :BaseMemory (:Memory b)
-          :RatioMemory (calc-ratio :Memory m b)
-          :IncreaseMemory (calc-percent-increase :Memory m b)
-          :Steps (:Steps params)
-          :Threshold (:Threshold params)
-          :StepsBetween (:StepsBetween params)
-          :SensorNoise (:SensorNoise params)
-          :BeliefNoise (:BeliefNoise params)
-          :Seed (:Seed m)}))
 
 (defn proceed-n-steps
   [n steps time truedata or-state]
@@ -151,7 +48,7 @@
                    ors-meta (current-ep-state (:ep-state-tree ors-meta))
                    time-now problem)
         ors-resources (update-in ors-next [:resources] assoc :milliseconds ms)
-        ors-results (evaluate problem truedata ors-committed ors-resources params)]
+        ors-results (evaluate problem truedata ors-resources params)]
     (if (and (not player?) monitor?)
       ((:monitor-fn problem) problem truedata (:sensors ors-results)
        ors-results params)
@@ -159,13 +56,20 @@
 
 (defn run-simulation
   [problem truedata or-state params monitor?]
-  (println "Running meta-strategy" (name (:meta-strategy or-state)))
   (loop [ors or-state]
     (when (nil? ors)
       (throw (ExecutionException. "Monitor took control." (Throwable.))))
     (if (>= (:time (:ep-state ors)) (:Steps params))
       (last (:results ors))
       (recur (run-simulation-step problem truedata ors params monitor? false)))))
+
+(defn extract-strategy
+  [strategy]
+  (let [features (split strategy #",")]
+    (apply merge (map (fn [feature] (if (= "!" (subs feature 0 1))
+                                      {(keyword (subs feature 1)) nil}
+                                      {(keyword feature) true}))
+                      features))))
 
 (defn run
   [problem monitor? datadir params]
@@ -174,86 +78,22 @@
   (let [truedata ((:truedata-fn problem) datadir params)
         sensors ((:sensor-gen-fn problem) params)
         problem-data ((:gen-problem-data-fn problem) sensors datadir params)
-        nometa-or-state (init-one-run-state :NoMetareasoning true sensors problem-data)
-        meta-or-states (init-one-run-states {:MetaStrategy meta-strategies :Lazy [true]}
-                                            sensors problem-data)
-        nometa-result (binding [last-id 0]
-                        (run-simulation problem truedata nometa-or-state params monitor?)) 
-        meta-results (doall (for [ors meta-or-states]
-                              (binding [last-id 0]
-                                (run-simulation problem truedata ors params monitor?))))]
-    (for [m meta-results]
-      (evaluate-comparative problem params m nometa-result))))
-
-(defn get-headers
-  [problem]
-  (concat (:headers problem)
-          [:Step
-           :Steps
-           :Threshold
-           :StepsBetween
-           :SensorNoise
-           :BeliefNoise
-           :MetaStrategy
-           :Lazy
-           :MetaActivations
-           :Milliseconds
-           :BadCount
-           :SharedExplainsCount
-           :Unexplained
-           :ExplainCycles
-           :HypothesisCount
-           :Compute
-           :Memory
-           :Seed]))
-
-(defn get-comparative-headers
-  [problem]
-  (concat (:comparative-headers problem)
-          [:MetaStrategy
-           :MetaActivations
-           :MetaMilliseconds
-           :BaseMilliseconds
-           :RatioMilliseconds
-           :IncreaseMilliseconds
-           :MetaBadCount
-           :BaseBadCount
-           :RatioBadCount
-           :IncreaseBadCount
-           :MetaSharedExplainsCount
-           :BaseSharedExplainsCount
-           :RatioSharedExplainsCount
-           :IncreaseSharedExplainsCount
-           :MetaUnexplained
-           :BaseUnexplained
-           :RatioUnexplained
-           :IncreaseUnexplained
-           :MetaExplainCycles
-           :BaseExplainCycles
-           :RatioExplainCycles
-           :IncreaseExplainCycles
-           :MetaHypothesisCount
-           :BaseHypothesisCount
-           :RatioHypothesisCount
-           :IncreaseHypothesisCount
-           :MetaCompute
-           :BaseCompute
-           :RatioCompute
-           :IncreaseCompute
-           :MetaMemory
-           :BaseMemory
-           :RatioMemory
-           :IncreaseMemory
-           :Steps
-           :Threshold
-           :StepsBetween
-           :SensorNoise
-           :BeliefNoise
-           :Seed]))
+        control-strategy (extract-strategy (:Control params))
+        comparison-strategy (extract-strategy (:Comparison params))
+        control-or-state (init-one-run-state control-strategy sensors problem-data)
+        comparison-or-state (init-one-run-state comparison-strategy sensors problem-data)
+        control-result
+        (binding [last-id 0]
+          (println "Control:" (:Control params))
+          (run-simulation problem truedata control-or-state params monitor?))
+        comparison-result
+        (binding [last-id 0]
+          (println "Comparison:" (:Comparison params))
+          (run-simulation problem truedata comparison-or-state params monitor?))]
+    [control-result comparison-result
+     (evaluate-comparative problem control-result comparison-result params)]))
 
 (defrecord Problem
-  [name headers meta-headers comparative-headers monitor-fn player-fns
-   truedata-fn sensor-gen-fn prepared-map
+  [name monitor-fn player-fns truedata-fn sensor-gen-fn prepared-map
    hypothesize-fn get-more-hyps-fn commit-decision-fn
-   gen-problem-data-fn inconsistent-fn
-   evaluate-fn evaluate-meta-fn evaluate-comparative-fn])
+   gen-problem-data-fn inconsistent-fn evaluate-fn evaluate-comparative-fn])

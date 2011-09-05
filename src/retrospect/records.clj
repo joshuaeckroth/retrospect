@@ -8,8 +8,7 @@
   (:use [clojure.contrib.shell :only (sh)])
   (:use [clojure.java.io :as io :only (writer reader copy)])
   (:use [clojure.string :only (split)])
-  (:use [retrospect.local :only (run-local)])
-  (:use [retrospect.meta.reason :only [meta-strategies]]))
+  (:use [retrospect.local :only (run-partitions)]))
 
 (defn copy-params-file [destfile paramsfile] (io/copy (File. paramsfile) (File. destfile)))
 
@@ -50,14 +49,14 @@
 		     [:record])))))
 
 (defn run-with-new-record
-  "Create a new folder for storing run data and execute the run. Then,
-  depending on whether hadoop is true or false, execute a hadoop job
-  control process or a local (this machine) runner."
-  [problem paramsfile datadir recordsdir nthreads monitor? repetitions]
+  "Create a new folder for storing run data and execute the run."
+  [problem control comparison paramsfile
+   datadir recordsdir nthreads monitor? repetitions]
   (try
     (let [recorddir (str recordsdir "/"
                          (int (/ (. System (currentTimeMillis)) 1000)))
-          params (explode-params (read-params problem paramsfile))]
+          params (map #(merge {:Control control :Comparison comparison} %)
+                      (explode-params (read-params problem paramsfile)))]
       (print (format "Making new directory %s..." recorddir))
       (.mkdir (File. recorddir))
       (println "done.")
@@ -68,12 +67,10 @@
       (copy-params-file (str recorddir "/params.xml") paramsfile)
       (println "done.")
       (println
-        (format "Running %d parameters, %d meta-strategies, %d repetitions = %d simulations..."
-                (count params) (count meta-strategies) repetitions
-                (* (count params) (count meta-strategies) repetitions)))
-      (run-local problem params recorddir datadir nthreads monitor? repetitions)
-      (println "Done.")
-      #_(System/exit 0))
+        (format "Running %d parameters, %d repetitions = %d simulations..."
+                (count params) repetitions (* (count params) repetitions)))
+      (run-partitions problem params recorddir datadir nthreads monitor? repetitions)
+      (println "Done."))
     (catch java.util.concurrent.ExecutionException e
       (println "Quitting early."))))
 

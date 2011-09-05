@@ -48,16 +48,14 @@
 ;; is "no good" if any of the metareasoning activation conditions are met after
 ;; the strategy has done its work.
 
-;(def meta-strategies [:BatchBeginning :LowerThreshold :Gradual])
-(def meta-strategies [:BatchBeginning])
-
 (defn metareasoning-activated?
   "Check if any of the metareasoning activation conditions are met."
   [or-state params]
-  (let [ep-state (current-ep-state (:ep-state-tree or-state))]
-    ;; TODO: implement other conditions
-    (or (not-empty (:no-explainers (:final (:log (:workspace ep-state)))))
-        (< 0.15 (ws/get-doubt (:workspace ep-state))))))
+  (if (:meta or-state)
+    (let [ep-state (current-ep-state (:ep-state-tree or-state))]
+      ;; TODO: implement other conditions
+      (or (not-empty (:no-explainers (:final (:log (:workspace ep-state)))))
+          (< 0.15 (ws/get-doubt (:workspace ep-state)))))))
 
 (defn batch-from-beginning
   [problem or-state params]
@@ -151,15 +149,5 @@
   "Activate the appropriate metareasoning strategy (as given by
    the parameter :MetaStrategy)"
   [problem or-state params]
-  (let [strat (:meta-strategy or-state)]
-    (cond (= :NoMetareasoning strat) or-state
-          (= :BatchBeginning strat)
-          (batch-from-beginning problem or-state params)
-          (= :DomainInformed strat)
-          (domain-informed problem or-state params)
-          (= :LowerThreshold strat)
-          (lower-threshold problem or-state params)
-          (= :Gradual strat)
-          (gradual problem or-state params)
-          :else or-state)))
+  (batch-from-beginning problem or-state params))
 

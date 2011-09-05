@@ -3,7 +3,7 @@
   (:import [retrospect.problem Problem])
   (:require [clojure.string :as str])
   (:use [retrospect.problems.tracking.evaluate :only
-         [evaluate evaluate-meta evaluate-comparative]])
+         [evaluate evaluate-comparative]])
   (:use [retrospect.problems.tracking.truedata :only
          [generate-truedata]])
   (:use [retrospect.problems.tracking.sensors :only
@@ -45,48 +45,8 @@
    :sensor-coverage 0.0 
    :sensor-overlap 0.0})
 
-(def headers
-     [:PEC :PEW :Precision :Recall :Specificity :Accuracy
-      :CountRemoved :CountRemovedPercent
-      :PlausibilityWorkspaceAccuracy
-      :MTL :MeanCountAlternatives :MLC :DistinctLabels :PlausibilityAccuracy
-      :SensorOverlap :EntityDensity :NumberEntities :MaxWalk :ProbNewEntities
-      :GridWidth :GridHeight :SensorCoverage :SensorSeesColor])
-
-(def meta-headers
-     [:AvgMetaDiffPEC
-      :AvgMetaDiffPEW
-      :AvgMetaDiffPrecision
-      :AvgMetaDiffRecall
-      :AvgMetaDiffSpecificity
-      :AvgMetaDiffAccuracy
-      :AvgMetaDiffMTL
-      :AvgMetaDiffMLC])
-
-(def comparative-headers
-     [:MetaPEC :BasePEC :RatioPEC :IncreasePEC :AvgMetaDiffPEC
-      :MetaPEW :BasePEW :RatioPEW :IncreasePEW :AvgMetaDiffPEW
-      :MetaPrecision :BasePrecision :RatioPrecision :IncreasePrecision :AvgMetaDiffPrecision
-      :MetaRecall :BaseRecall :RatioRecall :IncreaseRecall :AvgMetaDiffRecall
-      :MetaSpecificity :BaseSpecificity :RatioSpecificity :IncreaseSpecificity :AvgMetaDiffSpecificity
-      :MetaAccuracy :BaseAccuracy :RatioAccuracy :IncreaseAccuracy :AvgMetaDiffAccuracy
-      :MetaMTL :BaseMTL
-      :RatioMTL :IncreaseMTL
-      :MetaMLC :BaseMLC :RatioMLC
-      :IncreaseMLC
-      :MetaDistinctLabels :BaseDistinctLabels :RatioDistinctLabels
-      :IncreaseDistinctLabels
-      :MetaPlausibilityAccuracy :BasePlausibilityAccuracy :RatioPlausibilityAccuracy
-      :IncreasePlausibilityAccuracy
-      :MetaPlausibilityWorkspaceAccuracy :BasePlausibilityWorkspaceAccuracy
-      :RatioPlausibilityWorkspaceAccuracy :IncreasePlausibilityWorkspaceAccuracy
-      :NumberEntities :MaxWalk :ProbNewEntities :SensorSeesColor :GridWidth :GridHeight])
-
 (def tracking-problem
      (Problem. "Tracking"
-               headers
-               meta-headers
-               comparative-headers
                monitor
                {:get-params-fn player-get-params
                 :set-params-fn player-set-params
@@ -106,5 +66,4 @@
                generate-problem-data
                inconsistent
                evaluate
-               evaluate-meta
                evaluate-comparative))

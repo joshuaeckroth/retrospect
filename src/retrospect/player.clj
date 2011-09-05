@@ -6,7 +6,7 @@
   (:use [clj-swing.panel])
   (:use [clj-swing.button])
   (:use [clj-swing.combo-box])
-  (:use [retrospect.problem :only [run-simulation-step]])
+  (:use [retrospect.problem :only [run-simulation-step extract-strategy]])
   (:use [retrospect.state])
   (:use [retrospect.gui.eptree :only [ep-tree-tab update-ep-tree]])
   (:use [retrospect.gui.explainsgraph :only
@@ -15,18 +15,24 @@
   (:use [retrospect.gui.logs :only [update-logs logs-tab]])
   (:use [retrospect.workspaces :only [set-last-id]])
   (:use [retrospect.onerun :only [init-one-run-state]])
-  (:use [retrospect.meta.reason :only [meta-strategies]])
   (:use [retrospect.epistemicstates :only
          [list-ep-states current-ep-state goto-ep-state root-ep-state?
           previous-ep-state non-accepted-current-ep-state?]])
   (:use [retrospect.random :only [set-seed]]))
 
 (def prepared-selected (atom "None"))
-(def metastrategy-selected (atom "NoMetareasoning"))
+(def strategy (ref {:meta nil :trans nil :lazy nil}))
 (def ep-list (ref '[]))
 (def ep-selected (atom nil))
 (def steplabel (label ""))
 (def problem-diagram (panel))
+
+(def meta-checkbox
+     (check-box :caption "Meta" :action ([_] (dosync (alter strategy update-in [:meta] not)))))
+(def trans-checkbox
+     (check-box :caption "Trans" :action ([_] (dosync (alter strategy update-in [:trans] not)))))
+(def lazy-checkbox
+     (check-box :caption "Lazy" :action ([_] (dosync (alter strategy update-in [:lazy] not)))))
 
 (def seed-spinner (JSpinner. (SpinnerNumberModel. 10 nil nil 1)))
 
@@ -42,11 +48,10 @@
 
 (defn get-params
   []
-  (apply hash-map (flatten (concat
-                            ((:get-params-fn (:player-fns @problem)))
-                            (for [k (keys param-spinners)]
-                              [k (->> (k param-spinners)
-                                      .getModel .getNumber .intValue)])))))
+  (apply hash-map (flatten (concat ((:get-params-fn (:player-fns @problem)))
+                                   (for [k (keys param-spinners)]
+                                     [k (->> (k param-spinners)
+                                             .getModel .getNumber .intValue)])))))
 
 (defn set-params
   []
@@ -54,7 +59,7 @@
   (set-seed-spinner (if (:Seed @params) (:Seed @params) 1))
   (doseq [k (keys param-spinners)]
     (. (k param-spinners) setValue (k @params)))
-  (dosync (swap! metastrategy-selected (constantly (name (:meta-strategy @or-state))))))
+  (dosync (alter strategy (constantly (extract-strategy (:Control @params))))))
 
 (defn update-everything
   []
@@ -80,8 +85,7 @@
   []
   (let [prepared? (and (not (nil? @prepared-selected))
                        (not= "None" @prepared-selected))
-        ps (get-params)
-        meta-strategy (keyword @metastrategy-selected)]
+        ps (get-params)]
     (set-seed (get-seed))
     (set-last-id 0)
     (when (not prepared?)
@@ -90,10 +94,9 @@
        (alter sensors (constantly ((:sensor-gen-fn @problem) ps)))))
     (dosync
      (alter params (constantly ps))
-     (alter or-state
-            (constantly (init-one-run-state meta-strategy true @sensors
-                                            ((:gen-problem-data-fn @problem)
-                                             @sensors @datadir ps)))))
+     (alter or-state (constantly (init-one-run-state
+                                  @strategy @sensors ((:gen-problem-data-fn @problem)
+                                                      @sensors @datadir ps)))))
     (update-everything)))
 
 (defn set-prepared-action
@@ -102,19 +105,21 @@
     (let [prepared (get (:prepared-map @problem) @prepared-selected)
           ps (:params prepared)
           seed (if (:seed ps) (:seed ps) 1)
-          meta-strategy (:MetaStrategy ps)
-          lazy (:Lazy ps)
           td (:truedata prepared)
           sens (:sensors prepared)]
       (set-seed seed)
       (set-last-id 0)
       (dosync
        (alter params (constantly ps))
+       (alter strategy (constantly (extract-strategy (:Control ps))))
        (alter truedata (constantly td))
        (alter sensors (constantly sens))
        (alter or-state (constantly (init-one-run-state
-                                    meta-strategy lazy sens
+                                    @strategy sens
                                     ((:gen-problem-data-fn @problem) sens @datadir ps)))))
+      (. meta-checkbox setSelected (if (:meta @strategy) true false))
+      (. trans-checkbox setSelected (if (:trans @strategy) true false))
+      (. lazy-checkbox setSelected (if (:lazy @strategy) true false))
       (update-everything)
       (set-params))))
 
@@ -144,26 +149,32 @@
          :constrains (java.awt.GridBagConstraints.)
          [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
+          _ meta-checkbox
+          :gridy 1
+          _ trans-checkbox
+          :gridy 2
+          _ lazy-checkbox
+          :gridy 3
           _ (label "Steps:")
           :gridx 1
           _ (:Steps param-spinners)
-          :gridx 0 :gridy 1
+          :gridx 0 :gridy 4
           _ (label "StepsBetween:")
           :gridx 1
           _ (:StepsBetween param-spinners)
-          :gridx 0 :gridy 2
+          :gridx 0 :gridy 5
           _ (label "Threshold:")
           :gridx 1
           _ (:Threshold param-spinners)
-          :gridx 0 :gridy 3
+          :gridx 0 :gridy 6
           _ (label "SensorNoise:")
           :gridx 1
           _ (:SensorNoise param-spinners)
-          :gridx 0 :gridy 4
+          :gridx 0 :gridy 7
           _ (label "BeliefNoise:")
           :gridx 1
           _ (:BeliefNoise param-spinners)
-          :gridy 5 :weighty 1.0
+          :gridy 8 :weighty 1.0
           _ (panel)]))
 
 (defn mainframe
@@ -174,7 +185,7 @@
          :size [1000 700]
          :show true
          :on-close :dispose
-         [:gridx 0 :gridy 0 :gridheight 10 :weightx 1.0 :weighty 1.0
+         [:gridx 0 :gridy 0 :gridheight 8 :weightx 1.0 :weighty 1.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
           _ (doto (JTabbedPane.)
               (.addTab "Problem diagram" problem-diagram)
@@ -192,18 +203,12 @@
           :gridx 1 :gridy 1
           _ (button "Set prepared" :action ([_] (set-prepared-action)))
 
-          :gridx 1 :gridy 2
-          _ (combo-box
-              [] :model (seq-ref-combobox-model
-                          (ref (concat ["NoMetareasoning"] (map name meta-strategies)))
-                          metastrategy-selected))
-
-          :gridx 1 :gridy 4 :gridwidth 1
+          :gridx 1 :gridy 2 :gridwidth 1
           _ (label "Seed")
-          :gridx 2 :gridy 4
+          :gridx 2 :gridy 2
           _ seed-spinner
 
-          :gridx 1 :gridy 5 :gridwidth 2 :weighty 1.0
+          :gridx 1 :gridy 3 :gridwidth 2 :weighty 1.0
           _ (doto (JTabbedPane.)
               (.setMinimumSize (Dimension. 220 0))
               (.addTab "Generic"
@@ -212,22 +217,22 @@
                        (scroll-panel
                         ((:get-params-panel-fn (:player-fns @problem))))))
           
-          :gridx 1 :gridy 6 :gridwidth 1 :weighty 0.0
+          :gridx 1 :gridy 4 :gridwidth 1 :weighty 0.0
           _ (button "New" :action ([_] (new-simulation)))
           :gridx 2
           _ (button "Next" :action ([_] (next-step)))
 
-          :gridx 1 :gridy 7
+          :gridx 1 :gridy 5
           _ (doto (combo-box
                    [] :model (seq-ref-combobox-model ep-list ep-selected))
               (.setMinimumSize (Dimension. 100 0)))
           :gridx 2
           _ (button "Goto" :action ([_] (goto-ep-state-action)))
 
-          :gridx 1 :gridy 8 :gridwidth 2
+          :gridx 1 :gridy 6 :gridwidth 2
           _ steplabel
 
-          :gridx 1 :gridy 9
+          :gridx 1 :gridy 7
           _ ((:get-stats-panel-fn (:player-fns @problem)))]))
 
 (defn start-player

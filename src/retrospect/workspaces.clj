@@ -29,9 +29,11 @@
      :apriori apriori :desc desc :data data}))
 
 (defn init-workspace
-  ([]
+  ([strategy]
      {:graph nil
       :graph-static (digraph)
+      :strategy strategy
+      :cycle 0
       :hyp-confidences {}
       :log {:added [] :forced [] :best [] :accrej {}
             :final {:accepted [] :rejected [] :shared-explains []
@@ -44,12 +46,12 @@
       :rejected #{}
       :forced #{}
       :resources {:explain-cycles 0 :hypothesis-count 0}})
-  ([workspace-old]
-   (-> (init-workspace)
-     (assoc-in [:resources :explain-cycles]
-               (:explain-cycles (:resources workspace-old)))
-     (assoc-in [:resources :hypothesis-count]
-               (:hypothesis-count (:resources workspace-old))))))
+  ([workspace-old strategy]
+     (-> (init-workspace strategy)
+         (assoc-in [:resources :explain-cycles]
+                   (:explain-cycles (:resources workspace-old)))
+         (assoc-in [:resources :hypothesis-count]
+                   (:hypothesis-count (:resources workspace-old))))))
 
 (defn hyp-log
   [workspace hyp]
@@ -84,13 +86,19 @@
                  (filter #(shared-explains? workspace % hyps) hyps)))))
 
 (defn find-unexplained
-  "Unexplained hyps are those that are forced and remain in the graph,
-   and those that are in the graph and have incoming edges."
+  "If transitive explanation is disable, unexplained hyps are those
+   that are forced and remain in the graph or are accepted but have
+   incoming edges; if transitive explanation is enabled, unexplained
+   hyps are those that are forced and remain in the graph, and those
+   that are in the graph and have incoming edges (accepted or not)."
   [workspace]
   (let [g (:graph workspace)
         hyps (nodes g)]
-    (set (concat (set/intersection (set (:forced workspace)) (set hyps))
-                 (filter #(not-empty (incoming g %)) hyps)))))
+    (if (:trans (:strategy workspace))
+      (set/union (set/intersection (:forced workspace) (set hyps))
+                 (set (filter #(not-empty (incoming g %)) hyps)))
+      (set/union (set/intersection (:forced workspace) (set hyps))
+                 (set/intersection (:accepted workspace) (set hyps))))))
 
 (defn find-no-explainers
   [workspace]
@@ -111,12 +119,14 @@
   "Given no hyp argument, returns a sequence of sequences containing
    alternative explainers of hyps needing explanation (essentials are
    therefore seqs with one explainer). A hyp needing explanation is
-   one that has been forced and remains in the graph or a hyp in the
-   graph that has incoming edges (same criteria as (find-unexplained)
-   above). The explainers are sorted by conf (best first), and the seq
-   of seqs is sorted by difference between first- and second-best
-   alternatives, so that first seq of alts in seq of seqs has greatest
-   difference."
+   defined by (find-unexplained), above, which we call here. If
+   transitive explanation is disabled, an explainer must have all of
+   what it explains already accepted or forced; if transitive
+   explanation is enabled, this requirement is removed (perhaps none
+   of what it explains is already accepted or forced). The explainers
+   are sorted by conf (best first), and the seq of seqs is sorted by
+   difference between first- and second-best alternatives, so that
+   first seq of alts in seq of seqs has greatest difference."
   ([workspace]
      (let [g (:graph workspace)
            cmp (fn [hyps1 hyps2]
@@ -129,10 +139,18 @@
                    (if (= 0 (compare hyps1-delta hyps2-delta))
                      (compare (hyp-conf workspace (first hyps1))
                               (hyp-conf workspace (first hyps2)))
-                     (compare hyps1-delta hyps2-delta))))]
+                     (compare hyps1-delta hyps2-delta))))
+           trans-filter (fn [h] (if (:trans (:strategy workspace)) true
+                                    ;; if transitive explanation is
+                                    ;; disabled, require that what
+                                    ;; this hyp explains has all been
+                                    ;; accepted or forced already
+                                    (empty? (set/difference (find-explains workspace h)
+                                                            (set/union (:accepted workspace)
+                                                                       (:forced workspace))))))]
        (reverse
         (sort cmp (filter #(>= (count %) 1)
-                          (map #(sort-by-conf workspace (incoming g %))
+                          (map #(sort-by-conf workspace (filter trans-filter (incoming g %)))
                                (find-unexplained workspace)))))))
   ([workspace hyp & opts]
      (let [g (if (some #{:static} opts)
@@ -276,17 +294,17 @@
             workspace ws)))))
 
 (defn reject-many
-  [workspace hyps this-cycle]
+  [workspace hyps]
   (let [rejectable (set/difference (set hyps) (:accepted workspace))]
     (-> (reduce (fn [ws hyp] (update-in ws [:hyp-log hyp] conj
-                                      (format "Rejected in cycle %d" this-cycle)))
+                                      (format "Rejected in cycle %d" (:cycle workspace))))
                   workspace rejectable)
         (update-in [:graph] #(apply remove-nodes % rejectable))
         (update-in [:rejected] set/union (set rejectable))
         (update-in [:log :final :rejected] concat rejectable))))
 
 (defn accept
-  [workspace hyp this-cycle inconsistent pdata]
+  [workspace hyp inconsistent pdata]
   (let [g (:graph workspace)
         removable (concat (neighbors g hyp)
                           (if (empty? (incoming g hyp)) [hyp] []))
@@ -297,11 +315,11 @@
         ws (-> workspace
              (update-in [:hyp-log hyp] conj
                         (format "Accepted in cycle %d (removed %s)"
-                                this-cycle
+                                (:cycle workspace)
                                 (apply str (interpose ", " (sort (map :id removable))))))
              (update-in [:accepted] conj hyp)
              (assoc :graph new-g))]
-    (loop [ws (reject-many ws conflicts this-cycle)
+    (loop [ws (reject-many ws conflicts)
            rejected #{}]
       (let [incon (set/difference
                    (set (inconsistent
@@ -310,14 +328,14 @@
                          (:rejected ws)))
                    rejected)]
         (if (not-empty incon)
-          (recur (reject-many ws incon this-cycle) (set/union rejected (set incon)))
-          (update-in ws [:log :accrej this-cycle] conj
+          (recur (reject-many ws incon) (set/union rejected (set incon)))
+          (update-in ws [:log :accrej (:cycle workspace)] conj
                      {:acc hyp :rej (concat conflicts rejected)}))))))
 
 (defn transitive-accept
   "Need to accept the transitive explainer last (so what it explains
    can be accepted first and remove what they explain)."
-  [workspace hyp this-cycle inconsistent pdata]
+  [workspace hyp inconsistent pdata]
   (loop [acceptable [hyp]
          ws workspace]
     (if (empty? acceptable) ws
@@ -326,7 +344,7 @@
                                         (:forced ws) (:accepted ws))]
           (if (empty? explained)
             ;; nothing else to push to the front of the queue, so accept 'accept-later' hyp
-            (recur (rest acceptable) (accept ws accept-later this-cycle inconsistent pdata))
+            (recur (rest acceptable) (accept ws accept-later inconsistent pdata))
             ;; otherwise, have something to accept first; put in front of queue
             (recur (concat explained acceptable) ws))))))
 
@@ -363,8 +381,6 @@
             doubt-unexpl (concat (map #(- 1.0 %) confs)
                                  (repeat (count (:unexplained final)) 1.0))]
         (double (/ (reduce + 0.0 doubt-unexpl) (count doubt-unexpl)))))))
-
-(comment (apply max (map #(- 1.0 %) confs)))
 
 (defn get-doubt
   [workspace]
@@ -406,8 +422,7 @@
 
 (defn explain
   [workspace inconsistent pdata threshold]
-  (loop [ws workspace
-         this-cycle 1]
+  (loop [ws workspace]
     (if (empty? (edges (:graph ws))) (log-final ws)
         (let [explainers (find-explainers ws)]
           (if (empty? explainers) (log-final ws)
@@ -417,10 +432,13 @@
                     (find-best ws-confs explainers-updated threshold)]
                 (if-not best
                   (log-final ws-confs)
-                  (recur (-> ws-confs
-                             (update-in [:resources :explain-cycles] inc)
-                             (update-in [:log :best] conj
-                                        {:best best :alts alts
-                                         :essential? essential? :delta delta})
-                             (transitive-accept best this-cycle inconsistent pdata))
-                         (inc this-cycle)))))))))
+                  (recur
+                   (let [ws-logged (-> ws-confs
+                                       (update-in [:cycle] inc)
+                                       (update-in [:resources :explain-cycles] inc)
+                                       (update-in [:log :best] conj
+                                                  {:best best :alts alts
+                                                   :essential? essential? :delta delta}))]
+                     (if (:trans (:strategy ws-logged))
+                       (transitive-accept ws-logged best inconsistent pdata)
+                       (accept ws-logged best inconsistent pdata)))))))))))

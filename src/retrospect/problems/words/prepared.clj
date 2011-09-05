@@ -5,8 +5,8 @@
 
 (def random-1
      (let [params {:Steps 500 :StepsBetween 20 :Threshold 25 :SensorNoise 20
-                   :BeliefNoise 0 :MaxModelGrams 3 :MetaStrategy :NoMetareasoning
-                   :Seed 10}]
+                   :BeliefNoise 0 :MaxModelGrams 3
+                   :Seed 10 :Control "meta,!trans,lazy"}]
        (set-seed 10)
        {:params params
         :truedata (generate-truedata "data" params)

@@ -8,8 +8,7 @@
   (:use [clj-swing.combo-box])
   (:use [clj-swing.button])
   (:require [clojure.contrib.math :as math])
-  (:use [retrospect.state])
-  (:use [retrospect.problem :only [get-headers]]))
+  (:use [retrospect.state]))
 
 (def headers-on (ref {}))
 
@@ -47,7 +46,7 @@
                   p-left (panel)
                   p-right (panel)
                   p (panel)
-                  headers (sort-by name (get-headers @problem))]
+                  headers []]
               (.setLayout p (BoxLayout. p BoxLayout/X_AXIS))
               (.setLayout p-left (BoxLayout. p-left BoxLayout/Y_AXIS))
               (.setLayout p-right (BoxLayout. p-right BoxLayout/Y_AXIS))

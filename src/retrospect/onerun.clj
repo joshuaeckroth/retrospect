@@ -6,23 +6,16 @@
           new-child-ep-state]]))
 
 (defn init-one-run-state
-  [meta-strategy lazy sensors problem-data]
-  (let [ep-state-tree (init-ep-state-tree problem-data)]
-    {:meta-strategy meta-strategy
-     :lazy lazy
-     :meta-workspaces {}
-     :original-problem-data problem-data
-     :resources {:meta-activations 0 :explain-cycles 0 :hypothesis-count 0
-                 :milliseconds 0 :compute 0 :memory 0}
-     :results [] :sensors sensors
-     :ep-state-tree ep-state-tree
-     :ep-state (current-ep-state ep-state-tree)}))
-
-(defn init-one-run-states
-  [options sensors problem-data]
-  (for [meta-strategy (:MetaStrategy options)
-        lazy (:Lazy options)]
-    (init-one-run-state meta-strategy lazy sensors problem-data)))
+  [strategy sensors problem-data]
+  (let [ep-state-tree (init-ep-state-tree strategy problem-data)]
+    (merge strategy
+           {:meta-workspaces {}
+            :original-problem-data problem-data
+            :resources {:meta-activations 0 :explain-cycles 0 :hypothesis-count 0
+                        :milliseconds 0 :compute 0 :memory 0}
+            :results [] :sensors sensors
+            :ep-state-tree ep-state-tree
+            :ep-state (current-ep-state ep-state-tree)})))
 
 (defn update-one-run-state
   [or-state ep-state {:keys [compute memory]}]

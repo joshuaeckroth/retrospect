@@ -13,6 +13,8 @@
     "retrospect"
     [[action "Action (run/list/player)" "player"]
      [problem "Problem" "tracking"]
+     [control "Control abductive strategy" "!meta,trans,!lazy"]
+     [comparison "Comparison abductive strategy" "meta,trans,!lazy"]
      [paramsfile "Parameters XML file" "params.xml"]
      [datadir "Data directory" "data"]
      [recordsdir "Records directory" "records"]
@@ -32,8 +34,8 @@
       (set-seed seed)
       (case action
             "run"
-            (run-with-new-record prob paramsfile datadir recordsdir nthreads
-              monitor? repetitions)
+            (run-with-new-record prob control comparison paramsfile
+              datadir recordsdir nthreads monitor? repetitions)
             "list"
             (list-records recordsdir)
             "player"

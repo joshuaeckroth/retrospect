@@ -3,11 +3,12 @@
   (:use [clojure.java.io :as io :only (writer copy file)])
   (:use [clojure.stacktrace :only [print-cause-trace]])
   (:require [clojure.contrib.math :as math])
-  (:use [retrospect.problem :only (run get-comparative-headers get-headers)])
-  (:use [retrospect.meta.reason :only [meta-strategies]])
+  (:use [retrospect.problem :only [run]])
   (:use [retrospect.random]))
 
-(def write-agent (agent []))
+;; keep track of number of writes, so that on first write,
+;; we can write the headers
+(def write-agent (agent {:control 0 :comparison 0 :comparative 0}))
 
 (defn format-time
   [seconds]
@@ -34,46 +35,48 @@
   (apply str (concat (interpose "," row) [\newline])))
 
 (defn write-csv
-  [all-results filename problem results]
-  (let [more-all-results (sort-by :Seed (concat all-results results)) 
-        headers (get-comparative-headers problem)]
-    (with-open [writer (io/writer filename)]
-      (.write writer (format-csv-row (map name headers)))
-      (doseq [row (map (fn [r] (map (fn [h] (h r)) headers)) more-all-results)]
-        (.write writer (format-csv-row row))))
-    more-all-results))
+  [numwrites results-type filename problem results]
+  (with-open [writer (io/writer filename :append true)]
+    (when (= 0 (results-type numwrites))
+      (.write writer (format-csv-row (map name (sort (keys results))))))
+    (.write writer (format-csv-row (map (fn [field] (get results field))
+                                        (sort (keys results))))))
+  (update-in numwrites [results-type] inc))
 
 (defn run-partition
-  [problem monitor? filename datadir params]
+  [problem monitor? recorddir datadir params]
   (when (not-empty params)
-    (let [results (run problem monitor? datadir (first params))]
-      (send-off write-agent write-csv filename problem results)
-      (recur problem monitor? filename datadir (rest params)))))
+    (let [[control-results comparison-results comparative-results]
+          (run problem monitor? datadir (first params))]
+      (send-off write-agent write-csv :control (str recorddir "/control-results.csv")
+                problem control-results)
+      (send-off write-agent write-csv :comparison (str recorddir "/comparison-results.csv")
+                problem comparison-results)
+      (send-off write-agent write-csv :comparative (str recorddir "/comparative-results.csv")
+                problem comparative-results)
+      (recur problem monitor? recorddir datadir (rest params)))))
 
 (defn check-progress
-  [remaining dir problem total start-time]
+  [remaining total start-time]
+  (println @write-agent)
   (when (> remaining 0)
-    (let [progress (count @write-agent)]
+    (let [progress (count (:control @write-agent))]
+      (println progress)
       (when (< 0 progress)
         (print-progress (- (.getTime (Date.)) start-time) progress total))
       (. Thread (sleep 30000))
-      (send *agent* #'check-progress dir problem total start-time)
+      (send *agent* #'check-progress total start-time)
       (- total progress))))
 
 (defn run-partitions
-  [recorddir problem filename params datadir nthreads monitor? repetitions]
-  (let [sim-count (* repetitions (count params) (count meta-strategies))]
-    (send (agent sim-count)
-          check-progress recorddir problem sim-count (.getTime (Date.)))) 
+  [problem params recorddir datadir nthreads monitor? repetitions]
+  (let [sim-count (* repetitions (count params))]
+    (send (agent sim-count) check-progress sim-count (.getTime (Date.)))) 
   (let [seeded-params (for [p params i (range repetitions)]
                         (assoc p :Seed (my-rand-int 10000000)))
         partitions (partition-all (math/ceil (/ (count seeded-params) nthreads))
                                   (my-shuffle seeded-params))
         workers (doall (for [part partitions]
-                         (future (run-partition problem monitor? filename datadir part))))]
+                         (future (run-partition problem monitor? recorddir datadir part))))]
     (doall (pmap (fn [w] @w) workers))))
 
-(defn run-local
-  [problem params recorddir datadir nthreads monitor? repetitions]
-  (run-partitions recorddir problem (str recorddir "/results.csv")
-                  params datadir nthreads monitor? repetitions))

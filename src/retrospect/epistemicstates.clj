@@ -61,11 +61,11 @@
              (recur (- i (* mult 26)) (str id (char (+ 65 (dec mult)))))))))))
 
 (defn init-ep-state-tree
-  [pdata]
+  [strategy pdata]
   (zip/down
    (zip-ep-state-tree
     [(EpistemicState. (make-ep-state-id) [] 0
-                      (ws/init-workspace)
+                      (ws/init-workspace strategy)
                       pdata)])))
 
 (defn root-ep-state?
@@ -150,7 +150,7 @@
      id
      []
      (inc time-now)
-     (ws/init-workspace workspace)
+     (ws/init-workspace workspace (:strategy workspace))
      ((:commit-decision-fn problem) (:problem-data ep-state)
         accepted rejected time-now))))
 
@@ -172,7 +172,7 @@
   (let [ep-state (current-ep-state ep-state-tree)
         est (goto-ep-state (zip/replace ep-state-tree ep-state) "A")
         new-ep (EpistemicState. (make-ep-state-id est) [] 0
-                                (ws/init-workspace) pdata)]
+                                (ws/init-workspace (:strategy (:workspace ep-state))) pdata)]
     (goto-ep-state (zip/insert-right (goto-ep-state est "A") new-ep) (:id new-ep))))
 
 (defn new-child-ep-state
