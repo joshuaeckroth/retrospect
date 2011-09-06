@@ -4,7 +4,8 @@
   (:use [clojure.stacktrace :only [print-cause-trace]])
   (:require [clojure.contrib.math :as math])
   (:use [retrospect.problem :only [run]])
-  (:use [retrospect.random]))
+  (:use [retrospect.random])
+  (:require [retrospect.database :as db]))
 
 ;; keep track of number of writes, so that on first write,
 ;; we can write the headers
@@ -38,6 +39,7 @@
 
 (defn write-csv
   [numwrites results-type filename problem results]
+  (db/put-results-row results-type results)
   (with-open [writer (io/writer filename :append true)]
     (when (= 0 (results-type numwrites))
       (.write writer (format-csv-row (map name (sort (keys results))))))

@@ -5,13 +5,13 @@
   (:use [retrospect.problems.tracking.problem :only [tracking-problem]])
   (:use [retrospect.problems.words.problem :only [words-problem]])
   ;(:use [retrospect.problems.circuit.problem :only [circuit-problem]])
-  (:use [retrospect.records :only [run-with-new-record list-records]])
+  (:use [retrospect.records :only [run-with-new-record]])
   (:use [retrospect.player :only [start-player]]))
 
 (defn -main [& args]
   (with-command-line args
     "retrospect"
-    [[action "Action (run/list/player)" "player"]
+    [[action "Action (run/player)" "player"]
      [problem "Problem" "tracking"]
      [control "Control abductive strategy" "!meta,trans,!lazy"]
      [comparison "Comparison abductive strategy" "meta,trans,!lazy"]
@@ -36,8 +36,6 @@
             "run"
             (run-with-new-record prob control comparison paramsfile
               datadir recordsdir nthreads monitor? repetitions)
-            "list"
-            (list-records recordsdir)
             "player"
             (start-player prob datadir)
 
