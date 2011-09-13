@@ -17,3 +17,4 @@
     (let [results-id (:_id (clutch/create-document (assoc results :runid @active :type results-type)))]
       (-> (clutch/get-document @active)
           (clutch/update-document #(conj % results-id) [results-type])))))
+

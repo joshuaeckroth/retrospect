@@ -8,7 +8,7 @@
   (:use [clojure.contrib.shell :only [sh]])
   (:use [clojure.contrib.io :only [pwd]])
   (:use [clojure.java.io :as io :only [writer reader copy]])
-  (:use [clojure.string :only [split]])
+  (:use [clojure.string :only [split-lines trim]])
   (:use [retrospect.local :only [run-partitions]])
   (:require [retrospect.database :as db]))
 
@@ -47,14 +47,16 @@
 
 (defn git-meta-info
   []
-  (sh "/usr/bin/git" "log" "-n" "1"))
+  (let [[commit _ _ _ & msg] (split-lines (sh "/usr/bin/git" "log" "-n" "1"))]
+    {:commit (subs commit 7)
+     :commit-msg (trim (apply str (interpose "\n" msg)))}))
 
 (defn run-with-new-record
   "Create a new folder for storing run data and execute the run."
   [problem control comparison paramsfile
    datadir recordsdir nthreads monitor? repetitions]
   (try
-    (let [t (int (/ (. System (currentTimeMillis)) 1000))
+    (let [t (. System (currentTimeMillis))
           recorddir (str recordsdir "/" t)
           params (map #(merge {:Control control :Comparison comparison} %)
                       (explode-params (read-params problem paramsfile)))]
@@ -65,10 +67,12 @@
       (copy-params-file (str recorddir "/params.xml") paramsfile)
       (println "done.")
       (print "Creating new database record...")
-      (db/new-active {:time t :datadir datadir :recordsdir recordsdir :nthreads nthreads
-                      :pwd (pwd) :monitor monitor? :repetitions repetitions
-                      :hostname (.getHostName (java.net.InetAddress/getLocalHost))
-                      :git (git-meta-info)})
+      (db/new-active (merge {:type "run" :time t :datadir datadir :recordsdir recordsdir :nthreads nthreads
+                             :pwd (pwd) :monitor monitor? :repetitions repetitions
+                             :hostname (.getHostName (java.net.InetAddress/getLocalHost))
+                             :problem (:name problem)
+                             :control-strategy control :comparison-strategy comparison}
+                            (git-meta-info)))
       (println "done.")
       (println
         (format "Running %d parameters, %d repetitions = %d simulations..."
