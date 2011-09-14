@@ -36,17 +36,21 @@
                                            (let [b (nth (:best wslog) i)
                                                  ;; seq of {:acc :rej} pairs (maps)
                                                  ars (get (:accrej wslog) (inc i))]
-                                             [(format "Cycle %d (%s)" (inc i)
+                                             [(format "Cycle %d (%s)%s" (inc i)
                                                       (if (:essential? b)
                                                         "essential"
                                                         (format "delta %.2f"
-                                                                (:delta b))))
-                                              {"Best"
+                                                                (:delta b)))
+                                                      (if (:transitive? b)
+                                                        " (trans)" ""))
+                                              {(if (:transitive? b)
+                                                 "Best (trans)" "Best")
                                                {(:id (:best b)) nil}
                                                "Accepted (trans)"
                                                (list-hyps (disj (set (map :acc ars))
                                                                 (:best b)))
-                                               "Alternatives"
+                                               (if (:transitive? b)
+                                                 "Alternatives (trans)" "Alternatives")
                                                (list-hyps (:alts b))
                                                "Rejected"
                                                (list-hyps (mapcat :rej ars))}]))
