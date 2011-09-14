@@ -53,7 +53,7 @@
 
 (defn run-with-new-record
   "Create a new folder for storing run data and execute the run."
-  [problem control comparison paramsfile
+  [problem control comparison paramsfile seed
    datadir recordsdir nthreads monitor? repetitions]
   (try
     (let [t (. System (currentTimeMillis))
@@ -70,7 +70,7 @@
       (db/new-active (merge {:type "run" :time t :datadir datadir :recordsdir recordsdir :nthreads nthreads
                              :pwd (pwd) :monitor monitor? :repetitions repetitions
                              :hostname (.getHostName (java.net.InetAddress/getLocalHost))
-                             :problem (:name problem)
+                             :problem (:name problem) :seed seed
                              :control-strategy control :comparison-strategy comparison}
                             (git-meta-info)))
       (println "done.")

@@ -34,7 +34,7 @@
       (set-seed seed)
       (case action
             "run"
-            (run-with-new-record prob control comparison paramsfile
+            (run-with-new-record prob control comparison paramsfile seed
               datadir recordsdir nthreads monitor? repetitions)
             "player"
             (start-player prob datadir)
