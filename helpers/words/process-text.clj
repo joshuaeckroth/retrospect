@@ -38,8 +38,8 @@ exec java -cp "$HOME/clojure/clojure-1.2.1/clojure.jar" clojure.main "$0" "$@"
                    (str/replace #"[^a-zA-Z\s]" "")
                    (str/replace #"\s+" " ")
                    (str/lower-case))
-        ;; consider only words with 4 or more letters
-        truedata-large-words (filter #(>= (count %) 4) (str/split truedata #"\s+"))
+        ;; consider only words with 1 or more letters
+        truedata-large-words (filter #(>= (count %) 1) (str/split truedata #"\s+"))
         dictionary (sort (set truedata-large-words)) 
         ambiguous (apply str truedata-large-words)]
     [(apply str (interpose " " truedata-large-words)) dictionary ambiguous]))
