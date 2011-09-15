@@ -436,10 +436,10 @@
         (assoc (find-best workspace (:immediate explainers) threshold) :transitive? false)
         best-transitive
         (assoc (find-best workspace (:transitive explainers) threshold) :transitive? true)]
-    (cond (not (:best best-immediate)) best-transitive
-          (not (:best best-transitive)) best-immediate
-          (:essential? best-immediate) best-immediate
+    (cond (:essential? best-immediate) best-immediate
           (:essential? best-transitive) best-transitive
+          (not (:best best-immediate)) best-transitive
+          (not (:best best-transitive)) best-immediate
           (> (:delta best-immediate) (:delta best-transitive)) best-immediate
           :else best-transitive)))
 
