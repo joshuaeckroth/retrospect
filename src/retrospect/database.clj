@@ -13,8 +13,9 @@
 
 (defn put-results-row
   [results-type results]
-  (clutch/with-db local-couchdb
-    (let [results-id (:_id (clutch/create-document (assoc results :runid @active :type results-type)))]
-      (-> (clutch/get-document @active)
-          (clutch/update-document #(conj % results-id) [results-type])))))
+  (dosync
+   (clutch/with-db local-couchdb
+     (let [results-id (:_id (clutch/create-document (assoc results :runid @active :type results-type)))]
+       (-> (clutch/get-document @active)
+           (clutch/update-document #(conj % results-id) [results-type]))))))
 
