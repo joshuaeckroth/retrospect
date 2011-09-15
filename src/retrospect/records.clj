@@ -49,7 +49,7 @@
   []
   (let [[commit _ _ _ & msg] (split-lines (sh "/usr/bin/git" "log" "-n" "1"))]
     {:commit (subs commit 7)
-     :commit-msg (trim (apply str (interpose "\n" msg)))}))
+     :commit-msg (apply str (interpose "\n" (map (fn [s] (subs s 4)) msg)))}))
 
 (defn run-with-new-record
   "Create a new folder for storing run data and execute the run."

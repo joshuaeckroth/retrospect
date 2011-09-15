@@ -7,10 +7,6 @@
   (:use [retrospect.random])
   (:require [retrospect.database :as db]))
 
-;; keep track of number of writes, so that on first write,
-;; we can write the headers
-(def write-agent (agent {:control 0 :comparison 0 :comparative 0}))
-
 (defn format-time
   [seconds]
   (let [hours (int (/ seconds 3600.0))
@@ -31,6 +27,19 @@
 		     (format-time (int (/ expected 1000.0)))
 		     wallexpected))))
 
+;; keep track of progress
+(def progress (ref 0))
+
+(defn check-progress
+  [remaining total start-time]
+  (when (> remaining 0)
+    (let [p @progress]
+      (when (< 0 p)
+        (print-progress (- (.getTime (Date.)) start-time) p total))
+      (. Thread (sleep 30000))
+      (send *agent* #'check-progress total start-time)
+      (- total p))))
+
 (defn format-csv-row
   [row]
   ;; add quotes around string data (e.g. "meta,trans,lazy")
@@ -38,39 +47,30 @@
                      [\newline])))
 
 (defn write-csv
-  [numwrites results-type filename problem results]
-  (db/put-results-row results-type results)
-  (with-open [writer (io/writer filename :append true)]
-    (when (= 0 (results-type numwrites))
-      (.write writer (format-csv-row (map name (sort (keys results))))))
-    (.write writer (format-csv-row (map (fn [field] (get results field))
-                                        (sort (keys results))))))
-  (update-in numwrites [results-type] inc))
+  [results-type filename problem results]
+  (let [new-file? (not (. (io/file filename) exists))]
+    (with-open [writer (io/writer filename :append true)]
+      (when new-file?
+        (.write writer (format-csv-row (map name (sort (keys results))))))
+      (.write writer (format-csv-row (map (fn [field] (get results field))
+                                          (sort (keys results))))))))
 
 (defn run-partition
   [problem monitor? recorddir datadir params]
   (when (not-empty params)
     (let [[control-results comparison-results comparative-results]
           (run problem monitor? datadir (first params))]
-      (send-off write-agent write-csv :control (str recorddir "/control-results.csv")
-                problem control-results)
-      (send-off write-agent write-csv :comparison (str recorddir "/comparison-results.csv")
-                problem comparison-results)
-      (send-off write-agent write-csv :comparative (str recorddir "/comparative-results.csv")
-                problem comparative-results)
+      (db/put-results-row :control control-results)
+      (db/put-results-row :comparative comparative-results)
+      (db/put-results-row :comparison comparison-results)
+      (write-csv :control (str recorddir "/control-results.csv")
+                 problem control-results)
+      (write-csv :comparison (str recorddir "/comparison-results.csv")
+                 problem comparison-results)
+      (write-csv :comparative (str recorddir "/comparative-results.csv")
+                 problem comparative-results)
+      (dosync (alter progress inc))
       (recur problem monitor? recorddir datadir (rest params)))))
-
-(defn check-progress
-  [remaining total start-time]
-  (println @write-agent)
-  (when (> remaining 0)
-    (let [progress (count (:control @write-agent))]
-      (println progress)
-      (when (< 0 progress)
-        (print-progress (- (.getTime (Date.)) start-time) progress total))
-      (. Thread (sleep 30000))
-      (send *agent* #'check-progress total start-time)
-      (- total progress))))
 
 (defn run-partitions
   [problem params recorddir datadir nthreads monitor? repetitions]

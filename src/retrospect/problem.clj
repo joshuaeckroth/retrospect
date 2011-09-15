@@ -56,6 +56,7 @@
 
 (defn run-simulation
   [problem truedata or-state params monitor?]
+  (prn "Running" params)
   (loop [ors or-state]
     (when (nil? ors)
       (throw (ExecutionException. "Monitor took control." (Throwable.))))
@@ -65,31 +66,41 @@
 
 (defn extract-strategy
   [strategy]
-  (let [features (split strategy #",")]
-    (apply merge (map (fn [feature] (if (= "!" (subs feature 0 1))
-                                      {(keyword (subs feature 1)) nil}
-                                      {(keyword feature) true}))
-                      features))))
+  (let [features (split strategy #"\s*,\s*")
+        params (map (fn [f] (split f #"=")) (filter (fn [f] (re-find #"=" f)) features))]
+    (apply merge
+           (concat
+            (map (fn [feature] (if (= "!" (subs feature 0 1))
+                                 {(keyword (subs feature 1)) nil}
+                                 {(keyword feature) true}))
+                 (filter (fn [f] (not (re-find #"=" f))) features))
+            (map (fn [p] {(keyword (first p)) (Integer/parseInt (second p))}) params)))))
+
+(defn apply-strategy
+  [params strategy]
+  (merge params (select-keys strategy (filter (fn [k] (number? (k strategy)))
+                                              (keys strategy)))))
 
 (defn run
   [problem monitor? datadir params]
-  (println "Running" params)
   (set-seed (:Seed params))
   (let [truedata ((:truedata-fn problem) datadir params)
         sensors ((:sensor-gen-fn problem) params)
         problem-data ((:gen-problem-data-fn problem) sensors datadir params)
         control-strategy (extract-strategy (:Control params))
+        control-params (apply-strategy params control-strategy)
         comparison-strategy (extract-strategy (:Comparison params))
+        comparison-params (apply-strategy params comparison-strategy)
         control-or-state (init-one-run-state control-strategy sensors problem-data)
         comparison-or-state (init-one-run-state comparison-strategy sensors problem-data)
         control-result
         (binding [last-id 0]
           (println "Control:" (:Control params))
-          (run-simulation problem truedata control-or-state params monitor?))
+          (run-simulation problem truedata control-or-state control-params monitor?))
         comparison-result
         (binding [last-id 0]
           (println "Comparison:" (:Comparison params))
-          (run-simulation problem truedata comparison-or-state params monitor?))]
+          (run-simulation problem truedata comparison-or-state comparison-params monitor?))]
     [control-result comparison-result
      (evaluate-comparative problem control-result comparison-result params)]))
 
