@@ -386,14 +386,21 @@
   (let [final (:final (:log workspace))]
     (if (empty? (:accepted final)) 
       (if (empty? (:unexplained final)) 0.0 1.0)
-      (let [confs (vals (select-keys (:hyp-confidences workspace) (:accepted final)))
-            doubt-unexpl (concat (map #(- 1.0 %) confs)
-                                 (repeat (count (:unexplained final)) 1.0))]
-        (double (/ (reduce + 0.0 doubt-unexpl) (count doubt-unexpl)))))))
+      (let [confs (vals (select-keys (:hyp-confidences workspace) (:accepted final)))]
+        (double (/ (reduce + 0.0 (map #(- 1.0 %) confs)) (count confs)))))))
 
 (defn get-doubt
   [workspace]
   (:doubt (:log workspace)))
+
+(defn measure-unexplained-pct
+  [workspace]
+  (double (/ (count (:unexplained (:final (:log workspace))))
+             (count (set/union (:accepted workspace) (:forced workspace))))))
+
+(defn get-unexplained-pct
+  [workspace]
+  (:unexplained-pct (:log workspace)))
 
 (defn log-final
   [workspace]
@@ -409,8 +416,9 @@
                                    (get-hyps workspace)
                                    (:accepted workspace)
                                    (:rejected workspace)
-                                   (:forced workspace))})]
-    (assoc-in ws [:log :doubt] (measure-doubt ws))))
+                                   (:forced workspace))})
+        ws2 (assoc-in ws [:log :unexplained-pct] (measure-unexplained-pct ws))]
+    (assoc-in ws2 [:log :doubt] (measure-doubt ws2))))
 
 (defn find-best
   [workspace explainers threshold]

@@ -17,7 +17,10 @@
      workspace
      problem-data]
   Object
-  (toString [_] (format "%s %d %s" id time (confidence-str (ws/get-doubt workspace)))))
+  (toString [_] (format "%s %d %s/%s" id time
+                        (confidence-str (ws/get-doubt workspace))
+                        (if-let [pct (ws/get-unexplained-pct workspace)]
+                          (format "%.2f" pct) "?"))))
 
 (defrecord RootNode [children])
 
@@ -80,6 +83,13 @@
   [ep-state-tree]
   (let [up (zip/up ep-state-tree)]
     (if-not (root-ep-state? (zip/node up)) (zip/node up))))
+
+(defn nth-previous-ep-state
+  [ep-state-tree n]
+  (loop [i (dec n)
+         loc (zip/up ep-state-tree)]
+    (if (or (= 1 i) (root-ep-state? (zip/node (zip/up loc))))
+      (zip/node loc) (recur (dec i) (zip/up loc)))))
 
 (defn non-accepted-current-ep-state?
   [ep-state-tree]

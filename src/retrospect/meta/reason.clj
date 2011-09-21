@@ -2,7 +2,7 @@
   (:use [retrospect.epistemicstates :only
          [previous-ep-state current-ep-state new-child-ep-state
           new-branch-ep-state new-branch-root explain goto-ep-state
-          update-ep-state-tree]])
+          update-ep-state-tree nth-previous-ep-state]])
   (:use [retrospect.onerun :only
          [proceed-one-run-state update-one-run-state]])
   (:require [retrospect.workspaces :as ws]))
@@ -52,20 +52,31 @@
   "Check if any of the metareasoning activation conditions are met."
   [or-state params]
   (if (:meta or-state)
-    (let [ep-state (current-ep-state (:ep-state-tree or-state))]
+    (let [ep-state (current-ep-state (:ep-state-tree or-state))
+          workspace (:workspace ep-state)]
       ;; TODO: implement other conditions
-      (or (not-empty (:no-explainers (:final (:log (:workspace ep-state)))))
-          (< 0.15 (ws/get-doubt (:workspace ep-state)))))))
+      (or (not-empty (:no-explainers (:final (:log workspace))))
+          (< 0.10 (ws/get-unexplained-pct workspace))
+          (< 0.10 (ws/get-doubt workspace))))))
 
-(defn batch-from-beginning
-  [problem or-state params]
+(defn workspace-compare
+  [ws1 ws2]
+  (let [comp-unexp (compare (ws/get-unexplained-pct ws1)
+                            (ws/get-unexplained-pct ws2))]
+    (if (not= 0 comp-unexp) comp-unexp
+        (compare (ws/get-doubt ws1) (ws/get-doubt ws2)))))
+
+(defn batch
+  [n problem or-state params]
   (if-not
       ;; skip all of this if we are just an ep-state off the root
       (previous-ep-state (:ep-state-tree or-state)) or-state
       ;; otherwise, we're not straight out of the root, so do the batching
       (let [prior-est (:ep-state-tree or-state)
             prior-ep (current-ep-state prior-est)
-            est (new-branch-root prior-est (:original-problem-data or-state))
+            ;; branch back n if n != nil, otherwise branch from root
+            est (if n (new-branch-ep-state prior-est (nth-previous-ep-state prior-est n))
+                    (new-branch-root prior-est (:original-problem-data or-state)))
             ep-state (current-ep-state est)
             time-now (apply max (map :sensed-up-to (:sensors or-state)))
             [ep-hyps resources] ((:hypothesize-fn problem) ep-state (:sensors or-state)
@@ -75,11 +86,11 @@
                              (:Threshold params) params)
             est-expl (update-ep-state-tree est ep-expl)
             ors (assoc or-state :ep-state-tree est-expl)
-            final-ors (if (< (ws/get-doubt (:workspace ep-expl))
-                             (ws/get-doubt (:workspace prior-ep)))
-                        ;; if new doubt is lower, stick with this (newer) branch,
-                        ;; but also add on original explain cycles
-                        ;; and hypothesis count and other resources
+            final-ors (if (> 0 (workspace-compare (:workspace ep-expl) (:workspace prior-ep)))
+                        ;; if new workspace is better, stick with this
+                        ;; (newer) branch, but also add on original
+                        ;; explain cycles and hypothesis count and
+                        ;; other resources
                         (-> (assoc ors :ep-state ep-expl)
                             (update-in [:resources :explain-cycles]
                                        + (:explain-cycles (:resources (:workspace prior-ep))))
@@ -142,12 +153,12 @@
             (recur (lower-threshold problem ors params)
                    (rest attempt))
             (= (first attempt) :BatchBeginning)
-            (recur (batch-from-beginning problem ors params)
+            (recur (batch nil problem ors params)
                    (rest attempt))))))
 
 (defn metareason
   "Activate the appropriate metareasoning strategy (as given by
    the parameter :MetaStrategy)"
   [problem or-state params]
-  (batch-from-beginning problem or-state params))
+  (batch 3 problem or-state params))
 
