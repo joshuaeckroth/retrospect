@@ -67,7 +67,8 @@
       (copy-params-file (str recorddir "/params.xml") paramsfile)
       (println "done.")
       (print "Creating new database record...")
-      (db/new-active (merge {:type "run" :time t :datadir datadir :recordsdir recordsdir :nthreads nthreads
+      (db/new-active (merge {:type "run" :time t :datadir datadir
+                             :recorddir recorddir :nthreads nthreads
                              :pwd (pwd) :monitor monitor? :repetitions repetitions
                              :hostname (.getHostName (java.net.InetAddress/getLocalHost))
                              :problem (:name problem) :seed seed

@@ -13,9 +13,11 @@
 
 (defn put-results-row
   [results-type results]
-  (dosync
+  (try
    (clutch/with-db local-couchdb
      (let [results-id (:_id (clutch/create-document (assoc results :runid @active :type results-type)))]
        (-> (clutch/get-document @active)
-           (clutch/update-document #(conj % results-id) [results-type]))))))
+           (clutch/update-document #(conj % results-id) [results-type]))))
+   (catch java.io.IOException e
+     (put-results-row results-type results))))
 
