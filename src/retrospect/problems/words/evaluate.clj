@@ -23,5 +23,5 @@
                     (if (empty? truewords) 1 (count truewords)))) }))
 
 (defn evaluate-comparative
-  [control-results comparison-results params]
+  [control-results comparison-results control-params comparison-params]
   (calc-ratio-increase control-results comparison-results :LD))

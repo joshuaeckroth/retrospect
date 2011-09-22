@@ -24,8 +24,6 @@
 (def grid-cell-height (ref nil))
 
 (def percent-events-correct-label (label ""))
-(def mean-time-with-label-label (label ""))
-(def mean-label-counts-label (label ""))
 (def mouse-xy (label "Grid ?, ?"))
 
 (def param-spinners
@@ -206,17 +204,9 @@
           _ (label "PercentEventsCorrect:")
           :gridx 1
           _ percent-events-correct-label
-          :gridx 0 :gridy 1
-          _ (label "MeanTimeWithLabel:")
-          :gridx 1
-          _ mean-time-with-label-label
           :gridx 0 :gridy 2
-          _ (label "MeanLabelCounts:")
-          :gridx 1
-          _ mean-label-counts-label
-          :gridx 0 :gridy 3
           _ mouse-xy
-          :gridy 4 :weighty 1.0
+          :gridy 3 :weighty 1.0
           _ (panel)]))
 
 (defn player-update-stats
@@ -226,19 +216,9 @@
       (. percent-events-correct-label
          (setText
           (format "%.2f%%"
-                  (:PEC (get (:results @or-state) t)))))
-      (. mean-time-with-label-label
-         (setText
-          (format "%.2f"
-                  (:MTL (get (:results @or-state) t)))))
-      (. mean-label-counts-label
-         (setText
-          (format "%.2f"
-                  (:MLC (get (:results @or-state) t))))))
+                  (:PEC (get (:results @or-state) t))))))
     (do
-      (. percent-events-correct-label (setText "N/A"))
-      (. mean-time-with-label-label (setText "N/A"))
-      (. mean-label-counts-label (setText "N/A")))))
+      (. percent-events-correct-label (setText "N/A")))))
 
 (defn player-get-truedata-log
   []

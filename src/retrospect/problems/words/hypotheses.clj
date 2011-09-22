@@ -228,11 +228,11 @@
           letters (map #(sensed-at sens %) (range (inc left-off) (inc time-now)))
           indexed-letters (map (fn [i] [i (nth letters i)]) (range (count letters)))
           sensor-hyps (make-sensor-hyps indexed-letters)
-          ep-sensor-hyps (reduce #(add-fact %1 %2 []) ep-state sensor-hyps)
+          ep-sensor-hyps (reduce #(add-fact %1 %2 [] params) ep-state sensor-hyps)
           ep-letters (assoc-in ep-sensor-hyps [:problem-data :indexed-letters] indexed-letters)
           word-hyps (make-word-hyps indexed-letters left-off dictionary 0.0 sensor-hyps models)
           composite-hyps (make-composite-hyps models (map first word-hyps) accepted max-n)]
-      [(reduce #(apply add-hyp %1 %2) ep-letters (concat word-hyps composite-hyps))
+      [(reduce #(add-hyp %1 (first %2) (second %2) params) ep-letters (concat word-hyps composite-hyps))
        {:compute compute :memory memory}])))
 
 (defn get-more-hyps
@@ -274,7 +274,7 @@
                                                (filter #(= :single-word (:type %))
                                                        existing-hyps)
                                                max-n))]
-      (reduce (fn [ep [hyp explains]] (add-more-hyp ep hyp explains)) ep-state
+      (reduce (fn [ep [hyp explains]] (add-more-hyp ep hyp explains params)) ep-state
               (concat word-hyps composite-hyps)))))
 
 (defn commit-decision

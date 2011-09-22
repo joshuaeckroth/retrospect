@@ -64,11 +64,11 @@
              (recur (- i (* mult 26)) (str id (char (+ 65 (dec mult)))))))))))
 
 (defn init-ep-state-tree
-  [strategy pdata]
+  [pdata]
   (zip/down
    (zip-ep-state-tree
     [(EpistemicState. (make-ep-state-id) [] 0
-                      (ws/init-workspace strategy)
+                      (ws/init-workspace)
                       pdata)])))
 
 (defn root-ep-state?
@@ -139,17 +139,17 @@
                    (flatten-ep-state-tree ep-state-tree))))
 
 (defn add-hyp
-  [ep-state hyp explains]
-  (update-in ep-state [:workspace] ws/add hyp explains :static))
+  [ep-state hyp explains params]
+  (update-in ep-state [:workspace] ws/add hyp explains params :static))
 
 (defn add-more-hyp
-  [ep-state hyp explains]
-  (update-in ep-state [:workspace] ws/add hyp explains))
+  [ep-state hyp explains params]
+  (update-in ep-state [:workspace] ws/add hyp explains params))
 
 (defn add-fact
-  [ep-state hyp explains]
+  [ep-state hyp explains params]
   (update-in ep-state [:workspace]
-             #(-> % (ws/add hyp explains :static) (ws/forced hyp))))
+             #(-> % (ws/add hyp explains params :static) (ws/forced hyp))))
 
 (defn commit-decision
   [ep-state id time-now problem]
@@ -160,7 +160,7 @@
      id
      []
      (inc time-now)
-     (ws/init-workspace workspace (:strategy workspace))
+     (ws/init-workspace workspace)
      ((:commit-decision-fn problem) (:problem-data ep-state)
         accepted rejected time-now))))
 
@@ -182,7 +182,7 @@
   (let [ep-state (current-ep-state ep-state-tree)
         est (goto-ep-state (zip/replace ep-state-tree ep-state) "A")
         new-ep (EpistemicState. (make-ep-state-id est) [] 0
-                                (ws/init-workspace (:strategy (:workspace ep-state))) pdata)]
+                                (ws/init-workspace) pdata)]
     (goto-ep-state (zip/insert-right (goto-ep-state est "A") new-ep) (:id new-ep))))
 
 (defn new-child-ep-state
@@ -193,16 +193,16 @@
     ep-tree-child))
 
 (defn explain
-  [ep-state get-more-hyps inconsistent threshold params & opts]
+  [ep-state get-more-hyps inconsistent params & opts]
   (let [workspace (if (some #{:no-prepare} opts) (:workspace ep-state)
                       (ws/prepare-workspace (:workspace ep-state)))
         pdata (:problem-data ep-state)
-        ws-explained (ws/explain workspace inconsistent pdata threshold)]
+        ws-explained (ws/explain workspace inconsistent pdata params)]
     (if (not-empty (:unexplained (:final (:log ws-explained))))
       (if-let [ep-more-hyps (get-more-hyps (assoc ep-state :workspace ws-explained) params)]
         (assoc ep-more-hyps :workspace (ws/explain (:workspace ep-more-hyps)
                                                    inconsistent
                                                    (:problem-data ep-more-hyps)
-                                                   threshold))
+                                                   params))
         (assoc ep-state :workspace ws-explained))
       (assoc ep-state :workspace ws-explained))))

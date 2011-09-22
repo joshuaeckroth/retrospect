@@ -56,10 +56,10 @@
                                           (sort (keys results))))))))
 
 (defn run-partition
-  [problem monitor? recorddir datadir params]
-  (when (not-empty params)
+  [problem monitor? recorddir datadir paired-params]
+  (when (not-empty paired-params)
     (let [[control-results comparison-results comparative-results]
-          (run problem monitor? datadir (first params))]
+          (run problem monitor? datadir (first paired-params))]
       (db/put-results-row :control control-results)
       (db/put-results-row :comparative comparative-results)
       (db/put-results-row :comparison comparison-results)
@@ -70,16 +70,18 @@
       (write-csv :comparative (str recorddir "/comparative-results.csv")
                  problem comparative-results)
       (dosync (alter progress inc))
-      (recur problem monitor? recorddir datadir (rest params)))))
+      (recur problem monitor? recorddir datadir (rest paired-params)))))
 
 (defn run-partitions
-  [problem params recorddir datadir nthreads monitor? repetitions]
-  (let [sim-count (* repetitions (count params))]
-    (send (agent sim-count) check-progress sim-count (.getTime (Date.)))) 
-  (let [seeded-params (for [p params i (range repetitions)]
-                        (assoc p :Seed (my-rand-int 10000000)))
-        partitions (partition-all (math/ceil (/ (count seeded-params) nthreads))
-                                  (my-shuffle seeded-params))
+  [problem paired-params recorddir datadir nthreads monitor? repetitions]
+  (let [sim-count (* repetitions (count paired-params))]
+    (send (agent sim-count) check-progress sim-count (.getTime (Date.))))
+  (let [repeated-paired-params (mapcat (fn [pp] (repeat repetitions pp)) paired-params)
+        seeded-paired-params (map (fn [pp] (let [seed (my-rand-int 10000000)]
+                                             (map (fn [p] (assoc p :Seed seed)) pp)))
+                                  repeated-paired-params)
+        partitions (partition-all (math/ceil (/ (count seeded-paired-params) nthreads))
+                                  (my-shuffle seeded-paired-params))
         workers (doall (for [part partitions]
                          (future (run-partition problem monitor? recorddir datadir part))))]
     (doall (pmap (fn [w] @w) workers))))

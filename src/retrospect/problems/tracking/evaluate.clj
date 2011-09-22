@@ -49,6 +49,6 @@
      :Accuracy a}))
 
 (defn evaluate-comparative
-  [control-results comparison-results params]
+  [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-ratio-increase control-results comparison-results %)
                     [:PEC :PEW :Precision :Recall :Specificity :Accuracy])))

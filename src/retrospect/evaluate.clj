@@ -47,12 +47,19 @@
              :Compute (:compute resources)
              :Memory (:memory resources)}))))
 
+(defn prefix-params
+  [prefix params]
+  (zipmap (map (fn [k] (keyword (format "%s%s" prefix (name k)))) (keys params))
+          (vals params)))
+
 (defn evaluate-comparative
-  [problem control-results comparison-results params]
+  [problem control-results comparison-results control-params comparison-params]
   (apply merge
          {:Problem (:name problem)}
-         params
-         ((:evaluate-comparative-fn problem) control-results comparison-results params)
+         (prefix-params "Control" control-params)
+         (prefix-params "Comparison" comparison-params)
+         ((:evaluate-comparative-fn problem) control-results comparison-results
+          control-params comparison-params)
          (map #(calc-ratio-increase control-results comparison-results %)
               [:MetaActivations :Milliseconds :SharedExplains :Unexplained
                :ExplainCycles :HypothesisCount :Compute :Memory])))

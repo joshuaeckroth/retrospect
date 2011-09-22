@@ -37,7 +37,7 @@
         ep-state (:ep-state ors-hyps)
         ep-explained (explain ep-state (:get-more-hyps-fn problem)
                               (:inconsistent-fn problem)
-                              (double (/ (:Threshold params) 100.0)) params)
+                              params)
         ors-expl (update-one-run-state ors-hyps ep-explained {:compute 0 :memory 0})
         ors-committed (proceed-one-run-state ors-hyps ep-explained time-now problem)
         ors-meta (if (metareasoning-activated? ors-expl params)
@@ -64,45 +64,27 @@
       (last (:results ors))
       (recur (run-simulation-step problem truedata ors params monitor? false)))))
 
-(defn extract-strategy
-  [strategy]
-  (let [features (split strategy #"\s*,\s*")
-        params (map (fn [f] (split f #"=")) (filter (fn [f] (re-find #"=" f)) features))]
-    (apply merge
-           (concat
-            (map (fn [feature] (if (= "!" (subs feature 0 1))
-                                 {(keyword (subs feature 1)) nil}
-                                 {(keyword feature) true}))
-                 (filter (fn [f] (not (re-find #"=" f))) features))
-            (map (fn [p] {(keyword (first p)) (Integer/parseInt (second p))}) params)))))
-
-(defn apply-strategy
-  [params strategy]
-  (merge params (select-keys strategy (filter (fn [k] (number? (k strategy)))
-                                              (keys strategy)))))
-
 (defn run
-  [problem monitor? datadir params]
-  (set-seed (:Seed params))
-  (let [truedata ((:truedata-fn problem) datadir params)
-        sensors ((:sensor-gen-fn problem) params)
-        problem-data ((:gen-problem-data-fn problem) sensors datadir params)
-        control-strategy (extract-strategy (:Control params))
-        control-params (apply-strategy params control-strategy)
-        comparison-strategy (extract-strategy (:Comparison params))
-        comparison-params (apply-strategy params comparison-strategy)
-        control-or-state (init-one-run-state control-strategy sensors problem-data)
-        comparison-or-state (init-one-run-state comparison-strategy sensors problem-data)
+  [problem monitor? datadir [control-params comparison-params]]
+  (set-seed (:Seed control-params)) ;; seed should be same in comparison-params
+  (let [control-truedata ((:truedata-fn problem) datadir control-params)
+        comparison-truedata ((:truedata-fn problem) datadir comparison-params)
+        control-sensors ((:sensor-gen-fn problem) control-params)
+        comparison-sensors ((:sensor-gen-fn problem) comparison-params)
+        control-problem-data ((:gen-problem-data-fn problem) control-sensors datadir control-params)
+        comparison-problem-data ((:gen-problem-data-fn problem) comparison-sensors datadir comparison-params)
+        control-or-state (init-one-run-state control-sensors control-problem-data)
+        comparison-or-state (init-one-run-state comparison-sensors comparison-problem-data)
         control-result
         (binding [last-id 0]
-          (println "Control:" (:Control params))
-          (run-simulation problem truedata control-or-state control-params monitor?))
+          (println "Control:" control-params)
+          (run-simulation problem control-truedata control-or-state control-params monitor?))
         comparison-result
         (binding [last-id 0]
-          (println "Comparison:" (:Comparison params))
-          (run-simulation problem truedata comparison-or-state comparison-params monitor?))]
+          (println "Comparison:" comparison-params)
+          (run-simulation problem comparison-truedata comparison-or-state comparison-params monitor?))]
     [control-result comparison-result
-     (evaluate-comparative problem control-result comparison-result params)]))
+     (evaluate-comparative problem control-result comparison-result control-params comparison-params)]))
 
 (defrecord Problem
   [name monitor-fn player-fns truedata-fn sensor-gen-fn prepared-map

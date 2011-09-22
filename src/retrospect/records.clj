@@ -12,27 +12,11 @@
   (:use [retrospect.local :only [run-partitions]])
   (:require [retrospect.database :as db]))
 
-(defn copy-params-file
-  [destfile paramsfile]
-  (io/copy (File. paramsfile) (File. destfile)))
-
-(defn read-params
-  [problem paramsfile]
-  "Reads parameters from params XML file for a certain problem. Result
-  is a map like {:SensorCoverage [0 10 20], :BeliefNoise [0 10 20]}"
-  (let [xmltree (zip/xml-zip (xml/parse (File. paramsfile)))
-	probtree (zf/xml-> xmltree :problems :problem (attr= :name (:name problem))
-			     :params children)
-	probmaps (apply merge (map (fn [p] {(first (zf/xml-> p tag))
-                                            (first (xml-> p attrs))}) probtree))
-	probtags (keys probmaps)
-	get-value (fn [pm p k] (Integer/parseInt (k (p pm))))
-	update-with-range (fn [pm probtag]
-			    (assoc pm probtag
-				   (range (get-value probmaps probtag :start)
-					  (inc (get-value probmaps probtag :end))
-					  (get-value probmaps probtag :step))))]
-    (reduce update-with-range {} probtags)))
+(defn vectorize-params
+  [params]
+  (reduce (fn [m k] (let [v (k params)]
+                      (assoc m k (if (vector? v) v [v]))))
+          {} (keys params)))
 
 (defn explode-params
   "Want {:Xyz [1 2 3], :Abc [3 4]} to become [{:Xyz 1, :Abc 3}, {:Xyz 2, :Abc 4}, ...]"
@@ -53,32 +37,32 @@
 
 (defn run-with-new-record
   "Create a new folder for storing run data and execute the run."
-  [problem control comparison paramsfile seed
-   datadir recordsdir nthreads monitor? repetitions]
+  [problem params seed datadir recordsdir nthreads monitor? repetitions]
   (try
     (let [t (. System (currentTimeMillis))
           recorddir (str recordsdir "/" t)
-          params (map #(merge {:Control control :Comparison comparison} %)
-                      (explode-params (read-params problem paramsfile)))]
+          control-params (explode-params (vectorize-params (:control params)))
+          comparison-params (explode-params (vectorize-params (:comparison params)))
+          paired-params (partition 2 (interleave control-params comparison-params))]
+      (when (not= (count control-params) (count comparison-params))
+        (println "Control/comparison param counts are not equal.")
+        (System/exit -1))
       (print (format "Making new directory %s..." recorddir))
       (.mkdir (File. recorddir))
       (println "done.")
-      (print "Copying params file...")
-      (copy-params-file (str recorddir "/params.xml") paramsfile)
-      (println "done.")
       (print "Creating new database record...")
-      (db/new-active (merge {:type "run" :time t :datadir datadir
-                             :recorddir recorddir :nthreads nthreads
+      (db/new-active (merge {:type "run" :time t :paramsid (:_id params) :paramsname (:name params)
+                             :datadir datadir :recorddir recorddir :nthreads nthreads
                              :pwd (pwd) :monitor monitor? :repetitions repetitions
                              :hostname (.getHostName (java.net.InetAddress/getLocalHost))
-                             :problem (:name problem) :seed seed
-                             :control-strategy control :comparison-strategy comparison}
+                             :problem (:name problem) :seed seed}
                             (git-meta-info)))
       (println "done.")
       (println
         (format "Running %d parameters, %d repetitions = %d simulations..."
-                (count params) repetitions (* (count params) repetitions)))
-      (run-partitions problem params recorddir datadir nthreads monitor? repetitions)
+                (count paired-params) repetitions (* (count paired-params) repetitions)))
+      (run-partitions problem paired-params
+                      recorddir datadir nthreads monitor? repetitions)
       (println "Done."))
     (catch java.util.concurrent.ExecutionException e
       (println "Quitting early."))))

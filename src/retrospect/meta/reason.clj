@@ -51,7 +51,7 @@
 (defn metareasoning-activated?
   "Check if any of the metareasoning activation conditions are met."
   [or-state params]
-  (if (:meta or-state)
+  (if (:MetaReasoning params)
     (let [ep-state (current-ep-state (:ep-state-tree or-state))
           workspace (:workspace ep-state)]
       ;; TODO: implement other conditions
@@ -82,8 +82,7 @@
             [ep-hyps resources] ((:hypothesize-fn problem) ep-state (:sensors or-state)
                                  time-now params)
             ep-expl (explain ep-hyps (:get-more-hyps-fn problem)
-                             (:inconsistent-fn problem)
-                             (:Threshold params) params)
+                             (:inconsistent-fn problem) params)
             est-expl (update-ep-state-tree est ep-expl)
             ors (assoc or-state :ep-state-tree est-expl)
             final-ors (if (> 0 (workspace-compare (:workspace ep-expl) (:workspace prior-ep)))
@@ -135,7 +134,7 @@
                 (recur (ws/explain workspace
                                    (:inconsistent-fn problem)
                                    (:problem-data new-ep)
-                                   (double (/ threshold 100.0)) params)
+                                   params)
                        (- threshold 25))))
         final-or-state (update-one-run-state
                          (assoc or-state :ep-state-tree new-est)

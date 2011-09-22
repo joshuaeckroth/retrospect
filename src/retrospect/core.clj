@@ -2,6 +2,7 @@
   (:gen-class)
   (:use [clojure.contrib.command-line :only [with-command-line]])
   (:use [retrospect.random])
+  (:use [retrospect.database :only [read-params]])
   (:use [retrospect.problems.tracking.problem :only [tracking-problem]])
   (:use [retrospect.problems.words.problem :only [words-problem]])
   ;(:use [retrospect.problems.circuit.problem :only [circuit-problem]])
@@ -13,9 +14,7 @@
     "retrospect"
     [[action "Action (run/player)" "player"]
      [problem "Problem" "tracking"]
-     [control "Control abductive strategy" "!meta,trans,!lazy"]
-     [comparison "Comparison abductive strategy" "meta,trans,!lazy"]
-     [paramsfile "Parameters XML file" "params.xml"]
+     [params "Parameters identifier (e.g. 'Words/foobar')" ""]
      [datadir "Data directory" "data"]
      [recordsdir "Records directory" "records"]
      [record "Record" ""]
@@ -23,22 +22,23 @@
      [repetitions "Number of repetitions" "10"]
      [monitor "Activate monitor?" "false"]
      [seed "Seed" "0"]]
-    (let [nthreads (Integer/parseInt nthreads)
-          repetitions (Integer/parseInt repetitions)
-          monitor? (Boolean/parseBoolean monitor)
-          seed (Integer/parseInt seed)
-          prob (cond (= problem "tracking") tracking-problem
-                     (= problem "words") words-problem
-                     ;(= problem "circuit") circuit-problem
-                     :else nil)]
-      (set-seed seed)
-      (case action
-            "run"
-            (run-with-new-record prob control comparison paramsfile seed
-              datadir recordsdir nthreads monitor? repetitions)
-            "player"
-            (start-player prob datadir)
+    (if (= "" params)
+      (println "--params identifier required.")
+      (let [nthreads (Integer/parseInt nthreads)
+            repetitions (Integer/parseInt repetitions)
+            monitor? (Boolean/parseBoolean monitor)
+            seed (Integer/parseInt seed)
+            ps (read-params params)
+            problem (cond (= "Tracking" (:problem ps)) tracking-problem
+                          (= "Words" (:problem ps)) words-problem)]
+        (set-seed seed)
+        (case action
+              "run"
+              (run-with-new-record problem ps seed datadir recordsdir
+                nthreads monitor? repetitions)
+              "player"
+              (start-player problem datadir)
 
-            (println "No action given.")))))
+              (println "No action given."))))))
 
 
