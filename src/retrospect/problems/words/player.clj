@@ -8,31 +8,6 @@
 
 (def ld-label (label ""))
 
-(def param-spinners
-  {:MaxModelGrams (JSpinner. (SpinnerNumberModel. 1 1 10 1))})
-
-(defn player-get-params
-  []
-  (for [k (keys param-spinners)]
-    [k (->> (k param-spinners) .getModel .getNumber .intValue)]))
-
-(defn player-set-params
-  []
-  (doseq [k (keys param-spinners)]
-    (. (k param-spinners) setValue (k @params))))
-
-(defn player-get-params-panel
-  []
-  (panel :layout (GridBagLayout.)
-         :constrains (java.awt.GridBagConstraints.)
-         [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0
-          :fill :BOTH :insets (Insets. 5 5 5 5)
-          _ (label "MaxModelGrams:")
-          :gridx 1
-          _ (:MaxModelGrams param-spinners)
-          :gridy 1 :weighty 1.0
-          _ (panel)]))
-
 (defn player-get-stats-panel
   []
   (panel :layout (GridBagLayout.)
@@ -47,7 +22,7 @@
   []
   (if (> @time-now 0)
     (let [t (int (/ (dec @time-now) (:StepsBetween @params)))]
-      (. ld-label (setText (str (:LD (get (:results @or-state) t))))))
+      (. ld-label (setText (format "%.2f" (:LD (get (:results @or-state) t))))))
     (do (. ld-label (setText "N/A")))))
 
 (defn format-truedata-log

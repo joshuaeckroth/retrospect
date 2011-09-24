@@ -11,8 +11,7 @@
   (:use [retrospect.problems.tracking.hypotheses :only
          [hypothesize get-more-hyps commit-decision inconsistent]])
   (:use [retrospect.problems.tracking.player :only
-         [player-get-params player-set-params player-get-params-panel
-          player-get-stats-panel player-update-stats player-get-truedata-log
+         [player-get-stats-panel player-update-stats player-get-truedata-log
           player-get-problem-log player-setup-diagram player-update-diagram]])
   (:use [retrospect.problems.tracking.sensors :only
          [sensors-seen-grid]])
@@ -48,10 +47,7 @@
 (def tracking-problem
      (Problem. "Tracking"
                monitor
-               {:get-params-fn player-get-params
-                :set-params-fn player-set-params
-                :get-params-panel-fn player-get-params-panel
-                :get-stats-panel-fn player-get-stats-panel
+               {:get-stats-panel-fn player-get-stats-panel
                 :update-stats-fn player-update-stats
                 :get-truedata-log player-get-truedata-log
                 :get-problem-log player-get-problem-log

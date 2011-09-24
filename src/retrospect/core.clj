@@ -22,23 +22,27 @@
      [repetitions "Number of repetitions" "10"]
      [monitor "Activate monitor?" "false"]
      [seed "Seed" "0"]]
-    (if (= "" params)
-      (println "--params identifier required.")
-      (let [nthreads (Integer/parseInt nthreads)
-            repetitions (Integer/parseInt repetitions)
-            monitor? (Boolean/parseBoolean monitor)
-            seed (Integer/parseInt seed)
-            ps (read-params params)
-            problem (cond (= "Tracking" (:problem ps)) tracking-problem
-                          (= "Words" (:problem ps)) words-problem)]
-        (set-seed seed)
-        (case action
-              "run"
+    (let [seed (Integer/parseInt seed)]
+      (set-seed seed)
+      (cond (and (not= action "player") (= "" params))
+            (println "--params identifier required.")
+            
+            (= action "player")
+            (let [prob (cond (= "tracking" problem) tracking-problem
+                             (= "words" problem) words-problem)]
+              (start-player prob datadir))
+            
+            (= action "run")
+            (let [nthreads (Integer/parseInt nthreads)
+                  repetitions (Integer/parseInt repetitions)
+                  monitor? (Boolean/parseBoolean monitor)
+                  ps (read-params params)
+                  problem (cond (= "Tracking" (:problem ps)) tracking-problem
+                                (= "Words" (:problem ps)) words-problem)]
               (run-with-new-record problem ps seed datadir recordsdir
-                nthreads monitor? repetitions)
-              "player"
-              (start-player problem datadir)
-
-              (println "No action given."))))))
+                nthreads monitor? repetitions))
+            
+            :else
+            (println "No action given.")))))
 
 

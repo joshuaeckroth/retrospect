@@ -26,61 +26,6 @@
 (def percent-events-correct-label (label ""))
 (def mouse-xy (label "Grid ?, ?"))
 
-(def param-spinners
-     {:NumberEntities (JSpinner. (SpinnerNumberModel. 1 1 100 1))
-      :MaxWalk (JSpinner. (SpinnerNumberModel. 1 1 100 1))
-      :ProbNewEntities (JSpinner. (SpinnerNumberModel. 0 0 100 10))
-      :GridWidth (JSpinner. (SpinnerNumberModel. 30 1 100 1))
-      :GridHeight (JSpinner. (SpinnerNumberModel. 30 1 100 1))
-      :SensorCoverage (JSpinner. (SpinnerNumberModel. 100 0 100 10))
-      :SensorSeesColor (JSpinner. (SpinnerNumberModel. 100 0 100 10))})
-
-(defn player-get-params
-  []
-  (for [k (keys param-spinners)]
-    [k (->> (k param-spinners) .getModel .getNumber .intValue)]))
-
-(defn player-set-params
-  []
-  (doseq [k (keys param-spinners)]
-    (. (k param-spinners) setValue (k @params))))
-
-(defn player-get-params-panel
-  []
-  (panel :layout (GridBagLayout.)
-         :constrains (java.awt.GridBagConstraints.)
-         [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0
-          :fill :BOTH :insets (Insets. 5 5 5 5)
-          _ (label "NumberEntities:")
-          :gridx 1
-          _ (:NumberEntities param-spinners)
-          :gridx 0 :gridy 1
-          _ (label "MaxWalk:")
-          :gridx 1
-          _ (:MaxWalk param-spinners)
-          :gridx 0 :gridy 2
-          _ (label "ProbNewEntities:")
-          :gridx 1
-          _ (:ProbNewEntities param-spinners)
-          :gridx 0 :gridy 3
-          _ (label "GridWidth:")
-          :gridx 1
-          _ (:GridWidth param-spinners)
-          :gridx 0 :gridy 4
-          _ (label "GridHeight:")
-          :gridx 1
-          _ (:GridHeight param-spinners)
-          :gridx 0 :gridy 5
-          _ (label "SensorCoverage:")
-          :gridx 1
-          _ (:SensorCoverage param-spinners)
-          :gridx 0 :gridy 6
-          _ (label "SensorSeesColor:")
-          :gridx 1
-          _ (:SensorSeesColor param-spinners)
-          :gridy 7 :weighty 1.0
-          _ (panel)]))
-
 (defn draw-move [#^Graphics2D g oldx oldy newx newy color width]
   (let [oldpx (+ (* oldx @grid-cell-width) (/ @grid-cell-width 2))
 	oldpy (+ (* oldy @grid-cell-height) (/ @grid-cell-height 2))
@@ -205,9 +150,7 @@
           :gridx 1
           _ percent-events-correct-label
           :gridx 0 :gridy 2
-          _ mouse-xy
-          :gridy 3 :weighty 1.0
-          _ (panel)]))
+          _ mouse-xy]))
 
 (defn player-update-stats
   []

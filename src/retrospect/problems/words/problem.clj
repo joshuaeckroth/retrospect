@@ -9,8 +9,7 @@
   (:use [retrospect.problems.words.hypotheses :only
          [hypothesize get-more-hyps commit-decision inconsistent]])
   (:use [retrospect.problems.words.player :only
-         [player-get-params player-set-params player-get-params-panel
-          player-get-stats-panel player-update-stats player-get-truedata-log
+         [player-get-stats-panel player-update-stats player-get-truedata-log
           player-get-problem-log player-setup-diagram player-update-diagram]])
   (:use [retrospect.problems.words.monitor :only [monitor]])
   (:use [retrospect.problems.words.prepared :only [prepared-map]]))
@@ -32,25 +31,22 @@
    :history []})
 
 (def words-problem
-  (Problem. "Words"
-            monitor
-            {:get-params-fn player-get-params
-            :set-params-fn player-set-params
-            :get-params-panel-fn player-get-params-panel
-            :get-stats-panel-fn player-get-stats-panel
-            :update-stats-fn player-update-stats
-            :get-truedata-log player-get-truedata-log
-            :get-problem-log player-get-problem-log
-            :setup-diagram-fn player-setup-diagram
-            :update-diagram-fn player-update-diagram}
-            generate-truedata
-            generate-sensors
-            prepared-map
-            hypothesize
-            get-more-hyps
-            commit-decision
-            generate-problem-data
-            inconsistent
-            evaluate
-            evaluate-comparative))
+     (Problem. "Words"
+               monitor
+               {:get-stats-panel-fn player-get-stats-panel
+                :update-stats-fn player-update-stats
+                :get-truedata-log player-get-truedata-log
+                :get-problem-log player-get-problem-log
+                :setup-diagram-fn player-setup-diagram
+                :update-diagram-fn player-update-diagram}
+               generate-truedata
+               generate-sensors
+               prepared-map
+               hypothesize
+               get-more-hyps
+               commit-decision
+               generate-problem-data
+               inconsistent
+               evaluate
+               evaluate-comparative))
 

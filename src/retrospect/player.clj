@@ -6,6 +6,7 @@
   (:use [clj-swing.panel])
   (:use [clj-swing.button])
   (:use [clj-swing.combo-box])
+  (:use [retrospect.database :only [get-params list-params]])
   (:use [retrospect.problem :only [run-simulation-step]])
   (:use [retrospect.state])
   (:use [retrospect.gui.eptree :only [ep-tree-tab update-ep-tree]])
@@ -21,6 +22,8 @@
   (:use [retrospect.random :only [set-seed]]))
 
 (def prepared-selected (atom "None"))
+(def all-params (ref nil))
+(def params-selected (atom nil))
 (def ep-list (ref '[]))
 (def ep-selected (atom nil))
 (def steplabel (label ""))
@@ -30,27 +33,6 @@
 
 (defn get-seed [] (->> seed-spinner .getModel .getNumber .intValue))
 (defn set-seed-spinner [seed] (. seed-spinner setValue seed))
-
-(def param-spinners
-  {:Steps (JSpinner. (SpinnerNumberModel. 50 1 1000 1))
-   :StepsBetween (JSpinner. (SpinnerNumberModel. 1 1 1000 1))
-   :Threshold (JSpinner. (SpinnerNumberModel. 25 0 100 25))
-   :SensorNoise (JSpinner. (SpinnerNumberModel. 0 0 100 10))
-   :BeliefNoise (JSpinner. (SpinnerNumberModel. 0 0 100 10))})
-
-(defn get-params
-  []
-  (apply hash-map (flatten (concat ((:get-params-fn (:player-fns @problem)))
-                                   (for [k (keys param-spinners)]
-                                     [k (->> (k param-spinners)
-                                             .getModel .getNumber .intValue)])))))
-
-(defn set-params
-  []
-  ((:set-params-fn (:player-fns @problem)))
-  (set-seed-spinner (if (:Seed @params) (:Seed @params) 1))
-  (doseq [k (keys param-spinners)]
-    (. (k param-spinners) setValue (k @params))))
 
 (defn update-everything
   []
@@ -76,7 +58,7 @@
   []
   (let [prepared? (and (not (nil? @prepared-selected))
                        (not= "None" @prepared-selected))
-        ps (get-params)]
+        ps (get-params @params-selected)]
     (set-seed (get-seed))
     (set-last-id 0)
     (when (not prepared?)
@@ -105,9 +87,9 @@
        (alter truedata (constantly td))
        (alter sensors (constantly sens))
        (alter or-state (constantly (init-one-run-state
-                                    sens ((:gen-problem-data-fn @problem) sens @datadir ps)))))
-      (update-everything)
-      (set-params))))
+                                    sens ((:gen-problem-data-fn @problem)
+                                          sens @datadir ps)))))
+      (update-everything))))
 
 (defn goto-ep-state-action
   []
@@ -130,34 +112,6 @@
   (when (< @time-now (:Steps @params))
     (step)))
 
-(def generic-params
-  (panel :layout (GridBagLayout.)
-         :constrains (java.awt.GridBagConstraints.)
-         [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0
-          :fill :BOTH :insets (Insets. 5 5 5 5)
-          :gridy 1
-          _ (label "Steps:")
-          :gridx 1
-          _ (:Steps param-spinners)
-          :gridx 0 :gridy 2
-          _ (label "StepsBetween:")
-          :gridx 1
-          _ (:StepsBetween param-spinners)
-          :gridx 0 :gridy 3
-          _ (label "Threshold:")
-          :gridx 1
-          _ (:Threshold param-spinners)
-          :gridx 0 :gridy 4
-          _ (label "SensorNoise:")
-          :gridx 1
-          _ (:SensorNoise param-spinners)
-          :gridx 0 :gridy 5
-          _ (label "BeliefNoise:")
-          :gridx 1
-          _ (:BeliefNoise param-spinners)
-          :gridy 6 :weighty 1.0
-          _ (panel)]))
-
 (defn mainframe
   []
   (frame :title "Player"
@@ -166,7 +120,7 @@
          :size [1000 700]
          :show true
          :on-close :dispose
-         [:gridx 0 :gridy 0 :gridheight 8 :weightx 1.0 :weighty 1.0
+         [:gridx 0 :gridy 0 :gridheight 9 :weightx 1.0 :weighty 1.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
           _ (doto (JTabbedPane.)
               (.addTab "Problem diagram" problem-diagram)
@@ -184,21 +138,16 @@
           :gridx 1 :gridy 1
           _ (button "Set prepared" :action ([_] (set-prepared-action)))
 
-          :gridx 1 :gridy 2 :gridwidth 1
+          :gridx 1 :gridy 2
+          _ (combo-box
+             [] :model (seq-ref-combobox-model all-params params-selected))
+
+          :gridx 1 :gridy 3 :gridwidth 1
           _ (label "Seed")
-          :gridx 2 :gridy 2
+          :gridx 2
           _ seed-spinner
 
-          :gridx 1 :gridy 3 :gridwidth 2 :weighty 1.0
-          _ (doto (JTabbedPane.)
-              (.setMinimumSize (Dimension. 220 0))
-              (.addTab "Generic"
-                       (scroll-panel generic-params))
-              (.addTab (:name @problem)
-                       (scroll-panel
-                        ((:get-params-panel-fn (:player-fns @problem))))))
-          
-          :gridx 1 :gridy 4 :gridwidth 1 :weighty 0.0
+          :gridx 1 :gridy 4
           _ (button "New" :action ([_] (new-simulation)))
           :gridx 2
           _ (button "Next" :action ([_] (next-step)))
@@ -214,15 +163,19 @@
           _ steplabel
 
           :gridx 1 :gridy 7
-          _ ((:get-stats-panel-fn (:player-fns @problem)))]))
+          _ ((:get-stats-panel-fn (:player-fns @problem)))
+
+          :gridy 8 :weighty 1.0
+          _ (panel)]))
 
 (defn start-player
   [prob ddir & opts]
 
   (dosync
+   (alter all-params (constantly (list-params prob)))
    (alter problem (constantly prob))
-   (alter datadir (constantly ddir))
-   (alter params (constantly (get-params))))
+   (alter datadir (constantly ddir)))
+  (swap! params-selected (constantly (first @all-params)))
 
   (let [options (apply hash-map opts)]
     (when (:monitor options)
@@ -231,8 +184,7 @@
        (alter or-state (constantly (:or-state options)))
        (alter sensors (constantly (:sensors options)))
        (alter truedata (constantly (:truedata options))))
-      (update-everything)
-      (set-params))
+      (update-everything))
     (when (not (:monitor options))
       (new-simulation))
     ((:setup-diagram-fn (:player-fns @problem)) problem-diagram)
