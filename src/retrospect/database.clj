@@ -30,16 +30,19 @@
 (defn read-params
   [params-string]
   (let [[problem name] (str/split #"/" params-string)
-        params (:player (:value (first (:rows (clutch/with-db local-couchdb
-                                                (clutch/ad-hoc-view
-                                                 (clutch/with-clj-view-server
-                                                   {:map (fn [doc]
-                                                           (when (= "parameters" (:type doc))
-                                                             [[[(:problem doc) (:name doc)] doc]]))})
-                                                 {:key [problem name]}))))))]
-    (read-string params)))
+        params (:value (first (:rows (clutch/with-db local-couchdb
+                                       (clutch/ad-hoc-view
+                                        (clutch/with-clj-view-server
+                                          {:map (fn [doc]
+                                                  (when (= "parameters" (:type doc))
+                                                    [[[(:problem doc) (:name doc)] doc]]))})
+                                        {:key [problem name]})))))]
+    (-> params
+        (update-in [:control] read-string)
+        (update-in [:comparison] read-string)
+        (update-in [:player] read-string))))
 
-(defn get-params
+(defn get-player-params
   [pname]
   (let [[problem name] (str/split #"/" pname)]
     (read-string

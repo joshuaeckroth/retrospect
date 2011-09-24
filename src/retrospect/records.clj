@@ -51,10 +51,12 @@
       (.mkdir (File. recorddir))
       (println "done.")
       (print "Creating new database record...")
-      (db/new-active (merge {:type "run" :time t :paramsid (:_id params) :paramsname (:name params)
+      (db/new-active (merge {:type "run" :time t :paramsid (:_id params) :paramsrev (:_rev params)
+                             :paramsname (format "%s/%s" (:name problem) (:name params))
                              :datadir datadir :recorddir recorddir :nthreads nthreads
                              :pwd (pwd) :monitor monitor? :repetitions repetitions
                              :hostname (.getHostName (java.net.InetAddress/getLocalHost))
+                             :username (System/getProperty "user.name")
                              :problem (:name problem) :seed seed}
                             (git-meta-info)))
       (println "done.")
@@ -66,6 +68,3 @@
       (println "Done."))
     (catch java.util.concurrent.ExecutionException e
       (println "Quitting early."))))
-
-
-

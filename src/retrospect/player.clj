@@ -6,7 +6,7 @@
   (:use [clj-swing.panel])
   (:use [clj-swing.button])
   (:use [clj-swing.combo-box])
-  (:use [retrospect.database :only [get-params list-params]])
+  (:use [retrospect.database :only [get-player-params list-params]])
   (:use [retrospect.problem :only [run-simulation-step]])
   (:use [retrospect.state])
   (:use [retrospect.gui.eptree :only [ep-tree-tab update-ep-tree]])
@@ -58,7 +58,7 @@
   []
   (let [prepared? (and (not (nil? @prepared-selected))
                        (not= "None" @prepared-selected))
-        ps (get-params @params-selected)]
+        ps (get-player-params @params-selected)]
     (set-seed (get-seed))
     (set-last-id 0)
     (when (not prepared?)
