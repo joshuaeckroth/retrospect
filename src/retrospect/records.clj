@@ -31,9 +31,11 @@
 
 (defn git-meta-info
   []
-  (let [[commit _ _ _ & msg] (split-lines (sh "/usr/bin/git" "log" "-n" "1"))]
+  (let [[commit _ _ _ & msg] (split-lines (sh "/usr/bin/git" "log" "-n" "1"))
+        branch (subs (sh "/usr/bin/git" "branch" "--contains") 2)]
     {:commit (subs commit 7)
-     :commit-msg (apply str (interpose "\n" (map (fn [s] (subs s 4)) msg)))}))
+     :commit-msg (apply str (interpose "\n" (map (fn [s] (subs s 4)) msg)))
+     :branch branch}))
 
 (defn run-with-new-record
   "Create a new folder for storing run data and execute the run."
