@@ -2,6 +2,7 @@
   (:gen-class)
   (:use [clojure.contrib.command-line :only [with-command-line]])
   (:use [retrospect.random])
+  (:require [retrospect.state :as state])
   (:use [retrospect.database :only [read-params]])
   (:use [retrospect.problems.tracking.problem :only [tracking-problem]])
   (:use [retrospect.problems.words.problem :only [words-problem]])
@@ -21,26 +22,36 @@
      [nthreads "Number of threads" "1"]
      [repetitions "Number of repetitions" "10"]
      [monitor "Activate monitor?" "false"]
-     [seed "Seed" "0"]]
+     [seed "Seed" "0"]
+     [database "Database identifier" "http://sisyphus:sisyphus@127.0.0.1:5984/retrospect"]]
     (let [seed (Integer/parseInt seed)]
       (set-seed seed)
+      (dosync
+       (alter state/datadir (constantly datadir))
+       (alter state/database (constantly database)))
       (cond (and (not= action "player") (= "" params))
             (println "--params identifier required.")
             
             (= action "player")
-            (let [prob (cond (= "tracking" problem) tracking-problem
-                             (= "words" problem) words-problem)]
-              (start-player prob datadir))
+            (let [prob (cond (or (= "Tracking" problem) (= "tracking" problem))
+                             tracking-problem
+                             (or (= "Words" problem) (= "words" problem))
+                             words-problem)]
+              (dosync
+               (alter state/problem (constantly prob)))
+              (start-player))
             
             (= action "run")
             (let [nthreads (Integer/parseInt nthreads)
                   repetitions (Integer/parseInt repetitions)
                   monitor? (Boolean/parseBoolean monitor)
                   ps (read-params params)
-                  problem (cond (= "Tracking" (:problem ps)) tracking-problem
-                                (= "Words" (:problem ps)) words-problem)]
-              (run-with-new-record problem ps seed datadir recordsdir
-                nthreads monitor? repetitions))
+                  prob (cond (= "Tracking" (:problem ps)) tracking-problem
+                             (= "Words" (:problem ps)) words-problem)]
+              (dosync
+               (alter state/problem (constantly prob))
+               (alter state/params (constantly ps)))
+              (run-with-new-record seed recordsdir nthreads monitor? repetitions))
             
             :else
             (println "No action given.")))))

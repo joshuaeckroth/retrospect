@@ -12,7 +12,8 @@
   (:use [loom.graph :only
          [digraph add-edges remove-edges remove-nodes nodes edges
           incoming neighbors]])
-  (:use [loom.attr :only [add-attr attr]]))
+  (:use [loom.attr :only [add-attr attr]])
+  (:use [retrospect.state]))
 
 (def compute 0)
 (def memory 0)
@@ -356,13 +357,13 @@
 (defn hypothesize
   "Process sensor reports, then make hypotheses for all possible movements,
    and add them to the epistemic state."
-  [ep-state sensors time-now params]
+  [ep-state sensors time-now]
   (binding [compute 0 memory 0]
     (let [paths (:paths (:problem-data ep-state))
           path-heads (get-path-heads paths)
           entity-hyps (make-known-entities-hyps
-                       paths time-now (:StepsBetween params))
-          ep-entities (reduce #(add-fact %1 %2 [] params) ep-state entity-hyps)
+                       paths time-now (:StepsBetween @params))
+          ep-entities (reduce #(add-fact %1 %2 []) ep-state entity-hyps)
           ep (process-sensors ep-entities sensors time-now)
           sg (:spotted-grid (:problem-data ep))
           uncovered (set/union (set path-heads) (:uncovered (:problem-data ep)))]
@@ -382,7 +383,7 @@
                                        [(attr paths-graph det det2 :hyp)
                                         (attr paths-graph det det2 :explains)])
                                      (edges paths-graph))]
-            [(reduce (fn [ep [hyp explains]] (add-hyp ep hyp explains params))
+            [(reduce (fn [ep [hyp explains]] (add-hyp ep hyp explains))
                      ep-paths-graph consistent-hyps)
              {:compute compute :memory memory}])
           ;; take the first uncovered detection, and make movement hyps out of it
@@ -394,7 +395,7 @@
                    (rest unc))))))))
 
 (defn get-more-hyps
-  [ep-state params]
+  [ep-state]
   (let [hyps (:split-merge-hyps (:problem-data ep-state))
         paths (:paths (:problem-data ep-state))
         path-heads (get-path-heads paths)
@@ -405,7 +406,7 @@
                (assoc-in [:problem-data :split-merge-hyps] [])
                (assoc-in [:problem-data :paths-graph] new-paths-graph)
                (update-in [:problem-data :count-removed] + count-removed))]
-    (reduce (fn [ep [hyp explains]] (add-more-hyp ep hyp explains params)) ep hyps)))
+    (reduce (fn [ep [hyp explains]] (add-more-hyp ep hyp explains)) ep hyps)))
 
 (defn path-to-movements
   [path]

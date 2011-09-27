@@ -5,7 +5,8 @@
   (:require [clojure.contrib.math :as math])
   (:use [retrospect.problem :only [run]])
   (:use [retrospect.random])
-  (:require [retrospect.database :as db]))
+  (:require [retrospect.database :as db])
+  (:use [retrospect.state]))
 
 (defn format-time
   [seconds]
@@ -47,7 +48,7 @@
                      [\newline])))
 
 (defn write-csv
-  [results-type filename problem results]
+  [results-type filename results]
   (let [new-file? (not (. (io/file filename) exists))]
     (with-open [writer (io/writer filename :append true)]
       (when new-file?
@@ -56,24 +57,25 @@
                                           (sort (keys results))))))))
 
 (defn run-partition
-  [problem monitor? recorddir datadir paired-params]
+  [monitor? recdir paired-params]
   (when (not-empty paired-params)
     (let [[control-results comparison-results comparative-results]
-          (run problem monitor? datadir (first paired-params))]
-      (db/put-results-row :control control-results)
-      (db/put-results-row :comparative comparative-results)
-      (db/put-results-row :comparison comparison-results)
-      (write-csv :control (str recorddir "/control-results.csv")
-                 problem control-results)
-      (write-csv :comparison (str recorddir "/comparison-results.csv")
-                 problem comparison-results)
-      (write-csv :comparative (str recorddir "/comparative-results.csv")
-                 problem comparative-results)
+          (run monitor? (first paired-params))]
+      (when (not= "" @database)
+        (db/put-results-row :control control-results)
+        (db/put-results-row :comparative comparative-results)
+        (db/put-results-row :comparison comparison-results))
+      (write-csv :control (str recdir "/control-results.csv")
+                 control-results)
+      (write-csv :comparison (str recdir "/comparison-results.csv")
+                 comparison-results)
+      (write-csv :comparative (str recdir "/comparative-results.csv")
+                 comparative-results)
       (dosync (alter progress inc))
-      (recur problem monitor? recorddir datadir (rest paired-params)))))
+      (recur monitor? recdir (rest paired-params)))))
 
 (defn run-partitions
-  [problem paired-params recorddir datadir nthreads monitor? repetitions]
+  [paired-params recdir nthreads monitor? repetitions]
   (let [sim-count (* repetitions (count paired-params))]
     (send (agent sim-count) check-progress sim-count (.getTime (Date.))))
   (let [repeated-paired-params (mapcat (fn [pp] (repeat repetitions pp)) paired-params)
@@ -83,6 +85,5 @@
         partitions (partition-all (math/ceil (/ (count seeded-paired-params) nthreads))
                                   (my-shuffle seeded-paired-params))
         workers (doall (for [part partitions]
-                         (future (run-partition problem monitor? recorddir datadir part))))]
+                         (future (run-partition monitor? recdir part))))]
     (doall (pmap (fn [w] @w) workers))))
-

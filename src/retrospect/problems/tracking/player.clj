@@ -26,7 +26,8 @@
 (def percent-events-correct-label (label ""))
 (def mouse-xy (label "Grid ?, ?"))
 
-(defn draw-move [#^Graphics2D g oldx oldy newx newy color width]
+(defn draw-move
+  [#^Graphics2D g oldx oldy newx newy color width]
   (let [oldpx (+ (* oldx @grid-cell-width) (/ @grid-cell-width 2))
 	oldpy (+ (* oldy @grid-cell-height) (/ @grid-cell-height 2))
 	newpx (+ (* newx @grid-cell-width) (/ @grid-cell-width 2))
@@ -36,7 +37,8 @@
       (.setStroke (BasicStroke. width))
       (.drawLine oldpx oldpy newpx newpy))))
 
-(defn draw-movements [#^Graphics2D g entity]
+(defn draw-movements
+  [#^Graphics2D g entity]
   (let [entity-at (fn [t] (find-entity (nth @truedata t) entity))]
     (doseq [t (range @time-prev @time-now)]
       (when-let [old-e (if (> t 0) (entity-at (dec t)))]
@@ -47,14 +49,16 @@
               width (double (+ 2 (* 5 (/ degree 255))))]
           (draw-move g ox oy x y (var-color degree) width))))))
 
-(defn fill-cell [#^Graphics2D g x y color]
+(defn fill-cell
+  [#^Graphics2D g x y color]
   (doto g
     (.setColor color)
     (.fillRect (* x @grid-cell-width)
                (* y @grid-cell-height)
                @grid-cell-width @grid-cell-height)))
 
-(defn fill-cell-entities [#^Graphics2D g x y es]
+(defn fill-cell-entities
+  [#^Graphics2D g x y es]
   (let [width (ceil (/ @grid-cell-width (count es)))]
     (doseq [i (range (count es))]
       (let [e (nth es i)
@@ -71,7 +75,8 @@
           ;; draw movement
           (draw-movements e))))))
 
-(defn draw-grid [g]
+(defn draw-grid
+  [g]
   (dorun
    (for [x (range @grid-width) y (range @grid-height)]
      (fill-cell g x y white)))
@@ -90,7 +95,8 @@
            (when (not-empty es-here)
              (fill-cell-entities g x y es-here))))))))
 
-(defn render [g]
+(defn render
+  [g]
   (dosync
    (alter diagram-width (constantly (.. g (getClipBounds) width)))
    (alter diagram-height (constantly (.. g (getClipBounds) height)))

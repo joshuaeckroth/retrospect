@@ -3,7 +3,8 @@
   (:use [retrospect.colors])
   (:use [retrospect.problems.tracking.grid])
   (:use [clojure.contrib.seq :only [find-first]])
-  (:require [clojure.set :as set]))
+  (:require [clojure.set :as set])
+  (:use [retrospect.state]))
 
 (defn add-new-entities
   [grid numes]
@@ -36,7 +37,7 @@
                            (apply str (interpose "\n" dc-strs))))))
 
 (defn generate-truedata
-  [datadir params]
+  [params]
   (let [grid (add-new-entities (new-grid (:GridWidth params) (:GridHeight params))
                                (:NumberEntities params))]
     (loop [time 1

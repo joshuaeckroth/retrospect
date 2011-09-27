@@ -2,7 +2,8 @@
   (:use [retrospect.evaluate :only [calc-ratio-increase]])
   (:use [retrospect.problems.tracking.hypotheses :only [paths-to-movements]])
   (:use [retrospect.problems.tracking.truedata :only [true-movements]])
-  (:require [clojure.set :as set]))
+  (:require [clojure.set :as set])
+  (:use [retrospect.state]))
 
 (defn percent-events-correct-wrong
   [pdata true-moves]
@@ -36,7 +37,7 @@
                     (+ true-neg true-pos false-neg false-pos))))])))
 
 (defn evaluate
-  [ep-state results sensors truedata params]
+  [ep-state results sensors truedata]
   (let [maxtime (min (dec (dec (count truedata))) (dec (dec (:time ep-state))))
         true-moves (true-movements truedata maxtime)
         [pec pew] (percent-events-correct-wrong (:problem-data ep-state) true-moves)

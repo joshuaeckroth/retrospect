@@ -4,7 +4,8 @@
   (:require [clojure.set :as set])
   (:use [loom.graph :only
          [digraph nodes incoming neighbors weight
-          add-nodes add-edges remove-nodes edges]]))
+          add-nodes add-edges remove-nodes edges]])
+  (:use [retrospect.state]))
 
 (def last-id 0)
 
@@ -144,7 +145,7 @@
    explainers are sorted by conf (best first), and the seq of seqs is
    sorted by difference between first- and second-best alternatives,
    so that first seq of alts in seq of seqs has greatest difference."
-  ([workspace params]
+  ([workspace]
      (let [g (:graph workspace)
            build-seq (fn [trans?]
                        (reverse
@@ -155,12 +156,12 @@
                                                            (incoming g %)))
                                            (find-unexplained workspace))))))]
        {:immediate (build-seq false)
-        :transitive (if-not (:TransitiveExplanation params) [] (build-seq true))}))
-  ([workspace hyp params & opts]
+        :transitive (if-not (:TransitiveExplanation @params) [] (build-seq true))}))
+  ([workspace hyp & opts]
      (let [g (if (some #{:static} opts)
                (:graph-static workspace)
                (:graph workspace))]
-       (if (:TransitiveExplanation params)
+       (if (:TransitiveExplanation @params)
          (set/union (incoming g hyp) (incoming-transitive g hyp))
          (incoming g hyp)))))
 
@@ -198,15 +199,15 @@
    :conflict keyword, except if the keyword is :shared-explains. In that case,
    the hyp conflicts with any other that also indicates :shared-explains and
    shares at least one explainer."
-  [workspace hyp params & opts]
+  [workspace hyp & opts]
   (let [g (if (some #{:static} opts)
             (:graph-static workspace)
             (:graph workspace))
         ;; a hyp can't conflict with what it explains and what
         ;; explains it, so remove those hyps first
         hyps (set/difference (nodes g)
-                             (apply find-explainers workspace hyp params opts)
-                             (apply find-explains workspace hyp params opts))
+                             (apply find-explainers workspace hyp opts)
+                             (apply find-explains workspace hyp opts))
         c (:conflict hyp)]
     (cond
       ;; no conflict id; so it conflicts with nothing
@@ -232,7 +233,7 @@
 
 ;; TODO: Update for green entity colors
 (defn dot-format
-  [workspace boxed best params]
+  [workspace boxed best]
   (let [id #(format "%s %s" (:id %) (confidence-str (hyp-conf workspace %)))
         acc (concat (:accepted workspace) (:forced workspace))
         rej (concat (:rejected workspace))
@@ -258,7 +259,7 @@
          (format "\"%s\" [color=\"blue\", fontcolor=\"blue\", shape=\"box\"];"
                  (id best)))
      (if (nil? best) ""
-         (let [conflicts (find-conflicts workspace best params)]
+         (let [conflicts (find-conflicts workspace best)]
            (apply str ""
                   (map #(format "\"%s\" -> \"%s\" [arrowhead=\"box\"; color=\"red\"];\n"
                                 (id acc) (id %)) conflicts))))
@@ -270,7 +271,7 @@
    forced hyp. However, if the hyp is to be added, add all its explain
    edges to the static graph, but only those unexplained edges to the
    live graph."
-  [workspace hyp explains params & opts]
+  [workspace hyp explains & opts]
   (let [gtype (if (some #{:static} opts)
                 :graph-static
                 :graph)
@@ -295,7 +296,7 @@
                              #(apply add-edges % (map (fn [e] [hyp e]) expl)))
                   (update-in [:hyp-confidences] assoc hyp (:apriori hyp))
                   (update-in [:log :added] conj {:hyp hyp :explains expl}))
-              conflicts (find-conflicts ws hyp params :static)]
+              conflicts (find-conflicts ws hyp :static)]
           ;; abort if added hyp conflicts with something accepted or forced
           (if (or (not-empty (set/intersection conflicts (:accepted ws)))
                   (not-empty (set/intersection conflicts (:forced ws))))
@@ -312,13 +313,13 @@
         (update-in [:log :final :rejected] concat rejectable))))
 
 (defn accept
-  [workspace hyp inconsistent pdata params]
+  [workspace hyp pdata]
   (let [g (:graph workspace)
         removable (concat (neighbors g hyp)
                           (if (empty? (incoming g hyp)) [hyp] []))
         ;; must find conflicts in original workspace, before explained
         ;; hyps are removed
-        conflicts (find-conflicts workspace hyp params)
+        conflicts (find-conflicts workspace hyp)
         new-g (apply remove-nodes g removable)
         ws (-> workspace
              (update-in [:hyp-log hyp] conj
@@ -329,12 +330,10 @@
              (assoc :graph new-g))]
     (loop [ws (reject-many ws conflicts)
            rejected #{}]
-      (let [incon (set/difference
-                   (set (inconsistent
-                         pdata (set/union (:accepted ws)
-                                          (apply concat (find-explainers ws params)))
-                         (:rejected ws)))
-                   rejected)]
+      (let [hyps (set/union (:accepted ws)
+                            (apply concat (find-explainers ws)))
+            incon (set/difference (set ((:inconsistent-fn @problem) pdata hyps (:rejected ws)))
+                                  rejected)]
         (if (not-empty incon)
           (recur (reject-many ws incon) (set/union rejected (set incon)))
           (update-in ws [:log :accrej (:cycle workspace)] conj
@@ -343,7 +342,7 @@
 (defn transitive-accept
   "Need to accept the transitive explainer last (so what it explains
    can be accepted first and remove what they explain)."
-  [workspace hyp inconsistent pdata params]
+  [workspace hyp pdata]
   (loop [acceptable [hyp]
          ws workspace]
     (if (empty? acceptable) ws
@@ -352,7 +351,7 @@
                                         (:forced ws) (:accepted ws))]
           (if (empty? explained)
             ;; nothing else to push to the front of the queue, so accept 'accept-later' hyp
-            (recur (rest acceptable) (accept ws accept-later inconsistent pdata params))
+            (recur (rest acceptable) (accept ws accept-later pdata))
             ;; otherwise, have something to accept first; put in front of queue
             (recur (concat explained acceptable) ws))))))
 
@@ -451,17 +450,17 @@
           :else best-transitive)))
 
 (defn explain
-  [workspace inconsistent pdata params]
+  [workspace pdata]
   (loop [ws workspace]
     (if (empty? (edges (:graph ws))) (log-final ws)
-        (let [explainers (find-explainers ws params)]
+        (let [explainers (find-explainers ws)]
           (if (and (empty? (:immediate explainers))
                    (empty? (:transitive explainers)))
             (log-final ws)
             (let [ws-confs (update-confidences ws (:immediate explainers))
-                  explainers-updated (find-explainers ws-confs params)
+                  explainers-updated (find-explainers ws-confs)
                   {:keys [best alts essential? transitive? delta]}
-                  (find-best-multi ws-confs explainers-updated (/ (:Threshold params) 100.0))]
+                  (find-best-multi ws-confs explainers-updated (/ (:Threshold @params) 100.0))]
               (if-not best
                 (log-final ws-confs)
                 (recur
@@ -473,5 +472,5 @@
                                                  :essential? essential?
                                                  :transitive? transitive? :delta delta}))]
                    (if transitive?
-                     (transitive-accept ws-logged best inconsistent pdata params)
-                     (accept ws-logged best inconsistent pdata params)))))))))))
+                     (transitive-accept ws-logged best pdata)
+                     (accept ws-logged best pdata)))))))))))

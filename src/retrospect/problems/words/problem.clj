@@ -12,7 +12,8 @@
          [player-get-stats-panel player-update-stats player-get-truedata-log
           player-get-problem-log player-setup-diagram player-update-diagram]])
   (:use [retrospect.problems.words.monitor :only [monitor]])
-  (:use [retrospect.problems.words.prepared :only [prepared-map]]))
+  (:use [retrospect.problems.words.prepared :only [prepared-map]])
+  (:use [retrospect.state]))
 
 (defn read-model-csv
   [file]
@@ -20,11 +21,11 @@
           (map #(str/split % #",") (str/split-lines (slurp file)))))
 
 (defn generate-problem-data
-  [sensors datadir params]
-  {:dictionary (str/split-lines (slurp (str datadir "/words/dictionary.txt")))
+  [sensors params]
+  {:dictionary (str/split-lines (slurp (str @datadir "/words/dictionary.txt")))
    :models (zipmap (range 1 (inc (:MaxModelGrams params)))
                    (for [n (range 1 (inc (:MaxModelGrams params)))]
-                     (read-model-csv (str datadir (format "/words/model-%d.csv" n)))))
+                     (read-model-csv (str @datadir (format "/words/model-%d.csv" n)))))
    :left-off -1
    :indexed-letters []
    :accepted []

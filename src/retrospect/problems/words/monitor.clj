@@ -1,5 +1,5 @@
 (ns retrospect.problems.words.monitor)
 
 (defn monitor
-  [problem truedata sensors or-state params]
+  [truedata sensors or-state]
   or-state)

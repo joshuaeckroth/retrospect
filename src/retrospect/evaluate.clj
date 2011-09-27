@@ -1,5 +1,6 @@
 (ns retrospect.evaluate
-  (:use [retrospect.epistemicstates :only [current-ep-state previous-ep-state]]))
+  (:use [retrospect.epistemicstates :only [current-ep-state previous-ep-state]])
+  (:use [retrospect.state]))
 
 (defn add-to-prior
   [results key val]
@@ -25,7 +26,7 @@
      increase-field (calc-increase control-results comparison-results field)}))
 
 (defn evaluate
-  [problem truedata or-state params]
+  [truedata or-state]
   (let [ep-state (current-ep-state (:ep-state-tree or-state))
         prev-ep (previous-ep-state (:ep-state-tree or-state))
         final-log (:final (:log (:workspace prev-ep)))
@@ -33,9 +34,9 @@
         resources (:resources or-state)]
     (update-in
      or-state [:results] conj
-     (merge {:Problem (:name problem)}
-            params
-            ((:evaluate-fn problem) ep-state results (:sensors or-state) truedata params)
+     (merge {:Problem (:name @problem)}
+            @params
+            ((:evaluate-fn @problem) ep-state results (:sensors or-state) truedata)
             {:Step (:time ep-state)
              :MetaActivations (:meta-activations resources)
              :Milliseconds (add-to-prior results :Milliseconds (:milliseconds resources)) 
@@ -53,12 +54,12 @@
           (vals params)))
 
 (defn evaluate-comparative
-  [problem control-results comparison-results control-params comparison-params]
+  [control-results comparison-results control-params comparison-params]
   (apply merge
-         {:Problem (:name problem)}
+         {:Problem (:name @problem)}
          (prefix-params "Control" control-params)
          (prefix-params "Comparison" comparison-params)
-         ((:evaluate-comparative-fn problem) control-results comparison-results
+         ((:evaluate-comparative-fn @problem) control-results comparison-results
           control-params comparison-params)
          (map #(calc-ratio-increase control-results comparison-results %)
               [:MetaActivations :Milliseconds :SharedExplains :Unexplained

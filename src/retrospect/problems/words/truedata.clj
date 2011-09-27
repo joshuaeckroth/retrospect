@@ -1,6 +1,7 @@
 (ns retrospect.problems.words.truedata
   (:require [clojure.string :as str])
-  (:use [retrospect.random]))
+  (:use [retrospect.random])
+  (:use [retrospect.state]))
 
 (defn rand-char
   []
@@ -13,10 +14,10 @@
   (map #(if (< (my-rand) sensor-noise) (rand-char) %) letters))
 
 (defn generate-truedata
-  [datadir params]
+  [params]
   (let [start (my-rand-int 10000)
-        truedata-all (str/split (slurp (str datadir "/words/truedata.txt")) #" ")
-        ambiguous (take (:Steps params) (drop start (seq (slurp (str datadir "/words/ambiguous.txt"))))) 
+        truedata-all (str/split (slurp (str @datadir "/words/truedata.txt")) #" ")
+        ambiguous (take (:Steps params) (drop start (seq (slurp (str @datadir "/words/ambiguous.txt"))))) 
         [td prefix] (loop [td truedata-all
                            i 0]
                       (cond (= i start) [(take (:Steps params) td) []] 

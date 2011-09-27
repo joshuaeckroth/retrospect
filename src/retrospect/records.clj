@@ -10,7 +10,8 @@
   (:use [clojure.java.io :as io :only [writer reader copy]])
   (:use [clojure.string :only [split-lines trim]])
   (:use [retrospect.local :only [run-partitions]])
-  (:require [retrospect.database :as db]))
+  (:require [retrospect.database :as db])
+  (:use [retrospect.state]))
 
 (defn vectorize-params
   [params]
@@ -32,41 +33,40 @@
 (defn git-meta-info
   []
   (let [[commit _ _ _ & msg] (split-lines (sh "/usr/bin/git" "log" "-n" "1"))
-        branch (subs (sh "/usr/bin/git" "branch" "--contains") 2)]
+        branch (trim (subs (sh "/usr/bin/git" "branch" "--contains") 2))]
     {:commit (subs commit 7)
      :commit-msg (apply str (interpose "\n" (map (fn [s] (subs s 4)) msg)))
      :branch branch}))
 
 (defn run-with-new-record
   "Create a new folder for storing run data and execute the run."
-  [problem params seed datadir recordsdir nthreads monitor? repetitions]
+  [seed recordsdir nthreads monitor? repetitions]
   (try
     (let [t (. System (currentTimeMillis))
-          recorddir (str recordsdir "/" t)
-          control-params (explode-params (vectorize-params (:control params)))
-          comparison-params (explode-params (vectorize-params (:comparison params)))
+          recdir (str recordsdir "/" t)
+          control-params (explode-params (vectorize-params (:control @params)))
+          comparison-params (explode-params (vectorize-params (:comparison @params)))
           paired-params (partition 2 (interleave control-params comparison-params))]
       (when (not= (count control-params) (count comparison-params))
         (println "Control/comparison param counts are not equal.")
         (System/exit -1))
-      (print (format "Making new directory %s..." recorddir))
-      (.mkdir (File. recorddir))
+      (print (format "Making new directory %s..." recdir))
+      (.mkdir (File. recdir))
       (println "done.")
       (print "Creating new database record...")
-      (db/new-active (merge {:type "run" :time t :paramsid (:_id params) :paramsrev (:_rev params)
-                             :paramsname (format "%s/%s" (:name problem) (:name params))
-                             :datadir datadir :recorddir recorddir :nthreads nthreads
+      (db/new-active (merge {:type "run" :time t :paramsid (:_id @params) :paramsrev (:_rev @params)
+                             :paramsname (format "%s/%s" (:name @problem) (:name @params))
+                             :datadir @datadir :recorddir recdir :nthreads nthreads
                              :pwd (pwd) :monitor monitor? :repetitions repetitions
                              :hostname (.getHostName (java.net.InetAddress/getLocalHost))
                              :username (System/getProperty "user.name")
-                             :problem (:name problem) :seed seed}
+                             :problem (:name @problem) :seed seed}
                             (git-meta-info)))
       (println "done.")
       (println
         (format "Running %d parameters, %d repetitions = %d simulations..."
                 (count paired-params) repetitions (* (count paired-params) repetitions)))
-      (run-partitions problem paired-params
-                      recorddir datadir nthreads monitor? repetitions)
+      (run-partitions paired-params recdir nthreads monitor? repetitions)
       (println "Done."))
     (catch java.util.concurrent.ExecutionException e
       (println "Quitting early."))))

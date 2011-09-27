@@ -18,7 +18,8 @@
   (:use [retrospect.problems.tracking.monitor :only
          [monitor]])
   (:use [retrospect.problems.tracking.prepared :only
-         [prepared-map]]))
+         [prepared-map]])
+  (:use [retrospect.state]))
 
 (defn read-walk-dist
   [file]
@@ -30,10 +31,10 @@
                {:walk-count walk-count})))
 
 (defn generate-problem-data
-  [sensors datadir params]
+  [sensors params]
   {:paths (sorted-map)
    :disbelieved-moves []
-   :walk-dist (read-walk-dist (str datadir "/tracking/walks.txt")) 
+   :walk-dist (read-walk-dist (str @datadir "/tracking/walks.txt")) 
    :split-merge-hyps []
    :log [] ;; log is reset each time by commit-decision
    :sensors-seen-grid (sensors-seen-grid sensors params)

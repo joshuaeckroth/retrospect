@@ -1,6 +1,7 @@
 (ns retrospect.problems.words.evaluate
   (:import (misc LevenshteinDistance))
-  (:use [retrospect.evaluate :only [calc-ratio-increase]]))
+  (:use [retrospect.evaluate :only [calc-ratio-increase]])
+  (:use [retrospect.state]))
 
 (defn calc-ld
  [seq1 seq2]
@@ -16,11 +17,11 @@
         (recur (conj ws (first td)) c (rest td))))))
 
 (defn evaluate
-  [ep-state results sensors truedata params]
+  [ep-state results sensors truedata]
   (let [time (:time ep-state)
         truewords (get-truewords truedata (:time ep-state))]
     {:LD (double (/ (calc-ld (:history (:problem-data ep-state)) truewords)
-                    (if (empty? truewords) 1 (count truewords)))) }))
+                    (if (empty? truewords) 1 (count truewords))))}))
 
 (defn evaluate-comparative
   [control-results comparison-results control-params comparison-params]

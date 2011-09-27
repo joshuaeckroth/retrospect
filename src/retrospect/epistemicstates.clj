@@ -3,7 +3,8 @@
   (:use [retrospect.confidences])
   (:require [clojure.zip :as zip])
   (:require [clojure.set :as set])
-  (:require [vijual :as vijual]))
+  (:require [vijual :as vijual])
+  (:use [retrospect.state]))
 
 (defprotocol EpistemicStateTree
   (branch? [ep-state] "Is it possible for node to have children?")
@@ -139,20 +140,20 @@
                    (flatten-ep-state-tree ep-state-tree))))
 
 (defn add-hyp
-  [ep-state hyp explains params]
-  (update-in ep-state [:workspace] ws/add hyp explains params :static))
+  [ep-state hyp explains]
+  (update-in ep-state [:workspace] ws/add hyp explains :static))
 
 (defn add-more-hyp
-  [ep-state hyp explains params]
-  (update-in ep-state [:workspace] ws/add hyp explains params))
+  [ep-state hyp explains]
+  (update-in ep-state [:workspace] ws/add hyp explains))
 
 (defn add-fact
-  [ep-state hyp explains params]
+  [ep-state hyp explains]
   (update-in ep-state [:workspace]
-             #(-> % (ws/add hyp explains params :static) (ws/forced hyp))))
+             #(-> % (ws/add hyp explains :static) (ws/forced hyp))))
 
 (defn commit-decision
-  [ep-state id time-now problem]
+  [ep-state id time-now]
   (let [workspace (:workspace ep-state)
         accepted (:accepted workspace)
         rejected (:rejected workspace)]
@@ -161,7 +162,7 @@
      []
      (inc time-now)
      (ws/init-workspace workspace)
-     ((:commit-decision-fn problem) (:problem-data ep-state)
+     ((:commit-decision-fn @problem) (:problem-data ep-state)
         accepted rejected time-now))))
 
 (defn new-branch-ep-state
@@ -186,23 +187,21 @@
     (goto-ep-state (zip/insert-right (goto-ep-state est "A") new-ep) (:id new-ep))))
 
 (defn new-child-ep-state
-  [ep-state-tree ep-state time-now problem]
+  [ep-state-tree ep-state time-now]
   (let [ep-tree (goto-ep-state (zip/replace ep-state-tree ep-state) (:id ep-state))
-        ep-child (commit-decision ep-state (make-ep-state-id ep-tree) time-now problem)
+        ep-child (commit-decision ep-state (make-ep-state-id ep-tree) time-now)
         ep-tree-child (goto-ep-state (zip/append-child ep-tree ep-child) (:id ep-child))]
     ep-tree-child))
 
 (defn explain
-  [ep-state get-more-hyps inconsistent params & opts]
+  [ep-state & opts]
   (let [workspace (if (some #{:no-prepare} opts) (:workspace ep-state)
                       (ws/prepare-workspace (:workspace ep-state)))
         pdata (:problem-data ep-state)
-        ws-explained (ws/explain workspace inconsistent pdata params)]
+        ws-explained (ws/explain workspace pdata)]
     (if (not-empty (:unexplained (:final (:log ws-explained))))
-      (if-let [ep-more-hyps (get-more-hyps (assoc ep-state :workspace ws-explained) params)]
+      (if-let [ep-more-hyps ((:get-more-hyps-fn @problem) (assoc ep-state :workspace ws-explained))]
         (assoc ep-more-hyps :workspace (ws/explain (:workspace ep-more-hyps)
-                                                   inconsistent
-                                                   (:problem-data ep-more-hyps)
-                                                   params))
+                                                   (:problem-data ep-more-hyps)))
         (assoc ep-state :workspace ws-explained))
       (assoc ep-state :workspace ws-explained))))

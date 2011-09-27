@@ -59,23 +59,24 @@
   (let [prepared? (and (not (nil? @prepared-selected))
                        (not= "None" @prepared-selected))
         ps (get-player-params @params-selected)]
+    (dosync
+     (alter params (constantly ps)))
     (set-seed (get-seed))
     (set-last-id 0)
     (when (not prepared?)
       (dosync
-       (alter truedata (constantly ((:truedata-fn @problem) @datadir ps)))
+       (alter truedata (constantly ((:truedata-fn @problem) ps)))
        (alter sensors (constantly ((:sensor-gen-fn @problem) ps)))))
     (dosync
-     (alter params (constantly ps))
      (alter or-state (constantly (init-one-run-state
-                                  @sensors ((:gen-problem-data-fn @problem)
-                                            @sensors @datadir ps)))))
+                                  @sensors ((:gen-problem-data-fn @problem) @sensors @params)))))
     (update-everything)))
 
 (defn set-prepared-action
   []
   (when (and (not (nil? @prepared-selected)) (not= "None" @prepared-selected))
-    (let [prepared (get (:prepared-map @problem) @prepared-selected)
+    ;; apply the 'prepared' function
+    (let [prepared ((get (:prepared-map @problem) @prepared-selected))
           ps (:params prepared)
           seed (if (:seed ps) (:seed ps) 1)
           td (:truedata prepared)
@@ -87,8 +88,7 @@
        (alter truedata (constantly td))
        (alter sensors (constantly sens))
        (alter or-state (constantly (init-one-run-state
-                                    sens ((:gen-problem-data-fn @problem)
-                                          sens @datadir ps)))))
+                                    @sensors ((:gen-problem-data-fn @problem) @sensors @params)))))
       (update-everything))))
 
 (defn goto-ep-state-action
@@ -103,7 +103,7 @@
 
 (defn step
   []
-  (let [ors (run-simulation-step @problem @truedata @or-state @params false true)]
+  (let [ors (run-simulation-step @truedata @or-state false true)]
     (dosync (alter or-state (constantly ors)))
     (update-everything)))
 
@@ -169,18 +169,15 @@
           _ (panel)]))
 
 (defn start-player
-  [prob ddir & opts]
+  [& opts]
 
   (dosync
-   (alter all-params (constantly (list-params prob)))
-   (alter problem (constantly prob))
-   (alter datadir (constantly ddir)))
+   (alter all-params (constantly (list-params))))
   (swap! params-selected (constantly (first @all-params)))
 
   (let [options (apply hash-map opts)]
     (when (:monitor options)
       (dosync
-       (alter params (constantly (:params options)))
        (alter or-state (constantly (:or-state options)))
        (alter sensors (constantly (:sensors options)))
        (alter truedata (constantly (:truedata options))))
@@ -188,5 +185,5 @@
     (when (not (:monitor options))
       (new-simulation))
     ((:setup-diagram-fn (:player-fns @problem)) problem-diagram)
-
+    
     (mainframe)))

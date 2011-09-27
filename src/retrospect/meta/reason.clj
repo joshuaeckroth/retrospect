@@ -5,8 +5,8 @@
           update-ep-state-tree nth-previous-ep-state]])
   (:use [retrospect.onerun :only
          [proceed-one-run-state update-one-run-state]])
-  (:require [retrospect.workspaces :as ws]))
-
+  (:require [retrospect.workspaces :as ws])
+  (:use [retrospect.state]))
 
 ;; ## Metareasoning in retrospect
 ;;
@@ -50,8 +50,8 @@
 
 (defn metareasoning-activated?
   "Check if any of the metareasoning activation conditions are met."
-  [or-state params]
-  (if (:MetaReasoning params)
+  [or-state]
+  (if (:MetaReasoning @params)
     (let [ep-state (current-ep-state (:ep-state-tree or-state))
           workspace (:workspace ep-state)]
       ;; TODO: implement other conditions
@@ -67,7 +67,7 @@
         (compare (ws/get-doubt ws1) (ws/get-doubt ws2)))))
 
 (defn batch
-  [n problem or-state params]
+  [n or-state]
   (if-not
       ;; skip all of this if we are just an ep-state off the root
       (previous-ep-state (:ep-state-tree or-state)) or-state
@@ -79,10 +79,8 @@
                     (new-branch-root prior-est (:original-problem-data or-state)))
             ep-state (current-ep-state est)
             time-now (apply max (map :sensed-up-to (:sensors or-state)))
-            [ep-hyps resources] ((:hypothesize-fn problem) ep-state (:sensors or-state)
-                                 time-now params)
-            ep-expl (explain ep-hyps (:get-more-hyps-fn problem)
-                             (:inconsistent-fn problem) params)
+            [ep-hyps resources] ((:hypothesize-fn @problem) ep-state (:sensors or-state) time-now)
+            ep-expl (explain ep-hyps (:problem-data or-state))
             est-expl (update-ep-state-tree est ep-expl)
             ors (assoc or-state :ep-state-tree est-expl)
             final-ors (if (> 0 (workspace-compare (:workspace ep-expl) (:workspace prior-ep)))
@@ -112,11 +110,11 @@
         (update-in final-ors [:resources :meta-activations] inc))))
 
 (defn domain-informed
-  [problem or-state params]
+  [or-state]
   or-state)
 
 (defn lower-threshold
-  [problem or-state params]
+  [or-state]
   (let [ep-state (current-ep-state (:ep-state-tree or-state))
         new-est (new-branch-ep-state (:ep-state-tree or-state) ep-state)
         new-ep (current-ep-state new-est)
@@ -124,17 +122,14 @@
         ;; or cannot lower it any more (or there's nothing left to accept)
         final-ws
         (loop [workspace (:workspace ep-state)
-               threshold (- (:Threshold params) 25)]
+               threshold (- (:Threshold @params) 25)]
           (cond (or (empty? (:unaccepted (:final (:log workspace))))
                     (> 0 threshold))
                 workspace
                 (< (ws/get-doubt workspace) (ws/get-doubt (:workspace ep-state)))
                 workspace
                 :else
-                (recur (ws/explain workspace
-                                   (:inconsistent-fn problem)
-                                   (:problem-data new-ep)
-                                   params)
+                (recur (ws/explain workspace (:problem-data new-ep))
                        (- threshold 25))))
         final-or-state (update-one-run-state
                          (assoc or-state :ep-state-tree new-est)
@@ -143,21 +138,21 @@
     (update-in final-or-state [:resources :meta-activations] inc)))
 
 (defn gradual
-  [problem or-state params]
+  [or-state]
   (loop [ors or-state
          attempt [:BatchBeginning :LowerThreshold]]
-    (if (or (not (metareasoning-activated? ors params))
+    (if (or (not (metareasoning-activated? ors))
             (empty? attempt)) ors
       (cond (= (first attempt) :LowerThreshold)
-            (recur (lower-threshold problem ors params)
+            (recur (lower-threshold ors)
                    (rest attempt))
             (= (first attempt) :BatchBeginning)
-            (recur (batch nil problem ors params)
+            (recur (batch nil ors)
                    (rest attempt))))))
 
 (defn metareason
   "Activate the appropriate metareasoning strategy (as given by
    the parameter :MetaStrategy)"
-  [problem or-state params]
-  (batch 3 problem or-state params))
+  [or-state]
+  (batch 3 or-state))
 
