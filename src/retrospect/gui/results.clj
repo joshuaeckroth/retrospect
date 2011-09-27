@@ -10,7 +10,10 @@
   (:require [clojure.contrib.math :as math])
   (:use [retrospect.state]))
 
+(def headers (ref nil))
 (def headers-on (ref {}))
+(def p-left (panel))
+(def p-right (panel))
 
 (def scroll (scroll-panel (JViewport.)))
 
@@ -20,15 +23,27 @@
 
 (defn get-results-viewport
   [or-state]
-  (let [headers (filter #(@headers-on %) (sort-by name (keys @headers-on)))
-        results-matrix (map (fn [r] (map (fn [h] (h r)) headers))
+  (let [hs (filter #(@headers-on %) (sort-by name (keys @headers-on)))
+        results-matrix (map (fn [r] (map (fn [h] (h r)) hs))
                             (:results or-state))]
     (doto (JViewport.)
       (.setView  (JTable. (Vector. (map #(Vector. %) results-matrix))
-                          (Vector. (sort (map name headers))))))))
+                          (Vector. (sort (map name hs))))))))
 
 (defn update-results
   []
+  ;; when possible, update headers
+  (when (and (not @headers) (not-empty (:results @or-state)))
+    (dosync
+     (alter headers (constantly (sort (keys (first (:results @or-state)))))))
+    (let [cb (fn [h] (check-box :caption (name h)
+                                :selected false
+                                :action ([_] (toggle-header h) (update-results))))]
+      (doseq [h (take (math/ceil (/ (count @headers) 2)) @headers)]
+        (doto p-left (.add (cb h))))
+      (doseq [h (take-last (dec (math/ceil (/ (count @headers) 2))) @headers)]
+        (doto p-right (.add (cb h))))
+      (doto p-right (.add (panel)))))
   (. scroll (setViewport (get-results-viewport @or-state))))
 
 (defn results-tab
@@ -39,24 +54,10 @@
           :fill :BOTH :insets (Insets. 5 5 5 5)
           _ scroll
           :gridx 0 :gridy 1 :weighty 0.5
-          _ (let [cb (fn [h] (check-box :caption (name h)
-                                        :selected false
-                                        :action ([_] (toggle-header h)
-                                                   (update-results))))
-                  p-left (panel)
-                  p-right (panel)
-                  p (panel)
-                  headers []]
+          _ (let [p (panel)]
               (.setLayout p (BoxLayout. p BoxLayout/X_AXIS))
               (.setLayout p-left (BoxLayout. p-left BoxLayout/Y_AXIS))
               (.setLayout p-right (BoxLayout. p-right BoxLayout/Y_AXIS))
               (.add p p-left)
               (.add p p-right)
-              (doseq [h (take (math/ceil (/ (count headers) 2))
-                              headers)]
-                (doto p-left (.add (cb h))))
-              (doseq [h (take-last (dec (math/ceil (/ (count headers) 2)))
-                                   headers)]
-                (doto p-right (.add (cb h))))
-              (doto p-right (.add (panel)))
               (scroll-panel p))]))
