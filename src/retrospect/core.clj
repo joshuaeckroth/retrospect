@@ -1,6 +1,8 @@
 (ns retrospect.core
   (:gen-class)
   (:use [clojure.contrib.command-line :only [with-command-line]])
+  (:use [clojure.contrib.shell :only [sh]])
+  (:use [clojure.contrib.string :only [split-lines]])
   (:use [retrospect.random])
   (:require [retrospect.state :as state])
   (:use [retrospect.database :only [read-params]])
@@ -47,7 +49,12 @@
                   monitor? (Boolean/parseBoolean monitor)
                   ps (read-params params)
                   prob (cond (= "Tracking" (:problem ps)) tracking-problem
-                             (= "Words" (:problem ps)) words-problem)]
+                             (= "Words" (:problem ps)) words-problem)
+                  git-dirty? (not-empty (filter #(not= "??" (subs % 0 2))
+                                                (split-lines (sh "git" "status" "--porcelain"))))]
+              (when git-dirty?
+                (println "Project has uncommitted changes. Commit with git before running simulations.")
+                (System/exit -1))
               (dosync
                (alter state/problem (constantly prob))
                (alter state/params (constantly ps)))
@@ -55,5 +62,3 @@
             
             :else
             (println "No action given.")))))
-
-
