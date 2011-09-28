@@ -9,6 +9,8 @@
 \usetheme{boxes}
 \usecolortheme{beaver}
 
+\hypersetup{colorlinks,linkcolor=,urlcolor=darkred}
+
 \setbeamercovered{transparent}
 % or whatever (possibly just delete it)
 \end_preamble
@@ -36,6 +38,15 @@
 \paperfontsize default
 \spacing single
 \use_hyperref false
+\pdf_bookmarks false
+\pdf_bookmarksnumbered false
+\pdf_bookmarksopen false
+\pdf_bookmarksopenlevel 2
+\pdf_breaklinks false
+\pdf_pdfborder false
+\pdf_colorlinks true
+\pdf_backref false
+\pdf_pdfusetitle true
 \papersize default
 \use_geometry true
 \use_amsmath 2
@@ -499,6 +510,82 @@ Interactive simulation
 Batch simulation
 \end_layout
 
+\begin_layout BeginFrame
+Batch simulation
+\end_layout
+
+\begin_layout Example
+
+\family typewriter
+~/bin/lein run -m retrospect.core --action run --params "Tracking/thresh-coverage
+" --nthreads 4 --repetitions 50 --datadir "data" --seed 123 --database "http://f
+ier.ath.cx:5984/retrospect"
+\end_layout
+
+\begin_layout BeginFrame
+Parameters
+\end_layout
+
+\begin_layout Example
+{ :Steps 25
+\end_layout
+
+\begin_layout Example
+:Threshold [0 10 20 30 40 50 60 70 80 90 100]
+\end_layout
+
+\begin_layout Example
+:StepsBetween 5
+\end_layout
+
+\begin_layout Example
+:SensorNoise 0
+\end_layout
+
+\begin_layout Example
+:BeliefNoise 0
+\end_layout
+
+\begin_layout Example
+:GridWidth 30
+\end_layout
+
+\begin_layout Example
+:GridHeight 30
+\end_layout
+
+\begin_layout Example
+:NumberEntities 15
+\end_layout
+
+\begin_layout Example
+:MaxWalk 10
+\end_layout
+
+\begin_layout Example
+:SensorSeesColor [0 50 100]
+\end_layout
+
+\begin_layout Example
+:SensorCoverage 100
+\end_layout
+
+\begin_layout Example
+:ProbNewEntities 0
+\end_layout
+
+\begin_layout Example
+:MetaReasoning false
+\end_layout
+
+\begin_layout Example
+:TransitiveExplanation [true false] }
+\end_layout
+
+\begin_layout BeginFrame
+Results
+\end_layout
+
 \begin_layout Section*
 Summary
 \end_layout
@@ -513,55 +600,52 @@ Summary
 
 \begin_layout Section*
 \start_of_appendix
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-All of the following is optional and typically not needed.
-\end_layout
-
-\end_inset
-
 Appendix
 \end_layout
 
 \begin_layout Subsection*
-For Further Reading
+Resources
 \end_layout
 
 \begin_layout BeginFrame
-\begin_inset ERT
+Resources
+\end_layout
+
+\begin_layout Itemize
+
+\family roman
+\shape smallcaps
+retrospect
+\family default
+\shape default
+ source code: 
+\begin_inset Flex URL
 status collapsed
 
 \begin_layout Plain Layout
 
-[allowframebreaks]
+https://github.com/joshuaeckroth/retrospect
 \end_layout
 
 \end_inset
 
-For Further Reading
+
 \end_layout
 
-\begin_layout Standard
-\begin_inset ERT
+\begin_layout Itemize
+
+\family roman
+\shape smallcaps
+sisyphus
+\family default
+\shape default
+ introductory presentation: 
+\begin_inset Flex URL
 status collapsed
 
 \begin_layout Plain Layout
 
-
-\backslash
-beamertemplatebookbibitems
-\end_layout
-
-\end_inset
-
-
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-Start with overview books.
+http://www.cse.ohio-state.edu/~eckroth/sisyphus/sisyphus-introduction.pdf
 \end_layout
 
 \end_inset
@@ -569,120 +653,46 @@ Start with overview books.
 
 \end_layout
 
-\begin_layout Bibliography
-\labelwidthstring References
-\begin_inset CommandInset bibitem
-LatexCommand bibitem
-key "Author1990"
+\begin_layout Itemize
 
-\end_inset
-
-A.
- Author.
- 
-\begin_inset ERT
+\family roman
+\shape smallcaps
+sisyphus
+\family default
+\shape default
+ system: 
+\begin_inset Flex URL
 status collapsed
 
 \begin_layout Plain Layout
 
-
-\backslash
-newblock
+http://fier.ath.cx:8081/
 \end_layout
 
 \end_inset
 
 
-\emph on
-Handbook of Everything
-\emph default
-.
-\begin_inset ERT
+\end_layout
+
+\begin_layout Itemize
+
+\family roman
+\shape smallcaps
+sisyphus
+\family default
+\shape default
+ source code: 
+\begin_inset Flex URL
 status collapsed
 
 \begin_layout Plain Layout
 
-
-\backslash
-newblock
-\end_layout
-
-\end_inset
-
- Some Press, 1990.
-\begin_inset ERT
-status collapsed
-
-\begin_layout Plain Layout
-
-
-\backslash
-beamertemplatearticlebibitems
+https://github.com/joshuaeckroth/sisyphus
 \end_layout
 
 \end_inset
 
 
-\begin_inset Note Note
-status open
-
-\begin_layout Plain Layout
-Followed by interesting articles.
- Keep the list short.
- 
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Bibliography
-\labelwidthstring References
-\begin_inset CommandInset bibitem
-LatexCommand bibitem
-key "Someone2002"
-
-\end_inset
-
-S.
- Someone.
-\begin_inset ERT
-status collapsed
-
-\begin_layout Plain Layout
-
-
-\backslash
-newblock
-\end_layout
-
-\end_inset
-
- On this and that
-\emph on
-.
-
-\emph default
- 
-\begin_inset ERT
-status collapsed
-
-\begin_layout Plain Layout
-
-
-\backslash
-newblock
-\end_layout
-
-\end_inset
-
-
-\emph on
-Journal on This and That
-\emph default
-.
- 2(1):50--100, 2000.
 \end_layout
 
 \begin_layout EndFrame
