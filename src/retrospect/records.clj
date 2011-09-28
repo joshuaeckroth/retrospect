@@ -60,7 +60,8 @@
                              :pwd (pwd) :monitor monitor? :repetitions repetitions
                              :hostname (.getHostName (java.net.InetAddress/getLocalHost))
                              :username (System/getProperty "user.name")
-                             :problem (:name @problem) :seed seed}
+                             :problem (:name @problem) :seed seed
+                             :overview (slurp "overview.markdown")}
                             (git-meta-info)))
       (println "done.")
       (println

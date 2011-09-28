@@ -27,10 +27,12 @@
         params (:value (first (:rows (clutch/with-db @database
                                        (clutch/get-view "parameters" "list"
                                                         {:key [problem name]})))))]
-    (-> params
-        (update-in [:control] read-string)
-        (update-in [:comparison] read-string)
-        (update-in [:player] read-string))))
+    (if-not params
+      (println "No such parameters.")
+      (-> params
+          (update-in [:control] read-string)
+          (update-in [:comparison] read-string)
+          (update-in [:player] read-string)))))
 
 (defn get-player-params
   [pname]

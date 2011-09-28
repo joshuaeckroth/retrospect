@@ -52,8 +52,9 @@
                              (= "Words" (:problem ps)) words-problem)
                   git-dirty? (not-empty (filter #(not= "??" (subs % 0 2))
                                                 (split-lines (sh "git" "status" "--porcelain"))))]
-              (when git-dirty?
-                (println "Project has uncommitted changes. Commit with git before running simulations.")
+              (when (and git-dirty? (not (re-matches #".*127\.0\.0\.1.*" database)))
+                (println "Project has uncommitted changes. Commit with git before"
+                         "running simulations, or use the default (localhost) database connection.")
                 (System/exit -1))
               (dosync
                (alter state/problem (constantly prob))
