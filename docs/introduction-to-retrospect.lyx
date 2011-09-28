@@ -1,0 +1,693 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass beamer
+\begin_preamble
+
+
+\usetheme{boxes}
+\usecolortheme{beaver}
+
+\setbeamercovered{transparent}
+% or whatever (possibly just delete it)
+\end_preamble
+\use_default_options false
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman times
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format pdf2
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry true
+\use_amsmath 2
+\use_esint 0
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 2
+\tocdepth 2
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Introduction to 
+\family roman
+\shape smallcaps
+retrospect
+\end_layout
+
+\begin_layout Subtitle
+An abductive-reasoning experimentation system
+\end_layout
+
+\begin_layout Author
+J.
+\begin_inset space ~
+\end_inset
+
+Eckroth
+\end_layout
+
+\begin_layout Institute
+Department of Computer Science and Engineering
+\begin_inset Newline newline
+\end_inset
+
+The Ohio State University
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+If you have a file called "institution-logo-filename.xxx", where xxx is a
+ graphic format that can be processed by latex or pdflatex, resp., then you
+ can add a logo by uncommenting the following:
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+pgfdeclareimage[height=0.75cm,width=0.75cm]{osu-logo}{/home/josh/research/retrospe
+ct/docs/osu-logo-200}
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+logo{
+\backslash
+pgfuseimage{osu-logo}}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+The following causes the table of contents to be shown at the beginning
+ of every subsection.
+ Delete this, if you do not want it.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+AtBeginSubsection[]{
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+  
+\backslash
+frame<beamer>{ 
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+    
+\backslash
+frametitle{Outline}   
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+    
+\backslash
+tableofcontents[currentsection,currentsubsection] 
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+  }
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Introduction
+\end_layout
+
+\begin_layout Subsection
+Goals
+\end_layout
+
+\begin_layout BeginFrame
+Goal 1: Controlled experiments
+\end_layout
+
+\begin_layout Itemize
+We wish to evaluate whether certain reasoning processes are effective.
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Examples: 
+\begin_inset Quotes eld
+\end_inset
+
+meta-reasoning,
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\begin_inset Quotes eld
+\end_inset
+
+transitive explanation,
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\begin_inset Quotes eld
+\end_inset
+
+high/low caution,
+\begin_inset Quotes erd
+\end_inset
+
+ etc.
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+We must control 
+\begin_inset Quotes eld
+\end_inset
+
+truth
+\begin_inset Quotes erd
+\end_inset
+
+ to evaluate performance.
+\end_layout
+
+\begin_layout BeginFrame
+Goal 2: Multiple domains and prepared cases
+\end_layout
+
+\begin_layout Itemize
+We wish to use one platform to evaluate the same 
+\begin_inset Quotes eld
+\end_inset
+
+reasoning engine
+\begin_inset Quotes erd
+\end_inset
+
+ on different kinds of problems.
+\end_layout
+
+\begin_layout Itemize
+By designing 
+\begin_inset Quotes eld
+\end_inset
+
+prepared cases,
+\begin_inset Quotes erd
+\end_inset
+
+ we can also investigate specific and perhaps rare phenomena.
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+These phenomena may virtually never occur in 
+\begin_inset Quotes eld
+\end_inset
+
+real
+\begin_inset Quotes erd
+\end_inset
+
+ data.
+\end_layout
+
+\end_deeper
+\begin_layout BeginFrame
+Goal 3: Interactive simulation and batch simulation
+\end_layout
+
+\begin_layout Itemize
+Interactive simulation:
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Single-step through particular cases.
+\end_layout
+
+\begin_layout Itemize
+Useful for debugging and discovering improvements.
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+Batch simulation:
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Perform 
+\begin_inset Quotes eld
+\end_inset
+
+comparative
+\begin_inset Quotes erd
+\end_inset
+
+ runs (paired simulations with distinct parameters but identical worlds).
+\end_layout
+
+\begin_layout Itemize
+
+\emph on
+Many
+\emph default
+ randomized cases can be compared across any range of parameters.
+\end_layout
+
+\end_deeper
+\begin_layout BeginFrame
+Goal 4: Recording of simulation results
+\end_layout
+
+\begin_layout Itemize
+Batch simulations are recorded in a central location 
+\family roman
+\shape smallcaps
+(sisyphus
+\family default
+\shape default
+ system).
+\end_layout
+
+\begin_layout Itemize
+All relevant information is recorded:
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Simulation parameters
+\end_layout
+
+\begin_layout Itemize
+Source code snapshot
+\end_layout
+
+\begin_layout Itemize
+\begin_inset Quotes eld
+\end_inset
+
+Control,
+\begin_inset Quotes erd
+\end_inset
+
+ 
+\begin_inset Quotes eld
+\end_inset
+
+Comparison,
+\begin_inset Quotes erd
+\end_inset
+
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+Comparative
+\begin_inset Quotes erd
+\end_inset
+
+ results
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+Furthermore, 
+\family roman
+\shape smallcaps
+sisyphus
+\family default
+\shape default
+ provides tools for documentation and analytics (e.g.
+ graphing, statistical analysis).
+\end_layout
+
+\begin_layout Section
+System components and features
+\end_layout
+
+\begin_layout Subsection
+Modules and control
+\end_layout
+
+\begin_layout BeginFrame
+Modules
+\end_layout
+
+\begin_layout Standard
+\align center
+\begin_inset External
+	template Dia
+	filename components-diagram.dia
+	extra LaTeX "width=\textwidth"
+	extra PDFLaTeX "width=\textwidth"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout BeginFrame
+Single step
+\end_layout
+
+\begin_layout Standard
+\align center
+\begin_inset External
+	template Dia
+	filename single-step-diagram.dia
+	extra LaTeX "width=0.8\textwidth"
+	extra PDFLaTeX "width=0.8\textwidth"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Interactive simulation
+\end_layout
+
+\begin_layout BeginFrame
+Interactive simulation
+\end_layout
+
+\begin_layout Standard
+\align center
+\begin_inset Graphics
+	filename player-screenshot.png
+	lyxscale 50
+	width 80text%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Batch simulation
+\end_layout
+
+\begin_layout Section*
+Summary
+\end_layout
+
+\begin_layout BeginFrame
+Summary
+\end_layout
+
+\begin_layout EndFrame
+
+\end_layout
+
+\begin_layout Section*
+\start_of_appendix
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+All of the following is optional and typically not needed.
+\end_layout
+
+\end_inset
+
+Appendix
+\end_layout
+
+\begin_layout Subsection*
+For Further Reading
+\end_layout
+
+\begin_layout BeginFrame
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+[allowframebreaks]
+\end_layout
+
+\end_inset
+
+For Further Reading
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+
+\backslash
+beamertemplatebookbibitems
+\end_layout
+
+\end_inset
+
+
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Start with overview books.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Bibliography
+\labelwidthstring References
+\begin_inset CommandInset bibitem
+LatexCommand bibitem
+key "Author1990"
+
+\end_inset
+
+A.
+ Author.
+ 
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+
+\backslash
+newblock
+\end_layout
+
+\end_inset
+
+
+\emph on
+Handbook of Everything
+\emph default
+.
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+
+\backslash
+newblock
+\end_layout
+
+\end_inset
+
+ Some Press, 1990.
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+
+\backslash
+beamertemplatearticlebibitems
+\end_layout
+
+\end_inset
+
+
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Followed by interesting articles.
+ Keep the list short.
+ 
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Bibliography
+\labelwidthstring References
+\begin_inset CommandInset bibitem
+LatexCommand bibitem
+key "Someone2002"
+
+\end_inset
+
+S.
+ Someone.
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+
+\backslash
+newblock
+\end_layout
+
+\end_inset
+
+ On this and that
+\emph on
+.
+
+\emph default
+ 
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+
+\backslash
+newblock
+\end_layout
+
+\end_inset
+
+
+\emph on
+Journal on This and That
+\emph default
+.
+ 2(1):50--100, 2000.
+\end_layout
+
+\begin_layout EndFrame
+
+\end_layout
+
+\end_body
+\end_document
