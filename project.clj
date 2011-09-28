@@ -8,13 +8,13 @@
                  [com.ashafa/clutch "0.2.4"]]
   :dev-dependencies [[swank-clojure "1.3.0"]
                      [midje "1.1"]
-                     [clj-stacktrace "0.2.1"]
-                     [lein-marginalia "0.6.0"]]
-  :hooks [leiningen.hooks.clj-stacktrace-test]
-  :repl-options [:caught clj-stacktrace.repl/pst+]
-  :clj-stacktrace {:color true}
+                     [org.clojars.weavejester/autodoc "0.9.0"]
+                     [marginalia "0.7.0-SNAPSHOT"]
+                     [lein-marginalia "0.6.1"]]
   :main retrospect.core
   :keep-non-project-classes true
+  :autodoc {:name "retrospect", :page-title "retrospect API" :trim-prefix "retrospect."
+            :web-src-dir "https://github.com/joshuaeckroth/retrospect/blob/"}
   :java-source-path "src/jvm"
   :jvm-opts ["-Dawt.useSystemAAFontSettings=on" "-Xmx1800m" "-Xss2m"
              "-Dswing.defaultlaf=com.sun.java.swing.plaf.gtk.GTKLookAndFeel"])
