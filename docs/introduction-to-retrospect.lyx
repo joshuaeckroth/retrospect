@@ -517,9 +517,9 @@ Batch simulation
 \begin_layout Example
 
 \family typewriter
-~/bin/lein run -m retrospect.core --action run --params "Tracking/thresh-coverage
-" --nthreads 4 --repetitions 50 --datadir "data" --seed 123 --database "http://f
-ier.ath.cx:5984/retrospect"
+~/bin/lein run -m retrospect.core --action run --params "Tracking/thresh-meta"
+ --nthreads 4 --repetitions 50 --datadir "data" --seed 123 --database "http://fi
+er.ath.cx:5984/retrospect"
 \end_layout
 
 \begin_layout BeginFrame
