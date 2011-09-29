@@ -126,7 +126,7 @@
               (.addTab "Problem diagram" problem-diagram)
               (.addTab "Epistemic state tree" (ep-tree-tab))
               (.addTab "Logs" (logs-tab))
-              (.addTab "Explains graph" (explains-graph-tab))
+              ;(.addTab "Explains graph" (explains-graph-tab))
               (.addTab "Results" (results-tab))
               (.setSelectedIndex 0))
 

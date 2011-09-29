@@ -10,11 +10,11 @@
   (:use [retrospect.random :only [set-seed]]))
 
 (def basic-params
-  {:GridHeight 10, :GridWidth 10, :MaxWalk 1, :Lazy false,
+  {:GridHeight 10, :GridWidth 10, :MaxWalk 1,
    :SensorNoise 0, :SensorSeesColor 100, :SensorCoverage 100,
    :BeliefNoise 0, :StepsBetween 1, :Steps 50,
    :ProbNewEntities 0, :NumberEntities 1, :MetaReasoning false,
-   :Threshold 0})
+   :TransitiveExplanation false, :Threshold 0})
 
 (defn build-truedata
   [params paths]
@@ -88,10 +88,7 @@
 
 (defn color-update-2
   []
-  (let [{params :params sensors :sensors truedata :truedata} color-update]
-    {:params (assoc params :StepsBetween 1)
-     :sensors sensors
-     :truedata truedata}))
+  (assoc-in (color-update) [:params :StepsBetween] 1))
 
 (defn gray-in-range
   []
@@ -107,7 +104,7 @@
 (defn intersection-ambiguity
   []
   (let [params (merge basic-params {:Steps 4 :SensorSeesColor 80 :MaxWalk 3
-                                    :MetaStrategy :BatchBeginning})]
+                                    :MetaReasoning true})]
     {:params params
      :sensors [(new-sensor (keyword "left") 0 2 0 9 true)
                (new-sensor (keyword "middle") 3 4 0 9 false)
@@ -118,18 +115,18 @@
 
 (defn intersection-ambiguity-nometa
   []
-  (assoc-in intersection-ambiguity [:params :MetaStrategy] :NoMetareasoning))
+  (assoc-in (intersection-ambiguity) [:params :MetaReasoning] true))
 
 (defn intersection-ambiguity-nometa-allatonce
   []
   (-> (intersection-ambiguity)
-      (assoc-in [:params :MetaAbduction] false)
+      (assoc-in [:params :MetaReasoning] false)
       (assoc-in [:params :StepsBetween] 4)))
 
 (defn intersection-ambiguity-long
   []
   (let [params (merge basic-params {:Steps 5 :SensorSeesColor 80 :MaxWalk 10
-                                    :MetaStrategy :BatchBeginning
+                                    :MetaReasoning true
                                     :GridWidth 20 :GridHeight 20})]
     {:params params
      :sensors [(new-sensor (keyword "left") 0 4 0 19 true)
@@ -284,7 +281,7 @@
 
 (defn march
   []
-  (let [params (merge basic-params {:Steps 6 :MaxWalk 1 :MetaStrategy :BatchBeginning})]
+  (let [params (merge basic-params {:Steps 6 :MaxWalk 1 :MetaReasoning true})]
     {:params params
      :sensors [(new-sensor (keyword "x") 0 9 0 9 true)]
      :truedata (build-truedata

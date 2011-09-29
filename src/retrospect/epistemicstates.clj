@@ -136,8 +136,7 @@
   "List ep-states in the order that they were created (i.e., sorted by id,
    which is the same as a depth-first left-first walk)."
   [ep-state-tree]
-  (map str (filter (comp ws/get-doubt :workspace)
-                   (flatten-ep-state-tree ep-state-tree))))
+  (map str (flatten-ep-state-tree ep-state-tree)))
 
 (defn add-hyp
   [ep-state hyp explains]

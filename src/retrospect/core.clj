@@ -20,7 +20,6 @@
      [params "Parameters identifier (e.g. 'Words/foobar')" ""]
      [datadir "Data directory" "data"]
      [recordsdir "Records directory" "records"]
-     [record "Record" ""]
      [nthreads "Number of threads" "1"]
      [repetitions "Number of repetitions" "10"]
      [monitor "Activate monitor?" "false"]

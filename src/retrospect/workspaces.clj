@@ -393,8 +393,10 @@
 
 (defn measure-unexplained-pct
   [workspace]
-  (double (/ (count (:unexplained (:final (:log workspace))))
-             (count (set/union (:accepted workspace) (:forced workspace))))))
+  (let [acc (set/union (:accepted workspace) (:forced workspace))]
+    (if (empty? acc) 0.0
+        (double (/ (count (:unexplained (:final (:log workspace))))
+                   (count acc))))))
 
 (defn get-unexplained-pct
   [workspace]

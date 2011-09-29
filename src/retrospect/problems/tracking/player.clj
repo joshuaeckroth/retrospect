@@ -24,6 +24,8 @@
 (def grid-cell-height (ref nil))
 
 (def percent-events-correct-label (label ""))
+(def percent-events-wrong-label (label ""))
+(def accuracy-label (label ""))
 (def mouse-xy (label "Grid ?, ?"))
 
 (defn draw-move
@@ -152,10 +154,18 @@
          :constrains (java.awt.GridBagConstraints.)
          [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0
           :fill :BOTH :insets (Insets. 5 0 5 0)
-          _ (label "PercentEventsCorrect:")
+          _ (label "PEC:")
           :gridx 1
           _ percent-events-correct-label
+          :gridx 0 :gridy 1
+          _ (label "PEW:")
+          :gridx 1
+          _ percent-events-wrong-label
           :gridx 0 :gridy 2
+          _ (label "Accuracy:")
+          :gridx 1
+          _ accuracy-label
+          :gridx 0 :gridy 3
           _ mouse-xy]))
 
 (defn player-update-stats
@@ -165,9 +175,19 @@
       (. percent-events-correct-label
          (setText
           (format "%.2f%%"
-                  (:PEC (get (:results @or-state) t))))))
+                  (:PEC (get (:results @or-state) t)))))
+      (. percent-events-wrong-label
+         (setText
+          (format "%.2f%%"
+                  (:PEW (get (:results @or-state) t)))))
+      (. accuracy-label
+         (setText
+          (format "%.2f%%"
+                  (:Accuracy (get (:results @or-state) t))))))
     (do
-      (. percent-events-correct-label (setText "N/A")))))
+      (. percent-events-correct-label (setText "N/A"))
+      (. percent-events-wrong-label (setText "N/A"))
+      (. accuracy-label (setText "N/A")))))
 
 (defn player-get-truedata-log
   []
