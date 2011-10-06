@@ -182,7 +182,7 @@
                   (:PEW (get (:results @or-state) t)))))
       (. accuracy-label
          (setText
-          (format "%.2f%%"
+          (format "%.2f"
                   (:Accuracy (get (:results @or-state) t))))))
     (do
       (. percent-events-correct-label (setText "N/A"))

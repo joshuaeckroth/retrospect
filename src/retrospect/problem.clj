@@ -63,29 +63,30 @@
 
 (defn run
   [monitor? [control-params comparison-params]]
-  (set-seed (:Seed control-params)) ;; seed should be same in comparison-params
-  (let [control-truedata ((:truedata-fn @problem) control-params)
-        comparison-truedata ((:truedata-fn @problem) comparison-params)
-        control-sensors ((:sensor-gen-fn @problem) control-params)
-        comparison-sensors ((:sensor-gen-fn @problem) comparison-params)
-        control-problem-data ((:gen-problem-data-fn @problem)
-                              control-sensors control-params)
-        comparison-problem-data ((:gen-problem-data-fn @problem)
-                                 comparison-sensors comparison-params)
-        control-or-state (init-one-run-state control-sensors control-problem-data)
-        comparison-or-state (init-one-run-state comparison-sensors comparison-problem-data)
-        control-result
+  (let [control-result
         (binding [last-id 0]
-          (println "Control:" control-params)
-          (dosync
-           (alter params (constantly control-params)))
-          (run-simulation control-truedata control-or-state monitor?))
+          (set-seed (:Seed control-params))
+          (let [control-truedata ((:truedata-fn @problem) control-params)
+                control-sensors ((:sensor-gen-fn @problem) control-params)
+                control-problem-data ((:gen-problem-data-fn @problem)
+                                      control-sensors control-params)
+                control-or-state (init-one-run-state control-sensors control-problem-data)]
+            (println "Control:" control-params)
+            (dosync
+             (alter params (constantly control-params)))
+            (run-simulation control-truedata control-or-state monitor?)))
         comparison-result
         (binding [last-id 0]
-          (println "Comparison:" comparison-params)
-          (dosync
-           (alter params (constantly comparison-params)))
-          (run-simulation comparison-truedata comparison-or-state monitor?))]
+          (set-seed (:Seed comparison-params))
+          (let [comparison-truedata ((:truedata-fn @problem) comparison-params)
+                comparison-sensors ((:sensor-gen-fn @problem) comparison-params)
+                comparison-problem-data ((:gen-problem-data-fn @problem)
+                                         comparison-sensors comparison-params)
+                comparison-or-state (init-one-run-state comparison-sensors comparison-problem-data)]
+            (println "Comparison:" comparison-params)
+            (dosync
+             (alter params (constantly comparison-params)))
+            (run-simulation comparison-truedata comparison-or-state monitor?)))]
     [control-result comparison-result
      (evaluate-comparative control-result comparison-result control-params comparison-params)]))
 
