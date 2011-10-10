@@ -11,7 +11,7 @@
   (reduce (fn [g _] (grid-new-entity g 0)) grid (range numes)))
 
 (defn random-walks
-  [grid params]
+  [grid]
   (let [maxwalk (:MaxWalk params)
         es (grid-entities grid)
         es-walk (my-shuffle
@@ -19,13 +19,13 @@
     (reduce walk1 grid es-walk)))
 
 (defn possibly-add-new-entity
-  [grid time params]
+  [grid time]
   (if (>= (double (/ (:ProbNewEntities params) 100)) (my-rand))
     (grid-new-entity grid time)
     grid))
 
 (defn output-walk-sizes
-  [truedata params]
+  [truedata]
   (let [dists (mapcat (fn [grid] (map #(dist (:ox %) (:oy %) (:x %) (:y %))
                                       (vals (:movements (meta grid)))))
                       (rest truedata))
@@ -37,7 +37,7 @@
                            (apply str (interpose "\n" dc-strs))))))
 
 (defn generate-truedata
-  [params]
+  []
   (let [grid (add-new-entities (new-grid (:GridWidth params) (:GridHeight params))
                                (:NumberEntities params))]
     (loop [time 1
@@ -47,8 +47,8 @@
         truedata
         (let [newgrid (-> (last truedata)
                         (update-all-entities time)
-                        (random-walks params)
-                        (possibly-add-new-entity time params))]
+                        (random-walks)
+                        (possibly-add-new-entity time))]
           (recur (inc time) (conj truedata newgrid)))))))
 
 (defn get-grid-movements

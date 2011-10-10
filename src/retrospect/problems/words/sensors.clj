@@ -6,5 +6,5 @@
   (add-sensed sensor time letter))
 
 (defn generate-sensors
-  [params]
+  []
   [(init-sensor "reader" sense {})])

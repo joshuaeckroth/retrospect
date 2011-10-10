@@ -59,17 +59,16 @@
   (let [prepared? (and (not (nil? @prepared-selected))
                        (not= "None" @prepared-selected))
         ps (get-player-params @params-selected)]
-    (dosync
-     (alter params (constantly ps)))
+    (alter-var-root (var params) (constantly ps))
     (set-seed (get-seed))
     (set-last-id 0)
     (when (not prepared?)
       (dosync
-       (alter truedata (constantly ((:truedata-fn @problem) ps)))
-       (alter sensors (constantly ((:sensor-gen-fn @problem) ps)))))
+       (alter truedata (constantly ((:truedata-fn @problem))))
+       (alter sensors (constantly ((:sensor-gen-fn @problem))))))
     (dosync
      (alter or-state (constantly (init-one-run-state
-                                  @sensors ((:gen-problem-data-fn @problem) @sensors @params)))))
+                                  @sensors ((:gen-problem-data-fn @problem) @sensors)))))
     (update-everything)))
 
 (defn set-prepared-action
@@ -81,14 +80,14 @@
           seed (if (:seed ps) (:seed ps) 1)
           td (:truedata prepared)
           sens (:sensors prepared)]
+      (alter-var-root (var params) (constantly ps))
       (set-seed seed)
       (set-last-id 0)
       (dosync
-       (alter params (constantly ps))
        (alter truedata (constantly td))
        (alter sensors (constantly sens))
        (alter or-state (constantly (init-one-run-state
-                                    @sensors ((:gen-problem-data-fn @problem) @sensors @params)))))
+                                    @sensors ((:gen-problem-data-fn @problem) @sensors)))))
       (update-everything))))
 
 (defn goto-ep-state-action
@@ -109,7 +108,7 @@
 
 (defn next-step
   []
-  (when (< @time-now (:Steps @params))
+  (when (< @time-now (:Steps params))
     (step)))
 
 (defn mainframe
@@ -174,6 +173,7 @@
   (dosync
    (alter all-params (constantly (list-params))))
   (swap! params-selected (constantly (first @all-params)))
+  (alter-var-root (var params) (constantly (get-player-params @params-selected)))
 
   (let [options (apply hash-map opts)]
     (when (:monitor options)
@@ -185,5 +185,4 @@
     (when (not (:monitor options))
       (new-simulation))
     ((:setup-diagram-fn (:player-fns @problem)) problem-diagram)
-    
     (mainframe)))

@@ -56,23 +56,27 @@
       (.write writer (format-csv-row (map (fn [field] (get results field))
                                           (sort (keys results))))))))
 
+(def results (ref {:control [] :comparison [] :comparative []}))
+
 (defn run-partition
   [monitor? recdir paired-params]
-  (when (not-empty paired-params)
-    (let [[control-results comparison-results comparative-results]
-          (run monitor? (first paired-params))]
-      (when (not= "" @database)
-        (db/put-results-row :control control-results)
-        (db/put-results-row :comparative comparative-results)
-        (db/put-results-row :comparison comparison-results))
-      (write-csv :control (str recdir "/control-results.csv")
-                 control-results)
-      (write-csv :comparison (str recdir "/comparison-results.csv")
-                 comparison-results)
-      (write-csv :comparative (str recdir "/comparative-results.csv")
-                 comparative-results)
-      (dosync (alter progress inc))
-      (recur monitor? recdir (rest paired-params)))))
+  (loop [ps paired-params]
+    (if (not-empty ps)
+      (let [[control-results comparison-results comparative-results]
+            (run monitor? (first ps))]
+        (prn (:Seed control-results) (:Seed comparison-results))
+        (write-csv :control (str recdir "/control-results.csv")
+                   control-results)
+        (write-csv :comparison (str recdir "/comparison-results.csv")
+                   comparison-results)
+        (write-csv :comparative (str recdir "/comparative-results.csv")
+                   comparative-results)
+        (dosync (alter progress inc)
+                (alter results
+                       (fn [r] (-> r (update-in [:control] conj control-results)
+                                   (update-in [:comparison] conj comparison-results)
+                                   (update-in [:comparative] conj comparative-results)))))
+        (recur (rest ps))))))
 
 (defn run-partitions
   [paired-params recdir nthreads monitor? repetitions]
@@ -84,6 +88,14 @@
                                   repeated-paired-params)
         partitions (partition-all (math/ceil (/ (count seeded-paired-params) nthreads))
                                   (my-shuffle seeded-paired-params))
-        workers (doall (for [part partitions]
-                         (future (run-partition monitor? recdir part))))]
-    (doall (pmap (fn [w] @w) workers))))
+        workers (for [part partitions]
+                  (future (run-partition monitor? recdir part)))]
+    (doall (pmap (fn [w] @w) workers))
+    (when (not= "" @database)
+      (println "Writing results to database...")
+      (doall (map (partial db/put-results-row :control)
+                  (sort-by :Seed (:control @results))))
+      (doall (map (partial db/put-results-row :comparison)
+                  (sort-by :Seed (:comparison @results))))
+      (doall (map (partial db/put-results-row :comparative)
+                  (sort-by :ControlSeed (:comparative @results)))))))

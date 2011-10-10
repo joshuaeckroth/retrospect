@@ -253,7 +253,7 @@
    and the already accepted, and not accepted, hypotheses found in the
    workspace of `ep-state`. "
   [ep-state]
-  (if (< 0 (:SensorNoise @params))
+  (if (< 0 (:SensorNoise params))
     (let [{:keys [dictionary models left-off indexed-letters]} (:problem-data ep-state)
           max-n (apply max (keys models))
           sensor-noise (double (/ (:SensorNoise params) 100.0))

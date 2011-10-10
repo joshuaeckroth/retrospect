@@ -44,8 +44,8 @@
   (try
     (let [t (. System (currentTimeMillis))
           recdir (str recordsdir "/" t)
-          control-params (explode-params (vectorize-params (:control @params)))
-          comparison-params (explode-params (vectorize-params (:comparison @params)))
+          control-params (explode-params (vectorize-params (:control @db-params)))
+          comparison-params (explode-params (vectorize-params (:comparison @db-params)))
           paired-params (partition 2 (interleave control-params comparison-params))]
       (when (not= (count control-params) (count comparison-params))
         (println "Control/comparison param counts are not equal.")
@@ -54,8 +54,8 @@
       (.mkdir (File. recdir))
       (println "done.")
       (print "Creating new database record...")
-      (db/new-active (merge {:type "run" :time t :paramsid (:_id @params) :paramsrev (:_rev @params)
-                             :paramsname (format "%s/%s" (:name @problem) (:name @params))
+      (db/new-active (merge {:type "run" :time t :paramsid (:_id @db-params) :paramsrev (:_rev @db-params)
+                             :paramsname (format "%s/%s" (:name @problem) (:name @db-params))
                              :datadir @datadir :recorddir recdir :nthreads nthreads
                              :pwd (pwd) :monitor monitor? :repetitions repetitions
                              :hostname (.getHostName (java.net.InetAddress/getLocalHost))

@@ -3,7 +3,10 @@
 (def problem (ref nil))
 (def datadir (ref nil))
 (def database (ref nil))
-(def params (ref nil))
+(def db-params (ref nil))
+
+;; need params not to be shared among threads
+(def params nil)
 
 ;; used by player only
 (def or-state (ref nil))

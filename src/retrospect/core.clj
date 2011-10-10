@@ -51,13 +51,14 @@
                              (= "Words" (:problem ps)) words-problem)
                   git-dirty? (not-empty (filter #(not= "??" (subs % 0 2))
                                                 (split-lines (sh "git" "status" "--porcelain"))))]
-              (when (and git-dirty? (not (re-matches #".*127\.0\.0\.1.*" database)))
+              (when (and git-dirty? (not (or (re-matches #".*127\.0\.0\.1.*" database)
+                                             (re-matches #".*localhost.*" database))))
                 (println "Project has uncommitted changes. Commit with git before"
                          "running simulations, or use the default (localhost) database connection.")
                 (System/exit -1))
               (dosync
                (alter state/problem (constantly prob))
-               (alter state/params (constantly ps)))
+               (alter state/db-params (constantly ps)))
               (run-with-new-record seed recordsdir nthreads monitor? repetitions))
             
             :else

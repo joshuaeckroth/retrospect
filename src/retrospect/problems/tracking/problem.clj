@@ -31,7 +31,7 @@
                {:walk-count walk-count})))
 
 (defn generate-problem-data
-  [sensors params]
+  [sensors]
   {:paths (sorted-map)
    :disbelieved-moves []
    :walk-dist (read-walk-dist (str @datadir "/tracking/walks.txt")) 

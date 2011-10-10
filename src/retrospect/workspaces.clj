@@ -156,12 +156,12 @@
                                                            (incoming g %)))
                                            (find-unexplained workspace))))))]
        {:immediate (build-seq false)
-        :transitive (if-not (:TransitiveExplanation @params) [] (build-seq true))}))
+        :transitive (if-not (:TransitiveExplanation params) [] (build-seq true))}))
   ([workspace hyp & opts]
      (let [g (if (some #{:static} opts)
                (:graph-static workspace)
                (:graph workspace))]
-       (if (:TransitiveExplanation @params)
+       (if (:TransitiveExplanation params)
          (set/union (incoming g hyp) (incoming-transitive g hyp))
          (incoming g hyp)))))
 
@@ -462,7 +462,7 @@
             (let [ws-confs (update-confidences ws (:immediate explainers))
                   explainers-updated (find-explainers ws-confs)
                   {:keys [best alts essential? transitive? delta]}
-                  (find-best-multi ws-confs explainers-updated (/ (:Threshold @params) 100.0))]
+                  (find-best-multi ws-confs explainers-updated (/ (:Threshold params) 100.0))]
               (if-not best
                 (log-final ws-confs)
                 (recur

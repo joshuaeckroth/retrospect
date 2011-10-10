@@ -13,22 +13,21 @@
 
 (defn put-results-row
   [results-type results]
-  (try
-   (clutch/with-db @database
-     (let [results-id (:_id (clutch/create-document (assoc results :runid @active :type results-type)))]
-       (-> (clutch/get-document @active)
-           (clutch/update-document #(conj % results-id) [results-type]))))
-   (catch java.io.IOException e
-     (put-results-row results-type results))))
+  (clutch/with-db @database
+    (let [results-id (:_id (clutch/create-document (assoc results :runid @active :type results-type)))]
+      (-> (clutch/get-document @active)
+          (clutch/update-document #(conj % results-id) [results-type])))))
 
 (defn read-params
   [params-string]
   (let [[problem name] (str/split #"/" params-string)
         params (:value (first (:rows (clutch/with-db @database
-                                       (clutch/get-view "parameters" "list"
+                                       (clutch/get-view "app" "parameters-list"
                                                         {:key [problem name]})))))]
     (if-not params
-      (println "No such parameters.")
+      (do
+        (println "No such parameters.")
+        (System/exit -1))
       (-> params
           (update-in [:control] read-string)
           (update-in [:comparison] read-string)
@@ -42,7 +41,7 @@
       (first
        (map :value
             (:rows (clutch/with-db @database
-                     (clutch/get-view "parameters" "list"
+                     (clutch/get-view "app" "parameters-list"
                                       {:key [problem name]})))))))))
 
 (defn list-params
@@ -52,4 +51,4 @@
         (filter #(= (:name @problem) (:problem %))
                 (map :value
                      (:rows (clutch/with-db @database
-                              (clutch/get-view "parameters" "list"))))))))
+                              (clutch/get-view "app" "parameters-list"))))))))

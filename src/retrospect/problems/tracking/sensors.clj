@@ -4,7 +4,8 @@
   (:use [retrospect.colors :only [red blue green gray]])
   (:use [retrospect.problems.tracking.grid :only [grid-entities]])
   (:use [retrospect.sensors :only [init-sensor add-sensed]])
-  (:require [clojure.contrib.math :as math]))
+  (:require [clojure.contrib.math :as math])
+  (:use [retrospect.state]))
 
 (defn sees
   [sensor x y]
@@ -64,7 +65,7 @@
                          :sees-color sees-color}))
 
 (defn generate-sensors
-  [params]
+  []
   (let [width-height (math/ceil
                       (math/sqrt (* (:GridHeight params)
                                     (:GridWidth params)

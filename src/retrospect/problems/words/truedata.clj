@@ -14,7 +14,7 @@
   (map #(if (< (my-rand) sensor-noise) (rand-char) %) letters))
 
 (defn generate-truedata
-  [params]
+  []
   (let [start (my-rand-int 10000)
         truedata-all (str/split (slurp (str @datadir "/words/truedata.txt")) #" ")
         ambiguous (take (:Steps params) (drop start (seq (slurp (str @datadir "/words/ambiguous.txt"))))) 

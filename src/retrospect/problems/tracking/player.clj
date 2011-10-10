@@ -102,8 +102,8 @@
   (dosync
    (alter diagram-width (constantly (.. g (getClipBounds) width)))
    (alter diagram-height (constantly (.. g (getClipBounds) height)))
-   (alter grid-width (constantly (:GridWidth @params)))
-   (alter grid-height (constantly (:GridHeight @params)))
+   (alter grid-width (constantly (:GridWidth params)))
+   (alter grid-height (constantly (:GridHeight params)))
    (alter grid-cell-width (constantly (ceil (/ @diagram-width @grid-width))))
    (alter grid-cell-height (constantly (ceil (/ @diagram-height @grid-height)))))
   (let [img (new BufferedImage @diagram-width @diagram-height
@@ -171,7 +171,7 @@
 (defn player-update-stats
   []
   (if (> @time-now 0)
-    (let [t (int (/ (dec @time-now) (:StepsBetween @params)))]
+    (let [t (int (/ (dec @time-now) (:StepsBetween params)))]
       (. percent-events-correct-label
          (setText
           (format "%.2f%%"

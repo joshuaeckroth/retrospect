@@ -29,9 +29,9 @@
 (defn run-simulation-step
   [truedata or-state monitor? player?]
   (let [time (:time (:ep-state or-state))
-        ors-sensors (proceed-n-steps (:StepsBetween @params) (:Steps @params)
+        ors-sensors (proceed-n-steps (:StepsBetween params) (:Steps params)
                                      time truedata or-state)
-        time-now (min (dec (:Steps @params)) (+ (dec (:StepsBetween @params)) time))
+        time-now (min (dec (:Steps params)) (+ (dec (:StepsBetween params)) time))
         ;; start the clock
         start-time (. System (nanoTime))
         ors-hyps (hypothesize ors-sensors time-now)
@@ -57,35 +57,31 @@
   (loop [ors or-state]
     (when (nil? ors)
       (throw (ExecutionException. "Monitor took control." (Throwable.))))
-    (if (>= (:time (:ep-state ors)) (:Steps @params))
+    (if (>= (:time (:ep-state ors)) (:Steps params))
       (last (:results ors))
       (recur (run-simulation-step truedata ors monitor? false)))))
 
 (defn run
   [monitor? [control-params comparison-params]]
   (let [control-result
-        (binding [last-id 0]
+        (binding [last-id 0
+                  params control-params]
           (set-seed (:Seed control-params))
-          (let [control-truedata ((:truedata-fn @problem) control-params)
-                control-sensors ((:sensor-gen-fn @problem) control-params)
-                control-problem-data ((:gen-problem-data-fn @problem)
-                                      control-sensors control-params)
+          (let [control-truedata ((:truedata-fn @problem))
+                control-sensors ((:sensor-gen-fn @problem))
+                control-problem-data ((:gen-problem-data-fn @problem) control-sensors)
                 control-or-state (init-one-run-state control-sensors control-problem-data)]
             (println "Control:" control-params)
-            (dosync
-             (alter params (constantly control-params)))
             (run-simulation control-truedata control-or-state monitor?)))
         comparison-result
-        (binding [last-id 0]
+        (binding [last-id 0
+                  params comparison-params]
           (set-seed (:Seed comparison-params))
-          (let [comparison-truedata ((:truedata-fn @problem) comparison-params)
-                comparison-sensors ((:sensor-gen-fn @problem) comparison-params)
-                comparison-problem-data ((:gen-problem-data-fn @problem)
-                                         comparison-sensors comparison-params)
+          (let [comparison-truedata ((:truedata-fn @problem))
+                comparison-sensors ((:sensor-gen-fn @problem))
+                comparison-problem-data ((:gen-problem-data-fn @problem) comparison-sensors)
                 comparison-or-state (init-one-run-state comparison-sensors comparison-problem-data)]
             (println "Comparison:" comparison-params)
-            (dosync
-             (alter params (constantly comparison-params)))
             (run-simulation comparison-truedata comparison-or-state monitor?)))]
     [control-result comparison-result
      (evaluate-comparative control-result comparison-result control-params comparison-params)]))

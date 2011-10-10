@@ -35,7 +35,7 @@
     (update-in
      or-state [:results] conj
      (merge {:Problem (:name @problem)}
-            @params
+            params
             ((:evaluate-fn @problem) ep-state results (:sensors or-state) truedata)
             {:Step (:time ep-state)
              :MetaActivations (:meta-activations resources)

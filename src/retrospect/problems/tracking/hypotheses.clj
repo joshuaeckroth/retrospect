@@ -362,7 +362,7 @@
     (let [paths (:paths (:problem-data ep-state))
           path-heads (get-path-heads paths)
           entity-hyps (make-known-entities-hyps
-                       paths time-now (:StepsBetween @params))
+                       paths time-now (:StepsBetween params))
           ep-entities (reduce #(add-fact %1 %2 []) ep-state entity-hyps)
           ep (process-sensors ep-entities sensors time-now)
           sg (:spotted-grid (:problem-data ep))

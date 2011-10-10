@@ -21,7 +21,7 @@
           (map #(str/split % #",") (str/split-lines (slurp file)))))
 
 (defn generate-problem-data
-  [sensors params]
+  [sensors]
   {:dictionary (str/split-lines (slurp (str @datadir "/words/dictionary.txt")))
    :models (zipmap (range 1 (inc (:MaxModelGrams params)))
                    (for [n (range 1 (inc (:MaxModelGrams params)))]

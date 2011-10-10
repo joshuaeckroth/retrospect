@@ -21,7 +21,7 @@
 (defn player-update-stats
   []
   (if (> @time-now 0)
-    (let [t (int (/ (dec @time-now) (:StepsBetween @params)))]
+    (let [t (int (/ (dec @time-now) (:StepsBetween params)))]
       (. ld-label (setText (format "%.2f" (:LD (get (:results @or-state) t))))))
     (do (. ld-label (setText "N/A")))))
 
@@ -43,7 +43,7 @@
 (defn player-get-truedata-log
   []
   (if (= @time-now 0) ""
-      (let [sb (:StepsBetween @params)
+      (let [sb (:StepsBetween params)
             pre (:prefix (meta @truedata))
             pre-noisy (:prefix-noisy (meta @truedata))
             am-noisy (take @time-now (:ambiguous-noisy (meta @truedata)))

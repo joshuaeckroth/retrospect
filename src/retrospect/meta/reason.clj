@@ -59,7 +59,7 @@ conditions are met after the strategy has done its work.
 (defn metareasoning-activated?
   "Check if any of the metareasoning activation conditions are met."
   [or-state]
-  (if (:MetaReasoning @params)
+  (if (:MetaReasoning params)
     (let [ep-state (current-ep-state (:ep-state-tree or-state))
           workspace (:workspace ep-state)]
       ;; TODO: implement other conditions
@@ -130,7 +130,7 @@ conditions are met after the strategy has done its work.
         ;; or cannot lower it any more (or there's nothing left to accept)
         final-ws
         (loop [workspace (:workspace ep-state)
-               threshold (- (:Threshold @params) 25)]
+               threshold (- (:Threshold params) 25)]
           (cond (or (empty? (:unaccepted (:final (:log workspace))))
                     (> 0 threshold))
                 workspace
