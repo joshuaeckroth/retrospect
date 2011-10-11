@@ -64,7 +64,6 @@
     (if (not-empty ps)
       (let [[control-results comparison-results comparative-results]
             (run monitor? (first ps))]
-        (prn (:Seed control-results) (:Seed comparison-results))
         (write-csv :control (str recdir "/control-results.csv")
                    control-results)
         (write-csv :comparison (str recdir "/comparison-results.csv")
