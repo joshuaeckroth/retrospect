@@ -65,4 +65,4 @@
           control-params comparison-params)
          (map #(calc-ratio-increase control-results comparison-results %)
               [:MetaActivations :MetaAccepted :Milliseconds :SharedExplains
-               :Unexplained :NoExpaliners :ExplainCycles :HypothesisCount :Compute :Memory])))
+               :Unexplained :NoExplainers :ExplainCycles :HypothesisCount :Compute :Memory])))
