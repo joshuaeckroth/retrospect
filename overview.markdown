@@ -1,7 +1,10 @@
 
 ## Abductive reasoner
 
-If `TransitiveExplanation` is `true`, the following logic is used:
+### Transitive explanation
+
+Transitive explanation is a parameter. If `TransitiveExplanation` is
+`true`, the following logic is used:
 
   - Construct two sets of contrast sets: one containing only immediate
     explainers, the other containing *only* transitive explainers.
@@ -34,3 +37,17 @@ If `TransitiveExplanation` is `true`, the following logic is used:
     explainer has a "delta" at least as good as the immediate
     explainer, so we prefer the transitive explainer.
 
+## Meta-reasoner
+
+Only one kind of meta-reasoning is active in this version of the
+code. This meta-reasoner branches off exactly three epistemic states
+prior and "batches" from there.
+
+The criteria for activating meta-reasoning is the following:
+
+  - there are some hypotheses that have no explainers; OR
+
+  - the number of unexplained hypotheses is greater than 10% of the
+    total number of hypotheses; OR
+
+  - the "doubt" of the workspace is greater than 0.10
