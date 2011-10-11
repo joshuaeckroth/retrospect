@@ -44,12 +44,12 @@
         [p r s a] (precision-recall (:problem-data ep-state) true-moves)]
     {:PEC pec
      :PEW pew
-     :Precision p
+     :Prec p
      :Recall r
-     :Specificity s
-     :Accuracy a}))
+     :Spec s
+     :Acc a}))
 
 (defn evaluate-comparative
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-ratio-increase control-results comparison-results %)
-                    [:PEC :PEW :Precision :Recall :Specificity :Accuracy])))
+                    [:PEC :PEW :Prec :Recall :Spec :Acc])))

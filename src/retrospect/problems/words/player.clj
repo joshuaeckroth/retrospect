@@ -7,6 +7,7 @@
   (:use [retrospect.state]))
 
 (def ld-label (label ""))
+(def correct-label (label ""))
 
 (defn player-get-stats-panel
   []
@@ -14,16 +15,22 @@
          :constrains (java.awt.GridBagConstraints.)
          [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0
           :fill :BOTH :insets (Insets. 5 0 5 0)
-          _ (label "Levenshtein distance:")
+          _ (label "Levenshtein dist:")
           :gridx 1
-          _ ld-label]))
+          _ ld-label
+          :gridy 1 :gridx 0
+          _ (label "Correct:")
+          :gridx 1
+          _ correct-label]))
 
 (defn player-update-stats
   []
   (if (> @time-now 0)
     (let [t (int (/ (dec @time-now) (:StepsBetween params)))]
-      (. ld-label (setText (format "%.2f" (:LD (get (:results @or-state) t))))))
-    (do (. ld-label (setText "N/A")))))
+      (. ld-label (setText (format "%.2f" (:LD (get (:results @or-state) t)))))
+      (. correct-label (setText (format "%.2f" (:Correct (get (:results @or-state) t))))))
+    (do (. ld-label (setText "N/A"))
+        (. correct-label (setText "N/A")))))
 
 (defn format-truedata-log
   [log sb pre]

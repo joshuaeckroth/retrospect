@@ -97,6 +97,7 @@ conditions are met after the strategy has done its work.
                         ;; explain cycles and hypothesis count and
                         ;; other resources
                         (-> (assoc ors :ep-state ep-expl)
+                            (update-in [:resources :meta-accepted] inc)
                             (update-in [:resources :explain-cycles]
                                        + (:explain-cycles (:resources (:workspace prior-ep))))
                             (update-in [:resources :hypothesis-count]

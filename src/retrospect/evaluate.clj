@@ -20,8 +20,8 @@
 
 (defn calc-ratio-increase
   [control-results comparison-results field]
-  (let [ratio-field (keyword (format "Ratio%s" (name field)))
-        increase-field (keyword (format "Increase%s" (name field)))]
+  (let [ratio-field (keyword (format "Rat%s" (name field)))
+        increase-field (keyword (format "Inc%s" (name field)))]
     {ratio-field (calc-ratio control-results comparison-results field)
      increase-field (calc-increase control-results comparison-results field)}))
 
@@ -39,8 +39,10 @@
             ((:evaluate-fn @problem) ep-state results (:sensors or-state) truedata)
             {:Step (:time ep-state)
              :MetaActivations (:meta-activations resources)
+             :MetaAccepted (:meta-accepted resources)
              :Milliseconds (add-to-prior results :Milliseconds (:milliseconds resources)) 
              :Unexplained (add-to-prior results :Unexplained (count (:unexplained final-log)))
+             :NoExplainers (add-to-prior results :NoExplainers (count (:no-explainers final-log)))
              :SharedExplains (add-to-prior results :SharedExplains
                                            (count (:shared-explains final-log)))
              :ExplainCycles (:explain-cycles resources)
@@ -57,10 +59,10 @@
   [control-results comparison-results control-params comparison-params]
   (apply merge
          {:Problem (:name @problem)}
-         (prefix-params "Control" control-params)
-         (prefix-params "Comparison" comparison-params)
+         (prefix-params "Cont" control-params)
+         (prefix-params "Comp" comparison-params)
          ((:evaluate-comparative-fn @problem) control-results comparison-results
           control-params comparison-params)
          (map #(calc-ratio-increase control-results comparison-results %)
-              [:MetaActivations :Milliseconds :SharedExplains :Unexplained
-               :ExplainCycles :HypothesisCount :Compute :Memory])))
+              [:MetaActivations :MetaAccepted :Milliseconds :SharedExplains
+               :Unexplained :NoExpaliners :ExplainCycles :HypothesisCount :Compute :Memory])))

@@ -11,7 +11,8 @@
   (let [ep-state-tree (init-ep-state-tree problem-data)]
     {:meta-workspaces {}
      :original-problem-data problem-data
-     :resources {:meta-activations 0 :explain-cycles 0 :hypothesis-count 0
+     :resources {:meta-activations 0 :meta-accepted 0
+                 :explain-cycles 0 :hypothesis-count 0
                  :milliseconds 0 :compute 0 :memory 0}
      :results [] :sensors sensors
      :ep-state-tree ep-state-tree
