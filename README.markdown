@@ -56,8 +56,8 @@
   
 - Install the Counterclockwise plugin just like any other Eclipse plugin
   
-- Perhaps watch the getting-started videos on the Counterclockwise
-  website: http://code.google.com/p/counterclockwise/
+- Perhaps watch the getting-started videos on the [Counterclockwise
+  website](http://code.google.com/p/counterclockwise/)
   
 - Create a new Clojure project
 
