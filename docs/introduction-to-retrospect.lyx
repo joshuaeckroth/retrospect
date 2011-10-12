@@ -631,28 +631,7 @@ status collapsed
 
 \begin_layout Plain Layout
 
-https://github.com/joshuaeckroth/retrospect
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Itemize
-
-\family roman
-\shape smallcaps
-sisyphus
-\family default
-\shape default
- introductory presentation: 
-\begin_inset Flex URL
-status collapsed
-
-\begin_layout Plain Layout
-
-http://www.cse.ohio-state.edu/~eckroth/sisyphus/sisyphus-introduction.pdf
+https://bitbucket.org/joshuaeckroth/retrospect
 \end_layout
 
 \end_inset
@@ -694,7 +673,7 @@ status collapsed
 
 \begin_layout Plain Layout
 
-https://github.com/joshuaeckroth/sisyphus
+https://bitbucket.org/joshuaeckroth/sisyphus
 \end_layout
 
 \end_inset
