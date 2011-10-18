@@ -22,13 +22,13 @@
 (defn explode-params
   "Want {:Xyz [1 2 3], :Abc [3 4]} to become [{:Xyz 1, :Abc 3}, {:Xyz 2, :Abc 4}, ...]"
   [params]
-  {:pre [(not (empty? params))]}
-  (if (= 1 (count params))
-    (for [v (second (first params))]
-      {(first (first params)) v})
-    (let [p (first params)
-	  deeper (explode-params (rest params))]
-      (flatten (map (fn [v] (map #(assoc % (first p) v) deeper)) (second p))))))
+  (when (not-empty params)
+    (if (= 1 (count params))
+      (for [v (second (first params))]
+        {(first (first params)) v})
+      (let [p (first params)
+            deeper (explode-params (rest params))]
+        (flatten (map (fn [v] (map #(assoc % (first p) v) deeper)) (second p)))))))
 
 (defn git-meta-info
   []
@@ -44,14 +44,17 @@
   (try
     (let [t (. System (currentTimeMillis))
           recdir (str recordsdir "/" t)
+          comparative? (= "comparative" (:params-type @db-params))
           control-params (explode-params (vectorize-params (:control @db-params)))
-          comparison-params (explode-params (vectorize-params (:comparison @db-params)))
-          paired-params (partition 2 (interleave control-params comparison-params))]
-      (when (not= (count control-params) (count comparison-params))
+          comparison-params (when comparative?
+                              (explode-params (vectorize-params (:comparison @db-params))))
+          paired-params (when comparative?
+                          (partition 2 (interleave control-params comparison-params)))]
+      (when (and comparative? (not= (count control-params) (count comparison-params)))
         (println "Control/comparison param counts are not equal.")
         (System/exit -1))
       (print (format "Making new directory %s..." recdir))
-      (.mkdir (File. recdir))
+      (.mkdirs (File. recdir))
       (println "done.")
       (print "Creating new database record...")
       (db/new-active (merge {:type "run" :time t :paramsid (:_id @db-params) :paramsrev (:_rev @db-params)
@@ -64,10 +67,10 @@
                              :overview (slurp "overview.markdown")}
                             (git-meta-info)))
       (println "done.")
-      (println
-        (format "Running %d parameters, %d repetitions = %d simulations..."
-                (count paired-params) repetitions (* (count paired-params) repetitions)))
-      (run-partitions paired-params recdir nthreads monitor? repetitions)
+      (println (format "Running %d parameters, %d repetitions = %d simulations..."
+                       (count control-params) repetitions (* (count control-params) repetitions)))
+      (run-partitions comparative? (if comparative? paired-params control-params)
+                      recdir nthreads monitor? repetitions)
       (println "Done."))
     (catch java.util.concurrent.ExecutionException e
       (println "Quitting early."))))

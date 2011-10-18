@@ -62,29 +62,42 @@
       (recur (run-simulation-step truedata ors monitor? false)))))
 
 (defn run
-  [monitor? [control-params comparison-params]]
-  (let [control-result
-        (binding [last-id 0
-                  params control-params]
-          (set-seed (:Seed control-params))
-          (let [control-truedata ((:truedata-fn @problem))
-                control-sensors ((:sensor-gen-fn @problem))
-                control-problem-data ((:gen-problem-data-fn @problem) control-sensors)
-                control-or-state (init-one-run-state control-sensors control-problem-data)]
-            (println "Control:" control-params)
-            (run-simulation control-truedata control-or-state monitor?)))
-        comparison-result
-        (binding [last-id 0
-                  params comparison-params]
-          (set-seed (:Seed comparison-params))
-          (let [comparison-truedata ((:truedata-fn @problem))
-                comparison-sensors ((:sensor-gen-fn @problem))
-                comparison-problem-data ((:gen-problem-data-fn @problem) comparison-sensors)
-                comparison-or-state (init-one-run-state comparison-sensors comparison-problem-data)]
-            (println "Comparison:" comparison-params)
-            (run-simulation comparison-truedata comparison-or-state monitor?)))]
-    [control-result comparison-result
-     (evaluate-comparative control-result comparison-result control-params comparison-params)]))
+  [comparative? monitor? params]
+  (if comparative?
+    ;; if comparative, run two simulations
+    (let [[control-params comparison-params] params
+          control-result
+          (binding [last-id 0
+                    params control-params]
+            (set-seed (:Seed control-params))
+            (let [control-truedata ((:truedata-fn @problem))
+                  control-sensors ((:sensor-gen-fn @problem))
+                  control-problem-data ((:gen-problem-data-fn @problem) control-sensors)
+                  control-or-state (init-one-run-state control-sensors control-problem-data)]
+              (println "Control:" control-params)
+              (run-simulation control-truedata control-or-state monitor?)))
+          comparison-result
+          (binding [last-id 0
+                    params comparison-params]
+            (set-seed (:Seed comparison-params))
+            (let [comparison-truedata ((:truedata-fn @problem))
+                  comparison-sensors ((:sensor-gen-fn @problem))
+                  comparison-problem-data ((:gen-problem-data-fn @problem) comparison-sensors)
+                  comparison-or-state (init-one-run-state comparison-sensors comparison-problem-data)]
+              (println "Comparison:" comparison-params)
+              (run-simulation comparison-truedata comparison-or-state monitor?)))]
+      [control-result comparison-result
+       (evaluate-comparative control-result comparison-result control-params comparison-params)])
+    ;; if non-comparative, just run the simulation
+    (binding [last-id 0
+              params params]
+      (set-seed (:Seed params))
+      (let [truedata ((:truedata-fn @problem))
+            sensors ((:sensor-gen-fn @problem))
+            problem-data ((:gen-problem-data-fn @problem) sensors)
+            or-state (init-one-run-state sensors problem-data)]
+        (println "Params:" params)
+        (run-simulation truedata or-state monitor?)))))
 
 (defrecord Problem
   [name monitor-fn player-fns truedata-fn sensor-gen-fn prepared-map

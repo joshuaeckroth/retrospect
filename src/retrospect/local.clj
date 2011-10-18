@@ -59,42 +59,48 @@
 (def results (ref {:control [] :comparison [] :comparative []}))
 
 (defn run-partition
-  [monitor? recdir paired-params]
-  (loop [ps paired-params]
+  [comparative? monitor? recdir params]
+  (loop [ps params]
     (if (not-empty ps)
-      (let [[control-results comparison-results comparative-results]
-            (run monitor? (first ps))]
-        (write-csv :control (str recdir "/control-results.csv")
-                   control-results)
-        (write-csv :comparison (str recdir "/comparison-results.csv")
-                   comparison-results)
-        (write-csv :comparative (str recdir "/comparative-results.csv")
-                   comparative-results)
-        (dosync (alter progress inc)
-                (alter results
-                       (fn [r] (-> r (update-in [:control] conj control-results)
-                                   (update-in [:comparison] conj comparison-results)
-                                   (update-in [:comparative] conj comparative-results)))))
-        (recur (rest ps))))))
+      (if comparative?
+        (let [[control-results comparison-results comparative-results]
+              (run comparative? monitor? (first ps))]
+          (write-csv :control (str recdir "/control-results.csv") control-results)
+          (write-csv :comparison (str recdir "/comparison-results.csv") comparison-results)
+          (write-csv :comparative (str recdir "/comparative-results.csv") comparative-results)
+          (dosync (alter progress inc)
+                  (alter results (-> 
+                                  (update-in [:control] conj control-results)
+                                  (update-in [:comparison] conj comparison-results)
+                                  (update-in [:comparative] conj comparative-results))))
+          (recur (rest ps)))
+        (let [rs (run comparative? monitor? (first ps))]
+          (write-csv :control (str recdir "/control-results.csv") rs)
+          (dosync (alter progress inc)
+                  (alter results (fn [r] (update-in r [:control] conj rs))))
+          (recur (rest ps)))))))
 
 (defn run-partitions
-  [paired-params recdir nthreads monitor? repetitions]
-  (let [sim-count (* repetitions (count paired-params))]
+  [comparative? params recdir nthreads monitor? repetitions]
+  (let [sim-count (* repetitions (count params))]
     (send (agent sim-count) check-progress sim-count (.getTime (Date.))))
-  (let [repeated-paired-params (mapcat (fn [pp] (repeat repetitions pp)) paired-params)
-        seeded-paired-params (map (fn [pp] (let [seed (my-rand-int 10000000)]
-                                             (map (fn [p] (assoc p :Seed seed)) pp)))
-                                  repeated-paired-params)
-        partitions (partition-all (math/ceil (/ (count seeded-paired-params) nthreads))
-                                  (my-shuffle seeded-paired-params))
+  (let [repeated-params (mapcat (fn [pp] (repeat repetitions pp)) params)
+        seeded-params (map (fn [pp] (let [seed (my-rand-int 10000000)]
+                                      (if comparative?
+                                        (map (fn [p] (assoc p :Seed seed)) pp)
+                                        (assoc pp :Seed seed))))
+                           repeated-params)
+        partitions (partition-all (math/ceil (/ (count seeded-params) nthreads))
+                                  (my-shuffle seeded-params))
         workers (for [part partitions]
-                  (future (run-partition monitor? recdir part)))]
+                  (future (run-partition comparative? monitor? recdir part)))]
     (doall (pmap (fn [w] @w) workers))
     (when (not= "" @database)
       (println "Writing results to database...")
       (doall (map (partial db/put-results-row :control)
                   (sort-by :Seed (:control @results))))
-      (doall (map (partial db/put-results-row :comparison)
-                  (sort-by :Seed (:comparison @results))))
-      (doall (map (partial db/put-results-row :comparative)
-                  (sort-by :ControlSeed (:comparative @results)))))))
+      (when comparative?
+        (doall (map (partial db/put-results-row :comparison)
+                    (sort-by :Seed (:comparison @results))))
+        (doall (map (partial db/put-results-row :comparative)
+                    (sort-by :ControlSeed (:comparative @results))))))))
