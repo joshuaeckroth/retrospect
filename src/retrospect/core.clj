@@ -24,7 +24,7 @@
      [repetitions "Number of repetitions" "10"]
      [monitor "Activate monitor?" "false"]
      [seed "Seed" "0"]
-     [database "Database identifier" "http://sisyphus:sisyphus@127.0.0.1:5984/retrospect"]]
+     [database "Database identifier" "http://127.0.0.1:5984/retrospect"]]
     (let [seed (Integer/parseInt seed)]
       (set-seed seed)
       (dosync
