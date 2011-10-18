@@ -57,31 +57,6 @@
 ;; conflict if the two hypotheses overlap in some part of the stream
 ;; and the composite hypothesis does not explain the word hypothesis,
 ;; meaning the word is not part of the composite).
-;;
-;; ## Boundary effects
-;;
-;; Typically, the hypothesizer is asked to produce hypotheses for a
-;; sequence of letters (sensor detections) at a time when the sequence
-;; of letters ends without completing a word. For example,
-;; "lookinggla" likely comes from the true words "looking glass"
-;; (which is a common phrase in /Through the looking glass/) but the
-;; hypothesizer may only see the sequence "lookinggla." Presumably,
-;; there is no other word that matches "gla" (and following "looking")
-;; with a non-zero a-priori score, as read off the model. So the agent
-;; would be find it reasonable to hypothesize, as a prediction, that
-;; the next word is "glass." If, at the next reasoning cycle, the
-;; prediction is not met, perhaps the agent should engage in
-;; meta-reasoning.
-;;
-;; However, the code complexity for supporting predictions makes the
-;; alternative more enticing: just don't hypothesize any explanations
-;; for "gla" since no word matches it sufficiently well (especially
-;; following "looking"). At the next reasoning cycle, "gla" will still
-;; be unexplained, so it can be handled then, when more letters are
-;; available.
-;;
-;; Both the predictive approach and the latter, adopted approach
-;; mitigate the impact of boundary effects.
 
 (def compute 0)
 (def memory 0)
