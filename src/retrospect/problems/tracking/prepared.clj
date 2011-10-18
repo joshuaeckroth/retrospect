@@ -2,8 +2,6 @@
   (:use [retrospect.problems.tracking.grid :only
          [new-grid grid-add grid-move grid-at
           update-all-entities find-entity]])
-  (:use [retrospect.problems.tracking.truedata :only
-         [generate-truedata]])
   (:use [retrospect.problems.tracking.sensors :only
          [new-sensor generate-sensors]])
   (:use [retrospect.colors])

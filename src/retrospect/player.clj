@@ -57,15 +57,15 @@
 (defn new-simulation
   []
   (let [prepared? (and (not (nil? @prepared-selected))
-                       (not= "None" @prepared-selected))
-        ps (get-player-params @params-selected)]
-    (alter-var-root (var params) (constantly ps))
-    (set-seed (get-seed))
-    (set-last-id 0)
+                       (not= "None" @prepared-selected))]
     (when (not prepared?)
-      (dosync
-       (alter truedata (constantly ((:truedata-fn @problem))))
-       (alter sensors (constantly ((:sensor-gen-fn @problem))))))
+      (let [ps (get-player-params @params-selected)]
+        (alter-var-root (var params) (constantly ps))
+        (set-seed (get-seed))
+        (set-last-id 0)
+        (dosync
+         (alter truedata (constantly ((:truedata-fn @problem))))
+         (alter sensors (constantly ((:sensor-gen-fn @problem)))))))
     (dosync
      (alter or-state (constantly (init-one-run-state
                                   @sensors ((:gen-problem-data-fn @problem) @sensors)))))
