@@ -1,3 +1,57 @@
+## Parameters
+
+### Generic parameters
+
+- `:BeliefNoise` (0-100) not used
+
+- `:SensorNoise` (0-100) used only in words domain; a value *p* causes
+  each letter to have a *p*/100 chance of switching to a random letter
+  when reported by the sensor
+
+- `:Steps` (1+) number of total simulation steps
+
+- `:StepsBetween` (1+) number of simulation steps to wait before the
+  agent gathers sensor reports and generates hypotheses
+
+- `:Threshold` (0-100) degree of caution; a value *p* causes the
+  abduction engine to refuse to accept a hypothesis if its confidence
+  does not surpass the next-most-confident rival by at least *p*/100
+
+- `:TransitiveExplanation` (true or false) used only in words domain;
+  whether or not transitive explanation is activated (see below for
+  the transitive explanation algorithm)
+
+- `:MetaReasoning` (true or false); whether or not meta-reasoning is
+  activated (see below the meta-reasoning algorithm)
+
+### Words domain parameters
+
+- `:MaxModelGrams` (1-10); word transition model size (i.e. unigram,
+  bigram, trigram, etc.)
+
+### Tracking domain parameters
+
+- `:GridHeight`, `:GridWidth` (1+); size of grid
+
+- `:MaxWalk` (1+); maximum grid-steps (including diagonals) an entity
+  can move in one time-step; a value greater than one means that an
+  entity can move several times in one time-step; leave this parameter
+  at 10 since the agent only knows the probability distribution of
+  random movements if the max walk size is 10
+
+- `:NumberEntities` (1+); number of (starting) entities in the grid
+
+- `:ProbNewEntities` (0-100); probability that a new entity will be
+  generated each time step; a value *p* causes a *p*/100 chance, in a
+  time step, that an entity will be created in a random location; for
+  now, leave this parameter at 0
+
+- `:SensorCoverage` (0-100); how much of the grid (as a percentage)
+  the sensors can "see"; for now, leave this parameter at 100
+
+- `:SensorSeesColor` (0-100); how much of the grid (as a percentage)
+  the sensors can report the color of entities; a value *p* causes the
+  middle *p*% of the grid to be "greyed-out"
 
 ## Abductive reasoner
 
