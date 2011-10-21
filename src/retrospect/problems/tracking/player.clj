@@ -183,7 +183,7 @@
       (. accuracy-label
          (setText
           (format "%.2f"
-                  (:Accuracy (get (:results @or-state) t))))))
+                  (:Acc (get (:results @or-state) t))))))
     (do
       (. percent-events-correct-label (setText "N/A"))
       (. percent-events-wrong-label (setText "N/A"))
