@@ -13,6 +13,7 @@
 (def headers (ref nil))
 (def headers-on (ref {}))
 (def p-left (panel))
+(def p-middle (panel))
 (def p-right (panel))
 
 (def scroll (scroll-panel (JViewport.)))
@@ -38,12 +39,14 @@
      (alter headers (constantly (sort (keys (first (:results @or-state)))))))
     (let [cb (fn [h] (check-box :caption (name h)
                                 :selected false
-                                :action ([_] (toggle-header h) (update-results))))]
-      (doseq [h (take (math/ceil (/ (count @headers) 2)) @headers)]
+                                :action ([_] (toggle-header h) (update-results))))
+          groups (partition-all (int (/ (count @headers) 3)) @headers)]
+      (doseq [h (nth groups 0)]
         (doto p-left (.add (cb h))))
-      (doseq [h (take-last (dec (math/ceil (/ (count @headers) 2))) @headers)]
-        (doto p-right (.add (cb h))))
-      (doto p-right (.add (panel)))))
+      (doseq [h (nth groups 1)]
+        (doto p-middle (.add (cb h))))
+      (doseq [h (nth groups 2)]
+        (doto p-right (.add (cb h))))))
   (. scroll (setViewport (get-results-viewport @or-state))))
 
 (defn results-tab
@@ -57,7 +60,9 @@
           _ (let [p (panel)]
               (.setLayout p (BoxLayout. p BoxLayout/X_AXIS))
               (.setLayout p-left (BoxLayout. p-left BoxLayout/Y_AXIS))
+              (.setLayout p-middle (BoxLayout. p-middle BoxLayout/Y_AXIS))
               (.setLayout p-right (BoxLayout. p-right BoxLayout/Y_AXIS))
               (.add p p-left)
+              (.add p p-middle)
               (.add p p-right)
               (scroll-panel p))]))
