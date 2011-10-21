@@ -59,6 +59,7 @@
       (print "Creating new database record...")
       (db/new-active (merge {:type "run" :time t :paramsid (:_id @db-params) :paramsrev (:_rev @db-params)
                              :paramsname (format "%s/%s" (:name @problem) (:name @db-params))
+                             :paramstype (:paramstype @db-params)
                              :datadir @datadir :recorddir recdir :nthreads nthreads
                              :pwd (pwd) :monitor monitor? :repetitions repetitions
                              :hostname (.getHostName (java.net.InetAddress/getLocalHost))
