@@ -59,7 +59,7 @@ conditions are met after the strategy has done its work.
 (defn metareasoning-activated?
   "Check if any of the metareasoning activation conditions are met."
   [or-state]
-  (if (:MetaReasoning params)
+  (if (not= "NoMetaReasoning" (:MetaReasoning params))
     (let [ep-state (current-ep-state (:ep-state-tree or-state))
           workspace (:workspace ep-state)]
       ;; TODO: implement other conditions
@@ -163,5 +163,16 @@ conditions are met after the strategy has done its work.
   "Activate the appropriate metareasoning strategy (as given by
    the parameter :MetaStrategy)"
   [or-state]
-  (batch 3 or-state))
-
+  (cond (= "BatchBeginning" (:MetaReasoning params))
+        (batch nil or-state)
+        (= "Batch1" (:MetaReasoning params))
+        (batch 1 or-state)
+        (= "Batch2" (:MetaReasoning params))
+        (batch 2 or-state)
+        (= "Batch3" (:MetaReasoning params))
+        (batch 3 or-state)
+        (= "Batch4" (:MetaReasoning params))
+        (batch 4 or-state)
+        (= "Batch5" (:MetaReasoning params))
+        (batch 5 or-state)
+        :else or-state))
