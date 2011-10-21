@@ -84,12 +84,12 @@
   [comparative? params recdir nthreads monitor? repetitions]
   (let [sim-count (* repetitions (count params))]
     (send (agent sim-count) check-progress sim-count (.getTime (Date.))))
-  (let [repeated-params (mapcat (fn [pp] (repeat repetitions pp)) params)
-        seeded-params (map (fn [pp] (let [seed (my-rand-int 10000000)]
-                                      (if comparative?
-                                        (map (fn [p] (assoc p :Seed seed)) pp)
-                                        (assoc pp :Seed seed))))
-                           repeated-params)
+  (let [seeds (repeatedly repetitions #(my-rand-int 10000000))
+        seeded-params (mapcat (fn [pp] (for [s seeds]
+                                         (if comparative?
+                                           (map (fn [p] (assoc p :Seed s)) pp)
+                                           (assoc pp :Seed s))))
+                              params)
         partitions (partition-all (math/ceil (/ (count seeded-params) nthreads))
                                   (my-shuffle seeded-params))
         workers (for [part partitions]
