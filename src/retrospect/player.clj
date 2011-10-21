@@ -6,7 +6,7 @@
   (:use [clj-swing.panel])
   (:use [clj-swing.button])
   (:use [clj-swing.combo-box])
-  (:use [retrospect.database :only [get-player-params list-params]])
+  (:use [clj-swing.text-field])
   (:use [retrospect.problem :only [run-simulation-step]])
   (:use [retrospect.state])
   (:use [retrospect.gui.eptree :only [ep-tree-tab update-ep-tree]])
@@ -22,12 +22,18 @@
   (:use [retrospect.random :only [set-seed]]))
 
 (def prepared-selected (atom "None"))
-(def all-params (ref nil))
-(def params-selected (atom nil))
+(def params-edit (ref ""))
 (def ep-list (ref '[]))
 (def ep-selected (atom nil))
 (def steplabel (label ""))
 (def problem-diagram (panel))
+
+(defn format-params
+  [params]
+  (str "{\n"
+       (apply str (interpose "\n" (for [k (sort (keys params))]
+                                    (format "%s %s" k (pr-str (params k))))))
+       "\n}"))
 
 (def seed-spinner (JSpinner. (SpinnerNumberModel. 10 nil nil 1)))
 
@@ -59,7 +65,7 @@
   (let [prepared? (and (not (nil? @prepared-selected))
                        (not= "None" @prepared-selected))]
     (when (not prepared?)
-      (let [ps (get-player-params @params-selected)]
+      (let [ps (read-string @params-edit)]
         (alter-var-root (var params) (constantly ps))
         (set-seed (get-seed))
         (set-last-id 0)
@@ -80,6 +86,7 @@
           seed (if (:seed ps) (:seed ps) 1)
           td (:truedata prepared)
           sens (:sensors prepared)]
+      (dosync (alter params-edit (constantly (format-params ps))))
       (alter-var-root (var params) (constantly ps))
       (set-seed seed)
       (set-last-id 0)
@@ -137,11 +144,10 @@
           :gridx 1 :gridy 1
           _ (button "Set prepared" :action ([_] (set-prepared-action)))
 
-          :gridx 1 :gridy 2
-          _ (combo-box
-             [] :model (seq-ref-combobox-model all-params params-selected))
+          :gridx 1 :gridy 2 :weighty 0.8
+          _ (scroll-panel (text-area :str-ref params-edit :editable true :wrap false))
 
-          :gridx 1 :gridy 3 :gridwidth 1
+          :gridx 1 :gridy 3 :gridwidth 1 :weighty 0.0
           _ (label "Seed")
           :gridx 2
           _ seed-spinner
@@ -170,10 +176,8 @@
 (defn start-player
   [& opts]
 
-  (dosync
-   (alter all-params (constantly (list-params))))
-  (swap! params-selected (constantly (first @all-params)))
-  (alter-var-root (var params) (constantly (get-player-params @params-selected)))
+  (alter-var-root (var params) (constantly (:default-params @problem)))
+  (dosync (alter params-edit (constantly (format-params params))))
 
   (let [options (apply hash-map opts)]
     (when (:monitor options)

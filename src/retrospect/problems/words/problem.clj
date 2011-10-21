@@ -49,5 +49,13 @@
                generate-problem-data
                inconsistent
                evaluate
-               evaluate-comparative))
+               evaluate-comparative
+               {:Steps 120
+                :Threshold 20
+                :StepsBetween 30
+                :SensorNoise 0
+                :BeliefNoise 0
+                :MaxModelGrams 3
+                :MetaReasoning "NoMetaReasoning"
+                :TransitiveExplanation true}))
 

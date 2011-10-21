@@ -63,4 +63,18 @@
                generate-problem-data
                inconsistent
                evaluate
-               evaluate-comparative))
+               evaluate-comparative
+               {:Steps 25
+                :Threshold 20
+                :StepsBetween 5
+                :SensorNoise 0
+                :BeliefNoise 0
+                :GridWidth 30
+                :GridHeight 30
+                :NumberEntities 15
+                :MaxWalk 10
+                :SensorSeesColor 50
+                :SensorCoverage 100
+                :ProbNewEntities 0
+                :MetaReasoning "NoMetaReasoning"
+                :TransitiveExplanation false}))
