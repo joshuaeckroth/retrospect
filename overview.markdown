@@ -21,8 +21,14 @@
   whether or not transitive explanation is activated (see below for
   the transitive explanation algorithm)
 
-- `:MetaReasoning` (true or false); whether or not meta-reasoning is
-  activated (see below the meta-reasoning algorithm)
+- `:MetaReasoning` several options, see the 'Meta-reasoning' section
+  of this document for more information:
+
+  - "NoMetaReasoning"
+
+  - "BatchBeginning"
+
+  - "Batch5", "Batch4", "Batch3", "Batch2", "Batch1"
 
 ### Words domain parameters
 
@@ -93,10 +99,6 @@ Transitive explanation is a parameter. If `TransitiveExplanation` is
 
 ## Meta-reasoner
 
-Only one kind of meta-reasoning is active in this version of the
-code. This meta-reasoner branches off exactly three epistemic states
-prior and "batches" from there.
-
 The criteria for activating meta-reasoning is the following:
 
   - there are some hypotheses that have no explainers; OR
@@ -105,3 +107,11 @@ The criteria for activating meta-reasoning is the following:
     total number of hypotheses; OR
 
   - the "doubt" of the workspace is greater than 0.10
+
+### Strategies
+
+**BatchBeginning** -- go back to the root ep-state (time 0), clear
+  hypotheses and "batch" all the way back to the current time.
+
+**BatchN** (for N=1,2,3,4,5) -- go back N ep-states, clear hypotheses
+  and "batch" all the way back to the current time.
