@@ -112,6 +112,18 @@
                :words [word] :pos-seqs [adjusted-pos-seq]})
      explains]))
 
+(defn make-learned-word-hyp
+  [word pos-seq letters left-off sensor-hyps]
+  (let [explains (map #(nth sensor-hyps %) pos-seq)
+        adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))]
+    [(new-hyp "W" :learned-word conflicts?
+              0.2 ;; apriori (really apriori, not even computed!)
+              (format "Learned word: \"%s\" at positions %s (%s)"
+                      word (str adjusted-pos-seq) (apply str letters))
+              {:start (first adjusted-pos-seq) :end (last adjusted-pos-seq)
+               :words [word] :pos-seqs [adjusted-pos-seq]})
+     explains]))
+
 (defn acceptable-noise?
   [letters word sensor-noise]
   (let [max-noise (Math/ceil (* sensor-noise (count word)))]
@@ -238,35 +250,57 @@
    and the already accepted, and not accepted, hypotheses found in the
    workspace of `ep-state`. "
   [ep-state]
-  (if (< 0 (:SensorNoise params))
-    (let [{:keys [dictionary models left-off indexed-letters]} (:problem-data ep-state)
-          max-n (apply max (keys models))
-          sensor-noise (double (/ (:SensorNoise params) 100.0))
-          ws (:workspace ep-state)
-          existing-hyps (get-hyps ws)
-          sensor-hyps (sort-by (comp :pos :data) (:forced ws))
-          unexp-pos (map (comp :pos :data)
-                         (set/intersection (find-unexplained ws) (:forced ws)))
-          sub-indexed-letters (sort-by first (map (fn [i] (nth indexed-letters i)) unexp-pos))
-          filter-existing (fn [hyps] (filter (fn [h] (not-any? #(= (:data (first h)) (:data %))
-                                                               existing-hyps))
-                                             hyps))
-          word-hyps (filter-existing
-                     (make-word-hyps sub-indexed-letters left-off
-                                     dictionary sensor-noise sensor-hyps models))
-          accepted (:accepted ws)
-          composite-hyps (filter-existing
-                          (make-composite-hyps models (map first word-hyps)
-                                               (filter #(= :single-word (:type %))
-                                                       existing-hyps)
-                                               max-n))]
-      (reduce (fn [ep [hyp explains]]
-                (add-more-hyp ep hyp explains (make-dep-node hyp)
-                              (map make-dep-node
-                                   (filter existing-hyps
-                                           (filter #(not= :sensor (:type %)) explains)))))
-              ep-state
-              (concat word-hyps composite-hyps)))))
+  (cond (< 0 (:SensorNoise params))
+        (let [{:keys [dictionary models left-off indexed-letters]} (:problem-data ep-state)
+              max-n (apply max (keys models))
+              sensor-noise (double (/ (:SensorNoise params) 100.0))
+              ws (:workspace ep-state)
+              existing-hyps (get-hyps ws)
+              sensor-hyps (sort-by (comp :pos :data) (:forced ws))
+              unexp-pos (map (comp :pos :data)
+                             (set/intersection (find-unexplained ws) (:forced ws)))
+              sub-indexed-letters (sort-by first (map (fn [i] (nth indexed-letters i)) unexp-pos))
+              filter-existing (fn [hyps] (filter (fn [h] (not-any? #(= (:data (first h)) (:data %))
+                                                                   existing-hyps))
+                                                 hyps))
+              word-hyps (filter-existing
+                         (make-word-hyps sub-indexed-letters left-off
+                                         dictionary sensor-noise sensor-hyps models))
+              accepted (:accepted ws)
+              composite-hyps (filter-existing
+                              (make-composite-hyps models (map first word-hyps)
+                                                   (filter #(= :single-word (:type %))
+                                                           existing-hyps)
+                                                   max-n))]
+          (reduce (fn [ep [hyp explains]]
+                    (add-more-hyp ep hyp explains (make-dep-node hyp)
+                                  (map make-dep-node
+                                       (filter existing-hyps
+                                               (filter #(not= :sensor (:type %)) explains)))))
+                  ep-state
+                  (concat word-hyps composite-hyps)))
+        (and (> 100 (:Knowledge params)) (:Learn params))
+        (let [ws (:workspace ep-state)
+              sensor-hyps (sort-by (comp :pos :data) (:forced ws))
+              {:keys [indexed-letters dictionary left-off]} (:problem-data ep-state)
+              unexp-pos (sort (map (comp :pos :data)
+                                   (set/intersection (find-unexplained ws) (:forced ws))))
+              contig-subsets (loop [ps (rest unexp-pos) subs [[(first unexp-pos)]]]
+                               (cond (empty? ps) subs
+                                     (= (first ps) (inc (last (last subs))))
+                                     (recur (rest ps) (conj (vec (butlast subs))
+                                                            (conj (vec (last subs)) (first ps))))
+                                     :else (recur (rest ps) (conj subs [(first ps)]))))
+              words (sort-by first (map (fn [subset] (map (fn [i] (nth indexed-letters i))
+                                                          subset)) contig-subsets))
+              new-words (filter (fn [w] (not (dictionary (apply str (map second w))))) words)
+              hyps (map (fn [w] (make-learned-word-hyp (apply str (map second w))
+                                                       (map first w) (map second w)
+                                                       left-off sensor-hyps))
+                        new-words)]
+          (reduce (fn [ep [hyp explains]]
+                    (add-more-hyp ep hyp explains (make-dep-node hyp) []))
+                  ep-state hyps))))
 
 (defn commit-decision
   [pdata accepted rejected time-now]
@@ -285,8 +319,11 @@
                   (>= end-time (first pos-seq))
                   (recur words (rest wps) end-time)
                   :else (recur (conj words word)
-                               (rest wps) (last pos-seq)))))]
+                               (rest wps) (last pos-seq)))))
+        learned-words (set (map (comp first :words :data)
+                                (filter (fn [hyp] (= :learned-word (:type hyp))) accepted)))]
     (-> pdata
+        (update-in [:dictionary] set/union learned-words)
         (update-in [:accepted] concat accepted)
         (update-in [:history] concat words)
         (assoc :letters [])

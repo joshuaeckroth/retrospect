@@ -14,6 +14,9 @@
   true complete dictionary, and all n-grams that involve unknown words
   are likewise not known to the agent
 
+- `:Learn` (true/false) used only in words domain; whether
+  domain-specific "learning" should be possible
+
 - `:Steps` (1+) number of total simulation steps
 
 - `:StepsBetween` (1+) number of simulation steps to wait before the
