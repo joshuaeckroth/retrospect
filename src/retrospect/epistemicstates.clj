@@ -4,6 +4,9 @@
   (:require [clojure.zip :as zip])
   (:require [clojure.set :as set])
   (:require [vijual :as vijual])
+  (:use [loom.graph :only [digraph add-edges add-nodes nodes]])
+  (:use [loom.attr :only [add-attr]])
+  (:use [loom.io :only [view]])
   (:use [retrospect.state]))
 
 (defprotocol EpistemicStateTree
@@ -16,7 +19,8 @@
      children
      time
      workspace
-     problem-data]
+     problem-data
+     depgraph]
   Object
   (toString [_] (format "%s %d %s/%s" id time
                         (confidence-str (ws/get-doubt workspace))
@@ -32,7 +36,8 @@
    children
    (:time ep-state)
    (:workspace ep-state)
-   (:problem-data ep-state)))
+   (:problem-data ep-state)
+   (:depgraph ep-state)))
 
 (extend-protocol EpistemicStateTree
   EpistemicState
@@ -70,7 +75,8 @@
    (zip-ep-state-tree
     [(EpistemicState. (make-ep-state-id) [] 0
                       (ws/init-workspace)
-                      pdata)])))
+                      pdata
+                      (digraph))])))
 
 (defn root-ep-state?
   [ep-state]
@@ -138,13 +144,26 @@
   [ep-state-tree]
   (map str (flatten-ep-state-tree ep-state-tree)))
 
+(defn add-hyp-helper
+  [ep-state hyp explains dep-node depends & opts]
+  (let [g (if (empty? depends) (:depgraph ep-state)
+            (reduce (fn [g d] (-> g (add-edges [dep-node d]) (add-attr d :label (:str d))))
+                    (-> (:depgraph ep-state)
+                        (add-nodes dep-node)
+                        (add-attr dep-node :label (:str dep-node)))
+                    depends))]
+    (assoc ep-state
+      :workspace (apply ws/add (:workspace ep-state) hyp explains opts)
+      :depgraph g)))
+
 (defn add-hyp
-  [ep-state hyp explains]
-  (update-in ep-state [:workspace] ws/add hyp explains :static))
+  [ep-state hyp explains dep-node depends]
+  (println (:str dep-node) "depends on" (map :str depends))
+  (add-hyp-helper ep-state hyp explains dep-node depends :static))
 
 (defn add-more-hyp
-  [ep-state hyp explains]
-  (update-in ep-state [:workspace] ws/add hyp explains))
+  [ep-state hyp explains dep-node depends]
+  (add-hyp-helper ep-state hyp explains dep-node depends))
 
 (defn add-fact
   [ep-state hyp explains]
@@ -162,7 +181,8 @@
      (inc time-now)
      (ws/init-workspace workspace)
      ((:commit-decision-fn @problem) (:problem-data ep-state)
-        accepted rejected time-now))))
+      accepted rejected time-now)
+     (:depgraph ep-state))))
 
 (defn new-branch-ep-state
   [ep-state-tree branch]
@@ -182,11 +202,12 @@
   (let [ep-state (current-ep-state ep-state-tree)
         est (goto-ep-state (zip/replace ep-state-tree ep-state) "A")
         new-ep (EpistemicState. (make-ep-state-id est) [] 0
-                                (ws/init-workspace) pdata)]
+                                (ws/init-workspace) pdata (digraph))]
     (goto-ep-state (zip/insert-right (goto-ep-state est "A") new-ep) (:id new-ep))))
 
 (defn new-child-ep-state
   [ep-state-tree ep-state time-now]
+  (view (:depgraph ep-state))
   (let [ep-tree (goto-ep-state (zip/replace ep-state-tree ep-state) (:id ep-state))
         ep-child (commit-decision ep-state (make-ep-state-id ep-tree) time-now)
         ep-tree-child (goto-ep-state (zip/append-child ep-tree ep-child) (:id ep-child))]

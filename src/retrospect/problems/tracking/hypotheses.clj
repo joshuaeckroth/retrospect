@@ -354,6 +354,12 @@
         pg-updated-colors (update-paths-graph-colors pg-inconsistent path-heads)]
     (remove-inconsistent-paths-graph-edges pg-updated-colors path-heads)))
 
+(defn make-dep-node
+  [hyp]
+  (let [det (if (:det2 (:data hyp)) (:det2 (:data hyp)) (:det (:data hyp)))]
+    {:time (:time det)
+     :str (format "%d,%d@%d (%s)" (:x det) (:y det) (:time det) (color-str (:color det)))}))
+
 (defn hypothesize
   "Process sensor reports, then make hypotheses for all possible movements,
    and add them to the epistemic state."
@@ -383,7 +389,9 @@
                                        [(attr paths-graph det det2 :hyp)
                                         (attr paths-graph det det2 :explains)])
                                      (edges paths-graph))]
-            [(reduce (fn [ep [hyp explains]] (add-hyp ep hyp explains))
+            [(reduce (fn [ep [hyp explains]]
+                       (add-hyp ep hyp explains (make-dep-node hyp)
+                                (map make-dep-node (filter #(= :tracking-entity (:type %)) explains))))
                      ep-paths-graph consistent-hyps)
              {:compute compute :memory memory}])
           ;; take the first uncovered detection, and make movement hyps out of it
@@ -406,7 +414,10 @@
                (assoc-in [:problem-data :split-merge-hyps] [])
                (assoc-in [:problem-data :paths-graph] new-paths-graph)
                (update-in [:problem-data :count-removed] + count-removed))]
-    (reduce (fn [ep [hyp explains]] (add-more-hyp ep hyp explains)) ep hyps)))
+    (reduce (fn [ep [hyp explains]]
+              (add-more-hyp ep hyp explains (make-dep-node hyp)
+                            (map make-dep-node (filter #(= :tracking-entity (:type %)) explains))))
+            ep hyps)))
 
 (defn path-to-movements
   [path]
