@@ -195,11 +195,18 @@
   [pdata hyps rejected]
   [])
 
+(defn make-dep-node
+  [hyp]
+  {:time (:start (:data hyp))
+   :id (:id hyp)
+   :str (apply str (:start (:data hyp)) ":" (interpose " " (:words (:data hyp))))})
+
 (defn hypothesize
   [ep-state sensors time-now]
   (binding [compute 0 memory 0]
     (let [sens (first sensors) ;; only one sensor
-          {:keys [dictionary left-off accepted models]} (:problem-data ep-state)
+          {:keys [dictionary left-off models]} (:problem-data ep-state)
+          accepted (set (:accepted (:problem-data ep-state)))
           max-n (apply max (keys models))
           letters (map #(sensed-at sens %) (range (inc left-off) (inc time-now)))
           indexed-letters (map (fn [i] [i (nth letters i)]) (range (count letters)))
@@ -208,7 +215,10 @@
           ep-letters (assoc-in ep-sensor-hyps [:problem-data :indexed-letters] indexed-letters)
           word-hyps (make-word-hyps indexed-letters left-off dictionary 0.0 sensor-hyps models)
           composite-hyps (make-composite-hyps models (map first word-hyps) accepted max-n)]
-      [(reduce #(add-hyp %1 (first %2) (second %2)) ep-letters (concat word-hyps composite-hyps))
+      [(reduce (fn [ep [hyp explains]]
+                 (add-hyp ep hyp explains (make-dep-node hyp)
+                          (map make-dep-node (filter accepted explains))))
+               ep-letters (concat word-hyps composite-hyps))
        {:compute compute :memory memory}])))
 
 (defn get-more-hyps
@@ -250,7 +260,12 @@
                                                (filter #(= :single-word (:type %))
                                                        existing-hyps)
                                                max-n))]
-      (reduce (fn [ep [hyp explains]] (add-more-hyp ep hyp explains)) ep-state
+      (reduce (fn [ep [hyp explains]]
+                (add-more-hyp ep hyp explains (make-dep-node hyp)
+                              (map make-dep-node
+                                   (filter existing-hyps
+                                           (filter #(not= :sensor (:type %)) explains)))))
+              ep-state
               (concat word-hyps composite-hyps)))))
 
 (defn commit-decision
