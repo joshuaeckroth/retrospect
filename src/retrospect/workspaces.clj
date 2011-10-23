@@ -45,13 +45,7 @@
       :accepted #{}
       :rejected #{}
       :forced #{}
-      :resources {:explain-cycles 0 :hypothesis-count 0}})
-  ([workspace-old]
-     (-> (init-workspace)
-         (assoc-in [:resources :explain-cycles]
-                   (:explain-cycles (:resources workspace-old)))
-         (assoc-in [:resources :hypothesis-count]
-                   (:hypothesis-count (:resources workspace-old))))))
+      :resources {:explain-cycles 0 :hypothesis-count 0}}))
 
 (defn hyp-log
   [workspace hyp]

@@ -18,8 +18,7 @@
 
 (defn evaluate
   [ep-state results sensors truedata]
-  (let [time (:time ep-state)
-        accepted (:accepted (:problem-data ep-state))
+  (let [accepted (:accepted (:problem-data ep-state))
         truewords-starts (get-truewords-starts truedata (:time ep-state))
         truewords (map first truewords-starts)
         correct-pcts
@@ -36,7 +35,7 @@
             (double (/ correct (count words)))))]
     {:LD (double (/ (calc-ld (:history (:problem-data ep-state)) truewords)
                     (if (empty? truewords) 1 (count truewords))))
-     :Correct (/ (reduce + 0.0 correct-pcts) (count correct-pcts))}))
+     :Correct (/ (reduce + 0.0 correct-pcts) (if (empty? correct-pcts) 1 (count correct-pcts)))}))
 
 (defn evaluate-comparative
   [control-results comparison-results control-params comparison-params]

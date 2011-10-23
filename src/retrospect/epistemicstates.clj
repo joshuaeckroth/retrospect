@@ -158,7 +158,6 @@
 
 (defn add-hyp
   [ep-state hyp explains dep-node depends]
-  (println (:str dep-node) "depends on" (map :str depends))
   (add-hyp-helper ep-state hyp explains dep-node depends :static))
 
 (defn add-more-hyp
@@ -179,7 +178,7 @@
      id
      []
      (inc time-now)
-     (ws/init-workspace workspace)
+     (ws/init-workspace)
      ((:commit-decision-fn @problem) (:problem-data ep-state)
       accepted rejected time-now)
      (:depgraph ep-state))))

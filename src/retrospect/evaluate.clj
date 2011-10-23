@@ -1,4 +1,6 @@
 (ns retrospect.evaluate
+  (:use [loom.graph :only [incoming nodes neighbors]])
+  (:use [loom.alg-generic :only [dijkstra-span]])
   (:use [retrospect.epistemicstates :only [current-ep-state previous-ep-state]])
   (:use [retrospect.state]))
 
@@ -25,6 +27,12 @@
     {ratio-field (calc-ratio control-results comparison-results field)
      increase-field (calc-increase control-results comparison-results field)}))
 
+(defn calc-deepest-dep
+  [depgraph]
+  (let [starts (filter #(empty? (incoming depgraph %)) (nodes depgraph))
+        paths (mapcat #(dijkstra-span (partial neighbors depgraph) (constantly 1) %) starts)]
+    (apply max 0 (mapcat (comp vals second) paths))))
+
 (defn evaluate
   [truedata or-state]
   (let [ep-state (current-ep-state (:ep-state-tree or-state))
@@ -48,7 +56,8 @@
              :ExplainCycles (:explain-cycles resources)
              :HypothesisCount (:hypothesis-count resources)
              :Compute (:compute resources)
-             :Memory (:memory resources)}))))
+             :Memory (:memory resources)
+             :DeepestDep (calc-deepest-dep (:depgraph ep-state))}))))
 
 (defn prefix-params
   [prefix params]
@@ -65,4 +74,4 @@
           control-params comparison-params)
          (map #(calc-ratio-increase control-results comparison-results %)
               [:MetaActivations :MetaAccepted :Milliseconds :SharedExplains
-               :Unexplained :NoExplainers :ExplainCycles :HypothesisCount :Compute :Memory])))
+               :Unexplained :NoExplainers :ExplainCycles :HypothesisCount :Compute :Memory :DeepestDep])))
