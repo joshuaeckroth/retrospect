@@ -25,7 +25,10 @@
 (defn get-results-viewport
   [or-state]
   (let [hs (filter #(@headers-on %) (sort-by name (keys @headers-on)))
-        results-matrix (map (fn [r] (map (fn [h] (h r)) hs))
+        results-matrix (map (fn [r] (map (fn [h] (if (= java.lang.Double (type (h r)))
+                                                   (format "%.2f" (h r))
+                                                   (h r)))
+                                         hs))
                             (:results or-state))]
     (doto (JViewport.)
       (.setView  (JTable. (Vector. (map #(Vector. %) results-matrix))
@@ -40,7 +43,7 @@
     (let [cb (fn [h] (check-box :caption (name h)
                                 :selected false
                                 :action ([_] (toggle-header h) (update-results))))
-          groups (partition-all (int (/ (count @headers) 3)) @headers)]
+          groups (partition-all (Math/ceil (/ (count @headers) 3)) @headers)]
       (doseq [h (nth groups 0)]
         (doto p-left (.add (cb h))))
       (doseq [h (nth groups 1)]
