@@ -8,6 +8,12 @@
   each letter to have a *p*/100 chance of switching to a random letter
   when reported by the sensor
 
+- `:Knowledge` (0-100) used only in words domain; how much "world
+  knowledge" the agent starts with; in the words domain, a value of
+  *p* causes the agent to know about only a random *p*% subset of the
+  true complete dictionary, and all n-grams that involve unknown words
+  are likewise not known to the agent
+
 - `:Steps` (1+) number of total simulation steps
 
 - `:StepsBetween` (1+) number of simulation steps to wait before the

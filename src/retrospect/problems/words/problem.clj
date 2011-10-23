@@ -13,6 +13,7 @@
           player-get-problem-log player-setup-diagram player-update-diagram]])
   (:use [retrospect.problems.words.monitor :only [monitor]])
   (:use [retrospect.problems.words.prepared :only [prepared-map]])
+  (:use [retrospect.random])
   (:use [retrospect.state]))
 
 (defn read-model-csv
@@ -22,14 +23,18 @@
 
 (defn generate-problem-data
   [sensors]
-  {:dictionary (str/split-lines (slurp (str @datadir "/words/dictionary.txt")))
-   :models (zipmap (range 1 (inc (:MaxModelGrams params)))
-                   (for [n (range 1 (inc (:MaxModelGrams params)))]
-                     (read-model-csv (str @datadir (format "/words/model-%d.csv" n)))))
-   :left-off -1
-   :indexed-letters []
-   :accepted []
-   :history []})
+  (let [full-dict (my-shuffle (str/split-lines (slurp (str @datadir "/words/dictionary.txt"))))
+        dict (set (take (int (* (count full-dict) (/ (:Knowledge params) 100))) full-dict))]
+    {:dictionary dict
+     :models (zipmap (range 1 (inc (:MaxModelGrams params)))
+                     (for [n (range 1 (inc (:MaxModelGrams params)))]
+                       (let [model (read-model-csv (str @datadir (format "/words/model-%d.csv" n)))]
+                         ;; select only those n-grams that have all their words from dict
+                         (select-keys model (filter #(every? dict %) (keys model))))))
+     :left-off -1
+     :indexed-letters []
+     :accepted []
+     :history []}))
 
 (def words-problem
      (Problem. "Words"
@@ -57,5 +62,6 @@
                 :BeliefNoise 0
                 :MaxModelGrams 3
                 :MetaReasoning "NoMetaReasoning"
+                :Knowledge 100
                 :TransitiveExplanation true}))
 
