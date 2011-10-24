@@ -28,7 +28,7 @@
       (do
         (println "No such parameters.")
         (System/exit -1))
-      (if (= "comparative" (:params-type params))
+      (if (= "comparative" (:paramstype params))
         (-> params
             (update-in [:control] read-string)
             (update-in [:comparison] read-string))
