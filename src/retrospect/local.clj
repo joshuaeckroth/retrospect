@@ -69,10 +69,9 @@
           (write-csv :comparison (str recdir "/comparison-results.csv") comparison-results)
           (write-csv :comparative (str recdir "/comparative-results.csv") comparative-results)
           (dosync (alter progress inc)
-                  (alter results (fn [r] 
-                                   (update-in r [:control] conj control-results)
-                                   (update-in r [:comparison] conj comparison-results)
-                                   (update-in r [:comparative] conj comparative-results))))
+                  (alter results (fn [r] (-> r (update-in [:control] conj control-results)
+                                             (update-in [:comparison] conj comparison-results)
+                                             (update-in [:comparative] conj comparative-results)))))
           (recur (rest ps)))
         (let [rs (run comparative? monitor? (first ps))]
           (write-csv :control (str recdir "/control-results.csv") rs)
