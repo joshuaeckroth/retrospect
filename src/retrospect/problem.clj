@@ -38,7 +38,6 @@
         ep-state (:ep-state ors-hyps)
         ep-explained (explain ep-state)
         ors-expl (update-one-run-state ors-hyps ep-explained {:compute 0 :memory 0})
-        ors-committed (proceed-one-run-state ors-hyps ep-explained time-now)
         ors-meta (if (metareasoning-activated? ors-expl)
                    (metareason ors-expl) ors-expl)
         ;; stop the clock

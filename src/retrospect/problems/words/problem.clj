@@ -18,7 +18,7 @@
 
 (defn read-model-csv
   [file]
-  (reduce #(assoc %1 (butlast %2) (Double/parseDouble (last %2))) {}
+  (reduce #(assoc %1 (butlast %2) (Integer/parseInt (last %2))) {}
           (map #(str/split % #",") (str/split-lines (slurp file)))))
 
 (defn generate-problem-data
