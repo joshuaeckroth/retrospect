@@ -63,7 +63,16 @@
 
 (defn lookup-prob
   [models words]
-  (get (get models (count words)) words))
+  (let [model (get models (count words))
+        sum (reduce + 0 (map #(get model %) (filter #(= (butlast %) (butlast words)) (keys model))))
+        c (get (get models (count words)) words)]
+    ;; if we have a probability in the model, return it
+    (if c (double (/ c sum))
+        ;; otherwise, this sequence is not in the model;
+        ;; if we are willing to learn, make the probability 0.2;
+        ;; otherwise, it's 0.0
+        (if (and (> 100 (:Knowledge params)) (:Learn params))
+          0.2 0.0))))
 
 (defn gap-sizes
   [starts-ends]
@@ -221,7 +230,10 @@
           accepted (set (:accepted (:problem-data ep-state)))
           max-n (apply max (keys models))
           letters (map #(sensed-at sens %) (range (inc left-off) (inc time-now)))
-          indexed-letters (map (fn [i] [i (nth letters i)]) (range (count letters)))
+          ;; if not enough sensed data to fill time, indexed-letters will have some
+          ;; non-characters; so filter those out
+          indexed-letters (filter #(= java.lang.Character (type %))
+                                  (map (fn [i] [i (nth letters i)]) (range (count letters))))
           sensor-hyps (make-sensor-hyps indexed-letters)
           ep-sensor-hyps (reduce #(add-fact %1 %2 []) ep-state sensor-hyps)
           ep-letters (assoc-in ep-sensor-hyps [:problem-data :indexed-letters] indexed-letters)
@@ -302,14 +314,19 @@
                     (add-more-hyp ep hyp explains (make-dep-node hyp) []))
                   ep-state hyps))))
 
+(defn update-model
+  [n model history words]
+  (let [ws (concat (take-last (dec n) history) words)
+        ngrams (partition n 1 ws)]
+    (reduce (fn [m ngram] (if (get m ngram) (update-in m [ngram] inc) (assoc m ngram 1)))
+            model ngrams)))
+
 (defn commit-decision
   [pdata accepted rejected time-now]
   (let [words-pos-seqs
         (sort-by (comp first second)
-                 (partition 2 (mapcat (fn [hyp]
-                                        (interleave (:words (:data hyp))
-                                                    (:pos-seqs (:data hyp))))
-                                      accepted))) 
+                 (partition 2 (mapcat (fn [hyp] (interleave (:words (:data hyp))
+                                                            (:pos-seqs (:data hyp)))) accepted))) 
         [words left-off]
         (loop [words []
                wps words-pos-seqs
@@ -320,12 +337,25 @@
                   (recur words (rest wps) end-time)
                   :else (recur (conj words word)
                                (rest wps) (last pos-seq)))))
-        learned-words (set (map (comp first :words :data)
-                                (filter (fn [hyp] (= :learned-word (:type hyp))) accepted)))]
+        learned-hyps (filter (fn [hyp] (= :learned-word (:type hyp))) accepted)
+        learned-words (map (comp first :words :data) learned-hyps)
+        models (:models pdata)
+        history (:history pdata)
+        max-n (:MaxModelGrams params)
+        new-models (reduce (fn [ms i] (assoc ms i
+                                             (update-model i (get models i)
+                                                           (concat (repeat (dec max-n) "") history)
+                                                           words)))
+                           {} (range 1 (inc max-n)))]
+    (println "old models:" models)
+    (println "new models:" new-models)
+    (println "old dict:" (:dictionary pdata))
+    (println "new dict:" (set/union (:dictionary pdata) (set learned-words)))
     (-> pdata
-        (update-in [:dictionary] set/union learned-words)
+        (update-in [:dictionary] set/union (set learned-words))
         (update-in [:accepted] concat accepted)
         (update-in [:history] concat words)
+        (assoc :models new-models)
         (assoc :letters [])
         (assoc :left-off left-off))))
 

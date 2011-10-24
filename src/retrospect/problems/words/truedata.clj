@@ -15,8 +15,8 @@
 
 (defn generate-truedata
   []
-  (let [start (my-rand-int 10000)
-        truedata-all (str/split (slurp (str @datadir "/words/truedata.txt")) #" ")
+  (let [truedata-all (str/split (slurp (str @datadir "/words/truedata.txt")) #" ")
+        start (my-rand-int (reduce + 0 (map count truedata-all)))
         ambiguous (take (:Steps params) (drop start (seq (slurp (str @datadir "/words/ambiguous.txt"))))) 
         [td prefix] (loop [td truedata-all
                            i 0]
