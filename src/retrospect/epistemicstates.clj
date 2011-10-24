@@ -206,7 +206,6 @@
 
 (defn new-child-ep-state
   [ep-state-tree ep-state time-now]
-  (view (:depgraph ep-state))
   (let [ep-tree (goto-ep-state (zip/replace ep-state-tree ep-state) (:id ep-state))
         ep-child (commit-decision ep-state (make-ep-state-id ep-tree) time-now)
         ep-tree-child (goto-ep-state (zip/append-child ep-tree ep-child) (:id ep-child))]
