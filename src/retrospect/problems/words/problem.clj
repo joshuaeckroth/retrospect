@@ -63,5 +63,6 @@
                 :MaxModelGrams 3
                 :MetaReasoning "NoMetaReasoning"
                 :Knowledge 100
+                :Learn false
                 :TransitiveExplanation true}))
 
