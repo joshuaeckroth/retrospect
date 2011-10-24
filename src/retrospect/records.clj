@@ -44,7 +44,7 @@
   (try
     (let [t (. System (currentTimeMillis))
           recdir (str recordsdir "/" t)
-          comparative? (= "comparative" (:params-type @db-params))
+          comparative? (= "comparative" (:paramstype @db-params))
           control-params (explode-params (vectorize-params (:control @db-params)))
           comparison-params (when comparative?
                               (explode-params (vectorize-params (:comparison @db-params))))
