@@ -102,4 +102,4 @@
         (doall (map (partial db/put-results-row :comparison)
                     (sort-by :Seed (:comparison @results))))
         (doall (map (partial db/put-results-row :comparative)
-                    (sort-by :ControlSeed (:comparative @results))))))))
+                    (sort-by :ContSeed (:comparative @results))))))))
