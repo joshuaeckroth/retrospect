@@ -23,6 +23,7 @@
      [nthreads "Number of threads" "1"]
      [repetitions "Number of repetitions" "10"]
      [monitor "Activate monitor?" "false"]
+     [git "Git path" "git"]
      [seed "Seed" "0"]
      [database "Database identifier" "http://127.0.0.1:5984/retrospect"]]
     (let [seed (Integer/parseInt seed)]
@@ -50,7 +51,7 @@
                   prob (cond (= "Tracking" (:problem ps)) tracking-problem
                              (= "Words" (:problem ps)) words-problem)
                   git-dirty? (not-empty (filter #(not= "??" (subs % 0 2))
-                                                (split-lines (sh "git" "status" "--porcelain"))))]
+                                                (split-lines (sh git "status" "--porcelain"))))]
               (when (and git-dirty? (not (or (re-matches #".*127\.0\.0\.1.*" database)
                                              (re-matches #".*localhost.*" database))))
                 (println "Project has uncommitted changes. Commit with git before"
@@ -59,7 +60,7 @@
               (dosync
                (alter state/problem (constantly prob))
                (alter state/db-params (constantly ps)))
-              (run-with-new-record seed recordsdir nthreads monitor? repetitions))
+              (run-with-new-record seed git recordsdir nthreads monitor? repetitions))
             
             :else
             (println "No action given.")))))

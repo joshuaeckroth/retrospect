@@ -31,16 +31,16 @@
         (flatten (map (fn [v] (map #(assoc % (first p) v) deeper)) (second p)))))))
 
 (defn git-meta-info
-  []
-  (let [[commit _ _ _ & msg] (split-lines (sh "git" "log" "-n" "1"))
-        branch (trim (subs (sh "git" "branch" "--contains") 2))]
+  [git]
+  (let [[commit _ _ _ & msg] (split-lines (sh git "log" "-n" "1"))
+        branch (trim (subs (sh git "branch" "--contains") 2))]
     {:commit (subs commit 7)
      :commit-msg (apply str (interpose "\n" (map (fn [s] (subs s 4)) msg)))
      :branch branch}))
 
 (defn run-with-new-record
   "Create a new folder for storing run data and execute the run."
-  [seed recordsdir nthreads monitor? repetitions]
+  [seed git recordsdir nthreads monitor? repetitions]
   (try
     (let [t (. System (currentTimeMillis))
           recdir (str recordsdir "/" t)
@@ -66,7 +66,7 @@
                              :username (System/getProperty "user.name")
                              :problem (:name @problem) :seed seed
                              :overview (slurp "overview.markdown")}
-                            (git-meta-info)))
+                            (git-meta-info git)))
       (println "done.")
       (println (format "Running %d parameters, %d repetitions = %d simulations..."
                        (count control-params) repetitions (* (count control-params) repetitions)))
