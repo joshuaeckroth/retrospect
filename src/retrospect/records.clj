@@ -10,7 +10,6 @@
   (:use [clojure.java.io :as io :only [writer reader copy]])
   (:use [clojure.string :only [split-lines trim]])
   (:use [retrospect.local :only [run-partitions]])
-  (:require [retrospect.database :as db])
   (:use [retrospect.state]))
 
 (defn vectorize-params
@@ -49,29 +48,29 @@
           comparison-params (when comparative?
                               (explode-params (vectorize-params (:comparison @db-params))))
           paired-params (when comparative?
-                          (partition 2 (interleave control-params comparison-params)))]
+                          (partition 2 (interleave control-params comparison-params)))
+          run (merge {:type "run" :time t :paramsid (:_id @db-params)
+                      :paramsrev (:_rev @db-params)
+                      :paramsname (format "%s/%s" (:name @problem) (:name @db-params))
+                      :paramstype (:paramstype @db-params)
+                      :database @database
+                      :datadir @datadir :recorddir recdir :nthreads nthreads
+                      :pwd (pwd) :monitor monitor? :repetitions repetitions
+                      :hostname (.getHostName (java.net.InetAddress/getLocalHost))
+                      :username (System/getProperty "user.name")
+                      :problem (:name @problem) :seed seed
+                      :overview (slurp "overview.markdown")}
+                     (git-meta-info git))]
       (when (and comparative? (not= (count control-params) (count comparison-params)))
         (println "Control/comparison param counts are not equal.")
         (System/exit -1))
       (print (format "Making new directory %s..." recdir))
       (.mkdirs (File. recdir))
       (println "done.")
-      (print "Creating new database record...")
-      (db/new-active (merge {:type "run" :time t :paramsid (:_id @db-params) :paramsrev (:_rev @db-params)
-                             :paramsname (format "%s/%s" (:name @problem) (:name @db-params))
-                             :paramstype (:paramstype @db-params)
-                             :database @database
-                             :datadir @datadir :recorddir recdir :nthreads nthreads
-                             :pwd (pwd) :monitor monitor? :repetitions repetitions
-                             :hostname (.getHostName (java.net.InetAddress/getLocalHost))
-                             :username (System/getProperty "user.name")
-                             :problem (:name @problem) :seed seed
-                             :overview (slurp "overview.markdown")}
-                            (git-meta-info git)))
-      (println "done.")
       (println (format "Running %d parameters, %d repetitions = %d simulations..."
-                       (count control-params) repetitions (* (count control-params) repetitions)))
-      (run-partitions comparative? (if comparative? paired-params control-params)
+                       (count control-params) repetitions
+                       (* (count control-params) repetitions)))
+      (run-partitions run comparative? (if comparative? paired-params control-params)
                       recdir nthreads monitor? repetitions)
       (println "Done."))
     (catch java.util.concurrent.ExecutionException e

@@ -3,20 +3,24 @@
   (:require [clojure.contrib.string :as str])
   (:use [retrospect.state]))
 
-(def active (atom nil))
-
-(defn new-active
-  [meta-info]
+(defn commit-run
+  [run control comparison comparative]
   (clutch/with-db @database
-    (let [id (:_id (clutch/create-document (assoc meta-info :control [] :comparison [] :comparative [])))]
-      (swap! active (constantly id)))))
-
-(defn put-results-row
-  [results-type results]
-  (clutch/with-db @database
-    (let [results-id (:_id (clutch/create-document (assoc results :runid @active :type results-type)))]
-      (-> (clutch/get-document @active)
-          (clutch/update-document #(conj % results-id) [results-type])))))
+    (let [rundoc (clutch/create-document run)
+          runid (:_id rundoc)
+          control-ids (map :id (clutch/bulk-update
+                                (map #(assoc % :runid runid :type "control")
+                                     control)))
+          comparison-ids (map :id (clutch/bulk-update
+                                   (map #(assoc % :runid runid :type "comparison")
+                                        comparison)))
+          comparative-ids (map :id (clutch/bulk-update
+                                    (map #(assoc % :runid runid :type "comparative")
+                                         comparative)))]
+      (clutch/update-document rundoc
+                              {:control control-ids
+                               :comparison comparison-ids
+                               :comparative comparative-ids}))))
 
 (defn read-params
   [params-string]

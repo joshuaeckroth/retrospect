@@ -68,13 +68,18 @@
       (if comparative?
         (let [[control-results comparison-results comparative-results]
               (run comparative? monitor? (first ps))]
-          (write-csv :control (str recdir "/control-results.csv") control-results)
-          (write-csv :comparison (str recdir "/comparison-results.csv") comparison-results)
-          (write-csv :comparative (str recdir "/comparative-results.csv") comparative-results)
-          (dosync (alter progress inc)
-                  (alter results (fn [r] (-> r (update-in [:control] conj control-results)
-                                             (update-in [:comparison] conj comparison-results)
-                                             (update-in [:comparative] conj comparative-results)))))
+          (write-csv :control (str recdir "/control-results.csv")
+                     control-results)
+          (write-csv :comparison (str recdir "/comparison-results.csv")
+                     comparison-results)
+          (write-csv :comparative (str recdir "/comparative-results.csv")
+                     comparative-results)
+          (dosync
+           (alter progress inc)
+           (alter results
+                  (fn [r] (-> r (update-in [:control] conj control-results)
+                              (update-in [:comparison] conj comparison-results)
+                              (update-in [:comparative] conj comparative-results)))))
           (recur (rest ps)))
         (let [rs (run comparative? monitor? (first ps))]
           (write-csv :control (str recdir "/control-results.csv") rs)
@@ -83,7 +88,7 @@
           (recur (rest ps)))))))
 
 (defn run-partitions
-  [comparative? params recdir nthreads monitor? repetitions]
+  [run comparative? params recdir nthreads monitor? repetitions]
   (let [sim-count (* repetitions (count params))]
     (send (agent sim-count) check-progress sim-count (.getTime (Date.))))
   (let [seeds (repeatedly repetitions #(my-rand-int 10000000))
@@ -99,10 +104,7 @@
     (doall (pmap (fn [w] @w) workers))
     (when (not= "" @database)
       (println "Writing results to database...")
-      (doall (map (partial db/put-results-row :control)
-                  (sort-by :Seed (:control @results))))
-      (when comparative?
-        (doall (map (partial db/put-results-row :comparison)
-                    (sort-by :Seed (:comparison @results))))
-        (doall (map (partial db/put-results-row :comparative)
-                    (sort-by :ContSeed (:comparative @results))))))))
+      (db/commit-run run
+                     (sort-by :Seed (:control @results))
+                     (sort-by :Seed (:comparison @results))
+                     (sort-by :Seed (:comparative @results))))))
