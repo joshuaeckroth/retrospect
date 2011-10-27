@@ -192,9 +192,9 @@
   (let [composites (map #(sort-by (comp :start :data) %)
                         (mapcat (fn [n] (combinations (concat accepted word-hyps) n))
                                 (range 2 (inc max-n))))
-        valid-composites (set (filter valid-composite? composites))]
+        valid-composites (filter valid-composite? composites)]
     ;; remove composites that have only accepted hyps
-    (filter #(not (every? accepted %)) valid-composites)))
+    (set (filter (fn [c] (some #(not (accepted %)) c)) valid-composites))))
 
 (defn make-composite-hyps
   [models word-hyps accepted max-n]
@@ -294,8 +294,8 @@
               accepted (:accepted ws)
               composite-hyps (filter-existing
                               (make-composite-hyps models (map first word-hyps)
-                                                   (filter #(= :single-word (:type %))
-                                                           existing-hyps)
+                                                   (set (filter #(= :single-word (:type %))
+                                                                existing-hyps))
                                                    max-n))]
           (reduce (fn [ep [hyp explains]]
                     (add-more-hyp ep hyp explains (make-dep-node hyp)
