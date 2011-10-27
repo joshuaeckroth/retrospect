@@ -74,7 +74,8 @@
                   control-problem-data ((:gen-problem-data-fn @problem) control-sensors)
                   control-or-state (init-one-run-state control-sensors control-problem-data)]
               (println "Control:" control-params)
-              (run-simulation control-truedata control-or-state monitor?)))
+              (assoc (run-simulation control-truedata control-or-state monitor?)
+                :control-params (pr-str control-params) :comparison-params (pr-str comparison-params))))
           comparison-result
           (binding [last-id 0
                     params comparison-params]
@@ -84,9 +85,11 @@
                   comparison-problem-data ((:gen-problem-data-fn @problem) comparison-sensors)
                   comparison-or-state (init-one-run-state comparison-sensors comparison-problem-data)]
               (println "Comparison:" comparison-params)
-              (run-simulation comparison-truedata comparison-or-state monitor?)))]
+              (assoc (run-simulation comparison-truedata comparison-or-state monitor?)
+                :control-params (pr-str control-params) :comparison-params (pr-str comparison-params))))]
       [control-result comparison-result
-       (evaluate-comparative control-result comparison-result control-params comparison-params)])
+       (assoc (evaluate-comparative control-result comparison-result control-params comparison-params)
+         :control-params (first params) :comparison-params (second params))])
     ;; if non-comparative, just run the simulation
     (binding [last-id 0
               params params]
@@ -96,7 +99,8 @@
             problem-data ((:gen-problem-data-fn @problem) sensors)
             or-state (init-one-run-state sensors problem-data)]
         (println "Params:" params)
-        (run-simulation truedata or-state monitor?)))))
+        (assoc (run-simulation truedata or-state monitor?)
+          :params (pr-str params))))))
 
 (defrecord Problem
   [name monitor-fn player-fns truedata-fn sensor-gen-fn prepared-map
