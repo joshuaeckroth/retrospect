@@ -2,6 +2,7 @@
   (:import (java.util Date))
   (:use [clojure.java.io :as io :only (writer copy file)])
   (:use [clojure.stacktrace :only [print-cause-trace]])
+  (:require [clojure.string :as str])
   (:require [clojure.contrib.math :as math])
   (:use [retrospect.problem :only [run]])
   (:use [retrospect.random])
@@ -43,18 +44,20 @@
 
 (defn format-csv-row
   [row]
-  ;; add quotes around string data (e.g. "meta,trans,lazy")
-  (apply str (concat (interpose "," (map #(if (= String (type %)) (format "\"%s\"" %) %) row))
-                     [\newline])))
+  ;; add quotes around string data
+  (let [fmt (fn [s] (format "\"%s\"" (str/replace s "\"" "\\\"")))]
+    (apply str (concat (interpose "," (map #(if (= String (type %)) (fmt %) %) row))
+                       [\newline]))))
 
 (defn write-csv
   [results-type filename results]
-  (let [new-file? (not (. (io/file filename) exists))]
+  (let [new-file? (not (. (io/file filename) exists))
+        row (map (fn [field] (get results field))
+                 (sort (keys results)))]
     (with-open [writer (io/writer filename :append true)]
       (when new-file?
         (.write writer (format-csv-row (map name (sort (keys results))))))
-      (.write writer (format-csv-row (map (fn [field] (get results field))
-                                          (sort (keys results))))))))
+      (.write writer (format-csv-row row)))))
 
 (def results (ref {:control [] :comparison [] :comparative []}))
 
