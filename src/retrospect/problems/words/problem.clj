@@ -17,9 +17,14 @@
   (:use [retrospect.state]))
 
 (defn read-model-csv
-  [file]
-  (reduce #(assoc %1 (butlast %2) (Integer/parseInt (last %2))) {}
-          (map #(str/split % #",") (str/split-lines (slurp file)))))
+  [file dict]
+  (let [model
+        (reduce #(assoc %1 (butlast %2) (Integer/parseInt (last %2))) {}
+                (map #(str/split % #",") (str/split-lines (slurp file))))
+        ;; select only those n-grams that have all their words from dict
+        reduced-model (select-keys model (filter #(every? dict %) (keys model)))
+        sum (reduce + 0 (vals reduced-model))]
+    (with-meta reduced-model {:sum sum})))
 
 (defn generate-problem-data
   [sensors]
@@ -28,9 +33,8 @@
     {:dictionary dict
      :models (zipmap (range 1 (inc (:MaxModelGrams params)))
                      (for [n (range 1 (inc (:MaxModelGrams params)))]
-                       (let [model (read-model-csv (str @datadir (format "/words/model-%d.csv" n)))]
-                         ;; select only those n-grams that have all their words from dict
-                         (select-keys model (filter #(every? dict %) (keys model))))))
+                       (let [csv (str @datadir (format "/words/model-%d.csv" n))]
+                         (read-model-csv csv dict))))
      :left-off -1
      :indexed-letters []
      :accepted []

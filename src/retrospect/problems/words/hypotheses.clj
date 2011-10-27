@@ -61,11 +61,17 @@
 (def compute 0)
 (def memory 0)
 
+(defn select-by-prefix
+  [model prefix]
+  (let [n (count prefix)]
+    (select-keys model (filter #(= prefix (take n %)) (keys model)))))
+
 (defn lookup-prob
-  [models words]
+  [models words prefix]
   (let [model (get models (count words))
-        sum (reduce + 0 (map #(get model %) (filter #(= (butlast %) (butlast words)) (keys model))))
-        c (get (get models (count words)) words)]
+        sum (if (empty? prefix) (:sum (meta model))
+                (reduce + 0 (vals (select-by-prefix model prefix))))
+        c (get model words)]
     ;; if we have a probability in the model, return it
     (if c (double (/ c sum))
         ;; otherwise, this sequence is not in the model;
@@ -105,8 +111,8 @@
         (not (or (< end1 start2) (< end2 start1)))))))
 
 (defn compute-apriori
-  [models words sensor-noise]
-  (if-let [prob (lookup-prob models words)]
+  [models words sensor-noise prefix]
+  (if-let [prob (lookup-prob models words prefix)]
     (/ prob (inc (Math/ceil (* sensor-noise (count words)))))))
 
 (defn make-word-hyp
@@ -114,7 +120,7 @@
   (let [explains (map #(nth sensor-hyps %) pos-seq)
         adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))]
     [(new-hyp "W" :single-word conflicts?
-              (compute-apriori models [word] sensor-noise)
+              (compute-apriori models [word] sensor-noise [])
               (format "Word: \"%s\" at positions %s (%s) (sensor noise %.0f%%)"
                       word (str adjusted-pos-seq) (apply str letters) (* 100 sensor-noise))
               {:start (first adjusted-pos-seq) :end (last adjusted-pos-seq)
@@ -184,24 +190,31 @@
 (defn gen-valid-composites
   [word-hyps accepted max-n]
   (let [composites (map #(sort-by (comp :start :data) %)
-                        (mapcat (fn [n] (combinations (concat word-hyps accepted) n))
-                                (range 2 (inc max-n))))]
-    (filter valid-composite? composites)))
+                        (mapcat (fn [n] (combinations (concat accepted word-hyps) n))
+                                (range 2 (inc max-n))))
+        valid-composites (set (filter valid-composite? composites))]
+    ;; remove composites that have only accepted hyps
+    (filter #(not (every? accepted %)) valid-composites)))
 
 (defn make-composite-hyps
   [models word-hyps accepted max-n]
-  (let [composites (set (gen-valid-composites word-hyps accepted max-n))]
+  (let [composites (gen-valid-composites word-hyps accepted max-n)]
     (filter (comp :apriori first)
             (for [c composites]
-              [(new-hyp "W" :words conflicts?
-                        (compute-apriori models (mapcat (comp :words :data) c) 0)
-                        (format "Word sequence \"%s\" at positions %s"
-                                (apply str (interpose " " (mapcat (comp :words :data) c)))
-                                (apply str (interpose ", " (mapcat (comp :pos-seqs :data) c))))
-                        {:start (:start (:data (first c))) :end (:end (:data (last c)))
-                         :pos-seqs (mapcat (comp :pos-seqs :data) c)
-                         :words (mapcat (comp :words :data) c)})
-               c]))))
+              (let [words (mapcat (comp :words :data) c)
+                    pos-seqs (mapcat (comp :pos-seqs :data) c)
+                    prefix (mapcat (comp :words :data)
+                                   (sort-by (comp :start :data)
+                                            (filter accepted c)))]
+                [(new-hyp "W" :words conflicts?
+                          (compute-apriori models words 0 prefix)
+                          (format "Word sequence \"%s\" at positions %s"
+                                  (apply str (interpose " " words))
+                                  (apply str (interpose ", " pos-seqs)))
+                          {:start (:start (:data (first c))) :end (:end (:data (last c)))
+                           :pos-seqs pos-seqs
+                           :words words})
+                 c])))))
 
 (defn make-sensor-hyp
   [pos letter]
@@ -317,9 +330,12 @@
 (defn update-model
   [n model history words]
   (let [ws (concat (take-last (dec n) history) words)
-        ngrams (partition n 1 ws)]
-    (reduce (fn [m ngram] (if (get m ngram) (update-in m [ngram] inc) (assoc m ngram 1)))
-            model ngrams)))
+        ngrams (partition n 1 ws)
+        new-model (reduce (fn [m ngram] (if (get m ngram)
+                                          (update-in m [ngram] inc)
+                                          (assoc m ngram 1)))
+                          model ngrams)]
+    (with-meta new-model {:sum (reduce + 0 (vals new-model))})))
 
 (defn commit-decision
   [pdata accepted rejected time-now]
