@@ -19,7 +19,7 @@
 (defn read-model-csv
   [file dict]
   (let [model
-        (reduce #(assoc %1 (butlast %2) (Integer/parseInt (last %2))) {}
+        (reduce #(assoc %1 (vec (butlast %2)) (Integer/parseInt (last %2))) {}
                 (map #(str/split % #",") (str/split-lines (slurp file))))
         ;; select only those n-grams that have all their words from dict
         reduced-model (select-keys model (filter #(every? dict %) (keys model)))
