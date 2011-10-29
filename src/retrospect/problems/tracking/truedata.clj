@@ -12,11 +12,8 @@
 
 (defn random-walks
   [grid]
-  (let [maxwalk (:MaxWalk params)
-        es (grid-entities grid)
-        es-walk (my-shuffle
-                 (flatten (map (fn [e] (repeat (inc (my-rand-int maxwalk)) e)) es)))]
-    (reduce walk1 grid es-walk)))
+  (let [maxwalk (:MaxWalk params)]
+    (reduce #(walk %1 %2 maxwalk) grid (grid-entities grid))))
 
 (defn possibly-add-new-entity
   [grid time]
