@@ -29,7 +29,7 @@
                                 g (with-meta grid
                                     (assoc-in (meta grid) [:movements e]
                                               {:e e :ox x :oy y :ot t
-                                               :x x :y y :t t :color color}))]
+                                               :x x :y y :time t :color color}))]
                             (grid-add g (:x (meta e)) (:y (meta e)) e)))
                         (if (= t 0) (new-grid width height) g)
                         (filter (fn [e] (= (:time (meta e)) t)) (keys paths)))
