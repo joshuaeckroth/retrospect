@@ -85,6 +85,11 @@
                     (* (Math/sqrt (+ (* dx1 dx1) (* dy1 dy1)))
                        (Math/sqrt (+ (* dx2 dx2) (* dy2 dy2)))))))))
 
+(defn valid-angle?
+  [angle]
+  ;; angle is greater than 135-degrees
+  (<= (/ (* 135 3.1415926) 180.0) angle))
+
 (defn walk-rand
   [[x y]]
   (my-rand-nth [[x y] ;; don't move
@@ -110,8 +115,7 @@
             angle (calc-angle x y ox oy oox ooy)]
         (if (and (< x (:width (meta grid))) (>= x 0)
                  (< y (:height (meta grid))) (>= y 0)
-                 ;; angle is greater than 135-degrees
-                 (<= (/ (* 135 3.1415926) 180.0) angle))
+                 (valid-angle? angle))
           (grid-move grid e x y)
           (recur))))))
 

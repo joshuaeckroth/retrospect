@@ -70,8 +70,8 @@
                            [(format "%d,%d@%d" (:ox m) (:oy m) (:ot m))])
                          (for [m moves :when (= (:e m) e)]
                            (if (some #{(dissoc m :e)} believed-moves)
-                             (format "%d,%d@%d" (:x m) (:y m) (:t m))
-                             (format "! %d,%d@%d" (:x m) (:y m) (:t m)))))))]
+                             (format "%d,%d@%d" (:x m) (:y m) (:time m))
+                             (format "! %d,%d@%d" (:x m) (:y m) (:time m)))))))]
     (apply str (map (fn [e] (format "%s (%s): %s\n"
                                     (str e) (color-str (:color (meta e)))
                                     (entity-pos-list e)))

@@ -4,7 +4,8 @@
   (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.colors])
   (:use [retrospect.confidences])
-  (:use [retrospect.problems.tracking.grid :only [grid-at dist]])
+  (:use [retrospect.problems.tracking.grid :only
+         [grid-at dist calc-angle valid-angle?]])
   (:use [clojure.contrib.seq :only [find-first]])
   (:require [clojure.contrib.math :as math])
   (:require [clojure.set :as set :only [intersection difference]])
@@ -18,11 +19,12 @@
 (def compute 0)
 (def memory 0)
 
-(defn move-str
-  [[det det2]]
-  (format "%d,%d@%d (%s) -> %d,%d@%d (%s)"
-          (:x det) (:y det) (:time det) (color-str (:color det))
-          (:x det2) (:y det2) (:time det2) (color-str (:color det2))))
+(defn moves-str
+  [dets]
+  (apply str (interpose " -> " (map (fn [det] (format "%d,%d@%d (%s)"
+                                                      (:x det) (:y det) (:time det)
+                                                      (color-str (:color det))))
+                                    dets))))
 
 (defn path-str
   [path]
@@ -146,11 +148,8 @@
                                      (grid-at (nth spotted-grid (:time d))
                                               (:x d) (:y d))))
         desc-fn (fn [det det2 explains]
-                  (format "%d,%d@%d (%s) -> %d,%d@%d (%s)\nExplains: %s"
-                          (:x det) (:y det) (:time det)
-                          (color-str (:color det))
-                          (:x det2) (:y det2) (:time det2)
-                          (color-str (:color det2))
+                  (format "%s\nExplains: %s"
+                          (moves-str [det det2])
                           (apply str (interpose "," (map :id explains)))))]
     (filter identity
             (for [det2 uncovered]
@@ -354,11 +353,51 @@
         pg-updated-colors (update-paths-graph-colors pg-inconsistent path-heads)]
     (remove-inconsistent-paths-graph-edges pg-updated-colors path-heads)))
 
+(defn paths-graph-paths-build
+  [paths-graph paths]
+  (if (empty? (mapcat (fn [path] (neighbors paths-graph (last path))) paths))
+    paths
+    (let [new-paths (mapcat (fn [path] (map (fn [det] (conj path det))
+                                            (neighbors paths-graph (last path))))
+                            paths)]
+      (recur paths-graph new-paths))))
+
+(defn valid-path?
+  "Used by (paths-graph-paths); path has the form of a seq of dets."
+  [path]
+  (if (>= 2 (count path)) true
+      (every? valid-angle?
+              (map (fn [[olddet det newdet]]
+                     (let [[x y] [(:x newdet) (:y newdet)]
+                           [ox oy] [(:x det) (:y det)]
+                           [oox ooy] [(:x olddet) (:y olddet)]]
+                       (calc-angle x y ox oy oox ooy)))
+                   (partition 3 1 path)))))
+
+(defn paths-graph-paths
+  [paths-graph]
+  (let [starts (filter #(empty? (incoming paths-graph %)) (nodes paths-graph))
+        path-starts (map (fn [det] [det]) starts)
+        paths (paths-graph-paths-build paths-graph path-starts)
+        valid-paths (filter valid-path? paths)]
+    (map (fn [path] (map (fn [[det det2]] (attr paths-graph det det2 :hyp))
+                         (partition 2 1 path)))
+         valid-paths)))
+
+(defn make-path-hyp
+  [path]
+  [(new-hyp "TP" :tracking-path :shared-explains
+            0.0 (moves-str (sort-by :time (set (mapcat (fn [hyp] [(:det (:data hyp))
+                                                                  (:det2 (:data hyp))])
+                                                       path))))
+            {:hyps path :det (:det (:data (first path)))
+             :det2 (:det2 (:data (last path)))})
+   path])
+
 (defn make-dep-node
   [hyp]
   (let [det (if (:det2 (:data hyp)) (:det2 (:data hyp)) (:det (:data hyp)))]
-    {:time (:time det)
-     :str (format "%d,%d@%d (%s)" (:x det) (:y det) (:time det) (color-str (:color det)))}))
+    {:time (:time det) :str (moves-str [det])}))
 
 (defn hypothesize
   "Process sensor reports, then make hypotheses for all possible movements,
@@ -388,11 +427,12 @@
                 consistent-hyps (map (fn [[det det2]]
                                        [(attr paths-graph det det2 :hyp)
                                         (attr paths-graph det det2 :explains)])
-                                     (edges paths-graph))]
+                                     (edges paths-graph))
+                path-hyps (map make-path-hyp (paths-graph-paths paths-graph))]
             [(reduce (fn [ep [hyp explains]]
                        (add-hyp ep hyp explains (make-dep-node hyp)
                                 (map make-dep-node (filter #(= :tracking-entity (:type %)) explains))))
-                     ep-paths-graph consistent-hyps)
+                     ep-paths-graph (concat consistent-hyps path-hyps))
              {:compute compute :memory memory}])
           ;; take the first uncovered detection, and make movement hyps out of it
           (let [mov-hyps (make-movement-hyps
@@ -520,13 +560,13 @@
                                (get ps l))))
                        paths before-labels)
         :log (conj log (format
-                        "%s is a split of %s." (move-str move)
+                        "%s is a split of %s." (moves-str move)
                         (apply str (interpose "," (map str before-labels)))))
         :bad bad}
        ;; no label found, return paths
        {:paths paths
         :log (conj log (format "%s is a split but no label found."
-                               (move-str move)))
+                               (moves-str move)))
         :bad bad})
      ;; if we have a merge, continue the relevant paths one step,
      ;; then call them dead
@@ -553,7 +593,7 @@
                           (new-label (keys ps-dead) move) [(second move)]))))
                 paths before-labels)
         :log (conj log (format
-                        "Merging %s with labels %s" (move-str move)
+                        "Merging %s with labels %s" (moves-str move)
                         (apply str (interpose "," (map str before-labels)))))
         :bad bad}
        ;; no label found, so make new (dead) label to participate in the merge;
@@ -571,7 +611,7 @@
                     (assoc ps-dead new-merge-label [(second move)]))]
          {:paths ps
           :log (conj log (format "%s is a merge, new (dead) label %s%s"
-                                 (move-str move) dead-label
+                                 (moves-str move) dead-label
                                  (if merge-label ""
                                    (format " and new merge label %s" new-merge-label))))
           :bad bad}))
@@ -602,7 +642,7 @@
      (let [label (new-label (keys paths) move)]
        {:paths (assoc paths label move)
         :log (conj log (format "New label, nothing nearby: %s for %s"
-                               label (move-str move)))
+                               label (moves-str move)))
         :bad bad})
      ;; at least one prior path (before-label) can be extended, so
      ;; extend all of them
@@ -615,7 +655,7 @@
                      paths before-labels)
       :log (conj log (format "Extending %s with %s"
                              (apply str (interpose "," (map str before-labels)))
-                             (move-str move)))
+                             (moves-str move)))
       :bad bad}
      ;; at least one later path (after-label) can be prepended, so
      ;; prepend all of them
@@ -628,7 +668,7 @@
                      paths after-labels)
       :log (conj log (format "Prepending %s with %s"
                              (apply str (interpose "," (map str before-labels)))
-                             (move-str move)))
+                             (moves-str move)))
       :bad bad})))
 
 (defn split-path
@@ -672,9 +712,10 @@
                                           {:hyp h}))
                        (sort-by (comp :time :det :data)
                                 (sort-by :id accepted)))
-            maxtime (dec (apply max (map :time (flatten moves))))]
+            maxtime (dec (apply max (map (comp :time second) moves)))
+            mintime (apply min (map (comp :time first) moves))]
         ;; incorporate the decision one time step at a time
-        (loop [t (apply min (map :time (flatten moves)))
+        (loop [t mintime
                paths (:paths pd)
                log [] ;; log is reset each time
                bad #{}]
@@ -709,8 +750,8 @@
 
                   split-merge-log
                   (concat
-                    (map (fn [m] (format "Split: %s" (move-str m))) splits)
-                    (map (fn [m] (format "Merge: %s" (move-str m))) merges))]
+                    (map (fn [m] (format "Split: %s" (moves-str m))) splits)
+                    (map (fn [m] (format "Merge: %s" (moves-str m))) merges))]
               (recur (inc t) ex-paths
                      (vec (concat newlog split-merge-log)) newbad))))))))
 
