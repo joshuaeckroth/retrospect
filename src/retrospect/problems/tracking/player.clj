@@ -1,6 +1,6 @@
 (ns retrospect.problems.tracking.player
   (:import (java.awt Graphics2D Dimension GridBagLayout GridBagConstraints
-                     BorderLayout RenderingHints BasicStroke Font Insets))
+                     BorderLayout RenderingHints BasicStroke Font Insets Color))
   (:import (java.awt.image BufferedImage))
   (:import (javax.swing JPanel JSpinner SpinnerNumberModel))
   (:use [clojure.contrib.math :only [floor ceil]])
@@ -35,7 +35,7 @@
 	newpx (+ (* newx @grid-cell-width) (/ @grid-cell-width 2))
 	newpy (+ (* newy @grid-cell-height) (/ @grid-cell-height 2))]
     (doto g
-      (.setColor color)
+      (.setColor (Color. (.getRed color) (.getGreen color) (.getBlue color) 150))
       (.setStroke (BasicStroke. width))
       (.drawLine oldpx oldpy newpx newpy))))
 
@@ -47,9 +47,9 @@
         (let [new-e (entity-at t)
               {ox :x oy :y} (meta old-e)
               {x :x y :y} (meta new-e)
-              degree (int (* 255 (/ (- @time-now t) (- @time-now @time-prev))))
-              width (double (+ 2 (* 5 (/ degree 255))))]
-          (draw-move g ox oy x y (var-color degree) width))))))
+              degree (- @time-now t)
+              width (double (+ 2 degree))]
+          (draw-move g ox oy x y (var-color (:color (meta entity)) degree) width))))))
 
 (defn fill-cell
   [#^Graphics2D g x y color]

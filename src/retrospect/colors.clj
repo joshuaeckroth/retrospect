@@ -21,7 +21,8 @@
 
 (def black (Color. 0 0 0))
 
-(defn var-color [x] (Color. x x x))
+(defn var-color [color degree]
+  (reduce (fn [c _] (.brighter c)) color (range degree)))
 
 (defn color-str
   [c]

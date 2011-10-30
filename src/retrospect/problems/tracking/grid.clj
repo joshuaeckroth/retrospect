@@ -14,13 +14,14 @@
 
 (defn grid-entities
   [grid]
-  (map #(with-meta (:e %) {:x (:x %) :y (:y %) :time (:t %) :color (:color (meta (:e %)))})
-       (vals (:movements (meta grid)))))
+  (sort-by :e (map #(with-meta (:e %) {:x (:x %) :y (:y %) :ox (:ox %) :oy (:oy %)
+                                       :time (:time %) :color (:color (meta (:e %)))})
+                   (vals (:movements (meta grid))))))
 
 (defn find-entity
   [grid entity]
-  (let [{:keys [x y ox oy t color]} (get (:movements (meta grid)) entity)]
-    (with-meta entity {:x x :y y :ox ox :oy oy :time t :color color})))
+  (let [{:keys [x y ox oy time]} (get (:movements (meta grid)) entity)]
+    (with-meta entity {:x x :y y :ox ox :oy oy :time time})))
 
 (defn grid-count
   [grid]
@@ -45,21 +46,21 @@
 (defn grid-move
   "Move the entity in the grid and update the entity's meta content."
   [grid e x y]
-  (let [{ox :x oy :y t :time} (meta e)
+  (let [{ox :x oy :y t :time c :color} (meta e)
         new-e (with-meta e (merge (meta e) {:x x :y y}))
         old-moves-e (get (:movements (meta grid)) e)
         g (-> grid
               (grid-del ox oy e)
               (grid-add x y new-e))]
     (with-meta g (assoc-in (meta g) [:movements e]
-                           (assoc old-moves-e :x x :y y)))))
+                           (assoc old-moves-e :x x :y y :ox ox :oy oy)))))
 
 (defn rand-pos
   "Generate a random position for a new entity. Returns a map {:x x :y y}."
   [grid]
   (let [x (my-rand-int (:width (meta grid)))
         y (my-rand-int (:height (meta grid)))]
-    {:x x :y y :ox x :oy y}))
+    {:x x :y y}))
 
 (defn grid-new-entity
   "Create a new entity with a random location and random color."
@@ -69,14 +70,15 @@
         e (with-meta (symbol (str (grid-count grid)))
             {:x x :y y :color c :time time})
         g (with-meta grid (assoc-in (meta grid) [:movements e]
-                                    {:e e :ox x :oy y :ot time :x x :y y :t time}))]
+                                    {:e e :ox x :oy y :ot time :x x :y y :time time}))]
     (grid-add g x y e)))
 
 (defn calc-angle
   [x y ox oy oox ooy]
   (let [[dx1 dy1] [(- oox ox) (- ooy oy)]
         [dx2 dy2] [(- x ox) (- y oy)]]
-    (if (or (= 0 (+ dx1 dy1)) (= 0 (+ dx2 dy2)))
+    (if (or (and (= 0 dx1) (= 0 dy1))
+            (and (= 0 dx2) (= 0 dy2)))
       ;; if no movement, just say it's 180-degrees
       3.1415926
       (Math/acos (/ (+ (* dx1 dx2) (* dy1 dy2))
@@ -101,14 +103,14 @@
   (let [e (find-entity grid entity)]
     (loop []
       (let [[ox oy oox ooy] [(:x (meta e)) (:y (meta e)) (:ox (meta e)) (:oy (meta e))]
-            [x y] (loop [i (rand-int (inc maxwalk))
+            [x y] (loop [i (my-rand-int (inc maxwalk))
                          loc [ox oy]]
                     (if (= i 0) loc
                         (recur (dec i) (walk-rand loc))))
             angle (calc-angle x y ox oy oox ooy)]
         (if (and (< x (:width (meta grid))) (>= x 0)
                  (< y (:height (meta grid))) (>= y 0)
-                 ;; angle difference is greater than 135-degrees
+                 ;; angle is greater than 135-degrees
                  (<= (/ (* 135 3.1415926) 180.0) angle))
           (grid-move grid e x y)
           (recur))))))
@@ -127,7 +129,7 @@
                                          :ot (:ot (get moves %2))
                                          :x (:x (get moves %2))
                                          :y (:y (get moves %2))
-                                         :t time})
+                                         :time time})
                           {} (keys moves))]
     (with-meta (vec (map (fn [es] (vec (map #(with-meta
                                                % (merge (meta %) {:time time}))
