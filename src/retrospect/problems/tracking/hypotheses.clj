@@ -4,8 +4,8 @@
   (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.colors])
   (:use [retrospect.confidences])
-  (:use [retrospect.problems.tracking.grid :only
-         [grid-at dist calc-angle valid-angle?]])
+  (:use [retrospect.problems.tracking.movements :only
+         [dist calc-angle valid-angle?]])
   (:use [clojure.contrib.seq :only [find-first]])
   (:require [clojure.contrib.math :as math])
   (:require [clojure.set :as set :only [intersection difference]])
@@ -41,82 +41,28 @@
                   (keys paths))))
 
 (defn make-sensor-hyps
-  [sensor e]
-  (let [desc (format (str "Sensor detection by %s - color: %s, "
-                          "x: %d, y: %d, time: %d")
-                     (:id sensor) (color-str (:color (meta e)))
-                     (:x (meta e)) (:y (meta e)) (:time (meta e)))]
-    ;; return an 'entity' with hyp data in the meta map
-    (with-meta e (merge (meta e)
-                        (zipmap [:hyp-from :hyp-to]
-                                (map #(new-hyp % :sensor nil 1.0 desc
-                                               {:sensor sensor :entity e})
-                                     ;; sensor hyp 'from', sensor hyp 'to'
-                                     ["SHF" "SHT"]))))))
-
-(defn sensors-to-spotted
-  "Pull the sensor detections between mintime and maxtime from each
-   sensor and incorporate into a collection of grids (one grid for each
-   time step)."
-  [sensors mintime maxtime sensors-seen-grid]
-  (let [width (:width (meta sensors-seen-grid))
-        height (:height (meta sensors-seen-grid))
-        ;; make entities/hyps of all detections between mintime and maxtime
-        ;; from all sensors
-        es (mapcat (fn [t] (mapcat (fn [s] (map #(make-sensor-hyps s %)
-                                                (sensed-at s t)))
-                                   sensors))
-                   (range mintime (inc maxtime)))
-        ;; create blank grids, one for each time
-        spotted-grids (vec (map #(with-meta
-                                   (vec (repeat (* width height) []))
-                                   {:width width :height height :time %})
-                                (range mintime (inc maxtime))))
-        ;; helper function to put a sensor hyp in appropriate grid
-        put-in-grid (fn [sgs e]
-                      (let [t (:time (meta e))
-                            x (:x (meta e))
-                            y (:y (meta e))
-                            sg (get sgs (- t mintime))]
-                        (assoc sgs (- t mintime)
-                               (update-in sg [(+ x (* y width))]
-                                          conj e))))]
-    [(reduce put-in-grid spotted-grids es) es]))
+  [sensor {:keys [x y color time] :as det}]
+  (let [desc (format (str "Sensor detection by %s - color: %s, x: %d, y: %d, time: %d")
+                     (:id sensor) (color-str color) x y time)]
+    {:hyp-from (new-hyp "SHF" :sensor nil 1.0 desc {:sensor sensor :det det})
+     :hyp-to (new-hyp "SHT" :sensor nil 1.0 desc {:sensor sensor :det det})}))
 
 (defn process-sensors
   "For each time step between the last time we processed sensor data
    and the current time, look at the sensor detections at that time
-   step, incorporate them into our running estimate of the grid, add
-   those detections as 'facts,' and record those detections as
-   'uncovered.'"
+   step, create hypotheses out of them, add those hypotheses as
+   'facts,' and record them as 'uncovered.'"
   [ep-state sensors time-now]
-  (let [sg (:spotted-grid (:problem-data ep-state))
-        mintime (count sg)
-        sensors-seen-grid (:sensors-seen-grid (:problem-data ep-state))
-        [sg-new sg-new-flat] (sensors-to-spotted sensors mintime time-now
-                                                 sensors-seen-grid)
-        ;; get all the from/to hyps; ignore 'from' hyps if time is 0
-        hyps-to-add (concat
-                     (map (comp :hyp-to meta)
-                          (concat (filter #(not= time-now (:time (meta %)))
-                                          sg-new-flat)
-                                  (flatten (or (last sg) []))))
-                     (filter #(not= 0 (:time (meta (:entity (:data %)))))
-                             (map (comp :hyp-from meta) sg-new-flat)))]
-    (reduce
-     #(add-fact %1 %2 [])
-     (-> ep-state
-         (assoc-in [:problem-data :uncovered]
-                   (set (concat (:uncovered (:problem-data ep-state))
-                                (map #(select-keys (meta %) [:x :y :time :color])
-                                     sg-new-flat))))
-         (update-in [:problem-data :spotted-grid] concat sg-new))
-     hyps-to-add)))
-
-(defn get-path-heads
-  [paths]
-  (map (fn [l] (assoc (last (paths l)) :color (:color (meta l))))
-       (filter #(not (:dead (meta %))) (keys paths))))
+  (let [pdata (:problem-data ep-state)
+        mintime (:left-off pdata)
+        dets (set (mapcat (fn [s] (mapcat (fn [t] (sensed-at s t))
+                                          (range mintime (inc time-now))))
+                          sensors))
+        det-hyps (map (fn [det] (merge det (make-sensor-hyps sensor det))) dets)
+        pdata-new (update-in pdata [:uncovered] det-hyps)]
+    (reduce (fn [ep hyp] (add-fact ep hyp []))
+            ep-state (mapcat (fn [det-hyp] [(:hyp-from det-hyp) (:hyp-to det-hyp)])
+                             (:uncovered pdata-new)))))
 
 (defn score-distance
   "Returns nil if movement is impossible."
@@ -143,6 +89,16 @@
       score)))
 
 (defn make-movement-hyps
+  [uncovered heads whereto-hyps walk-dist]
+  (let [unc-by-time (group-by :time uncovered)
+        ;; pair uncovered dets together, where each pair has a det
+        ;; from time t first, and a det from time t+1 second
+        unc-pairs (apply concat (for [t (butlast (sort (keys unc-by-time)))]
+                                  (mapcat (fn [det] (map (fn [det2] [det det2])
+                                                         (get unc-by-time (inc t))))
+                                          (get unc-by-time t))))]
+    )
+  
   [det uncovered spotted-grid entity-hyps walk-dist]
   (let [find-spotted (fn [d] (filter #(match-color? (:color d) (:color (meta %)))
                                      (grid-at (nth spotted-grid (:time d))
@@ -181,16 +137,13 @@
                              {:det det :det2 det2})
                     explains]]))))))
 
-(defn make-known-entities-hyps
-  [paths time-now steps-between]
-  (let [earliest-time (- time-now steps-between)
-        hyp-to (fn [l t] (new-hyp "TE" :tracking-entity nil 1.0
-                                  (format "Where did %s go at %d?" l t)
-                                  {:det (last (paths l)) :entity l}))]
-    (map #(hyp-to % (:time (last (paths %))))
-         (filter #(and (not (:dead (meta %)))
-                       (<= earliest-time (:time (last (paths %)))))
-                 (keys paths)))))
+(defn make-whereto-hyps
+  [believed-movements]
+  (for [e (keys believed-movements) :where (not (:dead (meta e)))]
+    (new-hyp "TE" :tracking-whereto nil 1.0
+             (format "Where did %s go at %d?"
+                     e (inc (:time (last (get believed-movements e)))))
+             {:entity e})))
 
 (defn paths-graph-add-edge
   [paths-graph hyp hyp-orig explains]
@@ -404,14 +357,11 @@
    and add them to the epistemic state."
   [ep-state sensors time-now]
   (binding [compute 0 memory 0]
-    (let [paths (:paths (:problem-data ep-state))
-          path-heads (get-path-heads paths)
-          entity-hyps (make-known-entities-hyps
-                       paths time-now (:StepsBetween params))
-          ep-entities (reduce #(add-fact %1 %2 []) ep-state entity-hyps)
-          ep (process-sensors ep-entities sensors time-now)
-          sg (:spotted-grid (:problem-data ep))
-          uncovered (set/union (set path-heads) (:uncovered (:problem-data ep)))]
+    (let [believed-movements (:believed-movements (:problem-data ep-state))
+          uncovered (:uncovered (:problem-data ep-state))
+          ep-sensors (process-sensors ep-state sensors time-now)
+          whereto-hyps (make-whereto-hyps believed-movements)
+          ep-whereto (reduce #(add-fact %1 %2 []) ep-state whereto-hyps)]
       (loop [hyps []
              split-merge-hyps []
              unc uncovered]
@@ -463,7 +413,7 @@
   [path]
   (map (fn [[det det2]]
          {:ox (:x det) :oy (:y det) :ot (:time det)
-          :x (:x det2) :y (:y det2) :t (:time det2)})
+          :x (:x det2) :y (:y det2) :time (:time det2)})
        (partition 2 (interleave (butlast path) (rest path)))))
 
 (defn paths-to-movements

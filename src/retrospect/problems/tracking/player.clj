@@ -7,8 +7,9 @@
   (:use [clj-swing.label])
   (:use [clj-swing.frame])
   (:use [clj-swing.panel])
+  (:use [clojure.contrib.seq :only [find-first]])
   (:use [retrospect.problems.tracking.sensors :only [sees]])
-  (:use [retrospect.problems.tracking.grid :only [grid-entities find-entity]])
+  (:use [retrospect.problems.tracking.grid :only [grid-entities]])
   (:use [retrospect.problems.tracking.truedata :only
          [get-entity-movements]])
   (:use [retrospect.problems.tracking.hypotheses :only
@@ -41,15 +42,12 @@
 
 (defn draw-movements
   [#^Graphics2D g entity]
-  (let [entity-at (fn [t] (find-entity (nth @truedata t) entity))]
-    (doseq [t (range @time-prev @time-now)]
-      (when-let [old-e (if (> t 0) (entity-at (dec t)))]
-        (let [new-e (entity-at t)
-              {ox :x oy :y} (meta old-e)
-              {x :x y :y} (meta new-e)
-              degree (- @time-now t)
-              width (double (+ 2 degree))]
-          (draw-move g ox oy x y (var-color (:color (meta entity)) degree) width))))))
+  (doseq [t (range @time-prev @time-now)]
+    (when-let [e (find-first #(= entity %) (grid-entities (get @truedata t)))]
+      (let [{:keys [x y ox oy c]} (meta e)
+            degree (- @time-now t)
+            width (double (+ 2 degree))]
+        (draw-move g ox oy x y (var-color c degree) width)))))
 
 (defn fill-cell
   [#^Graphics2D g x y color]

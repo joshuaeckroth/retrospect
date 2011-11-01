@@ -12,51 +12,25 @@
   (and (>= x (:left (meta sensor))) (<= x (:right (meta sensor)))
        (>= y (:bottom (meta sensor))) (<= y (:top (meta sensor)))))
 
-(defn sensors-seen-grid
-  [sensors params]
-  (with-meta
-    (for [x (range (:GridWidth params)) y (range (:GridHeight params))]
-      (filter (fn [s] (sees s x y)) sensors))
-    {:width (:GridWidth params) :height (:GridHeight params)}))
-
-(defn list-sensors-seen
-  [width height sensors]
-  (doall (filter identity
-                 (for [x (range width) y (range height)]
-                   (if (some #(sees % x y) sensors) {:x x :y y})))))
-
-(defn list-sensors-unseen
-  [width height sensors]
-  (let [seen (list-sensors-seen width height sensors)]
-    (doall (filter identity
-                   (for [x (range width) y (range height)]
-                     (let [p {:x x :y y}]
-                       (if-not (some #(= % p) seen) p)))))))
-
 (defn find-spotted
-  [sensor grid time]
-  (filter (fn [e] (sees sensor (:x (meta e)) (:y (meta e))))
-          (grid-entities grid)))
-
-(defn adjust-ids
-  [es sees-color?]
-  (if sees-color?
-    (concat (map (fn [e] (with-meta (symbol (str "B")) (meta e)))
-                 (filter #(= blue (:color (meta %))) es))
-            (map (fn [e] (with-meta (symbol (str "R")) (meta e)))
-                 (filter #(= red (:color (meta %))) es))
-            (map (fn [e] (with-meta (symbol (str "E")) (meta e)))
-                 (filter #(= green (:color (meta %))) es)))
-    (map (fn [e] (with-meta (symbol (str "G")) (assoc (meta e) :color gray))) es)))
+  [sensor movements time]
+  ;; not most efficient way to figure out what the sensor sees...
+  (apply concat
+         (for [x (range (:width (meta movements)))
+               y (range (:height (meta movements)))
+               :where (sees sensor x y)]
+           (mapcat (fn [e] (map (fn [mov]
+                                  ;; turn the movement into a detection, and
+                                  ;; add the color (or gray)
+                                  (assoc (dissoc mov :ox :oy :ot)
+                                    :color (if (:sees-color sensor)
+                                             (:color (meta e)) gray)))
+                                (entity-movements movements e time time)))
+                   (entities-at movements x y time)))))
 
 (defn sense
-  [sensor grid time]
-  (let [spotted (find-spotted sensor grid time)
-        color-adjusted (if (:sees-color (meta sensor))
-                         (adjust-ids spotted true)
-                         (adjust-ids spotted false))
-        sensed (vals (reduce (fn [m e] (assoc m (meta e) e)) {} color-adjusted))]
-    (add-sensed sensor time (if sensed sensed []))))
+  [sensor movements time]
+  (add-sensed sensor time (find-spotted sensor movements time)))
 
 (defn new-sensor
   "Generate a new sensor with provided values and an empty 'spotted' vector."

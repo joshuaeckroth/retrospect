@@ -32,18 +32,12 @@
 
 (defn generate-problem-data
   [sensors]
-  {:paths (sorted-map)
-   :disbelieved-moves []
+  {:believed-movements {}
+   :disbelieved-movements {}
    :walk-dist (read-walk-dist (str @datadir "/tracking/walks.txt")) 
    :split-merge-hyps []
    :log [] ;; log is reset each time by commit-decision
-   :sensors-seen-grid (sensors-seen-grid sensors params)
-   :spotted-grid []
-   :uncovered #{}
-   :sensors-seen []
-   :sensors-unseen []
-   :sensor-coverage 0.0 
-   :sensor-overlap 0.0})
+   :uncovered []})
 
 (def tracking-problem
      (Problem. "Tracking"

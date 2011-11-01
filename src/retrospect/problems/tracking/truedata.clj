@@ -1,28 +1,27 @@
 (ns retrospect.problems.tracking.truedata
   (:use [retrospect.random])
   (:use [retrospect.colors])
-  (:use [retrospect.problems.tracking.grid])
-  (:use [clojure.contrib.seq :only [find-first]])
-  (:require [clojure.set :as set])
+  (:use [retrospect.problems.tracking.movements])
   (:use [retrospect.state]))
 
 (defn add-new-entities
-  [grid numes]
-  (reduce (fn [g _] (grid-new-entity g 0)) grid (range numes)))
+  [movements numes]
+  (reduce (fn [m _] (new-entity m 0)) grid (range numes)))
 
 (defn random-walks
-  [grid]
+  [movements]
   (let [maxwalk (:MaxWalk params)]
-    (reduce #(walk %1 %2 maxwalk) grid (grid-entities grid))))
+    (reduce #(walk %1 %2 maxwalk) movements (entities movements))))
 
 (defn possibly-add-new-entity
-  [grid time]
+  [movements time]
   (if (>= (double (/ (:ProbNewEntities params) 100)) (my-rand))
-    (grid-new-entity grid time)
-    grid))
+    (new-entity movements time)
+    movements))
 
+;; TODO: fix for 'movements' structure
 (defn output-walk-sizes
-  [truedata]
+  [movements]
   (let [dists (mapcat (fn [grid] (map #(dist (:ox %) (:oy %) (:x %) (:y %))
                                       (vals (:movements (meta grid)))))
                       (rest truedata))
@@ -35,46 +34,25 @@
 
 (defn generate-truedata
   []
-  (let [grid (add-new-entities (new-grid (:GridWidth params) (:GridHeight params))
-                               (:NumberEntities params))]
-    (loop [time 1
-           truedata [grid]]
-      (if (> time (:Steps params))
-        ;(do (output-walk-sizes truedata params) truedata) 
-        truedata
-        (let [newgrid (-> (last truedata)
-                        (update-all-entities time)
-                        (random-walks)
-                        (possibly-add-new-entity time))]
-          (recur (inc time) (conj truedata newgrid)))))))
+  (let [movements (add-new-entities (new-movements (:GridWidth params) (:GridHeight params))
+                                    (:NumberEntities params))]
+    (loop [time 0
+           m movements]
+      (if (>= time (:Steps params)) m
+        ;(do (output-walk-sizes m params) m) 
+        (recur (inc time) (-> m (random-walks)
+                              (possibly-add-new-entity time)))))))
 
-(defn get-grid-movements
-  [truedata mintime maxtime]
-  (if (< maxtime 0) []
-      (mapcat (fn [t] (vals (:movements (meta (nth truedata (inc t))))))
-              (range mintime (inc maxtime)))))
-
-(defn true-movements
-  [truedata maxtime]
-  (set (map #(dissoc % :e) (get-grid-movements truedata 0 maxtime))))
-
-(defn get-entity-movements
-  [truedata mintime maxtime believed-moves]
-  (let [moves (get-grid-movements truedata mintime maxtime)
-        true-moves (true-movements truedata maxtime)
-        entities (sort (set (map :e moves)))
-        arrows (fn [ss] (apply str (interpose " -> " ss)))
-        entity-pos-list
-        (fn [e] (arrows (concat
-                         (let [m (find-first #(= e (:e %)) moves)]
-                           [(format "%d,%d@%d" (:ox m) (:oy m) (:ot m))])
-                         (for [m moves :when (= (:e m) e)]
-                           (if (some #{(dissoc m :e)} believed-moves)
-                             (format "%d,%d@%d" (:x m) (:y m) (:time m))
-                             (format "! %d,%d@%d" (:x m) (:y m) (:time m)))))))]
-    (apply str (map (fn [e] (format "%s (%s): %s\n"
-                                    (str e) (color-str (:color (meta e)))
-                                    (entity-pos-list e)))
-                    entities))))
-
-
+(defn format-movements-comparative
+  [true-movements believed-movements mintime maxtime]
+  (let [es (sort (entities movements))
+        all-believed (set (apply concat (vals believed-movements)))
+        arrays (fn [ss] (apply str (interpose " -> " ss)))
+        lines (fn [ss] (apply str (interpose "\n" ss)))]
+    (lines (for [e es] (format "%s (%s): %s"
+                               e (color-str (:color (meta e)))
+                               (arrows (for [{:keys [x y time] :as mov}
+                                             (entity-movements movements e mintime maxtime)]
+                                         (if (all-believed mov)
+                                           (format "%d,%d@%d" x y time)
+                                           (format "!! %d,%d@%d" x y time)))))))))
