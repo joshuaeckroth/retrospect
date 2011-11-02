@@ -34,7 +34,7 @@
   (let [[commit _ _ _ & msg] (split-lines (sh git "log" "-n" "1"))
         branch (trim (subs (sh git "branch" "--contains") 2))]
     {:commit (subs commit 7)
-     :commit-msg (apply str (interpose "\n" (map (fn [s] (subs s 4)) msg)))
+     :commit-msg (apply str (interpose "\n" (map (fn [s] (subs s 4)) (filter not-empty msg))))
      :branch branch}))
 
 (defn run-with-new-record
