@@ -238,9 +238,8 @@
 
 (defn make-dep-node
   [hyp]
-  {:time (:start (:data hyp))
-   :id (:id hyp)
-   :str (apply str (:start (:data hyp)) ":" (interpose " " (:words (:data hyp))))})
+  (format "%d: %s" (:start (:data hyp))
+          (apply str (interpose " " (:words (:data hyp))))))
 
 (defn hypothesize
   [ep-state sensors time-now]

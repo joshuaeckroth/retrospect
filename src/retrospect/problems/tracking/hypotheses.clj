@@ -357,8 +357,8 @@
 (defn make-dep-node
   [hyp]
   (let [det (if (:det2 (:data hyp)) (:det2 (:data hyp)) (:det (:data hyp)))]
-    {:time (:time det)
-     :str (format "%d,%d@%d (%s)" (:x det) (:y det) (:time det) (color-str (:color det)))}))
+    (format "%d,%d@%d (%s)" (:x det) (:y det)
+            (:time det) (color-str (:color det)))))
 
 (defn hypothesize
   "Process sensor reports, then make hypotheses for all possible movements,

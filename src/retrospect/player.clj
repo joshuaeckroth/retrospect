@@ -10,6 +10,7 @@
   (:use [retrospect.problem :only [run-simulation-step]])
   (:use [retrospect.state])
   (:use [retrospect.gui.eptree :only [ep-tree-tab update-ep-tree]])
+  (:use [retrospect.gui.depgraph :only [depgraph-tab update-depgraph]])
   (:use [retrospect.gui.explainsgraph :only
          [explains-graph-tab update-explains-graph]])
   (:use [retrospect.gui.results :only [update-results results-tab]])
@@ -54,6 +55,7 @@
   (dosync
     (alter ep-list (constantly (sort (list-ep-states (:ep-state-tree @or-state))))))
   (update-ep-tree)
+  (update-depgraph)
   #_(update-explains-graph)
   (update-results)
   (update-logs)
@@ -131,6 +133,7 @@
           _ (doto (JTabbedPane.)
               (.addTab "Problem diagram" problem-diagram)
               (.addTab "Epistemic state tree" (ep-tree-tab))
+              (.addTab "Dependency graph" (depgraph-tab))
               (.addTab "Logs" (logs-tab))
               ;(.addTab "Explains graph" (explains-graph-tab))
               (.addTab "Results" (results-tab))
