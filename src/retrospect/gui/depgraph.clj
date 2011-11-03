@@ -1,49 +1,30 @@
 (ns retrospect.gui.depgraph
-  (:import (com.mxgraph.view mxGraph))
-  (:import (com.mxgraph.swing mxGraphComponent))
-  (:import (com.mxgraph.model mxCell))
-  (:import (com.mxgraph.layout mxOrganicLayout))
   (:import (java.awt.image BufferedImage))
-  (:import (java.awt Dimension Rectangle))
   (:import (javax.swing JLabel ImageIcon JViewport))
-  (:use [loom.graph :only [edges nodes]])
+  (:use [loom.graph :only [edges]])
+  (:use [loom.io :only [dot-str]])
+  (:use [clojure.java.shell :only [sh]])
   (:use [clj-swing.panel])
   (:use [retrospect.state])
   (:use [retrospect.epistemicstates :only [draw-depgraph current-ep-state]]))
 
-(def graph (doto (mxGraph.)
-             (.setAutoSizeCells true)
-             (.setCellsDisconnectable false)))
-
-(def layout (doto (mxOrganicLayout. graph)
-              (.setFineTuning true)
-              (.setOptimizeEdgeCrossing true)
-              (.setOptimizeEdgeDistance true)
-              (.setOptimizeEdgeLength true)
-              (.setOptimizeNodeDistribution true)
-              (.setOptimizeBorderLine true)))
-
-(defn process-depgraph
+(defn get-depgraph
   [depgraph]
-  (when depgraph
-    (let [parent (.getDefaultParent graph)
-          vertex-map (reduce (fn [m n] (assoc m n (.insertVertex graph parent nil n 0 0 0 0)))
-                             {} (nodes depgraph))]
-      (doseq [[a b] (edges depgraph)]
-        (let [va (get vertex-map a)
-              vb (get vertex-map b)]
-          (.insertEdge graph parent nil nil va vb))))))
+  (if (and depgraph (not-empty (edges depgraph)))
+    (let [dot (dot-str depgraph :graph {:dpi 60 :rankdir "LR"})
+          {png :out} (sh "dot" "-Tpng" :in dot :out-enc :bytes)]
+      (JLabel. (ImageIcon. png)))
+    (JLabel. (ImageIcon. (BufferedImage. 1 1 (. BufferedImage TYPE_4BYTE_ABGR))))))
+
+(def depgraph-scroll
+  (scroll-panel (get-depgraph nil)))
 
 (defn depgraph-tab
   []
-  (mxGraphComponent. graph))
+  depgraph-scroll)
 
 (defn update-depgraph
   []
   (let [depgraph (:depgraph (current-ep-state (:ep-state-tree @or-state)))]
-    (when (not-empty (edges depgraph))
-      (.beginUpdate (.getModel graph))
-      (.removeCells graph (.getChildCells graph (.getDefaultParent graph)))
-      (process-depgraph depgraph)
-      (.endUpdate (.getModel graph))
-      (.execute layout (.getDefaultParent graph)))))
+    (. depgraph-scroll setViewport
+       (doto (JViewport.) (.setView (get-depgraph depgraph))))))
