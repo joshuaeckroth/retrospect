@@ -1,41 +1,55 @@
 (ns retrospect.gui.depgraph
-  (:import (edu.uci.ics.jung.graph DirectedSparseGraph))
-  (:import (edu.uci.ics.jung.algorithms.layout DAGLayout))
-  (:import (edu.uci.ics.jung.visualization GraphZoomScrollPane VisualizationViewer))
-  (:import (edu.uci.ics.jung.visualization.control DefaultModalGraphMouse))
-  (:import (edu.uci.ics.jung.visualization.control ModalGraphMouse$Mode))
-  (:import (edu.uci.ics.jung.visualization.decorators ToStringLabeller))
+  (:import (org.jgraph JGraph))
+  (:import (org.jgraph.graph DefaultGraphCell DefaultPort DefaultEdge))
+  (:import (com.jgraph.layout JGraphFacade))
+  (:import (com.jgraph.layout.organic JGraphFastOrganicLayout))
   (:import (java.awt.image BufferedImage))
   (:import (java.awt Dimension))
   (:import (javax.swing JLabel ImageIcon JViewport))
-  (:use [loom.graph :only [edges]])
+  (:use [loom.graph :only [edges nodes]])
   (:use [clj-swing.panel])
   (:use [retrospect.state])
   (:use [retrospect.epistemicstates :only [draw-depgraph current-ep-state]]))
 
-(def layout (DAGLayout. (DirectedSparseGraph.)))
-(def view (doto (VisualizationViewer. layout)
-            (.setGraphMouse (doto (DefaultModalGraphMouse.)
-                              (.setMode ModalGraphMouse$Mode/TRANSFORMING)))))
-(def pane (GraphZoomScrollPane. view))
+(def graph (JGraph.))
 
-(defn get-depgraph
+(def facade (JGraphFacade. graph))
+
+(def layout (JGraphFastOrganicLayout.))
+
+(defn process-depgraph
   [depgraph]
-  (if-not (nil? depgraph)
-    (let [g (DirectedSparseGraph.)]
+  (when depgraph
+    (.remove (.getGraphLayoutCache graph) (.getCells (.getGraphLayoutCache graph)
+                                                     true true true true))
+    (let [vertex-map (reduce (fn [m n] (let [v (DefaultGraphCell. n)
+                                             p (DefaultPort.)]
+                                         (assoc m n [(doto v (.add p))
+                                                     (doto p (.setParent v))])))
+                             {} (nodes depgraph))]
+      (doseq [a (map first (vals vertex-map))]
+        (.insert (.getGraphLayoutCache graph) a))
       (doseq [[a b] (edges depgraph)]
-        (.addEdge g (format "%s->%s" a b) a b))
-      g)))
+        (let [[vertex-a port-a] (get vertex-map a)
+              [vertex-b port-b] (get vertex-map b)
+              edge (DefaultEdge.)]
+          (.setSource edge port-a)
+          (.setTarget edge port-b)
+          (.insert (.getGraphLayoutCache graph) edge))))))
+
+(def depgraph-scroll
+  (scroll-panel graph))
 
 (defn depgraph-tab
   []
-  (.setVertexLabelTransformer (.getRenderContext view) (ToStringLabeller.))
-  pane)
+  depgraph-scroll)
 
 (defn update-depgraph
   []
   (let [depgraph (:depgraph (current-ep-state (:ep-state-tree @or-state)))]
-    (.setGraphLayout view (doto (DAGLayout. (get-depgraph depgraph))
-                            (.setRepulsionRange 500)
-                            (.setSize (Dimension. 1000 1000))))
-    (.stateChanged view (javax.swing.event.ChangeEvent. (Object.)))))
+    (when (not-empty (edges depgraph))
+      (process-depgraph depgraph)
+      (.run layout facade)
+      (let [nested (.createNestedMap facade true true)]
+        (.edit (.getGraphLayoutCache graph) nested))
+      (.refresh graph))))
