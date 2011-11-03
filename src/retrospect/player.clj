@@ -69,6 +69,7 @@
     (when (not prepared?)
       (let [ps (read-string @params-edit)]
         (alter-var-root (var params) (constantly ps))
+        (dosync (alter params-edit (constantly (format-params ps))))
         (set-seed (get-seed))
         (set-last-id 0)
         (dosync
