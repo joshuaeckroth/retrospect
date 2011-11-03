@@ -1,8 +1,8 @@
 (ns retrospect.gui.depgraph
-  (:import (org.jgraph JGraph))
-  (:import (org.jgraph.graph DefaultGraphCell DefaultPort DefaultEdge GraphConstants))
-  (:import (com.jgraph.layout JGraphFacade))
-  (:import (com.jgraph.layout.organic JGraphFastOrganicLayout))
+  (:import (com.mxgraph.view mxGraph))
+  (:import (com.mxgraph.swing mxGraphComponent))
+  (:import (com.mxgraph.model mxCell))
+  (:import (com.mxgraph.layout mxOrganicLayout))
   (:import (java.awt.image BufferedImage))
   (:import (java.awt Dimension Rectangle))
   (:import (javax.swing JLabel ImageIcon JViewport))
@@ -11,52 +11,39 @@
   (:use [retrospect.state])
   (:use [retrospect.epistemicstates :only [draw-depgraph current-ep-state]]))
 
-(def graph (doto (JGraph.)
-             (.setAntiAliased true)))
+(def graph (doto (mxGraph.)
+             (.setAutoSizeCells true)
+             (.setCellsDisconnectable false)))
 
-(def facade (JGraphFacade. graph))
-
-(def layout (doto (JGraphFastOrganicLayout.)
-              (.setForceConstant 200)
-              (.setInitialTemp 200)
-              (.setMaxIterations 100)))
+(def layout (doto (mxOrganicLayout. graph)
+              (.setFineTuning true)
+              (.setOptimizeEdgeCrossing true)
+              (.setOptimizeEdgeDistance true)
+              (.setOptimizeEdgeLength true)
+              (.setOptimizeNodeDistribution true)
+              (.setOptimizeBorderLine true)))
 
 (defn process-depgraph
   [depgraph]
   (when depgraph
-    (.remove (.getGraphLayoutCache graph) (.getCells (.getGraphLayoutCache graph)
-                                                     true true true true))
-    (let [vertex-map (reduce (fn [m n] (let [v (DefaultGraphCell. n)
-                                             p (DefaultPort.)]
-                                         (GraphConstants/setAutoSize (.getAttributes v) true)
-                                         (assoc m n [(doto v (.add p))
-                                                     (doto p (.setParent v))])))
+    (let [parent (.getDefaultParent graph)
+          vertex-map (reduce (fn [m n] (assoc m n (.insertVertex graph parent nil n 0 0 0 0)))
                              {} (nodes depgraph))]
-      (doseq [a (map first (vals vertex-map))]
-        (.insert (.getGraphLayoutCache graph) a))
       (doseq [[a b] (edges depgraph)]
-        (let [[vertex-a port-a] (get vertex-map a)
-              [vertex-b port-b] (get vertex-map b)
-              edge (DefaultEdge.)]
-          (GraphConstants/setLineEnd (.getAttributes edge) GraphConstants/ARROW_SIMPLE)
-          (.setSource edge port-a)
-          (.setTarget edge port-b)
-          (.insert (.getGraphLayoutCache graph) edge))))))
-
-(def depgraph-scroll
-  (scroll-panel graph))
+        (let [va (get vertex-map a)
+              vb (get vertex-map b)]
+          (.insertEdge graph parent nil nil va vb))))))
 
 (defn depgraph-tab
   []
-  depgraph-scroll)
+  (mxGraphComponent. graph))
 
 (defn update-depgraph
   []
   (let [depgraph (:depgraph (current-ep-state (:ep-state-tree @or-state)))]
     (when (not-empty (edges depgraph))
+      (.beginUpdate (.getModel graph))
+      (.removeCells graph (.getChildCells graph (.getDefaultParent graph)))
       (process-depgraph depgraph)
-      (.run layout facade)
-      (.scale facade (Rectangle. 1000 1000))
-      (let [nested (.createNestedMap facade true true)]
-        (.edit (.getGraphLayoutCache graph) nested))
-      (.refresh graph))))
+      (.endUpdate (.getModel graph))
+      (.execute layout (.getDefaultParent graph)))))

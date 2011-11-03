@@ -4,7 +4,7 @@
                  [org.clojure/clojure-contrib "1.2.0"]
                  [org.clojars.overtone/vijual "0.2.1"]
                  [cc.artifice/clj-swing "0.1.4"]
-                 [jgraph/jgraph "5.13.0.0"]
+                 [jgraphx/jgraphx "1.8.0.2"]
                  [cc.artifice/loom "0.1.1"]
                  [com.ashafa/clutch "0.2.4"]]
   :dev-dependencies [[midje "1.1"]
