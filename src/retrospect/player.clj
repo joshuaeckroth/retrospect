@@ -148,27 +148,28 @@
           :gridx 1 :gridy 1
           _ (button "Set prepared" :action ([_] (set-prepared-action)))
 
-          :gridx 1 :gridy 2 :weighty 0.8
-          _ (scroll-panel (text-area :str-ref params-edit :editable true :wrap false))
+          :gridx 1 :gridy 2 :weighty 1.75
+          _ (scroll-panel (text-area :str-ref params-edit :editable true
+                                     :wrap false :rows 30))
 
           :gridx 1 :gridy 3 :gridwidth 1 :weighty 0.0
           _ (label "Seed")
           :gridx 2
           _ seed-spinner
 
-          :gridx 1 :gridy 4
-          _ (button "New" :action ([_] (new-simulation)))
-          :gridx 2
-          _ (button "Next" :action ([_] (next-step)))
+          :gridx 1 :gridy 4 :gridwidth 2
+          _ (doto (panel)
+              (.add (button "New" :action ([_] (new-simulation))))
+              (.add (button "Next" :action ([_] (next-step)))))
 
           :gridx 1 :gridy 5
-          _ (doto (combo-box
-                   [] :model (seq-ref-combobox-model ep-list ep-selected))
-              (.setMinimumSize (Dimension. 100 0)))
-          :gridx 2
-          _ (button "Goto" :action ([_] (goto-ep-state-action)))
+          _ (doto (panel)
+              (.add (doto (combo-box
+                           [] :model (seq-ref-combobox-model ep-list ep-selected))
+                      (.setMinimumSize (Dimension. 100 0))))
+              (.add (button "Goto" :action ([_] (goto-ep-state-action)))))
 
-          :gridx 1 :gridy 6 :gridwidth 2
+          :gridx 1 :gridy 6
           _ steplabel
 
           :gridx 1 :gridy 7
