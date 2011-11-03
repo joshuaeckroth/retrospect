@@ -73,7 +73,7 @@
                   control-sensors ((:sensor-gen-fn @problem))
                   control-problem-data ((:gen-problem-data-fn @problem) control-sensors)
                   control-or-state (init-one-run-state control-sensors control-problem-data)]
-              (println "Control:" control-params)
+              (println "Control:" (pr-str control-params))
               (assoc (run-simulation control-truedata control-or-state monitor?)
                 :control-params (pr-str control-params) :comparison-params (pr-str comparison-params))))
           comparison-result
@@ -84,7 +84,7 @@
                   comparison-sensors ((:sensor-gen-fn @problem))
                   comparison-problem-data ((:gen-problem-data-fn @problem) comparison-sensors)
                   comparison-or-state (init-one-run-state comparison-sensors comparison-problem-data)]
-              (println "Comparison:" comparison-params)
+              (println "Comparison:" (pr-str comparison-params))
               (assoc (run-simulation comparison-truedata comparison-or-state monitor?)
                 :control-params (pr-str control-params) :comparison-params (pr-str comparison-params))))]
       [control-result comparison-result
@@ -99,7 +99,7 @@
             sensors ((:sensor-gen-fn @problem))
             problem-data ((:gen-problem-data-fn @problem) sensors)
             or-state (init-one-run-state sensors problem-data)]
-        (println "Params:" params)
+        (println "Params:" (pr-str params))
         (assoc (run-simulation truedata or-state monitor?)
           :params (pr-str params))))))
 
