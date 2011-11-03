@@ -128,7 +128,7 @@
          :constrains (java.awt.GridBagConstraints.)
          :size [1000 700]
          :show true
-         :on-close :dispose
+         :on-close :exit
          [:gridx 0 :gridy 0 :gridheight 9 :weightx 1.0 :weighty 1.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
           _ (doto (JTabbedPane.)
