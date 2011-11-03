@@ -140,7 +140,7 @@
               (.addTab "Results" (results-tab))
               (.setSelectedIndex 0))
 
-          :gridx 1 :gridy 0 :gridheight 1 :gridwidth 2 :weightx 0.0 :weighty 0.0
+          :gridx 1 :gridy 0 :gridheight 1 :gridwidth 2 :weightx 0.05 :weighty 0.0
           _ (combo-box
              [] :model (seq-ref-combobox-model
                         (ref (concat ["None"] (keys (:prepared-map @problem))))
