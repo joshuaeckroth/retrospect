@@ -4,7 +4,7 @@
   (:import (com.jgraph.layout JGraphFacade))
   (:import (com.jgraph.layout.organic JGraphFastOrganicLayout))
   (:import (java.awt.image BufferedImage))
-  (:import (java.awt Dimension))
+  (:import (java.awt Dimension Rectangle))
   (:import (javax.swing JLabel ImageIcon JViewport))
   (:use [loom.graph :only [edges nodes]])
   (:use [clj-swing.panel])
@@ -16,7 +16,10 @@
 
 (def facade (JGraphFacade. graph))
 
-(def layout (JGraphFastOrganicLayout.))
+(def layout (doto (JGraphFastOrganicLayout.)
+              (.setForceConstant 200)
+              (.setInitialTemp 200)
+              (.setMaxIterations 100)))
 
 (defn process-depgraph
   [depgraph]
@@ -53,6 +56,7 @@
     (when (not-empty (edges depgraph))
       (process-depgraph depgraph)
       (.run layout facade)
+      (.scale facade (Rectangle. 1000 1000))
       (let [nested (.createNestedMap facade true true)]
         (.edit (.getGraphLayoutCache graph) nested))
       (.refresh graph))))
