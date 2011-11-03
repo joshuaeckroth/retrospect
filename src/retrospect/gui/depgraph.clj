@@ -1,6 +1,6 @@
 (ns retrospect.gui.depgraph
   (:import (org.jgraph JGraph))
-  (:import (org.jgraph.graph DefaultGraphCell DefaultPort DefaultEdge))
+  (:import (org.jgraph.graph DefaultGraphCell DefaultPort DefaultEdge GraphConstants))
   (:import (com.jgraph.layout JGraphFacade))
   (:import (com.jgraph.layout.organic JGraphFastOrganicLayout))
   (:import (java.awt.image BufferedImage))
@@ -11,7 +11,8 @@
   (:use [retrospect.state])
   (:use [retrospect.epistemicstates :only [draw-depgraph current-ep-state]]))
 
-(def graph (JGraph.))
+(def graph (doto (JGraph.)
+             (.setAntiAliased true)))
 
 (def facade (JGraphFacade. graph))
 
@@ -24,6 +25,7 @@
                                                      true true true true))
     (let [vertex-map (reduce (fn [m n] (let [v (DefaultGraphCell. n)
                                              p (DefaultPort.)]
+                                         (GraphConstants/setAutoSize (.getAttributes v) true)
                                          (assoc m n [(doto v (.add p))
                                                      (doto p (.setParent v))])))
                              {} (nodes depgraph))]
@@ -33,6 +35,7 @@
         (let [[vertex-a port-a] (get vertex-map a)
               [vertex-b port-b] (get vertex-map b)
               edge (DefaultEdge.)]
+          (GraphConstants/setLineEnd (.getAttributes edge) GraphConstants/ARROW_SIMPLE)
           (.setSource edge port-a)
           (.setTarget edge port-b)
           (.insert (.getGraphLayoutCache graph) edge))))))
