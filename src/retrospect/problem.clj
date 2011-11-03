@@ -89,7 +89,8 @@
                 :control-params (pr-str control-params) :comparison-params (pr-str comparison-params))))]
       [control-result comparison-result
        (assoc (evaluate-comparative control-result comparison-result control-params comparison-params)
-         :control-params (first params) :comparison-params (second params))])
+         :control-params (pr-str (first params))
+         :comparison-params (pr-str (second params)))])
     ;; if non-comparative, just run the simulation
     (binding [last-id 0
               params params]
