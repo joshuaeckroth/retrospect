@@ -72,6 +72,7 @@
                        (* (count control-params) repetitions)))
       (run-partitions run comparative? (if comparative? paired-params control-params)
                       recdir nthreads monitor? repetitions)
-      (println "Done."))
+      (println "Done.")
+      (System/exit 0))
     (catch java.util.concurrent.ExecutionException e
       (println "Quitting early."))))
