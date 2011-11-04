@@ -26,6 +26,7 @@
 (def percent-events-correct-label (label ""))
 (def percent-events-wrong-label (label ""))
 (def accuracy-label (label ""))
+(def unexp-label (label ""))
 (def mouse-xy (label "Grid ?, ?"))
 
 (defn draw-move
@@ -166,28 +167,29 @@
           :gridx 1
           _ accuracy-label
           :gridx 0 :gridy 3
+          _ (label "Unexplained:")
+          :gridx 1
+          _ unexp-label
+          :gridx 0 :gridy 4
           _ mouse-xy]))
 
 (defn player-update-stats
   []
   (if (> @time-now 0)
-    (let [t (int (/ (dec @time-now) (:StepsBetween params)))]
+    (let [t (int (/ (dec @time-now) (:StepsBetween params)))
+          results (get (:results @or-state) t)]
       (. percent-events-correct-label
-         (setText
-          (format "%.2f%%"
-                  (:PEC (get (:results @or-state) t)))))
+         (setText (format "%.2f%%" (:PEC results))))
       (. percent-events-wrong-label
-         (setText
-          (format "%.2f%%"
-                  (:PEW (get (:results @or-state) t)))))
-      (. accuracy-label
-         (setText
-          (format "%.2f"
-                  (:Acc (get (:results @or-state) t))))))
+         (setText (format "%.2f%%" (:PEW results))))
+      (. accuracy-label (setText (format "%.2f" (:Acc results))))
+      (. unexp-label (setText (format "%.2f%%" (double (/ (:Unexplained results)
+                                                          (:HypothesisCount results)))))))
     (do
       (. percent-events-correct-label (setText "N/A"))
       (. percent-events-wrong-label (setText "N/A"))
-      (. accuracy-label (setText "N/A")))))
+      (. accuracy-label (setText "N/A"))
+      (. unexp-label (setText "N/A")))))
 
 (defn player-get-truedata-log
   []
