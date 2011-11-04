@@ -3,7 +3,8 @@
   (:use [clojure.string :only [split]])
   (:use [retrospect.workspaces :only [last-id]])
   (:use [retrospect.onerun :only
-         [init-one-run-state update-one-run-state proceed-one-run-state]])
+         [init-one-run-state update-one-run-state proceed-one-run-state
+          clear-resources]])
   (:use [retrospect.epistemicstates :only
          [explain current-ep-state]])
   (:use [retrospect.meta.reason :only
@@ -29,8 +30,9 @@
 (defn run-simulation-step
   [truedata or-state monitor? player?]
   (let [time (:time (:ep-state or-state))
+        ors-clean (clear-resources or-state)
         ors-sensors (proceed-n-steps (:StepsBetween params) (:Steps params)
-                                     time truedata or-state)
+                                     time truedata ors-clean)
         time-now (min (dec (:Steps params)) (+ (dec (:StepsBetween params)) time))
         ;; start the clock
         start-time (. System (nanoTime))
@@ -45,7 +47,7 @@
         ors-next (proceed-one-run-state
                    ors-meta (current-ep-state (:ep-state-tree ors-meta))
                    time-now)
-        ors-resources (update-in ors-next [:resources] assoc :milliseconds ms)
+        ors-resources (assoc-in ors-next [:resources :milliseconds] ms)
         ors-results (evaluate truedata ors-resources)]
     (if (and (not player?) monitor?)
       ((:monitor-fn @problem) truedata (:sensors ors-results) ors-results)

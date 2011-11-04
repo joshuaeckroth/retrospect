@@ -225,40 +225,6 @@
       :else
       (set (filter #(and (not= % hyp) (= c (:conflict %))) hyps)))))
 
-;; TODO: Update for green entity colors
-(defn dot-format
-  [workspace boxed best]
-  (let [id #(format "%s %s" (:id %) (confidence-str (hyp-conf workspace %)))
-        acc (concat (:accepted workspace) (:forced workspace))
-        rej (concat (:rejected workspace))
-        unexplained (find-unexplained workspace)]
-    (str
-     "digraph G {\n"
-     "rankdir=\"LR\";\n"
-     "node [shape=\"plaintext\"];\n"
-     (apply str (for [h (nodes (:graph-static workspace))]
-                  (apply str (format "\"%s\";\n" (id h))
-                         (map #(format "\"%s\" -> \"%s\";\n" (id h) (id %))
-                              (find-explains workspace h :static)))))
-     (apply str "" (for [h acc]
-                     (format "\"%s\" [color=\"blue\", fontcolor=\"blue\"];\n" (id h))))
-     (apply str "" (for [h rej]
-                     (format "\"%s\" [color=\"red\", fontcolor=\"red\"];\n" (id h))))
-     (apply str "" (for [h unexplained]
-                     (format "\"%s\" [color=\"orange\", fontcolor=\"orange\"];\n" (id h))))
-     "subgraph cluster {\n"
-     (apply str "" (map #(format "\"%s\";\n" (id %)) boxed))
-     "}\n"
-     (if (nil? best) ""
-         (format "\"%s\" [color=\"blue\", fontcolor=\"blue\", shape=\"box\"];"
-                 (id best)))
-     (if (nil? best) ""
-         (let [conflicts (find-conflicts workspace best)]
-           (apply str ""
-                  (map #(format "\"%s\" -> \"%s\" [arrowhead=\"box\"; color=\"red\"];\n"
-                                (id acc) (id %)) conflicts))))
-     "}\n")))
-
 (defn add
   "Only add a hyp if its explained hyps are already in the (live,
    non-static) graph, and if it does not conflict with an accepted or

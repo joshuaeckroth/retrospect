@@ -183,8 +183,7 @@
       (. percent-events-wrong-label
          (setText (format "%.2f%%" (:PEW results))))
       (. accuracy-label (setText (format "%.2f" (:Acc results))))
-      (. unexp-label (setText (format "%.2f%%" (double (/ (:Unexplained results)
-                                                          (:HypothesisCount results)))))))
+      (. unexp-label (setText (format "%.2f%%" (:UnexplainedPct results)))))
     (do
       (. percent-events-correct-label (setText "N/A"))
       (. percent-events-wrong-label (setText "N/A"))
