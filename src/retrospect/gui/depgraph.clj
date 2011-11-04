@@ -6,7 +6,7 @@
   (:use [clojure.java.shell :only [sh]])
   (:use [clj-swing.panel])
   (:use [retrospect.state])
-  (:use [retrospect.epistemicstates :only [draw-depgraph current-ep-state]]))
+  (:use [retrospect.epistemicstates :only [current-ep-state]]))
 
 (defn get-depgraph
   [depgraph]

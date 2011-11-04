@@ -6,7 +6,6 @@
   (:require [vijual :as vijual])
   (:use [loom.graph :only [digraph add-edges add-nodes nodes edges]])
   (:use [loom.attr :only [add-attr]])
-  (:use [loom.io :only [view dot-str]])
   (:use [clojure.java [io :only [file]] [shell :only [sh]]])
   (:use [retrospect.state]))
 
@@ -123,13 +122,6 @@
   [ep-state-tree]
   (conj (map ep-state-tree-to-nested-helper (:children (zip/root ep-state-tree)))
         "root"))
-
-(defn draw-depgraph
-  [depgraph]
-  (if (and depgraph (not-empty (edges depgraph)))
-    (let [dot (dot-str depgraph :graph {:dpi 60 :rankdir "LR"})
-          {png :out} (sh "dot" "-Tpng" :in dot :out-enc :bytes)]
-      png)))
 
 (defn print-ep-state-tree
   [ep-state-tree]
