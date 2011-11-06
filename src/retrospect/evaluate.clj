@@ -38,7 +38,8 @@
              :Milliseconds (:milliseconds ors-resources) 
              :Unexplained (count (:unexplained final-log))
              :UnexplainedPct (* 100.0 (/ (count (:unexplained final-log))
-                                         (:hypothesis-count ws-resources)))
+                                         (let [hc (:hypothesis-count ws-resources)]
+                                           (if (= 0 hc) 1 hc))))
              :NoExplainers (count (:no-explainers final-log))
              :SharedExplains (count (:shared-explains final-log))
              :ExplainCycles (:explain-cycles ws-resources)
@@ -54,13 +55,16 @@
 
 (defn evaluate-comparative
   [control-results comparison-results control-params comparison-params]
-  (apply merge
-         {:Problem (:name @problem)}
-         (prefix-params "Cont" control-params)
-         (prefix-params "Comp" comparison-params)
-         ((:evaluate-comparative-fn @problem) control-results comparison-results
-          control-params comparison-params)
-         (map #(calc-increase control-results comparison-results %)
-              [:MetaActivations :MetaAccepted :Milliseconds :SharedExplains
-               :Unexplained :NoExplainers :ExplainCycles :HypothesisCount
-               :Compute :Memory :DeepestDep])))
+  (for [i (range (count control-results))]
+    (let [control (nth control-results i)
+          comparison (nth comparison-results i)]
+      (apply merge
+             {:Problem (:name @problem)}
+             (prefix-params "Cont" control-params)
+             (prefix-params "Comp" comparison-params)
+             ((:evaluate-comparative-fn @problem) control comparison
+              control-params comparison-params)
+             (map #(calc-increase control comparison %)
+                  [:MetaActivations :MetaAccepted :Milliseconds :SharedExplains
+                   :Unexplained :NoExplainers :ExplainCycles :HypothesisCount
+                   :Compute :Memory :DeepestDep])))))

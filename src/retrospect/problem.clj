@@ -59,7 +59,7 @@
     (when (nil? ors)
       (throw (ExecutionException. "Monitor took control." (Throwable.))))
     (if (>= (:time (:ep-state ors)) (:Steps params))
-      (last (:results ors))
+      (:results ors)
       (recur (run-simulation-step truedata ors monitor? false)))))
 
 (defn run
@@ -67,7 +67,7 @@
   (if comparative?
     ;; if comparative, run two simulations
     (let [[control-params comparison-params] params
-          control-result
+          control-results
           (binding [last-id 0
                     params control-params]
             (set-seed (:Seed control-params))
@@ -76,9 +76,10 @@
                   control-problem-data ((:gen-problem-data-fn @problem) control-sensors)
                   control-or-state (init-one-run-state control-sensors control-problem-data)]
               (println "Control:" (pr-str control-params))
-              (assoc (run-simulation control-truedata control-or-state monitor?)
-                :control-params (pr-str control-params) :comparison-params (pr-str comparison-params))))
-          comparison-result
+              (map (fn [rs] (assoc rs :control-params (pr-str control-params)
+                                   :comparison-params (pr-str comparison-params)))
+                   (run-simulation control-truedata control-or-state monitor?))))
+          comparison-results
           (binding [last-id 0
                     params comparison-params]
             (set-seed (:Seed comparison-params))
@@ -87,12 +88,16 @@
                   comparison-problem-data ((:gen-problem-data-fn @problem) comparison-sensors)
                   comparison-or-state (init-one-run-state comparison-sensors comparison-problem-data)]
               (println "Comparison:" (pr-str comparison-params))
-              (assoc (run-simulation comparison-truedata comparison-or-state monitor?)
-                :control-params (pr-str control-params) :comparison-params (pr-str comparison-params))))]
-      [control-result comparison-result
-       (assoc (evaluate-comparative control-result comparison-result control-params comparison-params)
-         :control-params (pr-str (first params))
-         :comparison-params (pr-str (second params)))])
+              (map (fn [rs] (assoc rs
+                              :control-params (pr-str control-params)
+                              :comparison-params (pr-str comparison-params)))
+                   (run-simulation comparison-truedata comparison-or-state monitor?))))]
+      [control-results comparison-results
+       (map (fn [rs] (assoc rs
+                       :control-params (pr-str (first params))
+                       :comparison-params (pr-str (second params))))
+            (evaluate-comparative control-results comparison-results
+                                  control-params comparison-params))])
     ;; if non-comparative, just run the simulation
     (binding [last-id 0
               params params]
@@ -102,8 +107,8 @@
             problem-data ((:gen-problem-data-fn @problem) sensors)
             or-state (init-one-run-state sensors problem-data)]
         (println "Params:" (pr-str params))
-        (assoc (run-simulation truedata or-state monitor?)
-          :params (pr-str params))))))
+        (map (fn [rs] (assoc rs :params (pr-str params)))
+             (run-simulation truedata or-state monitor?))))))
 
 (defrecord Problem
   [name monitor-fn player-fns truedata-fn sensor-gen-fn prepared-map
