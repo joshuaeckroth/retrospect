@@ -16,7 +16,7 @@
   (def last-id n))
 
 (defn new-hyp
-  [prefix type conflict apriori desc data]
+  [prefix type conflict apriori explains desc data]
   (let [id (inc last-id)]
     ;; use var-set if running batch mode; def if using player or repl
     ;; (in batch mode, thread is called something like pool-2-thread-1)
@@ -27,7 +27,10 @@
     {:id (format "%s%d" (if meta? (str "M" prefix) prefix) id)
      :type type
      :conflict conflict
-     :apriori apriori :desc desc :data data}))
+     :apriori apriori
+     :explains explains
+     :desc desc
+     :data data}))
 
 (defn init-workspace
   ([]
@@ -265,14 +268,10 @@
    forced hyp. However, if the hyp is to be added, add all its explain
    edges to the static graph, but only those unexplained edges to the
    live graph."
-  [workspace hyp explains & opts]
-  (let [gtype (if (some #{:static} opts)
-                :graph-static
-                :graph)
-        expl (set/intersection (nodes (get workspace gtype))
-                               (set explains))
-        explains-something-unexplained?
-        (or (= gtype :graph-static) (not-empty expl))]
+  [workspace hyp & opts]
+  (let [gtype (if (some #{:static} opts) :graph-static :graph)
+        expl (set/intersection (nodes (get workspace gtype)) (set (:explains hyp)))
+        explains-something-unexplained? (or (= gtype :graph-static) (not-empty expl))]
     (if (not explains-something-unexplained?) workspace
         ;; add to :graph-static if :static was not indicated;
         ;; here, add even already-explains links
@@ -280,9 +279,10 @@
               (-> (if (not= gtype :graph) workspace
                       (-> workspace
                           (update-in [:graph-static]
-                                     #(apply add-nodes % (conj explains hyp)))
+                                     #(apply add-nodes % (conj (:explains hyp) hyp)))
                           (update-in [:graph-static]
-                                     #(apply add-edges % (map (fn [e] [hyp e]) explains)))))
+                                     #(apply add-edges % (map (fn [e] [hyp e])
+                                                              (:explains hyp))))))
                   ;; just add unexplained links
                   (update-in [gtype]
                              #(apply add-nodes % (conj expl hyp)))

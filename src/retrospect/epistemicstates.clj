@@ -145,7 +145,7 @@
   (map str (flatten-ep-state-tree ep-state-tree)))
 
 (defn add-hyp-helper
-  [ep-state hyp explains dep-node depends & opts]
+  [ep-state hyp dep-node depends & opts]
   (let [g (if (empty? depends) (:depgraph ep-state)
             (reduce (fn [g d] (-> g (add-edges [dep-node d]) (add-attr d :label (:str d))))
                     (-> (:depgraph ep-state)
@@ -153,21 +153,21 @@
                         (add-attr dep-node :label (:str dep-node)))
                     depends))]
     (assoc ep-state
-      :workspace (apply ws/add (:workspace ep-state) hyp explains opts)
+      :workspace (apply ws/add (:workspace ep-state) hyp opts)
       :depgraph g)))
 
 (defn add-hyp
-  [ep-state hyp explains dep-node depends]
-  (add-hyp-helper ep-state hyp explains dep-node depends :static))
+  [ep-state hyp dep-node depends]
+  (add-hyp-helper ep-state hyp dep-node depends :static))
 
 (defn add-more-hyp
-  [ep-state hyp explains dep-node depends]
-  (add-hyp-helper ep-state hyp explains dep-node depends))
+  [ep-state hyp dep-node depends]
+  (add-hyp-helper ep-state hyp dep-node depends))
 
 (defn add-fact
-  [ep-state hyp explains]
+  [ep-state hyp]
   (update-in ep-state [:workspace]
-             #(-> % (ws/add hyp explains :static) (ws/forced hyp))))
+             #(-> % (ws/add hyp :static) (ws/forced hyp))))
 
 (defn commit-decision
   [ep-state id time-now]

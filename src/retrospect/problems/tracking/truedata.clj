@@ -6,12 +6,12 @@
 
 (defn add-new-entities
   [movements numes]
-  (reduce (fn [m _] (new-entity m 0)) grid (range numes)))
+  (reduce (fn [m _] (new-entity m 0)) movements (range numes)))
 
 (defn random-walks
-  [movements]
+  [movements time]
   (let [maxwalk (:MaxWalk params)]
-    (reduce #(walk %1 %2 maxwalk) movements (entities movements))))
+    (reduce #(walk %1 %2 time maxwalk) movements (entities movements))))
 
 (defn possibly-add-new-entity
   [movements time]
@@ -34,25 +34,26 @@
 
 (defn generate-truedata
   []
-  (let [movements (add-new-entities (new-movements (:GridWidth params) (:GridHeight params))
-                                    (:NumberEntities params))]
+  (let [movements (add-new-entities
+                   (new-movements (:GridWidth params) (:GridHeight params))
+                   (:NumberEntities params))]
     (loop [time 0
            m movements]
       (if (>= time (:Steps params)) m
         ;(do (output-walk-sizes m params) m) 
-        (recur (inc time) (-> m (random-walks)
+        (recur (inc time) (-> m (random-walks time)
                               (possibly-add-new-entity time)))))))
 
 (defn format-movements-comparative
   [true-movements believed-movements mintime maxtime]
-  (let [es (sort (entities movements))
+  (let [es (sort (entities true-movements))
         all-believed (set (apply concat (vals believed-movements)))
-        arrays (fn [ss] (apply str (interpose " -> " ss)))
+        arrows (fn [ss] (apply str (interpose " -> " ss)))
         lines (fn [ss] (apply str (interpose "\n" ss)))]
     (lines (for [e es] (format "%s (%s): %s"
                                e (color-str (:color (meta e)))
                                (arrows (for [{:keys [x y time] :as mov}
-                                             (entity-movements movements e mintime maxtime)]
+                                             (entity-movements true-movements e mintime maxtime)]
                                          (if (all-believed mov)
                                            (format "%d,%d@%d" x y time)
                                            (format "!! %d,%d@%d" x y time)))))))))

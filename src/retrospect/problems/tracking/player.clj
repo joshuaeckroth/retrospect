@@ -7,13 +7,11 @@
   (:use [clj-swing.label])
   (:use [clj-swing.frame])
   (:use [clj-swing.panel])
-  (:use [clojure.contrib.seq :only [find-first]])
   (:use [retrospect.problems.tracking.sensors :only [sees]])
-  (:use [retrospect.problems.tracking.grid :only [grid-entities]])
+  (:use [retrospect.problems.tracking.movements :only
+         [entities-at entity-movements]])
   (:use [retrospect.problems.tracking.truedata :only
-         [get-entity-movements]])
-  (:use [retrospect.problems.tracking.hypotheses :only
-         [paths-str paths-to-movements]])
+         [format-movements-comparative]])
   (:use [retrospect.colors])
   (:use [retrospect.state]))
 
@@ -42,12 +40,12 @@
 
 (defn draw-movements
   [#^Graphics2D g entity]
-  (doseq [t (range @time-prev @time-now)]
-    (when-let [e (find-first #(= entity %) (grid-entities (get @truedata t)))]
-      (let [{:keys [x y ox oy c]} (meta e)
-            degree (- @time-now t)
+  (let [moves (rest (entity-movements @truedata entity @time-prev @time-now))]
+    (doseq [move moves]
+      (let [{:keys [x y ox oy time]} move
+            degree (- @time-now time)
             width (double (+ 2 degree))]
-        (draw-move g ox oy x y (var-color c degree) width)))))
+        (draw-move g ox oy x y (var-color (:color (meta entity)) degree) width)))))
 
 (defn fill-cell
   [#^Graphics2D g x y color]
@@ -87,13 +85,12 @@
          (if (:sees-color (meta sensor))
            (fill-cell g x y yellow-alpha)
            (fill-cell g x y gray-alpha))))))
-  (when (and @truedata (> @time-now 0))
-    (let [es (grid-entities (nth @truedata (dec @time-now)))]
-      (dorun
-       (for [x (range @grid-width) y (range @grid-height)]
-         (let [es-here (sort (filter #(and (= x (:x (meta %))) (= y (:y (meta %)))) es))]
-           (when (not-empty es-here)
-             (fill-cell-entities g x y es-here))))))))
+  (when (and @truedata (> @time-now 0))    
+    (dorun
+     (for [x (range @grid-width) y (range @grid-height)]
+       (let [es (sort (entities-at @truedata x y @time-now))]
+         (when (not-empty es)
+           (fill-cell-entities g x y es)))))))
 
 (defn render
   [g]
@@ -190,12 +187,10 @@
 (defn player-get-truedata-log
   []
   (if (<= @time-now 1) ""
-      (get-entity-movements
-       @truedata (max 0 (dec @time-prev)) (dec (dec @time-now))
-       (paths-to-movements (:paths (:problem-data (:ep-state @or-state)))))))
+      (format-movements-comparative
+       @truedata (:believed-movements (:problem-data (:ep-state @or-state)))
+       (max 0 (dec @time-prev)) (dec (dec @time-now)))))
 
 (defn player-get-problem-log
   []
-  (let [pdata (:problem-data (:ep-state @or-state))
-        log (apply str (interpose "\n" (:log pdata)))]
-    (format "%s\n\n%s" (paths-str (:paths pdata)) log)))
+  "")

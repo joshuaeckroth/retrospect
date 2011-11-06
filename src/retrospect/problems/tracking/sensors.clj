@@ -1,10 +1,11 @@
 (ns retrospect.problems.tracking.sensors
   (:use [retrospect.confidences])
   (:use [retrospect.random])
-  (:use [retrospect.colors :only [red blue green gray]])
-  (:use [retrospect.problems.tracking.grid :only [grid-entities]])
+  (:use [retrospect.colors])
   (:use [retrospect.sensors :only [init-sensor add-sensed]])
   (:require [clojure.contrib.math :as math])
+  (:use [retrospect.problems.tracking.movements :only
+         [entity-movements entities-at]])
   (:use [retrospect.state]))
 
 (defn sees
@@ -18,7 +19,7 @@
   (apply concat
          (for [x (range (:width (meta movements)))
                y (range (:height (meta movements)))
-               :where (sees sensor x y)]
+               :when (sees sensor x y)]
            (mapcat (fn [e] (map (fn [mov]
                                   ;; turn the movement into a detection, and
                                   ;; add the color (or gray)

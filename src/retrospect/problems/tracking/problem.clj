@@ -9,12 +9,10 @@
   (:use [retrospect.problems.tracking.sensors :only
          [generate-sensors]])
   (:use [retrospect.problems.tracking.hypotheses :only
-         [hypothesize get-more-hyps commit-decision inconsistent]])
+         [hypothesize commit-decision]])
   (:use [retrospect.problems.tracking.player :only
          [player-get-stats-panel player-update-stats player-get-truedata-log
           player-get-problem-log player-setup-diagram player-update-diagram]])
-  (:use [retrospect.problems.tracking.sensors :only
-         [sensors-seen-grid]])
   (:use [retrospect.problems.tracking.monitor :only
          [monitor]])
   (:use [retrospect.problems.tracking.prepared :only
@@ -31,11 +29,11 @@
                {:walk-count walk-count})))
 
 (defn generate-problem-data
-  [sensors]
-  {:believed-movements {}
-   :disbelieved-movements {}
+  [truedata sensors]
+  {:entities (reduce (fn [es e] (assoc es e (first (get truedata e))))
+                     {} (keys truedata))
+   :left-off -1
    :walk-dist (read-walk-dist (str @datadir "/tracking/walks.txt")) 
-   :split-merge-hyps []
    :log [] ;; log is reset each time by commit-decision
    :uncovered []})
 
@@ -52,10 +50,10 @@
                generate-sensors
                prepared-map
                hypothesize
-               get-more-hyps
+               identity ;; get-more-hyps
                commit-decision
                generate-problem-data
-               inconsistent
+               (constantly []) ;; inconsistent
                evaluate
                evaluate-comparative
                {:Steps 25

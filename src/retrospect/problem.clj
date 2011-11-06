@@ -18,7 +18,7 @@
   (loop [t time
          ors or-state]
     (if (or (> t steps) (= t (+ n time))) ors
-        (recur (inc t) (update-in ors [:sensors] update-sensors (get truedata t) t)))))
+        (recur (inc t) (update-in ors [:sensors] update-sensors truedata t)))))
 
 (defn hypothesize
   [or-state time-now]
@@ -71,7 +71,8 @@
             (set-seed (:Seed control-params))
             (let [control-truedata ((:truedata-fn @problem))
                   control-sensors ((:sensor-gen-fn @problem))
-                  control-problem-data ((:gen-problem-data-fn @problem) control-sensors)
+                  control-problem-data ((:gen-problem-data-fn @problem)
+                                        control-truedata control-sensors)
                   control-or-state (init-one-run-state control-sensors control-problem-data)]
               (println "Control:" control-params)
               (assoc (run-simulation control-truedata control-or-state monitor?)
@@ -82,7 +83,8 @@
             (set-seed (:Seed comparison-params))
             (let [comparison-truedata ((:truedata-fn @problem))
                   comparison-sensors ((:sensor-gen-fn @problem))
-                  comparison-problem-data ((:gen-problem-data-fn @problem) comparison-sensors)
+                  comparison-problem-data ((:gen-problem-data-fn @problem)
+                                           comparison-truedata comparison-sensors)
                   comparison-or-state (init-one-run-state comparison-sensors comparison-problem-data)]
               (println "Comparison:" comparison-params)
               (assoc (run-simulation comparison-truedata comparison-or-state monitor?)
@@ -96,7 +98,7 @@
       (set-seed (:Seed params))
       (let [truedata ((:truedata-fn @problem))
             sensors ((:sensor-gen-fn @problem))
-            problem-data ((:gen-problem-data-fn @problem) sensors)
+            problem-data ((:gen-problem-data-fn @problem) truedata sensors)
             or-state (init-one-run-state sensors problem-data)]
         (println "Params:" params)
         (assoc (run-simulation truedata or-state monitor?)

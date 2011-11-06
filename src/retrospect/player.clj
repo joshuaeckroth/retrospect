@@ -74,7 +74,8 @@
        (alter sensors (constantly ((:sensor-gen-fn @problem))))))
     (dosync
      (alter or-state (constantly (init-one-run-state
-                                  @sensors ((:gen-problem-data-fn @problem) @sensors)))))
+                                  @sensors ((:gen-problem-data-fn @problem)
+                                            @truedata @sensors)))))
     (update-everything)))
 
 (defn set-prepared-action
@@ -94,7 +95,8 @@
        (alter truedata (constantly td))
        (alter sensors (constantly sens))
        (alter or-state (constantly (init-one-run-state
-                                    @sensors ((:gen-problem-data-fn @problem) @sensors)))))
+                                    @sensors ((:gen-problem-data-fn @problem)
+                                              @truedata @sensors)))))
       (update-everything))))
 
 (defn goto-ep-state-action

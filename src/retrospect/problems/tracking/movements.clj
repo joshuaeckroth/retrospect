@@ -1,5 +1,7 @@
 (ns retrospect.problems.tracking.movements
-  (:use [retrospect.random]))
+  (:require [clojure.contrib.math :as math])
+  (:use [retrospect.random])
+  (:use [retrospect.colors]))
 
 ;; Entity movements are stored in a map, whose keys are entity
 ;; symbols. An entity symbol has metadata key :color. Also, the
@@ -17,7 +19,8 @@
   [movements entity x y time]
   (let [last-pos (last (get movements entity))]
     (update-in movements [entity] conj
-               {:ox (:x last-pos) :oy (:y last-pos) :ot (:time last-pos) :x x :y y :time time})))
+               {:ox (:x last-pos) :oy (:y last-pos) :ot (:time last-pos)
+                :x x :y y :time time})))
 
 (defn new-entity
   [movements time]

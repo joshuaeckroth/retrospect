@@ -35,11 +35,12 @@
   [ep-state results sensors true-movements]
   (let [maxtime (dec (:time ep-state))
         pdata (:problem-data ep-state)
-        believed-movements (set-movements (:believed-movements pdata))
-        disbelieved-movements (set-movements (:disbelieved-movements pdata))
-        true-movs (set (filter #(<= (:time %) maxtime) (set-movements true-movements)))
+        believed-movements (:believed-movements pdata)
+        disbelieved-movements (:disbelieved-movements pdata)
+        true-movs (set (filter #(<= (:time %) maxtime)
+                               (apply concat (vals true-movements))))
         [pec pew] (percent-events-correct-wrong true-movs believed-movements)
-        [p r s a] (precision-recall true-movs believed-movements)]
+        [p r s a] (precision-recall true-movs believed-movements disbelieved-movements)]
     {:PEC pec
      :PEW pew
      :Prec p
