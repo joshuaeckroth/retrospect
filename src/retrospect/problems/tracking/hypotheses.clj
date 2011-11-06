@@ -60,7 +60,8 @@
                                 (mapcat (fn [t] (sensed-at s t))
                                         (range (inc left-off) (inc time-now)))))
                          sensors)
-        pdata-new (-> pdata (update-in [:uncovered] concat det-hyps)
+        pdata-new (-> pdata
+                      (update-in [:uncovered] concat det-hyps)
                       (assoc :left-off time-now))
         ep-new (assoc ep-state :problem-data pdata-new)]
     (reduce (fn [ep hyp] (add-fact ep hyp)) ep-new (:uncovered pdata-new))))
@@ -130,7 +131,7 @@
 
 (defn make-location-hyps
   [entities path-hyps]
-  (mapcat (fn [e] (let [loc (assoc (get entities e) :color (:color (meta e)))
+  (mapcat (fn [e] (let [loc (get entities e)
                         matching-starts (filter
                                          #(dets-match? loc (:det (:data (first (:movements (:data %))))))
                                          path-hyps)
@@ -171,8 +172,8 @@
 ;; TODO update :believed-movements, :disbelieved-movements
 (defn commit-decision
   [pdata accepted rejected time-now]
-  (let [entities (assoc pdata :entities
-                        (reduce (fn [es loc-hyp] (assoc es (:entity (:data loc-hyp))
+  (let [entities (reduce (fn [es loc-hyp] (assoc es (:entity (:data loc-hyp))
                                                         (:loc (:data loc-hyp))))
                                 (:entities pdata) (filter #(= :location (:type %))
-                                                          accepted)))]))
+                                                          accepted))]
+    (assoc pdata :entities entities)))

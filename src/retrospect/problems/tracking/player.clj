@@ -39,13 +39,11 @@
       (.drawLine oldpx oldpy newpx newpy))))
 
 (defn draw-movements
-  [#^Graphics2D g entity]
-  (let [moves (rest (entity-movements @truedata entity @time-prev @time-now))]
-    (doseq [move moves]
-      (let [{:keys [x y ox oy time]} move
-            degree (- @time-now time)
-            width (double (+ 2 degree))]
-        (draw-move g ox oy x y (var-color (:color (meta entity)) degree) width)))))
+  [#^Graphics2D g movs]
+  (doseq [{:keys [x y ox oy time color]} movs]
+    (let [degree (- @time-now time)
+          width (double (+ 2 degree))]
+      (draw-move g ox oy x y (var-color color degree) width))))
 
 (defn fill-cell
   [#^Graphics2D g x y color]
@@ -60,18 +58,19 @@
   (let [width (ceil (/ @grid-cell-width (count es)))]
     (doseq [i (range (count es))]
       (let [e (nth es i)
+            movs (entity-movements @truedata e @time-prev @time-now)
             left (+ (* i width) (* x @grid-cell-width))
             top (* y @grid-cell-height)]
         (doto g
           ;; draw block
-          (.setColor (:color (meta e)))
+          (.setColor (:color (first movs)))
           (.fillRect left top width @grid-cell-height)
           ;; draw id
           (.setColor white)
           (.setFont (.. g getFont (deriveFont Font/BOLD (float 12.0))))
           (.drawString (str e) (+ 3 left) (+ 15 top))
           ;; draw movement
-          (draw-movements e))))))
+          (draw-movements (rest movs)))))))
 
 (defn draw-grid
   [g]
@@ -189,7 +188,7 @@
   (if (<= @time-now 1) ""
       (format-movements-comparative
        @truedata (:believed-movements (:problem-data (:ep-state @or-state)))
-       (max 0 (dec @time-prev)) (dec (dec @time-now)))))
+       (max 0 (dec @time-prev)) (dec @time-now))))
 
 (defn player-get-problem-log
   []

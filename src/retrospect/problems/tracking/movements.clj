@@ -20,15 +20,15 @@
   (let [last-pos (last (get movements entity))]
     (update-in movements [entity] conj
                {:ox (:x last-pos) :oy (:y last-pos) :ot (:time last-pos)
-                :x x :y y :time time})))
+                :x x :y y :time time :color (:color last-pos)})))
 
 (defn new-entity
   [movements time]
   (let [[x y] [(my-rand-int (:width (meta movements)))
                (my-rand-int (:height (meta movements)))]
         c (my-rand-nth [red blue green])
-        e (with-meta (symbol (str (count (keys movements)))) {:color c})]
-    (assoc movements e [{:x x :y y :time time}])))
+        e (symbol (str (count (keys movements))))]
+    (assoc movements e [{:x x :y y :time time :color c}])))
 
 (defn calc-angle
   [x y ox oy oox ooy]
@@ -63,8 +63,9 @@
   "Move an entity maxwalk steps in random directions, respecting angle constraints."
   [movements entity time maxwalk]
   (loop []
-    (let [last-last-pos (last (butlast (get movements entity)))
-          last-pos (last (get movements entity))
+    (let [movs (reverse (get movements entity))
+          last-last-pos (second movs)
+          last-pos (first movs)
           [x y] (loop [i (my-rand-int (inc maxwalk))
                        loc [(:x last-pos) (:y last-pos)]]
                   (if (= i 0) loc
@@ -81,14 +82,6 @@
 (defn entity-movements
   [movements entity mintime maxtime]
   (filter #(and (>= (:time %) mintime) (<= (:time %) maxtime)) (get movements entity)))
-
-(defn set-movements
-  "Note: this function considers identical movements of distinct
-   entities to be equivalent; thus, as far as evaluation is concerned,
-   the tracker's accuracy scores are not penalized if it only believes
-   at least one of those movements."
-  [movements]
-  (set (apply concat (vals movements))))
 
 (defn entities-at
   [movements x y time]

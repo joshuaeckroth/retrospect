@@ -24,8 +24,8 @@
                                   ;; turn the movement into a detection, and
                                   ;; add the color (or gray)
                                   (assoc (dissoc mov :ox :oy :ot)
-                                    :color (if (:sees-color sensor)
-                                             (:color (meta e)) gray)))
+                                    :color (if (:sees-color (meta sensor))
+                                             (:color mov) gray)))
                                 (entity-movements movements e time time)))
                    (entities-at movements x y time)))))
 

@@ -37,7 +37,7 @@
   (let [movements (add-new-entities
                    (new-movements (:GridWidth params) (:GridHeight params))
                    (:NumberEntities params))]
-    (loop [time 0
+    (loop [time 1
            m movements]
       (if (>= time (:Steps params)) m
         ;(do (output-walk-sizes m params) m) 
@@ -51,7 +51,7 @@
         arrows (fn [ss] (apply str (interpose " -> " ss)))
         lines (fn [ss] (apply str (interpose "\n" ss)))]
     (lines (for [e es] (format "%s (%s): %s"
-                               e (color-str (:color (meta e)))
+                               e (color-str (:color (first (get true-movements e))))
                                (arrows (for [{:keys [x y time] :as mov}
                                              (entity-movements true-movements e mintime maxtime)]
                                          (if (all-believed mov)
