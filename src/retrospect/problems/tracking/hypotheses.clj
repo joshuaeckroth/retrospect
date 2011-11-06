@@ -1,4 +1,5 @@
 (ns retrospect.problems.tracking.hypotheses
+  (:require [clojure.set :as set])
   (:use [retrospect.epistemicstates :only [add-hyp add-more-hyp add-fact]])
   (:use [retrospect.workspaces :only [new-hyp]])
   (:use [retrospect.sensors :only [sensed-at]])
@@ -55,13 +56,13 @@
   [ep-state sensors time-now]
   (let [pdata (:problem-data ep-state)
         left-off (:left-off pdata)
-        det-hyps (mapcat (fn [s]
-                           (map (fn [dets] (make-sensor-hyps s dets))
-                                (mapcat (fn [t] (sensed-at s t))
-                                        (range (inc left-off) (inc time-now)))))
-                         sensors)
+        det-hyps (set (mapcat (fn [s]
+                                (map (fn [dets] (make-sensor-hyps s dets))
+                                     (mapcat (fn [t] (sensed-at s t))
+                                             (range (inc left-off) (inc time-now)))))
+                              sensors))
         pdata-new (-> pdata
-                      (update-in [:uncovered] concat det-hyps)
+                      (update-in [:uncovered] set/union det-hyps)
                       (assoc :left-off time-now))
         ep-new (assoc ep-state :problem-data pdata-new)]
     (reduce (fn [ep hyp] (add-fact ep hyp)) ep-new (:uncovered pdata-new))))
@@ -132,11 +133,11 @@
 (defn make-location-hyps
   [entities path-hyps]
   (mapcat (fn [e] (let [loc (get entities e)
-                        matching-starts (filter
-                                         #(dets-match? loc (:det (:data (first (:movements (:data %))))))
-                                         path-hyps)
-                        path-groups (group-by (fn [hyp] (:det2 (last (:movements hyp))))
-                                              matching-starts)]
+                        get-first #(:det (:data (first (:movements (:data %)))))
+                        get-last #(:det2 (:data (last (:movements (:data %)))))
+                        matching-starts
+                        (filter #(dets-match? loc (get-first %)) path-hyps)
+                        path-groups (group-by get-last matching-starts)]
                     (map #(make-location-hyp e %) (vals path-groups))))
           (keys entities)))
 
@@ -172,8 +173,23 @@
 ;; TODO update :believed-movements, :disbelieved-movements
 (defn commit-decision
   [pdata accepted rejected time-now]
-  (let [entities (reduce (fn [es loc-hyp] (assoc es (:entity (:data loc-hyp))
-                                                        (:loc (:data loc-hyp))))
-                                (:entities pdata) (filter #(= :location (:type %))
-                                                          accepted))]
-    (assoc pdata :entities entities)))
+  (let [entities (reduce (fn [es loc-hyp]
+                           (update-in es [(:entity (:data loc-hyp))]
+                                      merge (:loc (:data loc-hyp))))
+                         (:entities pdata) (filter #(= :location (:type %))
+                                                   accepted))
+        mk-mov (fn [h] (let [det (:det (:data h))
+                             det2 (:det2 (:data h))]
+                         {:ox (:x det) :oy (:y det) :ot (:time det)
+                          :x (:x det2) :y (:y det2) :time (:time det2)
+                          :color (cond (not= gray (:color det)) (:color det)
+                                       (not= gray (:color det2)) (:color det2)
+                                       :else gray)}))
+        bel-movs (map mk-mov (filter #(= :movement (:type %)) accepted))
+        dis-movs (map mk-mov (filter #(= :movement (:type %)) rejected))
+        covered (set (filter #(not= time-now (:time (:det (:data %))))
+                      (mapcat :explains (filter #(= :movement (:type %)) accepted))))]
+    (-> pdata (assoc :entities entities)
+        (update-in [:believed-movements] concat bel-movs)
+        (update-in [:disbelieved-movements] concat dis-movs)
+        (update-in [:uncovered] set/difference covered))))

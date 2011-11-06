@@ -25,6 +25,7 @@
 (def percent-events-correct-label (label ""))
 (def percent-events-wrong-label (label ""))
 (def accuracy-label (label ""))
+(def idcorrect-label (label ""))
 (def mouse-xy (label "Grid ?, ?"))
 
 (defn draw-move
@@ -58,7 +59,7 @@
   (let [width (ceil (/ @grid-cell-width (count es)))]
     (doseq [i (range (count es))]
       (let [e (nth es i)
-            movs (entity-movements @truedata e @time-prev @time-now)
+            movs (entity-movements @truedata e @time-prev (dec @time-now))
             left (+ (* i width) (* x @grid-cell-width))
             top (* y @grid-cell-height)]
         (doto g
@@ -87,7 +88,7 @@
   (when (and @truedata (> @time-now 0))    
     (dorun
      (for [x (range @grid-width) y (range @grid-height)]
-       (let [es (sort (entities-at @truedata x y @time-now))]
+       (let [es (sort (entities-at @truedata x y (dec @time-now)))]
          (when (not-empty es)
            (fill-cell-entities g x y es)))))))
 
@@ -160,6 +161,10 @@
           :gridx 1
           _ accuracy-label
           :gridx 0 :gridy 3
+          _ (label "IDCorrect:")
+          :gridx 1
+          _ idcorrect-label
+          :gridx 0 :gridy 4
           _ mouse-xy]))
 
 (defn player-update-stats
@@ -177,11 +182,16 @@
       (. accuracy-label
          (setText
           (format "%.2f"
-                  (:Acc (get (:results @or-state) t))))))
+                  (:Acc (get (:results @or-state) t)))))
+      (. idcorrect-label
+         (setText
+          (format "%.2f"
+                  (:IDCorrect (get (:results @or-state) t))))))
     (do
       (. percent-events-correct-label (setText "N/A"))
       (. percent-events-wrong-label (setText "N/A"))
-      (. accuracy-label (setText "N/A")))))
+      (. accuracy-label (setText "N/A"))
+      (. idcorrect-label (setText "N/A")))))
 
 (defn player-get-truedata-log
   []
@@ -190,6 +200,21 @@
        @truedata (:believed-movements (:problem-data (:ep-state @or-state)))
        (max 0 (dec @time-prev)) (dec @time-now))))
 
+(defn move-str
+  [mov]
+  (format "%d,%d@%d -> %d,%d@%d (%s)" (:ox mov) (:oy mov) (:ot mov)
+          (:x mov) (:y mov) (:time mov) (color-str (:color mov))))
+
 (defn player-get-problem-log
   []
-  "")
+  (let [pdata (:problem-data (:ep-state @or-state))
+        believed-movements (:believed-movements pdata)
+        entities (:entities pdata)]
+    (format "Entity locations:\n%s\n\nBelieved movements:\n%s\n"
+            (apply str (interpose "\n" (map (fn [e]
+                                              (let [loc (get entities e)]
+                                                (format "%s: %d,%d@%d"
+                                                        e (:x loc) (:y loc) (:time loc))))
+                                            (sort (keys entities)))))
+            (apply str (interpose "\n" (map move-str
+                                            (sort-by :time believed-movements)))))))

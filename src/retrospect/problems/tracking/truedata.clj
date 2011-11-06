@@ -47,13 +47,15 @@
 (defn format-movements-comparative
   [true-movements believed-movements mintime maxtime]
   (let [es (sort (entities true-movements))
-        all-believed (set (apply concat (vals believed-movements)))
         arrows (fn [ss] (apply str (interpose " -> " ss)))
         lines (fn [ss] (apply str (interpose "\n" ss)))]
-    (lines (for [e es] (format "%s (%s): %s"
-                               e (color-str (:color (first (get true-movements e))))
-                               (arrows (for [{:keys [x y time] :as mov}
-                                             (entity-movements true-movements e mintime maxtime)]
-                                         (if (all-believed mov)
-                                           (format "%d,%d@%d" x y time)
-                                           (format "!! %d,%d@%d" x y time)))))))))
+    (lines (for [e es]
+             (format "%s (%s): %s"
+                     e (color-str (:color (first (get true-movements e))))
+                     (arrows (for [{:keys [x y time] :as mov}
+                                   (entity-movements true-movements e mintime maxtime)]
+                               (if (or (= 0 time)
+                                       (some #(moves-match? mov %)
+                                             believed-movements))
+                                 (format "%d,%d@%d" x y time)
+                                 (format "!! %d,%d@%d" x y time)))))))))

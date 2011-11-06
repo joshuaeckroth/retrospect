@@ -1,5 +1,6 @@
 (ns retrospect.problems.tracking.evaluate
   (:use [retrospect.evaluate :only [calc-ratio-increase]])
+  (:use [retrospect.problems.tracking.hypotheses :only [dets-match?]])
   (:require [clojure.set :as set]))
 
 (defn percent-events-correct-wrong
@@ -31,12 +32,19 @@
              (double (/ (+ true-pos true-neg)
                         (+ true-neg true-pos false-neg false-pos))))])))
 
+(defn id-correct
+  [true-movements entities maxtime]
+  (double (/ (count (filter (fn [e] (dets-match? (get entities e)
+                                                 (nth (get true-movements e) maxtime)))
+                            (keys true-movements)))
+             (count true-movements))))
+
 (defn evaluate
   [ep-state results sensors true-movements]
   (let [maxtime (dec (:time ep-state))
         pdata (:problem-data ep-state)
-        believed-movements (:believed-movements pdata)
-        disbelieved-movements (:disbelieved-movements pdata)
+        believed-movements (set (:believed-movements pdata))
+        disbelieved-movements (set (:disbelieved-movements pdata))
         true-movs (set (filter #(<= (:time %) maxtime)
                                (apply concat (vals true-movements))))
         [pec pew] (percent-events-correct-wrong true-movs believed-movements)
@@ -46,9 +54,10 @@
      :Prec p
      :Recall r
      :Spec s
-     :Acc a}))
+     :Acc a
+     :IDCorrect (id-correct true-movements (:entities pdata) maxtime)}))
 
 (defn evaluate-comparative
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-ratio-increase control-results comparison-results %)
-                    [:PEC :PEW :Prec :Recall :Spec :Acc])))
+                    [:PEC :PEW :Prec :Recall :Spec :Acc :IDCorrect])))

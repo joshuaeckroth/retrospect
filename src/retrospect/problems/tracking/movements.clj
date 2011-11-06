@@ -93,6 +93,13 @@
   [movements]
   (keys movements))
 
+(defn moves-match?
+  [mov1 mov2]
+  (and (= (:x mov1) (:x mov2)) (= (:y mov1) (:y mov2))
+       (= (:ox mov1) (:ox mov2)) (= (:oy mov1) (:oy mov2))
+       (= (:time mov1) (:time mov2)) (= (:ot mov1) (:ot mov2))
+       (match-color? (:color mov1) (:color mov2))))
+
 (defn dist
   [x1 y1 x2 y2]
   (double (math/sqrt (+ (* (- x1 x2) (- x1 x2))

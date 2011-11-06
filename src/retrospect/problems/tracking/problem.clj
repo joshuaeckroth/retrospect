@@ -32,10 +32,12 @@
   [truedata sensors]
   {:entities (reduce (fn [es e] (assoc es e (first (get truedata e))))
                      {} (keys truedata))
+   :believed-movements []
+   :disbelieved-movements []
    :left-off -1
    :walk-dist (read-walk-dist (str @datadir "/tracking/walks.txt")) 
    :log [] ;; log is reset each time by commit-decision
-   :uncovered []})
+   :uncovered #{}})
 
 (def tracking-problem
      (Problem. "Tracking"
