@@ -70,6 +70,63 @@
 
 ## Abductive reasoner
 
+### Finding explanations
+
+The abductive reasoner's task is complete when it is unable to find
+any sufficiently-confident explainers for unexplained hypotheses, or
+there are no unexplained hypotheses. An unexplained hypothesis is
+defined as unexplained facts and those hypotheses that have been
+accepted and furthermore have explainers, none of which have been
+accepted. The idea is that facts must be explained, and if an
+explainer has its own explainers, then it likewise should be explained
+if it is accepted.
+
+Every "explains cycle" searches for potential explainers. For each
+fact and unexplained hypothesis, a search is performed for possible
+explainers. This set, which is specific for each unexplained
+hypothesis, is the set of alternatives for the unexplained
+hypothesis. For some unexplained hypothesis, the set of alternatives
+is found via the following logic:
+
+  - If transitive explanation is disabled, the set of alternatives
+    initially consists of those hypotheses that link (in the "explains
+    graph") to the unexplained hypothesis; this initial set of
+    explainers is next reduced to just those explainers that have no
+    "explains links" (in the explains graph) to unaccepted hypotheses
+    (facts are accepted by default). This requirement ensures that
+    every explained hypothesis is accepted before the explainer is
+    accepted (assuming no transitive explanation).
+
+  - If transitive explanation is enabled, then candidate explainers
+    include all hypotheses that have links, possibly transitive links,
+    in the explains graph to the unexplained hypothesis. These
+    candidate explainers may be several "steps removed" from the
+    unexplained hypothesis. Furthermore, we do not require that all
+    the hypotheses that a transitive explainer explains be accepted
+    first.
+
+When accepting a hypothesis, we determine which hypotheses are
+explained, and thus removable from the explains graph, via the
+following logic:
+
+  - If transitive explanation is disabled, we are already ensured that
+    all hypotheses the explainer explains have already been accepted;
+    now that they are all explained (by accepting the explainer), they
+    can all be removed from the explains graph.
+
+  - If transitive explanation is enabled, then we remove the
+    hypotheses it (transitively) explains only when a certain
+    condition is met. Whatever the transitive explainer explains
+    "unambiguously" can be accepted and removed from the explains
+    graph. A hypothesis is unambiguously explained by a transitive
+    explainer if every path through the explains graph from from the
+    hypothesis to the transitive explainer goes through the
+    hypothesis. This implies the hypothesis is necessary for the
+    transitive explainer, and thus can be accepted and considered
+    explained. All hypotheses failing this condition are not accepted
+    but are removed from the explains graph, since they are considered
+    explained.
+
 ### Transitive explanation
 
 Transitive explanation is a parameter. If `TransitiveExplanation` is

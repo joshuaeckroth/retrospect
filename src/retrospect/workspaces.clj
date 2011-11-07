@@ -122,10 +122,10 @@
       (compare hyps1-delta hyps2-delta))))
 
 (defn incoming-transitive
-  "Find transitive explainers of some hypothesis. The returned
-   explainers does not include immediate explainers; it only returns
-   transitive explainers. Presumably this function is only used when
-   transitive-explanation is active."
+  "Find transitive explainers of some hypothesis. The returned vector
+   of explainers does not include immediate explainers; it only
+   returns transitive explainers. Presumably this function is only
+   used when transitive-explanation is active."
   [graph hyp & opts]
   (loop [explainers #{}
          queue (seq (incoming graph hyp))]
@@ -133,41 +133,32 @@
         (recur (set/union explainers (incoming graph (first queue)))
                (seq (set/union (set (rest queue)) (incoming graph (first queue))))))))
 
+(defn find-all-explainers
+  "Returns two sequences of sequences containing alternative
+   explainers of hyps needing explanation (essentials are therefore
+   seqs with one explainer). A hyp needing explanation is defined
+   by (find-unexplained), above, which we call here. The explainers
+   are sorted by conf (best first), and the seq of seqs is sorted by
+   difference between first- and second-best alternatives, so that
+   first seq of alts in seq of seqs has greatest difference."
+  [workspace trans?]
+  (let [g (:graph workspace)
+        all-acc #(empty? (set/difference (neighbors g %) (:accepted workspace)))
+        explainers (map #(sort-by-conf workspace (if trans? (incoming-transitive g %)
+                                                     (incoming g %)))
+                        (find-unexplained workspace))]
+    (reverse (sort (partial sort-by-delta workspace)
+                   (filter #(>= (count %) 1)
+                           (filter (if trans? identity all-acc) explainers))))))
+
 (defn find-explainers
-  "Given no hyp argument, returns two sequences of sequence containing
-   alternative explainers of hyps needing explanation (essentials are
-   therefore seqs with one explainer). Two sequences of sequences are
-   returned, in a map, to separate immediate explainers and transitive
-   explainers (which are only included if transitive explanation is
-   activated in the workspace strategy). A hyp needing explanation is
-   defined by (find-unexplained), above, which we call here. The
-   explainers are sorted by conf (best first), and the seq of seqs is
-   sorted by difference between first- and second-best alternatives,
-   so that first seq of alts in seq of seqs has greatest difference."
-  ([workspace]
-     (let [g (:graph workspace)
-           all-explained-accepted (fn [h] (empty? (set/difference
-                                                   (neighbors g h)
-                                                   (:accepted workspace))))
-           build-seq (fn [trans?]
-                       (reverse
-                        (sort (partial sort-by-delta workspace)
-                              (filter #(>= (count %) 1)
-                                      (filter (if trans? identity
-                                                  all-explained-accepted)
-                                              (map #(sort-by-conf
-                                                     workspace (if trans? (incoming-transitive g %)
-                                                                   (incoming g %)))
-                                                   (find-unexplained workspace)))))))]
-       {:immediate (build-seq false)
-        :transitive (if-not (:TransitiveExplanation params) [] (build-seq true))}))
-  ([workspace hyp & opts]
-     (let [g (if (some #{:static} opts)
-               (:graph-static workspace)
-               (:graph workspace))]
-       (if (:TransitiveExplanation params)
-         (set/union (incoming g hyp) (incoming-transitive g hyp))
-         (incoming g hyp)))))
+  [workspace hyp & opts]
+  (let [g (if (some #{:static} opts)
+            (:graph-static workspace)
+            (:graph workspace))]
+    (if (:TransitiveExplanation params)
+      (set/union (incoming g hyp) (incoming-transitive g hyp))
+      (incoming g hyp))))
 
 (defn normalize-confidences
   "Normalize the apriori confidences of a collection of hyps.
@@ -332,7 +323,7 @@
     (loop [ws (reject-many ws conflicts)
            rejected #{}]
       (let [hyps (set/union (:accepted ws)
-                            (apply concat (find-explainers ws)))
+                            (apply concat (find-all-explainers ws)))
             incon (set/difference (set ((:inconsistent-fn @problem) pdata hyps (:rejected ws)))
                                   rejected)]
         (if (not-empty incon)
@@ -341,8 +332,11 @@
                      {:acc hyp :rej (concat conflicts rejected)}))))))
 
 (defn transitive-accept
-  "Need to accept the transitive explainer last (so what it explains
-   can be accepted first and remove what they explain)."
+  "Need to accept the transitive explainer last so that any lower,
+   accepted hypotheses remove the appropriate hypotheses that they
+   explain. A hypothesis is only accepted via transitive explanation
+   if that hypothesis is a member of every path from the explained hyp
+   and the accepted hyp."
   [workspace hyp pdata]
   (loop [acceptable [hyp]
          ws workspace]
@@ -440,11 +434,11 @@
                :essential? false :delta delta}))))))
 
 (defn find-best-multi
-  [workspace explainers threshold]
+  [workspace immediate-explainers transitive-explainers threshold]
   (let [best-immediate
-        (assoc (find-best workspace (:immediate explainers) threshold) :transitive? false)
+        (assoc (find-best workspace immediate-explainers threshold) :transitive? false)
         best-transitive
-        (assoc (find-best workspace (:transitive explainers) threshold) :transitive? true)]
+        (assoc (find-best workspace transitive-explainers threshold) :transitive? true)]
     (cond (:essential? best-immediate) best-immediate
           (:essential? best-transitive) best-transitive
           (not (:best best-immediate)) best-transitive
@@ -458,14 +452,20 @@
                               (:graph-static workspace) (nodes (:graph-static workspace)))))
   (loop [ws workspace]
     (if (empty? (edges (:graph ws))) (log-final ws)
-        (let [explainers (find-explainers ws)]
-          (if (and (empty? (:immediate explainers))
-                   (empty? (:transitive explainers)))
+        (let [immediate-explainers (find-all-explainers ws false)
+              transitive-explainers (if (:TransitiveExplanation params)
+                                      (find-all-explainers ws true) [])]
+          (if (and (empty? immediate-explainers)
+                   (empty? transitive-explainers))
             (log-final ws)
             (let [ws-confs (update-confidences ws (:immediate explainers))
-                  explainers-updated (find-explainers ws-confs)
+                  immediate-explainers-updated (find-all-explainers ws-confs false)
+                  transitive-explainers-updated (find-all-explainers ws-confs true)
                   {:keys [best alts essential? transitive? delta]}
-                  (find-best-multi ws-confs explainers-updated (/ (:Threshold params) 100.0))]
+                  (find-best-multi ws-confs
+                                   immediate-explainers-updated
+                                   transitive-explainers-updated
+                                   (/ (:Threshold params) 100.0))]
               (if-not best
                 (log-final ws-confs)
                 (recur
