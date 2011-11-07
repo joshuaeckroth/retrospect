@@ -8,7 +8,6 @@
   (:use [retrospect.database :only [read-params]])
   (:use [retrospect.problems.tracking.problem :only [tracking-problem]])
   (:use [retrospect.problems.words.problem :only [words-problem]])
-  ;(:use [retrospect.problems.circuit.problem :only [circuit-problem]])
   (:use [retrospect.records :only [run-with-new-record]])
   (:use [retrospect.player :only [start-player]]))
 
