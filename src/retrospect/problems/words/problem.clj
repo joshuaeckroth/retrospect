@@ -27,7 +27,7 @@
     (with-meta reduced-model {:sum sum})))
 
 (defn generate-problem-data
-  [sensors]
+  [truedata sensors]
   (let [full-dict (my-shuffle (str/split-lines (slurp (str @datadir "/words/dictionary.txt"))))
         dict (set (take (int (* (count full-dict) (/ (:Knowledge params) 100))) full-dict))]
     {:dictionary dict
