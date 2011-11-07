@@ -28,9 +28,9 @@
           control-ids (commit-results run control "control")
           comparison-ids (commit-results run comparison "comparison")
           comparative-ids (commit-results run comparative "comparative")]
-      (clutch/update-document rundoc {:control control-ids
-                                      :comparison comparison-ids
-                                      :comparative comparative-ids}))))
+      (clutch/update-document run {:control control-ids
+                                   :comparison comparison-ids
+                                   :comparative comparative-ids}))))
 
 (defn read-params
   [params-string]

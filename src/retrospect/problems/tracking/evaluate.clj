@@ -40,7 +40,7 @@
              (count true-movements))))
 
 (defn evaluate
-  [ep-state results sensors true-movements]
+  [ep-state sensors true-movements]
   (let [maxtime (dec (:time ep-state))
         pdata (:problem-data ep-state)
         believed-movements (set (:believed-movements pdata))

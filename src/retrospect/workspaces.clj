@@ -289,7 +289,7 @@
     (loop [ws (reject-many ws conflicts)
            rejected #{}]
       (let [hyps (set/union (:accepted ws)
-                            (apply concat (find-all-explainers ws)))
+                            (apply concat (find-all-explainers ws false)))
             incon (set/difference (set ((:inconsistent-fn @problem) pdata hyps (:rejected ws)))
                                   rejected)]
         (if (not-empty incon)
@@ -424,7 +424,7 @@
           (if (and (empty? immediate-explainers)
                    (empty? transitive-explainers))
             (log-final ws)
-            (let [ws-confs (update-confidences ws (:immediate explainers))
+            (let [ws-confs (update-confidences ws immediate-explainers)
                   immediate-explainers-updated (find-all-explainers ws-confs false)
                   transitive-explainers-updated (find-all-explainers ws-confs true)
                   {:keys [best alts essential? transitive? delta]}
