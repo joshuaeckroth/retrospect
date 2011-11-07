@@ -50,7 +50,7 @@
                        [\newline]))))
 
 (defn write-csv
-  [results-type filename results]
+  [filename results]
   (let [new-file? (not (. (io/file filename) exists))
         row (map (fn [field] (get results field))
                  (sort (keys results)))]
@@ -68,23 +68,25 @@
       (if comparative?
         (let [[control-results comparison-results comparative-results]
               (run comparative? monitor? (first ps))]
-          (write-csv :control (str recdir "/control-results.csv")
-                     control-results)
-          (write-csv :comparison (str recdir "/comparison-results.csv")
-                     comparison-results)
-          (write-csv :comparative (str recdir "/comparative-results.csv")
-                     comparative-results)
+          (doseq [rs control-results]
+            (write-csv (str recdir "/control-results.csv") rs))
+          (doseq [rs comparison-results]
+            (write-csv (str recdir "/comparison-results.csv") rs))
+          (doseq [rs comparative-results]
+            (write-csv (str recdir "/comparative-results.csv") rs))
           (dosync
            (alter progress inc)
            (alter results
-                  (fn [r] (-> r (update-in [:control] conj control-results)
+                  (fn [r] (-> r
+                              (update-in [:control] conj control-results)
                               (update-in [:comparison] conj comparison-results)
                               (update-in [:comparative] conj comparative-results)))))
           (recur (rest ps)))
-        (let [rs (run comparative? monitor? (first ps))]
-          (write-csv :control (str recdir "/control-results.csv") rs)
+        (let [control-results (run comparative? monitor? (first ps))]
+          (doseq [rs control-results]
+            (write-csv (str recdir "/control-results.csv") rs))
           (dosync (alter progress inc)
-                  (alter results (fn [r] (update-in r [:control] conj rs))))
+                  (alter results (fn [r] (update-in r [:control] conj control-results))))
           (recur (rest ps)))))))
 
 (defn run-partitions

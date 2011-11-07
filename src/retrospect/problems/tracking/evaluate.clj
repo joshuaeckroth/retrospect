@@ -1,5 +1,5 @@
 (ns retrospect.problems.tracking.evaluate
-  (:use [retrospect.evaluate :only [calc-ratio-increase]])
+  (:use [retrospect.evaluate :only [calc-increase]])
   (:use [retrospect.problems.tracking.hypotheses :only [dets-match?]])
   (:require [clojure.set :as set]))
 
@@ -59,5 +59,5 @@
 
 (defn evaluate-comparative
   [control-results comparison-results control-params comparison-params]
-  (apply merge (map #(calc-ratio-increase control-results comparison-results %)
+  (apply merge (map #(calc-increase control-results comparison-results %)
                     [:PEC :PEW :Prec :Recall :Spec :Acc :IDCorrect])))

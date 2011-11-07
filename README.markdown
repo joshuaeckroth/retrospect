@@ -6,6 +6,9 @@
 
 - git (Windows: [msysgit](http://code.google.com/p/msysgit/)
 
+- [Graphviz](http://www.graphviz.org/Download.php) (Available for Mac,
+  Windows, and Linux)
+
 ## Installation (Unix)
 
 - Download [Leiningen][lein-unix] (save as "lein")

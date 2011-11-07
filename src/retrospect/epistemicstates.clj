@@ -4,9 +4,9 @@
   (:require [clojure.zip :as zip])
   (:require [clojure.set :as set])
   (:require [vijual :as vijual])
-  (:use [loom.graph :only [digraph add-edges add-nodes nodes]])
+  (:use [loom.graph :only [digraph add-edges add-nodes nodes edges]])
   (:use [loom.attr :only [add-attr]])
-  (:use [loom.io :only [view]])
+  (:use [clojure.java [io :only [file]] [shell :only [sh]]])
   (:use [retrospect.state]))
 
 (defprotocol EpistemicStateTree
@@ -147,10 +147,9 @@
 (defn add-hyp-helper
   [ep-state hyp dep-node depends & opts]
   (let [g (if (empty? depends) (:depgraph ep-state)
-            (reduce (fn [g d] (-> g (add-edges [dep-node d]) (add-attr d :label (:str d))))
+            (reduce (fn [g d] (-> g (add-edges [dep-node d])))
                     (-> (:depgraph ep-state)
-                        (add-nodes dep-node)
-                        (add-attr dep-node :label (:str dep-node)))
+                        (add-nodes dep-node))
                     depends))]
     (assoc ep-state
       :workspace (apply ws/add (:workspace ep-state) hyp opts)

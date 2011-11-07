@@ -10,6 +10,7 @@
   (:use [retrospect.problem :only [run-simulation-step]])
   (:use [retrospect.state])
   (:use [retrospect.gui.eptree :only [ep-tree-tab update-ep-tree]])
+  (:use [retrospect.gui.depgraph :only [depgraph-tab update-depgraph]])
   (:use [retrospect.gui.explainsgraph :only
          [explains-graph-tab update-explains-graph]])
   (:use [retrospect.gui.results :only [update-results results-tab]])
@@ -54,6 +55,7 @@
   (dosync
     (alter ep-list (constantly (sort (list-ep-states (:ep-state-tree @or-state))))))
   (update-ep-tree)
+  (update-depgraph)
   #_(update-explains-graph)
   (update-results)
   (update-logs)
@@ -68,10 +70,14 @@
     (alter-var-root (var params) (constantly ps))
     (set-last-id 0)
     (when (not prepared?)
-      (set-seed (get-seed))
-      (dosync
-       (alter truedata (constantly ((:truedata-fn @problem))))
-       (alter sensors (constantly ((:sensor-gen-fn @problem))))))
+      (let [ps (read-string @params-edit)]
+        (alter-var-root (var params) (constantly ps))
+        (dosync (alter params-edit (constantly (format-params ps))))
+        (set-seed (get-seed))
+        (set-last-id 0)
+        (dosync
+         (alter truedata (constantly ((:truedata-fn @problem))))
+         (alter sensors (constantly ((:sensor-gen-fn @problem)))))))
     (dosync
      (alter or-state (constantly (init-one-run-state
                                   @sensors ((:gen-problem-data-fn @problem)
@@ -127,18 +133,19 @@
          :constrains (java.awt.GridBagConstraints.)
          :size [1000 700]
          :show true
-         :on-close :dispose
+         :on-close :exit
          [:gridx 0 :gridy 0 :gridheight 9 :weightx 1.0 :weighty 1.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
           _ (doto (JTabbedPane.)
               (.addTab "Problem diagram" problem-diagram)
               (.addTab "Epistemic state tree" (ep-tree-tab))
+              (.addTab "Dependency graph" (depgraph-tab))
               (.addTab "Logs" (logs-tab))
               ;(.addTab "Explains graph" (explains-graph-tab))
               (.addTab "Results" (results-tab))
               (.setSelectedIndex 0))
 
-          :gridx 1 :gridy 0 :gridheight 1 :gridwidth 2 :weightx 0.0 :weighty 0.0
+          :gridx 1 :gridy 0 :gridheight 1 :gridwidth 2 :weightx 0.05 :weighty 0.0
           _ (combo-box
              [] :model (seq-ref-combobox-model
                         (ref (concat ["None"] (keys (:prepared-map @problem))))
@@ -146,27 +153,28 @@
           :gridx 1 :gridy 1
           _ (button "Set prepared" :action ([_] (set-prepared-action)))
 
-          :gridx 1 :gridy 2 :weighty 0.8
-          _ (scroll-panel (text-area :str-ref params-edit :editable true :wrap false))
+          :gridx 1 :gridy 2 :weighty 1.75
+          _ (scroll-panel (text-area :str-ref params-edit :editable true
+                                     :wrap false :rows 30))
 
           :gridx 1 :gridy 3 :gridwidth 1 :weighty 0.0
           _ (label "Seed")
           :gridx 2
           _ seed-spinner
 
-          :gridx 1 :gridy 4
-          _ (button "New" :action ([_] (new-simulation)))
-          :gridx 2
-          _ (button "Next" :action ([_] (next-step)))
+          :gridx 1 :gridy 4 :gridwidth 2
+          _ (doto (panel)
+              (.add (button "New" :action ([_] (new-simulation))))
+              (.add (button "Next" :action ([_] (next-step)))))
 
           :gridx 1 :gridy 5
-          _ (doto (combo-box
-                   [] :model (seq-ref-combobox-model ep-list ep-selected))
-              (.setMinimumSize (Dimension. 100 0)))
-          :gridx 2
-          _ (button "Goto" :action ([_] (goto-ep-state-action)))
+          _ (doto (panel)
+              (.add (doto (combo-box
+                           [] :model (seq-ref-combobox-model ep-list ep-selected))
+                      (.setMinimumSize (Dimension. 100 0))))
+              (.add (button "Goto" :action ([_] (goto-ep-state-action)))))
 
-          :gridx 1 :gridy 6 :gridwidth 2
+          :gridx 1 :gridy 6
           _ steplabel
 
           :gridx 1 :gridy 7

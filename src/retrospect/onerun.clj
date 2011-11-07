@@ -14,9 +14,16 @@
      :resources {:meta-activations 0 :meta-accepted 0
                  :explain-cycles 0 :hypothesis-count 0
                  :milliseconds 0 :compute 0 :memory 0}
-     :results [] :sensors sensors
+     :results []
+     :sensors sensors
      :ep-state-tree ep-state-tree
      :ep-state (current-ep-state ep-state-tree)}))
+
+(defn clear-resources
+  [or-state]
+  (assoc or-state :resources {:meta-activations 0 :meta-accepted 0
+                              :explain-cycles 0 :hypothesis-count 0
+                              :milliseconds 0 :compute 0 :memory 0}))
 
 (defn update-one-run-state
   [or-state ep-state {:keys [compute memory]}]

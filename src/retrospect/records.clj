@@ -34,7 +34,7 @@
   (let [[commit _ _ _ & msg] (split-lines (sh git "log" "-n" "1"))
         branch (trim (subs (sh git "branch" "--contains") 2))]
     {:commit (subs commit 7)
-     :commit-msg (apply str (interpose "\n" (map (fn [s] (subs s 4)) msg)))
+     :commit-msg (apply str (interpose "\n" (map (fn [s] (subs s 4)) (filter not-empty msg))))
      :branch branch}))
 
 (defn run-with-new-record
@@ -72,6 +72,7 @@
                        (* (count control-params) repetitions)))
       (run-partitions run comparative? (if comparative? paired-params control-params)
                       recdir nthreads monitor? repetitions)
-      (println "Done."))
+      (println "Done.")
+      (System/exit 0))
     (catch java.util.concurrent.ExecutionException e
       (println "Quitting early."))))

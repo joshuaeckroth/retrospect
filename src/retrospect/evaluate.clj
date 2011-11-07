@@ -4,33 +4,20 @@
   (:use [retrospect.epistemicstates :only [current-ep-state previous-ep-state]])
   (:use [retrospect.state]))
 
-(defn add-to-prior
-  [results key val]
-  (let [c (count results)]
-    (if (= c 0) val
-        (+ (key (last results)) val))))
-
 (defn calc-increase
-  [control comparison k]
-  (if (= 0 (k control)) 0.0
-      (double (* 100.0 (/ (- (k comparison) (k control)) (k control))))))
-
-(defn calc-ratio
-  [control comparison k]
-  (if (= 0 (k control)) 0.0
-      (double (/ (k comparison) (k control)))))
-
-(defn calc-ratio-increase
   [control-results comparison-results field]
-  (let [ratio-field (keyword (format "Rat%s" (name field)))
-        increase-field (keyword (format "Inc%s" (name field)))]
-    {ratio-field (calc-ratio control-results comparison-results field)
-     increase-field (calc-increase control-results comparison-results field)}))
+  (let [increase-field (keyword (format "Inc%s" (name field)))
+        increase-val (if (= 0 (control-results field)) 0.0
+                         (double (* 100.0 (/ (- (comparison-results field)
+                                                (control-results field))
+                                             (control-results field)))))]
+    {increase-field increase-val}))
 
 (defn calc-deepest-dep
   [depgraph]
   (let [starts (filter #(empty? (incoming depgraph %)) (nodes depgraph))
-        paths (mapcat #(dijkstra-span (partial neighbors depgraph) (constantly 1) %) starts)]
+        paths (mapcat #(dijkstra-span (partial neighbors depgraph)
+                                      (constantly 1) %) starts)]
     (apply max 0 (mapcat (comp vals second) paths))))
 
 (defn evaluate
@@ -38,25 +25,27 @@
   (let [ep-state (current-ep-state (:ep-state-tree or-state))
         prev-ep (previous-ep-state (:ep-state-tree or-state))
         final-log (:final (:log (:workspace prev-ep)))
-        results (:results or-state)
-        resources (:resources or-state)]
+        ors-resources (:resources or-state)
+        ws-resources (:resources (:workspace prev-ep))]
     (update-in
      or-state [:results] conj
      (merge {:Problem (:name @problem)}
             params
-            ((:evaluate-fn @problem) ep-state results (:sensors or-state) truedata)
+            ((:evaluate-fn @problem) ep-state (:sensors or-state) truedata)
             {:Step (:time ep-state)
-             :MetaActivations (:meta-activations resources)
-             :MetaAccepted (:meta-accepted resources)
-             :Milliseconds (add-to-prior results :Milliseconds (:milliseconds resources)) 
-             :Unexplained (add-to-prior results :Unexplained (count (:unexplained final-log)))
-             :NoExplainers (add-to-prior results :NoExplainers (count (:no-explainers final-log)))
-             :SharedExplains (add-to-prior results :SharedExplains
-                                           (count (:shared-explains final-log)))
-             :ExplainCycles (:explain-cycles resources)
-             :HypothesisCount (:hypothesis-count resources)
-             :Compute (:compute resources)
-             :Memory (:memory resources)
+             :MetaActivations (:meta-activations ors-resources)
+             :MetaAccepted (:meta-accepted ors-resources)
+             :Milliseconds (:milliseconds ors-resources) 
+             :Unexplained (count (:unexplained final-log))
+             :UnexplainedPct (* 100.0 (/ (count (:unexplained final-log))
+                                         (let [hc (:hypothesis-count ws-resources)]
+                                           (if (= 0 hc) 1 hc))))
+             :NoExplainers (count (:no-explainers final-log))
+             :SharedExplains (count (:shared-explains final-log))
+             :ExplainCycles (:explain-cycles ws-resources)
+             :HypothesisCount (:hypothesis-count ws-resources)
+             :Compute (:compute ors-resources)
+             :Memory (:memory ors-resources)
              :DeepestDep (calc-deepest-dep (:depgraph ep-state))}))))
 
 (defn prefix-params
@@ -66,12 +55,16 @@
 
 (defn evaluate-comparative
   [control-results comparison-results control-params comparison-params]
-  (apply merge
-         {:Problem (:name @problem)}
-         (prefix-params "Cont" control-params)
-         (prefix-params "Comp" comparison-params)
-         ((:evaluate-comparative-fn @problem) control-results comparison-results
-          control-params comparison-params)
-         (map #(calc-ratio-increase control-results comparison-results %)
-              [:MetaActivations :MetaAccepted :Milliseconds :SharedExplains
-               :Unexplained :NoExplainers :ExplainCycles :HypothesisCount :Compute :Memory :DeepestDep])))
+  (for [i (range (count control-results))]
+    (let [control (nth control-results i)
+          comparison (nth comparison-results i)]
+      (apply merge
+             {:Problem (:name @problem)}
+             (prefix-params "Cont" control-params)
+             (prefix-params "Comp" comparison-params)
+             ((:evaluate-comparative-fn @problem) control comparison
+              control-params comparison-params)
+             (map #(calc-increase control comparison %)
+                  [:MetaActivations :MetaAccepted :Milliseconds :SharedExplains
+                   :Unexplained :NoExplainers :ExplainCycles :HypothesisCount
+                   :Compute :Memory :DeepestDep])))))
