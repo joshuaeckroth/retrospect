@@ -46,7 +46,8 @@
   [sensor {:keys [x y color time] :as det}]
   (let [desc (format (str "Sensor detection by %s - color: %s, x: %d, y: %d, time: %d")
                      (:id sensor) (color-str color) x y time)]
-    (new-hyp "Sens" :sensor nil 1.0 [] desc {:sensor sensor :det det})))
+    [(new-hyp "SensFrom" :sensor-from nil 1.0 [] desc {:sensor sensor :det det})
+     (new-hyp "SensTo" :sensor-to nil 1.0 [] desc {:sensor sensor :det det})]))
 
 (defn process-sensors
   "For each time step between the last time we processed sensor data
@@ -56,16 +57,20 @@
   [ep-state sensors time-now]
   (let [pdata (:problem-data ep-state)
         left-off (:left-off pdata)
-        det-hyps (set (mapcat (fn [s]
-                                (map (fn [dets] (make-sensor-hyps s dets))
-                                     (mapcat (fn [t] (sensed-at s t))
-                                             (range (inc left-off) (inc time-now)))))
-                              sensors))
+        det-hyps (mapcat (fn [s]
+                           (map (fn [dets] (make-sensor-hyps s dets))
+                                (mapcat (fn [t] (sensed-at s t))
+                                        (range left-off (inc time-now)))))
+                         sensors)
+        from-hyps (filter #(< left-off (:time (:det (:data %)))) (map first det-hyps))
+        to-hyps (filter #(> time-now (:time (:det (:data %)))) (map second det-hyps))
         pdata-new (-> pdata
-                      (update-in [:uncovered] set/union det-hyps)
-                      (assoc :left-off time-now))
+                      (update-in [:uncovered-from] set/union (set from-hyps))
+                      (update-in [:uncovered-to] set/union (set to-hyps))
+                      (assoc :left-off (inc time-now)))
         ep-new (assoc ep-state :problem-data pdata-new)]
-    (reduce (fn [ep hyp] (add-fact ep hyp)) ep-new (:uncovered pdata-new))))
+    (reduce (fn [ep hyp] (add-fact ep hyp)) ep-new
+            (concat (:uncovered-from pdata-new) (:uncovered-to pdata-new)))))
 
 (defn score-movement
   "Returns nil if not matched or not in range."
@@ -86,41 +91,47 @@
                  dets))))
 
 (defn make-movement-hyps
-  [uncovered walk-dist]
-  (let [unc-by-time (group-by (comp :time :det :data) uncovered)
+  [uncovered-from uncovered-to walk-dist]
+  (let [unc-from-by-time (group-by (comp :time :det :data) uncovered-from)
+        unc-to-by-time (group-by (comp :time :det :data) uncovered-to)
         ;; pair uncovered dets together, where each pair has a det
         ;; from time t first, and a det from time t+1 second
-        unc-pairs (apply concat (for [t (butlast (sort (keys unc-by-time)))]
+        unc-pairs (apply concat (for [t (sort (keys unc-to-by-time))]
                                   (mapcat (fn [det-hyp]
                                             (map (fn [det2-hyp] [det-hyp det2-hyp])
-                                                 (get unc-by-time (inc t))))
-                                          (get unc-by-time t))))
-        unc-pairs-scored (filter :score
-                                 (map (fn [[det-hyp det2-hyp]]
-                                        (let [det (:det (:data det-hyp))
-                                              det2 (:det (:data det2-hyp))]
-                                          {:det-hyp det-hyp :det2-hyp det2-hyp
-                                           :det det :det2 det2
-                                           :score (score-movement det det2 walk-dist)}))
-                                      unc-pairs))]
-    (for [{:keys [det det-hyp det2 det2-hyp score]} unc-pairs-scored]
-      (new-hyp "Mov" :movement :shared-explains score
+                                                 (get unc-from-by-time (inc t))))
+                                          (get unc-to-by-time t))))
+        unc-pairs-scored (map (fn [[det-hyp det2-hyp]]
+                                (let [det (:det (:data det-hyp))
+                                      det2 (:det (:data det2-hyp))]
+                                  {:det-hyp det-hyp :det2-hyp det2-hyp
+                                   :det det :det2 det2
+                                   :score (score-movement det det2 walk-dist)}))
+                              unc-pairs)]
+    (for [{:keys [det det-hyp det2 det2-hyp score]} unc-pairs-scored :when score]
+      (new-hyp "Mov" :movement nil score
                [det-hyp det2-hyp] (path-str [det det2]) {:det det :det2 det2}))))
+
+(defn avg
+  [vals]
+  (double (/ (reduce + 0.0 vals) (count vals))))
 
 (defn make-path-hyp
   [movs]
   (let [det-seq (sort-by :time (set (mapcat (fn [hyp] [(:det (:data hyp))
                                                        (:det2 (:data hyp))])
                                             movs)))]
-    (new-hyp "Path" :path :shared-explains
-             0.0 movs (path-str det-seq) {:movements movs})))
+    (new-hyp "Path" :path nil
+             (avg (map :apriori movs)) movs
+             (path-str det-seq) {:movements movs})))
 
 (defn make-location-hyp
   "All paths should have the same start and end point."
   [entity paths]
   (let [{:keys [x y time]} (:det2 (:data (last (:movements (:data (first paths))))))]
-    (new-hyp "Loc" :location :shared-explains
-             0.0 paths (format "Entity %s is at %d,%d at time %d" entity x y time)
+    (new-hyp "Loc" :location entity
+             (avg (map :apriori paths)) paths
+             (format "Entity %s is at %d,%d at time %d" entity x y time)
              {:entity entity :paths paths :loc {:x x :y y :time time}})))
 
 (defn dets-match?
@@ -157,8 +168,9 @@
   [ep-state sensors time-now]
   (binding [compute 0 memory 0]
     (let [ep-sensors (process-sensors ep-state sensors time-now)
-          {:keys [entities uncovered walk-dist]} (:problem-data ep-sensors)
-          mov-hyps (make-movement-hyps uncovered walk-dist)
+          pdata (:problem-data ep-sensors)
+          {:keys [entities uncovered-from uncovered-to walk-dist]} pdata
+          mov-hyps (make-movement-hyps uncovered-from uncovered-to walk-dist)
           pg (build-paths-graph mov-hyps entities)
           ep-pg (assoc-in ep-sensors [:problem-data :paths-graph] pg)
           valid-mov-hyps (paths-graph-edge-hyps pg)
@@ -166,11 +178,9 @@
           loc-hyps (make-location-hyps entities path-hyps)]
       [(reduce (fn [ep hyp] (add-hyp ep hyp (make-dep-node hyp)
                                      (make-dep-nodes hyp)))
-               ep-pg (concat mov-hyps path-hyps loc-hyps))
+               ep-pg (concat valid-mov-hyps path-hyps loc-hyps))
        {:compute compute :memory memory}])))
 
-;; TODO update uncovered
-;; TODO update :believed-movements, :disbelieved-movements
 (defn commit-decision
   [pdata accepted rejected time-now]
   (let [entities (reduce (fn [es loc-hyp]
@@ -187,9 +197,12 @@
                                        :else gray)}))
         bel-movs (map mk-mov (filter #(= :movement (:type %)) accepted))
         dis-movs (map mk-mov (filter #(= :movement (:type %)) rejected))
-        covered (set (filter #(not= time-now (:time (:det (:data %))))
-                      (mapcat :explains (filter #(= :movement (:type %)) accepted))))]
+        explained-det-hyps (mapcat :explains
+                                   (filter #(= :movement (:type %)) accepted))
+        covered-from (set (filter #(= :sensor-from (:type %)) explained-det-hyps))
+        covered-to (set (filter #(= :sensor-to (:type %)) explained-det-hyps))]
     (-> pdata (assoc :entities entities)
         (update-in [:believed-movements] concat bel-movs)
         (update-in [:disbelieved-movements] concat dis-movs)
-        (update-in [:uncovered] set/difference covered))))
+        (update-in [:uncovered-from] set/difference covered-from)
+        (update-in [:uncovered-to] set/difference covered-to))))

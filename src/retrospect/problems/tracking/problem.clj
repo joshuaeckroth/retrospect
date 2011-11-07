@@ -34,10 +34,11 @@
                      {} (keys truedata))
    :believed-movements []
    :disbelieved-movements []
-   :left-off -1
+   :left-off 0
    :walk-dist (read-walk-dist (str @datadir "/tracking/walks.txt")) 
    :log [] ;; log is reset each time by commit-decision
-   :uncovered #{}})
+   :uncovered-from #{}
+   :uncovered-to #{}})
 
 (def tracking-problem
      (Problem. "Tracking"

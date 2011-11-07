@@ -2,9 +2,11 @@
   (:import (misc AlphanumComparator))
   (:use [retrospect.confidences])
   (:require [clojure.set :as set])
+  (:use [loom.io :only [dot-str]])
   (:use [loom.graph :only
          [digraph nodes incoming neighbors weight
           add-nodes add-edges remove-nodes edges]])
+  (:use [loom.attr :only [add-attr]])
   (:use [retrospect.state]))
 
 (def last-id 0)
@@ -144,14 +146,19 @@
    so that first seq of alts in seq of seqs has greatest difference."
   ([workspace]
      (let [g (:graph workspace)
+           all-explained-accepted (fn [h] (empty? (set/difference
+                                                   (neighbors g h)
+                                                   (:accepted workspace))))
            build-seq (fn [trans?]
                        (reverse
                         (sort (partial sort-by-delta workspace)
                               (filter #(>= (count %) 1)
-                                      (map #(sort-by-conf
-                                             workspace (if trans? (incoming-transitive g %)
-                                                           (incoming g %)))
-                                           (find-unexplained workspace))))))]
+                                      (filter (if trans? identity
+                                                  all-explained-accepted)
+                                              (map #(sort-by-conf
+                                                     workspace (if trans? (incoming-transitive g %)
+                                                                   (incoming g %)))
+                                                   (find-unexplained workspace)))))))]
        {:immediate (build-seq false)
         :transitive (if-not (:TransitiveExplanation params) [] (build-seq true))}))
   ([workspace hyp & opts]
@@ -447,6 +454,8 @@
 
 (defn explain
   [workspace pdata]
+  #_(println (dot-str (reduce (fn [g n] (add-attr g n :label (:id n)))
+                              (:graph-static workspace) (nodes (:graph-static workspace)))))
   (loop [ws workspace]
     (if (empty? (edges (:graph ws))) (log-final ws)
         (let [explainers (find-explainers ws)]
