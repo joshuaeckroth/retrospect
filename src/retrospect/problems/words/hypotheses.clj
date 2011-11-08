@@ -91,25 +91,24 @@
         adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))
         prob (double (/ (get (get models 1) [word])
                         (:sum (meta (get models 1)))))]
-    [(new-hyp "W" :single-word conflicts?
-              (* prob (- 1.0 sensor-noise))
-              (format "Word: \"%s\" at positions %s (%s) (sensor noise %.0f%%)"
-                      word (str adjusted-pos-seq) (apply str letters) (* 100 sensor-noise))
-              {:start (first adjusted-pos-seq) :end (last adjusted-pos-seq)
-               :words [word] :pos-seqs [adjusted-pos-seq]})
-     explains]))
+    (new-hyp "Word" :single-word conflicts?
+             (* prob (- 1.0 sensor-noise)) explains
+             (format "Word: \"%s\" at positions %s (%s) (sensor noise %.0f%%)"
+                     word (str adjusted-pos-seq) (apply str letters) (* 100 sensor-noise))
+             {:start (first adjusted-pos-seq) :end (last adjusted-pos-seq)
+              :words [word] :pos-seqs [adjusted-pos-seq]})))
 
 (defn make-learned-word-hyp
   [word pos-seq letters left-off sensor-hyps]
   (let [explains (map #(nth sensor-hyps %) pos-seq)
         adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))]
-    [(new-hyp "W" :learned-word conflicts?
-              0.2 ;; apriori (really apriori, not even computed!)
-              (format "Learned word: \"%s\" at positions %s (%s)"
-                      word (str adjusted-pos-seq) (apply str letters))
-              {:start (first adjusted-pos-seq) :end (last adjusted-pos-seq)
-               :words [word] :pos-seqs [adjusted-pos-seq]})
-     explains]))
+    (new-hyp "WordLearn" :learned-word conflicts?
+             0.2 ;; apriori (really apriori, not even computed!)
+             explains
+             (format "Learned word: \"%s\" at positions %s (%s)"
+                     word (str adjusted-pos-seq) (apply str letters))
+             {:start (first adjusted-pos-seq) :end (last adjusted-pos-seq)
+              :words [word] :pos-seqs [adjusted-pos-seq]})))
 
 (defn acceptable-noise?
   [letters word sensor-noise]
@@ -155,10 +154,10 @@
   [indexed-letters left-off dict sensor-noise sensor-hyps models]
   (let [words (reduce (fn [m w] (if (not-empty (m w)) m (dissoc m w)))
                       (search-dict-words indexed-letters dict sensor-noise) dict)]
-    (filter
-     (comp :apriori first)
-     (for [word (keys words) [pos-seq letters] (get words word)]
-       (make-word-hyp word pos-seq letters sensor-noise left-off sensor-hyps models)))))
+    (filter :apriori
+            (for [word (keys words) [pos-seq letters] (get words word)]
+              (make-word-hyp word pos-seq letters sensor-noise
+                             left-off sensor-hyps models)))))
 
 (defn valid-composite?
   [hyps]
@@ -208,24 +207,24 @@
 (defn make-composite-hyps
   [models word-hyps accepted max-n]
   (let [composites (gen-valid-composites word-hyps accepted max-n)]
-    (filter (comp :apriori first)
+    (filter :apriori
             (for [c composites]
               (let [words (mapcat (comp :words :data) c)
                     pos-seqs (mapcat (comp :pos-seqs :data) c)
                     accepted-in-words (set/intersection accepted (set c))]
-                [(new-hyp "W" :words conflicts?
-                          (lookup-prob models c accepted-in-words)
-                          (format "Word sequence \"%s\" at positions %s"
-                                  (apply str (interpose " " words))
-                                  (apply str (interpose ", " pos-seqs)))
-                          {:start (:start (:data (first c))) :end (:end (:data (last c)))
-                           :pos-seqs pos-seqs
-                           :words words})
-                 c])))))
+                (new-hyp "WordSeq" :words conflicts?
+                         (lookup-prob models c accepted-in-words)
+                         c ;; explains
+                         (format "Word sequence \"%s\" at positions %s"
+                                 (apply str (interpose " " words))
+                                 (apply str (interpose ", " pos-seqs)))
+                         {:start (:start (:data (first c))) :end (:end (:data (last c)))
+                          :pos-seqs pos-seqs
+                          :words words}))))))
 
 (defn make-sensor-hyp
   [pos letter]
-  (new-hyp "WS" :sensor nil 1.0 (format "Letter: '%c' at position %d" letter pos)
+  (new-hyp "Sens" :sensor nil 1.0 [] (format "Letter: '%c' at position %d" letter pos)
            {:pos pos}))
 
 (defn make-sensor-hyps
@@ -254,13 +253,13 @@
           indexed-letters (filter #(= java.lang.Character (type (second %)))
                                   (map (fn [i] [i (nth letters i)]) (range (count letters))))
           sensor-hyps (make-sensor-hyps indexed-letters)
-          ep-sensor-hyps (reduce #(add-fact %1 %2 []) ep-state sensor-hyps)
+          ep-sensor-hyps (reduce #(add-fact %1 %2) ep-state sensor-hyps)
           ep-letters (assoc-in ep-sensor-hyps [:problem-data :indexed-letters] indexed-letters)
           word-hyps (make-word-hyps indexed-letters left-off dictionary 0.0 sensor-hyps models)
-          composite-hyps (make-composite-hyps models (map first word-hyps) accepted max-n)]
-      [(reduce (fn [ep [hyp explains]]
-                 (add-hyp ep hyp explains (make-dep-node hyp)
-                          (map make-dep-node (filter accepted explains))))
+          composite-hyps (make-composite-hyps models word-hyps accepted max-n)]
+      [(reduce (fn [ep hyp]
+                 (add-hyp ep hyp (make-dep-node hyp)
+                          (map make-dep-node (filter accepted (:explains hyp)))))
                ep-letters (concat word-hyps composite-hyps))
        {:compute compute :memory memory}])))
 
@@ -303,11 +302,12 @@
                                                    (set (filter #(= :single-word (:type %))
                                                                 existing-hyps))
                                                    max-n))]
-          (reduce (fn [ep [hyp explains]]
-                    (add-more-hyp ep hyp explains (make-dep-node hyp)
+          (reduce (fn [ep hyp]
+                    (add-more-hyp ep hyp (make-dep-node hyp)
                                   (map make-dep-node
                                        (filter existing-hyps
-                                               (filter #(not= :sensor (:type %)) explains)))))
+                                               (filter #(not= :sensor (:type %))
+                                                       (:explains hyp))))))
                   ep-state
                   (concat word-hyps composite-hyps)))
         (and (> 100 (:Knowledge params)) (:Learn params))
@@ -329,8 +329,8 @@
                                                        (map first w) (map second w)
                                                        left-off sensor-hyps))
                         new-words)]
-          (reduce (fn [ep [hyp explains]]
-                    (add-more-hyp ep hyp explains (make-dep-node hyp) []))
+          (reduce (fn [ep hyp]
+                    (add-more-hyp ep hyp (make-dep-node hyp) []))
                   ep-state hyps))))
 
 (defn update-model
