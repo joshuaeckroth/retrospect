@@ -166,7 +166,7 @@
 (defn add-fact
   [ep-state hyp]
   (update-in ep-state [:workspace]
-             #(-> % (ws/add hyp :static) (ws/forced hyp))))
+             #(-> % (ws/add hyp :static) (ws/force-accept hyp))))
 
 (defn commit-decision
   [ep-state id time-now]

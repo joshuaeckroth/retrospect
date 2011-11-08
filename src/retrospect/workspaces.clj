@@ -6,6 +6,7 @@
   (:use [loom.graph :only
          [digraph nodes incoming neighbors weight
           add-nodes add-edges remove-nodes edges]])
+  (:use [loom.alg :only [pre-traverse]])
   (:use [loom.attr :only [add-attr]])
   (:use [retrospect.state]))
 
@@ -48,8 +49,8 @@
       :dot []
       :doubt nil
       :accepted #{}
-      :rejected #{}
       :forced #{}
+      :rejected #{}
       :resources {:explain-cycles 0 :hypothesis-count 0}}))
 
 (defn hyp-log
@@ -97,15 +98,15 @@
         (sort-by :id (AlphanumComparator.)
                  (filter #(shared-explains? workspace % hyps) hyps)))))
 
+;; TODO: fix
 (defn find-unexplained
-  "Unexplained hyps are those that are forced or accepted and remain
-   in the graph."
+  "Unexplained hyps are those that are accepted and remain in the graph."
   [workspace]
   (let [g (:graph workspace)
         hyps (nodes g)]
-    (set/union (set/intersection (:forced workspace) (set hyps))
-               (set/intersection (:accepted workspace) (set hyps)))))
+    (set/intersection (:accepted workspace) (set hyps))))
 
+;; TODO: fix
 (defn find-no-explainers
   [workspace]
   (let [g (:graph-static workspace)]
@@ -140,11 +141,7 @@
    returns transitive explainers. Presumably this function is only
    used when transitive-explanation is active."
   [graph hyp & opts]
-  (loop [explainers #{}
-         queue (seq (incoming graph hyp))]
-    (if (empty? queue) explainers
-        (recur (set/union explainers (incoming graph (first queue)))
-               (seq (set/union (set (rest queue)) (incoming graph (first queue))))))))
+  (pre-traverse graph hyp))
 
 (defn find-all-explainers
   "Returns two sequences of sequences containing alternative
@@ -153,12 +150,12 @@
    by (find-unexplained), above, which we call here. The explainers
    are sorted by conf (best first), and the seq of seqs is sorted by
    difference between first- and second-best alternatives, so that
-   first seq of alts in seq of seqs has greatest difference."
+   first seq of alts in seq of seqs has greatest difference. If trans?
+   is false, then a hyp is an explainer only if everything it explains
+   has already been accepted."
   [workspace trans?]
   (let [g (:graph workspace)
-        all-acc #(empty? (set/difference (neighbors g %)
-                                         (set/union (:forced workspace)
-                                                    (:accepted workspace))))
+        all-acc #(every? (:accepted workspace) (neighbors g %))
         explainers (map #(sort-by-conf workspace (if trans? (incoming-transitive g %)
                                                      (incoming g %)))
                         (find-unexplained workspace))]
@@ -243,10 +240,10 @@
 
 (defn add
   "Only add a hyp if its explained hyps are already in the (live,
-   non-static) graph, and if it does not conflict with an accepted or
-   forced hyp. However, if the hyp is to be added, add all its explain
-   edges to the static graph, but only those unexplained edges to the
-   live graph."
+   non-static) graph, and if it does not conflict with an accepted
+   hyp. However, if the hyp is to be added, add all its explain edges
+   to the static graph, but only those unexplained edges to the live
+   graph."
   [workspace hyp & opts]
   (let [gtype (if (some #{:static} opts) :graph-static :graph)
         expl (set/intersection (nodes (get workspace gtype)) (set (:explains hyp)))
@@ -270,9 +267,8 @@
                   (update-in [:hyp-confidences] assoc hyp (:apriori hyp))
                   (update-in [:log :added] conj {:hyp hyp :explains expl}))
               conflicts (find-conflicts ws hyp :static)]
-          ;; abort if added hyp conflicts with something accepted or forced
-          (if (or (not-empty (set/intersection conflicts (:accepted ws)))
-                  (not-empty (set/intersection conflicts (:forced ws))))
+          ;; abort if added hyp conflicts with something accepted
+          (if (not-empty (set/intersection conflicts (:accepted ws)))
             workspace ws)))))
 
 (defn reject-many
@@ -323,11 +319,13 @@
         acceptable (conj (apply set/intersection (map set paths)) hyp)]
     (reduce (fn [ws h] (accept ws h pdata)) workspace acceptable)))
 
-(defn forced
+(defn force-accept
   [workspace hyp]
   (-> workspace
       (update-in [:forced] conj hyp)
-      (update-in [:log :forced] conj hyp)))
+      (update-in [:log :forced] conj hyp)
+      (update-in [:accepted] conj hyp)
+      (update-in [:log :accepted] conj hyp)))
 
 (defn reset-confidences
   [workspace]
@@ -344,6 +342,8 @@
     (-> ws
         (assoc-in [:log :best] [])
         (assoc-in [:log :accrej] {})
+        (assoc-in [:log :accepted] (:forced workspace))
+        (assoc-in [:accepted] (:forced workspace))
         (update-in [:resources :hypothesis-count]
                    + (count (nodes (:graph-static ws)))))))
 
@@ -361,10 +361,9 @@
 
 (defn measure-unexplained-pct
   [workspace]
-  (let [acc (set/union (:accepted workspace) (:forced workspace))]
-    (if (empty? acc) 0.0
-        (double (/ (count (:unexplained (:final (:log workspace))))
-                   (count acc))))))
+  (if (empty? (:accepted workspace)) 0.0
+      (double (/ (count (:unexplained (:final (:log workspace))))
+                 (count (:accepted workspace))))))
 
 (defn get-unexplained-pct
   [workspace]

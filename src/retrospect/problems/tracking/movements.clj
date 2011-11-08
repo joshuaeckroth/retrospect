@@ -85,8 +85,8 @@
 
 (defn entities-at
   [movements x y time]
-  (filter (fn [e] (some (fn [mov] (and (= x (:x mov)) (= y (:y mov)) (= time (:time mov))))
-                        (get movements e)))
+  (filter (fn [e] (let [mov (nth (get movements e) time)]
+                    (and (= x (:x mov)) (= y (:y mov)))))
           (keys movements)))
 
 (defn entities
