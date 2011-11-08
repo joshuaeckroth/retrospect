@@ -102,8 +102,8 @@
    (alter diagram-height (constantly (.. g (getClipBounds) height)))
    (alter grid-width (constantly (:GridWidth params)))
    (alter grid-height (constantly (:GridHeight params)))
-   (alter grid-cell-width (constantly (ceil (/ @diagram-width @grid-width))))
-   (alter grid-cell-height (constantly (ceil (/ @diagram-height @grid-height)))))
+   (alter grid-cell-width (constantly (floor (/ @diagram-width @grid-width))))
+   (alter grid-cell-height (constantly (floor (/ @diagram-height @grid-height)))))
   (let [img (new BufferedImage @diagram-width @diagram-height
                  (. BufferedImage TYPE_INT_ARGB))
         bg (. img (getGraphics))]
