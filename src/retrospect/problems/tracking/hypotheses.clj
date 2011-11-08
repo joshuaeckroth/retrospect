@@ -64,9 +64,15 @@
                          sensors)
         from-hyps (filter #(< left-off (:time (:det (:data %)))) (map first det-hyps))
         to-hyps (filter #(> time-now (:time (:det (:data %)))) (map second det-hyps))
+        ;; filter out old uncovered hyps, so we don't have an explosion of path hyps
+        filter-old (fn [hyps] (filter #(>= (:time (:det (:data %)))
+                                           (dec left-off))
+                                      hyps))
+        uncovered-from (set (filter-old (concat (:uncovered-from pdata) from-hyps)))
+        uncovered-to (set (filter-old (concat (:uncovered-to pdata) to-hyps)))
         pdata-new (-> pdata
-                      (update-in [:uncovered-from] set/union (set from-hyps))
-                      (update-in [:uncovered-to] set/union (set to-hyps))
+                      (assoc :uncovered-from uncovered-from)
+                      (assoc :uncovered-to uncovered-to)
                       (assoc :left-off time-now))
         ep-new (assoc ep-state :problem-data pdata-new)]
     (reduce (fn [ep hyp] (add-fact ep hyp)) ep-new

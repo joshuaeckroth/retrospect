@@ -5,7 +5,7 @@
   (:use [loom.io :only [dot-str]])
   (:use [loom.graph :only
          [digraph nodes incoming neighbors weight
-          add-nodes add-edges remove-nodes edges]])
+          add-nodes add-edges remove-nodes edges transpose]])
   (:use [loom.alg :only [pre-traverse]])
   (:use [loom.attr :only [add-attr]])
   (:use [retrospect.state]))
@@ -120,7 +120,7 @@
   "Since we are using probabilities, smaller value = less confidence. We want
    most confident first."
   [workspace hyps]
-  (doall (reverse (sort-by (partial hyp-conf workspace) hyps))))
+  (reverse (sort-by (partial hyp-conf workspace) hyps)))
 
 (defn sort-by-delta
   [workspace hyps1 hyps2]
@@ -136,12 +136,13 @@
       (compare hyps1-delta hyps2-delta))))
 
 (defn incoming-transitive
-  "Find transitive explainers of some hypothesis. The returned vector
-   of explainers does not include immediate explainers; it only
-   returns transitive explainers. Presumably this function is only
-   used when transitive-explanation is active."
+  "Find transitive explainers of some hypothesis. Immediate explainers
+   are not included. Presumably this function is only used when
+   transitive-explanation is active."
   [graph hyp & opts]
-  (pre-traverse graph hyp))
+  (let [tg (transpose graph)]
+    ;; use (rest) to remove hyp itself from the list
+    (mapcat #(rest (pre-traverse tg %)) (neighbors tg hyp))))
 
 (defn find-all-explainers
   "Returns two sequences of sequences containing alternative
@@ -160,8 +161,9 @@
                                                      (incoming g %)))
                         (find-unexplained workspace))]
     (reverse (sort (partial sort-by-delta workspace)
-                   (filter #(>= (count %) 1)
-                           (map #(filter (if trans? identity all-acc) %) explainers))))))
+                   (filter second
+                           (if trans? explainers
+                               (map #(filter all-acc %) explainers)))))))
 
 (defn find-explainers
   [workspace hyp & opts]
@@ -316,7 +318,9 @@
    and the accepted hyp."
   [workspace hyp pdata]
   (let [paths (find-explains-transitive-paths workspace hyp)
-        acceptable (conj (apply set/intersection (map set paths)) hyp)]
+        acceptable (conj (cond (empty? paths) []
+                               (= 1 (count paths)) (first paths)
+                               :else (apply set/intersection (map set paths))) hyp)]
     (reduce (fn [ws h] (accept ws h pdata)) workspace acceptable)))
 
 (defn force-accept
