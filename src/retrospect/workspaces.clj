@@ -7,7 +7,7 @@
          [digraph nodes incoming neighbors weight
           add-nodes add-edges remove-nodes edges transpose]])
   (:use [loom.alg :only [pre-traverse]])
-  (:use [loom.attr :only [add-attr]])
+  (:use [loom.attr :only [add-attr remove-attr]])
   (:use [retrospect.state]))
 
 (def last-id 0)
@@ -223,7 +223,7 @@
       (nil? c) []
 
       ;; we have a function (predicate), so call the function on other hyps
-      (fn? c) (set (filter #(and (not= % hyp) (c hyp %)) hyps))
+      (fn? c) (filter #(and (not= % hyp) (c hyp %)) hyps)
 
       ;; :shared-explains conflict id; may conflict with other hyps
       ;; that have :shared-explains id
@@ -233,52 +233,60 @@
                                hyps)]
         ;; :shared-explains hyps conflict if they shared an explains
         ;; link (neighbor)
-        (set (filter #(not-empty (set/intersection (neighbors g %)
-                                                   (neighbors g hyp)))
-                     other-hyps)))
+        (filter #(not-empty (set/intersection (neighbors g %)
+                                              (neighbors g hyp)))
+                other-hyps))
       ;; otherwise, hyps conflict if their conflict ids are identical
       :else
-      (set (filter #(and (not= % hyp) (= c (:conflict %))) hyps)))))
+      (filter #(and (not= % hyp) (= c (:conflict %))) hyps))))
 
 (defn add
-  "Only add a hyp if its explained hyps are already in the (live,
-   non-static) graph, and if it does not conflict with an accepted
-   hyp. However, if the hyp is to be added, add all its explain edges
-   to the static graph, but only those unexplained edges to the live
-   graph."
   [workspace hyp & opts]
   (let [gtype (if (some #{:static} opts) :graph-static :graph)
-        expl (set/intersection (nodes (get workspace gtype)) (set (:explains hyp)))
+        ns (nodes (get workspace gtype))
+        ;; expl has only those hyps that are explained and currently reside in the graph
+        expl (filter ns (:explains hyp))
+        ;; is this hyp explaining something in the graph? (or is it :graph-static?)
         explains-something-unexplained? (or (= gtype :graph-static) (not-empty expl))]
     (if (not explains-something-unexplained?) workspace
         ;; add to :graph-static if :static was not indicated;
         ;; here, add even already-explains links
-        (let [ws
-              (-> (if (not= gtype :graph) workspace
-                      (-> workspace
-                          (update-in [:graph-static]
-                                     #(apply add-nodes % (conj (:explains hyp) hyp)))
-                          (update-in [:graph-static]
-                                     #(apply add-edges % (map (fn [e] [hyp e])
-                                                              (:explains hyp))))))
-                  ;; just add unexplained links
-                  (update-in [gtype]
-                             #(apply add-nodes % (conj expl hyp)))
-                  (update-in [gtype]
-                             #(apply add-edges % (map (fn [e] [hyp e]) expl)))
-                  (update-in [:hyp-confidences] assoc hyp (:apriori hyp))
-                  (update-in [:log :added] conj {:hyp hyp :explains expl}))
-              conflicts (find-conflicts ws hyp :static)]
+        (let [ws-static
+              (if (not= gtype :graph) workspace
+                  (let [g-added (reduce (fn [g n] (-> g (add-nodes n)
+                                                      (add-attr n :id (:id n))
+                                                      (add-attr n :label (:id n))))
+                                        (:graph-static workspace)
+                                        (conj (:explains hyp) hyp))
+                        g-edges (reduce (fn [g e] (add-edges g [hyp e]))
+                                        g-added (:explains hyp))]
+                    (assoc workspace :graph-static g-edges)))
+              g-added (reduce (fn [g n] (-> g (add-nodes n)
+                                            (add-attr n :id (:id n))
+                                            (add-attr n :label (:id n))))
+                              (gtype ws-static) (conj expl hyp))
+              g-edges (reduce (fn [g e] (add-edges g [hyp e])) g-added expl)
+              ws-updated (-> ws-static
+                             (assoc gtype g-edges)
+                             (assoc-in [:hyp-confidences hyp] (:apriori hyp))
+                             (update-in [:log :added] conj {:hyp hyp :explains expl}))
+              conflicts (find-conflicts ws-updated hyp :static)]
           ;; abort if added hyp conflicts with something accepted
-          (if (not-empty (set/intersection conflicts (:accepted ws)))
-            workspace ws)))))
+          (if (some (:accepted ws-updated) conflicts)
+            workspace ws-updated)))))
 
 (defn reject-many
   [workspace hyps]
-  (let [rejectable (set/difference (set hyps) (:accepted workspace))]
-    (-> (reduce (fn [ws hyp] (update-in ws [:hyp-log hyp] conj
-                                      (format "Rejected in cycle %d" (:cycle workspace))))
-                  workspace rejectable)
+  (let [accepted (:accepted workspace)
+        rejectable (filter #(not (accepted %)) hyps)]
+    (-> (reduce (fn [ws hyp]
+                  (update-in ws [:hyp-log hyp] conj
+                             (format "Rejected in cycle %d" (:cycle workspace))))
+                workspace rejectable)
+        (update-in [:graph-static]
+                   #(reduce (fn [g r] (-> g (add-attr r :fontcolor "red")
+                                          (add-attr r :color "red")))
+                            % rejectable))
         (update-in [:graph] #(apply remove-nodes % rejectable))
         (update-in [:rejected] set/union (set rejectable))
         (update-in [:log :final :rejected] concat rejectable))))
@@ -298,6 +306,8 @@
                                 (:cycle workspace)
                                 (apply str (interpose ", " (sort (map :id removable))))))
              (update-in [:accepted] conj hyp)
+             (update-in [:graph-static] add-attr hyp :fontcolor "green")
+             (update-in [:graph-static] add-attr hyp :color "green")
              (assoc :graph new-g))]
     (loop [ws (reject-many ws conflicts)
            rejected #{}]
@@ -344,6 +354,10 @@
   (let [ws (assoc workspace :doubt nil :accepted #{} :rejected #{}
                   :graph (:graph-static workspace))]
     (-> ws
+        (update-in [:graph-static]
+                   #(reduce (fn [g h] (-> g (remove-attr h :fontcolor)
+                                          (remove-attr h :color)))
+                            % (nodes %)))
         (assoc-in [:log :best] [])
         (assoc-in [:log :accrej] {})
         (assoc-in [:log :accepted] (:forced workspace))
@@ -384,8 +398,7 @@
                       :unaccepted (set/difference
                                    (get-hyps workspace)
                                    (:accepted workspace)
-                                   (:rejected workspace)
-                                   (:forced workspace))})
+                                   (:rejected workspace))})
         ws2 (assoc-in ws [:log :unexplained-pct] (measure-unexplained-pct ws))]
     (assoc-in ws2 [:log :doubt] (measure-doubt ws2))))
 
@@ -396,7 +409,7 @@
         (if (not-empty essentials)
           ;; choose first most-confident essential
           (let [best (first essentials)]
-            {:best best :alts (disj (set essentials) best)
+            {:best best :alts (filter #(not= % best) essentials)
              :essential? true :delta nil})
           ;; otherwise, choose highest-delta non-essential
           (let [alts (first explainers)

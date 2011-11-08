@@ -6,9 +6,8 @@
   (:import (org.apache.batik.dom.svg SAXSVGDocumentFactory))
   (:import (org.apache.batik.swing JSVGCanvas))
   (:import (org.apache.batik.util XMLResourceDescriptor))
-  (:use [loom.graph :only [edges nodes]])
+  (:use [loom.graph :only [edges]])
   (:use [loom.io :only [dot-str]])
-  (:use [loom.attr :only [add-attr]])
   (:use [clojure.java.shell :only [sh]])
   (:use [clj-swing.core :only [add-action-listener]])
   (:use [clj-swing.panel])
@@ -20,21 +19,17 @@
 
 (defn generate-hypgraph
   []
-  (let [hypgraph (:graph-static (:workspace (previous-ep-state (:ep-state-tree @or-state))))]
-    (if (and hypgraph (not-empty (edges hypgraph)))
-      (let [dot (dot-str (reduce (fn [g n]
-                                   (-> g (add-attr n :label (:id n))
-                                       (add-attr n :id (:id n))))
-                                 hypgraph (nodes hypgraph))
-                         :graph {:dpi 60 :rankdir "LR"})
-            {svg :out} (sh "dot" "-Tsvg" :in dot)
-            sr (StringReader. svg)
-            parser (XMLResourceDescriptor/getXMLParserClassName)
-            doc (try (.createDocument (SAXSVGDocumentFactory. parser)
-                                      "file:///hypgraph" sr)
-                     (catch Exception e (println e)))]
-        (.setDocumentState canvas JSVGCanvas/ALWAYS_DYNAMIC)
-        (.setDocument canvas doc)))))
+  (let [prev-ep (previous-ep-state (:ep-state-tree @or-state))
+        hypgraph (:graph-static (:workspace prev-ep))
+        dot (dot-str hypgraph :graph {:dpi 60 :rankdir "LR"})
+        {svg :out} (sh "dot" "-Tsvg" :in dot)
+        sr (StringReader. svg)
+        parser (XMLResourceDescriptor/getXMLParserClassName)
+        doc (try (.createDocument (SAXSVGDocumentFactory. parser)
+                                  "file:///hypgraph" sr)
+                 (catch Exception e (println e)))]
+    (.setDocumentState canvas JSVGCanvas/ALWAYS_DYNAMIC)
+    (.setDocument canvas doc)))
 
 (defn hypgraph-tab
   []
@@ -42,7 +37,7 @@
          :constrains (java.awt.GridBagConstraints.)
          [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0 :gridwidth 2 :fill :BOTH
           :insets (Insets. 5 5 5 5)
-          _ (scroll-panel canvas)
+          _ canvas
           :gridy 1 :gridwidth 1 :gridx 0 :weightx 1.0 :weighty 0.0
           _ (panel)
           :gridx 1 :weightx 0.0
