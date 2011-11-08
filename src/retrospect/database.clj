@@ -19,7 +19,9 @@
   [run results results-type]
   (print (format "Sending %d results of type %s... "
                  (reduce + 0 (map count results)) results-type))
-  (doall (map #(commit-sim run % results-type) results)))
+  (let [rs (doall (map #(commit-sim run % results-type) results))]
+    (println "done.")
+    rs))
 
 (defn commit-run
   [run control comparison comparative]
