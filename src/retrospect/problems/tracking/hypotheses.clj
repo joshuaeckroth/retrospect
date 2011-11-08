@@ -67,7 +67,7 @@
         pdata-new (-> pdata
                       (update-in [:uncovered-from] set/union (set from-hyps))
                       (update-in [:uncovered-to] set/union (set to-hyps))
-                      (assoc :left-off (inc time-now)))
+                      (assoc :left-off time-now))
         ep-new (assoc ep-state :problem-data pdata-new)]
     (reduce (fn [ep hyp] (add-fact ep hyp)) ep-new
             (concat (:uncovered-from pdata-new) (:uncovered-to pdata-new)))))

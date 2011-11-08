@@ -20,7 +20,7 @@
 (defrecord Hypothesis
     [id type conflict apriori explains desc data]
   Object
-  (toString [self] desc))
+  (toString [self] (format "%s: %s" id desc)))
 
 (defn new-hyp
   [prefix type conflict apriori explains desc data]
@@ -67,6 +67,19 @@
   (if (some #{:static} opts)
     (neighbors (:graph-static workspace) hyp)
     (neighbors (:graph workspace) hyp)))
+
+(defn find-explains-transitive-paths
+  [workspace hyp & opts]
+  (let [g (if (some #{:static} opts)
+            (:graph-static workspace)
+            (:graph workspace))]
+    (loop [paths (map (fn [h] [h]) (neighbors g hyp))]
+      (if (empty? (mapcat (fn [path] (neighbors g (last path))) paths))
+        paths
+        (let [new-paths (mapcat (fn [path] (map (fn [h] (conj path h))
+                                                (neighbors g (last path))))
+                                paths)]
+          (recur new-paths))))))
 
 (defn shared-explains?
   [workspace hyp hyps]
@@ -143,13 +156,15 @@
    first seq of alts in seq of seqs has greatest difference."
   [workspace trans?]
   (let [g (:graph workspace)
-        all-acc #(empty? (set/difference (neighbors g %) (:accepted workspace)))
+        all-acc #(empty? (set/difference (neighbors g %)
+                                         (set/union (:forced workspace)
+                                                    (:accepted workspace))))
         explainers (map #(sort-by-conf workspace (if trans? (incoming-transitive g %)
                                                      (incoming g %)))
                         (find-unexplained workspace))]
     (reverse (sort (partial sort-by-delta workspace)
                    (filter #(>= (count %) 1)
-                           (filter (if trans? identity all-acc) explainers))))))
+                           (map #(filter (if trans? identity all-acc) %) explainers))))))
 
 (defn find-explainers
   [workspace hyp & opts]
@@ -304,17 +319,9 @@
    if that hypothesis is a member of every path from the explained hyp
    and the accepted hyp."
   [workspace hyp pdata]
-  (loop [acceptable [hyp]
-         ws workspace]
-    (if (empty? acceptable) ws
-        (let [accept-later (first acceptable)
-              explained (set/difference (find-explains ws accept-later)
-                                        (:forced ws) (:accepted ws))]
-          (if (empty? explained)
-            ;; nothing else to push to the front of the queue, so accept 'accept-later' hyp
-            (recur (rest acceptable) (accept ws accept-later pdata))
-            ;; otherwise, have something to accept first; put in front of queue
-            (recur (concat explained acceptable) ws))))))
+  (let [paths (find-explains-transitive-paths workspace hyp)
+        acceptable (conj (apply set/intersection (map set paths)) hyp)]
+    (reduce (fn [ws h] (accept ws h pdata)) workspace acceptable)))
 
 (defn forced
   [workspace hyp]
@@ -369,9 +376,7 @@
                      {:accepted (:accepted workspace)
                       :rejected (:rejected workspace)
                       :shared-explains (find-shared-explains workspace)
-                      ;; only record unexplained sensor detections
-                      :unexplained (set/intersection (:forced workspace)
-                                                     (find-unexplained workspace))
+                      :unexplained (find-unexplained workspace)
                       :no-explainers (find-no-explainers workspace)
                       :unaccepted (set/difference
                                    (get-hyps workspace)
@@ -405,24 +410,25 @@
         (assoc (find-best workspace immediate-explainers threshold) :transitive? false)
         best-transitive
         (assoc (find-best workspace transitive-explainers threshold) :transitive? true)]
-    (cond (:essential? best-immediate) best-immediate
-          (:essential? best-transitive) best-transitive
-          (not (:best best-immediate)) best-transitive
-          (not (:best best-transitive)) best-immediate
-          (> (:delta best-immediate) (:delta best-transitive)) best-immediate
-          :else best-transitive)))
+    (cond
+     (not (:TransitiveExplanation params)) best-immediate
+     (:essential? best-immediate) best-immediate
+     (:essential? best-transitive) best-transitive
+     (not (:best best-immediate)) best-transitive
+     (not (:best best-transitive)) best-immediate
+     (> (:delta best-immediate) (:delta best-transitive)) best-immediate
+     :else best-transitive)))
 
 (defn explain
   [workspace pdata]
-  #_(println (dot-str (reduce (fn [g n] (add-attr g n :label (:id n)))
-                              (:graph-static workspace) (nodes (:graph-static workspace)))))
   (loop [ws workspace]
     (if (empty? (edges (:graph ws))) (log-final ws)
         (let [immediate-explainers (find-all-explainers ws false)
               transitive-explainers (if (:TransitiveExplanation params)
                                       (find-all-explainers ws true) [])]
-          (if (and (empty? immediate-explainers)
-                   (empty? transitive-explainers))
+          (if (or (and (empty? immediate-explainers)
+                       (not (:TransitiveExplanation params)))
+                  (and (empty? immediate-explainers) (empty? transitive-explainers)))
             (log-final ws)
             (let [ws-confs (update-confidences ws immediate-explainers)
                   immediate-explainers-updated (find-all-explainers ws-confs false)

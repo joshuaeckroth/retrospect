@@ -2,6 +2,7 @@
   (:use [loom.graph :only [incoming nodes neighbors]])
   (:use [loom.alg-generic :only [dijkstra-span]])
   (:use [retrospect.epistemicstates :only [current-ep-state previous-ep-state]])
+  (:use [retrospect.workspaces :only [get-unexplained-pct]])
   (:use [retrospect.state]))
 
 (defn calc-increase
@@ -37,9 +38,7 @@
              :MetaAccepted (:meta-accepted ors-resources)
              :Milliseconds (:milliseconds ors-resources) 
              :Unexplained (count (:unexplained final-log))
-             :UnexplainedPct (* 100.0 (/ (count (:unexplained final-log))
-                                         (let [hc (:hypothesis-count ws-resources)]
-                                           (if (= 0 hc) 1 hc))))
+             :UnexplainedPct (* 100.0 (get-unexplained-pct (:workspace prev-ep)))
              :NoExplainers (count (:no-explainers final-log))
              :SharedExplains (count (:shared-explains final-log))
              :ExplainCycles (:explain-cycles ws-resources)
