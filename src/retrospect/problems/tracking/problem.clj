@@ -15,9 +15,10 @@
           player-get-problem-log player-setup-diagram player-update-diagram]])
   (:use [retrospect.problems.tracking.monitor :only
          [monitor]])
-  (:use [retrospect.problems.tracking.prepared :only
-         [prepared-map]])
   (:use [retrospect.state]))
+
+(comment   (:use [retrospect.problems.tracking.prepared :only
+         [prepared-map]]))
 
 (defn read-walk-dist
   [file]
@@ -51,7 +52,7 @@
                 :update-diagram-fn player-update-diagram}
                generate-truedata
                generate-sensors
-               prepared-map
+               {} ;; prepared-map
                hypothesize
                identity ;; get-more-hyps
                commit-decision

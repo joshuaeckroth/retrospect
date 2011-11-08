@@ -1,6 +1,4 @@
 (ns retrospect.problems.tracking.prepared
-  (:use [retrospect.problems.tracking.grid :only
-         [new-grid grid-add grid-move grid-at]])
   (:use [retrospect.problems.tracking.sensors :only
          [new-sensor generate-sensors]])
   (:use [retrospect.colors])
