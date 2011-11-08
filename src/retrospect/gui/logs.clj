@@ -102,7 +102,9 @@
    (alter truedata-log (constantly ((:get-truedata-log (:player-fns @problem)))))
    (alter problem-log (constantly ((:get-problem-log (:player-fns @problem)))))
    (alter hyp-choices
-          (constantly (sort (map :id (ws/get-hyps (:workspace (:ep-state @or-state)) :static)))))
+          (constantly (sort (AlphanumComparator.)
+                            (map :id (ws/get-hyps (:workspace (:ep-state @or-state))
+                                                  :static)))))
    (alter abduction-tree-map
           (constantly (build-abduction-tree-map (:ep-state-tree @or-state) false))))
   (. problem-log-label setText (format "Problem log for: %s" (str (:ep-state @or-state)))))

@@ -1,4 +1,5 @@
 (ns retrospect.problems.tracking.player
+  (:import (misc AlphanumComparator))
   (:import (java.awt Graphics2D Dimension GridBagLayout GridBagConstraints
                      BorderLayout RenderingHints BasicStroke Font Insets Color))
   (:import (java.awt.image BufferedImage))
@@ -89,7 +90,8 @@
   (when (and @truedata (> @time-now 0))    
     (dorun
      (for [x (range @grid-width) y (range @grid-height)]
-       (let [es (sort (entities-at @truedata x y (dec @time-now)))]
+       (let [es (sort-by str (AlphanumComparator.)
+                         (entities-at @truedata x y (dec @time-now)))]
          (when (not-empty es)
            (fill-cell-entities g x y es)))))))
 
@@ -212,6 +214,7 @@
                                               (let [loc (get entities e)]
                                                 (format "%s: %d,%d@%d"
                                                         e (:x loc) (:y loc) (:time loc))))
-                                            (sort (keys entities)))))
+                                            (sort-by str (AlphanumComparator.)
+                                                     (keys entities)))))
             (apply str (interpose "\n" (map move-str
                                             (sort-by :time believed-movements)))))))

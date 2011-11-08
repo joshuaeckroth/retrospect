@@ -1,4 +1,5 @@
 (ns retrospect.problems.tracking.truedata
+  (:import (misc AlphanumComparator))
   (:use [retrospect.random])
   (:use [retrospect.colors])
   (:use [retrospect.problems.tracking.movements])
@@ -46,7 +47,7 @@
 
 (defn format-movements-comparative
   [true-movements believed-movements mintime maxtime]
-  (let [es (sort (entities true-movements))
+  (let [es (sort-by str (AlphanumComparator.) (entities true-movements))
         arrows (fn [ss] (apply str (interpose " -> " ss)))
         lines (fn [ss] (apply str (interpose "\n" ss)))]
     (lines (for [e es]
