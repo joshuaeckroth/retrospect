@@ -11,6 +11,7 @@
   (:use [retrospect.state])
   (:use [retrospect.gui.eptree :only [ep-tree-tab update-ep-tree]])
   (:use [retrospect.gui.depgraph :only [depgraph-tab update-depgraph]])
+  (:use [retrospect.gui.hypgraph :only [hypgraph-tab update-hypgraph]])
   (:use [retrospect.gui.explainsgraph :only
          [explains-graph-tab update-explains-graph]])
   (:use [retrospect.gui.results :only [update-results results-tab]])
@@ -56,6 +57,7 @@
     (alter ep-list (constantly (sort (list-ep-states (:ep-state-tree @or-state))))))
   (update-ep-tree)
   (update-depgraph)
+  (update-hypgraph)
   #_(update-explains-graph)
   (update-results)
   (update-logs)
@@ -140,8 +142,9 @@
               (.addTab "Problem diagram" problem-diagram)
               (.addTab "Epistemic state tree" (ep-tree-tab))
               (.addTab "Dependency graph" (depgraph-tab))
+              (.addTab "Hypothesis graph" (hypgraph-tab))
+              ;;(.addTab "Explains graph" (explains-graph-tab))
               (.addTab "Logs" (logs-tab))
-              ;(.addTab "Explains graph" (explains-graph-tab))
               (.addTab "Results" (results-tab))
               (.setSelectedIndex 0))
 

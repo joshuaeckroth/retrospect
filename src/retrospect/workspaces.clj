@@ -17,6 +17,11 @@
   [n]
   (def last-id n))
 
+(defrecord Hypothesis
+    [id type conflict apriori explains desc data]
+  Object
+  (toString [self] desc))
+
 (defn new-hyp
   [prefix type conflict apriori explains desc data]
   (let [id (inc last-id)]
@@ -26,13 +31,8 @@
             (= "Thread-1" (. (Thread/currentThread) getName))) 
       (def last-id (inc last-id))
       (var-set (var last-id) (inc last-id)))
-    {:id (format "%s%d" (if meta? (str "M" prefix) prefix) id)
-     :type type
-     :conflict conflict
-     :apriori apriori
-     :explains explains
-     :desc desc
-     :data data}))
+    (Hypothesis. (format "%s%d" (if meta? (str "M" prefix) prefix) id)
+                 type conflict apriori explains desc data)))
 
 (defn init-workspace
   ([]
