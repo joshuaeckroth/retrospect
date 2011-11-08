@@ -161,7 +161,7 @@
                                                      (incoming g %)))
                         (find-unexplained workspace))]
     (reverse (sort (partial sort-by-delta workspace)
-                   (filter second
+                   (filter first
                            (if trans? explainers
                                (map #(filter all-acc %) explainers)))))))
 
