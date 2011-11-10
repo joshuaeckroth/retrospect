@@ -3,36 +3,15 @@
   (:require [clojure.contrib.string :as str])
   (:use [retrospect.state]))
 
-(defn commit-sim
-  [run rs results-type]
-  (clutch/with-db @database
-    (let [results-doc (clutch/create-document
-                       {:type (format "%s" results-type)
-                        :problem (:problem run)})
-          results-ids (map :id (clutch/bulk-update
-                                (map #(assoc % :runid (:_id run) :type results-type
-                                             :resultsid (:_id results-doc)) rs)))]
-      (clutch/update-document results-doc {:results results-ids})
-      (:_id results-doc))))
-
-(defn commit-results
-  [run results results-type]
-  (print (format "Sending %d results of type %s... "
-                 (reduce + 0 (map count results)) results-type))
-  (let [rs (doall (map #(commit-sim run % results-type) results))]
-    (println "done.")
-    rs))
-
 (defn commit-run
-  [run control comparison comparative]
+  [run-meta results]
   (clutch/with-db @database
-    (let [run (clutch/create-document run)
-          control-ids (commit-results run control "control")
-          comparison-ids (commit-results run comparison "comparison")
-          comparative-ids (commit-results run comparative "comparative")]
-      (clutch/update-document run {:control control-ids
-                                   :comparison comparison-ids
-                                   :comparative comparative-ids}))))
+    (let [run (clutch/create-document run-meta)
+          _ (print (format "Sending %d results... " (count results)))
+          results-runids (map #(assoc % :runid (:_id run)) results)
+          results-ids (doall (map :id (clutch/bulk-update results-runids)))]
+      (clutch/update-document run {:results results-ids})
+      (println "done."))))
 
 (defn read-params
   [params-string]

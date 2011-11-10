@@ -59,7 +59,7 @@
         (.write writer (format-csv-row (map name (sort (keys results))))))
       (.write writer (format-csv-row row)))))
 
-(def results (ref {:control [] :comparison [] :comparative []}))
+(def results (ref []))
 
 (defn run-partition
   [comparative? monitor? recdir params]
@@ -76,21 +76,19 @@
             (write-csv (str recdir "/comparative-results.csv") rs))
           (dosync
            (alter progress inc)
-           (alter results
-                  (fn [r] (-> r
-                              (update-in [:control] conj control-results)
-                              (update-in [:comparison] conj comparison-results)
-                              (update-in [:comparative] conj comparative-results)))))
+           (alter results conj {:control control-results
+                                :comparison comparison-results
+                                :comparative comparative-results}))
           (recur (rest ps)))
         (let [control-results (run comparative? monitor? (first ps))]
           (doseq [rs control-results]
             (write-csv (str recdir "/control-results.csv") rs))
           (dosync (alter progress inc)
-                  (alter results (fn [r] (update-in r [:control] conj control-results))))
+                  (alter results conj {:control control-results}))
           (recur (rest ps)))))))
 
 (defn run-partitions
-  [run comparative? params recdir nthreads monitor? repetitions]
+  [run-meta comparative? params recdir nthreads monitor? repetitions]
   (let [sim-count (* repetitions (count params))]
     (send (agent sim-count) check-progress sim-count (.getTime (Date.))))
   (let [seeds (repeatedly repetitions #(my-rand-int 10000000))
@@ -106,7 +104,4 @@
     (doall (pmap (fn [w] @w) workers))
     (when (not= "" @database)
       (println "Writing results to database...")
-      (db/commit-run run
-                     (sort-by :Seed (:control @results))
-                     (sort-by :Seed (:comparison @results))
-                     (sort-by :Seed (:comparative @results))))))
+      (db/commit-run run-meta @results))))
