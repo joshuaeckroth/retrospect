@@ -54,16 +54,27 @@
 
 (defn evaluate-comparative
   [control-results comparison-results control-params comparison-params]
-  (for [i (range (count control-results))]
-    (let [control (nth control-results i)
-          comparison (nth comparison-results i)]
-      (apply merge
-             {:Problem (:name @problem)}
-             (prefix-params "Cont" control-params)
-             (prefix-params "Comp" comparison-params)
-             ((:evaluate-comparative-fn @problem) control comparison
-              control-params comparison-params)
-             (map #(calc-increase control comparison %)
-                  [:MetaActivations :MetaAccepted :Milliseconds :SharedExplains
-                   :Unexplained :NoExplainers :ExplainCycles :HypothesisCount
-                   :Compute :Memory :DeepestDep])))))
+  (letfn [(do-eval [control comparison]
+            (apply merge
+                   {:Problem (:name @problem)}
+                   (prefix-params "Cont" control-params)
+                   (prefix-params "Comp" comparison-params)
+                   ((:evaluate-comparative-fn @problem) control comparison
+                    control-params comparison-params)
+                   (map #(calc-increase control comparison %)
+                        [:MetaActivations :MetaAccepted :Milliseconds :SharedExplains
+                         :Unexplained :UnexplainedPct :NoExplainers
+                         :ExplainCycles :HypothesisCount
+                         :Compute :Memory :DeepestDep])))]
+    ;; if control/comparison have different number of results
+    ;; (different steps between or steps), then just use the last
+    ;; result set
+    (if (not= (count control-results) (count comparison-results))
+      (let [control (last control-results)
+            comparison (last comparison-results)]
+        [(do-eval control comparison)])
+      ;; otherwise, evaluate each result set in sequence
+      (for [i (range (count control-results))]
+        (let [control (nth control-results i)
+              comparison (nth comparison-results i)]
+          (do-eval control comparison))))))

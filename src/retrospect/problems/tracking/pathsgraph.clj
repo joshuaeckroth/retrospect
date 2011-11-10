@@ -154,12 +154,18 @@
   [paths-graph]
   (map (fn [[det det2]] (attr paths-graph det det2 :hyp)) (edges paths-graph)))
 
+(defn find-n-best-next
+  [paths-graph det n]
+  (let [scored (map (fn [det2] [det2 (:apriori (attr paths-graph det det2 :hyp))])
+                    (neighbors paths-graph det))]
+    (take n (map first (sort-by second scored)))))
+
 (defn paths-graph-paths-build
   [paths-graph paths]
   (if (empty? (mapcat (fn [path] (neighbors paths-graph (last path))) paths))
     paths
     (let [new-paths (mapcat (fn [path] (map (fn [det] (conj path det))
-                                            (neighbors paths-graph (last path))))
+                                            (find-n-best-next paths-graph (last path) 2)))
                             paths)]
       (recur paths-graph new-paths))))
 
