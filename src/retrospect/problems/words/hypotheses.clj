@@ -92,7 +92,7 @@
         prob (double (/ (get (get models 1) [word])
                         (:sum (meta (get models 1)))))]
     (new-hyp "Word" :single-word conflicts?
-             (* prob (- 1.0 sensor-noise)) explains
+             (* prob (- 1.0 sensor-noise)) :and explains
              (format "Word: \"%s\" at positions %s (%s) (sensor noise %.0f%%)"
                      word (str adjusted-pos-seq) (apply str letters) (* 100 sensor-noise))
              {:start (first adjusted-pos-seq) :end (last adjusted-pos-seq)
@@ -104,7 +104,7 @@
         adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))]
     (new-hyp "WordLearn" :learned-word conflicts?
              0.2 ;; apriori (really apriori, not even computed!)
-             explains
+             :and explains
              (format "Learned word: \"%s\" at positions %s (%s)"
                      word (str adjusted-pos-seq) (apply str letters))
              {:start (first adjusted-pos-seq) :end (last adjusted-pos-seq)
@@ -214,7 +214,7 @@
                     accepted-in-words (set/intersection accepted (set c))]
                 (new-hyp "WordSeq" :words conflicts?
                          (lookup-prob models c accepted-in-words)
-                         c ;; explains
+                         :and c ;; explains
                          (format "Word sequence \"%s\" at positions %s"
                                  (apply str (interpose " " words))
                                  (apply str (interpose ", " pos-seqs)))
@@ -224,7 +224,7 @@
 
 (defn make-sensor-hyp
   [pos letter]
-  (new-hyp "Sens" :sensor nil 1.0 [] (format "Letter: '%c' at position %d" letter pos)
+  (new-hyp "Sens" :sensor nil 1.0 nil [] (format "Letter: '%c' at position %d" letter pos)
            {:pos pos}))
 
 (defn make-sensor-hyps

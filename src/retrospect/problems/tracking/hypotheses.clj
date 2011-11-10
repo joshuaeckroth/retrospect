@@ -46,8 +46,8 @@
   [sensor {:keys [x y color time] :as det}]
   (let [desc (format (str "Sensor detection by %s - color: %s, x: %d, y: %d, time: %d")
                      (:id sensor) (color-str color) x y time)]
-    [(new-hyp "SensFrom" :sensor-from nil 1.0 [] desc {:sensor sensor :det det})
-     (new-hyp "SensTo" :sensor-to nil 1.0 [] desc {:sensor sensor :det det})]))
+    [(new-hyp "SensFrom" :sensor-from nil 1.0 nil [] desc {:sensor sensor :det det})
+     (new-hyp "SensTo" :sensor-to nil 1.0 nil [] desc {:sensor sensor :det det})]))
 
 (defn process-sensors
   "For each time step between the last time we processed sensor data
@@ -116,7 +116,7 @@
                               unc-pairs)]
     (for [{:keys [det det-hyp det2 det2-hyp score]} unc-pairs-scored :when score]
       (new-hyp "Mov" :movement nil score
-               [det-hyp det2-hyp] (path-str [det det2]) {:det det :det2 det2}))))
+               :and [det-hyp det2-hyp] (path-str [det det2]) {:det det :det2 det2}))))
 
 (defn avg
   [vals]
@@ -128,7 +128,7 @@
                                                        (:det2 (:data hyp))])
                                             movs)))]
     (new-hyp "Path" :path nil
-             (avg (map :apriori movs)) movs
+             (avg (map :apriori movs)) :and movs
              (path-str det-seq) {:movements movs})))
 
 (defn make-location-hyp
@@ -136,7 +136,7 @@
   [entity paths]
   (let [{:keys [x y time]} (:det2 (:data (last (:movements (:data (first paths))))))]
     (new-hyp "Loc" :location entity
-             (avg (map :apriori paths)) paths
+             (avg (map :apriori paths)) :or paths
              (format "Entity %s is at %d,%d at time %d" entity x y time)
              {:entity entity :paths paths :loc {:x x :y y :time time}})))
 

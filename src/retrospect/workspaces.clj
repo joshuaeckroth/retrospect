@@ -19,12 +19,12 @@
   (def last-id n))
 
 (defrecord Hypothesis
-    [id type conflict apriori explains desc data]
+    [id type conflict apriori expl-func explains desc data]
   Object
   (toString [self] (format "%s: %s" id desc)))
 
 (defn new-hyp
-  [prefix type conflict apriori explains desc data]
+  [prefix type conflict apriori expl-func explains desc data]
   (let [id (inc last-id)]
     ;; use var-set if running batch mode; def if using player or repl
     ;; (in batch mode, thread is called something like pool-2-thread-1)
@@ -33,7 +33,7 @@
       (def last-id (inc last-id))
       (var-set (var last-id) (inc last-id)))
     (Hypothesis. (format "%s%d" (if meta? (str "M" prefix) prefix) id)
-                 type conflict apriori explains desc data)))
+                 type conflict apriori expl-func explains desc data)))
 
 (defn init-workspace
   ([]
@@ -156,14 +156,19 @@
    has already been accepted."
   [workspace trans?]
   (let [g (:graph workspace)
-        all-acc #(every? (:accepted workspace) (neighbors g %))
+        and-expl #(every? (:accepted workspace) (neighbors g %))
+        or-expl #(some (:accepted workspace) (neighbors g %))
+        filter-func (fn [h] (cond (= :or (:expl-func h)) or-expl
+                                  (= :and (:expl-func h)) and-expl
+                                  :else (constantly true)))
         explainers (map #(sort-by-conf workspace (if trans? (incoming-transitive g %)
                                                      (incoming g %)))
                         (find-unexplained workspace))]
     (reverse (sort (partial sort-by-delta workspace)
                    (filter first
                            (if trans? explainers
-                               (map #(filter all-acc %) explainers)))))))
+                               (map #(filter (filter-func %) %)
+                                    (map set explainers))))))))
 
 (defn find-explainers
   [workspace hyp & opts]
@@ -294,26 +299,31 @@
 (defn accept
   [workspace hyp pdata]
   (let [g (:graph workspace)
-        removable (concat (neighbors g hyp)
+        ;; removable hyps are those that are explained (by the newly
+        ;; accepted hyp) and that explain nothing (that hasn't already
+        ;; been removed)
+        removable (concat (filter (fn [h] (empty? (neighbors g h)))
+                                  (neighbors g hyp))
                           (if (empty? (incoming g hyp)) [hyp] []))
         ;; must find conflicts in original workspace, before explained
         ;; hyps are removed
         conflicts (find-conflicts workspace hyp)
         new-g (apply remove-nodes g removable)
         ws (-> workspace
-             (update-in [:hyp-log hyp] conj
-                        (format "Accepted in cycle %d (removed %s)"
-                                (:cycle workspace)
-                                (apply str (interpose ", " (sort (map :id removable))))))
-             (update-in [:accepted] conj hyp)
-             (update-in [:graph-static] add-attr hyp :fontcolor "green")
-             (update-in [:graph-static] add-attr hyp :color "green")
-             (assoc :graph new-g))]
+               (update-in [:hyp-log hyp] conj
+                          (format "Accepted in cycle %d (removed %s)"
+                                  (:cycle workspace)
+                                  (apply str (interpose ", " (sort (map :id removable))))))
+               (update-in [:accepted] conj hyp)
+               (update-in [:graph-static] add-attr hyp :fontcolor "green")
+               (update-in [:graph-static] add-attr hyp :color "green")
+               (assoc :graph new-g))]
     (loop [ws (reject-many ws conflicts)
            rejected #{}]
       (let [hyps (set/union (:accepted ws)
                             (apply concat (find-all-explainers ws false)))
-            incon (set/difference (set ((:inconsistent-fn @problem) pdata hyps (:rejected ws)))
+            incon (set/difference (set ((:inconsistent-fn @problem)
+                                        pdata hyps (:rejected ws)))
                                   rejected)]
         (if (not-empty incon)
           (recur (reject-many ws incon) (set/union rejected (set incon)))
