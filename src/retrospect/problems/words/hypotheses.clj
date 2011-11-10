@@ -296,7 +296,7 @@
               word-hyps (filter-existing
                          (make-word-hyps sub-indexed-letters left-off
                                          dictionary sensor-noise sensor-hyps models))
-              accepted (:accepted ws)
+              accepted (filter #(not= :sensor (:type %)) (:accepted ws))
               composite-hyps (filter-existing
                               (make-composite-hyps models (map first word-hyps)
                                                    (set (filter #(= :single-word (:type %))
@@ -371,7 +371,7 @@
                            {} (range 1 (inc max-n)))]
     (-> pdata
         (update-in [:dictionary] set/union (set learned-words))
-        (update-in [:accepted] concat accepted)
+        (update-in [:accepted] concat (filter #(not= :sensor (:type %)) accepted))
         (update-in [:history] concat words)
         (assoc :models new-models)
         (assoc :letters [])

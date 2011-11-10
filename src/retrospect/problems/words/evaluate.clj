@@ -18,7 +18,7 @@
 
 (defn evaluate
   [ep-state sensors truedata]
-  (let [accepted (:accepted (:problem-data ep-state))
+  (let [accepted (filter #(not= :sensor (:type %)) (:accepted (:problem-data ep-state)))
         truewords-starts (get-truewords-starts truedata (:time ep-state))
         truewords (map first truewords-starts)
         correct-pcts
