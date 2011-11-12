@@ -8,7 +8,11 @@
   (clutch/with-db @database
     (let [run (clutch/create-document run-meta)
           _ (print (format "Sending %d results... " (count results)))
-          results-runids (map #(assoc % :runid (:_id run)) results)
+          results-runids (map #(assoc % :runid (:_id run)
+                                      :problem (:problem run)
+                                      :paramstype (:paramstype run)
+                                      :type "simulation")
+                              results)
           results-ids (doall (map :id (clutch/bulk-update results-runids)))]
       (clutch/update-document run {:results results-ids})
       (println "done."))))
