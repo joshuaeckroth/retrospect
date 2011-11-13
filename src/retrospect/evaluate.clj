@@ -59,7 +59,8 @@
                    {:Problem (:name @problem)}
                    (prefix-params "Cont" (dissoc control-params :simulation))
                    (prefix-params "Comp" (dissoc comparison-params :simulation))
-                   {:simulation (:simulation control-params)}
+                   {:simulation (:simulation control-params)
+                    :Step (:Step control)}
                    ((:evaluate-comparative-fn @problem) control comparison
                     control-params comparison-params)
                    (map #(calc-increase control comparison %)
