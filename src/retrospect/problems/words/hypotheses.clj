@@ -298,7 +298,7 @@
                                          dictionary sensor-noise sensor-hyps models))
               accepted (filter #(not= :sensor (:type %)) (:accepted ws))
               composite-hyps (filter-existing
-                              (make-composite-hyps models (map first word-hyps)
+                              (make-composite-hyps models word-hyps
                                                    (set (filter #(= :single-word (:type %))
                                                                 existing-hyps))
                                                    max-n))]
