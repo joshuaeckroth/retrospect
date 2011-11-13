@@ -11,6 +11,7 @@
           results-runids (map #(assoc % :runid (:_id run)
                                       :problem (:problem run)
                                       :paramstype (:paramstype run)
+                                      :simulation (:simulation (first (:control %)))
                                       :type "simulation")
                               results)
           results-ids (doall (map :id (clutch/bulk-update results-runids)))]

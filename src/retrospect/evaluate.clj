@@ -57,8 +57,9 @@
   (letfn [(do-eval [control comparison]
             (apply merge
                    {:Problem (:name @problem)}
-                   (prefix-params "Cont" control-params)
-                   (prefix-params "Comp" comparison-params)
+                   (prefix-params "Cont" (dissoc control-params :simulation))
+                   (prefix-params "Comp" (dissoc comparison-params :simulation))
+                   {:simulation (:simulation control-params)}
                    ((:evaluate-comparative-fn @problem) control comparison
                     control-params comparison-params)
                    (map #(calc-increase control comparison %)

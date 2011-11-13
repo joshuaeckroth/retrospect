@@ -97,8 +97,13 @@
                                            (map (fn [p] (assoc p :Seed s)) pp)
                                            (assoc pp :Seed s))))
                               params)
-        partitions (partition-all (math/ceil (/ (count seeded-params) nthreads))
-                                  (my-shuffle seeded-params))
+        numbered-params (map (fn [i]
+                               (if comparative?
+                                 (map #(assoc % :simulation i) (nth seeded-params i))
+                                 (assoc (nth seeded-params i) :simulation i)))
+                             (range (count seeded-params)))
+        partitions (partition-all (math/ceil (/ (count numbered-params) nthreads))
+                                  (my-shuffle numbered-params))
         workers (for [part partitions]
                   (future (run-partition comparative? monitor? recdir part)))]
     (doall (pmap (fn [w] @w) workers))
