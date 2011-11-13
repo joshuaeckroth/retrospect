@@ -1,8 +1,7 @@
 (ns retrospect.problems.tracking.prepared
   (:use [retrospect.problems.tracking.sensors :only
          [new-sensor generate-sensors]])
-  (:use [retrospect.colors])
-  (:use [retrospect.random :only [set-seed]]))
+  (:use [retrospect.colors]))
 
 (def basic-params
   {:GridHeight 10, :GridWidth 10, :MaxWalk 1,

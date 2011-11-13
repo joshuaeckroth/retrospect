@@ -1,14 +1,14 @@
 (ns retrospect.random
   (:import (java.util Random)))
 
-(def *rgen* nil)
+(def rgen nil)
 
-(defn set-seed
+(defn new-seed
   [n]
-  (def *rgen* (Random. n)))
+  (Random. n))
 
 (defn my-rand
-  ([] (.nextDouble *rgen*))
+  ([] (.nextDouble rgen))
   ([n] (* n (my-rand))))
 
 (defn my-rand-int
@@ -22,5 +22,5 @@
 (defn my-shuffle
   [coll]
   (let [al (java.util.ArrayList. coll)]
-    (java.util.Collections/shuffle al *rgen*)
+    (java.util.Collections/shuffle al rgen)
     (clojure.lang.RT/vector (.toArray al))))

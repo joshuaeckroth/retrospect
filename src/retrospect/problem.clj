@@ -6,12 +6,12 @@
          [init-one-run-state update-one-run-state proceed-one-run-state
           clear-resources]])
   (:use [retrospect.epistemicstates :only
-         [explain current-ep-state]])
+         [explain current-ep-state previous-ep-state]])
   (:use [retrospect.meta.reason :only
          [metareasoning-activated? metareason]])
   (:use [retrospect.evaluate :only [evaluate evaluate-comparative]])
   (:use [retrospect.sensors :only [update-sensors]])
-  (:use [retrospect.random :only [set-seed my-rand-int]])
+  (:use [retrospect.random :only [rgen new-seed my-rand-int]])
   (:use [retrospect.state]))
 
 (defn proceed-n-steps
@@ -68,9 +68,9 @@
     ;; if comparative, run two simulations
     (let [[control-params comparison-params] params
           control-results
-          (binding [last-id 0
+          (binding [rgen (new-seed (:Seed control-params))
+                    last-id 0
                     params control-params]
-            (set-seed (:Seed control-params))
             (let [control-truedata ((:truedata-fn @problem))
                   control-sensors ((:sensor-gen-fn @problem))
                   control-problem-data ((:gen-problem-data-fn @problem)
@@ -81,9 +81,9 @@
                                    :comparison-params (pr-str comparison-params)))
                    (run-simulation control-truedata control-or-state monitor?))))
           comparison-results
-          (binding [last-id 0
+          (binding [rgen (new-seed (:Seed comparison-params))
+                    last-id 0
                     params comparison-params]
-            (set-seed (:Seed comparison-params))
             (let [comparison-truedata ((:truedata-fn @problem))
                   comparison-sensors ((:sensor-gen-fn @problem))
                   comparison-problem-data ((:gen-problem-data-fn @problem)
@@ -101,9 +101,9 @@
             (evaluate-comparative control-results comparison-results
                                   control-params comparison-params))])
     ;; if non-comparative, just run the simulation
-    (binding [last-id 0
+    (binding [rgen (new-seed (:Seed params))
+              last-id 0
               params params]
-      (set-seed (:Seed params))
       (let [truedata ((:truedata-fn @problem))
             sensors ((:sensor-gen-fn @problem))
             problem-data ((:gen-problem-data-fn @problem) truedata sensors)

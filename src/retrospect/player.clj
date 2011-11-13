@@ -21,7 +21,7 @@
   (:use [retrospect.epistemicstates :only
          [list-ep-states current-ep-state goto-ep-state root-ep-state?
           previous-ep-state non-accepted-current-ep-state?]])
-  (:use [retrospect.random :only [set-seed]]))
+  (:use [retrospect.random :only [rgen new-seed]]))
 
 (def prepared-selected (atom "None"))
 (def params-edit (ref ""))
@@ -75,7 +75,7 @@
       (let [ps (read-string @params-edit)]
         (alter-var-root (var params) (constantly ps))
         (dosync (alter params-edit (constantly (format-params ps))))
-        (set-seed (get-seed))
+        (alter-var-root (var rgen) (constantly (new-seed (get-seed))))
         (set-last-id 0)
         (dosync
          (alter truedata (constantly ((:truedata-fn @problem))))
@@ -97,7 +97,7 @@
           sens (:sensors prepared)]
       (dosync (alter params-edit (constantly (format-params ps))))
       (alter-var-root (var params) (constantly ps))
-      (set-seed seed)
+      (alter-var-root (var rgen) (constantly (new-seed seed)))
       (set-last-id 0)
       (dosync
        (alter truedata (constantly td))

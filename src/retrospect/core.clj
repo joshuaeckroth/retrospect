@@ -3,7 +3,7 @@
   (:use [clojure.contrib.command-line :only [with-command-line]])
   (:use [clojure.contrib.shell :only [sh]])
   (:use [clojure.contrib.string :only [split-lines]])
-  (:use [retrospect.random])
+  (:use [retrospect.random :only [rgen new-seed]])
   (:require [retrospect.state :as state])
   (:use [retrospect.database :only [read-params]])
   (:use [retrospect.problems.tracking.problem :only [tracking-problem]])
@@ -26,7 +26,7 @@
      [seed "Seed" "0"]
      [database "Database identifier" "http://127.0.0.1:5984/retrospect"]]
     (let [seed (Integer/parseInt seed)]
-      (set-seed seed)
+      (alter-var-root (var rgen) (constantly (new-seed seed)))
       (dosync
        (alter state/datadir (constantly datadir))
        (alter state/database (constantly database)))
