@@ -16,9 +16,10 @@
 
 (defn possibly-add-new-entity
   [movements time]
-  (if (>= (double (/ (:ProbNewEntities params) 100)) (my-rand))
-    (new-entity movements time)
-    movements))
+  movements
+  (comment (if (>= (double (/ (:ProbNewEntities params) 100)) (my-rand))
+             (new-entity movements time)
+             movements)))
 
 ;; TODO: fix for 'movements' structure
 (defn output-walk-sizes
