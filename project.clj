@@ -18,4 +18,4 @@
   :autodoc {:name "retrospect", :page-title "retrospect API" :trim-prefix "retrospect."
             :web-src-dir "https://github.com/joshuaeckroth/retrospect/blob/"}
   :java-source-path "src/jvm"
-  :jvm-opts ["-Dawt.useSystemAAFontSettings=on" "-Xmx1000m" "-Xss2m"])
+  :jvm-opts ["-Dawt.useSystemAAFontSettings=on" "-Xmx2000m" "-Xss4m"])
