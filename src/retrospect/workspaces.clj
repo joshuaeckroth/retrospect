@@ -120,7 +120,12 @@
   "Since we are using probabilities, smaller value = less confidence. We want
    most confident first."
   [workspace hyps]
-  (reverse (sort-by (partial hyp-conf workspace) hyps)))
+  (let [cmp (fn [hyp1 hyp2] (if (= 0 (compare (hyp-conf workspace hyp1)
+                                              (hyp-conf workspace hyp2)))
+                              (compare (:id hyp1) (:id hyp2))
+                              (compare (hyp-conf workspace hyp1)
+                                       (hyp-conf workspace hyp2))))]
+    (reverse (sort cmp hyps))))
 
 (defn sort-by-delta
   [workspace hyps1 hyps2]
@@ -131,8 +136,11 @@
         hyps1-delta (delta-fn hyps1)
         hyps2-delta (delta-fn hyps2)]
     (if (= 0 (compare hyps1-delta hyps2-delta))
-      (compare (hyp-conf workspace (first hyps1))
-               (hyp-conf workspace (first hyps2)))
+      (if (= 0 (compare (hyp-conf workspace (first hyps1))
+                        (hyp-conf workspace (first hyps2))))
+        (compare (:id (first hyps1)) (:id (first hyps2)))
+        (compare (hyp-conf workspace (first hyps1))
+                 (hyp-conf workspace (first hyps2))))
       (compare hyps1-delta hyps2-delta))))
 
 (defn incoming-transitive
@@ -161,14 +169,13 @@
         filter-func (fn [h] (cond (= :or (:expl-func h)) or-expl
                                   (= :and (:expl-func h)) and-expl
                                   :else (constantly true)))
-        explainers (map #(sort-by-conf workspace (if trans? (incoming-transitive g %)
-                                                     (incoming g %)))
+        explainers (map #(if trans? (incoming-transitive g %) (incoming g %))
                         (find-unexplained workspace))]
     (reverse (sort (partial sort-by-delta workspace)
-                   (filter first
-                           (if trans? explainers
-                               (map #(filter (filter-func %) %)
-                                    (map set explainers))))))))
+                   (map (partial sort-by-conf workspace)
+                        (filter first (if trans? explainers
+                                          (map #(filter (filter-func %) %)
+                                               (map set explainers)))))))))
 
 (defn find-explainers
   [workspace hyp & opts]
@@ -176,8 +183,8 @@
             (:graph-static workspace)
             (:graph workspace))]
     (if (:TransitiveExplanation params)
-      (set/union (incoming g hyp) (incoming-transitive g hyp))
-      (incoming g hyp))))
+      (sort-by :id (set/union (incoming g hyp) (incoming-transitive g hyp)))
+      (sort-by :id (incoming g hyp)))))
 
 (defn normalize-confidences
   "Normalize the apriori confidences of a collection of hyps.
@@ -203,7 +210,7 @@
                         ;; the existing confidence, then update it
                         (if (<= (norm-alts hyp) (hyp-conf ws hyp)) ws2
                           (assoc-in ws2 [:hyp-confidences hyp] (norm-alts hyp))))
-                      ws (keys norm-alts))))
+                      ws (sort-by :id (keys norm-alts)))))
           workspace explainers))
 
 (defn find-conflicts
@@ -320,8 +327,8 @@
                (assoc :graph new-g))]
     (loop [ws (reject-many ws conflicts)
            rejected #{}]
-      (let [hyps (set/union (:accepted ws)
-                            (apply concat (find-all-explainers ws false)))
+      (let [hyps (sort-by :id (set/union (:accepted ws)
+                                         (apply concat (find-all-explainers ws false))))
             incon (set/difference (set ((:inconsistent-fn @problem)
                                         pdata hyps (:rejected ws)))
                                   rejected)]
@@ -341,7 +348,7 @@
         acceptable (conj (cond (empty? paths) []
                                (= 1 (count paths)) (first paths)
                                :else (apply set/intersection (map set paths))) hyp)]
-    (reduce (fn [ws h] (accept ws h pdata)) workspace acceptable)))
+    (reduce (fn [ws h] (accept ws h pdata)) workspace (sort-by :id acceptable))))
 
 (defn force-accept
   [workspace hyp]
@@ -418,7 +425,7 @@
       (let [essentials (apply concat (filter #(= 1 (count %)) explainers))]
         (if (not-empty essentials)
           ;; choose first most-confident essential
-          (let [best (first essentials)]
+          (let [best (first (sort-by-conf workspace essentials))]
             {:best best :alts (filter #(not= % best) essentials)
              :essential? true :delta nil})
           ;; otherwise, choose highest-delta non-essential
