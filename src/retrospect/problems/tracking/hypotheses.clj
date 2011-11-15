@@ -102,11 +102,12 @@
         unc-to-by-time (group-by (comp :time :det :data) uncovered-to)
         ;; pair uncovered dets together, where each pair has a det
         ;; from time t first, and a det from time t+1 second
-        unc-pairs (apply concat (for [t (sort (keys unc-to-by-time))]
-                                  (mapcat (fn [det-hyp]
-                                            (map (fn [det2-hyp] [det-hyp det2-hyp])
-                                                 (get unc-from-by-time (inc t))))
-                                          (get unc-to-by-time t))))
+        unc-pairs (apply concat
+                         (for [t (sort (keys unc-to-by-time))]
+                           (mapcat (fn [det-hyp]
+                                     (map (fn [det2-hyp] [det-hyp det2-hyp])
+                                          (sort-by :id (get unc-from-by-time (inc t)))))
+                                   (sort-by :id (get unc-to-by-time t)))))
         unc-pairs-scored (map (fn [[det-hyp det2-hyp]]
                                 (let [det (:det (:data det-hyp))
                                       det2 (:det (:data det2-hyp))]
