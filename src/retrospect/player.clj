@@ -75,7 +75,9 @@
       (let [ps (read-string @params-edit)]
         (alter-var-root (var params) (constantly ps))
         (dosync (alter params-edit (constantly (format-params ps))))
-        (alter-var-root (var rgen) (constantly (new-seed (get-seed))))
+        (let [seed (if (:Seed ps) (:Seed ps) (get-seed))]
+          (alter-var-root (var rgen) (constantly (new-seed seed))))
+        (if (:Seed ps) (set-seed-spinner (:Seed ps)))
         (set-last-id 0)
         (dosync
          (alter truedata (constantly ((:truedata-fn @problem))))
