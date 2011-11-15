@@ -5,6 +5,7 @@
   (:use [clj-swing.label])
   (:use [clj-swing.text-field])
   (:use [clj-swing.tree])
+  (:use [clj-swing.button])
   (:import (clj-swing.tree Pathed))
   (:use [clj-swing.panel])
   (:use [clojure.contrib.seq :only [find-first]])
@@ -19,6 +20,7 @@
 (def problem-log-label (label ""))
 (def hyp-choices (ref []))
 (def hyp-selected (atom nil))
+(def workspace-selected (atom nil))
 (def hyp-info (ref ""))
 (def abduction-tree-map (ref {}))
 (def workspace-log (ref ""))
@@ -64,19 +66,17 @@
            (mapcat (fn [ep] [(str ep) {"Workspace" (ws-fn (:log (:workspace ep)))}])
                    ep-states))))
 
+(defn commas
+  [hyps]
+  (apply str (interpose ", " (sort (AlphanumComparator.) (map :id hyps)))))
+
 (defn hyp-info
   [workspace hyp]
   (format "%s\n\nExplains: %s\n\nExplainers: %s\n\nConflicts: %s\n\nApriori: %s\nConfidence: %s\n\nLog:\n%s"
           (:desc hyp)
-          (apply str (interpose ", " (sort (AlphanumComparator.)
-                                           (map (comp str :id)
-                                                (ws/find-explains workspace hyp params :static))))) 
-          (apply str (interpose ", " (sort (AlphanumComparator.)
-                                           (map (comp str :id)
-                                                (ws/find-explainers workspace hyp params :static)))))
-          (apply str (interpose ", " (sort (AlphanumComparator.)
-                                           (map (comp str :id)
-                                                (ws/find-conflicts workspace hyp params :static)))))
+          (commas (ws/find-explains workspace hyp params :static))
+          (commas (ws/find-explainers workspace hyp params :static))
+          (commas (ws/find-conflicts workspace hyp params :static))
           (confidence-str (:apriori hyp))
           (confidence-str (ws/hyp-conf workspace hyp))
           (apply str (interpose "\n" (ws/hyp-log workspace hyp)))))
@@ -92,9 +92,31 @@
                        (find-first #(= (:id %) ep-id) (flatten-ep-state-tree
                                                        (:ep-state-tree @or-state)))))
           ws (if ep-state (:workspace ep-state))]
-      (if-let [hyp (if ws (find-first #(= (:id %) last-comp) (ws/get-hyps ws :static)))]
-        (dosync (alter workspace-log (constantly (hyp-info ws hyp))))
-        (dosync (alter workspace-log (constantly "")))))))
+      (swap! workspace-selected (constantly ws))
+      (let [hyp (if ws (find-first #(= (:id %) last-comp) (ws/get-hyps ws :static)))]
+        (swap! hyp-selected (constantly hyp))
+        (if hyp
+          (dosync (alter workspace-log (constantly (hyp-info ws hyp))))
+          (dosync (alter workspace-log (constantly ""))))))))
+
+(defn show-analysis
+  []
+  (when (and @workspace-selected @hyp-selected)
+    (let [pdata (:problem-data (previous-ep-state (:ep-state-tree @or-state)))
+          ws @workspace-selected
+          hyp @hyp-selected
+          accepted? ((:accepted ws) hyp)
+          [acc unacc rej] (ws/analyze ws hyp pdata)
+          group-str (fn [type hyps]
+                      (format "Hyp groups, when rejected, cause this hyp to be %s: %s"
+                              type (apply str (interpose ", " (map #(format "[%s]" %)
+                                                                   (map commas hyps))))))
+          analysis (format "%s\n\n%s" (if accepted? (group-str "rejected" rej)
+                                          (group-str "accepted" acc))
+                           (group-str "unaccepted" unacc))]
+      (dosync
+       (alter workspace-log
+              (fn [log] (format "%s\n\nAnalysis:\n\n%s" log analysis)))))))
 
 (defn update-logs
   []
@@ -128,8 +150,16 @@
                              :model (mapref-tree-model
                                      abduction-tree-map "Epistemic states")
                              :action ([_ _] (show-log (.getSelectionPath tr))))
-                       (scroll-panel (text-area :str-ref workspace-log
-                                                :editable false :wrap true)))
-                  (.setDividerLocation 200)))
+                       (panel :layout (GridBagLayout.)
+                              :constrains (java.awt.GridBagConstraints.)
+                              [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0 :gridwidth 2
+                               :fill :BOTH :insets (Insets. 0 0 0 0)
+                               _ (scroll-panel (text-area :str-ref workspace-log
+                                                          :editable false :wrap true))
+                               :gridx 0 :gridy 1 :weightx 1.0 :weighty 0.0 :gridwidth 1
+                               _ (panel)
+                               :gridx 1 :weightx 0.0
+                               _ (button "Analyze" :action ([_] (show-analysis)))]))
+                  (.setDividerLocation 300)))
            (.setDividerLocation 200)))
     (.setDividerLocation 200)))

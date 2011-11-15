@@ -8,6 +8,7 @@
           add-nodes add-edges remove-nodes edges transpose]])
   (:use [loom.alg :only [pre-traverse]])
   (:use [loom.attr :only [add-attr remove-attr]])
+  (:use [clojure.contrib.combinatorics :only [combinations]])
   (:use [retrospect.state]))
 
 (def last-id 0)
@@ -484,3 +485,38 @@
                    (if transitive?
                      (transitive-accept ws-logged best pdata)
                      (accept ws-logged best pdata)))))))))))
+
+;; TODO this only works for accepted/rejected test hyps
+(defn analyze
+  [workspace hyp pdata]
+  (let [accepted? ((:accepted workspace) hyp)
+        hyps-consequent (neighbors (:graph-static workspace) hyp)
+        check-sets (mapcat (fn [n] (map set (combinations hyps-consequent n)))
+                           [1 2 3 4])]
+    ;; attempt removing each forced hyp separately, and see if original
+    ;; hyp is still accepted
+    (loop [to-check check-sets
+           acc []
+           unacc []
+           rej []]
+      (if (empty? to-check) [acc unacc rej]
+          (let [check (first to-check)
+                ws (prepare-workspace workspace)
+                ws-altered (-> ws (update-in [:accepted] set/difference check)
+                               (reject-many check))
+                ws-explained (explain ws-altered pdata)
+                now-accepted? ((:accepted ws-explained) hyp)
+                now-rejected? ((:rejected ws-explained) hyp)]
+            (cond
+             ;; hyp (newly) accepted
+             (and (not accepted?) now-accepted?)
+             (recur (rest to-check) (conj acc check) unacc rej)
+             ;; hyp (newly) rejected
+             (and accepted? now-rejected?)
+             (recur (rest to-check) acc unacc (conj rej check))
+             ;; no change
+             (or (and accepted? now-accepted?) (and (not accepted?) now-rejected?))
+             (recur (rest to-check) acc unacc rej)
+             ;; else, turned into unaccepted
+             :else
+             (recur (rest to-check) acc (conj unacc check) rej)))))))
