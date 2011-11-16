@@ -6,7 +6,8 @@
 (defn commit-run
   [run-meta results]
   (clutch/with-db @database
-    (let [run (clutch/create-document run-meta)
+    (let [run (clutch/create-document
+               (assoc run-meta :endtime (. System (currentTimeMillis))))
           _ (print (format "Sending %d results... " (count results)))
           results-runids (map #(assoc % :runid (:_id run)
                                       :problem (:problem run)
