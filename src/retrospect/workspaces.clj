@@ -492,7 +492,13 @@
 (defn analyze
   [workspace hyp pdata]
   (let [accepted? ((:accepted workspace) hyp)
-        hyps-consequent (neighbors (:graph-static workspace) hyp)
+        ;; hyps worth considering are those that this hyp explains (if
+        ;; this hyp is accepted) or those that conflict with it (if
+        ;; this hyp is rejected)
+        hyps-consequent (if accepted? (neighbors (:graph-static workspace) hyp)
+                            (set/intersection
+                             (:accepted workspace)
+                             (set (find-conflicts workspace hyp :static))))
         check-sets (mapcat (fn [n] (map set (combinations hyps-consequent n)))
                            [1 2 3 4])]
     ;; attempt removing each forced hyp separately, and see if original
