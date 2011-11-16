@@ -172,11 +172,13 @@
                                   :else (constantly true)))
         explainers (map #(if trans? (incoming-transitive g %) (incoming g %))
                         (find-unexplained workspace))]
-    (reverse (sort (partial sort-by-delta workspace)
-                   (map (partial sort-by-conf workspace)
-                        (filter first (if trans? explainers
-                                          (map #(filter (filter-func %) %)
-                                               (map set explainers)))))))))
+    (reverse
+     (sort (partial sort-by-delta workspace)
+           (map (partial sort-by-conf workspace)
+                (filter first
+                        (if trans? explainers
+                            (map (fn [hs] (filter (fn [h] ((filter-func h) h)) hs))
+                                 (map set explainers)))))))))
 
 (defn find-explainers
   [workspace hyp & opts]

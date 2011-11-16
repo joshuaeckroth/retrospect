@@ -72,8 +72,11 @@
 
 (defn hyp-info
   [workspace hyp]
-  (format "%s\n\nExplains: %s\n\nExplainers: %s\n\nConflicts: %s\n\nApriori: %s\nConfidence: %s\n\nLog:\n%s"
+  (format "%s\n\nExplains (%s): %s\n\nExplainers: %s\n\nConflicts: %s\n\nApriori: %s\nConfidence: %s\n\nLog:\n%s"
           (:desc hyp)
+          (cond (= :and (:expl-func hyp)) "AND"
+                (= :or (:expl-func hyp)) "OR"
+                :else "NEITHER AND/OR")
           (commas (ws/find-explains workspace hyp params :static))
           (commas (ws/find-explainers workspace hyp params :static))
           (commas (ws/find-conflicts workspace hyp params :static))
