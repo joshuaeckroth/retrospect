@@ -150,10 +150,6 @@
         pg-updated-colors (update-paths-graph-colors pg-inconsistent entities)]
     (remove-inconsistent-paths-graph-edges pg-updated-colors entities)))
 
-(defn paths-graph-edge-hyps
-  [paths-graph]
-  (map (fn [[det det2]] (attr paths-graph det det2 :hyp)) (edges paths-graph)))
-
 (defn find-n-best-next
   [paths-graph det n]
   (let [scored (map (fn [det2] [det2 (:apriori (attr paths-graph det det2 :hyp))])

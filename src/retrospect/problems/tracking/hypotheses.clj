@@ -6,7 +6,7 @@
   (:use [retrospect.colors])
   (:use [retrospect.problems.tracking.movements :only [dist]])
   (:use [retrospect.problems.tracking.pathsgraph :only
-         [paths-graph-paths build-paths-graph paths-graph-edge-hyps]])
+         [paths-graph-paths build-paths-graph]])
   (:use [retrospect.state]))
 
 ;; The goal of the tracking domain is to identify entities' beginning
@@ -180,8 +180,8 @@
           mov-hyps (make-movement-hyps uncovered-from uncovered-to walk-dist)
           pg (build-paths-graph mov-hyps entities)
           ep-pg (assoc-in ep-sensors [:problem-data :paths-graph] pg)
-          valid-mov-hyps (paths-graph-edge-hyps pg)
           path-hyps (map make-path-hyp (paths-graph-paths pg))
+          valid-mov-hyps (mapcat (comp :movements :data) path-hyps)
           loc-hyps (make-location-hyps entities path-hyps)]
       [(reduce (fn [ep hyp] (add-hyp ep hyp (make-dep-node hyp)
                                      (make-dep-nodes hyp)))
