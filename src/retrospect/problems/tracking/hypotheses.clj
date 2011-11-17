@@ -119,13 +119,17 @@
       (new-hyp "Mov" :movement nil score
                :and [det-hyp det2-hyp] (path-str [det det2]) {:det det :det2 det2}))))
 
+(defn avg
+  [vals]
+  (double (/ (reduce + 0.0 vals) (count vals))))
+
 (defn make-path-hyp
   [movs]
   (let [det-seq (sort-by :time (set (mapcat (fn [hyp] [(:det (:data hyp))
                                                        (:det2 (:data hyp))])
                                             movs)))]
     (new-hyp "Path" :path nil
-             (apply max (map :apriori movs)) :and movs
+             (avg (map :apriori movs)) :and movs
              (path-str det-seq) {:movements movs})))
 
 (defn make-location-hyp
@@ -133,7 +137,7 @@
   [entity paths]
   (let [{:keys [x y time]} (:det2 (:data (last (:movements (:data (first paths))))))]
     (new-hyp "Loc" :location entity
-             (apply max (map :apriori paths)) :or paths
+             (avg (map :apriori paths)) :or paths
              (format "Entity %s is at %d,%d at time %d" entity x y time)
              {:entity entity :paths paths :loc {:x x :y y :time time}})))
 
