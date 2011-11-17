@@ -100,13 +100,11 @@
                  (filter #(shared-explains? workspace % hyps) hyps)))))
 
 (defn incoming-transitive
-  "Find transitive explainers of some hypothesis. Immediate explainers
-   are not included. Presumably this function is only used when
-   transitive-explanation is active."
+  "Find transitive explainers of some hypothesis. Presumably this
+   function is only used when transitive-explanation is active."
   [graph hyp & opts]
   (let [tg (transpose graph)]
-    ;; use (rest) to remove hyp itself from the list
-    (set (mapcat #(rest (pre-traverse tg %)) (neighbors tg hyp)))))
+    (set (mapcat #(pre-traverse tg %) (neighbors tg hyp)))))
 
 (defn find-explainers
   [workspace hyp & opts]
@@ -128,8 +126,9 @@
   [workspace]
   (set (filter (fn [h] (not-any? (:accepted workspace)
                                  (apply concat (find-explainers workspace h :static))))
-               (filter (fn [h] (not-empty (incoming (:graph-static workspace) h)))
-                       (:accepted workspace)))))
+               (set/union (set (filter #(not-empty (incoming (:graph-static workspace) %))
+                                       (:accepted workspace)))
+                          (:forced workspace)))))
 
 ;; TODO: fix
 (defn find-no-explainers
@@ -199,8 +198,9 @@
            (filter (comp first :explainers)
                    (if trans? explainers
                        (map (fn [expl]
-                              (update-in expl [:explainers]
-                                         #(filter (fn [h] ((filter-func h) h)) %)))
+                              (assoc expl :explainers
+                                     (filter (fn [h] ((filter-func h) h))
+                                             (:explainers expl))))
                             explainers)))))))
 
 (defn normalize-confidences
@@ -421,7 +421,11 @@
   [workspace]
   (if (empty? (:accepted workspace)) 0.0
       (double (/ (count (:unexplained (:final (:log workspace))))
-                 (count (:accepted workspace))))))
+                 (count
+                  (set/union
+                   (:forced workspace)
+                   (set (filter #(not-empty (incoming (:graph-static workspace) %))
+                                (:accepted workspace)))))))))
 
 (defn get-unexplained-pct
   [workspace]
