@@ -165,7 +165,7 @@
   (if (empty? (mapcat (fn [path] (neighbors paths-graph (last path))) paths))
     paths
     (let [new-paths (mapcat (fn [path] (map (fn [det] (conj path det))
-                                            (find-n-best-next paths-graph (last path) 2)))
+                                            (find-n-best-next paths-graph (last path) 1000)))
                             paths)]
       (recur paths-graph new-paths))))
 
