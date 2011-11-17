@@ -23,16 +23,16 @@
             false-neg (count-matches true-movements disbelieved-movements)
             true-neg (- (count disbelieved-movements) false-neg)]
         ;; precision
-        [(if (= 0 (+ true-pos false-pos)) 0.0
+        [(if (= 0 (+ true-pos false-pos)) 1.0
              (double (/ true-pos (+ true-pos false-pos)))) 
          ;; recall
-         (if (= 0 (+ true-pos false-neg)) 0.0
+         (if (= 0 (+ true-pos false-neg)) 1.0
              (double (/ true-pos (+ true-pos false-neg)))) 
          ;; specificity
-         (if (= 0 (+ true-neg false-pos)) 0.0
+         (if (= 0 (+ true-neg false-pos)) 1.0
              (double (/ true-neg (+ true-neg false-pos)))) 
          ;; accuracy
-         (if (= 0 (+ true-neg true-pos false-neg false-pos)) 0.0
+         (if (= 0 (+ true-neg true-pos false-neg false-pos)) 1.0
              (double (/ (+ true-pos true-neg)
                         (+ true-neg true-pos false-neg false-pos))))])))
 
