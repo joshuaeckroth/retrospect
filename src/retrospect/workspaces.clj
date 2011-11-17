@@ -99,13 +99,37 @@
         (sort-by :id (AlphanumComparator.)
                  (filter #(shared-explains? workspace % hyps) hyps)))))
 
-;; TODO: fix
+(defn incoming-transitive
+  "Find transitive explainers of some hypothesis. Immediate explainers
+   are not included. Presumably this function is only used when
+   transitive-explanation is active."
+  [graph hyp & opts]
+  (let [tg (transpose graph)]
+    ;; use (rest) to remove hyp itself from the list
+    (set (mapcat #(rest (pre-traverse tg %)) (neighbors tg hyp)))))
+
+(defn find-explainers
+  [workspace hyp & opts]
+  (let [g (if (some #{:static} opts)
+            (:graph-static workspace)
+            (:graph workspace))]
+    (vals
+     (group-by :type
+               (if (:TransitiveExplanation params)
+                 (sort-by :id (set/union (incoming g hyp) (incoming-transitive g hyp)))
+                 (sort-by :id (incoming g hyp)))))))
+
 (defn find-unexplained
-  "Unexplained hyps are those that are accepted and remain in the graph."
+  "If transitive explanation is disabled, unexplained hyps are those
+   that are accepted and remain in the graph. If transitive
+   explanation is enabled, unexplained hyps are those that are
+   accepted, remain in the graph, and no explainer of
+   theirs (transitive or otherwise) has been accepted."
   [workspace]
-  (let [g (:graph workspace)
-        hyps (nodes g)]
-    (set/intersection (:accepted workspace) (set hyps))))
+  (set (filter (fn [h] (not-any? (:accepted workspace)
+                                 (apply concat (find-explainers workspace h :static))))
+               (filter (fn [h] (not-empty (incoming (:graph-static workspace) h)))
+                       (:accepted workspace)))))
 
 ;; TODO: fix
 (defn find-no-explainers
@@ -117,18 +141,17 @@
   [workspace hyp]
   (get (:hyp-confidences workspace) hyp))
 
-(defn sort-by-conf
+(defn compare-by-conf
   "Since we are using probabilities, smaller value = less confidence. We want
    most confident first."
-  [workspace hyps]
-  (let [cmp (fn [hyp1 hyp2] (if (= 0 (compare (hyp-conf workspace hyp1)
-                                              (hyp-conf workspace hyp2)))
-                              (compare (:id hyp1) (:id hyp2))
-                              (compare (hyp-conf workspace hyp1)
-                                       (hyp-conf workspace hyp2))))]
-    (reverse (sort cmp hyps))))
+  [workspace hyp1 hyp2]
+  (if (= 0 (compare (hyp-conf workspace hyp1)
+                    (hyp-conf workspace hyp2)))
+    (compare (:id hyp1) (:id hyp2))
+    (compare (hyp-conf workspace hyp1)
+             (hyp-conf workspace hyp2))))
 
-(defn sort-by-delta
+(defn compare-by-delta
   [workspace hyps1 hyps2]
   (let [delta-fn (fn [hyps] (if (second hyps)
                               (- (hyp-conf workspace (first hyps))
@@ -143,15 +166,6 @@
         (compare (hyp-conf workspace (first hyps1))
                  (hyp-conf workspace (first hyps2))))
       (compare hyps1-delta hyps2-delta))))
-
-(defn incoming-transitive
-  "Find transitive explainers of some hypothesis. Immediate explainers
-   are not included. Presumably this function is only used when
-   transitive-explanation is active."
-  [graph hyp & opts]
-  (let [tg (transpose graph)]
-    ;; use (rest) to remove hyp itself from the list
-    (mapcat #(rest (pre-traverse tg %)) (neighbors tg hyp))))
 
 (defn find-all-explainers
   "Returns two sequences of sequences containing alternative
@@ -170,24 +184,24 @@
         filter-func (fn [h] (cond (= :or (:expl-func h)) or-expl
                                   (= :and (:expl-func h)) and-expl
                                   :else (constantly true)))
-        explainers (map #(if trans? (incoming-transitive g %) (incoming g %))
-                        (find-unexplained workspace))]
+        explainers (mapcat (fn [h]
+                             (map (fn [expl]
+                                    {:hyp h :explainers
+                                     (reverse (sort (partial compare-by-conf workspace)
+                                                    expl))})
+                                  (vals (group-by :type
+                                                  (if trans? (incoming-transitive g h)
+                                                      (incoming g h))))))
+                           (find-unexplained workspace))]
     (reverse
-     (sort (partial sort-by-delta workspace)
-           (map (partial sort-by-conf workspace)
-                (filter first
-                        (if trans? explainers
-                            (map (fn [hs] (filter (fn [h] ((filter-func h) h)) hs))
-                                 (map set explainers)))))))))
-
-(defn find-explainers
-  [workspace hyp & opts]
-  (let [g (if (some #{:static} opts)
-            (:graph-static workspace)
-            (:graph workspace))]
-    (if (:TransitiveExplanation params)
-      (sort-by :id (set/union (incoming g hyp) (incoming-transitive g hyp)))
-      (sort-by :id (incoming g hyp)))))
+     (sort (fn [expl1 expl2]
+             (compare-by-delta workspace (:explainers expl1) (:explainers expl2)))
+           (filter (comp first :explainers)
+                   (if trans? explainers
+                       (map (fn [expl]
+                              (update-in expl [:explainers]
+                                         #(filter (fn [h] ((filter-func h) h)) %)))
+                            explainers)))))))
 
 (defn normalize-confidences
   "Normalize the apriori confidences of a collection of hyps.
@@ -205,14 +219,13 @@
    explanation seq."
   [workspace explainers]
   ;; for each seq of explainers
-  (reduce (fn [ws alts]
+  (reduce (fn [ws {hyp :hyp alts :explainers}]
             (let [norm-alts (normalize-confidences alts)]
               ;; for each normalized confidence hyp
               (reduce (fn [ws2 hyp]
-                        ;; if the normalized confidence is greater than
-                        ;; the existing confidence, then update it
-                        (if (<= (norm-alts hyp) (hyp-conf ws hyp)) ws2
-                          (assoc-in ws2 [:hyp-confidences hyp] (norm-alts hyp))))
+                        ;; average the normalized conf with existing conf
+                        (assoc-in ws2 [:hyp-confidences hyp]
+                                  (/ (+ (hyp-conf ws2 hyp) (get norm-alts hyp)) 2.0)))
                       ws (sort-by :id (keys norm-alts)))))
           workspace explainers))
 
@@ -307,7 +320,7 @@
         (update-in [:log :final :rejected] concat rejectable))))
 
 (defn accept
-  [workspace hyp pdata]
+  [workspace hyp alts pdata]
   (let [g (:graph workspace)
         ;; removable hyps are those that are explained (by the newly
         ;; accepted hyp) and that explain nothing (that hasn't already
@@ -321,14 +334,19 @@
         new-g (apply remove-nodes g removable)
         ws (-> workspace
                (update-in [:hyp-log hyp] conj
-                          (format "Accepted in cycle %d (removed %s)"
+                          (format "Accepted in cycle %d (removed: %s, alts: %s)"
                                   (:cycle workspace)
-                                  (apply str (interpose ", " (sort (map :id removable))))))
+                                  (apply str (interpose ", " (sort (map :id removable))))
+                                  (apply str (interpose ", " (sort (map :id alts))))))
                (update-in [:accepted] conj hyp)
                (update-in [:graph-static] add-attr hyp :fontcolor "green")
                (update-in [:graph-static] add-attr hyp :color "green")
-               (assoc :graph new-g))]
-    (loop [ws (reject-many ws conflicts)
+               (assoc :graph new-g))
+        ws-alts (reduce (fn [ws2 alt] (update-in ws2 [:hyp-log alt] conj
+                                                 (format "Alternate in cycle %d"
+                                                         (:cycle workspace))))
+                        ws alts)]
+    (loop [ws (reject-many ws-alts conflicts)
            rejected #{}]
       (let [hyps (sort-by :id (set/union (:accepted ws)
                                          (apply concat (find-all-explainers ws false))))
@@ -346,12 +364,14 @@
    explain. A hypothesis is only accepted via transitive explanation
    if that hypothesis is a member of every path from the explained hyp
    and the accepted hyp."
-  [workspace hyp pdata]
+  [workspace hyp alts pdata]
   (let [paths (find-explains-transitive-paths workspace hyp)
-        acceptable (conj (cond (empty? paths) []
-                               (= 1 (count paths)) (first paths)
-                               :else (apply set/intersection (map set paths))) hyp)]
-    (reduce (fn [ws h] (accept ws h pdata)) workspace (sort-by :id acceptable))))
+        acceptable (cond (empty? paths) []
+                         (= 1 (count paths)) (first paths)
+                         :else (apply set/intersection (map set paths)))
+        ws (reduce (fn [ws2 h] (accept ws2 h [] pdata))
+                   workspace (sort-by :id acceptable))]
+    (accept ws hyp alts pdata)))
 
 (defn force-accept
   [workspace hyp]
@@ -408,7 +428,7 @@
   (:unexplained-pct (:log workspace)))
 
 (defn log-final
-  [workspace]
+  [workspace immediate-explainers transitive-explainers]
   (let [ws (assoc-in workspace [:log :final]
                      {:accepted (:accepted workspace)
                       :rejected (:rejected workspace)
@@ -418,27 +438,33 @@
                       :unaccepted (set/difference
                                    (get-hyps workspace)
                                    (:accepted workspace)
-                                   (:rejected workspace))})
+                                   (:rejected workspace))
+                      :last-immediate-explainers immediate-explainers
+                      :last-transitive-explainers
+                      (if (:TransitiveExplanation params) transitive-explainers [])})
         ws2 (assoc-in ws [:log :unexplained-pct] (measure-unexplained-pct ws))]
     (assoc-in ws2 [:log :doubt] (measure-doubt ws2))))
 
 (defn find-best
   [workspace explainers threshold]
   (if (empty? explainers) {}
-      (let [essentials (apply concat (filter #(= 1 (count %)) explainers))]
+      (let [essentials (filter #(= 1 (count (:explainers %))) explainers)]
         (if (not-empty essentials)
-          ;; choose first most-confident essential
-          (let [best (first (sort-by-conf workspace essentials))]
-            {:best best :alts (filter #(not= % best) essentials)
-             :essential? true :delta nil})
+          ;; choose most-confident essential
+          (let [expl (first essentials)
+                best (first (:explainers expl))]
+            {:best best
+             :alts (disj (set (mapcat :explainers (rest essentials))) best)
+             :essential? true :delta nil :explained (:hyp expl)})
           ;; otherwise, choose highest-delta non-essential
-          (let [alts (first explainers)
+          (let [expl (first explainers)
+                alts (:explainers expl)
                 best (first alts)
                 delta (- (hyp-conf workspace (first alts))
                          (hyp-conf workspace (second alts)))]
             (if (>= delta threshold)
               {:best best :alts (rest alts)
-               :essential? false :delta delta}))))))
+               :essential? false :delta delta :explained (:hyp expl)}))))))
 
 (defn find-best-multi
   [workspace immediate-explainers transitive-explainers threshold]
@@ -459,34 +485,33 @@
   [workspace pdata]
   (loop [ws workspace]
     (if (empty? (edges (:graph ws))) (log-final ws)
-        (let [immediate-explainers (find-all-explainers ws false)
-              transitive-explainers (if (:TransitiveExplanation params)
-                                      (find-all-explainers ws true) [])]
-          (if (or (and (empty? immediate-explainers)
-                       (not (:TransitiveExplanation params)))
+        (let [trans? (:TransitiveExplanation params)
+              immediate-explainers (find-all-explainers ws false)
+              transitive-explainers (if trans? (find-all-explainers ws true) [])]
+          (if (or (and (empty? immediate-explainers) (not trans?))
                   (and (empty? immediate-explainers) (empty? transitive-explainers)))
-            (log-final ws)
+            (log-final ws immediate-explainers transitive-explainers)
             (let [ws-confs (update-confidences ws immediate-explainers)
-                  immediate-explainers-updated (find-all-explainers ws-confs false)
-                  transitive-explainers-updated (find-all-explainers ws-confs true)
-                  {:keys [best alts essential? transitive? delta]}
-                  (find-best-multi ws-confs
+                  ws-confs2 (if trans? (update-confidences ws-confs transitive-explainers)
+                                ws-confs)
+                  immediate-explainers-updated (find-all-explainers ws-confs2 false)
+                  transitive-explainers-updated (find-all-explainers ws-confs2 true)
+                  {:keys [best alts essential? transitive? delta] :as b}
+                  (find-best-multi ws-confs2
                                    immediate-explainers-updated
                                    transitive-explainers-updated
                                    (/ (:Threshold params) 100.0))]
               (if-not best
-                (log-final ws-confs)
+                (log-final ws-confs2 immediate-explainers-updated
+                           transitive-explainers-updated)
                 (recur
-                 (let [ws-logged (-> ws-confs
+                 (let [ws-logged (-> ws-confs2
                                      (update-in [:cycle] inc)
                                      (update-in [:resources :explain-cycles] inc)
-                                     (update-in [:log :best] conj
-                                                {:best best :alts alts
-                                                 :essential? essential?
-                                                 :transitive? transitive? :delta delta}))]
+                                     (update-in [:log :best] conj b))]
                    (if transitive?
-                     (transitive-accept ws-logged best pdata)
-                     (accept ws-logged best pdata)))))))))))
+                     (transitive-accept ws-logged best alts pdata)
+                     (accept ws-logged best alts pdata)))))))))))
 
 ;; TODO this only works for accepted/rejected test hyps
 (defn analyze

@@ -48,6 +48,8 @@
                                               {(if (:transitive? b)
                                                  "Best (trans)" "Best")
                                                {(:id (:best b)) nil}
+                                               "Explained"
+                                               {(:id (:explained b)) nil}
                                                "Accepted (trans)"
                                                (list-hyps (disj (set (map :acc ars))
                                                                 (:best b)))
@@ -78,11 +80,30 @@
                 (= :or (:expl-func hyp)) "OR"
                 :else "NEITHER AND/OR")
           (commas (ws/find-explains workspace hyp params :static))
-          (commas (ws/find-explainers workspace hyp params :static))
+          (apply str
+                 (interpose ", "
+                            (map #(format "[%s]" %)
+                                 (map commas (ws/find-explainers workspace hyp
+                                                                 params :static)))))
           (commas (ws/find-conflicts workspace hyp params :static))
           (confidence-str (:apriori hyp))
           (confidence-str (ws/hyp-conf workspace hyp))
           (apply str (interpose "\n" (ws/hyp-log workspace hyp)))))
+
+(defn final-explainers
+  [workspace]
+  (letfn [(expl-id-confs [expl] (map (fn [h] (format "%s (%.2f)" (:id h)
+                                                     (ws/hyp-conf workspace h)))
+                                     expl))
+          (lines [ss] (apply str (interpose "\n" ss)))
+          (expls [explainers]
+            (lines (map (fn [{hyp :hyp expl :explainers}]
+                          (format "%s: %s" (:id hyp)
+                                  (apply str (interpose ", " (expl-id-confs expl)))))
+                        explainers)))]
+    (format "Final immediate explainers:\n\n%s\n\nFinal transitive explainers:\n\n%s"
+            (expls (:last-immediate-explainers (:final (:log workspace))))
+            (expls (:last-transitive-explainers (:final (:log workspace)))))))
 
 (defn show-log
   [path]
@@ -100,7 +121,7 @@
         (swap! hyp-selected (constantly hyp))
         (if hyp
           (dosync (alter workspace-log (constantly (hyp-info ws hyp))))
-          (dosync (alter workspace-log (constantly ""))))))))
+          (dosync (alter workspace-log (constantly (final-explainers ws)))))))))
 
 (defn show-analysis
   []
