@@ -62,15 +62,15 @@
                evaluate-comparative
                {:Steps 25
                 :Threshold 20
-                :StepsBetween 5
+                :StepsBetween 6
                 :SensorNoise 0
                 :BeliefNoise 0
-                :GridWidth 30
-                :GridHeight 30
-                :NumberEntities 15
+                :GridWidth 20
+                :GridHeight 20
+                :NumberEntities 6
                 :MaxWalk 10
-                :SensorSeesColor 50
+                :SensorSeesColor 70
                 :SensorCoverage 100
                 :ProbNewEntities 0
-                :MetaReasoning "NoMetaReasoning"
+                :MetaReasoning "NoMetareasoning"
                 :TransitiveExplanation false}))
