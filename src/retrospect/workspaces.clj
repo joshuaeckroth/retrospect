@@ -407,11 +407,12 @@
 
 (defn measure-doubt
   [workspace]
-  (let [final (:final (:log workspace))]
-    (if (empty? (:accepted final)) 
-      (if (empty? (:unexplained final)) 0.0 1.0)
-      (let [confs (vals (select-keys (:hyp-confidences workspace) (:accepted final)))]
-        (double (/ (reduce + 0.0 (map #(- 1.0 %) confs)) (count confs)))))))
+  (if (empty? (:accepted workspace)) 
+    (if (empty? (:unexplained (:final (:log workspace)))) 0.0 1.0)
+    (let [confs (vals (select-keys
+                       (:hyp-confidences workspace)
+                       (set/difference (:accepted workspace) (:forced workspace))))]
+      (double (/ (reduce + 0.0 (map #(- 1.0 %) confs)) (count confs))))))
 
 (defn get-doubt
   [workspace]
@@ -498,8 +499,10 @@
             (let [ws-confs (update-confidences ws immediate-explainers)
                   ws-confs2 (if trans? (update-confidences ws-confs transitive-explainers)
                                 ws-confs)
-                  immediate-explainers-updated (find-all-explainers ws-confs2 false)
-                  transitive-explainers-updated (find-all-explainers ws-confs2 true)
+                  immediate-explainers-updated
+                  (find-all-explainers ws-confs2 false)
+                  transitive-explainers-updated
+                  (if trans? (find-all-explainers ws-confs2 true) [])
                   {:keys [best alts essential? transitive? delta] :as b}
                   (find-best-multi ws-confs2
                                    immediate-explainers-updated
