@@ -16,6 +16,8 @@
   (:use [retrospect.colors])
   (:use [retrospect.state]))
 
+(def resized (atom nil))
+
 (def diagram-width (ref nil))
 (def diagram-height (ref nil))
 (def grid-width (ref nil))
@@ -79,9 +81,6 @@
   [g]
   (dorun
    (for [x (range @grid-width) y (range @grid-height)]
-     (fill-cell g x y white)))
-  (dorun
-   (for [x (range @grid-width) y (range @grid-height)]
      (doseq [sensor @sensors]
        (when (sees sensor x y)
          (if (:sees-color (meta sensor))
@@ -97,13 +96,15 @@
 
 (defn render
   [g]
-  (dosync
-   (alter diagram-width (constantly (.. g (getClipBounds) width)))
-   (alter diagram-height (constantly (.. g (getClipBounds) height)))
-   (alter grid-width (constantly (:GridWidth params)))
-   (alter grid-height (constantly (:GridHeight params)))
-   (alter grid-cell-width (constantly (floor (/ @diagram-width @grid-width))))
-   (alter grid-cell-height (constantly (floor (/ @diagram-height @grid-height)))))
+  (when @resized
+    (dosync
+     (alter diagram-width (constantly (.. g (getClipBounds) width)))
+     (alter diagram-height (constantly (.. g (getClipBounds) height)))
+     (alter grid-width (constantly (:GridWidth params)))
+     (alter grid-height (constantly (:GridHeight params)))
+     (alter grid-cell-width (constantly (floor (/ @diagram-width @grid-width))))
+     (alter grid-cell-height (constantly (floor (/ @diagram-height @grid-height)))))
+    (swap! resized (constantly nil)))
   (let [img (new BufferedImage @diagram-width @diagram-height
                  (. BufferedImage TYPE_INT_ARGB))
         bg (. img (getGraphics))]
@@ -134,7 +135,13 @@
          (. mouse-xy setText
             (let [x (floor (/ (.getX e) @grid-cell-width))
                   y (floor (/ (.getY e) @grid-cell-height))]
-              (format "Grid %d, %d" x y))))))))
+              (format "Grid %d, %d" x y))))))
+    (.addComponentListener
+     (proxy [java.awt.event.ComponentListener] []
+       (componentHidden [_])
+       (componentMoved [_])
+       (componentResized [_] (swap! resized (constantly true)))
+       (componentShown [_])))))
 
 (defn player-update-diagram
   []
