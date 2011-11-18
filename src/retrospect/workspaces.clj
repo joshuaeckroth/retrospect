@@ -488,7 +488,7 @@
 (defn explain
   [workspace pdata]
   (loop [ws workspace]
-    (if (empty? (edges (:graph ws))) (log-final ws)
+    (if (empty? (edges (:graph ws))) (log-final ws [] [])
         (let [trans? (:TransitiveExplanation params)
               immediate-explainers (find-all-explainers ws false)
               transitive-explainers (if trans? (find-all-explainers ws true) [])]
