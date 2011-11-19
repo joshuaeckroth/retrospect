@@ -20,15 +20,16 @@
   (let [last-pos (last (get movements entity))]
     (update-in movements [entity] conj
                {:ox (:x last-pos) :oy (:y last-pos) :ot (:time last-pos)
-                :x x :y y :time time :color (:color last-pos)})))
+                :x x :y y :time time :color (:color last-pos) :bias (:bias last-pos)})))
 
 (defn new-entity
   [movements time]
   (let [[x y] [(my-rand-int (:width (meta movements)))
                (my-rand-int (:height (meta movements)))]
         c (my-rand-nth [red blue green])
+        b (my-rand-nth [:straight :left :right :nobias])
         e (symbol (str (count (keys movements))))]
-    (assoc movements e [{:x x :y y :time time :color c}])))
+    (assoc movements e [{:x x :y y :time time :color c :bias b}])))
 
 (defn calc-angle
   [x y ox oy oox ooy]
@@ -36,16 +37,35 @@
         [dx2 dy2] [(- x ox) (- y oy)]]
     (if (or (and (= 0 dx1) (= 0 dy1))
             (and (= 0 dx2) (= 0 dy2)))
-      ;; if no movement, just say it's 180-degrees
-      3.1415926
+      ;; if no movement, just say nil
+      nil
       (Math/acos (/ (+ (* dx1 dx2) (* dy1 dy2))
                     (* (Math/sqrt (+ (* dx1 dx1) (* dy1 dy1)))
                        (Math/sqrt (+ (* dx2 dx2) (* dy2 dy2)))))))))
 
 (defn valid-angle?
-  [angle]
-  ;; angle is greater than 135-degrees
-  (<= (/ (* 135 3.1415926) 180.0) angle))
+  [bias x y ox oy oox ooy]
+  (let [theta (Math/atan2 (- oy ooy) (- ox oox))
+        cos-mult (Math/cos (- theta))
+        sin-mult (Math/sin (- theta))
+        nox (- (* cos-mult ox) (* sin-mult oy))
+        noy (+ (* sin-mult ox) (* cos-mult oy))
+        nx (- (* cos-mult x) (* sin-mult y))
+        ny (+ (* sin-mult x) (* cos-mult y))
+        ntheta (Math/atan2 (- ny noy) (- nx nox))
+        degrees (/ (* ntheta 180.0) 3.1415926)]
+    (cond
+     ;; angle is between -50 and 50 degrees
+     (= bias :straight)
+     (and (< -50 degrees) (> 50 degrees))
+     ;; angle is between -140 and -40 degrees
+     (= bias :left)
+     (and (< -140 degrees) (> -40 degrees))
+     ;; angle is between 40 and 140 degrees
+     (= bias :right)
+     (and (< 40 degrees) (> 140 degrees))
+     ;; otherwise, no bias, any angle is valid
+     :else true)))
 
 (defn walk-rand
   [[x y]]
@@ -62,22 +82,35 @@
 (defn walk
   "Move an entity maxwalk steps in random directions, respecting angle constraints."
   [movements entity time maxwalk]
-  (loop []
-    (let [movs (reverse (get movements entity))
-          last-last-pos (second movs)
-          last-pos (first movs)
-          [x y] (loop [i (my-rand-int (inc maxwalk))
-                       loc [(:x last-pos) (:y last-pos)]]
-                  (if (= i 0) loc
-                      (recur (dec i) (walk-rand loc))))]
-      (if (and (< x (:width (meta movements))) (>= x 0)
-               (< y (:height (meta movements))) (>= y 0)
-               ;; don't check angle if the entity has not made two moves
-               (or (nil? last-last-pos)
-                   (valid-angle? (calc-angle x y (:x last-pos) (:y last-pos)
-                                             (:x last-last-pos) (:y last-last-pos)))))
-        (move-entity movements entity x y time)
-        (recur)))))
+  (println "entity" entity)
+  (let [width (:width (meta movements))
+        height (:height (meta movements))
+        movs (reverse (get movements entity))
+        last-last-pos (second movs)
+        last-pos (first movs)
+        bias (:bias last-pos)
+        [oox ooy] [(:x last-last-pos) (:y last-last-pos)]
+        [ox oy] [(:x last-pos) (:y last-pos)]]
+    (loop []
+      (let [[x y] (loop [i (my-rand-int (inc maxwalk))
+                         loc [ox oy]]
+                    (let [[x y] loc
+                          [nx ny] (walk-rand loc)]
+                      (cond
+                       ;; if we go out of bounds, retry
+                       (or (> nx width) (> ny height) (< nx 0) (< ny 0))
+                       (recur i [x y])
+                       ;; we're done
+                       (= i 0) loc
+                       ;; more to go
+                       :else (recur (dec i) [nx ny]))))]
+        (if (and (< x (:width (meta movements))) (>= x 0)
+                 (< y (:height (meta movements))) (>= y 0)
+                 ;; don't check angle if the entity has not made two moves
+                 (or (nil? last-last-pos)
+                     (valid-angle? bias x y ox oy oox ooy)))
+          (move-entity movements entity x y time)
+          (recur))))))
 
 (defn entity-movements
   [movements entity mintime maxtime]

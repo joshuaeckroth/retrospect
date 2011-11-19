@@ -5,8 +5,7 @@
           incoming neighbors]])
   (:use [loom.attr :only [add-attr attr]])
   (:use [retrospect.colors])
-  (:use [retrospect.problems.tracking.movements :only
-         [calc-angle valid-angle?]]))
+  (:use [retrospect.problems.tracking.movements :only [valid-angle?]]))
 
 (defn paths-graph-add-edge
   [paths-graph hyp hyp-orig]
@@ -169,13 +168,12 @@
   "Used by (paths-graph-paths); path has the form of a seq of dets."
   [path]
   (if (>= 2 (count path)) true
-      (every? valid-angle?
-              (map (fn [[olddet det newdet]]
+      (every? (fn [[olddet det newdet]]
                      (let [[x y] [(:x newdet) (:y newdet)]
                            [ox oy] [(:x det) (:y det)]
                            [oox ooy] [(:x olddet) (:y olddet)]]
-                       (calc-angle x y ox oy oox ooy)))
-                   (partition 3 1 path)))))
+                       (valid-angle? :nobias x y ox oy oox ooy)))
+              (partition 3 1 path))))
 
 (defn paths-graph-paths
   [paths-graph]
