@@ -164,23 +164,32 @@
                             paths)]
       (recur paths-graph new-paths))))
 
-(defn valid-path?
+(defn get-path-biases
   "Used by (paths-graph-paths); path has the form of a seq of dets."
-  [path]
-  (if (>= 2 (count path)) true
-      (every? (fn [[olddet det newdet]]
-                     (let [[x y] [(:x newdet) (:y newdet)]
-                           [ox oy] [(:x det) (:y det)]
-                           [oox ooy] [(:x olddet) (:y olddet)]]
-                       (valid-angle? :nobias x y ox oy oox ooy)))
-              (partition 3 1 path))))
+  [path biases]
+  (if (>= 2 (count path)) biases
+      (filter (fn [bias]
+                (every? (fn [[olddet det newdet]]
+                          (let [[x y] [(:x newdet) (:y newdet)]
+                                [ox oy] [(:x det) (:y det)]
+                                [oox ooy] [(:x olddet) (:y olddet)]]
+                            (valid-angle? bias x y ox oy oox ooy)))
+                        (partition 3 1 path)))
+              biases)))
 
 (defn paths-graph-paths
   [paths-graph]
   (let [starts (filter #(empty? (incoming paths-graph %)) (nodes paths-graph))
         path-starts (map (fn [det] [det]) starts)
         paths (paths-graph-paths-build paths-graph path-starts)
-        valid-paths (filter valid-path? paths)]
-    (map (fn [path] (map (fn [[det det2]] (attr paths-graph det det2 :hyp))
-                         (partition 2 1 path)))
-         valid-paths)))
+        biases [:left :right :straight :nobias]
+        paths-by-bias (reduce (fn [m p] (let [biases (get-path-biases p)]
+                                          (reduce (fn [m2 b] (update-in m2 [b] conj p))
+                                                  m biases)))
+                              (zipmap biases (repeat (count biases) [])))]
+    ;; turn paths into hyp sequences, per bias
+    (zipmap biases (map (fn [bias] (map (fn [p] (map (fn [[det det2]]
+                                                       (attr paths-graph det det2 :hyp))
+                                                     (partition 2 1 p)))
+                                        (get paths-by-bias bias)))
+                        biases))))

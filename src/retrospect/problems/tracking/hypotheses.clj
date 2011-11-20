@@ -124,13 +124,14 @@
   (double (/ (reduce + 0.0 vals) (count vals))))
 
 (defn make-path-hyp
-  [movs]
+  [bias movs]
   (let [det-seq (sort-by :time (set (mapcat (fn [hyp] [(:det (:data hyp))
                                                        (:det2 (:data hyp))])
                                             movs)))]
     (new-hyp "Path" :path nil
              (avg (map :apriori movs)) :and movs
-             (path-str det-seq) {:movements movs})))
+             (format "%s (%s)" (path-str det-seq) (name bias))
+             {:movements movs :bias bias})))
 
 (defn make-location-hyp
   "All paths should have the same start and end point."
