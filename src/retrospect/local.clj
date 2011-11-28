@@ -88,7 +88,7 @@
           (recur (rest ps)))))))
 
 (defn run-partitions
-  [run-meta comparative? params recdir nthreads monitor? repetitions]
+  [run-meta comparative? params recdir nthreads monitor? upload? repetitions]
   (let [sim-count (* repetitions (count params))]
     (send (agent sim-count) check-progress sim-count (.getTime (Date.))))
   (let [seeds (repeatedly repetitions #(my-rand-int 10000000))
@@ -107,6 +107,6 @@
         workers (for [part partitions]
                   (future (run-partition comparative? monitor? recdir part)))]
     (doall (pmap (fn [w] @w) workers))
-    (when (not= "" @database)
+    (when (and upload? (not= "" @database))
       (println "Writing results to database...")
       (db/commit-run run-meta @results))))

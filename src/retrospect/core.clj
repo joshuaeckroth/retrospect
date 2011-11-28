@@ -24,7 +24,8 @@
      [monitor "Activate monitor?" "false"]
      [git "Git path" "git"]
      [seed "Seed" "0"]
-     [database "Database identifier" "http://127.0.0.1:5984/retrospect"]]
+     [database "Database identifier" "http://127.0.0.1:5984/retrospect"]
+     [upload "Upload?" "true"]]
     (let [seed (Integer/parseInt seed)]
       (alter-var-root (var rgen) (constantly (new-seed seed)))
       (dosync
@@ -46,20 +47,21 @@
             (let [nthreads (Integer/parseInt nthreads)
                   repetitions (Integer/parseInt repetitions)
                   monitor? (Boolean/parseBoolean monitor)
+                  upload? (Boolean/parseBoolean upload)
                   ps (read-params params)
                   prob (cond (= "Tracking" (:problem ps)) tracking-problem
                              (= "Words" (:problem ps)) words-problem)
                   git-dirty? (not-empty (filter #(not= "??" (subs % 0 2))
                                                 (split-lines (sh git "status" "--porcelain"))))]
-              (when (and git-dirty? (not (or (re-matches #".*127\.0\.0\.1.*" database)
-                                             (re-matches #".*localhost.*" database))))
+              (when (and upload? git-dirty? (not (or (re-matches #".*127\.0\.0\.1.*" database)
+                                                     (re-matches #".*localhost.*" database))))
                 (println "Project has uncommitted changes. Commit with git before"
                          "running simulations, or use the default (localhost) database connection.")
                 (System/exit -1))
               (dosync
                (alter state/problem (constantly prob))
                (alter state/db-params (constantly ps)))
-              (run-with-new-record seed git recordsdir nthreads monitor? repetitions))
+              (run-with-new-record seed git recordsdir nthreads monitor? upload? repetitions))
             
             :else
             (println "No action given.")))))
