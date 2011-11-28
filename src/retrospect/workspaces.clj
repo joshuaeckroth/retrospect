@@ -420,12 +420,11 @@
 
 (defn measure-doubt
   [workspace]
-  (if (empty? (:accepted workspace)) 
-    (if (empty? (:unexplained (:final (:log workspace)))) 0.0 1.0)
-    (let [confs (vals (select-keys
-                       (:hyp-confidences workspace)
-                       (set/difference (:accepted workspace) (:forced workspace))))]
-      (double (/ (reduce + 0.0 (map #(- 1.0 %) confs)) (count confs))))))
+  (let [acc-not-forced (set/difference (:accepted workspace) (:forced workspace))]
+    (if (empty? acc-not-forced)
+      (if (empty? (:unexplained (:final (:log workspace)))) 0.0 1.0)
+      (let [confs (vals (select-keys (:hyp-confidences workspace) acc-not-forced))]
+        (double (/ (reduce + 0.0 (map #(- 1.0 %) confs)) (count confs)))))))
 
 (defn get-doubt
   [workspace]
