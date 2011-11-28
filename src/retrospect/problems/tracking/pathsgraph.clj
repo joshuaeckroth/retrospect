@@ -156,17 +156,9 @@
                     (neighbors paths-graph det))]
     (take n (map first (sort-by second scored)))))
 
-(defn paths-graph-paths-build
-  [paths-graph paths]
-  (if (empty? (mapcat (fn [path] (neighbors paths-graph (last path))) paths))
-    paths
-    (let [new-paths (mapcat (fn [path] (map (fn [det] (conj path det))
-                                            (find-n-best-next paths-graph (last path) 1000)))
-                            paths)]
-      (recur paths-graph new-paths))))
-
 (defn valid-path?
-  "Used by (paths-graph-paths); path has the form of a seq of dets."
+  "Used by (paths-graph-paths-build) on partial/complete paths; path has the
+  form of a seq of dets."
   [path]
   (if (>= 2 (count path)) true
       (every? valid-angle?
@@ -177,12 +169,21 @@
                        (calc-angle x y ox oy oox ooy)))
                    (partition 3 1 path)))))
 
+(defn paths-graph-paths-build
+  [paths-graph paths]
+  (if (empty? (mapcat (fn [path] (neighbors paths-graph (last path))) paths))
+    paths
+    (let [new-paths (mapcat (fn [path] (map (fn [det] (conj path det))
+                                            (find-n-best-next paths-graph (last path) 1000)))
+                            paths)
+          valid-new-paths (filter valid-path? new-paths)]
+      (recur paths-graph valid-new-paths))))
+
 (defn paths-graph-paths
   [paths-graph]
   (let [starts (filter #(empty? (incoming paths-graph %)) (nodes paths-graph))
         path-starts (map (fn [det] [det]) starts)
-        paths (paths-graph-paths-build paths-graph path-starts)
-        valid-paths (filter valid-path? paths)]
+        paths (paths-graph-paths-build paths-graph path-starts)]
     (map (fn [path] (map (fn [[det det2]] (attr paths-graph det det2 :hyp))
                          (partition 2 1 path)))
-         valid-paths)))
+         paths)))
