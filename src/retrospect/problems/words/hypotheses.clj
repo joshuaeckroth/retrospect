@@ -316,7 +316,7 @@
               {:keys [indexed-letters dictionary left-off]} (:problem-data ep-state)
               unexp-pos (sort (map (comp :pos :data)
                                    (set/intersection (find-unexplained ws) (:forced ws))))
-              contig-subsets (loop [ps (rest unexp-pos) subs [[(first unexp-pos)]]]
+              contig-subsets (loop [ps (rest unexp-pos) subs (if-let [p (first unexp-pos)] [[p]] [])]
                                (cond (empty? ps) subs
                                      (= (first ps) (inc (last (last subs))))
                                      (recur (rest ps) (conj (vec (butlast subs))
