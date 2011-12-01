@@ -85,6 +85,11 @@
             end2 (:end (:data hyp2))]
         (not (or (< end1 start2) (< end2 start1)))))))
 
+(defn count-changes
+  [word letters]
+  (reduce (fn [c i] (if (not= (nth word i) (nth letters i)) (inc c) c))
+          0 (range (count word))))
+
 (defn make-word-hyp
   [word pos-seq letters sensor-noise left-off sensor-hyps models]
   (let [explains (map #(nth sensor-hyps %) pos-seq)
@@ -93,8 +98,9 @@
                         (:sum (meta (get models 1)))))]
     (new-hyp "Word" :single-word conflicts?
              (* prob (- 1.0 sensor-noise)) :and explains
-             (format "Word: \"%s\" at positions %s (%s) (sensor noise %.0f%%)"
-                     word (str adjusted-pos-seq) (apply str letters) (* 100 sensor-noise))
+             (format "Word: \"%s\" at positions %s (%s) (%d changes)"
+                     word (str adjusted-pos-seq) (apply str letters)
+                     (count-changes word letters))
              {:start (first adjusted-pos-seq) :end (last adjusted-pos-seq)
               :words [word] :pos-seqs [adjusted-pos-seq]})))
 
