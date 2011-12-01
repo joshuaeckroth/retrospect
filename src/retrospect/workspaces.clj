@@ -253,10 +253,11 @@
             (:graph-static workspace)
             (:graph workspace))
         ;; a hyp can't conflict with what it explains and what
-        ;; explains it, so remove those hyps first
+        ;; explains it, or forced hyps (facts), so remove those hyps first
         hyps (set/difference (nodes g)
                              (apply find-explainers workspace hyp opts)
-                             (apply find-explains workspace hyp opts))
+                             (apply find-explains workspace hyp opts)
+                             (:forced workspace))
         c (:conflict hyp)]
     (cond
       ;; no conflict id; so it conflicts with nothing

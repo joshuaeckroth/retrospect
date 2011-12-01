@@ -77,13 +77,11 @@
                          (:pos-seqs (:data hyp1)))))
           (range 1 (inc (min (count (:pos-seqs (:data hyp1)))
                              (count (:pos-seqs (:data hyp2)))))))
-    (if (and (#{:words :single-word} (:type hyp1))
-             (#{:words :single-word} (:type hyp2))) 
-      (let [start1 (:start (:data hyp1))
-            end1 (:end (:data hyp1))
-            start2 (:start (:data hyp2))
-            end2 (:end (:data hyp2))]
-        (not (or (< end1 start2) (< end2 start1)))))))
+    (let [start1 (:start (:data hyp1))
+          end1 (:end (:data hyp1))
+          start2 (:start (:data hyp2))
+          end2 (:end (:data hyp2))]
+      (not (or (< end1 start2) (< end2 start1))))))
 
 (defn count-changes
   [word letters]
@@ -95,26 +93,29 @@
   (let [explains (map #(nth sensor-hyps %) pos-seq)
         adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))
         prob (double (/ (get (get models 1) [word])
-                        (:sum (meta (get models 1)))))]
-    (new-hyp "Word" :single-word conflicts?
-             (* prob (- 1.0 sensor-noise)) :and explains
+                        (:sum (meta (get models 1)))))
+        changes (count-changes word letters)
+        apriori (* prob (/ changes (count word)))]
+    (new-hyp "Word" :word conflicts?
+             apriori :and explains
              (format "Word: \"%s\" at positions %s (%s) (%d changes)"
-                     word (str adjusted-pos-seq) (apply str letters)
-                     (count-changes word letters))
+                     word (str adjusted-pos-seq) (apply str letters) changes)
              {:start (first adjusted-pos-seq) :end (last adjusted-pos-seq)
               :words [word] :pos-seqs [adjusted-pos-seq]})))
 
 (defn make-learned-word-hyp
   [word pos-seq letters left-off sensor-hyps]
   (let [explains (map #(nth sensor-hyps %) pos-seq)
-        adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))]
-    (new-hyp "WordLearn" :learned-word conflicts?
-             0.2 ;; apriori (really apriori, not even computed!)
-             :and explains
+        adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))
+        apriori (- 1.0 (Math/pow (/ (:BelievedKnowledge params) 100.0)
+                                 (/ (count word) 4)))]
+    (new-hyp "WordLearn" :word conflicts?
+             apriori :and explains
              (format "Learned word: \"%s\" at positions %s (%s)"
                      word (str adjusted-pos-seq) (apply str letters))
              {:start (first adjusted-pos-seq) :end (last adjusted-pos-seq)
-              :words [word] :pos-seqs [adjusted-pos-seq]})))
+              :words [word] :pos-seqs [adjusted-pos-seq]
+              :learned? true})))
 
 (defn acceptable-noise?
   [letters word sensor-noise]
@@ -370,7 +371,7 @@
                   (recur words (rest wps) end-time)
                   :else (recur (conj words word)
                                (rest wps) (last pos-seq)))))
-        learned-hyps (filter (fn [hyp] (= :learned-word (:type hyp))) accepted)
+        learned-hyps (filter (fn [hyp] (:learned? (:data hyp))) accepted)
         learned-words (map (comp first :words :data) learned-hyps)
         models (:models pdata)
         history (:history pdata)
