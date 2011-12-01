@@ -93,7 +93,7 @@
 
 (defn nth-previous-ep-state
   [ep-state-tree n]
-  (loop [i (dec n)
+  (loop [i n
          loc (zip/up ep-state-tree)]
     (if (or (= 1 i) (root-ep-state? (zip/node (zip/up loc))))
       (zip/node loc) (recur (dec i) (zip/up loc)))))
