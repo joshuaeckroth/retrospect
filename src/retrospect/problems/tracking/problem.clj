@@ -3,7 +3,7 @@
   (:import [retrospect.problem Problem])
   (:require [clojure.string :as str])
   (:use [retrospect.problems.tracking.evaluate :only
-         [evaluate evaluate-comparative]])
+         [evaluate evaluate-comparative true-hyp?]])
   (:use [retrospect.problems.tracking.truedata :only
          [generate-truedata]])
   (:use [retrospect.problems.tracking.sensors :only
@@ -60,6 +60,7 @@
                (constantly []) ;; inconsistent
                evaluate
                evaluate-comparative
+               true-hyp?
                {:Steps 25
                 :Threshold 20
                 :StepsBetween 6

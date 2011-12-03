@@ -117,7 +117,13 @@
                               unc-pairs)]
     (for [{:keys [det det-hyp det2 det2-hyp score]} unc-pairs-scored :when score]
       (new-hyp "Mov" :movement nil score
-               :and [det-hyp det2-hyp] (path-str [det det2]) {:det det :det2 det2}))))
+               :and [det-hyp det2-hyp] (path-str [det det2])
+               {:det det :det2 det2
+                :movement {:x (:x det2) :y (:y det2) :time (:time det2)
+                           :ox (:x det) :oy (:y det) :ot (:time det)
+                           :color (cond (not= gray (:color det)) (:color det)
+                                        (not= gray (:color det2)) (:color det2)
+                                        :else gray)}}))))
 
 (defn avg
   [vals]
@@ -135,11 +141,11 @@
 (defn make-location-hyp
   "All paths should have the same start and end point."
   [entity paths]
-  (let [{:keys [x y time]} (:det2 (:data (last (:movements (:data (first paths))))))]
+  (let [{:keys [x y time color]} (:det2 (:data (last (:movements (:data (first paths))))))]
     (new-hyp "Loc" :location entity
              (avg (map :apriori paths)) :or paths
              (format "Entity %s is at %d,%d at time %d" entity x y time)
-             {:entity entity :paths paths :loc {:x x :y y :time time}})))
+             {:entity entity :paths paths :color color :loc {:x x :y y :time time}})))
 
 (defn dets-match?
   [det det2]
@@ -195,17 +201,9 @@
                                       merge (:loc (:data loc-hyp))))
                          (:entities pdata) (filter #(= :location (:type %))
                                                    accepted))
-        mk-mov (fn [h] (let [det (:det (:data h))
-                             det2 (:det2 (:data h))]
-                         {:ox (:x det) :oy (:y det) :ot (:time det)
-                          :x (:x det2) :y (:y det2) :time (:time det2)
-                          :color (cond (not= gray (:color det)) (:color det)
-                                       (not= gray (:color det2)) (:color det2)
-                                       :else gray)}))
-        bel-movs (map mk-mov (filter #(= :movement (:type %)) accepted))
-        dis-movs (map mk-mov (filter #(= :movement (:type %)) rejected))
-        explained-det-hyps (mapcat :explains
-                                   (filter #(= :movement (:type %)) accepted))
+        bel-movs (map (comp :movement :data) (filter #(= :movement (:type %)) accepted))
+        dis-movs (map (comp :movement :data) (filter #(= :movement (:type %)) rejected))
+        explained-det-hyps (mapcat :explains (filter #(= :movement (:type %)) accepted))
         covered-from (set (filter #(= :sensor-from (:type %)) explained-det-hyps))
         covered-to (set (filter #(= :sensor-to (:type %)) explained-det-hyps))]
     (-> pdata (assoc :entities entities)
