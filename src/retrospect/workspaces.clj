@@ -220,8 +220,10 @@
    Returns a map with hyps as keys and new conf's as values."
   [hyps]
   (let [sum (reduce + 0.0 (map #(:apriori %) hyps))]
-    (if (= 0.0 sum) {}
-      (reduce #(assoc %1 %2 (/ (:apriori %2) sum)) {} hyps))))
+    (cond
+     (= 1 (count hyps)) {(first hyps) 1.0}
+     (= 0.0 sum) {}
+     :else (reduce #(assoc %1 %2 (/ (:apriori %2) sum)) {} hyps))))
 
 (defn update-confidences
   "Update confidences of hyps based on their normalized apriori
@@ -255,7 +257,7 @@
         ;; a hyp can't conflict with what it explains and what
         ;; explains it, or forced hyps (facts), so remove those hyps first
         hyps (set/difference (nodes g)
-                             (apply find-explainers workspace hyp opts)
+                             (apply concat (apply find-explainers workspace hyp opts))
                              (apply find-explains workspace hyp opts)
                              (:forced workspace))
         c (:conflict hyp)]

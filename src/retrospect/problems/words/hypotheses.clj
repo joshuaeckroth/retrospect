@@ -92,10 +92,14 @@
   [word pos-seq letters sensor-noise left-off sensor-hyps models]
   (let [explains (map #(nth sensor-hyps %) pos-seq)
         adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))
-        prob (double (/ (get (get models 1) [word])
-                        (:sum (meta (get models 1)))))
+        unimodel (get models 1)
+        similar-words (filter #(re-find (re-pattern (format ".*%s.*" (apply str word)))
+                                        (first %))
+                              (keys unimodel))
+        prob (double (/ (get unimodel [word])
+                        (reduce + 0 (map (fn [w] (get unimodel w)) similar-words))))
         changes (count-changes word letters)
-        apriori (* prob (/ changes (count word)))]
+        apriori (max 0.001 (* prob (/ (- (count word) changes) (count word))))]
     (new-hyp "Word" :word conflicts?
              apriori :and explains
              (format "Word: \"%s\" at positions %s (%s) (%d changes)"
@@ -198,18 +202,20 @@
                              (+ i c) (rest ws)))))
         words (vec (mapcat (comp :words :data) word-hyps))
         model (get models (count words))
-        alt-ngrams (filter (fn [ws] (every? (fn [i] (= (nth ws i) (nth words i)))
-                                            acc-indexes))
-                           (keys model))
+        alt-ngrams (if (empty? acc-indexes) []
+                       (filter (fn [ws] (every? (fn [i] (= (nth ws i) (nth words i)))
+                                                acc-indexes))
+                               (keys model)))
         sum (reduce + 0 (vals (select-keys model alt-ngrams)))
         c (get model words)]
     ;; if we have a probability in the model, return it
-    (if c (double (/ c (if (= 0 sum) 1 sum)))
+    (if c (max 0.001 (double (/ c (if (= 0 sum) (:sum (meta model)) sum))))
         ;; otherwise, this sequence is not in the model;
-        ;; if we are willing to learn, make the probability 0.2;
-        ;; otherwise, it's 0.0
-        (if (and (> 100 (:BelievedKnowledge params)) (:Learn params))
-          0.2 0.0))))
+        ;; if we're willing to learn, the prob is the average of the word probs;
+        ;; otherwise, prob is nil
+        (if (:Learn params)
+          (let [s (reduce + 0.0 (map :apriori word-hyps))]
+            (max 0.001 (/ s (count word-hyps))))))))
 
 (defn make-composite-hyps
   [models word-hyps accepted max-n]
@@ -226,8 +232,7 @@
                                  (apply str (interpose " " words))
                                  (apply str (interpose ", " pos-seqs)))
                          {:start (:start (:data (first c))) :end (:end (:data (last c)))
-                          :pos-seqs pos-seqs
-                          :words words}))))))
+                          :pos-seqs pos-seqs :words words}))))))
 
 (defn make-sensor-hyp
   [pos letter]
