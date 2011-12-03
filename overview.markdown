@@ -14,10 +14,15 @@
   true complete dictionary, and all n-grams that involve unknown words
   are likewise not known to the agent
 
+- `:BelievedKnowledge` (0-100) used only in words domain; how much
+  "world knowledge" the agent *believes* it possesses (the actual
+  amount of world knowledge the agent possesses is decided by the
+  `:Knowledge` parameter)
+
 - `:Learn` (true/false) used only in words domain; whether
   domain-specific "learning" should be possible
 
-- `:Steps` (1+) number of total simulation steps
+- `:Steps` (1+) number of total simulation steps **(truth-changing)**
 
 - `:StepsBetween` (1+) number of simulation steps to wait before the
   agent gathers sensor reports and generates hypotheses
@@ -46,20 +51,21 @@
 
 ### Tracking domain parameters
 
-- `:GridHeight`, `:GridWidth` (1+); size of grid
+- `:GridHeight`, `:GridWidth` (1+); size of grid **(truth-changing)**
 
 - `:MaxWalk` (1+); maximum grid-steps (including diagonals) an entity
   can move in one time-step; a value greater than one means that an
   entity can move several times in one time-step; leave this parameter
   at 10 since the agent only knows the probability distribution of
-  random movements if the max walk size is 10
+  random movements if the max walk size is 10 **(truth-changing)**
 
 - `:NumberEntities` (1+); number of (starting) entities in the grid
+  **(truth-changing)**
 
 - `:ProbNewEntities` (0-100); probability that a new entity will be
   generated each time step; a value *p* causes a *p*/100 chance, in a
   time step, that an entity will be created in a random location; for
-  now, leave this parameter at 0
+  now, leave this parameter at 0 **(truth-changing)**
 
 - `:SensorCoverage` (0-100); how much of the grid (as a percentage)
   the sensors can "see"; for now, leave this parameter at 100
@@ -72,18 +78,25 @@
 
 ### Non-comparative metrics
 
+#### Generic non-comparative metrics
+
+#### Tracking non-comparative metrics
+
+#### Words non-comparative metrics
+
 ### Comparative metrics
 
+#### Generic comparative metrics
+
+#### Tracking comparative metrics
+
+#### Words comparative metrics
 
 ## Abductive reasoner
 
 ### Definitions
 
-<dl>
-
-<dt>Hypothesis</dt>
-
-<dd>
+#### Definition: Hypothesis
 
 Both "facts" (data received from sensors) and explanations of facts
 are "hypotheses," in order to maintain a common abstraction. Each
@@ -97,11 +110,7 @@ one hypothesis it explains has already been accepted (`:or`) or
 neither (`nil`, no restriction is enforced); a set of hypotheses that
 this hypothesis explains; a description; and domain-specific data.
 
-</dd>
-
-<dt>Hypothesis confidence</dt>
-
-<dd>
+#### Definition: Hypothesis confidence
 
 Every hypothesis has an associated confidence score (a floating point
 number in the range [0.0, 1.0]); sensor data hypotheses typically have
@@ -109,31 +118,19 @@ a score of 1.0, while explaining hypotheses start with a
 domain-specific *a priori* score. This score may be updated as
 explainers are arranged into contrast sets.
 
-</dd>
-
-<dt>Forced hypothesis</dt>
-
-<dd>
+#### Definition: Forced hypothesis
 
 Facts, such as sensor data hypotheses, are marked as "forced" (and
 simultaneously accepted).
 
-</dd>
-
-<dt>Conflicting hypothesis</dt>
-
-<dd>
+#### Definition: Conflicting hypothesis
 
 When a hypothesis is accepted, its conflicts detection function is
 consulted to determine which not-yet-accepted hypotheses are
 incompatible with the hypothesis just accepted. These incompatible
 hypotheses are rejected when the original hypothesis is accepted.
 
-</dd>
-
-<dt>Immediate explaining hypotheses</dt>
-
-<dd>
+#### Definition: Immediate explaining hypotheses
 
 For some hypothesis, let *E* be the hypotheses that that could (if
 true) directly explain the given hypothesis. The hypothesis's
@@ -141,11 +138,7 @@ immediate explainers are those in the set *E* that meet their
 individual `:and` or `:or` restrictions (either all of the explainer's
 explained hypotheses are already accepted at least one of them is).
 
-</dd>
-
-<dt>Transitive explaining hypotheses</dt>
-
-<dd>
+#### Definition: Transitive explaining hypotheses
 
 For some hypothesis, its transitive explainers are all those
 hypotheses for which there is some path (along the directed graph
@@ -154,21 +147,13 @@ the given hypothesis. In other words, the transitive explainers of a
 hypothesis are all immediate and distance potential explainers. Note
 that `:and` and `:or` restrictions do not apply in this case.
 
-</dd>
-
-<dt>Unexplained hypothesis</dt>
-
-<dd>
+#### Definition: Unexplained hypothesis
 
 An unexplained hypothesis is either an accepted or forced hypothesis
 that has potential explainers (possibly transitive explainers) but
 none of which have been accepted.
 
-</dd>
-
-<dt>Explainers set (contrast sets)</dt>
-
-<dd>
+#### Definition: Explainers set (contrast sets)
 
 The explainers set or set of contrast sets is an ordered set of ordered
 sets of hypotheses. For each unexplained hypothesis, there is (at
@@ -188,21 +173,12 @@ comes before {*X*,*Y*} if the difference in confidence (known as the
 *Y*. Thus, the contrast sets are ordered by delta, greatest delta
 first.
 
-</dd>
-
-
-<dt>Essential explainer</dt>
-
-<dd>
+#### Definition: Essential explainer
 
 Whenever a contrast set contains a single explainer, that explainer is
 an essential (for that hypothesis type).
 
-</dd>
-
-<dt>Best explainer</dt>
-
-<dd>
+#### Definition: Best explainer
 
 A best explainer is either an essential explainer (which is preferred
 over other kinds of explainers) or the explainer with the greatest
@@ -210,11 +186,6 @@ delta between it and its next most-confident rival of the same
 hypothesis type (as read off the contrast set). Note that a best
 explainer may still not be accepted if the delta does not surpass the
 `:Threshold` parameter.
-
-</dd>
-
-</dl>
-
 
 ### Finding explanations
 
@@ -321,8 +292,8 @@ The criteria for activating metareasoning is the following:
 **BatchBeginning** -- go back to the root ep-state (time 0), clear
   hypotheses and "batch" all the way back to the current time.
 
-**BatchN** (for N=1,2,3,4,5) -- go back N ep-states, clear hypotheses
-  and "batch" all the way back to the current time.
+**BatchN** (for *N*=1,2,3,4,5) -- go back *N* ep-states, clear
+  hypotheses and "batch" all the way back to the current time.
 
 ### Metareasoning branch acceptance
 
