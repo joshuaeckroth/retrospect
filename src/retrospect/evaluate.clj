@@ -28,8 +28,8 @@
   (let [hyps (set/difference (get-hyps workspace :static)
                              (:forced workspace))
         true-false (group-by (partial true-hyp? truedata pdata time) hyps)
-        true-confs (map #(hyp-conf workspace %) (get true-false true))
-        false-confs (map #(hyp-conf workspace %) (get true-false false))
+        true-confs (or (map #(hyp-conf workspace %) (get true-false true)) [])
+        false-confs (or (map #(hyp-conf workspace %) (get true-false false)) [])
         avg (fn [vals] (if (empty? vals) 0.0 (/ (reduce + 0.0 vals) (count vals))))]
     {:AvgTrueConfs (avg true-confs) :AvgFalseConfs (avg false-confs)}))
 
