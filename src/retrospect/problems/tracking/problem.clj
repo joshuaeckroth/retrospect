@@ -35,7 +35,7 @@
    :believed-movements []
    :disbelieved-movements []
    :left-off 0
-   :walk-dist (read-walk-dist (str @datadir "/tracking/walks.txt")) 
+   :walk-dist (read-walk-dist (str @datadir "/tracking/walks-" (:MaxWalk params) ".txt")) 
    :log [] ;; log is reset each time by commit-decision
    :uncovered-from #{}
    :uncovered-to #{}})
