@@ -202,18 +202,19 @@
                                   :else (constantly true)))
         explainers (mapcat
                     (fn [h]
-                      (map (fn [expl] {:hyp h :explainers expl})
-                           (vals (group-by :type
-                                           (if trans? (incoming-transitive workspace h)
-                                               (incoming g h))))))
+                      (let [hyps (if trans? (incoming-transitive workspace h)
+                                     (incoming g h))
+                            grouped (group-by :type hyps)]
+                        (map (fn [expl] {:hyp h :explainers expl}) (vals grouped))))
                     (find-unexplained workspace))]
-    (filter (comp first :explainers)
-            (if trans? explainers
-                (map (fn [expl]
-                       (assoc expl :explainers
-                              (filter (fn [h] ((filter-func h) h))
-                                      (:explainers expl))))
-                     explainers)))))
+    (sort-by (comp :id :hyp)
+             (filter (comp first :explainers)
+                     (if trans? explainers
+                         (map (fn [expl]
+                                (assoc expl :explainers
+                                       (filter (fn [h] ((filter-func h) h))
+                                               (:explainers expl))))
+                              explainers))))))
 
 (defn normalize-confidences
   "Normalize the apriori confidences of a collection of hyps.
