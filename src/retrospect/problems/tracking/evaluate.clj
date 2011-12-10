@@ -62,7 +62,7 @@
         pdata (:problem-data ep-state)
         believed-movements (:believed-movements pdata)
         disbelieved-movements (:disbelieved-movements pdata)
-        true-movs (filter #(<= (:time %) maxtime)
+        true-movs (filter #(and (:ot %) (<= (:time %) maxtime))
                           (apply concat (vals truedata)))
         [pec pew] (percent-events-correct-wrong true-movs believed-movements)
         [p r s a] (precision-recall true-movs believed-movements disbelieved-movements)]
