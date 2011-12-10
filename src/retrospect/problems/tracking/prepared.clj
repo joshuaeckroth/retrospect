@@ -5,7 +5,7 @@
   (:use [retrospect.colors]))
 
 (def basic-params
-  {:GridHeight 10, :GridWidth 10, :MaxWalk 10, :Knowledge 100,
+  {:GridHeight 10, :GridWidth 10, :MaxWalk 10, :Knowledge 100, :Seed 100,
    :SensorNoise 0, :SensorSeesColor 100, :SensorCoverage 100,
    :BeliefNoise 0, :StepsBetween 1, :Steps 50,
    :ProbNewEntities 0, :NumberEntities 1, :MetaReasoning "NoMetareasoning",
@@ -44,34 +44,30 @@
                (new-sensor (keyword "3") 8 9 0 9 false)]
      :truedata (entity-paths params ["1" red 0 9,5 5,5 2,5])}))
 
+(defn gray-in-range
+  []
+  (let [params (merge basic-params {:Steps 3})]
+    {:params params
+     :sensors [(new-sensor (keyword "top") 0 9 0 3 true)
+               (new-sensor (keyword "middle-gray") 0 9 4 6 false)
+               (new-sensor (keyword "bottom") 0 9 7 9 true)]
+     :truedata (entity-paths params
+                             ["1" red  0 3,0 3,5 3,9]
+                             ["2" blue 0 7,0 7,5 7,9])}))
+
+(defn intersection-ambiguity
+  []
+  (let [params (merge basic-params {:Steps 4 :SensorSeesColor 80
+                                    :MetaReasoning "BatchBeginning" :MaxWalk 3})]
+    {:params params
+     :sensors [(new-sensor (keyword "left") 0 2 0 9 true)
+               (new-sensor (keyword "middle") 3 4 0 9 false)
+               (new-sensor (keyword "right") 5 9 0 9 true)]
+     :truedata (entity-paths params
+                             ["1" red  0 5,7 4,4 2,2 0,2]
+                             ["2" blue 0 5,4 4,7 2,9 0,9])}))
+
 (comment
-  (defn color-update-2
-    []
-    (assoc-in (color-update) [:params :StepsBetween] 1))
-
-  (defn gray-in-range
-    []
-    (let [params (merge basic-params {:Steps 3 :MaxWalk 10})]
-      {:params params
-       :sensors [(new-sensor (keyword "top") 0 9 0 3 true)
-                 (new-sensor (keyword "middle-gray") 0 9 4 6 false)
-                 (new-sensor (keyword "bottom") 0 9 7 9 true)]
-       :truedata (build-truedata
-                  params (entity-paths ["1" red  0 3,0 3,5 3,9]
-                                       ["2" blue 0 7,0 7,5 7,9]))}))
-
-  (defn intersection-ambiguity
-    []
-    (let [params (merge basic-params {:Steps 4 :SensorSeesColor 80 :MaxWalk 3
-                                      :MetaReasoning true})]
-      {:params params
-       :sensors [(new-sensor (keyword "left") 0 2 0 9 true)
-                 (new-sensor (keyword "middle") 3 4 0 9 false)
-                 (new-sensor (keyword "right") 5 9 0 9 true)]
-       :truedata (build-truedata
-                  params (entity-paths ["1" red  0 5,7 4,4 2,3 0,3]
-                                       ["2" blue 0 5,4 4,7 2,8 0,8]))}))
-
   (defn intersection-ambiguity-nometa
     []
     (assoc-in (intersection-ambiguity) [:params :MetaReasoning] true))
@@ -257,8 +253,6 @@
   (def prepared-map
     (sorted-map "color-update" color-update
                 "color-update-2" color-update-2
-                "gray-in-range" gray-in-range
-                "intersect" intersection-ambiguity
                 "intersect-long" intersection-ambiguity-long
                 "intersect-many" intersection-ambiguity-many
                 "intersect-many-aao" intersection-ambiguity-many-allatonce
@@ -284,4 +278,6 @@
 
 (def prepared-map
   (sorted-map "color-update" color-update
-              "simple-dis" simple-disappearance))
+              "simple-dis" simple-disappearance
+              "gray-in-range" gray-in-range
+              "intersect" intersection-ambiguity))
