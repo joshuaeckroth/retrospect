@@ -115,5 +115,5 @@
 (defrecord Problem
   [name monitor-fn player-fns truedata-fn sensor-gen-fn prepared-map
    hypothesize-fn get-more-hyps-fn commit-decision-fn
-   gen-problem-data-fn inconsistent-fn evaluate-fn evaluate-comparative-fn
+   gen-problem-data-fn inconsistent-fn evaluate-fn evaluate-comparative-fn true-hyp?-fn
    default-params])

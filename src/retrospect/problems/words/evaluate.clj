@@ -3,10 +3,6 @@
   (:use [retrospect.evaluate :only [calc-increase]])
   (:use [retrospect.state]))
 
-(defn calc-ld
- [seq1 seq2]
- (LevenshteinDistance/ld (into-array String seq1) (into-array String seq2)))
-
 (defn get-truewords-starts
   [truedata time]
   (loop [ws []
@@ -15,6 +11,22 @@
     (let [c (+ ws-count (count (first td)))]
       (if (< time c) ws 
           (recur (conj ws [(first td) ws-count]) c (rest td))))))
+
+(defn true-hyp?
+  [truedata pdata time hyp]
+  (let [truewords-starts (get-truewords-starts truedata time)
+        words (:words (:data hyp))
+        pos-seqs (:pos-seqs (:data hyp))]
+    (every? (fn [i]
+              (let [word (nth words i)
+                    word-start (first (nth pos-seqs i))
+                    tw (ffirst (filter #(= word-start (second %)) truewords-starts))]
+                (= tw word)))
+            (range (count words)))))
+
+(defn calc-ld
+ [seq1 seq2]
+ (LevenshteinDistance/ld (into-array String seq1) (into-array String seq2)))
 
 (defn evaluate
   [ep-state sensors truedata]

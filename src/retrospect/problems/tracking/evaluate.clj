@@ -3,6 +3,19 @@
   (:use [retrospect.problems.tracking.movements :only [moves-match?]])
   (:use [retrospect.problems.tracking.hypotheses :only [dets-match?]]))
 
+(defn true-hyp?
+  [truedata pdata time hyp]
+  (let [true-moves (apply concat (vals truedata))]
+    (cond (= :movement (:type hyp))
+          (some #(moves-match? (:movement (:data hyp)) %) true-moves)
+          (= :path (:type hyp))
+          (every? (fn [m] (some #(moves-match? m %) true-moves))
+                  (map (comp :movement :data) (:movements (:data hyp))))
+          (= :location (:type hyp))
+          (dets-match? (assoc (:loc (:data hyp)) :color (:color (:data hyp)))
+                       (nth (get truedata (:entity (:data hyp))) (dec time)))
+          :else true)))
+
 (defn count-matches
   [true-movements movs]
   (count (filter (fn [m] (some #(moves-match? m %) true-movements)) movs)))
@@ -44,13 +57,13 @@
              (count true-movements))))
 
 (defn evaluate
-  [ep-state sensors true-movements]
+  [ep-state sensors truedata]
   (let [maxtime (dec (:time ep-state))
         pdata (:problem-data ep-state)
         believed-movements (:believed-movements pdata)
         disbelieved-movements (:disbelieved-movements pdata)
-        true-movs (filter #(<= (:time %) maxtime)
-                          (apply concat (vals true-movements)))
+        true-movs (filter #(and (:ot %) (<= (:time %) maxtime))
+                          (apply concat (vals truedata)))
         [pec pew] (percent-events-correct-wrong true-movs believed-movements)
         [p r s a] (precision-recall true-movs believed-movements disbelieved-movements)]
     {:PEC pec
@@ -59,7 +72,7 @@
      :Recall r
      :Spec s
      :Acc a
-     :IDCorrect (id-correct true-movements (:entities pdata) maxtime)}))
+     :IDCorrect (id-correct truedata (:entities pdata) maxtime)}))
 
 (defn evaluate-comparative
   [control-results comparison-results control-params comparison-params]

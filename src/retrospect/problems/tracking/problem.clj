@@ -3,7 +3,7 @@
   (:import [retrospect.problem Problem])
   (:require [clojure.string :as str])
   (:use [retrospect.problems.tracking.evaluate :only
-         [evaluate evaluate-comparative]])
+         [evaluate evaluate-comparative true-hyp?]])
   (:use [retrospect.problems.tracking.truedata :only
          [generate-truedata]])
   (:use [retrospect.problems.tracking.sensors :only
@@ -15,10 +15,9 @@
           player-get-problem-log player-setup-diagram player-update-diagram]])
   (:use [retrospect.problems.tracking.monitor :only
          [monitor]])
+  (:use [retrospect.problems.tracking.prepared :only
+         [prepared-map]])
   (:use [retrospect.state]))
-
-(comment   (:use [retrospect.problems.tracking.prepared :only
-         [prepared-map]]))
 
 (defn read-walk-dist
   [file]
@@ -36,7 +35,7 @@
    :believed-movements []
    :disbelieved-movements []
    :left-off 0
-   :walk-dist (read-walk-dist (str @datadir "/tracking/walks.txt")) 
+   :walk-dist (read-walk-dist (str @datadir "/tracking/walks-" (:MaxWalk params) ".txt")) 
    :log [] ;; log is reset each time by commit-decision
    :uncovered-from #{}
    :uncovered-to #{}})
@@ -52,7 +51,7 @@
                 :update-diagram-fn player-update-diagram}
                generate-truedata
                generate-sensors
-               {} ;; prepared-map
+               prepared-map
                hypothesize
                identity ;; get-more-hyps
                commit-decision
@@ -60,6 +59,7 @@
                (constantly []) ;; inconsistent
                evaluate
                evaluate-comparative
+               true-hyp?
                {:Steps 25
                 :Threshold 20
                 :StepsBetween 6

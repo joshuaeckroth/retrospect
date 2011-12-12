@@ -39,7 +39,7 @@
 
 (defn run-with-new-record
   "Create a new folder for storing run data and execute the run."
-  [seed git recordsdir nthreads monitor? repetitions]
+  [seed git recordsdir nthreads monitor? upload? repetitions]
   (try
     (let [t (. System (currentTimeMillis))
           recdir (str recordsdir "/" t)
@@ -71,7 +71,7 @@
                        (count control-params) repetitions
                        (* (count control-params) repetitions)))
       (run-partitions run comparative? (if comparative? paired-params control-params)
-                      recdir nthreads monitor? repetitions)
+                      recdir nthreads monitor? upload? repetitions)
       (println "Done.")
       (System/exit 0))
     (catch java.util.concurrent.ExecutionException e

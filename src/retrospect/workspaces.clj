@@ -24,6 +24,10 @@
   Object
   (toString [self] (format "%s: %s" id desc)))
 
+(defmethod print-method Hypothesis
+  [o w]
+  (print-simple (str "#<" (:id o) ": \"" (:desc o) "\">") w))
+
 (defn new-hyp
   [prefix type conflict apriori expl-func explains desc data]
   (let [id (inc last-id)]
@@ -202,26 +206,29 @@
                                   :else (constantly true)))
         explainers (mapcat
                     (fn [h]
-                      (map (fn [expl] {:hyp h :explainers expl})
-                           (vals (group-by :type
-                                           (if trans? (incoming-transitive workspace h)
-                                               (incoming g h))))))
+                      (let [hyps (if trans? (incoming-transitive workspace h)
+                                     (incoming g h))
+                            grouped (group-by :type hyps)]
+                        (map (fn [expl] {:hyp h :explainers expl}) (vals grouped))))
                     (find-unexplained workspace))]
-    (filter (comp first :explainers)
-            (if trans? explainers
-                (map (fn [expl]
-                       (assoc expl :explainers
-                              (filter (fn [h] ((filter-func h) h))
-                                      (:explainers expl))))
-                     explainers)))))
+    (sort-by (comp :id :hyp)
+             (filter (comp first :explainers)
+                     (if trans? explainers
+                         (map (fn [expl]
+                                (assoc expl :explainers
+                                       (filter (fn [h] ((filter-func h) h))
+                                               (:explainers expl))))
+                              explainers))))))
 
 (defn normalize-confidences
   "Normalize the apriori confidences of a collection of hyps.
    Returns a map with hyps as keys and new conf's as values."
   [hyps]
   (let [sum (reduce + 0.0 (map #(:apriori %) hyps))]
-    (if (= 0.0 sum) {}
-      (reduce #(assoc %1 %2 (/ (:apriori %2) sum)) {} hyps))))
+    (cond
+     (= 1 (count hyps)) {(first hyps) 1.0}
+     (= 0.0 sum) {}
+     :else (reduce #(assoc %1 %2 (/ (:apriori %2) sum)) {} hyps))))
 
 (defn update-confidences
   "Update confidences of hyps based on their normalized apriori
@@ -253,10 +260,11 @@
             (:graph-static workspace)
             (:graph workspace))
         ;; a hyp can't conflict with what it explains and what
-        ;; explains it, so remove those hyps first
+        ;; explains it, or forced hyps (facts), so remove those hyps first
         hyps (set/difference (nodes g)
-                             (apply find-explainers workspace hyp opts)
-                             (apply find-explains workspace hyp opts))
+                             (apply concat (apply find-explainers workspace hyp opts))
+                             (apply find-explains workspace hyp opts)
+                             (:forced workspace))
         c (:conflict hyp)]
     (cond
       ;; no conflict id; so it conflicts with nothing
@@ -420,12 +428,11 @@
 
 (defn measure-doubt
   [workspace]
-  (if (empty? (:accepted workspace)) 
-    (if (empty? (:unexplained (:final (:log workspace)))) 0.0 1.0)
-    (let [confs (vals (select-keys
-                       (:hyp-confidences workspace)
-                       (set/difference (:accepted workspace) (:forced workspace))))]
-      (double (/ (reduce + 0.0 (map #(- 1.0 %) confs)) (count confs))))))
+  (let [acc-not-forced (set/difference (:accepted workspace) (:forced workspace))]
+    (if (empty? acc-not-forced)
+      (if (empty? (:unexplained (:final (:log workspace)))) 0.0 1.0)
+      (let [confs (vals (select-keys (:hyp-confidences workspace) acc-not-forced))]
+        (double (/ (reduce + 0.0 (map #(- 1.0 %) confs)) (count confs)))))))
 
 (defn get-doubt
   [workspace]

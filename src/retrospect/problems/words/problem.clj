@@ -3,7 +3,7 @@
   (:import [retrospect.problem Problem])
   (:require [clojure.string :as str])
   (:use [retrospect.problems.words.evaluate :only
-         [evaluate evaluate-comparative]])
+         [evaluate evaluate-comparative true-hyp?]])
   (:use [retrospect.problems.words.truedata :only [generate-truedata]])
   (:use [retrospect.problems.words.sensors :only [generate-sensors]])
   (:use [retrospect.problems.words.hypotheses :only
@@ -59,6 +59,7 @@
                inconsistent
                evaluate
                evaluate-comparative
+               true-hyp?
                {:Steps 120
                 :Threshold 20
                 :StepsBetween 30
@@ -67,6 +68,7 @@
                 :MaxModelGrams 3
                 :MetaReasoning "NoMetaReasoning"
                 :Knowledge 100
+                :BelievedKnowledge 100
                 :Learn false
                 :TransitiveExplanation true}))
 

@@ -1,8 +1,9 @@
 (ns retrospect.evaluate
+  (:require [clojure.set :as set])
   (:use [loom.graph :only [incoming nodes neighbors]])
   (:use [loom.alg-generic :only [dijkstra-span]])
   (:use [retrospect.epistemicstates :only [current-ep-state previous-ep-state]])
-  (:use [retrospect.workspaces :only [get-unexplained-pct]])
+  (:use [retrospect.workspaces :only [get-unexplained-pct hyp-conf get-hyps]])
   (:use [retrospect.state]))
 
 (defn calc-increase
@@ -21,6 +22,17 @@
                                       (constantly 1) %) starts)]
     (apply max 0 (mapcat (comp vals second) paths))))
 
+(defn calc-true-false-confs
+  "Find average confidence for true hyps, average confidence for false hyps."
+  [truedata pdata workspace time true-hyp?]
+  (let [hyps (set/difference (get-hyps workspace :static)
+                             (:forced workspace))
+        true-false (group-by (partial true-hyp? truedata pdata time) hyps)
+        true-confs (or (map #(hyp-conf workspace %) (get true-false true)) [])
+        false-confs (or (map #(hyp-conf workspace %) (get true-false false)) [])
+        avg (fn [vals] (if (empty? vals) 0.0 (/ (reduce + 0.0 vals) (count vals))))]
+    {:AvgTrueConfs (avg true-confs) :AvgFalseConfs (avg false-confs)}))
+
 (defn evaluate
   [truedata or-state]
   (let [ep-state (current-ep-state (:ep-state-tree or-state))
@@ -33,6 +45,8 @@
      (merge {:Problem (:name @problem)}
             params
             ((:evaluate-fn @problem) ep-state (:sensors or-state) truedata)
+            (calc-true-false-confs truedata (:pdata ep-state) (:workspace prev-ep)
+                                   (:time ep-state) (:true-hyp?-fn @problem))
             {:Step (:time ep-state)
              :MetaActivations (:meta-activations ors-resources)
              :MetaAccepted (:meta-accepted ors-resources)

@@ -183,13 +183,20 @@
         path-starts (map (fn [det] [det]) starts)
         paths (paths-graph-paths-build paths-graph path-starts)
         biases [:left :right :straight :nobias]
-        paths-by-bias (reduce (fn [m p] (let [biases (get-path-biases p)]
-                                          (reduce (fn [m2 b] (update-in m2 [b] conj p))
-                                                  m biases)))
-                              (zipmap biases (repeat (count biases) [])))]
+        paths-by-bias (reduce (fn [m p]
+                                (let [p-biases (get-path-biases p biases)]
+                                  (reduce (fn [m2 b]
+                                            (update-in m2 [b] conj p))
+                                          m p-biases)))
+                              (zipmap biases (repeat (count biases) []))
+                              paths)]
     ;; turn paths into hyp sequences, per bias
-    (zipmap biases (map (fn [bias] (map (fn [p] (map (fn [[det det2]]
-                                                       (attr paths-graph det det2 :hyp))
-                                                     (partition 2 1 p)))
-                                        (get paths-by-bias bias)))
-                        biases))))
+    (zipmap biases
+            (vec (map (fn [bias]
+                        (vec (sort-by #(apply str (interpose "-" (map :id %)))
+                                      (map (fn [p]
+                                             (vec (map (fn [[det det2]]
+                                                         (attr paths-graph det det2 :hyp))
+                                                       (partition 2 1 p))))
+                                           (get paths-by-bias bias)))))
+                      biases)))))

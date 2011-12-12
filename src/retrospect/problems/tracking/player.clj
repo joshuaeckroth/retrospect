@@ -75,7 +75,7 @@
           (.setFont (.. g getFont (deriveFont Font/BOLD (float 12.0))))
           (.drawString (str e) (+ 3 left) (+ 15 top))
           ;; draw movement
-          (draw-movements (rest movs)))))))
+          (draw-movements (filter :ot movs)))))))
 
 (defn draw-grid
   [g]

@@ -82,7 +82,6 @@
 (defn walk
   "Move an entity maxwalk steps in random directions, respecting angle constraints."
   [movements entity time maxwalk]
-  (println "entity" entity)
   (let [width (:width (meta movements))
         height (:height (meta movements))
         movs (reverse (get movements entity))
