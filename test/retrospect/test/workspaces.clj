@@ -1,13 +1,8 @@
 (ns retrospect.test.workspaces
   (:use [clojure.test :only [deftest is use-fixtures]])
   (:use [clojure.contrib.seq :only [find-first]])
+  (:use [retrospect.test.utils])
   (:use [retrospect.workspaces]))
-
-(defn approx=
-  "Return true if the absolute value of the difference between x and y
-   is less than eps."
-  [x y eps]
-  (< (Math/abs (- x y)) eps))
 
 (def workspace nil)
 (def s1 nil)

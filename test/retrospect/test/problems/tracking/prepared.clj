@@ -1,5 +1,6 @@
 (ns retrospect.test.problems.tracking.prepared
   (:use [clojure.test :only [deftest is]])
+  (:use [retrospect.test.utils])
   (:use [retrospect.problems.tracking.problem :only
          [generate-problem-data tracking-problem]])
   (:use [retrospect.problems.tracking.prepared])
@@ -7,12 +8,6 @@
   (:use [retrospect.problem :only [run-simulation]])
   (:use [retrospect.workspaces :only [last-id]])
   (:use [retrospect.random :only [rgen new-seed]]))
-
-(defn approx=
-  "Return true if the absolute value of the difference between x and y
-   is less than eps."
-  [x y eps]
-  (< (Math/abs (- x y)) eps))
 
 (defn run
   [{:keys [params sensors truedata]}]
