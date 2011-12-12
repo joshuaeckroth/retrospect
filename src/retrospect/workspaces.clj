@@ -24,6 +24,10 @@
   Object
   (toString [self] (format "%s: %s" id desc)))
 
+(defmethod print-method Hypothesis
+  [o w]
+  (print-simple (str "#<" (:id o) ": \"" (:desc o) "\">") w))
+
 (defn new-hyp
   [prefix type conflict apriori expl-func explains desc data]
   (let [id (inc last-id)]
