@@ -184,6 +184,7 @@
   (let [starts (filter #(empty? (incoming paths-graph %)) (nodes paths-graph))
         path-starts (map (fn [det] [det]) starts)
         paths (paths-graph-paths-build paths-graph path-starts)]
-    (map (fn [path] (map (fn [[det det2]] (attr paths-graph det det2 :hyp))
-                         (partition 2 1 path)))
-         paths)))
+    (sort-by #(apply str (interpose "-" (map :id %)))
+             (map (fn [path] (map (fn [[det det2]] (attr paths-graph det det2 :hyp))
+                                  (partition 2 1 path)))
+                  paths))))
