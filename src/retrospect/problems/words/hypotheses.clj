@@ -105,7 +105,7 @@
              (format "Word: \"%s\" at positions %s (%s) (%d changes)"
                      word (str adjusted-pos-seq) (apply str letters) changes)
              {:start (first adjusted-pos-seq) :end (last adjusted-pos-seq)
-              :words [word] :pos-seqs [adjusted-pos-seq]})))
+              :words [word] :pos-seqs [adjusted-pos-seq] :changes changes})))
 
 (defn make-learned-word-hyp
   [word pos-seq letters left-off sensor-hyps]
@@ -252,6 +252,13 @@
   (format "%d: %s" (:start (:data hyp))
           (apply str (interpose " " (:words (:data hyp))))))
 
+(defn make-indexed-letters
+  [letters]
+  ;; if not enough sensed data to fill time, indexed-letters will have some
+  ;; non-characters; so filter those out
+  (filter #(= java.lang.Character (type (second %)))
+          (map (fn [i] [i (nth letters i)]) (range (count letters)))))
+
 (defn hypothesize
   [ep-state sensors time-now]
   (binding [compute 0 memory 0]
@@ -260,10 +267,7 @@
           accepted (set (:accepted (:problem-data ep-state)))
           max-n (apply max (keys models))
           letters (map #(sensed-at sens %) (range (inc left-off) (inc time-now)))
-          ;; if not enough sensed data to fill time, indexed-letters will have some
-          ;; non-characters; so filter those out
-          indexed-letters (filter #(= java.lang.Character (type (second %)))
-                                  (map (fn [i] [i (nth letters i)]) (range (count letters))))
+          indexed-letters (make-indexed-letters letters)
           sensor-hyps (make-sensor-hyps indexed-letters)
           ep-sensor-hyps (reduce #(add-fact %1 %2) ep-state sensor-hyps)
           ep-letters (assoc-in ep-sensor-hyps [:problem-data :indexed-letters] indexed-letters)
