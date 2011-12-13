@@ -16,6 +16,7 @@
          [explains-graph-tab update-explains-graph]])
   (:use [retrospect.gui.results :only [update-results results-tab]])
   (:use [retrospect.gui.logs :only [update-logs logs-tab]])
+  (:use [retrospect.gui.repl :only [update-repl-tab repl-tab]])
   (:use [retrospect.workspaces :only [set-last-id]])
   (:use [retrospect.onerun :only [init-one-run-state]])
   (:use [retrospect.epistemicstates :only
@@ -61,6 +62,7 @@
   #_(update-explains-graph)
   (update-results)
   (update-logs)
+  (update-repl-tab)
   ((:update-stats-fn (:player-fns @problem)))
   ((:update-diagram-fn (:player-fns @problem))))
 
@@ -141,12 +143,13 @@
          [:gridx 0 :gridy 0 :gridheight 9 :weightx 1.0 :weighty 1.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
           _ (doto (JTabbedPane.)
-              (.addTab "Problem diagram" problem-diagram)
-              (.addTab "Epistemic state tree" (ep-tree-tab))
-              (.addTab "Dependency graph" (depgraph-tab))
-              (.addTab "Hypothesis graph" (hypgraph-tab))
+              (.addTab "Diagram" problem-diagram)
+              (.addTab "Ep tree" (ep-tree-tab))
+              (.addTab "Dep graph" (depgraph-tab))
+              (.addTab "Hyp graph" (hypgraph-tab))
               ;;(.addTab "Explains graph" (explains-graph-tab))
               (.addTab "Logs" (logs-tab))
+              (.addTab "REPL" (repl-tab))
               (.addTab "Results" (results-tab))
               (.setSelectedIndex 0))
 
