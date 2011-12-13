@@ -90,26 +90,27 @@
         bias (:bias last-pos)
         [oox ooy] [(:x last-last-pos) (:y last-last-pos)]
         [ox oy] [(:x last-pos) (:y last-pos)]]
-    (loop []
+    (loop [attempts 0]
       (let [[x y] (loop [i (my-rand-int (inc maxwalk))
                          loc [ox oy]]
                     (let [[x y] loc
                           [nx ny] (walk-rand loc)]
                       (cond
-                       ;; if we go out of bounds, retry
-                       (or (> nx width) (> ny height) (< nx 0) (< ny 0))
-                       (recur i [x y])
                        ;; we're done
                        (= i 0) loc
+                       ;; if we go out of bounds, don't update pos
+                       (or (> nx width) (> ny height) (< nx 0) (< ny 0))
+                       (recur (dec i) [x y])
                        ;; more to go
                        :else (recur (dec i) [nx ny]))))]
-        (if (and (< x (:width (meta movements))) (>= x 0)
-                 (< y (:height (meta movements))) (>= y 0)
-                 ;; don't check angle if the entity has not made two moves
-                 (or (nil? last-last-pos)
-                     (valid-angle? bias x y ox oy oox ooy)))
-          (move-entity movements entity x y time)
-          (recur))))))
+        (cond (= attempts 50) (move-entity movements entity ox oy time)
+              (and (< x (:width (meta movements))) (>= x 0)
+                   (< y (:height (meta movements))) (>= y 0)
+                   ;; don't check angle if the entity has not made two moves
+                   (or (nil? last-last-pos)
+                       (valid-angle? bias x y ox oy oox ooy)))
+              (move-entity movements entity x y time)
+              :else (recur (inc attempts)))))))
 
 (defn entity-movements
   [movements entity mintime maxtime]
