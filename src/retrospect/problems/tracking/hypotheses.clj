@@ -140,13 +140,15 @@
              {:movements movs :bias bias})))
 
 (defn make-location-hyp
-  "All paths should have the same start and end point."
-  [entity paths]
+  "All paths should have the same start and end point and bias."
+  [entity bias paths]
   (let [{:keys [x y time color]} (:det2 (:data (last (:movements (:data (first paths))))))]
-    (new-hyp "Loc" :location entity
-             (avg (map :apriori paths)) :or paths
-             (format "Entity %s is at %d,%d at time %d" entity x y time)
-             {:entity entity :paths paths :color color :loc {:x x :y y :time time}})))
+    (new-hyp "Loc" :location
+             [:location entity] ;; conflict with entity/location-hyps
+             (apply max (map :apriori paths)) :or paths
+             (format "Entity %s is at %d,%d at time %d (%s)" entity x y time bias)
+             {:entity entity :bias bias :paths paths
+              :color color :loc {:x x :y y :time time}})))
 
 (defn dets-match?
   [det det2]
@@ -156,15 +158,37 @@
        (match-color? (:color det) (:color det2))))
 
 (defn make-location-hyps
-  [entities path-hyps]
+  [entities entity-biases path-hyps]
   (mapcat (fn [e] (let [loc (get entities e)
                         get-first #(:det (:data (first (:movements (:data %)))))
                         get-last #(:det2 (:data (last (:movements (:data %)))))
                         matching-starts
                         (filter #(dets-match? loc (get-first %)) path-hyps)
-                        path-groups (group-by get-last matching-starts)]
-                    (map #(make-location-hyp e %) (vals path-groups))))
+                        path-starts-ends (group-by get-last matching-starts)
+                        path-biases (map #(group-by (comp :bias :data) %)
+                                         (vals path-starts-ends))]
+                    (mapcat (fn [pb]
+                              (map (fn [bias] (make-location-hyp e bias (get pb bias)))
+                                   (filter #(not-empty (get pb %))
+                                           (if-let [believed-bias (get entity-biases e)]
+                                             [believed-bias] (keys pb)))))
+                            path-biases)))
           (keys entities)))
+
+(defn make-bias-hyps
+  [entity-biases loc-hyps]
+  (let [locs (group-by (comp :entity :data) loc-hyps)
+        biases (mapcat (fn [ls] (vals (group-by (comp :bias :data) ls)))
+                       (vals locs))]
+    (map (fn [ls]
+           (let [entity (:entity (:data (first ls)))
+                 bias (:bias (:data (first ls)))]
+             (new-hyp "Bias" :bias
+                      [:bias entity] ;; conflict with entity/bias-hyps
+                      (apply max (map :apriori ls)) :or ls
+                      (format "Entity %s has bias %s" entity bias)
+                      {:entity entity :bias bias :locs ls})))
+         biases)))
 
 (defn make-dep-node
   [hyp]
@@ -183,7 +207,8 @@
   (binding [compute 0 memory 0]
     (let [ep-sensors (process-sensors ep-state sensors time-now)
           pdata (:problem-data ep-sensors)
-          {:keys [entities accepted uncovered-from uncovered-to walk-dist]} pdata
+          {:keys [entities entity-biases accepted
+                  uncovered-from uncovered-to walk-dist]} pdata
           mov-hyps (make-movement-hyps uncovered-from uncovered-to walk-dist)
           pg (build-paths-graph
               (set/union (set mov-hyps)
@@ -194,15 +219,17 @@
                             (apply concat (for [bias (keys paths)]
                                             (map #(make-path-hyp bias %)
                                                  (filter not-empty (get paths bias))))))
+          loc-hyps (make-location-hyps entities entity-biases path-hyps)
+          valid-path-hyps (set (mapcat (comp :paths :data) loc-hyps))
           valid-mov-hyps (set (mapcat (comp :movements :data) path-hyps))
-          loc-hyps (make-location-hyps entities path-hyps)]
+          bias-hyps (make-bias-hyps entity-biases loc-hyps)]
       [(reduce (fn [ep hyp] (add-hyp ep hyp (make-dep-node hyp)
                                      (make-dep-nodes hyp)))
                ep-pg (filter
                       (fn [h] (and (not-any? #(= (:id %) (:id h)) accepted)
                                    (some (fn [e] (not-any? #(= (:id %) (:id e)) accepted))
                                          (:explains h))))
-                      (concat valid-mov-hyps path-hyps loc-hyps)))
+                      (concat valid-mov-hyps valid-path-hyps loc-hyps bias-hyps)))
        {:compute compute :memory memory}])))
 
 (defn commit-decision
@@ -212,12 +239,14 @@
                                       merge (:loc (:data loc-hyp))))
                          (:entities pdata) (filter #(= :location (:type %))
                                                    accepted))
+        entity-biases {}
         bel-movs (map (comp :movement :data) (filter #(= :movement (:type %)) accepted))
         dis-movs (map (comp :movement :data) (filter #(= :movement (:type %)) rejected))
         explained-det-hyps (mapcat :explains (filter #(= :movement (:type %)) accepted))
         covered-from (set (filter #(= :sensor-from (:type %)) explained-det-hyps))
         covered-to (set (filter #(= :sensor-to (:type %)) explained-det-hyps))]
     (-> pdata (assoc :entities entities)
+        (assoc :entity-biases entity-biases)
         (update-in [:accepted] set/union accepted)
         (update-in [:believed-movements] concat bel-movs)
         (update-in [:disbelieved-movements] concat dis-movs)

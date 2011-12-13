@@ -32,6 +32,7 @@
   [truedata sensors]
   {:entities (reduce (fn [es e] (assoc es e (first (get truedata e))))
                      {} (keys truedata))
+   :entity-biases {}
    :accepted #{}
    :believed-movements []
    :disbelieved-movements []
