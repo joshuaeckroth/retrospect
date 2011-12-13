@@ -49,7 +49,7 @@ conditions are met after the strategy has done its work.
   (:use [retrospect.epistemicstates :only
          [previous-ep-state current-ep-state new-child-ep-state
           new-branch-ep-state new-branch-root explain goto-ep-state
-          update-ep-state-tree nth-previous-ep-state]])
+          update-ep-state-tree nth-previous-ep-state ep-state-depth]])
   (:use [retrospect.onerun :only
          [proceed-one-run-state update-one-run-state]])
   (:require [retrospect.workspaces :as ws])
@@ -82,9 +82,11 @@ conditions are met after the strategy has done its work.
       ;; otherwise, we're not straight out of the root, so do the batching
       (let [prior-est (:ep-state-tree or-state)
             prior-ep (current-ep-state prior-est)
-            ;; branch back n if n != nil, otherwise branch from root
-            est (if n (new-branch-ep-state prior-est (nth-previous-ep-state prior-est n))
-                    (new-branch-root prior-est (:original-problem-data or-state)))
+            ;; branch back n if n != nil and there are more than n states;
+            ;; otherwise branch from root
+            est (if (and n (< n (ep-state-depth prior-est)))
+                  (new-branch-ep-state prior-est (nth-previous-ep-state prior-est n))
+                  (new-branch-root prior-est (:original-problem-data or-state)))
             ep-state (current-ep-state est)
             time-now (apply max (map :sensed-up-to (:sensors or-state)))
             [ep-hyps resources] ((:hypothesize-fn @problem) ep-state (:sensors or-state) time-now)

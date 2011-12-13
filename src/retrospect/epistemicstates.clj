@@ -91,6 +91,13 @@
   (let [up (zip/up ep-state-tree)]
     (if-not (root-ep-state? (zip/node up)) (zip/node up))))
 
+(defn ep-state-depth
+  [ep-state-tree]
+  (loop [i 0
+         loc ep-state-tree]
+    (if (root-ep-state? (zip/node loc)) i
+        (recur (inc i) (zip/up loc)))))
+
 (defn nth-previous-ep-state
   [ep-state-tree n]
   (loop [i n
@@ -172,14 +179,15 @@
   [ep-state id time-now]
   (let [workspace (:workspace ep-state)
         accepted (:accepted workspace)
-        rejected (:rejected workspace)]
+        rejected (:rejected workspace)
+        unaccepted (:unaccepted (:final (:log workspace)))]
     (EpistemicState.
      id
      []
      (inc time-now)
      (ws/init-workspace)
      ((:commit-decision-fn @problem) (:problem-data ep-state)
-      accepted rejected time-now)
+      accepted rejected unaccepted time-now)
      (:depgraph ep-state))))
 
 (defn new-branch-ep-state
