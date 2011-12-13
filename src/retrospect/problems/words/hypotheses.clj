@@ -365,7 +365,7 @@
     (with-meta new-model {:sum (reduce + 0 (vals new-model))})))
 
 (defn commit-decision
-  [pdata accepted rejected time-now]
+  [pdata accepted _ _]
   (let [words-pos-seqs
         (sort-by (comp first second)
                  (partition 2 (mapcat (fn [hyp] (interleave (:words (:data hyp))
