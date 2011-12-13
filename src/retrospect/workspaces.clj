@@ -400,7 +400,9 @@
       (update-in [:forced] conj hyp)
       (update-in [:log :forced] conj hyp)
       (update-in [:accepted] conj hyp)
-      (update-in [:log :accepted] conj hyp)))
+      (update-in [:log :accepted] conj hyp)
+      (update-in [:graph-static] add-attr hyp :fontcolor "gray50")
+      (update-in [:graph-static] add-attr hyp :color "gray50")))
 
 (defn reset-confidences
   [workspace]
@@ -418,7 +420,7 @@
         (update-in [:graph-static]
                    #(reduce (fn [g h] (-> g (remove-attr h :fontcolor)
                                           (remove-attr h :color)))
-                            % (nodes %)))
+                            % (set/difference (nodes %) (:forced ws))))
         (assoc-in [:log :best] [])
         (assoc-in [:log :accrej] {})
         (assoc-in [:log :accepted] (:forced workspace))
