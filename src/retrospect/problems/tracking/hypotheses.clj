@@ -1,12 +1,13 @@
 (ns retrospect.problems.tracking.hypotheses
   (:require [clojure.set :as set])
+  (:use [clojure.contrib.seq :only [find-first]])
   (:use [retrospect.epistemicstates :only [add-hyp add-more-hyp add-fact]])
   (:use [retrospect.workspaces :only [new-hyp]])
   (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.colors])
-  (:use [retrospect.problems.tracking.movements :only [dist]])
+  (:use [retrospect.problems.tracking.movements :only [dist dets-match?]])
   (:use [retrospect.problems.tracking.pathsgraph :only
-         [paths-graph-paths build-paths-graph]])
+         [paths-graph-paths build-paths-graph path-str]])
   (:use [retrospect.state]))
 
 ;; The goal of the tracking domain is to identify entities' beginning
@@ -89,13 +90,6 @@
           dist-count (walk-dist d)]
       (if dist-count (double (/ dist-count (:walk-count (meta walk-dist))))))))
 
-(defn path-str
-  [dets]
-  (let [arrows (fn [s] (apply str (interpose " -> " s)))]
-    (arrows (map (fn [det] (format "%d,%d@%d (%s)" (:x det) (:y det) (:time det)
-                                   (color-str (:color det))))
-                 dets))))
-
 (defn make-movement-hyps
   [uncovered-from uncovered-to walk-dist]
   (let [unc-from-by-time (group-by (comp :time :det :data) uncovered-from)
@@ -150,21 +144,19 @@
              {:entity entity :bias bias :paths paths
               :color color :loc {:x x :y y :time time}})))
 
-(defn dets-match?
-  [det det2]
-  (and (= (:x det) (:x det2))
-       (= (:y det) (:y det2))
-       (= (:time det) (:time det2))
-       (match-color? (:color det) (:color det2))))
+(defn extract-path-dets
+  [path]
+  (concat [(:det (:data (first (:movements (:data path)))))]
+          (map (comp :det2 :data) (:movements (:data path)))))
 
 (defn make-location-hyps
   [entities entity-biases path-hyps]
   (mapcat (fn [e] (let [loc (get entities e)
-                        get-first #(:det (:data (first (:movements (:data %)))))
-                        get-last #(:det2 (:data (last (:movements (:data %)))))
-                        matching-starts
-                        (filter #(dets-match? loc (get-first %)) path-hyps)
-                        path-starts-ends (group-by get-last matching-starts)
+                        matching-starts (filter
+                                         #(dets-match? loc (first (extract-path-dets %)))
+                                         path-hyps)
+                        path-starts-ends (group-by #(last (extract-path-dets %))
+                                                   matching-starts)
                         path-biases (map #(group-by (comp :bias :data) %)
                                          (vals path-starts-ends))]
                     (mapcat (fn [pb]
@@ -176,8 +168,13 @@
           (keys entities)))
 
 (defn make-bias-hyps
-  [entity-biases loc-hyps]
-  (let [locs (group-by (comp :entity :data) loc-hyps)
+  [loc-hyps]
+  (let [unique-last-three-xys
+        (fn [loc] (map (fn [path] (set (take-last 3 (extract-path-dets path))))
+                       (:paths (:data loc))))
+        long-enough-locs (filter (fn [h] (some #(= 3 (count %))
+                                               (unique-last-three-xys h))) loc-hyps)
+        locs (group-by (comp :entity :data) long-enough-locs)
         biases (mapcat (fn [ls] (vals (group-by (comp :bias :data) ls)))
                        (vals locs))]
     (map (fn [ls]
@@ -207,22 +204,25 @@
   (binding [compute 0 memory 0]
     (let [ep-sensors (process-sensors ep-state sensors time-now)
           pdata (:problem-data ep-sensors)
-          {:keys [entities entity-biases accepted
+          {:keys [entities entity-biases accepted unaccepted
                   uncovered-from uncovered-to walk-dist]} pdata
           mov-hyps (make-movement-hyps uncovered-from uncovered-to walk-dist)
           pg (build-paths-graph
               (set/union (set mov-hyps)
-                         (set (filter #(= :movement (:type %)) accepted))) entities)
+                         (set (filter #(= :movement (:type %))
+                                      (concat accepted unaccepted)))) entities)
           ep-pg (assoc-in ep-sensors [:problem-data :paths-graph] pg)
-          paths (paths-graph-paths pg)
+          paths (paths-graph-paths pg entities)
           path-hyps (filter (fn [h] (some #(not (accepted %)) (:movements (:data h))))
                             (apply concat (for [bias (keys paths)]
                                             (map #(make-path-hyp bias %)
                                                  (filter not-empty (get paths bias))))))
           loc-hyps (make-location-hyps entities entity-biases path-hyps)
           valid-path-hyps (set (mapcat (comp :paths :data) loc-hyps))
-          valid-mov-hyps (set (mapcat (comp :movements :data) path-hyps))
-          bias-hyps (make-bias-hyps entity-biases loc-hyps)]
+          valid-mov-hyps (set (mapcat (comp :movements :data) valid-path-hyps))
+          bias-hyps (make-bias-hyps
+                     (filter #(nil? (get entity-biases (:entity (:data %))))
+                             loc-hyps))]
       [(reduce (fn [ep hyp] (add-hyp ep hyp (make-dep-node hyp)
                                      (make-dep-nodes hyp)))
                ep-pg (filter
@@ -233,13 +233,17 @@
        {:compute compute :memory memory}])))
 
 (defn commit-decision
-  [pdata accepted rejected time-now]
+  [pdata accepted rejected unaccepted time-now]
   (let [entities (reduce (fn [es loc-hyp]
                            (update-in es [(:entity (:data loc-hyp))]
                                       merge (:loc (:data loc-hyp))))
                          (:entities pdata) (filter #(= :location (:type %))
                                                    accepted))
-        entity-biases {}
+        entity-biases (reduce (fn [eb bias-hyp]
+                                (assoc eb (:entity (:data bias-hyp))
+                                       (:bias (:data bias-hyp))))
+                              (:entity-biases pdata) (filter #(= :bias (:type %))
+                                                             accepted))
         bel-movs (map (comp :movement :data) (filter #(= :movement (:type %)) accepted))
         dis-movs (map (comp :movement :data) (filter #(= :movement (:type %)) rejected))
         explained-det-hyps (mapcat :explains (filter #(= :movement (:type %)) accepted))
@@ -248,6 +252,7 @@
     (-> pdata (assoc :entities entities)
         (assoc :entity-biases entity-biases)
         (update-in [:accepted] set/union accepted)
+        (update-in [:unaccepted] set/union unaccepted)
         (update-in [:believed-movements] concat bel-movs)
         (update-in [:disbelieved-movements] concat dis-movs)
         (update-in [:uncovered-from] set/difference covered-from)

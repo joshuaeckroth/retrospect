@@ -27,9 +27,16 @@
   (let [[x y] [(my-rand-int (:width (meta movements)))
                (my-rand-int (:height (meta movements)))]
         c (my-rand-nth [red blue green])
-        b (my-rand-nth [:straight :left :right :nobias])
+        b (my-rand-nth [:straight :left :right])
         e (symbol (str (count (keys movements))))]
     (assoc movements e [{:x x :y y :time time :color c :bias b}])))
+
+(defn dets-match?
+  [det det2]
+  (and (= (:x det) (:x det2))
+       (= (:y det) (:y det2))
+       (= (:time det) (:time det2))
+       (match-color? (:color det) (:color det2))))
 
 (defn calc-angle
   [x y ox oy oox ooy]

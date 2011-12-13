@@ -1,7 +1,6 @@
 (ns retrospect.problems.tracking.evaluate
   (:use [retrospect.evaluate :only [calc-increase]])
-  (:use [retrospect.problems.tracking.movements :only [moves-match?]])
-  (:use [retrospect.problems.tracking.hypotheses :only [dets-match?]]))
+  (:use [retrospect.problems.tracking.movements :only [moves-match? dets-match?]]))
 
 (defn true-hyp?
   [truedata pdata time hyp]

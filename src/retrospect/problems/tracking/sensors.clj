@@ -23,7 +23,7 @@
            (mapcat (fn [e] (map (fn [mov]
                                   ;; turn the movement into a detection, and
                                   ;; add the color (or gray)
-                                  (assoc (dissoc mov :ox :oy :ot)
+                                  (assoc (dissoc mov :ox :oy :ot :bias)
                                     :color (if (:sees-color (meta sensor))
                                              (:color mov) gray)))
                                 (entity-movements movements e time time)))

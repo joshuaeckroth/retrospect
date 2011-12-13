@@ -4,8 +4,9 @@
          [digraph add-edges remove-edges remove-nodes nodes edges
           incoming neighbors]])
   (:use [loom.attr :only [add-attr attr]])
+  (:use [loom.io :only [view]])
   (:use [retrospect.colors])
-  (:use [retrospect.problems.tracking.movements :only [valid-angle?]]))
+  (:use [retrospect.problems.tracking.movements :only [valid-angle? dets-match?]]))
 
 (defn paths-graph-add-edge
   [paths-graph hyp hyp-orig]
@@ -155,17 +156,28 @@
                     (neighbors paths-graph det))]
     (take n (map first (sort-by second scored)))))
 
+(defn path-str
+  [dets]
+  (let [arrows (fn [s] (apply str (interpose " -> " s)))]
+    (arrows (map (fn [det] (format "%d,%d@%d (%s)" (:x det) (:y det) (:time det)
+                                   (color-str (:color det))))
+                 dets))))
+
 (defn paths-graph-paths-build
   [paths-graph paths]
   (if (empty? (mapcat (fn [path] (neighbors paths-graph (last path))) paths))
     paths
-    (let [new-paths (mapcat (fn [path] (map (fn [det] (conj path det))
-                                            (find-n-best-next paths-graph (last path) 1000)))
+    (let [new-paths (mapcat (fn [path]
+                              (let [next-links (find-n-best-next paths-graph
+                                                                 (last path) 1000)]
+                                (if (empty? next-links) [path]
+                                    (map (fn [det] (conj path det)) next-links))))
                             paths)]
       (recur paths-graph new-paths))))
 
 (defn get-path-biases
-  "Used by (paths-graph-paths); path has the form of a seq of dets."
+  "Find the biases that this path satisfieds. Used
+   by (paths-graph-paths); path has the form of a seq of dets."
   [path biases]
   (if (>= 2 (count path)) biases
       (filter (fn [bias]
@@ -178,11 +190,13 @@
               biases)))
 
 (defn paths-graph-paths
-  [paths-graph]
-  (let [starts (filter #(empty? (incoming paths-graph %)) (nodes paths-graph))
+  [paths-graph entities]
+  (let [entity-ends (vals entities)
+        starts (filter (fn [det] (some #(dets-match? det %) entity-ends))
+                       (nodes paths-graph))
         path-starts (map (fn [det] [det]) starts)
         paths (paths-graph-paths-build paths-graph path-starts)
-        biases [:left :right :straight :nobias]
+        biases [:left :right :straight]
         paths-by-bias (reduce (fn [m p]
                                 (let [p-biases (get-path-biases p biases)]
                                   (reduce (fn [m2 b]

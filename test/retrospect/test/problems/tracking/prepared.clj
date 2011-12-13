@@ -50,7 +50,7 @@
     (is (approx= 33.3 (:PEW (last results)) 0.1)))
   (let [results (run (assoc-in (intersection-ambiguity)
                                [:params :MetaReasoning] "Batch1"))]
-    (is (approx= 66.6 (:PEC (last results)) 0.1))
+    (is (approx= 33.3 (:PEC (last results)) 0.1))
     (is (approx= 33.3 (:PEW (last results)) 0.1)))
   (let [results (run (assoc-in (intersection-ambiguity)
                                [:params :MetaReasoning] "Batch2"))]

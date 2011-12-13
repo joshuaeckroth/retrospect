@@ -33,7 +33,7 @@
                  :letters [] :left-off -1}
           new-pdata (commit-decision pdata (set (concat learning-hyps word-hyps-nonoise
                                                         composite-hyps-nonoise))
-                                     nil nil)]
+                                     nil nil nil)]
       (is (= #{["bar"] ["quux"]} (get-words word-hyps-nonoise)))
       (is (= #{["foo"]} (get-words noise-hyps)))
       (is (= #{["bar" "quux"]} (get-words composite-hyps-nonoise)))

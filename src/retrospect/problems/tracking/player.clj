@@ -215,13 +215,17 @@
   []
   (let [pdata (:problem-data (:ep-state @or-state))
         believed-movements (:believed-movements pdata)
-        entities (:entities pdata)]
+        entities (:entities pdata)
+        entity-biases (:entity-biases pdata)
+        lines (fn [ss] (apply str (interpose "\n" ss)))]
     (format "Entity locations:\n%s\n\nBelieved movements:\n%s\n"
-            (apply str (interpose "\n" (map (fn [e]
-                                              (let [loc (get entities e)]
-                                                (format "%s: %d,%d@%d"
-                                                        e (:x loc) (:y loc) (:time loc))))
-                                            (sort-by str (AlphanumComparator.)
-                                                     (keys entities)))))
-            (apply str (interpose "\n" (map move-str
-                                            (sort-by :time believed-movements)))))))
+            (lines (map (fn [e] (let [loc (get entities e)]
+                                  (format "%s (%s, %s): %d,%d@%d"
+                                          e (color-str (:color loc))
+                                          (if-let [b (get entity-biases e)]
+                                            (name b) "?")
+                                          (:x loc) (:y loc) (:time loc))))
+                        (sort-by str (AlphanumComparator.)
+                                 (keys entities))))
+            (lines (map move-str
+                        (sort-by :time believed-movements))))))

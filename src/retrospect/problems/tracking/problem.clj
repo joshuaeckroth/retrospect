@@ -34,6 +34,7 @@
                      {} (keys truedata))
    :entity-biases {}
    :accepted #{}
+   :unaccepted #{}
    :believed-movements []
    :disbelieved-movements []
    :left-off 0

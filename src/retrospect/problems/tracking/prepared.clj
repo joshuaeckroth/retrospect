@@ -12,13 +12,13 @@
    :TransitiveExplanation false, :Threshold 0})
 
 (defn entity-paths
-  [params bias & eps]
-  (let [movements (reduce (fn [m [id c t x y & _]]
+  [params & eps]
+  (let [movements (reduce (fn [m [id bias c t x y & _]]
                             (assoc m (symbol id)
                                    [{:x x :y y :time t :color c :bias bias}]))
                           (new-movements (:GridWidth params) (:GridHeight params))
                           eps)]
-    (reduce (fn [m [id _ start-time & xys]]
+    (reduce (fn [m [id _ _ start-time & xys]]
               (let [xy-pairs (rest (partition 2 xys))]
                 (reduce (fn [m2 [x y t]] (move-entity m2 (symbol id) x y t))
                         m (map (fn [[t xy]] (conj (vec xy) (inc (+ start-time t))))
@@ -32,9 +32,9 @@
                                     :SensorSeesColor 0})]
     {:params params
      :sensors [(new-sensor (keyword "right") 5 9 0 9 false)]
-     :truedata (entity-paths params :nobias
-                             ["1" red  0 5,4 4,4]
-                             ["2" blue 0 5,5 5,4])}))
+     :truedata (entity-paths params
+                             ["1" :straight red  0 5,4 4,4]
+                             ["2" :straight blue 0 5,5 5,4])}))
 
 (defn color-update
   []
@@ -43,7 +43,7 @@
      :sensors [(new-sensor (keyword "1") 0 3 0 9 false)
                (new-sensor (keyword "2g") 4 7 0 9 true)
                (new-sensor (keyword "3") 8 9 0 9 false)]
-     :truedata (entity-paths params :nobias ["1" red 0 9,5 5,5 2,5])}))
+     :truedata (entity-paths params ["1" :straight red 0 9,5 5,5 2,5])}))
 
 (defn gray-in-range
   []
@@ -52,9 +52,9 @@
      :sensors [(new-sensor (keyword "top") 0 9 0 3 true)
                (new-sensor (keyword "middle-gray") 0 9 4 6 false)
                (new-sensor (keyword "bottom") 0 9 7 9 true)]
-     :truedata (entity-paths params :nobias
-                             ["1" red  0 3,0 3,5 3,9]
-                             ["2" blue 0 7,0 7,5 7,9])}))
+     :truedata (entity-paths params
+                             ["1" :straigt red  0 3,0 3,5 3,9]
+                             ["2" :straight blue 0 7,0 7,5 7,9])}))
 
 (defn intersection-ambiguity
   []
@@ -64,9 +64,9 @@
      :sensors [(new-sensor (keyword "left") 0 2 0 9 true)
                (new-sensor (keyword "middle") 3 4 0 9 false)
                (new-sensor (keyword "right") 5 9 0 9 true)]
-     :truedata (entity-paths params :nobias
-                             ["1" red  0 5,7 4,4 2,2 0,2]
-                             ["2" blue 0 5,4 4,7 2,9 0,9])}))
+     :truedata (entity-paths params
+                             ["1" :left red  0 5,7 4,4 3,3 2,2]
+                             ["2" :right blue 0 5,4 4,7 3,8 2,9])}))
 
 (comment
   (defn intersection-ambiguity-nometa

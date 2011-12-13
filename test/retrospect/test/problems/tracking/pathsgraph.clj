@@ -21,12 +21,11 @@
           h2 (new-hyp "Mov" :movement nil 1.0 :and [st2 sf3] "d2->d3"
                       {:det det2 :det2 det3})
           h2-color (assoc-in h2 [:data :det :color] red)
-          entities {(symbol "A") [{:x 0 :y 0 :time 0 :color red}]}
+          entities {(symbol "A") {:x 0 :y 0 :time 0 :color red}}
           pg (build-paths-graph [h1 h2] entities)
-          paths (paths-graph-paths pg)]
+          paths (paths-graph-paths pg entities)]
       (is (= #{det1 (assoc det2 :color red) det3} (nodes pg)))
-      (is (= {:nobias [[h1-color h2-color]]
-              :straight [[h1-color h2-color]]
+      (is (= {:straight [[h1-color h2-color]]
               :right [] :left []}
              paths)))))
 
@@ -43,13 +42,12 @@
                       {:det det1 :det2 det2})
           h2 (new-hyp "Mov" :movement nil 1.0 :and [st2 sf3] "d2->d3"
                       {:det det2 :det2 det3})
-          entities {(symbol "A") [{:x 0 :y 0 :time 0 :color red}]}
+          entities {(symbol "A") {:x 0 :y 0 :time 0 :color red}}
           pg (build-paths-graph [h1 h2] entities)
-          paths (paths-graph-paths pg)]
+          paths (paths-graph-paths pg entities)]
       (is (= #{det1 (assoc det2 :color red) det3} (nodes pg)))
       (let [single-move [[(assoc-in h1 [:data :det2 :color] red)]]]
-        (is (= {:nobias single-move :straight single-move
-                :left single-move :right single-move}
+        (is (= {:straight single-move :left single-move :right single-move}
                paths))))))
 
 (deftest bad-edges-2
@@ -73,9 +71,9 @@
                       {:det det2 :det2 det4})
           h4 (new-hyp "Mov" :movement nil 1.0 :and [st2 sf5] "d2->d5"
                       {:det det2 :det2 det5})
-          entities {(symbol "A") [{:x 0 :y 0 :time 0 :color red}]}
+          entities {(symbol "A") {:x 0 :y 0 :time 0 :color red}}
           pg (build-paths-graph [h1 h2 h3 h4] entities)
-          paths (paths-graph-paths pg)]
+          paths (paths-graph-paths pg entities)]
       (is (= #{det1 (assoc det2 :color red) det3 det4 (assoc det5 :color red)}
              (nodes pg)))
       (let [mov1 [(assoc-in h1 [:data :det2 :color] red)
@@ -83,6 +81,5 @@
             mov2 [(assoc-in h1 [:data :det2 :color] red)
                   (-> h4 (assoc-in [:data :det :color] red)
                       (assoc-in [:data :det2 :color] red))]]
-        (is (= {:nobias [mov2 mov1] :straight [mov1]
-                :left [] :right [mov2]} paths))))))
+        (is (= {:straight [mov1] :left [] :right [mov2]} paths))))))
 
