@@ -6,8 +6,10 @@
   (:use [retrospect.problems.tracking.prepared])
   (:use [retrospect.onerun :only [init-one-run-state]])
   (:use [retrospect.problem :only [run-simulation]])
-  (:use [retrospect.workspaces :only [last-id]])
-  (:use [retrospect.random :only [rgen new-seed]]))
+  (:use [retrospect.workspaces :only [last-id get-hyps]])
+  (:use [retrospect.random :only [rgen new-seed]])
+  (:use [retrospect.epistemicstates :only [current-ep-state goto-ep-state]])
+  (:use [retrospect.state]))
 
 (defn run
   [{:keys [params sensors truedata]}]
@@ -33,6 +35,7 @@
     (is (= 1.0 (:Spec (first results))))))
 
 (deftest case-intersection-ambiguity
+  ;; default is BatchBeginning
   (let [results (run (intersection-ambiguity))]
     (is (= 100.0 (:PEC (last results))))
     (is (= 0.0 (:PEW (last results))))
@@ -43,7 +46,7 @@
     (is (= 1.0 (:Spec (last results)))))
   (let [results (run (assoc-in (intersection-ambiguity)
                                [:params :MetaReasoning] "NoMetareasoning"))]
-    (is (approx= 66.6 (:PEC (last results)) 0.1))
+    (is (approx= 33.3 (:PEC (last results)) 0.1))
     (is (approx= 33.3 (:PEW (last results)) 0.1)))
   (let [results (run (assoc-in (intersection-ambiguity)
                                [:params :MetaReasoning] "Batch1"))]

@@ -56,6 +56,7 @@
 (defn run-simulation
   [truedata or-state monitor?]
   (loop [ors or-state]
+    (dosync (alter retrospect.state/or-state (constantly ors)))
     (when (nil? ors)
       (throw (ExecutionException. "Monitor took control." (Throwable.))))
     (if (>= (:time (:ep-state ors)) (:Steps params))

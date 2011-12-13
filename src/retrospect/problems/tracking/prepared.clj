@@ -12,9 +12,10 @@
    :TransitiveExplanation false, :Threshold 0})
 
 (defn entity-paths
-  [params & eps]
+  [params bias & eps]
   (let [movements (reduce (fn [m [id c t x y & _]]
-                            (assoc m (symbol id) [{:x x :y y :time t :color c}]))
+                            (assoc m (symbol id)
+                                   [{:x x :y y :time t :color c :bias bias}]))
                           (new-movements (:GridWidth params) (:GridHeight params))
                           eps)]
     (reduce (fn [m [id _ start-time & xys]]
@@ -31,7 +32,7 @@
                                     :SensorSeesColor 0})]
     {:params params
      :sensors [(new-sensor (keyword "right") 5 9 0 9 false)]
-     :truedata (entity-paths params
+     :truedata (entity-paths params :nobias
                              ["1" red  0 5,4 4,4]
                              ["2" blue 0 5,5 5,4])}))
 
@@ -42,7 +43,7 @@
      :sensors [(new-sensor (keyword "1") 0 3 0 9 false)
                (new-sensor (keyword "2g") 4 7 0 9 true)
                (new-sensor (keyword "3") 8 9 0 9 false)]
-     :truedata (entity-paths params ["1" red 0 9,5 5,5 2,5])}))
+     :truedata (entity-paths params :nobias ["1" red 0 9,5 5,5 2,5])}))
 
 (defn gray-in-range
   []
@@ -51,7 +52,7 @@
      :sensors [(new-sensor (keyword "top") 0 9 0 3 true)
                (new-sensor (keyword "middle-gray") 0 9 4 6 false)
                (new-sensor (keyword "bottom") 0 9 7 9 true)]
-     :truedata (entity-paths params
+     :truedata (entity-paths params :nobias
                              ["1" red  0 3,0 3,5 3,9]
                              ["2" blue 0 7,0 7,5 7,9])}))
 
@@ -63,7 +64,7 @@
      :sensors [(new-sensor (keyword "left") 0 2 0 9 true)
                (new-sensor (keyword "middle") 3 4 0 9 false)
                (new-sensor (keyword "right") 5 9 0 9 true)]
-     :truedata (entity-paths params
+     :truedata (entity-paths params :nobias
                              ["1" red  0 5,7 4,4 2,2 0,2]
                              ["2" blue 0 5,4 4,7 2,9 0,9])}))
 

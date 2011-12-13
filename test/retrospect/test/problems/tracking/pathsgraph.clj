@@ -17,18 +17,17 @@
           sf3 (new-hyp "SensFrom" :sensor-from nil 1.0 nil [] "" {:det det3})
           h1 (new-hyp "Mov" :movement nil 1.0 :and [st1 sf2] "d1->d2"
                       {:det det1 :det2 det2})
+          h1-color (assoc-in h1 [:data :det2 :color] red)
           h2 (new-hyp "Mov" :movement nil 1.0 :and [st2 sf3] "d2->d3"
                       {:det det2 :det2 det3})
+          h2-color (assoc-in h2 [:data :det :color] red)
           entities {(symbol "A") [{:x 0 :y 0 :time 0 :color red}]}
           pg (build-paths-graph [h1 h2] entities)
           paths (paths-graph-paths pg)]
       (is (= #{det1 (assoc det2 :color red) det3} (nodes pg)))
-      (is (= {:nobias [[(assoc-in h1 [:data :det2] (assoc det2 :color red))
-                        (assoc-in h2 [:data :det] (assoc det2 :color red))]]
-              :straight [[(assoc-in h1 [:data :det2] (assoc det2 :color red))
-                          (assoc-in h2 [:data :det] (assoc det2 :color red))]]
-              :right []
-              :left []}
+      (is (= {:nobias [[h1-color h2-color]]
+              :straight [[h1-color h2-color]]
+              :right [] :left []}
              paths)))))
 
 (deftest bad-edges-1

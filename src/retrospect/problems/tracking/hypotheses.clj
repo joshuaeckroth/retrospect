@@ -183,19 +183,26 @@
   (binding [compute 0 memory 0]
     (let [ep-sensors (process-sensors ep-state sensors time-now)
           pdata (:problem-data ep-sensors)
-          {:keys [entities uncovered-from uncovered-to walk-dist]} pdata
+          {:keys [entities accepted uncovered-from uncovered-to walk-dist]} pdata
           mov-hyps (make-movement-hyps uncovered-from uncovered-to walk-dist)
-          pg (build-paths-graph mov-hyps entities)
+          pg (build-paths-graph
+              (set/union (set mov-hyps)
+                         (set (filter #(= :movement (:type %)) accepted))) entities)
           ep-pg (assoc-in ep-sensors [:problem-data :paths-graph] pg)
           paths (paths-graph-paths pg)
-          path-hyps (apply concat
-                           (for [bias (keys paths)]
-                             (map #(make-path-hyp bias %) (get paths bias))))
-          valid-mov-hyps (mapcat (comp :movements :data) path-hyps)
+          path-hyps (filter (fn [h] (some #(not (accepted %)) (:movements (:data h))))
+                            (apply concat (for [bias (keys paths)]
+                                            (map #(make-path-hyp bias %)
+                                                 (filter not-empty (get paths bias))))))
+          valid-mov-hyps (set (mapcat (comp :movements :data) path-hyps))
           loc-hyps (make-location-hyps entities path-hyps)]
       [(reduce (fn [ep hyp] (add-hyp ep hyp (make-dep-node hyp)
                                      (make-dep-nodes hyp)))
-               ep-pg (concat valid-mov-hyps path-hyps loc-hyps))
+               ep-pg (filter
+                      (fn [h] (and (not-any? #(= (:id %) (:id h)) accepted)
+                                   (some (fn [e] (not-any? #(= (:id %) (:id e)) accepted))
+                                         (:explains h))))
+                      (concat valid-mov-hyps path-hyps loc-hyps)))
        {:compute compute :memory memory}])))
 
 (defn commit-decision
@@ -211,6 +218,7 @@
         covered-from (set (filter #(= :sensor-from (:type %)) explained-det-hyps))
         covered-to (set (filter #(= :sensor-to (:type %)) explained-det-hyps))]
     (-> pdata (assoc :entities entities)
+        (update-in [:accepted] set/union accepted)
         (update-in [:believed-movements] concat bel-movs)
         (update-in [:disbelieved-movements] concat dis-movs)
         (update-in [:uncovered-from] set/difference covered-from)
