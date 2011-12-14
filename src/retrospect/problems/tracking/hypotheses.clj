@@ -212,7 +212,7 @@
                          (set (filter #(= :movement (:type %))
                                       (concat accepted unaccepted)))) entities)
           ep-pg (assoc-in ep-sensors [:problem-data :paths-graph] pg)
-          paths (paths-graph-paths pg entities)
+          paths (paths-graph-paths pg entities entity-biases)
           path-hyps (filter (fn [h] (some #(not (accepted %)) (:movements (:data h))))
                             (apply concat (for [bias (keys paths)]
                                             (map #(make-path-hyp bias %)

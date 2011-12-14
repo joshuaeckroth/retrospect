@@ -23,7 +23,7 @@
           h2-color (assoc-in h2 [:data :det :color] red)
           entities {(symbol "A") {:x 0 :y 0 :time 0 :color red}}
           pg (build-paths-graph [h1 h2] entities)
-          paths (paths-graph-paths pg entities)]
+          paths (paths-graph-paths pg entities {})]
       (is (= #{det1 (assoc det2 :color red) det3} (nodes pg)))
       (is (= {:straight [[h1-color h2-color]]
               :right [] :left []}
@@ -44,7 +44,7 @@
                       {:det det2 :det2 det3})
           entities {(symbol "A") {:x 0 :y 0 :time 0 :color red}}
           pg (build-paths-graph [h1 h2] entities)
-          paths (paths-graph-paths pg entities)]
+          paths (paths-graph-paths pg entities {})]
       (is (= #{det1 (assoc det2 :color red) det3} (nodes pg)))
       (let [single-move [[(assoc-in h1 [:data :det2 :color] red)]]]
         (is (= {:straight single-move :left single-move :right single-move}
@@ -73,7 +73,7 @@
                       {:det det2 :det2 det5})
           entities {(symbol "A") {:x 0 :y 0 :time 0 :color red}}
           pg (build-paths-graph [h1 h2 h3 h4] entities)
-          paths (paths-graph-paths pg entities)]
+          paths (paths-graph-paths pg entities {})]
       (is (= #{det1 (assoc det2 :color red) det3 det4 (assoc det5 :color red)}
              (nodes pg)))
       (let [mov1 [(assoc-in h1 [:data :det2 :color] red)

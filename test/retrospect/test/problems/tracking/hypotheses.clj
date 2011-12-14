@@ -35,7 +35,7 @@
                             (assoc-in [:data :det2 :color] red))
           entities {(symbol "A") {:x 0 :y 1 :color red :time 1}}
           pg (build-paths-graph (conj mov-hyps h1 h3) entities)
-          paths (paths-graph-paths pg entities)]
+          paths (paths-graph-paths pg entities {})]
       (is (= 1 (count mov-hyps)))
       (is (= {:det det2 :det2 det3}
              (select-keys (:data (first mov-hyps)) [:det :det2])))
