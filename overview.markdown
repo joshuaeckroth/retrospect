@@ -1,97 +1,3 @@
-## Parameters
-
-### Generic parameters
-
-- `:BeliefNoise` (0-100) not used
-
-- `:SensorNoise` (0-100) used only in words domain; a value *p* causes
-  each letter to have a *p*/100 chance of switching to a random letter
-  when reported by the sensor
-
-- `:Knowledge` (0-100) used only in words domain; how much "world
-  knowledge" the agent starts with; in the words domain, a value of
-  *p* causes the agent to know about only a random *p*% subset of the
-  true complete dictionary, and all n-grams that involve unknown words
-  are likewise not known to the agent
-
-- `:BelievedKnowledge` (0-100) used only in words domain; how much
-  "world knowledge" the agent *believes* it possesses (the actual
-  amount of world knowledge the agent possesses is decided by the
-  `:Knowledge` parameter)
-
-- `:Learn` (true/false) used only in words domain; whether
-  domain-specific "learning" should be possible
-
-- `:Steps` (1+) number of total simulation steps **(truth-changing)**
-
-- `:StepsBetween` (1+) number of simulation steps to wait before the
-  agent gathers sensor reports and generates hypotheses
-
-- `:Threshold` (0-100) degree of caution; a value *p* causes the
-  abduction engine to refuse to accept a hypothesis if its confidence
-  does not surpass the next-most-confident rival by at least *p*/100
-
-- `:TransitiveExplanation` (true or false) used only in words domain;
-  whether or not transitive explanation is activated (see below for
-  the transitive explanation algorithm)
-
-- `:MetaReasoning` several options, see the 'Metareasoning' section
-  of this document for more information:
-
-  - "NoMetareasoning"
-
-  - "BatchBeginning"
-
-  - "Batch5", "Batch4", "Batch3", "Batch2", "Batch1"
-
-### Words domain parameters
-
-- `:MaxModelGrams` (1-10); word transition model size (i.e. unigram,
-  bigram, trigram, etc.)
-
-### Tracking domain parameters
-
-- `:GridHeight`, `:GridWidth` (1+); size of grid **(truth-changing)**
-
-- `:MaxWalk` (1+); maximum grid-steps (including diagonals) an entity
-  can move in one time-step; a value greater than one means that an
-  entity can move several times in one time-step; leave this parameter
-  at 10 since the agent only knows the probability distribution of
-  random movements if the max walk size is 10 **(truth-changing)**
-
-- `:NumberEntities` (1+); number of (starting) entities in the grid
-  **(truth-changing)**
-
-- `:ProbNewEntities` (0-100); probability that a new entity will be
-  generated each time step; a value *p* causes a *p*/100 chance, in a
-  time step, that an entity will be created in a random location; for
-  now, leave this parameter at 0 **(truth-changing)**
-
-- `:SensorCoverage` (0-100); how much of the grid (as a percentage)
-  the sensors can "see"; for now, leave this parameter at 100
-
-- `:SensorSeesColor` (0-100); how much of the grid (as a percentage)
-  the sensors can report the color of entities; a value *p* causes the
-  middle *p*% of the grid to be "greyed-out"
-  
-## Metrics
-
-### Non-comparative metrics
-
-#### Generic non-comparative metrics
-
-#### Tracking non-comparative metrics
-
-#### Words non-comparative metrics
-
-### Comparative metrics
-
-#### Generic comparative metrics
-
-#### Tracking comparative metrics
-
-#### Words comparative metrics
-
 ## Abductive reasoner
 
 ### Definitions
@@ -259,6 +165,183 @@ Transitive explanation is a parameter. If `:TransitiveExplanation` is
   - Otherwise, finally, we arrive at a situation where the transitive
     explainer has a "delta" at least as good as the immediate
     explainer, so we prefer the transitive explainer.
+
+## Parameters
+
+### Generic parameters
+
+  - `:BeliefNoise` (0-100) not used
+
+  - `:SensorNoise` (0-100) used only in words domain; a value *p*
+    causes each letter to have a *p*/100 chance of switching to a
+    random letter when reported by the sensor
+
+  - `:Knowledge` (0-100) used only in words domain; how much "world
+    knowledge" the agent starts with; in the words domain, a value of
+    *p* causes the agent to know about only a random *p*% subset of
+    the true complete dictionary, and all n-grams that involve unknown
+    words are likewise not known to the agent
+
+  - `:BelievedKnowledge` (0-100) used only in words domain; how much
+    "world knowledge" the agent *believes* it possesses (the actual
+    amount of world knowledge the agent possesses is decided by the
+    `:Knowledge` parameter)
+
+  - `:Learn` (true/false) used only in words domain; whether
+    domain-specific "learning" should be possible
+
+  - `:Steps` (1+) number of total simulation steps
+    **(truth-changing)**
+
+  - `:StepsBetween` (1+) number of simulation steps to wait before the
+    agent gathers sensor reports and generates hypotheses
+
+  - `:Threshold` (0-100) degree of caution; a value *p* causes the
+    abduction engine to refuse to accept a hypothesis if its
+    confidence does not surpass the next-most-confident rival by at
+    least *p*/100
+
+  - `:TransitiveExplanation` (true or false) used only in words
+    domain; whether or not transitive explanation is activated (see
+    below for the transitive explanation algorithm)
+
+  - `:MetaReasoning` several options, see the 'Metareasoning' section
+    of this document for more information:
+
+    - "NoMetareasoning"
+
+    - "BatchBeginning"
+
+    - "Batch5", "Batch4", "Batch3", "Batch2", "Batch1"
+
+### Words domain parameters
+
+  - `:MaxModelGrams` (1-10); word transition model size (i.e. unigram,
+    bigram, trigram, etc.)
+
+### Tracking domain parameters
+
+  - `:GridHeight`, `:GridWidth` (1+); size of grid
+    **(truth-changing)**
+
+  - `:MaxWalk` (1+); maximum grid-steps (including diagonals) an
+    entity can move in one time-step; a value greater than one means
+    that an entity can move several times in one time-step; leave this
+    parameter at 10 since the agent only knows the probability
+    distribution of random movements if the max walk size is 10
+    **(truth-changing)**
+
+  - `:NumberEntities` (1+); number of (starting) entities in the grid
+    **(truth-changing)**
+
+  - `:ProbNewEntities` (0-100); probability that a new entity will be
+    generated each time step; a value *p* causes a *p*/100 chance, in
+    a time step, that an entity will be created in a random location;
+    for now, leave this parameter at 0 **(truth-changing)**
+
+  - `:SensorCoverage` (0-100); how much of the grid (as a percentage)
+    the sensors can "see"; for now, leave this parameter at 100
+
+  - `:SensorSeesColor` (0-100); how much of the grid (as a percentage)
+    the sensors can report the color of entities; a value *p* causes
+    the middle *p*% of the grid to be "greyed-out"
+  
+## Metrics
+
+### Non-comparative metrics
+
+Description of what a non-comparative metric is...
+
+#### Generic non-comparative metrics
+
+  - **MetaActivations**: number of times the activate metareasoning
+      strategy was activated (consulted); this value is always greater
+      than or equal to **MetaAccepted**
+
+  - **MetaAccepted**: number of times a metareasoning alternative
+      reasoning history was accepted
+
+  - **Milliseconds**: time required from start of agent's
+      hypothesizing to the end of abductive reasoning and
+      metareasoning
+
+  - **Unexplained**: count of unexplained hypotheses in last abduction
+      workspace
+
+  - **UnexplainedPct**: percent of hypotheses that are unexplained;
+      this is calculated by dividing the unexplained count
+      (**Unexplained** metric; see above) by the sum of the number of
+      forced hypotheses (sensor data) and the number of accepted
+      hypotheses that have explainers but remain unexplained
+
+  - **NoExplainers**: number of forced hypotheses (sensor data) that
+      have no potential explainers; this means the agent never offered
+      explainers of those forced hypotheses
+
+  - **SharedExplains**: number of hypotheses that do not uniquely
+      explain (regardless of acceptance)
+
+  - **ExplainCycles**: number of accept/reject cycles in the most
+      recent abduction workspace
+
+  - **HypothesisCount**: number of hypotheses (including forced) in
+      the most recent abduction workspace
+
+  - **Compute**: provided by the agent
+
+  - **Memory**: provided by the agent
+
+  - **DeepestDep**: deepest depth in the dependency graph
+
+#### Tracking non-comparative metrics
+
+Definitions:
+
+  - *true postive (TP)* movements: those that are both believed (accepted)
+    and actually occurred
+
+  - *false positive (FP)* movements: those that are believed but did not
+    occur; *FP* = *count of believed* - *count of true positive*
+
+  - *true negative (TN)* movements: those that are disbelieved (rejected)
+     and actually did not occur; *TN* = *count of disbelieved* -
+     *count of false negative*
+
+  - *false negative (FN)* movements: those that are disbelieved but did
+     occur
+
+Metrics:
+
+  - **PEC**: percent of true movements that are believed movements
+
+  - **PEW**: percent of true movements that are not believed movements
+      (but not necessarily disbelieved movements)
+
+  - **Prec**: *TP* / (*TP* + *FP*)
+
+  - **Recall**: *TP* / (*TP* + *FN*)
+
+  - **Spec**: *TN* / (*TN* + *FP*)
+
+  - **Acc**: (*TP* + *TN*) / (*TN* + *TP* + *FN* + *FP*)
+
+  - **IDCorrect**: number of believed entity locations that are correct
+
+#### Words non-comparative metrics
+
+### Comparative metrics
+
+#### Generic comparative metrics
+
+**MetaActivations**, **MetaAccepted**, **Milliseconds**,
+**SharedExplains**, **Unexplained**, **UnexplainedPct**, **NoExplainers**,
+**ExplainCycles**, **HypothesisCount**, **Compute**, **Memory**, **DeepestDep**
+
+#### Tracking comparative metrics
+
+**PEC**, **PEW**, **Prec**, **Recall**, **Spec**, **Acc**, **IDCorrect**
+
+#### Words comparative metrics
     
 ## Epistemic states
 
@@ -278,6 +361,23 @@ unexplained, then doubt is 1.0 (maximum).
 
 ## Metareasoning
 
+Metareasoning is tasked with detecting when a reasoning mistake has
+(likely) been committed, choosing what will be done about it, and
+ultimately constructing an alternative reasoning history (which may
+include a new branch off of some prior epistemic state).
+
+### Metareasoning strategies
+
+The parameter `:Metareasoning` chooses which strategy will be active.
+
+**BatchBeginning** -- go back to the root ep-state (time 0), clear
+  hypotheses and "batch" all the way back to the current time.
+
+**BatchN** (for *N*=1,2,3,4,5) -- go back *N* ep-states, clear
+  hypotheses and "batch" all the way back to the current time.
+
+### Metareasoning activation
+
 The criteria for activating metareasoning is the following:
 
   - there are some hypotheses that have no explainers; OR
@@ -286,14 +386,6 @@ The criteria for activating metareasoning is the following:
     total number of hypotheses; OR
 
   - the "doubt" of the workspace is greater than 0.10
-
-### Metareasoning strategies
-
-**BatchBeginning** -- go back to the root ep-state (time 0), clear
-  hypotheses and "batch" all the way back to the current time.
-
-**BatchN** (for *N*=1,2,3,4,5) -- go back *N* ep-states, clear
-  hypotheses and "batch" all the way back to the current time.
 
 ### Metareasoning branch acceptance
 
