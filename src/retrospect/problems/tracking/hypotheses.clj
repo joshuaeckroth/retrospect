@@ -47,8 +47,8 @@
   [sensor {:keys [x y color time] :as det}]
   (let [desc (format (str "Sensor detection by %s - color: %s, x: %d, y: %d, time: %d")
                      (:id sensor) (color-str color) x y time)]
-    [(new-hyp "SensFrom" :sensor-from nil 1.0 nil [] desc {:sensor sensor :det det})
-     (new-hyp "SensTo" :sensor-to nil 1.0 nil [] desc {:sensor sensor :det det})]))
+    [(new-hyp "SensFrom" :sensor-from nil 1.0 nil [] [] desc {:sensor sensor :det det})
+     (new-hyp "SensTo" :sensor-to nil 1.0 nil [] [] desc {:sensor sensor :det det})]))
 
 (defn process-sensors
   "For each time step between the last time we processed sensor data
@@ -111,7 +111,7 @@
                               unc-pairs)]
     (for [{:keys [det det-hyp det2 det2-hyp score]} unc-pairs-scored :when score]
       (new-hyp "Mov" :movement nil score
-               :and [det-hyp det2-hyp] (path-str [det det2])
+               :and [det-hyp det2-hyp] [det-hyp det2-hyp] (path-str [det det2])
                {:det det :det2 det2
                 :movement {:x (:x det2) :y (:y det2) :time (:time det2)
                            :ox (:x det) :oy (:y det) :ot (:time det)
@@ -129,17 +129,20 @@
                                                        (:det2 (:data hyp))])
                                             movs)))]
     (new-hyp "Path" :path nil
-             (avg (map :apriori movs)) :and movs
+             (avg (map :apriori movs)) :and movs movs
              (format "%s (%s)" (path-str det-seq) (name bias))
              {:movements movs :bias bias})))
 
 (defn make-location-hyp
   "All paths should have the same start and end point and bias."
-  [entity bias paths]
+  [entity prior-loc-hyp bias bias-hyp paths]
   (let [{:keys [x y time color]} (:det2 (:data (last (:movements (:data (first paths))))))]
     (new-hyp "Loc" :location
              [:location entity] ;; conflict with entity/location-hyps
              (apply max (map :apriori paths)) :or paths
+             ;; depends
+             (concat paths (if prior-loc-hyp [prior-loc-hyp] [])
+                     (if bias-hyp [bias-hyp] []))
              (format "Entity %s is at %d,%d at time %d (%s)" entity x y time bias)
              {:entity entity :bias bias :paths paths
               :color color :loc {:x x :y y :time time}})))
@@ -159,12 +162,16 @@
                                                    matching-starts)
                         path-biases (map #(group-by (comp :bias :data) %)
                                          (vals path-starts-ends))]
-                    (mapcat (fn [pb]
-                              (map (fn [bias] (make-location-hyp e bias (get pb bias)))
-                                   (filter #(not-empty (get pb %))
-                                           (if-let [believed-bias (get entity-biases e)]
-                                             [believed-bias] (keys pb)))))
-                            path-biases)))
+                    (mapcat
+                     (fn [pb]
+                       (map (fn [b]
+                              (make-location-hyp e (:loc-hyp (get entities e))
+                                                 (:bias b) (:bias-hyp b)
+                                                 (get pb (:bias b))))
+                            (filter #(not-empty (get pb (:bias %)))
+                                    (if-let [bias-map (get entity-biases e)]
+                                      [bias-map] (map (fn [b] {:bias b}) (keys pb))))))
+                     path-biases)))
           (keys entities)))
 
 (defn make-bias-hyps
@@ -182,19 +189,10 @@
                  bias (:bias (:data (first ls)))]
              (new-hyp "Bias" :bias
                       [:bias entity] ;; conflict with entity/bias-hyps
-                      (apply max (map :apriori ls)) :or ls
+                      (apply max (map :apriori ls)) :or ls ls
                       (format "Entity %s has bias %s" entity bias)
                       {:entity entity :bias bias :locs ls})))
          biases)))
-
-(defn make-dep-node
-  [hyp]
-  (let [det (if (:det2 (:data hyp)) (:det2 (:data hyp)) (:det (:data hyp)))]
-    {:time (:time det) :str (str det)}))
-
-(defn make-dep-nodes
-  [hyp]
-  [])
 
 (defn hypothesize
   "Process sensor reports, then make hypotheses for all possible
@@ -223,8 +221,7 @@
           bias-hyps (make-bias-hyps
                      (filter #(nil? (get entity-biases (:entity (:data %))))
                              loc-hyps))]
-      [(reduce (fn [ep hyp] (add-hyp ep hyp (make-dep-node hyp)
-                                     (make-dep-nodes hyp)))
+      [(reduce (fn [ep hyp] (add-hyp ep hyp))
                ep-pg (filter
                       (fn [h] (and (not-any? #(= (:id %) (:id h)) accepted)
                                    (some (fn [e] (not-any? #(= (:id %) (:id e)) accepted))
@@ -236,12 +233,13 @@
   [pdata accepted rejected unaccepted time-now]
   (let [entities (reduce (fn [es loc-hyp]
                            (update-in es [(:entity (:data loc-hyp))]
-                                      merge (:loc (:data loc-hyp))))
+                                      merge (:loc (:data loc-hyp)) {:loc-hyp loc-hyp}))
                          (:entities pdata) (filter #(= :location (:type %))
                                                    accepted))
         entity-biases (reduce (fn [eb bias-hyp]
                                 (assoc eb (:entity (:data bias-hyp))
-                                       (:bias (:data bias-hyp))))
+                                       {:bias (:bias (:data bias-hyp))
+                                        :bias-hyp bias-hyp}))
                               (:entity-biases pdata) (filter #(= :bias (:type %))
                                                              accepted))
         bel-movs (map (comp :movement :data) (filter #(= :movement (:type %)) accepted))

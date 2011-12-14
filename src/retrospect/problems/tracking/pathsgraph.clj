@@ -179,7 +179,7 @@
     paths
     (let [path-biases (fn [path]
                         (let [bs (filter identity
-                                         (map #(get entity-biases %)
+                                         (map #(:bias (get entity-biases %))
                                               (filter (fn [e]
                                                         (dets-match? (first path)
                                                                      (get entities e)))

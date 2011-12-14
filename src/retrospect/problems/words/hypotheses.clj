@@ -101,7 +101,7 @@
         changes (count-changes word letters)
         apriori (max 0.001 (* prob (/ (- (count word) changes) (count word))))]
     (new-hyp "Word" :word conflicts?
-             apriori :and explains
+             apriori :and explains []
              (format "Word: \"%s\" at positions %s (%s) (%d changes)"
                      word (str adjusted-pos-seq) (apply str letters) changes)
              {:start (first adjusted-pos-seq) :end (last adjusted-pos-seq)
@@ -114,7 +114,7 @@
         apriori (- 1.0 (Math/pow (/ (:BelievedKnowledge params) 100.0)
                                  (/ (count word) 4)))]
     (new-hyp "WordLearn" :word conflicts?
-             apriori :and explains
+             apriori :and explains []
              (format "Learned word: \"%s\" at positions %s (%s)"
                      word (str adjusted-pos-seq) (apply str letters))
              {:start (first adjusted-pos-seq) :end (last adjusted-pos-seq)
@@ -227,7 +227,7 @@
                     accepted-in-words (set/intersection accepted (set c))]
                 (new-hyp "WordSeq" :words conflicts?
                          (lookup-prob models c accepted-in-words)
-                         :and c ;; explains
+                         :and c [] ;; explains & depends
                          (format "Word sequence \"%s\" at positions %s"
                                  (apply str (interpose " " words))
                                  (apply str (interpose ", " pos-seqs)))
@@ -236,8 +236,8 @@
 
 (defn make-sensor-hyp
   [pos letter]
-  (new-hyp "Sens" :sensor nil 1.0 nil [] (format "Letter: '%c' at position %d" letter pos)
-           {:pos pos}))
+  (new-hyp "Sens" :sensor nil 1.0 nil [] []
+           (format "Letter: '%c' at position %d" letter pos) {:pos pos}))
 
 (defn make-sensor-hyps
   [indexed-letters]

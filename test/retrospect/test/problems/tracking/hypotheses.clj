@@ -14,15 +14,15 @@
           det2 {:x 0 :y 1 :color red :time 1}
           det3 {:x 0 :y 2 :color gray :time 2}
           det4 {:x 0 :y 3 :color gray :time 3}
-          st1 (new-hyp "SensTo" :sensor-to nil 1.0 nil [] "" {:det det1})
-          sf2 (new-hyp "SensFrom" :sensor-from nil 1.0 nil [] "" {:det det2})
-          st2 (new-hyp "SensTo" :sensor-to nil 1.0 nil [] "" {:det det2})
-          sf3 (new-hyp "SensFrom" :sensor-from nil 1.0 nil [] "" {:det det3})
-          st3 (new-hyp "SensTo" :sensor-from nil 1.0 nil [] "" {:det det3})
-          sf4 (new-hyp "SensFrom" :sensor-from nil 1.0 nil [] "" {:det det4})
-          h1 (new-hyp "Mov" :movement nil 1.0 :and [st1 sf2] "d1->d2"
+          st1 (new-hyp "SensTo" :sensor-to nil 1.0 nil [] [] "" {:det det1})
+          sf2 (new-hyp "SensFrom" :sensor-from nil 1.0 nil [] [] "" {:det det2})
+          st2 (new-hyp "SensTo" :sensor-to nil 1.0 nil [] [] "" {:det det2})
+          sf3 (new-hyp "SensFrom" :sensor-from nil 1.0 nil [] [] "" {:det det3})
+          st3 (new-hyp "SensTo" :sensor-from nil 1.0 nil [] [] "" {:det det3})
+          sf4 (new-hyp "SensFrom" :sensor-from nil 1.0 nil [] [] "" {:det det4})
+          h1 (new-hyp "Mov" :movement nil 1.0 :and [st1 sf2] [st1 sf2] "d1->d2"
                       {:det det1 :det2 det2})
-          h3 (new-hyp "Mov" :movement nil 1.0 :and [st3 sf4] "d3->d4"
+          h3 (new-hyp "Mov" :movement nil 1.0 :and [st3 sf4] [st1 sf2] "d3->d4"
                       {:det det3 :det2 det4})
           h3-color (-> h3 (assoc-in [:data :det :color] red)
                        (assoc-in [:data :det2 :color] red))

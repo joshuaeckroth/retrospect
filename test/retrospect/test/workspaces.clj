@@ -15,12 +15,12 @@
 (defn simple-hyps-fixture [f]
   "s1, s2 are facts; a->s1,s2, b->s2, c->a, d->a,b (explains arrows)."
   (binding [last-id 0]
-    (let [s1 (new-hyp "S" :sensor (constantly []) 1.0 nil [] "" {})
-          s2 (new-hyp "S" :sensor (constantly []) 1.0 nil [] "" {})
-          a (new-hyp "A" :hyp (constantly []) 0.75 :and [s1 s2] "" {})
-          b (new-hyp "B" :hyp (constantly []) 0.5  :and [s2] "" {})
-          c (new-hyp "C" :hyp (constantly []) 0.25 :and [a] "" {})
-          d (new-hyp "D" :hyp (constantly []) 0.6  :and [a b] "" {})
+    (let [s1 (new-hyp "S" :sensor (constantly []) 1.0 nil [] [] "" {})
+          s2 (new-hyp "S" :sensor (constantly []) 1.0 nil [] [] "" {})
+          a (new-hyp "A" :hyp (constantly []) 0.75 :and [s1 s2] [s1 s2] "" {})
+          b (new-hyp "B" :hyp (constantly []) 0.5  :and [s2] [s2] "" {})
+          c (new-hyp "C" :hyp (constantly []) 0.25 :and [a] [a] "" {})
+          d (new-hyp "D" :hyp (constantly []) 0.6  :and [a b] [a b] "" {})
           workspace (-> (init-workspace)
                         (add s1 :static) (force-accept s1)
                         (add s2 :static) (force-accept s2)

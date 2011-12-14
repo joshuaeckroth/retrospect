@@ -16,7 +16,7 @@
                   2 (with-meta {["foo" "bar"] 1 ["bar" "quux"] 1} {:sum 2})
                   3 (with-meta {["foo" "bar" "quux"] 1} {:sum 1})}
           dictionary #{"foo" "bar" "quux"}
-          sensor-hyps (map (fn [i] (new-hyp "Sens" :sensor nil 1.0 nil [] "" {:pos i}))
+          sensor-hyps (map (fn [i] (new-hyp "Sens" :sensor nil 1.0 nil [] [] "" {:pos i}))
                            (range (count truedata)))
           letters (seq truedata)
           indexed-letters (make-indexed-letters letters)

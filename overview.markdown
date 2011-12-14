@@ -394,3 +394,20 @@ percent of unexplained hypotheses in branch *A* is less than the
 percent of unexplained hypotheses in branch *B*; or, if the quantities
 are equal, then branch *A* is accepted if its doubt is less than the
 doubt of branch *B*.
+
+## Dependency graph
+
+### Tracking domain
+
+  - A sensor hypothesis depends on nothing.
+  
+  - A movement hypothesis depends on its first and second detection
+    (sensor hypotheses).
+
+  - A path hypothesis depends on its movements.
+
+  - A location hypothesis depends on its paths and the prior accepted
+    location hypothesis (if any) that placed the entity at the prior
+    location, and its bias hypothesis if any.
+
+  - A bias hypothesis depends on its location hypotheses.

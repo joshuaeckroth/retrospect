@@ -152,19 +152,18 @@
   (map str (flatten-ep-state-tree ep-state-tree)))
 
 (defn add-hyp-helper
-  [ep-state hyp dep-node depends & opts]
-  (let [g (if (empty? depends) (:depgraph ep-state)
-            (reduce (fn [g d] (-> g (add-edges [dep-node d])))
-                    (-> (:depgraph ep-state)
-                        (add-nodes dep-node))
-                    depends))]
+  [ep-state hyp & opts]
+  (let [g (reduce (fn [g d] (-> g (add-edges [hyp d])))
+                  (-> (:depgraph ep-state)
+                      (add-nodes hyp))
+                  (:depends hyp))]
     (assoc ep-state
       :workspace (apply ws/add (:workspace ep-state) hyp opts)
       :depgraph g)))
 
 (defn add-hyp
-  [ep-state hyp dep-node depends]
-  (add-hyp-helper ep-state hyp dep-node depends :static))
+  [ep-state hyp]
+  (add-hyp-helper ep-state hyp :static))
 
 (defn add-more-hyp
   [ep-state hyp dep-node depends]
@@ -200,7 +199,8 @@
         ;; is what makes (list-ep-states) possible, since depth-first search
         ;; looks left before looking right
         ep-tree-branch
-        (goto-ep-state (zip/insert-right (goto-ep-state ep-tree (:id branch)) ep) (:id ep))]
+        (goto-ep-state (zip/insert-right (goto-ep-state ep-tree (:id branch)) ep)
+                       (:id ep))]
     ep-tree-branch))
 
 (defn new-branch-root
@@ -225,7 +225,8 @@
         pdata (:problem-data ep-state)
         ws-explained (ws/explain workspace pdata)]
     (if (not-empty (:unexplained (:final (:log ws-explained))))
-      (if-let [ep-more-hyps ((:get-more-hyps-fn @problem) (assoc ep-state :workspace ws-explained))]
+      (if-let [ep-more-hyps ((:get-more-hyps-fn @problem)
+                             (assoc ep-state :workspace ws-explained))]
         (assoc ep-more-hyps :workspace (ws/explain (:workspace ep-more-hyps)
                                                    (:problem-data ep-more-hyps)))
         (assoc ep-state :workspace ws-explained))
