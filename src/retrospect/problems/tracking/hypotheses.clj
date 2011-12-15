@@ -85,7 +85,8 @@
    {x2 :x y2 :y t2 :time c2 :color :as det2}
    walk-dist]
   (var-set (var compute) (inc compute))
-  (when (and (= (inc t1) t2) (match-color? c1 c2))
+  (when (and (or (= (inc t1) t2) (= (inc t2) t1))
+             (match-color? c1 c2))
     (let [d (dist x1 y1 x2 y2) 
           dist-count (walk-dist d)]
       (if dist-count (double (/ dist-count (:walk-count (meta walk-dist))))))))
@@ -144,8 +145,8 @@
              (concat paths (if prior-loc-hyp [prior-loc-hyp] [])
                      (if bias-hyp [bias-hyp] []))
              (format "Entity %s is at %d,%d at time %d (%s)" entity x y time bias)
-             {:entity entity :bias bias :paths paths
-              :color color :loc {:x x :y y :time time}})))
+             {:entity entity :bias bias :paths paths :color color
+              :loc {:x x :y y :time time}})))
 
 (defn extract-path-dets
   [path]
@@ -228,6 +229,25 @@
                                          (:explains h))))
                       (concat valid-mov-hyps valid-path-hyps loc-hyps bias-hyps)))
        {:compute compute :memory memory}])))
+
+(defn no-explainer-hyps
+  "Return hypotheses that \"should have\" helped produce explainers
+   for the hyps (sensor hyps) given to this function."
+  [hyps pdata]
+  (let [entities (:entities pdata)
+        walk-dist (:walk-dist pdata)]
+    (mapcat
+     (fn [h]
+       (let [det (:det (:data h))
+             ;; set color to gray so that any location in range matches
+             det2-fn (fn [e es] (let [h (:loc-hyp (get es e))]
+                                  (assoc (:loc (:data h)) :color gray)))
+             es (filter (fn [e]
+                          (binding [compute 0 memory 0]
+                            (score-movement det (det2-fn e entities) walk-dist)))
+                        (keys entities))]
+         (map (fn [e] (:loc-hyp (get entities e))) es)))
+     (filter #(or (= :sensor-from (:type %)) (= :sensor-to (:type %))) hyps))))
 
 (defn commit-decision
   [pdata accepted rejected unaccepted time-now]

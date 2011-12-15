@@ -3,11 +3,14 @@
   (:use [retrospect.test.utils])
   (:use [retrospect.problems.tracking.problem :only
          [generate-problem-data tracking-problem]])
+  (:use [retrospect.problems.tracking.hypotheses :only
+         [no-explainer-hyps]])
   (:use [retrospect.problems.tracking.prepared])
   (:use [retrospect.onerun :only [init-one-run-state]])
   (:use [retrospect.problem :only [run-simulation]])
   (:use [retrospect.workspaces :only [last-id get-hyps]])
   (:use [retrospect.random :only [rgen new-seed]])
+  (:use [retrospect.colors])
   (:use [retrospect.epistemicstates :only [current-ep-state goto-ep-state]])
   (:use [retrospect.state]))
 
@@ -45,7 +48,17 @@
     (is (= 1.0 (:Recall (last results))))
     (is (= 1.0 (:Spec (last results)))))
   (let [results (run (assoc-in (intersection-ambiguity)
-                               [:params :MetaReasoning] "NoMetareasoning"))]
+                               [:params :MetaReasoning] "NoMetareasoning"))
+        ep (current-ep-state (goto-ep-state (:ep-state-tree @or-state) "D"))
+        no-explainers (:no-explainers (:final (:log (:workspace ep))))
+        no-explainer-hyps (no-explainer-hyps no-explainers (:problem-data ep))]
+    (is (= #{:location} (set (map :type no-explainer-hyps))))
+    (is (= [{:x 3 :y 8 :time 2 :color red :entity (symbol "1")}
+            {:x 3 :y 3 :time 2 :color blue :entity (symbol "2")}]
+           (sort-by :entity (map #(assoc (:loc (:data %))
+                                    :entity (:entity (:data %))
+                                    :color (:color (:data %)))
+                                 no-explainer-hyps))))
     (is (approx= 33.3 (:PEC (last results)) 0.1))
     (is (approx= 33.3 (:PEW (last results)) 0.1)))
   (let [results (run (assoc-in (intersection-ambiguity)
