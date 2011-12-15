@@ -1,4 +1,4 @@
-(ns retrospect.test.problems.words.hypotheses
+(ns retrospect.problems.words.test.hypotheses
   (:use [clojure.test :only [deftest is]])
   (:use [retrospect.workspaces :only [last-id new-hyp]])
   (:use [retrospect.state])

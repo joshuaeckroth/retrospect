@@ -1,4 +1,4 @@
-(ns retrospect.test.problems.tracking.prepared
+(ns retrospect.problems.tracking.test.prepared
   (:use [clojure.test :only [deftest is]])
   (:use [retrospect.test.utils])
   (:use [retrospect.problems.tracking.problem :only

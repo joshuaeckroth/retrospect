@@ -1,4 +1,4 @@
-(ns retrospect.test.problems.tracking.pathsgraph
+(ns retrospect.problems.tracking.test.pathsgraph
   (:use [clojure.test :only [deftest is]])
   (:use [retrospect.colors])
   (:use [retrospect.workspaces :only [last-id new-hyp]])
