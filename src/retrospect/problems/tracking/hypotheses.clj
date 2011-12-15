@@ -10,36 +10,6 @@
          [paths-graph-paths build-paths-graph path-str]])
   (:use [retrospect.state]))
 
-;; The goal of the tracking domain is to identify entities' beginning
-;; & end positions. At some time t, the tracker is scored by
-;; evaluating how many of the entities are believed to hold their
-;; true locations at time t. At time 0, the tracker is told the true
-;; locations of all the entities. Then, as time progresses, the
-;; tracker tries to "follow" the entities (utilizing its knowledge,
-;; which may be incomplete, about possible entity motions). At a later
-;; time t, the tracker is evaluated in terms of how many of its
-;; believed entity positions are accurate.
-;;
-;; To do its job, the tracker offers three levels of hypotheses for
-;; every collection of sensor data. The first level is movement
-;; hypotheses: something moves from position x to position y, across
-;; one time click. The second level is entity paths: some entity moved
-;; from its old location through one or more movements to another
-;; location. The third level is entity locations: after a series of
-;; movments, the entity is at some location at some time. The location
-;; hypotheses explain one or more path hypotheses. The path hypotheses
-;; explain one or more movement hypotheses; the movement hypotheses
-;; explain sensor detections. If transitive explanation is employed,
-;; then in cases where a location hypothesis can be realized by
-;; several incompatible path hypotheses, the location hypothesis can
-;; still be accepted (without first disambiguating the path
-;; hypotheses). The tracker is only ultimately interested in location
-;; hypotheses, and only when it has accepted some location hypotheses
-;; will it update its beliefs (with new location beliefs).
-;;
-;; The tracker reports its beliefs as "Entity 0 is at 5,2 at time 8,"
-;; for example, for each entity.
-
 (def compute 0)
 (def memory 0)
 
