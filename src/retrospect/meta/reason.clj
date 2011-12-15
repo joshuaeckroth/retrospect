@@ -2,7 +2,8 @@
   (:use [retrospect.epistemicstates :only
          [previous-ep-state current-ep-state new-child-ep-state
           new-branch-ep-state new-branch-root explain goto-ep-state
-          update-ep-state-tree nth-previous-ep-state ep-state-depth]])
+          update-ep-state-tree nth-previous-ep-state ep-state-depth
+          retract-dependents]])
   (:use [retrospect.onerun :only
          [proceed-one-run-state update-one-run-state]])
   (:require [retrospect.workspaces :as ws])
@@ -26,6 +27,42 @@
     (if (not= 0 comp-unexp) comp-unexp
         (compare (ws/get-doubt ws1) (ws/get-doubt ws2)))))
 
+(defn apply-and-evaluate
+  [or-state prior-ep est]
+  (let [ep-state (current-ep-state est)
+        time-now (apply max (map :sensed-up-to (:sensors or-state)))
+        [ep-hyps resources] ((:hypothesize-fn @problem) ep-state (:sensors or-state) time-now)
+        ep-expl (explain ep-hyps)
+        est-expl (update-ep-state-tree est ep-expl)
+        ors (assoc or-state :ep-state-tree est-expl)
+        final-ors (if (> 0 (workspace-compare (:workspace ep-expl) (:workspace prior-ep)))
+                    ;; if new workspace is better, stick with this
+                    ;; (newer) branch, but also add on original
+                    ;; explain cycles and hypothesis count and
+                    ;; other resources
+                    (-> (assoc ors :ep-state ep-expl)
+                        (update-in [:resources :meta-accepted] inc)
+                        (update-in [:resources :explain-cycles]
+                                   + (:explain-cycles (:resources (:workspace prior-ep))))
+                        (update-in [:resources :hypothesis-count]
+                                   + (:hypothesis-count (:resources (:workspace prior-ep))))
+                        (update-in [:resources :compute] + (:compute resources))
+                        (update-in [:resources :memory] + (:memory resources)))
+                    ;; otherwise, go back to prior (original) branch
+                    ;; but also update explain cycles and hypothesis count
+                    ;; and other resources
+                    (-> (assoc ors :ep-state-tree
+                               (goto-ep-state est-expl (:id prior-ep))
+                               :ep-state prior-ep)
+                        (update-in [:resources :explain-cycles]
+                                   + (:explain-cycles (:resources (:workspace ep-expl))))
+                        (update-in [:resources :hypothesis-count]
+                                   + (:hypothesis-count (:resources (:workspace ep-expl))))
+                        (update-in [:resources :compute] + (:compute resources))
+                        (update-in [:resources :memory] + (:memory resources))))]
+    (update-in final-ors [:resources :meta-activations] inc)))
+
+
 (defn batch
   [n or-state]
   (if-not
@@ -38,43 +75,20 @@
             ;; otherwise branch from root
             est (if (and n (< n (ep-state-depth prior-est)))
                   (new-branch-ep-state prior-est (nth-previous-ep-state prior-est n))
-                  (new-branch-root prior-est (:original-problem-data or-state)))
-            ep-state (current-ep-state est)
-            time-now (apply max (map :sensed-up-to (:sensors or-state)))
-            [ep-hyps resources] ((:hypothesize-fn @problem) ep-state (:sensors or-state) time-now)
-            ep-expl (explain ep-hyps (:problem-data or-state))
-            est-expl (update-ep-state-tree est ep-expl)
-            ors (assoc or-state :ep-state-tree est-expl)
-            final-ors (if (> 0 (workspace-compare (:workspace ep-expl) (:workspace prior-ep)))
-                        ;; if new workspace is better, stick with this
-                        ;; (newer) branch, but also add on original
-                        ;; explain cycles and hypothesis count and
-                        ;; other resources
-                        (-> (assoc ors :ep-state ep-expl)
-                            (update-in [:resources :meta-accepted] inc)
-                            (update-in [:resources :explain-cycles]
-                                       + (:explain-cycles (:resources (:workspace prior-ep))))
-                            (update-in [:resources :hypothesis-count]
-                                       + (:hypothesis-count (:resources (:workspace prior-ep))))
-                            (update-in [:resources :compute] + (:compute resources))
-                            (update-in [:resources :memory] + (:memory resources)))
-                        ;; otherwise, go back to prior (original) branch
-                        ;; but also update explain cycles and hypothesis count
-                        ;; and other resources
-                        (-> (assoc ors :ep-state-tree
-                                   (goto-ep-state est-expl (:id prior-ep))
-                                   :ep-state prior-ep)
-                            (update-in [:resources :explain-cycles]
-                                       + (:explain-cycles (:resources (:workspace ep-expl))))
-                            (update-in [:resources :hypothesis-count]
-                                       + (:hypothesis-count (:resources (:workspace ep-expl))))
-                            (update-in [:resources :compute] + (:compute resources))
-                            (update-in [:resources :memory] + (:memory resources))))]
-        (update-in final-ors [:resources :meta-activations] inc))))
+                  (new-branch-root prior-est (:original-problem-data or-state)))]
+        (apply-and-evaluate or-state prior-ep est))))
 
-(defn domain-informed
+(defn retract-no-explainers
   [or-state]
-  or-state)
+  (let [ep-state (current-ep-state (:ep-state-tree or-state))
+        no-explainers (:no-explainers (:final (:log (:workspace ep-state))))
+        hyps ((:no-explainer-hyps-fn @problem) no-explainers (:problem-data ep-state))
+        est (new-branch-ep-state (:ep-state-tree or-state) ep-state)
+        ep-state-retracted (assoc (retract-dependents (current-ep-state est) hyps)
+                             :workspace (ws/init-workspace))
+        est-retracted (update-ep-state-tree est ep-state-retracted)]
+    (if (empty? hyps) or-state
+        (apply-and-evaluate or-state ep-state est-retracted))))
 
 (defn lower-threshold
   [or-state]
@@ -129,4 +143,6 @@
         (batch 4 or-state)
         (= "Batch5" (:MetaReasoning params))
         (batch 5 or-state)
+        (= "RetractNoExplainers" (:MetaReasoning params))
+        (retract-no-explainers or-state)
         :else or-state))

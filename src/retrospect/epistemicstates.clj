@@ -4,7 +4,8 @@
   (:require [clojure.zip :as zip])
   (:require [clojure.set :as set])
   (:require [vijual :as vijual])
-  (:use [loom.graph :only [digraph add-edges add-nodes nodes edges]])
+  (:use [loom.graph :only [digraph add-edges add-nodes remove-nodes nodes edges]])
+  (:use [loom.alg :only [pre-traverse]])
   (:use [loom.attr :only [add-attr]])
   (:use [clojure.java [io :only [file]] [shell :only [sh]]])
   (:use [retrospect.state]))
@@ -189,12 +190,23 @@
       accepted rejected unaccepted time-now)
      (:depgraph ep-state))))
 
+(defn retract-dependents
+  "Retract acceptance in hyps (the argument) and all of their
+   dependents (based on the depgraph). This function calls the
+   problem's \"retract\" function for each hyp and dependent."
+  [ep-state hyps]
+  (let [g (:depgraph ep-state)
+        deps (set (mapcat #(pre-traverse g %) hyps))]
+    (assoc ep-state
+      :problem-data (reduce (fn [pdata h] ((:retract-fn @problem) pdata h))
+                            (:problem-data ep-state) deps)
+      :depgraph (apply remove-nodes (:depgraph ep-state) deps))))
+
 (defn new-branch-ep-state
   [ep-state-tree branch]
   (let [ep-state (current-ep-state ep-state-tree)
         ep-tree (goto-ep-state (zip/replace ep-state-tree ep-state) (:id ep-state))
         ep (clone-ep-state branch (make-ep-state-id ep-tree) [])
-
         ;; make a branch; the choice of "insert-right" over "insert-left" here
         ;; is what makes (list-ep-states) possible, since depth-first search
         ;; looks left before looking right

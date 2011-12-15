@@ -9,7 +9,7 @@
   (:use [retrospect.problems.tracking.sensors :only
          [generate-sensors]])
   (:use [retrospect.problems.tracking.hypotheses :only
-         [hypothesize commit-decision]])
+         [hypothesize commit-decision retract no-explainer-hyps]])
   (:use [retrospect.problems.tracking.player :only
          [player-get-stats-panel player-update-stats player-get-truedata-log
           player-get-problem-log player-setup-diagram player-update-diagram]])
@@ -30,16 +30,17 @@
 
 (defn generate-problem-data
   [truedata sensors]
-  {:entities (reduce (fn [es e] (assoc es e (first (get truedata e))))
+  {:entities (reduce (fn [es e] (assoc es e [(first (get truedata e))]))
                      {} (keys truedata))
    :entity-biases {}
    :accepted #{}
    :unaccepted #{}
-   :believed-movements []
-   :disbelieved-movements []
-   :left-off 0
+   :believed-movements #{}
+   :disbelieved-movements #{}
    :walk-dist (read-walk-dist (str @datadir "/tracking/walks-" (:MaxWalk params) ".txt")) 
    :log [] ;; log is reset each time by commit-decision
+   :covered-from #{}
+   :covered-to #{}
    :uncovered-from #{}
    :uncovered-to #{}})
 
@@ -58,8 +59,10 @@
                hypothesize
                identity ;; get-more-hyps
                commit-decision
+               retract
                generate-problem-data
                (constantly []) ;; inconsistent
+               no-explainer-hyps
                evaluate
                evaluate-comparative
                true-hyp?

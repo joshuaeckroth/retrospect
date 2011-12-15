@@ -68,4 +68,12 @@
   (let [results (run (assoc-in (intersection-ambiguity)
                                [:params :MetaReasoning] "Batch2"))]
     (is (approx= 100.0 (:PEC (last results)) 0.1))
-    (is (approx= 0.0 (:PEW (last results)) 0.1))))
+    (is (approx= 0.0 (:PEW (last results)) 0.1))
+    (is (= 1.0 (:IDCorrect (last results)))))
+  (let [results (run (assoc-in (intersection-ambiguity)
+                               [:params :MetaReasoning] "RetractNoExplainers"))]
+    (is (approx= 100.0 (:PEC (last results)) 0.1))
+    (is (approx= 0.0 (:PEW (last results)) 0.1))
+    (is (= 1.0 (:IDCorrect (last results))))
+    (is (= 1 (:MetaActivations (last results))))
+    (is (= 1 (:MetaAccepted (last results))))))

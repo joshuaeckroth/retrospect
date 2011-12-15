@@ -13,6 +13,14 @@
 (def compute 0)
 (def memory 0)
 
+(defn covered-or-uncovered?
+  [pdata cov-or-uncov sensor-hyp]
+  (some (fn [h] (and (= (:id (:sensor (:data h))) (:id (:sensor (:data sensor-hyp))))
+                     (= (:det (:data h)) (:det (:data sensor-hyp)))
+                     (= (:type h) (:type sensor-hyp))))
+        (concat (get pdata (keyword (format "%s-from" (name cov-or-uncov))))
+                (get pdata (keyword (format "%s-to" (name cov-or-uncov)))))))
+
 (defn make-sensor-hyps
   [sensor {:keys [x y color time] :as det}]
   (let [desc (format (str "Sensor detection by %s - color: %s, x: %d, y: %d, time: %d")
@@ -21,30 +29,25 @@
      (new-hyp "SensTo" :sensor-to nil 1.0 nil [] [] desc {:sensor sensor :det det})]))
 
 (defn process-sensors
-  "For each time step between the last time we processed sensor data
-   and the current time, look at the sensor detections at that time
-   step, create hypotheses out of them, add those hypotheses as
-   'facts,' and record them as 'uncovered.'"
+  "Add to \"uncovered-from/to\" sets any sensor data we don't already
+   have in one of those sets or the \"covered-from/to\" sets."
   [ep-state sensors time-now]
   (let [pdata (:problem-data ep-state)
-        left-off (:left-off pdata)
-        det-hyps (mapcat (fn [s]
-                           (map (fn [dets] (make-sensor-hyps s dets))
-                                (mapcat (fn [t] (sensed-at s t))
-                                        (range left-off (inc time-now)))))
+        det-hyps (mapcat (fn [s] (map (fn [dets] (make-sensor-hyps s dets))
+                                      (mapcat (fn [t] (sensed-at s t))
+                                              (range 0 (inc time-now)))))
                          sensors)
-        from-hyps (filter #(< left-off (:time (:det (:data %)))) (map first det-hyps))
-        to-hyps (filter #(> time-now (:time (:det (:data %)))) (map second det-hyps))
-        ;; filter out old uncovered hyps, so we don't have an explosion of path hyps
-        filter-old (fn [hyps] (filter #(>= (:time (:det (:data %)))
-                                           (dec left-off))
-                                      hyps))
-        uncovered-from (set (filter-old (concat (:uncovered-from pdata) from-hyps)))
-        uncovered-to (set (filter-old (concat (:uncovered-to pdata) to-hyps)))
+        from-hyps (set (filter #(and (not (covered-or-uncovered? pdata :covered %))
+                                     (not (covered-or-uncovered? pdata :uncovered %))
+                                     (not= 0 (:time (:det (:data %)))))
+                               (map first det-hyps)))
+        to-hyps (set (filter #(and (not (covered-or-uncovered? pdata :covered %))
+                                   (not (covered-or-uncovered? pdata :uncovered %))
+                                   (not= time-now (:time (:det (:data %)))))
+                             (map second det-hyps)))
         pdata-new (-> pdata
-                      (assoc :uncovered-from uncovered-from)
-                      (assoc :uncovered-to uncovered-to)
-                      (assoc :left-off time-now))
+                      (update-in [:uncovered-from] set/union from-hyps)
+                      (update-in [:uncovered-to] set/union to-hyps))
         ep-new (assoc ep-state :problem-data pdata-new)]
     (reduce (fn [ep hyp] (add-fact ep hyp)) ep-new
             (concat (:uncovered-from pdata-new) (:uncovered-to pdata-new)))))
@@ -84,6 +87,7 @@
       (new-hyp "Mov" :movement nil score
                :and [det-hyp det2-hyp] [det-hyp det2-hyp] (path-str [det det2])
                {:det det :det2 det2
+                :det-hyp det-hyp :det2-hyp det2-hyp
                 :movement {:x (:x det2) :y (:y det2) :time (:time det2)
                            :ox (:x det) :oy (:y det) :ot (:time det)
                            :color (cond (not= gray (:color det)) (:color det)
@@ -125,7 +129,7 @@
 
 (defn make-location-hyps
   [entities entity-biases path-hyps]
-  (mapcat (fn [e] (let [loc (get entities e)
+  (mapcat (fn [e] (let [loc (last (get entities e))
                         matching-starts (filter
                                          #(dets-match? loc (first (extract-path-dets %)))
                                          path-hyps)
@@ -136,7 +140,7 @@
                     (mapcat
                      (fn [pb]
                        (map (fn [b]
-                              (make-location-hyp e (:loc-hyp (get entities e))
+                              (make-location-hyp e (:loc-hyp (last (get entities e)))
                                                  (:bias b) (:bias-hyp b)
                                                  (get pb (:bias b))))
                             (filter #(not-empty (get pb (:bias %)))
@@ -193,10 +197,12 @@
                      (filter #(nil? (get entity-biases (:entity (:data %))))
                              loc-hyps))]
       [(reduce (fn [ep hyp] (add-hyp ep hyp))
-               ep-pg (filter
-                      (fn [h] (and (not-any? #(= (:id %) (:id h)) accepted)
-                                   (some (fn [e] (not-any? #(= (:id %) (:id e)) accepted))
-                                         (:explains h))))
+               ep-pg (filter (fn [h] (and
+                                      ;; don't add a hyp that has been accepted
+                                      (not-any? #(= (:id %) (:id h)) accepted)
+                                      ;; don't add a hyp that explains only accepted hyps
+                                      (some (fn [e] (not-any? #(= (:id %) (:id e)) accepted))
+                                            (:explains h))))
                       (concat valid-mov-hyps valid-path-hyps loc-hyps bias-hyps)))
        {:compute compute :memory memory}])))
 
@@ -210,20 +216,22 @@
      (fn [h]
        (let [det (:det (:data h))
              ;; set color to gray so that any location in range matches
-             det2-fn (fn [e es] (let [h (:loc-hyp (get es e))]
-                                  (assoc (:loc (:data h)) :color gray)))
+             det2-fn (fn [e es] (let [h2 (:loc-hyp (last (get es e)))]
+                                  (assoc (:loc (:data h2)) :color gray)))
              es (filter (fn [e]
-                          (binding [compute 0 memory 0]
-                            (score-movement det (det2-fn e entities) walk-dist)))
+                          (if (:loc-hyp (last (get entities e)))
+                            (binding [compute 0 memory 0]
+                              (score-movement det (det2-fn e entities) walk-dist))))
                         (keys entities))]
-         (map (fn [e] (:loc-hyp (get entities e))) es)))
+         (map (fn [e] (:loc-hyp (last (get entities e)))) es)))
      (filter #(or (= :sensor-from (:type %)) (= :sensor-to (:type %))) hyps))))
 
 (defn commit-decision
   [pdata accepted rejected unaccepted time-now]
   (let [entities (reduce (fn [es loc-hyp]
                            (update-in es [(:entity (:data loc-hyp))]
-                                      merge (:loc (:data loc-hyp)) {:loc-hyp loc-hyp}))
+                                      #(conj % (merge (last %) (:loc (:data loc-hyp))
+                                                      {:loc-hyp loc-hyp}))))
                          (:entities pdata) (filter #(= :location (:type %))
                                                    accepted))
         entity-biases (reduce (fn [eb bias-hyp]
@@ -232,8 +240,8 @@
                                         :bias-hyp bias-hyp}))
                               (:entity-biases pdata) (filter #(= :bias (:type %))
                                                              accepted))
-        bel-movs (map (comp :movement :data) (filter #(= :movement (:type %)) accepted))
-        dis-movs (map (comp :movement :data) (filter #(= :movement (:type %)) rejected))
+        bel-movs (set (map (comp :movement :data) (filter #(= :movement (:type %)) accepted)))
+        dis-movs (set (map (comp :movement :data) (filter #(= :movement (:type %)) rejected)))
         explained-det-hyps (mapcat :explains (filter #(= :movement (:type %)) accepted))
         covered-from (set (filter #(= :sensor-from (:type %)) explained-det-hyps))
         covered-to (set (filter #(= :sensor-to (:type %)) explained-det-hyps))]
@@ -241,7 +249,50 @@
         (assoc :entity-biases entity-biases)
         (update-in [:accepted] set/union accepted)
         (update-in [:unaccepted] set/union unaccepted)
-        (update-in [:believed-movements] concat bel-movs)
-        (update-in [:disbelieved-movements] concat dis-movs)
+        (update-in [:believed-movements] set/union bel-movs)
+        (update-in [:disbelieved-movements] set/union dis-movs)
+        (update-in [:covered-from] set/union covered-from)
+        (update-in [:covered-to] set/union covered-to)
         (update-in [:uncovered-from] set/difference covered-from)
         (update-in [:uncovered-to] set/difference covered-to))))
+
+(defn retract
+  [pdata hyp]
+  (cond (= :location (:type hyp))
+        (let [path-hyps (set (:paths (:data hyp)))
+              mov-hyps (set (apply concat (map (comp :movements :data) path-hyps)))
+              movs (set (map (comp :movement :data) mov-hyps))
+              sensor-hyps-from (set (map (comp :det2-hyp :data) mov-hyps))
+              sensor-hyps-to (set (map (comp :det-hyp :data) mov-hyps))]
+          (-> pdata
+              (update-in [:entities (:entity (:data hyp))]
+                         (fn [locs] (vec (take-while #(not= (:loc-hyp %) hyp) locs))))
+              (update-in [:believed-movements] set/difference movs)
+              (update-in [:covered-from] set/difference sensor-hyps-from)
+              (update-in [:covered-to] set/difference sensor-hyps-to)
+              (update-in [:uncovered-from] set/union sensor-hyps-from)
+              (update-in [:uncovered-to] set/union sensor-hyps-to)
+              (update-in [:accepted] set/difference #{hyp} path-hyps mov-hyps)))
+        (= :path (:type hyp))
+        (let [mov-hyps (set (:movements (:data hyp)))
+              movs (set (map (comp :movement :data) mov-hyps))
+              sensor-hyps-from (set (map (comp :det2-hyp :data) mov-hyps))
+              sensor-hyps-to (set (map (comp :det-hyp :data) mov-hyps))]
+          (-> pdata
+              (update-in [:believed-movements] set/difference movs)
+              (update-in [:covered-from] set/difference sensor-hyps-from)
+              (update-in [:covered-to] set/difference sensor-hyps-to)
+              (update-in [:uncovered-from] set/union sensor-hyps-from)
+              (update-in [:uncovered-to] set/union sensor-hyps-to)
+              (update-in [:accepted] set/difference #{hyp} mov-hyps)))
+        (= :movement (:type hyp))
+        (-> pdata
+            (update-in [:believed-movements] disj (:movement (:data hyp)))
+            (update-in [:covered-from] set/difference #{(:det2-hyp (:data hyp))})
+            (update-in [:covered-to] set/difference #{(:det-hyp (:data hyp))})
+            (update-in [:uncovered-from] set/union #{(:det2-hyp (:data hyp))})
+            (update-in [:uncovered-to] set/union #{(:det-hyp (:data hyp))})
+            (update-in [:accepted] disj hyp))
+        (or (= :sensor-from (:type hyp)) (= :sensor-to (:type hyp)))
+        (update-in pdata [:accepted] disj hyp)
+        :else pdata))

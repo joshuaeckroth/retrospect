@@ -58,7 +58,7 @@
         (let [det (first unchecked)
               heads (filter #(and (= (:x det) (:x %)) (= (:y det) (:y %))
                                   (= (:time det) (:time %)))
-                            (vals entities))
+                            (map last (vals entities)))
               in (incoming g det)
               out (neighbors g det)
               count-color (fn [dets color]
@@ -118,7 +118,7 @@
   [paths-graph entities]
   (let [get-heads (fn [det] (filter #(and (= (:x det) (:x %)) (= (:y det) (:y %))
                                           (= (:time det) (:time %)))
-                                    (apply concat (vals entities))))]
+                                    (map last (vals entities))))]
     (filter
      (fn [[det det2]]
        (let [heads-det (get-heads det)
@@ -200,7 +200,7 @@
 
 (defn paths-graph-paths
   [paths-graph entities entity-biases]
-  (let [entity-ends (vals entities)
+  (let [entity-ends (map last (vals entities))
         starts (filter (fn [det] (some #(dets-match? det %) entity-ends))
                        (nodes paths-graph))
         path-starts (map (fn [det] [det]) starts)

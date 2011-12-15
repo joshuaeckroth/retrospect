@@ -50,7 +50,7 @@
 
 (defn id-correct
   [true-movements entities maxtime]
-  (double (/ (count (filter (fn [e] (dets-match? (get entities e)
+  (double (/ (count (filter (fn [e] (dets-match? (last (get entities e))
                                                  (nth (get true-movements e) maxtime)))
                             (keys true-movements)))
              (count true-movements))))

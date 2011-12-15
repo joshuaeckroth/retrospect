@@ -354,6 +354,10 @@
     (reduce (fn [ep hyp] (add-more-hyp ep hyp (make-dep-node hyp) []))
             ep-state (concat sensor-noise-hyps learning-hyps))))
 
+(defn no-explainer-hyps
+  [hyps pdata]
+  [])
+
 (defn update-model
   [n model history words]
   (let [ws (concat (take-last (dec n) history) words)
@@ -397,4 +401,8 @@
         (assoc :models new-models)
         (assoc :letters [])
         (assoc :left-off left-off))))
+
+(defn retract
+  [pdata hyp]
+  pdata)
 

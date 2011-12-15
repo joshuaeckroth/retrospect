@@ -7,7 +7,8 @@
   (:use [retrospect.problems.words.truedata :only [generate-truedata]])
   (:use [retrospect.problems.words.sensors :only [generate-sensors]])
   (:use [retrospect.problems.words.hypotheses :only
-         [hypothesize get-more-hyps commit-decision inconsistent]])
+         [hypothesize get-more-hyps commit-decision inconsistent retract
+          no-explainer-hyps]])
   (:use [retrospect.problems.words.player :only
          [player-get-stats-panel player-update-stats player-get-truedata-log
           player-get-problem-log player-setup-diagram player-update-diagram]])
@@ -55,8 +56,10 @@
                hypothesize
                get-more-hyps
                commit-decision
+               retract
                generate-problem-data
                inconsistent
+               no-explainer-hyps
                evaluate
                evaluate-comparative
                true-hyp?
