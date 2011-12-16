@@ -28,7 +28,9 @@
 
 (defmethod print-method Hypothesis
   [o w]
-  (print-simple (str "#<" (:id o) ": \"" (:desc o) "\">") w))
+  (print-simple (:id o) w))
+
+(comment   (print-simple (str "#<" (:id o) ": \"" (:desc o) "\">") w))
 
 (defn new-hyp
   [prefix type conflict apriori expl-func explains depends desc data]
@@ -105,26 +107,67 @@
         (sort-by :id (AlphanumComparator.)
                  (filter #(shared-explains? workspace % hyps) hyps)))))
 
+(defn transitive-explainer-paths
+  [workspace hyp]
+  (let [g (:graph-static workspace)
+        paths (loop [ps [[hyp]]]
+                (let [newps (set (concat ps (mapcat (fn [p] (let [es (incoming g (first p))]
+                                                              (map (fn [e] (concat [e] p)) es)))
+                                                    ps)))]
+                  (if (= (count newps) (count ps))
+                    (filter not-empty (map butlast ps))
+                    (recur newps))))]
+    ;; only want "paths" that consist of hyps "between" the start and end
+    (reduce (fn [m path] (update-in m [(first path)] conj (rest path)))
+            {} (filter (comp not-empty rest) paths))))
+
 (defn cache-transitive-explainers
   [workspace]
   (let [tg (transpose (:graph-static workspace))
-        trans-expls (reduce (fn [m hyp] (assoc m hyp (set (mapcat #(pre-traverse tg %)
-                                                                  (neighbors tg hyp)))))
-                            {} (nodes (:graph-static workspace)))]
+        trans-expls
+        (reduce (fn [m hyp]
+                  (assoc m hyp {:explainers
+                                (set (mapcat #(pre-traverse tg %)
+                                             (neighbors tg hyp)))
+                                :paths (transitive-explainer-paths workspace hyp)}))
+                {} (nodes (:graph-static workspace)))]
     (assoc workspace :trans-expls trans-expls)))
+
+(defn transitive-explainer-blocked?
+  "This is needed due to the trans-expl cache. When a intermediate hyp
+   is rejected, there is no longer a path in from the transitive hyp
+   through the intermediate; but since the trans-expl cache is not
+   continually updated, we need to check if a transitive path is still
+   valid."
+  [workspace hyp explainer & opts]
+  (let [g (if (some #{:static} opts)
+            (:graph-static workspace)
+            (:graph workspace))
+        trans-expls (if (nil? (:trans-expls workspace))
+                      (cache-transitive-explainers workspace)
+                      (:trans-expls workspace))]
+    (and
+     (not-empty (get (:paths (get trans-expls hyp)) explainer))
+     (every? (fn [path] (some (fn [h] ((:rejected workspace) h)) path))
+             (get (:paths (get trans-expls hyp)) explainer)))))
 
 (defn incoming-transitive
   "Find transitive explainers of some hypothesis. Presumably this
    function is only used when transitive-explanation is active. It
-   relies on a cache built by (cache-transitive-explainers)."
+   relies on a cache built by (cache-transitive-explainers). Only
+   valid transitive explainers are returned; a transitive explainer is
+   valid if it is not \"blocked\", where being blocked means all paths
+   from the hyp to the explainer go through one or more rejected
+   nodes."
   [workspace hyp & opts]
   (let [g (if (some #{:static} opts)
             (:graph-static workspace)
-            (:graph workspace))]
-    (if (nil? (:trans-expls workspace))
-      (let [tg (transpose g)]
-        (set (mapcat #(pre-traverse tg %) (neighbors tg hyp))))
-      (set/intersection (get (:trans-expls workspace) hyp) (nodes g)))))
+            (:graph workspace))
+        trans-expls (if (nil? (:trans-expls workspace))
+                      (cache-transitive-explainers workspace)
+                      (:trans-expls workspace))]
+    (filter #(not (apply transitive-explainer-blocked? workspace hyp % opts))
+            (set/intersection (:explainers (get trans-expls hyp)) (nodes g)))))
 
 (defn find-explainers
   [workspace hyp & opts]
@@ -145,9 +188,12 @@
    accepted, remain in the graph, and no explainer of
    theirs (transitive or otherwise) has been accepted."
   [workspace]
-  (set (filter (fn [h] (some (fn [es] (not-any? (:accepted workspace) es))
-                             (find-explainers workspace h :static)))
-               (set (filter #(not-empty (incoming (:graph-static workspace) %))
+  (set (filter (fn [h]
+                 (let [expl (find-explainers workspace h :static)]
+                   (or (empty? expl)
+                       (some (fn [es] (not-any? (:accepted workspace) es)) expl))))
+               (set (filter #(or ((:forced workspace) %)
+                                 (not-empty (incoming (:graph-static workspace) %)))
                             (:accepted workspace))))))
 
 ;; TODO: fix

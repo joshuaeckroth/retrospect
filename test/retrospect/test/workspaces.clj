@@ -28,7 +28,8 @@
                         (add b :static)
                         (add c :static)
                         (add d :static)
-                        (prepare-workspace))]
+                        (prepare-workspace)
+                        (cache-transitive-explainers))]
       (binding [workspace workspace
                 s1 s1 s2 s2 a a b b c c d d]
         (f)))))
@@ -59,13 +60,17 @@
         expl-sorted (sort-explainers ws expl)]
     (is (= #{a c d} (set (:explainers (find-first #(= (:hyp %) s1) expl)))))
     (is (= #{a b c d} (set (:explainers (find-first #(= (:hyp %) s2) expl)))))
-    ;; order matters in the expl sequence, so let's make sure it is consistent
+    ;; order matters in the (unsorted) expl sequence, so let's make sure it is consistent
     (is (= [s1 s2] (map :hyp expl)))
     (is (not-empty expl-sorted))
     ;; s2 has a better explainer than s1
     (is (= [s2 s1] (map :hyp expl-sorted)))
     (is (= [a d b c] (:explainers (first expl-sorted))))
-    (is (= [a d c] (:explainers (second expl-sorted))))))
+    (is (= [a d c] (:explainers (second expl-sorted)))))
+  (let [ws (reject-many workspace [a])]
+    (is (= [s2] (map :hyp (find-all-explainers ws true))))
+    (is (true? (transitive-explainer-blocked? ws s1 c)))
+    (is (empty? (find-explainers ws s1)))))
 
 (deftest best-nontrans
   (let [expl (find-all-explainers workspace false)

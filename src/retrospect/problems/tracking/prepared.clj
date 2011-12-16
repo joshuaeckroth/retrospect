@@ -88,15 +88,6 @@
     :StepsBetween 3, :GridWidth 20, :Steps 18, :ProbNewEntities 0,
     :Threshold 0, :NumberEntities 4}))
 
-(defn random-bias-bug-retract
-  []
-  (prepared-from-params
-   {:GridHeight 20, :MaxWalk 10, :TransitiveExplanation true,
-    :Seed 4872271, :MetaReasoning "RetractNoExplainers", :SensorNoise 0,
-    :SensorSeesColor 60, :SensorCoverage 100, :BeliefNoise 0,
-    :StepsBetween 3, :GridWidth 20, :Steps 18, :ProbNewEntities 0,
-    :Threshold 0, :NumberEntities 4}))
-
 (comment
   (defn intersection-ambiguity-nometa
     []

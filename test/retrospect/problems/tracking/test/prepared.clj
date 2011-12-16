@@ -80,6 +80,10 @@
 
 (deftest case-random-bias-bug
   (let [results (run (random-bias-bug-nometa))]
-    (is (approx= 0.75 (:IDCorrect (last results)) 0.01)))
-  (let [results (run (random-bias-bug-retract))]
+    (is (approx= 0.5 (:IDCorrect (last results)) 0.01)))
+  (let [results (run (assoc-in (random-bias-bug-nometa)
+                               [:params :MetaReasoning] "RetractNoExplainers"))]
+    (is (approx= 1.0 (:IDCorrect (last results)) 0.01)))
+  (let [results (run (assoc-in (random-bias-bug-nometa)
+                               [:params :MetaReasoning] "BatchBeginning"))]
     (is (approx= 1.0 (:IDCorrect (last results)) 0.01))))
