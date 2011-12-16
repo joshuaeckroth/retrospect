@@ -77,3 +77,9 @@
     (is (= 1.0 (:IDCorrect (last results))))
     (is (= 1 (:MetaActivations (last results))))
     (is (= 1 (:MetaAccepted (last results))))))
+
+(deftest case-random-bias-bug
+  (let [results (run (random-bias-bug-nometa))]
+    (is (approx= 0.75 (:IDCorrect (last results)) 0.01)))
+  (let [results (run (random-bias-bug-retract))]
+    (is (approx= 1.0 (:IDCorrect (last results)) 0.01))))

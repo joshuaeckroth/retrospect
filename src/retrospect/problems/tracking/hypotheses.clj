@@ -152,7 +152,8 @@
 (defn make-bias-hyps
   [loc-hyps]
   (let [unique-last-three-xys
-        (fn [loc] (map (fn [path] (set (take-last 3 (extract-path-dets path))))
+        (fn [loc] (map (fn [path] (set (take-last 3 (map #(dissoc % :time)
+                                                         (extract-path-dets path)))))
                        (:paths (:data loc))))
         long-enough-locs (filter (fn [h] (some #(= 3 (count %))
                                                (unique-last-three-xys h))) loc-hyps)
@@ -258,33 +259,17 @@
 
 (defn retract
   [pdata hyp]
-  (cond (= :location (:type hyp))
-        (let [path-hyps (set (:paths (:data hyp)))
-              mov-hyps (set (apply concat (map (comp :movements :data) path-hyps)))
-              movs (set (map (comp :movement :data) mov-hyps))
-              sensor-hyps-from (set (map (comp :det2-hyp :data) mov-hyps))
-              sensor-hyps-to (set (map (comp :det-hyp :data) mov-hyps))]
-          (-> pdata
-              (update-in [:entities (:entity (:data hyp))]
-                         (fn [locs] (vec (take-while #(not= (:loc-hyp %) hyp) locs))))
-              (update-in [:believed-movements] set/difference movs)
-              (update-in [:covered-from] set/difference sensor-hyps-from)
-              (update-in [:covered-to] set/difference sensor-hyps-to)
-              (update-in [:uncovered-from] set/union sensor-hyps-from)
-              (update-in [:uncovered-to] set/union sensor-hyps-to)
-              (update-in [:accepted] set/difference #{hyp} path-hyps mov-hyps)))
+  (cond (= :bias (:type hyp))
+        (-> pdata
+            (update-in [:entity-biases] dissoc (:entity (:data hyp)))
+            (update-in [:accepted] disj hyp))
+        (= :location (:type hyp))
+        (-> pdata
+            (update-in [:entities (:entity (:data hyp))]
+                       (fn [locs] (vec (take-while #(not= (:loc-hyp %) hyp) locs))))
+            (update-in [:accepted] disj hyp))
         (= :path (:type hyp))
-        (let [mov-hyps (set (:movements (:data hyp)))
-              movs (set (map (comp :movement :data) mov-hyps))
-              sensor-hyps-from (set (map (comp :det2-hyp :data) mov-hyps))
-              sensor-hyps-to (set (map (comp :det-hyp :data) mov-hyps))]
-          (-> pdata
-              (update-in [:believed-movements] set/difference movs)
-              (update-in [:covered-from] set/difference sensor-hyps-from)
-              (update-in [:covered-to] set/difference sensor-hyps-to)
-              (update-in [:uncovered-from] set/union sensor-hyps-from)
-              (update-in [:uncovered-to] set/union sensor-hyps-to)
-              (update-in [:accepted] set/difference #{hyp} mov-hyps)))
+        (update-in pdata [:accepted] disj hyp)
         (= :movement (:type hyp))
         (-> pdata
             (update-in [:believed-movements] disj (:movement (:data hyp)))

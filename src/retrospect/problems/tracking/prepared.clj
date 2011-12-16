@@ -1,4 +1,9 @@
 (ns retrospect.problems.tracking.prepared
+  (:require [retrospect.state])
+  (:require [retrospect.random])
+  (:use [retrospect.random :only [new-seed]])
+  (:use [retrospect.problems.tracking.truedata :only
+         [generate-truedata]])
   (:use [retrospect.problems.tracking.sensors :only
          [new-sensor generate-sensors]])
   (:use [retrospect.problems.tracking.movements :only [new-movements move-entity]])
@@ -25,6 +30,12 @@
                                (partition 2 (interleave (range (count xy-pairs))
                                                         xy-pairs))))))
             movements eps)))
+
+(defn prepared-from-params
+  [params]
+  (binding [retrospect.state/params params
+            retrospect.random/rgen (new-seed (:Seed params))]
+    {:params params :sensors (generate-sensors) :truedata (generate-truedata)}))
 
 (defn simple-disappearance
   []
@@ -67,6 +78,24 @@
      :truedata (entity-paths params
                              ["1" :left red  0 5,7 4,4 3,3 2,2]
                              ["2" :right blue 0 5,4 4,7 3,8 2,9])}))
+
+(defn random-bias-bug-nometa
+  []
+  (prepared-from-params
+   {:GridHeight 20, :MaxWalk 10, :TransitiveExplanation true,
+    :Seed 4872271, :MetaReasoning "NoMetareasoning", :SensorNoise 0,
+    :SensorSeesColor 60, :SensorCoverage 100, :BeliefNoise 0,
+    :StepsBetween 3, :GridWidth 20, :Steps 18, :ProbNewEntities 0,
+    :Threshold 0, :NumberEntities 4}))
+
+(defn random-bias-bug-retract
+  []
+  (prepared-from-params
+   {:GridHeight 20, :MaxWalk 10, :TransitiveExplanation true,
+    :Seed 4872271, :MetaReasoning "RetractNoExplainers", :SensorNoise 0,
+    :SensorSeesColor 60, :SensorCoverage 100, :BeliefNoise 0,
+    :StepsBetween 3, :GridWidth 20, :Steps 18, :ProbNewEntities 0,
+    :Threshold 0, :NumberEntities 4}))
 
 (comment
   (defn intersection-ambiguity-nometa
@@ -281,4 +310,5 @@
   (sorted-map "color-update" color-update
               "simple-dis" simple-disappearance
               "gray-in-range" gray-in-range
-              "intersect" intersection-ambiguity))
+              "intersect" intersection-ambiguity
+              "r-bias-bug" random-bias-bug-nometa))
