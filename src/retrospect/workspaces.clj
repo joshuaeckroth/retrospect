@@ -145,11 +145,10 @@
    accepted, remain in the graph, and no explainer of
    theirs (transitive or otherwise) has been accepted."
   [workspace]
-  (set (filter (fn [h] (not-any? (:accepted workspace)
-                                 (apply concat (find-explainers workspace h :static))))
-               (set/union (set (filter #(not-empty (incoming (:graph-static workspace) %))
-                                       (:accepted workspace)))
-                          (:forced workspace)))))
+  (set (filter (fn [h] (some (fn [es] (not-any? (:accepted workspace) es))
+                             (find-explainers workspace h :static)))
+               (set (filter #(not-empty (incoming (:graph-static workspace) %))
+                            (:accepted workspace))))))
 
 ;; TODO: fix
 (defn find-no-explainers
@@ -208,8 +207,9 @@
                                   :else (constantly true)))
         explainers (mapcat
                     (fn [h]
-                      (let [hyps (if trans? (incoming-transitive workspace h)
-                                     (incoming g h))
+                      (let [hyps (filter #(not ((:accepted workspace) %))
+                                         (if trans? (incoming-transitive workspace h)
+                                             (incoming g h)))
                             grouped (group-by :type hyps)]
                         (map (fn [expl] {:hyp h :explainers expl}) (vals grouped))))
                     (find-unexplained workspace))]
