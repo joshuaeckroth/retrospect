@@ -9,6 +9,7 @@
   (:use [retrospect.database :only [read-params]])
   (:use [retrospect.problems.tracking.problem :only [tracking-problem]])
   (:use [retrospect.problems.words.problem :only [words-problem]])
+  (:use [retrospect.problems.causal.problem :only [causal-problem]])
   (:use [retrospect.records :only [run-with-new-record]])
   (:use [retrospect.player :only [start-player]]))
 
@@ -39,7 +40,9 @@
             (let [prob (cond (or (= "Tracking" problem) (= "tracking" problem))
                              tracking-problem
                              (or (= "Words" problem) (= "words" problem))
-                             words-problem)]
+                             words-problem
+                             (or (= "Causal" problem) (= "causal" problem))
+                             causal-problem)]
               (dosync
                (alter state/problem (constantly prob)))
               ;; start the player on swing's "event dispatch thread"
