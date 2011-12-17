@@ -1,5 +1,6 @@
 (ns retrospect.meta.reason
   (:import (misc AlphanumComparator))
+  (:require [clojure.set :as set])
   (:use [retrospect.epistemicstates :only
          [previous-ep-state current-ep-state new-child-ep-state
           new-branch-ep-state new-branch-root explain goto-ep-state
@@ -33,7 +34,7 @@
   (let [ep-state (current-ep-state est)
         time-now (apply max (map :sensed-up-to (:sensors or-state)))
         [ep-hyps resources] ((:hypothesize-fn @problem) ep-state (:sensors or-state) time-now)
-        ep-expl (explain ep-hyps)
+        ep-expl (explain ep-hyps time-now)
         est-expl (update-ep-state-tree est ep-expl)
         ors (assoc or-state :ep-state-tree est-expl)
         final-ors (if (> 0 (workspace-compare (:workspace ep-expl) (:workspace prior-ep)))
@@ -63,7 +64,6 @@
                         (update-in [:resources :memory] + (:memory resources))))]
     (update-in final-ors [:resources :meta-activations] inc)))
 
-
 (defn batch
   [n or-state]
   (if-not
@@ -75,7 +75,7 @@
             ;; branch back n if n != nil and there are more than n states;
             ;; otherwise branch from root
             est (if (and n (< n (ep-state-depth prior-est)))
-                  (new-branch-ep-state prior-est (nth-previous-ep-state prior-est n))
+                  (new-branch-ep-state prior-est (nth-previous-ep-state prior-est n) true)
                   (new-branch-root prior-est (:original-problem-data or-state)))]
         (apply-and-evaluate or-state prior-ep est))))
 
@@ -84,8 +84,8 @@
   (let [ep-state (current-ep-state (:ep-state-tree or-state))
         no-explainers (:no-explainers (:final (:log (:workspace ep-state))))
         hyps ((:no-explainer-hyps-fn @problem) no-explainers (:problem-data ep-state))
-        deps (find-dependents ep-state hyps)
-        est (new-branch-ep-state (:ep-state-tree or-state) ep-state)
+        deps (set/union (set no-explainers) (set (find-dependents ep-state hyps)))
+        est (new-branch-ep-state (:ep-state-tree or-state) ep-state false)
         ep-state-retracted (assoc (retract-dependents (current-ep-state est) deps)
                              :workspace (ws/init-workspace))
         est-retracted (update-ep-state-tree est ep-state-retracted)

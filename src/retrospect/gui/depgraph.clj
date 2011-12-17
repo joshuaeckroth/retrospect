@@ -14,13 +14,17 @@
   (:use [clj-swing.panel])
   (:use [clj-swing.button])
   (:use [retrospect.state])
-  (:use [retrospect.epistemicstates :only [current-ep-state]]))
+  (:use [retrospect.epistemicstates :only
+         [current-ep-state previous-ep-state]]))
 
 (def canvas (JSVGCanvas.))
 
 (defn generate-depgraph
   []
-  (let [depgraph (:depgraph (current-ep-state (:ep-state-tree @or-state)))]
+  (let [ep-state (let [ep (current-ep-state (:ep-state-tree @or-state))]
+                   (if (re-find #"\?" (str ep))
+                     (previous-ep-state (:ep-state-tree @or-state)) ep))
+        depgraph (:depgraph ep-state)]
     (if (and depgraph (not-empty (edges depgraph)))
       (let [dot (dot-str (reduce (fn [g n]
                                    (-> g (add-attr n :label (:id n))

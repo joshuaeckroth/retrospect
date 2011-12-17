@@ -39,7 +39,7 @@
 
 (defn simple-disappearance
   []
-  (let [params (merge basic-params {:Steps 2 :SensorCoverage 50
+  (let [params (merge basic-params {:Steps 1 :SensorCoverage 50
                                     :SensorSeesColor 0})]
     {:params params
      :sensors [(new-sensor (keyword "right") 5 9 0 9 false)]
@@ -49,7 +49,7 @@
 
 (defn color-update
   []
-  (let [params (merge basic-params {:Steps 3 :StepsBetween 3})]
+  (let [params (merge basic-params {:Steps 2 :StepsBetween 3})]
     {:params params
      :sensors [(new-sensor (keyword "1") 0 3 0 9 false)
                (new-sensor (keyword "2g") 4 7 0 9 true)
@@ -58,7 +58,7 @@
 
 (defn gray-in-range
   []
-  (let [params (merge basic-params {:Steps 3})]
+  (let [params (merge basic-params {:Steps 2})]
     {:params params
      :sensors [(new-sensor (keyword "top") 0 9 0 3 true)
                (new-sensor (keyword "middle-gray") 0 9 4 6 false)
@@ -69,7 +69,7 @@
 
 (defn intersection-ambiguity
   []
-  (let [params (merge basic-params {:Steps 4 :SensorSeesColor 80
+  (let [params (merge basic-params {:Steps 3 :SensorSeesColor 80
                                     :MetaReasoning "BatchBeginning" :MaxWalk 3})]
     {:params params
      :sensors [(new-sensor (keyword "left") 0 2 0 9 true)

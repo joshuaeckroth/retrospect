@@ -14,11 +14,11 @@
   (:use [retrospect.random :only [rgen new-seed my-rand-int]])
   (:use [retrospect.state]))
 
-(defn proceed-n-steps
-  [n steps time truedata or-state]
+(defn update-sensors-from-to
+  [time time-now truedata or-state]
   (loop [t time
          ors or-state]
-    (if (or (>= t steps) (= t (+ n time))) ors
+    (if (> t time-now) ors
         (recur (inc t) (update-in ors [:sensors] update-sensors truedata t)))))
 
 (defn hypothesize
@@ -30,23 +30,21 @@
 (defn run-simulation-step
   [truedata or-state monitor? player?]
   (let [time (:time (:ep-state or-state))
+        time-now (min (:Steps params) (+ (:StepsBetween params) time))
         ors-clean (clear-resources or-state)
-        ors-sensors (proceed-n-steps (:StepsBetween params) (:Steps params)
-                                     time truedata ors-clean)
-        time-now (min (dec (:Steps params)) (+ (dec (:StepsBetween params)) time))
+        ors-sensors (update-sensors-from-to time time-now truedata ors-clean)
         ;; start the clock
         start-time (. System (nanoTime))
         ors-hyps (hypothesize ors-sensors time-now)
         ep-state (:ep-state ors-hyps)
-        ep-explained (explain ep-state)
+        ep-explained (explain ep-state time-now)
         ors-expl (update-one-run-state ors-hyps ep-explained {:compute 0 :memory 0})
         ors-meta (if (metareasoning-activated? ors-expl)
                    (metareason ors-expl) ors-expl)
         ;; stop the clock
         ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
         ors-next (proceed-one-run-state
-                   ors-meta (current-ep-state (:ep-state-tree ors-meta))
-                   time-now)
+                   ors-meta (current-ep-state (:ep-state-tree ors-meta)))
         ors-resources (assoc-in ors-next [:resources :milliseconds] ms)
         ors-results (evaluate truedata ors-resources)]
     (if (and (not player?) monitor?)

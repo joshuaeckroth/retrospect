@@ -57,7 +57,7 @@
 
 (defn evaluate
   [ep-state sensors truedata]
-  (let [maxtime (dec (:time ep-state))
+  (let [maxtime (:time ep-state)
         pdata (:problem-data ep-state)
         believed-movements (:believed-movements pdata)
         disbelieved-movements (:disbelieved-movements pdata)

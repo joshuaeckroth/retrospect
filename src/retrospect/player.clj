@@ -21,7 +21,8 @@
   (:use [retrospect.onerun :only [init-one-run-state]])
   (:use [retrospect.epistemicstates :only
          [list-ep-states current-ep-state goto-ep-state root-ep-state?
-          previous-ep-state non-accepted-current-ep-state?]])
+          previous-ep-state non-accepted-current-ep-state?
+          nth-previous-ep-state]])
   (:use [retrospect.random :only [rgen new-seed]]))
 
 (def prepared-selected (atom "None"))
@@ -44,15 +45,21 @@
 
 (defn update-everything
   []
-  (let [prev-ep (previous-ep-state (:ep-state-tree @or-state))
-        time-n (:time (:ep-state @or-state))
-        time-p (if prev-ep (:time prev-ep) -1)]
+  (let [est (:ep-state-tree @or-state)
+        ep-state (let [ep (current-ep-state est)]
+                   (if (re-find #"\?" (str ep))
+                     (previous-ep-state est) ep))
+        prev-ep (let [ep (current-ep-state est)]
+                  (if (re-find #"\?" (str ep))
+                    (nth-previous-ep-state est 2)
+                    (previous-ep-state est)))
+        time-n (or (:time ep-state) 0)
+        time-p (or (:time prev-ep) 0)]
     (dosync
      (alter time-now (constantly time-n))
      (alter time-prev (constantly time-p)))
-    (. steplabel (setText (if (nil? prev-ep) "Step: N/A"
-                              (format "Step: %d->%d" (dec @time-prev)
-                                      (dec @time-now))))))
+    (. steplabel (setText (format "Step: %d->%d" @time-prev
+                                  @time-now))))
   (dosync
    (alter ep-list (constantly (sort (list-ep-states (:ep-state-tree @or-state))))))
   (update-ep-tree)

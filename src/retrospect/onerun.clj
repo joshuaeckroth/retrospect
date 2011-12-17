@@ -35,10 +35,10 @@
       (update-in [:resources :memory] + memory))))
 
 (defn proceed-one-run-state
-  [or-state ep-state time-now]
+  [or-state ep-state]
   (let [explain-cycles (:explain-cycles (:resources (:workspace ep-state)))
         hypothesis-count (:hypothesis-count (:resources (:workspace ep-state)))
-        ep-state-tree (new-child-ep-state (:ep-state-tree or-state) ep-state time-now)]
+        ep-state-tree (new-child-ep-state (:ep-state-tree or-state) ep-state)]
     (-> or-state
       (update-in [:resources :explain-cycles] + explain-cycles)
       (update-in [:resources :hypothesis-count] + hypothesis-count)

@@ -64,7 +64,7 @@
   (let [width (ceil (/ @grid-cell-width (count es)))]
     (doseq [i (range (count es))]
       (let [e (nth es i)
-            movs (entity-movements @truedata e @time-prev (dec @time-now))
+            movs (entity-movements @truedata e (inc @time-prev) @time-now)
             left (+ (* i width) (* x @grid-cell-width))
             top (* y @grid-cell-height)]
         (doto g
@@ -91,7 +91,7 @@
     (dorun
      (for [x (range @grid-width) y (range @grid-height)]
        (let [es (sort-by str (AlphanumComparator.)
-                         (entities-at @truedata x y (dec @time-now)))]
+                         (entities-at @truedata x y @time-now))]
          (when (not-empty es)
            (fill-cell-entities g x y es)))))))
 
@@ -185,8 +185,8 @@
 (defn player-update-stats
   []
   (if (> @time-now 0)
-    (let [t (int (/ (dec @time-now) (:StepsBetween params)))
-          results (get (:results @or-state) t)]
+    (let [t (int (/ @time-now (:StepsBetween params)))
+          results (get (:results @or-state) (dec t))]
       (. percent-events-correct-label (setText (format "%.2f%%" (:PEC results))))
       (. percent-events-wrong-label (setText (format "%.2f%%" (:PEW results))))
       (. accuracy-label (setText (format "%.2f" (:Acc results))))
@@ -202,10 +202,10 @@
 
 (defn player-get-truedata-log
   []
-  (if (<= @time-now 1) ""
+  (if (<= @time-now 0) ""
       (format-movements-comparative
        @truedata (:believed-movements (:problem-data (:ep-state @or-state)))
-       (max 0 (dec @time-prev)) (dec @time-now))))
+       (max 0 @time-prev) @time-now)))
 
 (defn move-str
   [mov]

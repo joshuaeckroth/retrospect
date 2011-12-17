@@ -49,7 +49,7 @@
     (is (= 1.0 (:Spec (last results)))))
   (let [results (run (assoc-in (intersection-ambiguity)
                                [:params :MetaReasoning] "NoMetareasoning"))
-        ep (current-ep-state (goto-ep-state (:ep-state-tree @or-state) "D"))
+        ep (current-ep-state (goto-ep-state (:ep-state-tree @or-state) "C"))
         no-explainers (:no-explainers (:final (:log (:workspace ep))))
         no-explainer-hyps (no-explainer-hyps no-explainers (:problem-data ep))]
     (is (= #{:location} (set (map :type no-explainer-hyps))))
@@ -63,7 +63,7 @@
     (is (approx= 33.3 (:PEW (last results)) 0.1)))
   (let [results (run (assoc-in (intersection-ambiguity)
                                [:params :MetaReasoning] "Batch1"))]
-    (is (approx= 66.6 (:PEC (last results)) 0.1))
+    (is (approx= 33.3 (:PEC (last results)) 0.1))
     (is (approx= 33.3 (:PEW (last results)) 0.1)))
   (let [results (run (assoc-in (intersection-ambiguity)
                                [:params :MetaReasoning] "Batch2"))]
@@ -80,7 +80,7 @@
 
 (deftest case-random-bias-bug
   (let [results (run (random-bias-bug-nometa))]
-    (is (approx= 0.75 (:IDCorrect (last results)) 0.01)))
+    (is (approx= 1.0 (:IDCorrect (last results)) 0.01)))
   (let [results (run (assoc-in (random-bias-bug-nometa)
                                [:params :MetaReasoning] "RetractNoExplainers"))]
     (is (approx= 1.0 (:IDCorrect (last results)) 0.01)))

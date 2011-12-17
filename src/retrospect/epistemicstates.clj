@@ -103,7 +103,7 @@
   [ep-state-tree n]
   (loop [i n
          loc (zip/up ep-state-tree)]
-    (if (or (= 1 i) (root-ep-state? (zip/node (zip/up loc))))
+    (if (or (= 1 i) (root-ep-state? (zip/node loc)))
       (zip/node loc) (recur (dec i) (zip/up loc)))))
 
 (defn non-accepted-current-ep-state?
@@ -176,19 +176,15 @@
              #(-> % (ws/add hyp :static) (ws/force-accept hyp))))
 
 (defn commit-decision
-  [ep-state id time-now]
+  [ep-state time-now]
   (let [workspace (:workspace ep-state)
         accepted (:accepted workspace)
         rejected (:rejected workspace)
         unaccepted (:unaccepted (:final (:log workspace)))]
-    (EpistemicState.
-     id
-     []
-     (inc time-now)
-     (ws/init-workspace)
-     ((:commit-decision-fn @problem) (:problem-data ep-state)
-      accepted rejected unaccepted time-now)
-     (:depgraph ep-state))))
+    (-> ep-state
+        (update-in [:problem-data] (:commit-decision-fn @problem)
+                   accepted rejected unaccepted time-now)
+        (assoc :time time-now))))
 
 (defn find-dependents
   [ep-state hyps]
@@ -203,16 +199,17 @@
     :depgraph (apply remove-nodes (:depgraph ep-state) deps)))
 
 (defn new-branch-ep-state
-  [ep-state-tree branch]
+  [ep-state-tree branch clear-workspace?]
   (let [ep-state (current-ep-state ep-state-tree)
         ep-tree (goto-ep-state (zip/replace ep-state-tree ep-state) (:id ep-state))
         ep (clone-ep-state branch (make-ep-state-id ep-tree) [])
+        ep-ws (if clear-workspace? (assoc ep :workspace (ws/init-workspace)) ep)
         ;; make a branch; the choice of "insert-right" over "insert-left" here
         ;; is what makes (list-ep-states) possible, since depth-first search
         ;; looks left before looking right
         ep-tree-branch
-        (goto-ep-state (zip/insert-right (goto-ep-state ep-tree (:id branch)) ep)
-                       (:id ep))]
+        (goto-ep-state (zip/insert-right (goto-ep-state ep-tree (:id branch)) ep-ws)
+                       (:id ep-ws))]
     ep-tree-branch))
 
 (defn new-branch-root
@@ -224,22 +221,25 @@
     (goto-ep-state (zip/insert-right (goto-ep-state est "A") new-ep) (:id new-ep))))
 
 (defn new-child-ep-state
-  [ep-state-tree ep-state time-now]
+  [ep-state-tree ep-state]
   (let [ep-tree (goto-ep-state (zip/replace ep-state-tree ep-state) (:id ep-state))
-        ep-child (commit-decision ep-state (make-ep-state-id ep-tree) time-now)
+        ep-child (assoc (clone-ep-state ep-state (make-ep-state-id ep-tree) [])
+                   :workspace (ws/init-workspace))
         ep-tree-child (goto-ep-state (zip/append-child ep-tree ep-child) (:id ep-child))]
     ep-tree-child))
 
 (defn explain
-  [ep-state & opts]
+  [ep-state time-now & opts]
   (let [workspace (if (some #{:no-prepare} opts) (:workspace ep-state)
                       (ws/prepare-workspace (:workspace ep-state)))
         pdata (:problem-data ep-state)
-        ws-explained (ws/explain workspace pdata)]
-    (if (not-empty (:unexplained (:final (:log ws-explained))))
-      (if-let [ep-more-hyps ((:get-more-hyps-fn @problem)
-                             (assoc ep-state :workspace ws-explained))]
-        (assoc ep-more-hyps :workspace (ws/explain (:workspace ep-more-hyps)
-                                                   (:problem-data ep-more-hyps)))
-        (assoc ep-state :workspace ws-explained))
-      (assoc ep-state :workspace ws-explained))))
+        ws-explained (ws/explain workspace pdata)
+        ep-explained (if (not-empty (:unexplained (:final (:log ws-explained))))
+                       (if-let [ep-more-hyps ((:get-more-hyps-fn @problem)
+                                              (assoc ep-state :workspace ws-explained))]
+                         (assoc ep-more-hyps :workspace
+                                (ws/explain (:workspace ep-more-hyps)
+                                            (:problem-data ep-more-hyps)))
+                         (assoc ep-state :workspace ws-explained))
+                       (assoc ep-state :workspace ws-explained))]
+    (commit-decision ep-explained time-now)))

@@ -13,14 +13,17 @@
   (:use [clj-swing.panel])
   (:use [clj-swing.button])
   (:use [retrospect.state])
-  (:use [retrospect.epistemicstates :only [previous-ep-state]]))
+  (:use [retrospect.epistemicstates :only
+         [current-ep-state previous-ep-state]]))
 
 (def canvas (JSVGCanvas.))
 
 (defn generate-hypgraph
   []
-  (let [prev-ep (previous-ep-state (:ep-state-tree @or-state))
-        hypgraph (:graph-static (:workspace prev-ep))
+  (let [ep-state (let [ep (current-ep-state (:ep-state-tree @or-state))]
+                   (if (re-find #"\?" (str ep))
+                     (previous-ep-state (:ep-state-tree @or-state)) ep))
+        hypgraph (:graph-static (:workspace ep-state))
         dot (dot-str hypgraph :graph {:dpi 60 :rankdir "LR"})
         {svg :out} (sh "dot" "-Tsvg" :in dot)
         sr (StringReader. svg)

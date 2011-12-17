@@ -42,7 +42,7 @@
                    (:NumberEntities params))]
     (loop [time 1
            m movements]
-      (if (>= time (:Steps params)) m
+      (if (> time (:Steps params)) m
         ;(do (output-walk-sizes m params) m) 
         (recur (inc time) (-> m (random-walks time)
                               (possibly-add-new-entity time)))))))
