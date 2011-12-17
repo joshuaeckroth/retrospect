@@ -26,8 +26,9 @@
 (def workspace-log (ref ""))
 
 (defn build-abduction-tree-map
-  [ep-state-tree in-meta?]
-  (let [list-hyps #(apply sorted-map-by (AlphanumComparator.)
+  [or-state]
+  (let [ep-state-tree (:ep-state-tree or-state)
+        list-hyps #(apply sorted-map-by (AlphanumComparator.)
                           (mapcat (fn [h] [(:id h) nil]) %))
         ep-states (flatten-ep-state-tree ep-state-tree)
         ws-fn (fn [wslog]
@@ -65,7 +66,8 @@
                           "Unexplained" (list-hyps (:unexplained (:final wslog)))
                           "Unaccepted" (list-hyps (:unaccepted (:final wslog)))}})]
     (apply sorted-map-by (AlphanumComparator.)
-           (mapcat (fn [ep] [(str ep) {"Workspace" (ws-fn (:log (:workspace ep)))}])
+           (mapcat (fn [ep] [(str ep) {"Workspace" (ws-fn (:log (:workspace ep)))
+                                       "Meta-Log" nil}])
                    ep-states))))
 
 (defn commas
@@ -74,7 +76,8 @@
 
 (defn hyp-info
   [workspace hyp]
-  (format "%s\n\nExplains (%s): %s\n\nExplainers: %s\n\nConflicts: %s\n\nApriori: %s\nConfidence: %s\n\nLog:\n%s"
+  (format (str "%s\n\nExplains (%s): %s\n\nExplainers: %s\n\n"
+               "Conflicts: %s\n\nApriori: %s\nConfidence: %s\n\nLog:\n%s")
           (:desc hyp)
           (cond (= :and (:expl-func hyp)) "AND"
                 (= :or (:expl-func hyp)) "OR"
@@ -116,12 +119,15 @@
                        (find-first #(= (:id %) ep-id) (flatten-ep-state-tree
                                                        (:ep-state-tree @or-state)))))
           ws (if ep-state (:workspace ep-state))]
-      (swap! workspace-selected (constantly ws))
-      (let [hyp (if ws (find-first #(= (:id %) last-comp) (ws/get-hyps ws :static)))]
-        (swap! hyp-selected (constantly hyp))
-        (if hyp
-          (dosync (alter workspace-log (constantly (hyp-info ws hyp))))
-          (dosync (alter workspace-log (constantly (final-explainers ws)))))))))
+      (if (= "Meta-Log" last-comp)
+        (dosync (alter workspace-log (constantly (get (:meta-logs @or-state) (:id ep-state)))))
+        (do
+          (swap! workspace-selected (constantly ws))
+          (let [hyp (if ws (find-first #(= (:id %) last-comp) (ws/get-hyps ws :static)))]
+            (swap! hyp-selected (constantly hyp))
+            (if hyp
+              (dosync (alter workspace-log (constantly (hyp-info ws hyp))))
+              (dosync (alter workspace-log (constantly (final-explainers ws)))))))))))
 
 (defn show-analysis
   []
@@ -152,7 +158,7 @@
                             (map :id (ws/get-hyps (:workspace (:ep-state @or-state))
                                                   :static)))))
    (alter abduction-tree-map
-          (constantly (build-abduction-tree-map (:ep-state-tree @or-state) false))))
+          (constantly (build-abduction-tree-map @or-state))))
   (. problem-log-label setText (format "Problem log for: %s" (str (:ep-state @or-state)))))
 
 (defn logs-tab

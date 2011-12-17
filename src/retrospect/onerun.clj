@@ -9,7 +9,7 @@
 (defn init-one-run-state
   [sensors problem-data]
   (let [ep-state-tree (init-ep-state-tree problem-data)]
-    {:meta-workspaces {}
+    {:meta-logs {}
      :original-problem-data problem-data
      :resources {:meta-activations 0 :meta-accepted 0
                  :explain-cycles 0 :hypothesis-count 0

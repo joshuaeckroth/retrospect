@@ -1,9 +1,10 @@
 (ns retrospect.meta.reason
+  (:import (misc AlphanumComparator))
   (:use [retrospect.epistemicstates :only
          [previous-ep-state current-ep-state new-child-ep-state
           new-branch-ep-state new-branch-root explain goto-ep-state
           update-ep-state-tree nth-previous-ep-state ep-state-depth
-          retract-dependents]])
+          find-dependents retract-dependents]])
   (:use [retrospect.onerun :only
          [proceed-one-run-state update-one-run-state]])
   (:require [retrospect.workspaces :as ws])
@@ -83,12 +84,25 @@
   (let [ep-state (current-ep-state (:ep-state-tree or-state))
         no-explainers (:no-explainers (:final (:log (:workspace ep-state))))
         hyps ((:no-explainer-hyps-fn @problem) no-explainers (:problem-data ep-state))
+        deps (find-dependents ep-state hyps)
         est (new-branch-ep-state (:ep-state-tree or-state) ep-state)
-        ep-state-retracted (assoc (retract-dependents (current-ep-state est) hyps)
+        ep-state-retracted (assoc (retract-dependents (current-ep-state est) deps)
                              :workspace (ws/init-workspace))
-        est-retracted (update-ep-state-tree est ep-state-retracted)]
-    (if (empty? hyps) or-state
-        (apply-and-evaluate or-state ep-state est-retracted))))
+        est-retracted (update-ep-state-tree est ep-state-retracted)
+        or-state-log (update-in or-state [:meta-logs (:id ep-state)]
+                                str "Performing RetractNoExplainers..."
+                                "\n\nHyps with no explainers: "
+                                (apply str (interpose ", " (sort (AlphanumComparator.)
+                                                                 (map :id no-explainers))))
+                                "\n\nImplicated accepted hyps: "
+                                (apply str (interpose ", " (sort (AlphanumComparator.)
+                                                                 (map :id hyps))))
+                                "\n\nRetracted: "
+                                (apply str (interpose ", " (sort (AlphanumComparator.)
+                                                                 (map :id deps))))
+                                "\n\n")]
+    (if (empty? hyps) or-state-log
+        (apply-and-evaluate or-state-log ep-state est-retracted))))
 
 (defn lower-threshold
   [or-state]

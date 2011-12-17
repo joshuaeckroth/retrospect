@@ -215,19 +215,19 @@
   [hyps pdata]
   (let [entities (:entities pdata)
         walk-dist (:walk-dist pdata)]
-    (mapcat
-     (fn [h]
-       (let [det (:det (:data h))
-             ;; set color to gray so that any location in range matches
-             det2-fn (fn [e es] (let [h2 (:loc-hyp (last (get es e)))]
-                                  (assoc (:loc (:data h2)) :color gray)))
-             es (filter (fn [e]
-                          (if (:loc-hyp (last (get entities e)))
-                            (binding [compute 0 memory 0]
-                              (score-movement det (det2-fn e entities) walk-dist))))
-                        (keys entities))]
-         (map (fn [e] (:loc-hyp (last (get entities e)))) es)))
-     (filter #(or (= :sensor-from (:type %)) (= :sensor-to (:type %))) hyps))))
+    (set (mapcat
+          (fn [h]
+            (let [det (:det (:data h))
+                  ;; set color to gray so that any location in range matches
+                  det2-fn (fn [e es] (let [h2 (:loc-hyp (last (get es e)))]
+                                       (assoc (:loc (:data h2)) :color gray)))
+                  es (filter (fn [e]
+                               (if (:loc-hyp (last (get entities e)))
+                                 (binding [compute 0 memory 0]
+                                   (score-movement det (det2-fn e entities) walk-dist))))
+                             (keys entities))]
+              (map (fn [e] (:loc-hyp (last (get entities e)))) es)))
+          (filter #(or (= :sensor-from (:type %)) (= :sensor-to (:type %))) hyps)))))
 
 (defn commit-decision
   [pdata accepted rejected unaccepted time-now]

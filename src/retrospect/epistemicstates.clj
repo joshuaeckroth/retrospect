@@ -190,17 +190,17 @@
       accepted rejected unaccepted time-now)
      (:depgraph ep-state))))
 
-(defn retract-dependents
-  "Retract acceptance in hyps (the argument) and all of their
-   dependents (based on the depgraph). This function calls the
-   problem's \"retract\" function for each hyp and dependent."
+(defn find-dependents
   [ep-state hyps]
-  (let [g (:depgraph ep-state)
-        deps (set (mapcat #(pre-traverse g %) hyps))]
-    (assoc ep-state
-      :problem-data (reduce (fn [pdata h] ((:retract-fn @problem) pdata h))
-                            (:problem-data ep-state) deps)
-      :depgraph (apply remove-nodes (:depgraph ep-state) deps))))
+  (let [g (:depgraph ep-state)]
+    (set (mapcat #(pre-traverse g %) hyps))))
+
+(defn retract-dependents
+  [ep-state deps]
+  (assoc ep-state
+    :problem-data (reduce (fn [pdata h] ((:retract-fn @problem) pdata h))
+                          (:problem-data ep-state) deps)
+    :depgraph (apply remove-nodes (:depgraph ep-state) deps)))
 
 (defn new-branch-ep-state
   [ep-state-tree branch]
