@@ -190,7 +190,9 @@
           path-hyps (filter (fn [h] (some #(not (accepted %)) (:movements (:data h))))
                             (apply concat (for [bias (keys paths)]
                                             (map #(make-path-hyp bias %)
-                                                 (filter not-empty (get paths bias))))))
+                                                 (filter #(and (not-empty %)
+                                                               (= time-now (:time (:det2 (:data (last %))))))
+                                                         (get paths bias))))))
           loc-hyps (make-location-hyps entities entity-biases path-hyps)
           valid-path-hyps (set (mapcat (comp :paths :data) loc-hyps))
           valid-mov-hyps (set (mapcat (comp :movements :data) valid-path-hyps))
