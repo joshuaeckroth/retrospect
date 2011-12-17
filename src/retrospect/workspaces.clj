@@ -78,19 +78,6 @@
     (neighbors (:graph-static workspace) hyp)
     (neighbors (:graph workspace) hyp)))
 
-(defn find-explains-transitive-paths
-  [workspace hyp & opts]
-  (let [g (if (some #{:static} opts)
-            (:graph-static workspace)
-            (:graph workspace))]
-    (loop [paths (map (fn [h] [h]) (neighbors g hyp))]
-      (if (empty? (mapcat (fn [path] (neighbors g (last path))) paths))
-        paths
-        (let [new-paths (mapcat (fn [path] (map (fn [h] (conj path h))
-                                                (neighbors g (last path))))
-                                paths)]
-          (recur new-paths))))))
-
 (defn shared-explains?
   [workspace hyp hyps]
   (let [expl (find-explains workspace hyp :static)]
@@ -166,8 +153,8 @@
         trans-expls (if (nil? (:trans-expls workspace))
                       (cache-transitive-explainers workspace)
                       (:trans-expls workspace))]
-    (filter #(not (apply transitive-explainer-blocked? workspace hyp % opts))
-            (set/intersection (:explainers (get trans-expls hyp)) (nodes g)))))
+    (set (filter #(not (apply transitive-explainer-blocked? workspace hyp % opts))
+                 (set/intersection (:explainers (get trans-expls hyp)) (nodes g))))))
 
 (defn find-explainers
   [workspace hyp & opts]
@@ -182,19 +169,11 @@
                  (sort-by :id (incoming g hyp)))))))
 
 (defn find-unexplained
-  "If transitive explanation is disabled, unexplained hyps are those
-   that are accepted and remain in the graph. If transitive
-   explanation is enabled, unexplained hyps are those that are
-   accepted, remain in the graph, and no explainer of
-   theirs (transitive or otherwise) has been accepted."
   [workspace]
-  (set (filter (fn [h]
-                 (let [expl (find-explainers workspace h :static)]
-                   (or (empty? expl)
-                       (some (fn [es] (not-any? (:accepted workspace) es)) expl))))
-               (set (filter #(or ((:forced workspace) %)
-                                 (not-empty (incoming (:graph-static workspace) %)))
-                            (:accepted workspace))))))
+  (set (filter #(and (or ((:forced workspace) %)
+                         (not-empty (incoming (:graph-static workspace) %)))
+                     ((nodes (:graph workspace)) %))
+               (:accepted workspace))))
 
 ;; TODO: fix
 (defn find-no-explainers
@@ -307,12 +286,8 @@
   (let [g (if (some #{:static} opts)
             (:graph-static workspace)
             (:graph workspace))
-        ;; a hyp can't conflict with what it explains and what
-        ;; explains it, or forced hyps (facts), so remove those hyps first
-        hyps (set/difference (nodes g)
-                             (apply concat (apply find-explainers workspace hyp opts))
-                             (apply find-explains workspace hyp opts)
-                             (:forced workspace))
+        ;; a hyp can only conflict with hyps of the same type
+        hyps (filter #(= (:type hyp) (:type %)) (nodes g))
         c (:conflict hyp)]
     (cond
       ;; no conflict id; so it conflicts with nothing
@@ -401,12 +376,14 @@
         ;; hyps are removed
         conflicts (find-conflicts workspace hyp)
         new-g (apply remove-nodes g removable)
+        commas (fn [ss] (apply str (interpose ", " (sort ss))))
         ws (-> workspace
-               (update-in [:hyp-log hyp] conj
-                          (format "Accepted in cycle %d (removed: %s, alts: %s)"
-                                  (:cycle workspace)
-                                  (apply str (interpose ", " (sort (map :id removable))))
-                                  (apply str (interpose ", " (sort (map :id alts))))))
+               (update-in
+                [:hyp-log hyp] conj
+                (format "Accepted in cycle %d (removed: %s, alts: %s)"
+                        (:cycle workspace)
+                        (commas (map :id (filter #(not ((:forced workspace) %)) removable)))
+                        (commas (map :id alts))))
                (update-in [:accepted] conj hyp)
                (update-in [:graph-static] add-attr hyp :fontcolor "green")
                (update-in [:graph-static] add-attr hyp :color "green")
@@ -427,6 +404,19 @@
           (update-in ws [:log :accrej (:cycle workspace)] conj
                      {:acc hyp :rej (concat conflicts rejected)}))))))
 
+(defn find-explains-transitive-paths
+  [workspace hyp & opts]
+  (let [g (if (some #{:static} opts)
+            (:graph-static workspace)
+            (:graph workspace))]
+    (loop [paths (map (fn [h] [h]) (neighbors g hyp))]
+      (if (empty? (mapcat (fn [path] (neighbors g (last path))) paths))
+        paths
+        (let [new-paths (mapcat (fn [path] (map (fn [h] (conj path h))
+                                                (neighbors g (last path))))
+                                paths)]
+          (recur new-paths))))))
+
 (defn transitive-accept
   "Need to accept the transitive explainer last so that any lower,
    accepted hypotheses remove the appropriate hypotheses that they
@@ -435,10 +425,18 @@
    and the accepted hyp."
   [workspace hyp alts pdata]
   (let [paths (find-explains-transitive-paths workspace hyp)
-        acceptable (cond (empty? paths) []
-                         (= 1 (count paths)) (first paths)
-                         :else (apply set/intersection (map set paths)))
-        ws (reduce (fn [ws2 h] (accept ws2 h [] pdata))
+        acceptable (set/difference
+                    (set (concat
+                          ;; add what the hyp explains (as "acceptable")
+                          ;; if the hyp required that each of its explained
+                          ;; parts are acceptable (i.e. not blocked)
+                          (if (= :and (:expl-func hyp))
+                            (:explains hyp) [])
+                          (cond (empty? paths) []
+                                (= 1 (count paths)) (first paths)
+                                :else (apply set/intersection (map set paths)))))
+                    (:accepted workspace))
+        ws (reduce (fn [ws2 h] (transitive-accept ws2 h [] pdata))
                    workspace (sort-by :id acceptable))]
     (accept ws hyp alts pdata)))
 
@@ -489,14 +487,12 @@
   (:doubt (:log workspace)))
 
 (defn measure-unexplained-pct
+  "Only measure unexplained forced hyps."
   [workspace]
-  (if (empty? (:accepted workspace)) 0.0
-      (double (/ (count (:unexplained (:final (:log workspace))))
-                 (count
-                  (set/union
-                   (:forced workspace)
-                   (set (filter #(not-empty (incoming (:graph-static workspace) %))
-                                (:accepted workspace)))))))))
+  (if (empty? (:forced workspace)) 0.0
+      (double (/ (count (set/intersection (:forced workspace)
+                                          (:unexplained (:final (:log workspace)))))
+                 (count (:forced workspace))))))
 
 (defn get-unexplained-pct
   [workspace]
