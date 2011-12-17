@@ -1,5 +1,6 @@
 (ns retrospect.core
   (:gen-class)
+  (:import (javax.swing SwingUtilities))
   (:use [clojure.contrib.command-line :only [with-command-line]])
   (:use [clojure.contrib.shell :only [sh]])
   (:use [clojure.contrib.string :only [split-lines]])
@@ -41,7 +42,8 @@
                              words-problem)]
               (dosync
                (alter state/problem (constantly prob)))
-              (start-player))
+              ;; start the player on swing's "event dispatch thread"
+              (SwingUtilities/invokeLater start-player))
             
             (= action "run")
             (let [nthreads (Integer/parseInt nthreads)

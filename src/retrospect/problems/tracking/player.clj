@@ -17,6 +17,7 @@
   (:use [retrospect.state]))
 
 (def resized (atom nil))
+(def diagram (ref nil))
 
 (def diagram-width (ref nil))
 (def diagram-height (ref nil))
@@ -117,7 +118,7 @@
     (. g (drawImage img 0 0 nil))
     (. bg (dispose))))
 
-(def player-diagram
+(defn player-diagram []
   (doto (proxy [JPanel] []
           (paint [g] (render g)))
     (.addMouseListener
@@ -145,13 +146,13 @@
 
 (defn player-update-diagram
   []
-  (.repaint player-diagram))
+  (when @diagram
+    (.repaint @diagram)))
 
 (defn player-setup-diagram
-  [p]
-  (doto p
-    (.setLayout (BorderLayout.))
-    (.add player-diagram)))
+  []
+  (dosync (alter diagram (constantly (player-diagram))))
+  @diagram)
 
 (defn player-get-stats-panel
   []

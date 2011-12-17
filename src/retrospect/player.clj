@@ -29,7 +29,6 @@
 (def ep-list (ref '[]))
 (def ep-selected (atom nil))
 (def steplabel (label ""))
-(def problem-diagram (panel))
 
 (defn format-params
   [params]
@@ -55,7 +54,7 @@
                               (format "Step: %d->%d" (dec @time-prev)
                                       (dec @time-now))))))
   (dosync
-    (alter ep-list (constantly (sort (list-ep-states (:ep-state-tree @or-state))))))
+   (alter ep-list (constantly (sort (list-ep-states (:ep-state-tree @or-state))))))
   (update-ep-tree)
   (update-depgraph)
   (update-hypgraph)
@@ -143,7 +142,7 @@
          [:gridx 0 :gridy 0 :gridheight 9 :weightx 1.0 :weighty 1.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
           _ (doto (JTabbedPane.)
-              (.addTab "Diagram" problem-diagram)
+              (.addTab "Diagram" ((:setup-diagram-fn (:player-fns @problem))))
               (.addTab "Ep tree" (ep-tree-tab))
               (.addTab "Dep graph" (depgraph-tab))
               (.addTab "Hyp graph" (hypgraph-tab))
@@ -206,5 +205,4 @@
       (update-everything))
     (when (not (:monitor options))
       (new-simulation))
-    ((:setup-diagram-fn (:player-fns @problem)) problem-diagram)
     (mainframe)))
