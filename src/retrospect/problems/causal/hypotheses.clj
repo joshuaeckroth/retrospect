@@ -1,5 +1,5 @@
 (ns retrospect.problems.causal.hypotheses
-  (:use [loom.graph :only [transpose neighbors]])
+  (:use [loom.graph :only [transpose neighbors incoming]])
   (:use [loom.alg :only [pre-traverse]])
   (:use [loom.attr :only [attr]])
   (:use [retrospect.epistemicstates :only [add-fact add-hyp]])
@@ -12,20 +12,36 @@
 (defn hypothesize
   [ep-state sensors time-now]
   (binding [compute 0 memory 0]
-    (let [{:keys [network]} (:problem-data ep-state)
-          observed (mapcat (fn [s] (map (fn [t] (sensed-at s t))
-                                        (range 0 (inc time-now))))
-                           sensors)
+    (let [{:keys [network believed]} (:problem-data ep-state)
+          observed (filter not-empty (mapcat (fn [s] (map (fn [t] (sensed-at s t))
+                                                          (range 0 (inc time-now))))
+                                             sensors))
+          observed-unexplained (filter (fn [[n val]]
+                                         (let [bel-expls (filter #(get believed %)
+                                                                 (incoming network n))]
+                                           (or
+                                            (empty? bel-expls)
+                                            (and (= val :on)
+                                                 (not-any? #(= :on (:value (get believed %)))
+                                                           bel-expls))
+                                            (and (= val :off)
+                                                 (every? #(= :on (:value (get believed %)))
+                                                         bel-expls)))))
+                                       observed)
+          _ (println believed)
+          _ (println observed-unexplained)
           observed-hyps (reduce (fn [m [n val]]
                                   (assoc m n
                                          (new-hyp "Obs" :sensor nil
                                                   1.0 :or [] []
                                                   (format "%s observed %s" n (name val))
                                                   {:node n :value val})))
-                                {} (filter not-empty observed))
+                                {} (filter not-empty observed-unexplained))
           network-trans (transpose network)
-          implicated (mapcat #(rest (pre-traverse network-trans %))
-                             (map first observed))
+          implicated (filter #(not (get believed %))
+                             (mapcat #(rest (pre-traverse network-trans %))
+                                     (map first observed)))
+          _ (println implicated)
           hyps (reduce (fn [m node]
                          (assoc m node
                                 {:on (new-hyp "On" :node node
@@ -50,22 +66,10 @@
                                           (neighbors network node))))
           hyps-explains (reduce (fn [m node]
                                   (reduce (fn [m2 val]
-                                            (println "node" node "val" val
-                                                     "explains" (extract-explains m2 node val))
                                             (assoc-in m2 [node val :explains]
                                                       (extract-explains m2 node val)))
                                           m [:on :off]))
                                 hyps implicated)]
-      (println implicated)
-      (println (mapcat (fn [val] (map (fn [n] (get (get hyps-explains n) val)) implicated))
-                       [:on :off]))
-      (doseq [onoff (vals hyps-explains)]
-        (doseq [h (map onoff [:on :off])]
-          (println (format "%s/%s/%s explains %s" (:id h) (:node (:data h))
-                           (name (:value (:data h)))
-                           (apply str (interpose "," (map (fn [h2] (format "%s/%s/%s"
-                                                                           (:id h2) (:node (:data h2)) (name (:value (:data h2)))))
-                                                          (:explains h))))))))
       [(reduce (fn [ep hyp] (add-hyp ep hyp))
                (reduce (fn [ep hyp] (add-fact ep hyp))
                        ep-state (vals observed-hyps))
@@ -75,8 +79,13 @@
 
 (defn commit-decision
   [pdata accepted rejected unaccepted time-now]
-  (let [believed (reduce (fn [b h] (assoc b (:node (:data h)) (:value (:data h))))
+  (println "accepted:" accepted)
+  (println "rejected:" rejected)
+  (println "unaccepted:" unaccepted)
+  (let [believed (reduce (fn [b h] (assoc b (:node (:data h))
+                                          {:value (:value (:data h)) :hyp h}))
                          (:believed pdata) accepted)]
+    (println believed)
     (assoc pdata :believed believed)))
 
 (defn retract

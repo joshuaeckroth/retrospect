@@ -10,4 +10,19 @@
 
 (deftest case-simple-medium
   (let [results (run causal-problem (simple-medium))]
-    (is (= 1 1))))
+    (is (approx= 100.0 (:UnexplainedPct (last results)) 0.01)))
+  (let [results (run causal-problem (assoc-in (simple-medium)
+                                              [:params :StepsBetween] 2))]
+    (is (approx= 0.0 (:UnexplainedPct (last results)) 0.01)))
+  (let [results (run causal-problem (assoc-in (simple-medium)
+                                              [:params :MetaReasoning] "BatchBeginning"))]
+    (is (approx= 0.0 (:UnexplainedPct (last results)) 0.01)))
+  (let [results (run causal-problem (assoc-in (simple-medium)
+                                              [:params :MetaReasoning] "Batch1"))]
+    (is (approx= 0.0 (:UnexplainedPct (last results)) 0.01)))
+  (let [results (run causal-problem (assoc-in (simple-medium)
+                                              [:params :MetaReasoning] "Batch2"))]
+    (is (approx= 0.0 (:UnexplainedPct (last results)) 0.01)))
+  (let [results (run causal-problem (assoc-in (simple-medium)
+                                              [:params :MetaReasoning] "Batch3"))]
+    (is (approx= 0.0 (:UnexplainedPct (last results)) 0.01))))

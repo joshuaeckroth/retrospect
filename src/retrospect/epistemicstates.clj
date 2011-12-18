@@ -199,17 +199,22 @@
     :depgraph (apply remove-nodes (:depgraph ep-state) deps)))
 
 (defn new-branch-ep-state
-  [ep-state-tree branch clear-workspace?]
+  [ep-state-tree branch clear-workspace? reinstate-pdata?]
   (let [ep-state (current-ep-state ep-state-tree)
         ep-tree (goto-ep-state (zip/replace ep-state-tree ep-state) (:id ep-state))
         ep (clone-ep-state branch (make-ep-state-id ep-tree) [])
         ep-ws (if clear-workspace? (assoc ep :workspace (ws/init-workspace)) ep)
+        ep-pd (if reinstate-pdata?
+                (assoc ep-ws :problem-data
+                       (:problem-data (previous-ep-state
+                                       (goto-ep-state ep-tree (:id branch)))))
+                ep-ws)
         ;; make a branch; the choice of "insert-right" over "insert-left" here
         ;; is what makes (list-ep-states) possible, since depth-first search
         ;; looks left before looking right
         ep-tree-branch
-        (goto-ep-state (zip/insert-right (goto-ep-state ep-tree (:id branch)) ep-ws)
-                       (:id ep-ws))]
+        (goto-ep-state (zip/insert-right (goto-ep-state ep-tree (:id branch)) ep-pd)
+                       (:id ep-pd))]
     ep-tree-branch))
 
 (defn new-branch-root

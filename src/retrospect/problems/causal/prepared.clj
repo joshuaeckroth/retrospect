@@ -29,7 +29,7 @@
                       (add-attr 'B :value :on))]
       {:params (assoc basic-params :Steps 1 :StepsBetween 1)
        :sensors (generate-sensors)
-       :truedata {:network network :observed-seq [[] ['C :off]]}})))
+       :truedata {:network network :observed-seq [[] ['C :on]]}})))
 
 (defn simple-medium
   []
@@ -44,7 +44,7 @@
                       (add-edges ['X 'A])
                       (add-attr 'A :apriori 0.5)
                       (add-attr 'B :apriori 0.5)
-                      (add-attr 'C :apriori 0.5)
+                      (add-attr 'C :apriori 0.25)
                       (add-attr 'D :apriori 0.5)
                       (add-attr 'E :apriori 0.5)
                       (add-attr 'X :apriori 0.5)
@@ -52,7 +52,7 @@
                       (add-attr 'G :value :on))]
       {:params (assoc basic-params :Steps 2 :StepsBetween 1)
        :sensors (generate-sensors)
-       :truedata {:network network :observed-seq [[] ['F :on] ['G :on]]}})))
+       :truedata {:network network :observed-seq [[] ['G :on] ['F :off]]}})))
 
 (def prepared-map
   (sorted-map "abc" abc

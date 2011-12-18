@@ -72,10 +72,11 @@
       ;; otherwise, we're not straight out of the root, so do the batching
       (let [prior-est (:ep-state-tree or-state)
             prior-ep (current-ep-state prior-est)
-            ;; branch back n if n != nil and there are more than n states;
+            ;; branch back n if n != nil and there are more than n-1 states;
             ;; otherwise branch from root
-            est (if (and n (< n (ep-state-depth prior-est)))
-                  (new-branch-ep-state prior-est (nth-previous-ep-state prior-est n) true)
+            est (if (and n (< (inc n) (ep-state-depth prior-est)))
+                  (new-branch-ep-state prior-est (nth-previous-ep-state prior-est (inc n))
+                                       true true)
                   (new-branch-root prior-est (:original-problem-data or-state)))]
         (apply-and-evaluate or-state prior-ep est))))
 
@@ -85,7 +86,7 @@
         no-explainers (:no-explainers (:final (:log (:workspace ep-state))))
         hyps ((:no-explainer-hyps-fn @problem) no-explainers (:problem-data ep-state))
         deps (set/union (set no-explainers) (set (find-dependents ep-state hyps)))
-        est (new-branch-ep-state (:ep-state-tree or-state) ep-state false)
+        est (new-branch-ep-state (:ep-state-tree or-state) ep-state false false)
         ep-state-retracted (assoc (retract-dependents (current-ep-state est) deps)
                              :workspace (ws/init-workspace))
         est-retracted (update-ep-state-tree est ep-state-retracted)
