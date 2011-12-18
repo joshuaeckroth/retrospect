@@ -1,6 +1,8 @@
 (ns retrospect.problems.causal.problem
   (:require [retrospect.problem])
   (:import [retrospect.problem Problem])
+  (:use [loom.graph :only [nodes]])
+  (:use [loom.attr :only [remove-attr]])
   (:use [retrospect.problems.causal.evaluate :only
          [evaluate evaluate-comparative true-hyp?]])
   (:use [retrospect.problems.causal.truedata :only
@@ -20,7 +22,9 @@
 
 (defn generate-problem-data
   [truedata sensors]
-  {})
+  {:network (reduce (fn [net node] (remove-attr net node :value))
+                    (:network truedata) (nodes (:network truedata)))
+   :believed {}})
 
 (def causal-problem
   (Problem. "Causal network"
@@ -49,5 +53,7 @@
              :StepsBetween 6
              :SensorNoise 0
              :BeliefNoise 0
+             :ObservableNodes 10
+             :InternalNodes 10
              :MetaReasoning "NoMetareasoning"
              :TransitiveExplanation false}))
