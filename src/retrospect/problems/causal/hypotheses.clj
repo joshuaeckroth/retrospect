@@ -28,8 +28,6 @@
                                                  (every? #(= :on (:value (get believed %)))
                                                          bel-expls)))))
                                        observed)
-          _ (println believed)
-          _ (println observed-unexplained)
           observed-hyps (reduce (fn [m [n val]]
                                   (assoc m n
                                          (new-hyp "Obs" :sensor nil
@@ -41,7 +39,6 @@
           implicated (filter #(not (get believed %))
                              (mapcat #(rest (pre-traverse network-trans %))
                                      (map first observed)))
-          _ (println implicated)
           hyps (reduce (fn [m node]
                          (assoc m node
                                 {:on (new-hyp "On" :node node
@@ -79,13 +76,9 @@
 
 (defn commit-decision
   [pdata accepted rejected unaccepted time-now]
-  (println "accepted:" accepted)
-  (println "rejected:" rejected)
-  (println "unaccepted:" unaccepted)
   (let [believed (reduce (fn [b h] (assoc b (:node (:data h))
                                           {:value (:value (:data h)) :hyp h}))
                          (:believed pdata) accepted)]
-    (println believed)
     (assoc pdata :believed believed)))
 
 (defn retract

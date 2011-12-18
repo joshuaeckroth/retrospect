@@ -1,18 +1,12 @@
 (ns retrospect.gui.depgraph
-  (:import (java.io StringReader))
   (:import (java.awt GridBagLayout Insets Graphics Dimension Color))
   (:import (java.awt.image BufferedImage))
   (:import (javax.swing JLabel ImageIcon JViewport))
-  (:import (org.apache.batik.dom.svg SAXSVGDocumentFactory))
   (:import (org.apache.batik.swing JSVGCanvas))
-  (:import (org.apache.batik.util XMLResourceDescriptor))
-  (:use [loom.graph :only [edges nodes]])
-  (:use [loom.io :only [dot-str]])
-  (:use [loom.attr :only [add-attr]])
-  (:use [clojure.java.shell :only [sh]])
   (:use [clj-swing.core :only [add-action-listener]])
   (:use [clj-swing.panel])
   (:use [clj-swing.button])
+  (:use [retrospect.gui.graphs])
   (:use [retrospect.state])
   (:use [retrospect.epistemicstates :only
          [current-ep-state previous-ep-state]]))
@@ -25,20 +19,7 @@
                    (if (re-find #"\?" (str ep))
                      (previous-ep-state (:ep-state-tree @or-state)) ep))
         depgraph (:depgraph ep-state)]
-    (if (and depgraph (not-empty (edges depgraph)))
-      (let [dot (dot-str (reduce (fn [g n]
-                                   (-> g (add-attr n :label (:id n))
-                                       (add-attr n :id (:id n))))
-                                 depgraph (nodes depgraph))
-                         :graph {:dpi 60 :rankdir "LR"})
-            {svg :out} (sh "dot" "-Tsvg" :in dot)
-            sr (StringReader. svg)
-            parser (XMLResourceDescriptor/getXMLParserClassName)
-            doc (try (.createDocument (SAXSVGDocumentFactory. parser)
-                                      "file:///depgraph" sr)
-                     (catch Exception e (println e)))]
-        (.setDocumentState canvas JSVGCanvas/ALWAYS_DYNAMIC)
-        (.setDocument canvas doc)))))
+    (generate-graph depgraph canvas)))
 
 (defn depgraph-tab
   []

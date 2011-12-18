@@ -1,17 +1,12 @@
 (ns retrospect.gui.hypgraph
-  (:import (java.io StringReader))
   (:import (java.awt GridBagLayout Insets Graphics Dimension Color))
   (:import (java.awt.image BufferedImage))
   (:import (javax.swing JLabel ImageIcon JViewport))
-  (:import (org.apache.batik.dom.svg SAXSVGDocumentFactory))
   (:import (org.apache.batik.swing JSVGCanvas))
-  (:import (org.apache.batik.util XMLResourceDescriptor))
-  (:use [loom.graph :only [edges]])
-  (:use [loom.io :only [dot-str]])
-  (:use [clojure.java.shell :only [sh]])
   (:use [clj-swing.core :only [add-action-listener]])
   (:use [clj-swing.panel])
   (:use [clj-swing.button])
+  (:use [retrospect.gui.graphs])
   (:use [retrospect.state])
   (:use [retrospect.epistemicstates :only
          [current-ep-state previous-ep-state]]))
@@ -23,16 +18,8 @@
   (let [ep-state (let [ep (current-ep-state (:ep-state-tree @or-state))]
                    (if (re-find #"\?" (str ep))
                      (previous-ep-state (:ep-state-tree @or-state)) ep))
-        hypgraph (:graph-static (:workspace ep-state))
-        dot (dot-str hypgraph :graph {:dpi 60 :rankdir "LR"})
-        {svg :out} (sh "dot" "-Tsvg" :in dot)
-        sr (StringReader. svg)
-        parser (XMLResourceDescriptor/getXMLParserClassName)
-        doc (try (.createDocument (SAXSVGDocumentFactory. parser)
-                                  "file:///hypgraph" sr)
-                 (catch Exception e (println e)))]
-    (.setDocumentState canvas JSVGCanvas/ALWAYS_DYNAMIC)
-    (.setDocument canvas doc)))
+        hypgraph (:graph-static (:workspace ep-state))]
+    (generate-graph hypgraph canvas)))
 
 (defn hypgraph-tab
   []
