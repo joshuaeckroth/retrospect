@@ -1,6 +1,7 @@
 (ns retrospect.problems.causal.test.prepared
   (:use [clojure.test :only [deftest is]])
   (:use [retrospect.test.utils])
+  (:use [retrospect.state])
   (:use [retrospect.problems.causal.problem :only [causal-problem]])
   (:use [retrospect.problems.causal.prepared]))
 
@@ -26,3 +27,8 @@
   (let [results (run causal-problem (assoc-in (simple-medium)
                                               [:params :MetaReasoning] "Batch3"))]
     (is (approx= 0.0 (:UnexplainedPct (last results)) 0.01))))
+
+(deftest case-alarm
+  (dosync (alter datadir (constantly "data")))
+  (let [results (run causal-problem (alarm))]
+    (is (= 1 1))))

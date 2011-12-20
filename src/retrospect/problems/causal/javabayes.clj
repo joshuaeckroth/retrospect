@@ -1,33 +1,38 @@
 (ns retrospect.problems.causal.javabayes
   (:import (javabayes.InferenceGraphs InferenceGraph))
-  (:import (javabayes.BayesianNetworks DiscreteVariable DiscreteFunction BayesNet))
+  (:import (javabayes.BayesianNetworks BayesNet))
   (:import (javabayes.BayesianInferences Explanation))
   (:import (javabayes.QuasiBayesianInferences QBInference QBExpectation))
+  (:import (java.io ByteArrayInputStream))
   (:use [clojure.contrib.seq :only [find-first]])
   (:use [loom.graph :only [digraph add-edges nodes incoming]])
-  (:use [loom.attr :only [attr add-attr]]))
+  (:use [loom.attr :only [attr add-attr]])
+  (:use [retrospect.state]))
 
 (defn load-bayesnet
   [file]
-  (.get_bayes_net (InferenceGraph. file)))
+  (.get_bayes_net (InferenceGraph. (str @datadir "/causal/" file))))
 
 (defn build-bayesnet
   [network]
-  (let [vars (reduce (fn [m n] (assoc m n (DiscreteVariable.
-                                           n 0
-                                           (into-array (attr network n :values)))))
-                     {} (nodes network))
-        funcs (map (fn [n]
-                     (let [parents (sort (incoming network n))
-                           probs (attr network n :probs)]
-                       (DiscreteFunction.
-                        (into-array DiscreteVariable (concat [(get vars n)]
-                                                             (map #(get vars %) parents)))
-                        (double-array probs))))
-                   (nodes network))]
-    (doto (BayesNet.)
-      (.add (into-array DiscreteVariable (vals vars)))
-      (.add (into-array DiscreteFunction funcs)))))
+  (let [ns (sort (nodes network))
+        vars-str (fn [n]
+                   (let [values (attr network n :values)]
+                     (format "variable \"%s\" { %s }\n" n
+                             (format "type discrete[%d] { %s };"
+                                     (count values)
+                                     (apply str (map #(format "\"%s\" " %)
+                                                     values))))))
+        probs-str (fn [n]
+                    (let [probs (attr network n :probs)
+                          vars (concat [n] (sort (incoming network n)))]
+                      (format "probability ( %s ) { table %s; }\n"
+                              (apply str (map #(format "\"%s\" " %) vars))
+                              (apply str (map #(format "%f " %) probs)))))
+        bif (format "network \"network\" {}\n %s %s"
+                    (apply str (map vars-str ns))
+                    (apply str (map probs-str ns)))]
+    (BayesNet. (ByteArrayInputStream. (.getBytes bif)))))
 
 (defn build-network
   [bayesnet]
@@ -44,20 +49,30 @@
               (add-attr g-with-values node :probs
                         (vec (map (fn [i] (.get_value f i))
                                   (range 0 (.number_values f)))))))
-          (digraph) (.get_probabilities bayesnet)))
+          (digraph) (.get_probability_functions bayesnet)))
 
 (defn get-var
   [bn node]
-  (find-first (fn [v] (= (str node) (.get_name v)))
+  (find-first (fn [v] (= node (.get_name v)))
               (.get_probability_variables bn)))
 
 (defn observe
   [bn node value]
   (.set_observed_value (get-var bn node) value))
 
+(defn observe-seq
+  [bn obs-seq]
+  (doseq [[n v] (filter not-empty obs-seq)]
+    (observe bn n v)))
+
 (defn unobserve
   [bn node]
   (.set_invalid_observed_index (get-var bn node)))
+
+(defn unobserve-all
+  [bn]
+  (doseq [n (map #(.get_name %) (.get_probability_variables bn))]
+    (unobserve bn n)))
 
 (defn get-observed
   [bn node]

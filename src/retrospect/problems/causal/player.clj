@@ -21,13 +21,13 @@
 (defn player-setup-diagram
   []
   (let [network (update-attrs (:network @truedata))]
-    (generate-graph network canvas))
+    (generate-graph network canvas false))
   canvas)
 
 (defn player-update-diagram
   []
   (let [network (update-attrs (:network @truedata))]
-    (generate-graph network canvas)))
+    (generate-graph network canvas false)))
 
 (defn player-get-stats-panel
   []

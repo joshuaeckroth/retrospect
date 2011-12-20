@@ -19,7 +19,7 @@
                    (if (re-find #"\?" (str ep))
                      (previous-ep-state (:ep-state-tree @or-state)) ep))
         hypgraph (:graph-static (:workspace ep-state))]
-    (generate-graph hypgraph canvas)))
+    (generate-graph hypgraph canvas true)))
 
 (defn hypgraph-tab
   []

@@ -9,13 +9,13 @@
   (:use [clojure.java.shell :only [sh]]))
 
 (defn generate-graph
-  [graph canvas]
+  [graph canvas left-to-right?]
   (if (and graph (not-empty (edges graph)))
     (let [dot (dot-str (reduce (fn [g n]
                                  (-> g (add-attr n :label (:id n))
                                      (add-attr n :id (:id n))))
                                graph (nodes graph))
-                       :graph {:dpi 60 :rankdir "LR"})
+                       :graph {:dpi 60 :rankdir (if left-to-right? "LR" "")})
           {svg :out} (sh "dot" "-Tsvg" :in dot)
           sr (StringReader. svg)
           parser (XMLResourceDescriptor/getXMLParserClassName)

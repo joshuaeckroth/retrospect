@@ -19,7 +19,7 @@
                    (if (re-find #"\?" (str ep))
                      (previous-ep-state (:ep-state-tree @or-state)) ep))
         depgraph (:depgraph ep-state)]
-    (generate-graph depgraph canvas)))
+    (generate-graph depgraph canvas true)))
 
 (defn depgraph-tab
   []

@@ -2,6 +2,8 @@
   (:use [loom.graph :only [transpose neighbors incoming]])
   (:use [loom.alg :only [pre-traverse]])
   (:use [loom.attr :only [attr]])
+  (:use [retrospect.problems.causal.javabayes :only
+         [build-bayesnet observe-seq get-posterior-marginal]])
   (:use [retrospect.epistemicstates :only [add-fact add-hyp]])
   (:use [retrospect.workspaces :only [new-hyp]])
   (:use [retrospect.sensors :only [sensed-at]]))
@@ -12,7 +14,8 @@
 (defn hypothesize
   [ep-state sensors time-now]
   (binding [compute 0 memory 0]
-    (let [{:keys [network believed]} (:problem-data ep-state)
+    (let [{:keys [network believed explanation-nodes]} (:problem-data ep-state)
+          bn (build-bayesnet network)
           observed (filter not-empty (mapcat (fn [s] (map (fn [t] (sensed-at s t))
                                                           (range 0 (inc time-now))))
                                              sensors))
@@ -36,22 +39,8 @@
                                                   {:node n :value val})))
                                 {} (filter not-empty observed-unexplained))
           network-trans (transpose network)
-          implicated (filter #(not (get believed %))
-                             (mapcat #(rest (pre-traverse network-trans %))
-                                     (map first observed)))
-          hyps (reduce (fn [m node]
-                         (assoc m node
-                                {:on (new-hyp "On" :node node
-                                              (attr network node :apriori)
-                                              :or [] []
-                                              (format "%s is on" node)
-                                              {:node node :value :on})
-                                 :off (new-hyp "Off" :node node
-                                               (- 1.0 (attr network node :apriori))
-                                               :or [] []
-                                               (format "%s is off" node)
-                                               {:node node :value :off})}))
-                       {} implicated)
+          implicated []
+          hyps []
           extract-explains (fn [hyps node val]
                              (filter identity
                                      (map (fn [n]
@@ -61,12 +50,10 @@
                                                   obs))
                                               (get (get hyps n) val)))
                                           (neighbors network node))))
-          hyps-explains (reduce (fn [m node]
-                                  (reduce (fn [m2 val]
-                                            (assoc-in m2 [node val :explains]
-                                                      (extract-explains m2 node val)))
-                                          m [:on :off]))
-                                hyps implicated)]
+          hyps-explains {}]
+      (observe-seq bn observed)
+      (println (map #(.get_name %) (.get_probability_variables bn)))
+      (println (map #(get-posterior-marginal bn %) explanation-nodes))
       [(reduce (fn [ep hyp] (add-hyp ep hyp))
                (reduce (fn [ep hyp] (add-fact ep hyp))
                        ep-state (vals observed-hyps))

@@ -1,17 +1,18 @@
 (ns retrospect.problems.causal.prepared
-  (:use [loom.graph :only [digraph add-nodes add-edges]])
-  (:use [loom.attr :only [add-attr]])
+  (:use [loom.graph :only [digraph add-nodes add-edges nodes]])
+  (:use [loom.attr :only [add-attr attr]])
+  (:require [clojure.set :as set])
   (:use [retrospect.problems.causal.sensors :only
          [generate-sensors]])
   (:use [retrospect.problems.causal.javabayes :only
-         [build-network build-bayesnet]])
+         [build-network build-bayesnet load-bayesnet observe-seq get-posterior-marginal]])
   (:use [retrospect.random]))
 
 (def basic-params
   {:Seed 10
-   :Steps 25
+   :Steps 5
    :Threshold 0
-   :StepsBetween 6
+   :StepsBetween 1
    :SensorNoise 0
    :BeliefNoise 0
    :ObservableNodes 10
@@ -89,24 +90,22 @@
 
 (defn alarm
   []
-  (let [bayesnet (Alarm.)]
-    {:params basic-params
-     :sensors (generate-sensors)
-     :truedata {:network (build-network bayesnet)
-                :bayesnet bayesnet
-                :observed-seq [[]]}}))
-
-(defn dog-problem
-  []
-  (let [bayesnet (DogProblem.)]
-    {:params basic-params
-     :sensors (generate-sensors)
-     :truedata {:network (build-network bayesnet)
-                :bayesnet bayesnet
-                :observed-seq [[]]}}))
+  (binding [rgen (new-seed 10)]
+    (let [bn (load-bayesnet "ALARM.BIF")
+          network (build-network bn)
+          expl-nodes (take 5 (my-shuffle (nodes network)))
+          obs-nodes (take 5 (my-shuffle (set/difference (nodes network)
+                                                        (set expl-nodes))))
+          obs-seq (for [n obs-nodes]
+                    [n (my-rand-nth (attr network n :values))])]
+      {:params (assoc basic-params :Steps 5)
+       :sensors (generate-sensors)
+       :truedata {:network network
+                  :bayesnet (observe-seq bn obs-seq)
+                  :explanation-nodes expl-nodes
+                  :observed-seq (concat [[]] obs-seq)}})))
 
 (def prepared-map
   (sorted-map "abc" abc
               "alarm" alarm
-              "dog-problem" dog-problem
               "simple-medium" simple-medium))

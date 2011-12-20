@@ -18,12 +18,14 @@
          [monitor]])
   (:use [retrospect.problems.causal.prepared :only
          [prepared-map]])
+  (:use [retrospect.problems.causal.javabayes :only
+         [unobserve-all]])
   (:use [retrospect.state]))
 
 (defn generate-problem-data
   [truedata sensors]
-  {:network (reduce (fn [net node] (remove-attr net node :value))
-                    (:network truedata) (nodes (:network truedata)))
+  {:network (:network truedata)
+   :explanation-nodes (:explanation-nodes truedata)
    :believed {}})
 
 (def causal-problem
