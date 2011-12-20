@@ -10,11 +10,12 @@
 
 (defn update-attrs
   [network]
-  (reduce (fn [g node] (cond (= :on (attr g node :value))
-                             (add-attr g node :color "green")
-                             (= :off (attr g node :value))
-                             (add-attr g node :color "red")
-                             :else g))
+  (reduce (fn [g node]
+            (cond (= :on (attr g node :value))
+                  (add-attr g node :color "green")
+                  (= :off (attr g node :value))
+                  (add-attr g node :color "red")
+                  :else g))
           network (nodes network)))
 
 (defn player-setup-diagram
