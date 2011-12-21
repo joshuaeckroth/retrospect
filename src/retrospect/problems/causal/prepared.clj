@@ -98,7 +98,7 @@
                                                         (set expl-nodes))))
           obs-seq (for [n obs-nodes]
                     [n (my-rand-nth (attr network n :values))])]
-      {:params (assoc basic-params :Steps 5)
+      {:params (assoc basic-params :Steps 1)
        :sensors (generate-sensors)
        :truedata {:network network
                   :bayesnet (observe-seq bn obs-seq)

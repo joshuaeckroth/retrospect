@@ -81,14 +81,16 @@
     (if (>= i 0) (.get_value v i))))
 
 (defn get-posterior-marginal
-  [bn node]
-  (let [inf (QBInference. bn false)]
-    (.inference inf node)
-    (let [result (.get_result inf)
-          names (.get_values (first (.get_variables result)))
-          vals (.get_values result)]
-      (reduce (fn [m i] (assoc m (nth names i) (nth vals i)))
-              {} (range (count names))))))
+  ([bn node]
+     (let [inf (QBInference. bn false)]
+       (.inference inf node)
+       (let [result (.get_result inf)
+             names (.get_values (first (.get_variables result)))
+             vals (.get_values result)]
+         (reduce (fn [m i] (assoc m (nth names i) (nth vals i)))
+                 {} (range (count names))))))
+  ([bn node val]
+     (get (get-posterior-marginal bn node) val)))
 
 (defn get-expectation
   [bn node]
