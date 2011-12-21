@@ -93,19 +93,68 @@
   (binding [rgen (new-seed 10)]
     (let [bn (load-bayesnet "ALARM.BIF")
           network (build-network bn)
-          expl-nodes (take 5 (my-shuffle (nodes network)))
-          obs-nodes (take 5 (my-shuffle (set/difference (nodes network)
-                                                        (set expl-nodes))))
+          obs-nodes (take 5 (my-shuffle (nodes network)))
           obs-seq (for [n obs-nodes]
                     [n (my-rand-nth (attr network n :values))])]
       {:params (assoc basic-params :Steps 1)
        :sensors (generate-sensors)
        :truedata {:network network
                   :bayesnet (observe-seq bn obs-seq)
-                  :explanation-nodes expl-nodes
+                  :observed-seq (concat [[]] obs-seq)}})))
+
+(defn john-mary-call
+  []
+  (binding [rgen (new-seed 10)]
+    (let [bn (load-bayesnet "john-mary-call.bif")
+          network (build-network bn)
+          obs-seq [["MaryCalls" "True"]]]
+      {:params (assoc basic-params :Steps 1)
+       :sensors (generate-sensors)
+       :truedata {:network network
+                  :bayesnet (observe-seq bn obs-seq)
+                  :observed-seq (concat [[]] obs-seq)}})))
+
+(defn car-starts
+  []
+  (binding [rgen (new-seed 10)]
+    (let [bn (load-bayesnet "car-starts.bif")
+          network (build-network bn)
+          obs-seq [["Starts" "No"] ["Leak" "NoLeak"]]]
+      {:params (assoc basic-params :Steps 2)
+       :sensors (generate-sensors)
+       :truedata {:network network
+                  :bayesnet (observe-seq bn obs-seq)
+                  :observed-seq (concat [[]] obs-seq)}})))
+
+(defn cancer
+  []
+  (binding [rgen (new-seed 10)]
+    (let [bn (load-bayesnet "CANCER.BIF")
+          network (build-network bn)
+          obs-seq [["SevereHeadaches" "Present"]]]
+      {:params (assoc basic-params :Steps 1)
+       :sensors (generate-sensors)
+       :truedata {:network network
+                  :bayesnet (observe-seq bn obs-seq)
+                  :observed-seq (concat [[]] obs-seq)}})))
+
+(defn hail-finder
+  []
+  (binding [rgen (new-seed 10)]
+    (let [bn (load-bayesnet "hailfinder25.bif")
+          network (build-network bn)
+          obs-seq [["PlainsFcst" "SVR"]]]
+      {:params (assoc basic-params :Steps 1)
+       :sensors (generate-sensors)
+       :truedata {:network network
+                  :bayesnet (observe-seq bn obs-seq)
                   :observed-seq (concat [[]] obs-seq)}})))
 
 (def prepared-map
   (sorted-map "abc" abc
               "alarm" alarm
+              "cancer" cancer
+              "car-starts" car-starts
+              "hail-finder" hail-finder
+              "john-mary-call" john-mary-call
               "simple-medium" simple-medium))
