@@ -4,7 +4,8 @@
   (:use [loom.attr :only [attr]])
   (require [clojure.set :as set])
   (:use [retrospect.problems.causal.javabayes :only
-         [build-bayesnet observe-seq unobserve-all observe get-posterior-marginal]])
+         [build-bayesnet observe-seq unobserve-all observe get-posterior-marginal
+          get-explanation]])
   (:use [retrospect.epistemicstates :only [add-fact add-hyp]])
   (:use [retrospect.workspaces :only [new-hyp]])
   (:use [retrospect.sensors :only [sensed-at]]))
@@ -62,13 +63,16 @@
                   (let [{:keys [node1 val1 node2 val2 delta]} (:data h)
                         observed (get observed-hyps [node2 val2])
                         explains (or (get m [node2 val2]) [])
-                        h2 (assoc h :explains (if observed (conj explains observed)
-                                                  explains))]
-                    (-> m
-                        (update-in [[node1 val1]] conj h2)
-                        (assoc [node1 val1 node2 val2] h2))))
+                        obs-expl (if observed (conj explains observed)
+                                     explains)
+                        h2 (assoc h :explains obs-expl
+                                  :data {:node node1 :value val1})]
+                    (if (empty? obs-expl) m
+                      (-> m
+                          (update-in [[node1 val1]] conj h2)
+                          (assoc [node1 val1 node2 val2] h2)))))
                 {} (get-hyps hyps-no-explains))]
-    (get-hyps hyps-explains)))
+    (filter identity (get-hyps hyps-explains))))
 
 (defn hypothesize
   [ep-state sensors time-now]
@@ -103,6 +107,9 @@
                                      (map first observed)))
           explanatory (find-explanatory-assignments bn network implicated observed)
           hyps (make-explanation-hyps explanatory observed-hyps)]
+      (unobserve-all bn)
+      (observe-seq bn observed)
+      (println (get-explanation bn))
       [(reduce (fn [ep hyp] (add-hyp ep hyp))
                (reduce (fn [ep hyp] (add-fact ep hyp))
                        ep-state (vals observed-hyps))
@@ -113,7 +120,8 @@
   [pdata accepted rejected unaccepted time-now]
   (let [believed (reduce (fn [b h] (assoc b (:node (:data h))
                                           {:value (:value (:data h)) :hyp h}))
-                         (:believed pdata) accepted)]
+                         (:believed pdata)
+                         accepted)]
     (assoc pdata :believed believed)))
 
 (defn retract

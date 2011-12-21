@@ -106,7 +106,7 @@
 (defn get-explanation
   [bn]
   (let [expl (Explanation. bn)]
-    (.explanation expl)
+    (.full_explanation expl)
     (let [bp (.backward_pointers (.bucket_tree expl))]
       (reduce (fn [m i]
                 (if (= -1 (nth bp i)) m

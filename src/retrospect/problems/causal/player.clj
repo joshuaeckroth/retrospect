@@ -43,5 +43,9 @@
 
 (defn player-get-problem-log
   []
-  (let [pdata (:problem-data (:ep-state @or-state))]
-    (str (:believed pdata))))
+  (let [pdata (:problem-data (:ep-state @or-state))
+        believed (:believed pdata)]
+    (apply str (interpose "\n" (map #(format "%s: %s (%s)" %
+                                             (get (get believed %) :value)
+                                             (:id (get (get believed %) :hyp)))
+                                    (sort (keys believed)))))))
