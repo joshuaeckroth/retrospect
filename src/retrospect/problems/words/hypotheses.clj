@@ -7,57 +7,6 @@
   (:use [retrospect.epistemicstates :only [add-hyp add-fact add-more-hyp]])
   (:use [retrospect.state]))
 
-;; Sensor detections in the words domain come in the form of a string
-;; of letters. These letters correspond to letters in the true words,
-;; although the letters sensed may not be the true letters (depending
-;; on the parameter :SensorNoise). Each sensed letter corresponds to a
-;; single true letter (there are no additions or deletions).
-;;
-;; The task of the words domain hypothesizer is to offer hypotheses
-;; about which words the letters represent (i.e. find word
-;; boundaries). Finding the true words is somewhat ambiguous because
-;; letter sequences like "looking" may come from the words "look in
-;; g---" (for some word starting with "g") or "looking." The task is
-;; much more ambiguous when :SensorNoise is positive, so the true
-;; words "look in glass" may appear, for example, as "lokking" (with
-;; only the "g" of "glass" being presented, as before). Since the
-;; first "k" does not match any word, the hypothesizer may consider it
-;; to be noise, and offer "locking" and "looking" and "look in g---"
-;; and "lock in g---," etc. as alternative explanations of the letter
-;; sequence.
-;;
-;; ## Algorithm
-;;
-;; A high-level overview of the hypothesizer follows. Assume the agent
-;; has no beliefs resulting from past reasoning (i.e. the simulation
-;; just started). The sensors are queried for all detections up to
-;; "now." All possible word extractions are found, assuming no
-;; noise. Each word is established as a hypothesis (that explains the
-;; letters, i.e. sensor detections, that make up the word). The score
-;; of each word (between 0.0 and 1.0) is a function of how closely the
-;; word matches the sensor detections (in this case, the match is
-;; perfect, since no noise is assumed) and the word's a-priori score
-;; (from the unigram model of the text). Word hypotheses conflict with
-;; other word hypotheses that explain the same sensor detections
-;; (words that use the same letters from the same positions in the
-;; stream).
-;;
-;; Then composite hypotheses are constructed from these word
-;; hypotheses. A composite hypothesis is a sequence of words and
-;; explains each of the word hypotheses. The word sequence must not
-;; have any gaps in order to be a composite. Composite hypotheses are
-;; scored by referring to the appropriate n-gram model (where n is the
-;; length of the composite). Note that composite hypothesis scores do
-;; not take into account how closely the words match the sensor
-;; detections---the word hypotheses' scores already account for
-;; that. Composite hypotheses conflict with other composite hypotheses
-;; and word hypotheses that do not overlap (i.e. two composites
-;; conflict if they cover some common part of the stream but not using
-;; the same words, and a composite hypothesis and word hypothesis
-;; conflict if the two hypotheses overlap in some part of the stream
-;; and the composite hypothesis does not explain the word hypothesis,
-;; meaning the word is not part of the composite).
-
 (def compute 0)
 (def memory 0)
 
@@ -97,7 +46,7 @@
                                         (first %))
                               (keys unimodel))
         prob (double (/ (get unimodel [word])
-                        (reduce + 0 (map (fn [w] (get unimodel w)) similar-words))))
+                        (reduce + (map (fn [w] (get unimodel w)) similar-words))))
         changes (count-changes word letters)
         apriori (max 0.001 (* prob (/ (- (count word) changes) (count word))))]
     (new-hyp "Word" :word conflicts?
@@ -273,9 +222,7 @@
           ep-letters (assoc-in ep-sensor-hyps [:problem-data :indexed-letters] indexed-letters)
           word-hyps (make-word-hyps indexed-letters left-off dictionary 0.0 sensor-hyps models)
           composite-hyps (make-composite-hyps models word-hyps accepted max-n)]
-      [(reduce (fn [ep hyp]
-                 (add-hyp ep hyp (make-dep-node hyp)
-                          (map make-dep-node (filter accepted (:explains hyp)))))
+      [(reduce (fn [ep hyp] (add-hyp ep hyp))
                ep-letters (concat word-hyps composite-hyps))
        {:compute compute :memory memory}])))
 
@@ -311,7 +258,10 @@
                                :else (recur (rest ps) (conj subs [(first ps)]))))
         words (sort-by first (map (fn [subset] (map (fn [i] (nth indexed-letters i))
                                                     subset)) contig-subsets))
-        new-words (filter (fn [w] (not (dictionary (apply str (map second w))))) words)]
+        ;; learn only words that have length >= 3 and are not in the dictionary
+        new-words (filter (fn [w] (and (>= (count w) 3)
+                                       (not (dictionary (apply str (map second w))))))
+                          words)]
     (map (fn [w] (make-learned-word-hyp (apply str (map second w))
                                         (map first w) (map second w)
                                         left-off sensor-hyps))
@@ -351,7 +301,7 @@
         learning-hyps (if (and (> 100 (:BelievedKnowledge params)) (:Learn params))
                         (make-learning-hyps indexed-letters unexp-pos left-off
                                             dictionary sensor-hyps) [])]
-    (reduce (fn [ep hyp] (add-more-hyp ep hyp (make-dep-node hyp) []))
+    (reduce (fn [ep hyp] (add-more-hyp ep hyp))
             ep-state (concat sensor-noise-hyps learning-hyps))))
 
 (defn no-explainer-hyps

@@ -167,8 +167,8 @@
   (add-hyp-helper ep-state hyp :static))
 
 (defn add-more-hyp
-  [ep-state hyp dep-node depends]
-  (add-hyp-helper ep-state hyp dep-node depends))
+  [ep-state hyp]
+  (add-hyp-helper ep-state hyp))
 
 (defn add-fact
   [ep-state hyp]

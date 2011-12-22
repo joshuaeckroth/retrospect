@@ -2,6 +2,7 @@
   (:require [retrospect.problem])
   (:import [retrospect.problem Problem])
   (:require [clojure.string :as str])
+  (:require [clojure.set :as set])
   (:use [retrospect.problems.words.evaluate :only
          [evaluate evaluate-comparative true-hyp?]])
   (:use [retrospect.problems.words.truedata :only [generate-truedata]])
@@ -30,7 +31,11 @@
 (defn generate-problem-data
   [truedata sensors]
   (let [full-dict (my-shuffle (str/split-lines (slurp (str @datadir "/words/dictionary.txt"))))
-        dict (set (take (int (* (count full-dict) (/ (:Knowledge params) 100))) full-dict))]
+        ;; the agent always "knows" about all 1-2 letter words
+        dict (set/union (set (take (int (* (count full-dict)
+                                           (/ (:Knowledge params) 100)))
+                                   full-dict))
+                        (set (filter #(<= (count %) 2) full-dict)))]
     {:dictionary dict
      :models (zipmap (range 1 (inc (:MaxModelGrams params)))
                      (for [n (range 1 (inc (:MaxModelGrams params)))]

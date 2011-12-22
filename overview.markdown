@@ -445,3 +445,73 @@ example, for each entity.
 
 ## Words domain
 
+Sensor detections in the words domain come in the form of a string of
+letters (each detection is an individual letter). These letters
+correspond to letters of the true words, although the letters sensed
+may not be the true letters (depending on the parameter
+`:SensorNoise`). Each sensed letter corresponds to a single true
+letter (there are no additions or deletions).
+
+The task of the words domain hypothesizer is to offer hypotheses about
+which words the letters represent (i.e. find word boundaries). Finding
+the true words is somewhat ambiguous because letter sequences like
+"looking" may come from the words "look in g---" (for some word
+starting with "g") or "looking." The task is much more ambiguous when
+`:SensorNoise` is positive, so the true words "look in glass" may
+appear, for example, as "lokking" (with only the "g" of "glass" being
+presented, as before). Since the first "lok" does not match the start
+of any word, the hypothesizer may consider it to be noise, and offer
+"locking" and "looking" and "look in g---" and "lock in g---," etc. as
+alternative explanations of the letter sequence.
+
+### Algorithm
+
+A high-level overview of the hypothesizer follows. Assume the agent
+has no beliefs resulting from past reasoning (i.e. the simulation just
+started). The sensors are queried for all detections up to "now." All
+possible word extractions are found, assuming no noise. Each word is
+established as a hypothesis (that explains the letters, i.e. sensor
+detections, that make up the word). The score of each word (between
+0.0 and 1.0) is a function of how closely the word matches the sensor
+detections and the word's *a priori* score (from the unigram model of
+the text). Word hypotheses conflict with other word hypotheses that
+explain the same sensor detections (words that use the same letters
+from the same positions in the stream).
+
+Then composite hypotheses are constructed from these word
+hypotheses. A composite hypothesis is a sequence of words and explains
+each of the word hypotheses. The word sequence must not have any gaps
+in order to be a composite. Composite hypotheses are scored by
+referring to the appropriate *n*-gram model (where *n* is the length
+of the composite). Note that composite hypothesis scores do not take
+into account how closely the words match the sensor detections---the
+word hypotheses' scores already account for that. Composite hypotheses
+conflict with other composite hypotheses and word hypotheses that do
+not overlap (i.e. two composites conflict if they cover some common
+part of the stream but not using the same words, and a composite
+hypothesis and word hypothesis conflict if the two hypotheses overlap
+in some part of the stream and the composite hypothesis does not
+explain the word hypothesis, meaning the word is not part of the
+composite).
+
+### Hypothesis scoring
+
+  - Word hypothesis: let *w* be the word and *S* be a set of similar
+    words, where a similar word is a word in the agent's dictionary
+    that contains *w*; the probability of the hypothesis is the
+    maximum of 0.001 and *(P(w)/sum(P(s))((|w|-c)/|w|)* where *P(w)*
+    is the unigram probability of word *w*, *P(s)* is the probability
+    of each *s* in the similar word set *S*, *|w|* is the length of
+    *w* and *c* is the number of changes (accounting for noise) that
+    the sensor data underwent to match *w*.
+    
+  - Learned word hypothesis for word *w*: *1.0 - B^(|w|/4)* where *B*
+    is the percent of knowledge the agent believes it possesses
+    (`:BelievedKnowledge` parameter) and *|w|* is the length of the
+    word *w*.
+  
+  - Word sequence hypothesis:
+  
+### Learning
+
+Only words with length *|w|>=3* are offered for learning.
