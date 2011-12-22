@@ -191,7 +191,7 @@ Transitive explanation is a parameter. If `:TransitiveExplanation` is
     domain-specific "learning" should be possible
 
   - `:Steps` (1+) number of total simulation steps
-    **(truth-changing)**
+    *(truth-changing)*
 
   - `:StepsBetween` (1+) number of simulation steps to wait before the
     agent gathers sensor reports and generates hypotheses
@@ -222,22 +222,22 @@ Transitive explanation is a parameter. If `:TransitiveExplanation` is
 ### Tracking domain parameters
 
   - `:GridHeight`, `:GridWidth` (1+); size of grid
-    **(truth-changing)**
+    *(truth-changing)*
 
   - `:MaxWalk` (1+); maximum grid-steps (including diagonals) an
     entity can move in one time-step; a value greater than one means
     that an entity can move several times in one time-step; leave this
     parameter at 10 since the agent only knows the probability
     distribution of random movements if the max walk size is 10
-    **(truth-changing)**
+    *(truth-changing)*
 
   - `:NumberEntities` (1+); number of (starting) entities in the grid
-    **(truth-changing)**
+    *(truth-changing)*
 
   - `:ProbNewEntities` (0-100); probability that a new entity will be
     generated each time step; a value *p* causes a *p*/100 chance, in
     a time step, that an entity will be created in a random location;
-    for now, leave this parameter at 0 **(truth-changing)**
+    for now, leave this parameter at 0 *(truth-changing)*
 
   - `:SensorCoverage` (0-100); how much of the grid (as a percentage)
     the sensors can "see"; for now, leave this parameter at 100
@@ -254,44 +254,44 @@ Description of what a non-comparative metric is...
 
 #### Generic non-comparative metrics
 
-  - **MetaActivations**: number of times the activate metareasoning
+  - *MetaActivations*: number of times the activate metareasoning
       strategy was activated (consulted); this value is always greater
-      than or equal to **MetaAccepted**
+      than or equal to *MetaAccepted*
 
-  - **MetaAccepted**: number of times a metareasoning alternative
+  - *MetaAccepted*: number of times a metareasoning alternative
       reasoning history was accepted
 
-  - **Milliseconds**: time required from start of agent's
+  - *Milliseconds*: time required from start of agent's
       hypothesizing to the end of abductive reasoning and
       metareasoning
 
-  - **Unexplained**: count of unexplained hypotheses in last abduction
+  - *Unexplained*: count of unexplained hypotheses in last abduction
       workspace
 
-  - **UnexplainedPct**: percent of hypotheses that are unexplained;
+  - *UnexplainedPct*: percent of hypotheses that are unexplained;
       this is calculated by dividing the unexplained count
-      (**Unexplained** metric; see above) by the sum of the number of
+      (*Unexplained* metric; see above) by the sum of the number of
       forced hypotheses (sensor data) and the number of accepted
       hypotheses that have explainers but remain unexplained
 
-  - **NoExplainers**: number of forced hypotheses (sensor data) that
+  - *NoExplainers*: number of forced hypotheses (sensor data) that
       have no potential explainers; this means the agent never offered
       explainers of those forced hypotheses
 
-  - **SharedExplains**: number of hypotheses that do not uniquely
+  - *SharedExplains*: number of hypotheses that do not uniquely
       explain (regardless of acceptance)
 
-  - **ExplainCycles**: number of accept/reject cycles in the most
+  - *ExplainCycles*: number of accept/reject cycles in the most
       recent abduction workspace
 
-  - **HypothesisCount**: number of hypotheses (including forced) in
+  - *HypothesisCount*: number of hypotheses (including forced) in
       the most recent abduction workspace
 
-  - **Compute**: provided by the agent
+  - *Compute*: provided by the agent
 
-  - **Memory**: provided by the agent
+  - *Memory*: provided by the agent
 
-  - **DeepestDep**: deepest depth in the dependency graph
+  - *DeepestDep*: deepest depth in the dependency graph
 
 #### Tracking non-comparative metrics
 
@@ -312,36 +312,44 @@ Definitions:
 
 Metrics:
 
-  - **PEC**: percent of true movements that are believed movements
+  - *PEC*: percent of true movements that are believed movements
 
-  - **PEW**: percent of true movements that are not believed movements
+  - *PEW*: percent of true movements that are not believed movements
       (but not necessarily disbelieved movements)
 
-  - **Prec**: *TP* / (*TP* + *FP*)
+  - *Prec*: *TP* / (*TP* + *FP*)
 
-  - **Recall**: *TP* / (*TP* + *FN*)
+  - *Recall*: *TP* / (*TP* + *FN*)
 
-  - **Spec**: *TN* / (*TN* + *FP*)
+  - *Spec*: *TN* / (*TN* + *FP*)
 
-  - **Acc**: (*TP* + *TN*) / (*TN* + *TP* + *FN* + *FP*)
+  - *Acc*: (*TP* + *TN*) / (*TN* + *TP* + *FN* + *FP*)
 
-  - **IDCorrect**: number of believed entity locations that are correct
+  - *IDCorrect*: number of believed entity locations that are correct
 
 #### Words non-comparative metrics
+
+  - *LD*:
+  
+  - *Correct*:
+  
+  - *LearnedCorrect*:
 
 ### Comparative metrics
 
 #### Generic comparative metrics
 
-**MetaActivations**, **MetaAccepted**, **Milliseconds**,
-**SharedExplains**, **Unexplained**, **UnexplainedPct**, **NoExplainers**,
-**ExplainCycles**, **HypothesisCount**, **Compute**, **Memory**, **DeepestDep**
+*MetaActivations*, *MetaAccepted*, *Milliseconds*,
+*SharedExplains*, *Unexplained*, *UnexplainedPct*, *NoExplainers*,
+*ExplainCycles*, *HypothesisCount*, *Compute*, *Memory*, *DeepestDep*
 
 #### Tracking comparative metrics
 
-**PEC**, **PEW**, **Prec**, **Recall**, **Spec**, **Acc**, **IDCorrect**
+*PEC*, *PEW*, *Prec*, *Recall*, *Spec*, *Acc*, *IDCorrect*
 
 #### Words comparative metrics
+
+*LD*, *Correct*, *LearnedCorrect*
     
 ## Epistemic states
 
@@ -370,11 +378,11 @@ include a new branch off of some prior epistemic state).
 
 The parameter `:Metareasoning` chooses which strategy will be active.
 
-**BatchBeginning** -- go back to the root ep-state (time 0), clear
-  hypotheses and "batch" all the way back to the current time.
+  - *BatchBeginning* -- go back to the root ep-state (time 0), clear
+    hypotheses and "batch" all the way back to the current time.
 
-**BatchN** (for *N*=1,2,3,4,5) -- go back *N* ep-states, clear
-  hypotheses and "batch" all the way back to the current time.
+  - *BatchN* (for *N*=1,2,3,4,5) -- go back *N* ep-states, clear
+    hypotheses and "batch" all the way back to the current time.
 
 ### Metareasoning activation
 

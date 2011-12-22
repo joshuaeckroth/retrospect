@@ -30,7 +30,7 @@
 
 (defn generate-problem-data
   [truedata sensors]
-  (let [full-dict (my-shuffle (str/split-lines (slurp (str @datadir "/words/dictionary.txt"))))
+  (let [full-dict (my-shuffle (:dictionary (meta truedata)))
         ;; the agent always "knows" about all 1-2 letter words
         dict (set/union (set (take (int (* (count full-dict)
                                            (/ (:Knowledge params) 100)))

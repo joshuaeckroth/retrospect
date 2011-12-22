@@ -31,6 +31,8 @@
 (defn evaluate
   [ep-state sensors truedata]
   (let [accepted (filter #(not= :sensor (:type %)) (:accepted (:problem-data ep-state)))
+        dict (:dictionary truedata)
+        learned (filter #(get (:data %) :learned?) accepted)
         truewords-starts (get-truewords-starts truedata (:time ep-state))
         truewords (map first truewords-starts)
         correct-pcts
@@ -42,15 +44,20 @@
                                  (for [i (range (count words))]
                                    (let [word (nth words i)
                                          word-start (first (nth pos-seqs i))
-                                         tw (ffirst (filter #(= word-start (second %)) truewords-starts))]
+                                         tw (ffirst (filter #(= word-start (second %))
+                                                            truewords-starts))]
                                      (= tw word)))))]
             (double (/ correct (count words)))))]
     {:LD (double (/ (calc-ld (:history (:problem-data ep-state)) truewords)
                     (if (empty? truewords) 1 (count truewords))))
-     :Correct (* 100.0 (/ (reduce + 0.0 correct-pcts)
-                          (if (empty? correct-pcts) 1 (count correct-pcts))))}))
+     :Correct (* 100.0 (/ (reduce + correct-pcts)
+                          (if (empty? correct-pcts) 1 (count correct-pcts))))
+     :LearnedCorrect (if (empty? learned) 100.0
+                         (* 100.0 (/ (count (filter #(dict (first (:words (:data %))))
+                                                    learned))
+                                     (count learned))))}))
 
 (defn evaluate-comparative
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
-                    [:LD :Correct])))
+                    [:LD :Correct :LearnedCorrect])))

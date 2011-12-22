@@ -15,13 +15,16 @@
 
 (defn generate-truedata
   []
-  (let [truedata-all (str/split (slurp (str @datadir "/words/truedata.txt")) #" ")
+  (let [dict (set (str/split-lines (slurp (str @datadir "/words/dictionary.txt"))))
+        truedata-all (str/split (slurp (str @datadir "/words/truedata.txt")) #" ")
         start (my-rand-int (reduce + 0 (map count truedata-all)))
-        ambiguous (take (:Steps params) (drop start (seq (slurp (str @datadir "/words/ambiguous.txt"))))) 
+        ambiguous (take (:Steps params)
+                        (drop start (seq (slurp (str @datadir "/words/ambiguous.txt"))))) 
         [td prefix] (loop [td truedata-all
                            i 0]
                       (cond (= i start) [(take (:Steps params) td) []] 
-                            (> i start) [(take (:Steps params) td) (vec (take (- i start) ambiguous))]
+                            (> i start) [(take (:Steps params) td)
+                                         (vec (take (- i start) ambiguous))]
                             :else (recur (rest td) (+ i (count (first td))))))
         chop (inc (- (count prefix) (:StepsBetween params)))
         sensor-noise (double (/ (:SensorNoise params) 100.0))
@@ -30,4 +33,5 @@
         am-noisy (add-noise am sensor-noise)
         pre-noisy (take (count pre) am-noisy)]
     (with-meta (zipmap (range (count am-noisy)) am-noisy)
-      {:words td :ambiguous am :ambiguous-noisy am-noisy :prefix pre :prefix-noisy pre-noisy})))
+      {:dictionary dict :words td :ambiguous am :ambiguous-noisy am-noisy
+       :prefix pre :prefix-noisy pre-noisy})))
