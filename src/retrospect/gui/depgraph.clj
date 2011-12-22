@@ -13,13 +13,16 @@
 
 (def canvas (JSVGCanvas.))
 
+(defn listener
+  [_])
+
 (defn generate-depgraph
   []
   (let [ep-state (let [ep (current-ep-state (:ep-state-tree @or-state))]
                    (if (re-find #"\?" (str ep))
                      (previous-ep-state (:ep-state-tree @or-state)) ep))
         depgraph (:depgraph ep-state)]
-    (generate-graph depgraph canvas true)))
+    (generate-graph depgraph canvas listener true)))
 
 (defn depgraph-tab
   []

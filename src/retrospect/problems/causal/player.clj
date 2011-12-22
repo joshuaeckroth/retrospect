@@ -18,10 +18,13 @@
                   :else g))
           network (nodes network)))
 
+(defn listener
+  [_])
+
 (defn player-setup-diagram
   []
   (let [network (update-attrs (:network @truedata))]
-    (generate-graph network canvas false))
+    (generate-graph network canvas listener false))
   canvas)
 
 (defn player-update-diagram
