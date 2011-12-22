@@ -1,36 +1,66 @@
 (ns retrospect.problems.causal.player
-  (:import (org.apache.batik.swing JSVGCanvas))
-  (:use [loom.graph :only [nodes]])
+  (:import (java.awt GridBagLayout GridBagConstraints Insets))
+  (:use [loom.graph :only [nodes incoming]])
   (:use [loom.attr :only [attr add-attr]])
   (:use [clj-swing.panel])
+  (:use [clj-swing.text-field])
   (:use [retrospect.gui.graphs])
   (:use [retrospect.state]))
 
-(def canvas (JSVGCanvas.))
+(def table-contents (ref "Click a node."))
 
-(defn update-attrs
-  [network]
-  (reduce (fn [g node]
-            (cond (= :on (attr g node :value))
-                  (add-attr g node :color "green")
-                  (= :off (attr g node :value))
-                  (add-attr g node :color "red")
-                  :else g))
-          network (nodes network)))
+(defn gen-values
+  [nodes]
+  (let [network (:network @truedata)
+        node (first nodes)
+        values (attr network node :values)]
+    (if (empty? (rest nodes)) (map (fn [v] [v]) values)
+        (let [other-values (gen-values (rest nodes))]
+          (mapcat (fn [v] (map (fn [ov] (concat [v] ov)) other-values)) values)))))
+
+(defn get-probs-table
+  [node]
+  (if ((nodes (:network @truedata)) node)
+    (let [network (:network @truedata)
+          values (attr network node :values)
+          probs (attr network node :probs)
+          parents (sort (incoming network node))
+          table (gen-values (concat [node] parents))]
+      {:nodes (concat [node] parents) :table table :probs probs})))
 
 (defn listener
-  [_])
+  [node]
+  (let [commas (fn [ss] (apply str (interpose ", " ss)))
+        lines (fn [ss] (apply str (interpose "\n" ss)))
+        {:keys [nodes table probs]} (get-probs-table node)]
+    (if nodes
+      (dosync (alter table-contents
+                     (constantly
+                      (format "%s\n\n%s" (commas nodes)
+                              (lines (for [i (range (count probs))]
+                                       (format "%s:\t%.2f" (commas (nth table i))
+                                               (nth probs i)))))))))))
+
+(def canvas (ref nil))
 
 (defn player-setup-diagram
   []
-  (let [network (update-attrs (:network @truedata))]
-    (generate-graph network canvas listener false))
-  canvas)
+  (dosync (alter canvas (constantly (create-canvas))))
+  (let [network (:network @truedata)]
+    (generate-graph network @canvas listener false))
+  (panel :layout (GridBagLayout.)
+         :constrains (GridBagConstraints.)
+         [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0
+          :fill :BOTH :insets (Insets. 5 5 5 5)
+          _ @canvas
+          :gridx 1 :gridy 0 :weightx 0.3
+          _ (scroll-panel (text-area :str-ref table-contents
+                                     :editable false :wrap false))]))
 
 (defn player-update-diagram
   []
-  (let [network (update-attrs (:network @truedata))]
-    (generate-graph network canvas false)))
+  (let [network (:network @truedata)]
+    (generate-graph network @canvas listener false)))
 
 (defn player-get-stats-panel
   []

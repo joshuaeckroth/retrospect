@@ -25,8 +25,9 @@
   [graph canvas listener left-to-right?]
   (if (and graph (not-empty (edges graph)))
     (let [dot (dot-str (reduce (fn [g n]
-                                 (-> g (add-attr n :label (:id n))
-                                     (add-attr n :id (:id n))))
+                                 (if (nil? (:id n)) g
+                                     (-> g (add-attr n :label (:id n))
+                                         (add-attr n :id (:id n)))))
                                graph (nodes graph))
                        :graph {:dpi 60 :rankdir (if left-to-right? "LR" "")})
           {svg :out} (sh "dot" "-Tsvg" :in dot)

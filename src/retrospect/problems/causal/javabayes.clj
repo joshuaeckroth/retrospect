@@ -46,9 +46,12 @@
                                           (add-attr g (.get_name v)
                                                     :values (vec (.get_values v))))
                                         g-with-edges vars)]
-              (add-attr g-with-values node :probs
-                        (vec (map (fn [i] (.get_value f i))
-                                  (range 0 (.number_values f)))))))
+              (-> g-with-values
+                  (add-attr node :id node)
+                  (add-attr node :label node)
+                  (add-attr node :probs
+                            (vec (map (fn [i] (.get_value f i))
+                                      (range 0 (.number_values f))))))))
           (digraph) (.get_probability_functions bayesnet)))
 
 (defn get-var

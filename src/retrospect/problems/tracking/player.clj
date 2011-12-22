@@ -6,7 +6,6 @@
   (:import (javax.swing JPanel JSpinner SpinnerNumberModel))
   (:use [clojure.contrib.math :only [floor ceil]])
   (:use [clj-swing.label])
-  (:use [clj-swing.frame])
   (:use [clj-swing.panel])
   (:use [retrospect.problems.tracking.sensors :only [sees]])
   (:use [retrospect.problems.tracking.movements :only
