@@ -593,8 +593,8 @@
                             (set/intersection
                              (:accepted workspace)
                              (set (find-conflicts workspace hyp :static))))
-        check-sets (mapcat (fn [n] (map set (combinations hyps-consequent n)))
-                           [1 2 3 4])]
+        check-sets (set (mapcat (fn [n] (map set (combinations hyps-consequent n)))
+                                [1 2 3 4]))]
     ;; attempt removing each forced hyp separately, and see if original
     ;; hyp is still accepted
     (loop [to-check check-sets
