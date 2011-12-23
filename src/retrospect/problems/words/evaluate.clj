@@ -37,7 +37,7 @@
   [ep-state sensors truedata]
   (let [accepted (:accepted (:problem-data ep-state))
         dict (:dictionary (meta truedata))
-        learned (filter #(get (:data %) :learned?) accepted)
+        learned (filter #(= :learned-word (:type %)) accepted)
         truewords-starts (get-truewords-starts truedata (:time ep-state))
         truewords (map first truewords-starts)
         correct-pcts
