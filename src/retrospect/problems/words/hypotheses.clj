@@ -60,11 +60,11 @@
               :words [word] :pos-seqs [adjusted-pos-seq] :changes changes})))
 
 (defn make-learned-word-hyp
-  [word pos-seq letters left-off sensor-hyps]
+  [word pos-seq letters left-off sensor-hyps avg-word-length]
   (let [explains (map #(nth sensor-hyps %) pos-seq)
         adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))
-        apriori (- 1.0 (Math/pow (/ (:BelievedKnowledge params) 100.0)
-                                 (/ (count word) 4)))]
+        apriori (Math/pow (- 1.0 (/ (:BelievedKnowledge params) 100.0))
+                          (inc (Math/abs (- (count word) avg-word-length))))]
     (new-hyp "WordLearn" :learned-word conflicts?
              apriori :and explains []
              (format "Learned word: \"%s\" at positions %s (%s)"
@@ -250,7 +250,7 @@
     (concat word-hyps composite-hyps)))
 
 (defn make-learning-hyps
-  [indexed-letters unexp-pos left-off dictionary sensor-hyps]
+  [indexed-letters unexp-pos left-off dictionary sensor-hyps avg-word-length]
   (let [contig-subsets (loop [ps (rest unexp-pos)
                               subs (if-let [p (first unexp-pos)] [[p]] [])]
                          (cond (empty? ps) subs
@@ -259,16 +259,18 @@
                                                       (conj (vec (last subs))
                                                             (first ps))))
                                :else (recur (rest ps) (conj subs [(first ps)]))))
+        contig-subsets-allsizes (mapcat (fn [sub]
+                                          (mapcat #(partition % 1 sub)
+                                                  (range (:MinLearnLength params)
+                                                         (inc (count sub)))))
+                                        contig-subsets)
         words (sort-by first (map (fn [subset] (map (fn [i] (nth indexed-letters i))
-                                                    subset)) contig-subsets))
-        ;; learn only words that have length >= :MinLearnLength
-        ;; and are not in the dictionary
-        new-words (filter (fn [w] (and (>= (count w) (:MinLearnLength params))
-                                       (not (dictionary (apply str (map second w))))))
-                          words)]
+                                                    subset)) contig-subsets-allsizes))
+        ;; learn only words that are not in the dictionary
+        new-words (filter (fn [w] (not (dictionary (apply str (map second w))))) words)]
     (map (fn [w] (make-learned-word-hyp (apply str (map second w))
                                         (map first w) (map second w)
-                                        left-off sensor-hyps))
+                                        left-off sensor-hyps avg-word-length))
          new-words)))
 
 (defn get-more-hyps
@@ -288,7 +290,8 @@
    and the already accepted, and not accepted, hypotheses found in the
    workspace of `ep-state`. "
   [ep-state]
-  (let [{:keys [dictionary models left-off indexed-letters]} (:problem-data ep-state)
+  (let [{:keys [dictionary models left-off
+                indexed-letters avg-word-length]} (:problem-data ep-state)
         max-n (apply max (keys models))
         sensor-noise (double (/ (:SensorNoise params) 100.0))
         ws (:workspace ep-state)
@@ -304,7 +307,7 @@
                                                     sensor-hyps existing-hyps models) [])
         learning-hyps (if (and (> 100 (:BelievedKnowledge params)) (:Learn params))
                         (make-learning-hyps indexed-letters unexp-pos left-off
-                                            dictionary sensor-hyps) [])]
+                                            dictionary sensor-hyps avg-word-length) [])]
     (reduce (fn [ep hyp] (add-more-hyp ep hyp))
             ep-state (concat sensor-noise-hyps learning-hyps))))
 
@@ -348,12 +351,16 @@
                                     (update-model i (get models i)
                                                   (concat (repeat (dec max-n) "") history)
                                                   words)))
-                           {} (range 1 (inc max-n)))]
+                           {} (range 1 (inc max-n)))
+        new-dict (set/union (:dictionary pdata) (set learned-words))]
     (-> pdata
-        (update-in [:dictionary] set/union (set learned-words))
         (update-in [:accepted] concat (filter #(not= :sensor (:type %)) accepted))
         (update-in [:history] concat words)
         (assoc :models new-models)
+        (assoc :dictionary new-dict)
+        (assoc :avg-word-length (if (empty? new-dict) 0
+                                    (double (/ (reduce + (map count new-dict))
+                                               (count new-dict)))))
         (assoc :letters [])
         (assoc :left-off left-off))))
 

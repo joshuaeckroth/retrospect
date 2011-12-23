@@ -38,6 +38,9 @@
                         (set (filter #(< (count %) (:MinLearnLength params))
                                      full-dict)))]
     {:dictionary dict
+     :avg-word-length (if (empty? dict) 0
+                          (double (/ (reduce + (map count dict))
+                                     (count dict))))
      :models (zipmap (range 1 (inc (:MaxModelGrams params)))
                      (for [n (range 1 (inc (:MaxModelGrams params)))]
                        (let [csv (str @datadir (format "/words/model-%d.csv" n))]
