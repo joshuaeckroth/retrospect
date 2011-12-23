@@ -30,21 +30,22 @@
 
 (defn generate-problem-data
   [truedata sensors]
-  (let [full-dict (my-shuffle (:dictionary (meta truedata)))
+  (let [models (zipmap (range 1 (inc (:MaxModelGrams params)))
+                       (for [n (range 1 (inc (:MaxModelGrams params)))]
+                         (let [csv (str @datadir (format "/words/model-%d.csv" n))]
+                           (read-model-csv csv (:dictionary (meta truedata))))))
+        sorted-dict (sort-by #(get (get models 1) %) (:dictionary (meta truedata)))
         ;; the agent always "knows" about all words less than :MinLearnLength
-        dict (set/union (set (take (int (* (count full-dict)
+        dict (set/union (set (take (int (* (count sorted-dict)
                                            (/ (:Knowledge params) 100)))
-                                   full-dict))
+                                   sorted-dict))
                         (set (filter #(< (count %) (:MinLearnLength params))
-                                     full-dict)))]
+                                     sorted-dict)))]
     {:dictionary dict
      :avg-word-length (if (empty? dict) 0
                           (double (/ (reduce + (map count dict))
                                      (count dict))))
-     :models (zipmap (range 1 (inc (:MaxModelGrams params)))
-                     (for [n (range 1 (inc (:MaxModelGrams params)))]
-                       (let [csv (str @datadir (format "/words/model-%d.csv" n))]
-                         (read-model-csv csv dict))))
+     :models models
      :left-off -1
      :indexed-letters []
      :accepted []
