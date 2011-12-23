@@ -158,15 +158,15 @@
                        (filter (fn [ws] (every? (fn [i] (= (nth ws i) (nth words i)))
                                                 acc-indexes))
                                (keys model)))
-        sum (reduce + 0 (vals (select-keys model alt-ngrams)))
+        sum (reduce + (vals (select-keys model alt-ngrams)))
         c (get model words)]
     ;; if we have a probability in the model, return it
     (if c (max 0.001 (double (/ c (if (= 0 sum) (:sum (meta model)) sum))))
-        ;; otherwise, this sequence is not in the model;
-        ;; if we're willing to learn, the prob is the average of the word probs;
-        ;; otherwise, prob is nil
-        (if (:Learn params)
-          (let [s (reduce + 0.0 (map :apriori word-hyps))]
+        ;; otherwise, this sequence is not in the model; if we have a
+        ;; learned word hyp, the prob is the average of the word
+        ;; probs; otherwise, prob is nil
+        (if (some #{:learned-word} (map :type word-hyps))
+          (let [s (reduce + (map :apriori word-hyps))]
             (max 0.001 (/ s (count word-hyps))))))))
 
 (defn make-composite-hyps
@@ -176,10 +176,12 @@
             (for [c composites]
               (let [words (mapcat (comp :words :data) c)
                     pos-seqs (mapcat (comp :pos-seqs :data) c)
-                    accepted-in-words (set/intersection accepted (set c))]
+                    c-set (set c)
+                    accepted-words (set/intersection accepted c-set)
+                    unaccepted (set/difference accepted c-set)]
                 (new-hyp "WordSeq" :word-seq conflicts?
-                         (lookup-prob models c accepted-in-words)
-                         :and c [] ;; explains & depends
+                         (lookup-prob models c accepted-words)
+                         :and unaccepted [] ;; explains & depends
                          (format "Word sequence \"%s\" at positions %s"
                                  (apply str (interpose " " words))
                                  (apply str (interpose ", " pos-seqs)))
@@ -216,7 +218,7 @@
   (binding [compute 0 memory 0]
     (let [sens (first sensors) ;; only one sensor
           {:keys [dictionary left-off models]} (:problem-data ep-state)
-          accepted (set (:accepted (:problem-data ep-state)))
+          accepted (:accepted (:problem-data ep-state))
           max-n (apply max (keys models))
           letters (map #(sensed-at sens %) (range (inc left-off) (inc time-now)))
           indexed-letters (make-indexed-letters letters)
@@ -291,7 +293,7 @@
    workspace of `ep-state`. "
   [ep-state]
   (let [{:keys [dictionary models left-off
-                indexed-letters avg-word-length]} (:problem-data ep-state)
+                indexed-letters avg-word-length accepted]} (:problem-data ep-state)
         max-n (apply max (keys models))
         sensor-noise (double (/ (:SensorNoise params) 100.0))
         ws (:workspace ep-state)
@@ -307,9 +309,13 @@
                                                     sensor-hyps existing-hyps models) [])
         learning-hyps (if (and (> 100 (:BelievedKnowledge params)) (:Learn params))
                         (make-learning-hyps indexed-letters unexp-pos left-off
-                                            dictionary sensor-hyps avg-word-length) [])]
+                                            dictionary sensor-hyps avg-word-length) [])
+        composite-hyps (make-composite-hyps models (concat (filter #(= :word (:type %))
+                                                                   existing-hyps)
+                                                           sensor-noise-hyps learning-hyps)
+                                            accepted max-n)]
     (reduce (fn [ep hyp] (add-more-hyp ep hyp))
-            ep-state (concat sensor-noise-hyps learning-hyps))))
+            ep-state (concat sensor-noise-hyps learning-hyps composite-hyps))))
 
 (defn no-explainer-hyps
   [hyps pdata]
@@ -352,10 +358,12 @@
                                                   (concat (repeat (dec max-n) "") history)
                                                   words)))
                            {} (range 1 (inc max-n)))
-        new-dict (set/union (:dictionary pdata) (set learned-words))]
+        new-dict (set/union (:dictionary pdata) (set learned-words))
+        new-accepted (set (concat (:accepted pdata)
+                                  (filter #(not= :sensor (:type %)) accepted)))]
     (-> pdata
-        (update-in [:accepted] concat (filter #(not= :sensor (:type %)) accepted))
         (update-in [:history] concat words)
+        (assoc :accepted new-accepted)
         (assoc :models new-models)
         (assoc :dictionary new-dict)
         (assoc :avg-word-length (if (empty? new-dict) 0

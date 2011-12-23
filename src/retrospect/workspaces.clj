@@ -286,7 +286,8 @@
   (let [g (if (some #{:static} opts)
             (:graph-static workspace)
             (:graph workspace))
-        hyps (nodes g)
+        ;; can't conflict with what it explains or what explains it
+        hyps (set/difference (nodes g) (incoming g hyp) (neighbors g hyp))
         c (:conflict hyp)]
     (cond
       ;; no conflict id; so it conflicts with nothing
@@ -339,6 +340,7 @@
               ws-updated (-> ws-static
                              (assoc gtype g-edges)
                              (assoc-in [:hyp-confidences hyp] (:apriori hyp))
+                             (update-in [:resources :hypothesis-count] inc)
                              (update-in [:log :added] conj {:hyp hyp :explains expl}))]
           ;; abort if added hyp conflicts with something accepted (only when adding
           ;; hyps after explaining has begun)
@@ -469,9 +471,7 @@
         (assoc-in [:log :best] [])
         (assoc-in [:log :accrej] {})
         (assoc-in [:log :accepted] (:forced workspace))
-        (assoc-in [:accepted] (:forced workspace))
-        (update-in [:resources :hypothesis-count]
-                   + (count (nodes (:graph-static ws)))))))
+        (assoc-in [:accepted] (:forced workspace)))))
 
 (defn measure-doubt
   [workspace]

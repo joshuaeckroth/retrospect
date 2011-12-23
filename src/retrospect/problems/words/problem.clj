@@ -48,7 +48,7 @@
      :models models
      :left-off -1
      :indexed-letters []
-     :accepted []
+     :accepted #{}
      :history []}))
 
 (def words-problem

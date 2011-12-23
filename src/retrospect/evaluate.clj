@@ -38,12 +38,12 @@
                      (assoc tf :all {true all-true false all-false}))
         confs (reduce (fn [m t]
                         (assoc m t
-                               {true (or (map #(hyp-conf workspace %)
-                                              (get (get true-false t) true)) [])
-                                false (or (map #(hyp-conf workspace %)
-                                               (get (get true-false t) false)) [])}))
+                               {true (map #(hyp-conf workspace %)
+                                          (get (get true-false t) true))
+                                false (map #(hyp-conf workspace %)
+                                           (get (get true-false t) false))}))
                       {} (keys true-false))
-        avg (fn [vals] (if (empty? vals) 0.0 (/ (reduce + 0.0 vals) (count vals))))]
+        avg (fn [vals] (if (empty? vals) 0.0 (/ (reduce + vals) (count vals))))]
     (reduce (fn [m t]
               (let [k (apply str (map str/capitalize (str/split (name t) #"-")))]
                 (assoc m (keyword (format "AvgTrue%s" k)) (avg (get (get confs t) true))

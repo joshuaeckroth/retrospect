@@ -30,7 +30,7 @@
 
 (defn evaluate
   [ep-state sensors truedata]
-  (let [accepted (filter #(not= :sensor (:type %)) (:accepted (:problem-data ep-state)))
+  (let [accepted (:accepted (:problem-data ep-state))
         dict (:dictionary (meta truedata))
         learned (filter #(get (:data %) :learned?) accepted)
         truewords-starts (get-truewords-starts truedata (:time ep-state))
