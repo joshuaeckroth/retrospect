@@ -15,7 +15,7 @@
    hypotheses and it is not the case that the tail of one is the prefix of the
    other; or (2) they overlap in their start-end range."
   [hyp1 hyp2]
-  (if (and (= :words (:type hyp1)) (= :words (:type hyp2)))
+  (if (and (:word-seq? (:data hyp1)) (:word-seq? (:data hyp2)))
     (some (fn [n] (or (= (take n (:pos-seqs (:data hyp1)))
                          (:pos-seqs (:data hyp2)))
                       (= (take-last n (:pos-seqs (:data hyp1)))
@@ -49,7 +49,7 @@
                         (reduce + (map (fn [w] (get unimodel w)) similar-words))))
         changes (count-changes word letters)
         apriori (max 0.001 (* prob (/ (- (count word) changes) (count word))))]
-    (new-hyp "Word" :word conflicts?
+    (new-hyp "Word" :words conflicts?
              apriori :and explains []
              (format "Word: \"%s\" at positions %s (%s) (%d changes)"
                      word (str adjusted-pos-seq) (apply str letters) changes)
@@ -62,7 +62,7 @@
         adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))
         apriori (- 1.0 (Math/pow (/ (:BelievedKnowledge params) 100.0)
                                  (/ (count word) 4)))]
-    (new-hyp "WordLearn" :word conflicts?
+    (new-hyp "WordLearn" :words conflicts?
              apriori :and explains []
              (format "Learned word: \"%s\" at positions %s (%s)"
                      word (str adjusted-pos-seq) (apply str letters))
@@ -181,7 +181,7 @@
                                  (apply str (interpose " " words))
                                  (apply str (interpose ", " pos-seqs)))
                          {:start (:start (:data (first c))) :end (:end (:data (last c)))
-                          :pos-seqs pos-seqs :words words}))))))
+                          :pos-seqs pos-seqs :words words :word-seq? true}))))))
 
 (defn make-sensor-hyp
   [pos letter]
@@ -317,7 +317,7 @@
                                           (update-in m [ngram] inc)
                                           (assoc m ngram 1)))
                           model ngrams)]
-    (with-meta new-model {:sum (reduce + 0 (vals new-model))})))
+    (with-meta new-model {:sum (reduce + (vals new-model))})))
 
 (defn commit-decision
   [pdata accepted _ _ _]
@@ -340,10 +340,11 @@
         models (:models pdata)
         history (:history pdata)
         max-n (:MaxModelGrams params)
-        new-models (reduce (fn [ms i] (assoc ms i
-                                             (update-model i (get models i)
-                                                           (concat (repeat (dec max-n) "") history)
-                                                           words)))
+        new-models (reduce (fn [ms i]
+                             (assoc ms i
+                                    (update-model i (get models i)
+                                                  (concat (repeat (dec max-n) "") history)
+                                                  words)))
                            {} (range 1 (inc max-n)))]
     (-> pdata
         (update-in [:dictionary] set/union (set learned-words))
@@ -356,4 +357,3 @@
 (defn retract
   [pdata hyp]
   pdata)
-
