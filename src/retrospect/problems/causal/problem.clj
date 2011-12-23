@@ -50,6 +50,8 @@
             evaluate
             evaluate-comparative
             true-hyp?
+            (constantly false) ;; hyps-equal?
+            identity ;; perturb
             {:Steps 25
              :Threshold 20
              :StepsBetween 6

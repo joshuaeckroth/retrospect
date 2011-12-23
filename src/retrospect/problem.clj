@@ -115,4 +115,5 @@
   [name monitor-fn player-fns truedata-fn sensor-gen-fn prepared-map
    hypothesize-fn get-more-hyps-fn commit-decision-fn retract-fn
    gen-problem-data-fn inconsistent-fn no-explainer-hyps-fn
-   evaluate-fn evaluate-comparative-fn true-hyp?-fn default-params])
+   evaluate-fn evaluate-comparative-fn true-hyp?-fn hyps-equal?-fn perturb-fn
+   default-params])

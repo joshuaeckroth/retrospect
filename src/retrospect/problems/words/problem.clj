@@ -4,9 +4,9 @@
   (:require [clojure.string :as str])
   (:require [clojure.set :as set])
   (:use [retrospect.problems.words.evaluate :only
-         [evaluate evaluate-comparative true-hyp?]])
+         [evaluate evaluate-comparative true-hyp? hyps-equal?]])
   (:use [retrospect.problems.words.truedata :only [generate-truedata]])
-  (:use [retrospect.problems.words.sensors :only [generate-sensors]])
+  (:use [retrospect.problems.words.sensors :only [generate-sensors perturb]])
   (:use [retrospect.problems.words.hypotheses :only
          [hypothesize get-more-hyps commit-decision inconsistent retract
           no-explainer-hyps]])
@@ -73,6 +73,8 @@
                evaluate
                evaluate-comparative
                true-hyp?
+               hyps-equal?
+               perturb
                {:Steps 120
                 :Threshold 20
                 :StepsBetween 30
@@ -85,5 +87,6 @@
                 :Knowledge 100
                 :BelievedKnowledge 100
                 :Learn false
-                :TransitiveExplanation true}))
+                :TransitiveExplanation true
+                :AnalyzeSensitivity false}))
 

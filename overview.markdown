@@ -213,6 +213,10 @@ Transitive explanation is a parameter. If `:TransitiveExplanation` is
     - "BatchBeginning"
 
     - "Batch5", "Batch4", "Batch3", "Batch2", "Batch1"
+    
+  - `:AnalyzeSensitivity` (true or false); add extra metrics
+    (domain-independent) that attempt to measure the sensitivity of
+    hypotheses
 
 ### Words domain parameters
 
@@ -292,6 +296,10 @@ Description of what a non-comparative metric is...
   - *Memory*: provided by the agent
 
   - *DeepestDep*: deepest depth in the dependency graph
+  
+  - *AvgTrueSensitivity*: average sensitivity of true hypotheses
+  
+  - *AvgFalseSensitivity*: average sensitivity of false hypotheses
 
 #### Tracking non-comparative metrics
 
@@ -538,9 +546,9 @@ robustness analysis occurs and the results are displayed.
   - *The hypothesis was originally accepted*: Let *H* be the set of
      hypotheses that this hypothesis directly explains.
      
-  - *The hypothesis *h* was originally unaccepted*: Let *H* be the
+  - *The hypothesis *h* was originally rejected*: Let *H* be the
      intersection of the set of accepted hypotheses and the set of
-     hypotheses that conflicts with *h* (the hypothesis being
+     hypotheses that conflict with *h* (the hypothesis being
      analyzed).
   
 Let *P* be a set of combinations of *H* with sizes 1-4 (so it includes
@@ -555,5 +563,43 @@ The result of the analysis depends on the nature of the hypothesis
 being analyzed:
 
   - *The hypothesis *h* was originally accepted*: if the hypothesis is
-    now not accepted, add *p* to the set of hypothesis groups that
-    cause *h* to no longer be accepted.
+    now rejected, add *p* to the set of hypothesis groups that cause
+    *h* to be rejected.
+
+  - *The hypothesis *h* was originally rejected*: if the hypothesis is
+     now accepted, add *p* to the set of hypothesis groups that cause
+     *h* to be accepted.
+     
+  - In either case, if the hypothesis is now unaccepted, add *p* to
+    the set of hypothesis groups that cause the hyp to be unaccepted.
+
+### Batch analysis
+
+#### Sensitivity to sensor reports
+
+For each epistemic state, after the abductive process has completed, a
+sensitivity analysis may be automatically performed (if the parameter
+`:AnalyzeSensitivity` is `true`). For each hypothesis (except "forced"
+hypotheses; i.e. sensor data), a number is calculated to determine the
+hypothesis's "sensitivity." This number is calculated in the following
+way:
+
+  - Create an epistemic state branch off the previous epistemic state
+    and re-introduce a random 50% of sensor reports as *perturbed*
+    sensor reports (the other half is not perturbed); the domain
+    provides the means to perturb a sensor report.
+    
+  - Simulate hypothesis generation and abductive reasoning in this
+    branched epistemic state.
+    
+  - Determine if the hypothesis retains its status
+    (accepted/rejected/unaccepted); the domain provides the means to
+    compare hypotheses (with distinct identifiers) for equality.
+    
+  - If the hypothesis retains its state, its sensitivity is
+    0. Otherwise, its sensitivity is 1.
+    
+Obviously, this process is performed only once for all hypotheses, not
+once for each hypothesis. The metrics *AvgTrueSensitivity* and
+*AvgFalseSensitivity* find the average of the sensitivities for true
+and false hypotheses.

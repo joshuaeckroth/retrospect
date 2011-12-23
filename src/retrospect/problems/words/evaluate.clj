@@ -24,6 +24,11 @@
                 (= tw word)))
             (range (count words)))))
 
+(defn hyps-equal?
+  [hyp1 hyp2]
+  (if (not= (:type hyp1) (:type hyp2)) false
+      (apply = (map #(select-keys (:data %) [:words :pos-seqs]) [hyp1 hyp2]))))
+
 (defn calc-ld
  [seq1 seq2]
  (LevenshteinDistance/ld (into-array String seq1) (into-array String seq2)))

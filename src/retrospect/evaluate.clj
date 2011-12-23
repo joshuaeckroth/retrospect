@@ -5,6 +5,7 @@
   (:use [loom.alg-generic :only [dijkstra-span]])
   (:use [retrospect.epistemicstates :only [current-ep-state previous-ep-state]])
   (:use [retrospect.workspaces :only [get-unexplained-pct hyp-conf get-hyps]])
+  (:use [retrospect.meta.robustness :only [analyze-sensitivity]])
   (:use [retrospect.state]))
 
 (defn calc-increase
@@ -54,9 +55,10 @@
   [truedata or-state]
   (let [ep-state (current-ep-state (:ep-state-tree or-state))
         prev-ep (previous-ep-state (:ep-state-tree or-state))
-        final-log (:final (:log (:workspace prev-ep)))
+        workspace (:workspace prev-ep)
+        final-log (:final (:log workspace))
         ors-resources (:resources or-state)
-        ws-resources (:resources (:workspace prev-ep))]
+        ws-resources (:resources workspace)]
     (update-in
      or-state [:results] conj
      (merge {:Problem (:name @problem)}
@@ -64,6 +66,9 @@
             ((:evaluate-fn @problem) ep-state (:sensors or-state) truedata)
             (calc-true-false-confs truedata (:pdata ep-state) (:workspace prev-ep)
                                    (:time ep-state) (:true-hyp?-fn @problem))
+            (if (:AnalyzeSensitivity params)
+              (analyze-sensitivity or-state truedata)
+              {})
             {:Step (:time ep-state)
              :MetaActivations (:meta-activations ors-resources)
              :MetaAccepted (:meta-accepted ors-resources)

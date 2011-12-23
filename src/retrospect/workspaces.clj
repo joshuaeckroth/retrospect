@@ -581,17 +581,19 @@
                        (transitive-accept ws-logged best alts pdata)
                        (accept ws-logged best alts pdata))))))))))))
 
-;; TODO this only works for accepted/rejected test hyps
 (defn analyze
   [workspace hyp pdata]
   (let [accepted? ((:accepted workspace) hyp)
+        rejected? ((:rejected workspace) hyp)
         ;; hyps worth considering are those that this hyp explains (if
         ;; this hyp is accepted) or those that conflict with it (if
         ;; this hyp is rejected)
-        hyps-consequent (if accepted? (neighbors (:graph-static workspace) hyp)
-                            (set/intersection
-                             (:accepted workspace)
-                             (set (find-conflicts workspace hyp :static))))
+        hyps-consequent (cond
+                         accepted? (neighbors (:graph-static workspace) hyp)
+                         rejected? (set/intersection
+                                    (:accepted workspace)
+                                    (set (find-conflicts workspace hyp :static)))
+                         :else #{})
         check-sets (set (mapcat (fn [n] (map set (combinations hyps-consequent n)))
                                 [1 2 3 4]))]
     ;; attempt removing each forced hyp separately, and see if original
@@ -610,13 +612,13 @@
                 now-rejected? ((:rejected ws-explained) hyp)]
             (cond
              ;; hyp (newly) accepted
-             (and (not accepted?) now-accepted?)
+             (and rejected? now-accepted?)
              (recur (rest to-check) (conj acc check) unacc rej)
              ;; hyp (newly) rejected
              (and accepted? now-rejected?)
              (recur (rest to-check) acc unacc (conj rej check))
              ;; no change
-             (or (and accepted? now-accepted?) (and (not accepted?) now-rejected?))
+             (or (and accepted? now-accepted?) (and rejected? now-rejected?))
              (recur (rest to-check) acc unacc rej)
              ;; else, turned into unaccepted
              :else

@@ -70,8 +70,7 @@
              (format "Learned word: \"%s\" at positions %s (%s)"
                      word (str adjusted-pos-seq) (apply str letters))
              {:start (first adjusted-pos-seq) :end (last adjusted-pos-seq)
-              :words [word] :pos-seqs [adjusted-pos-seq]
-              :learned? true})))
+              :words [word] :pos-seqs [adjusted-pos-seq]})))
 
 (defn acceptable-noise?
   [letters word sensor-noise]
@@ -187,7 +186,7 @@
                                  (apply str (interpose " " words))
                                  (apply str (interpose ", " pos-seqs)))
                          {:start (:start (:data (first c))) :end (:end (:data (last c)))
-                          :pos-seqs pos-seqs :words words :word-seq? true}))))))
+                          :pos-seqs pos-seqs :words words}))))))
 
 (defn make-sensor-hyp
   [pos letter]
@@ -221,7 +220,7 @@
           {:keys [dictionary left-off models]} (:problem-data ep-state)
           accepted (:accepted (:problem-data ep-state))
           max-n (apply max (keys models))
-          letters (map #(sensed-at sens %) (range (inc left-off) (inc time-now)))
+          letters (map #(sensed-at sens %) (range (inc left-off) time-now))
           indexed-letters (make-indexed-letters letters)
           sensor-hyps (make-sensor-hyps indexed-letters)
           ep-sensor-hyps (reduce #(add-fact %1 %2) ep-state sensor-hyps)
@@ -348,7 +347,7 @@
                   (recur words (rest wps) end-time)
                   :else (recur (conj words word)
                                (rest wps) (last pos-seq)))))
-        learned-hyps (filter (fn [hyp] (:learned? (:data hyp))) accepted)
+        learned-hyps (filter (fn [hyp] (= :learned-word (:type hyp))) accepted)
         learned-words (map (comp first :words :data) learned-hyps)
         models (:models pdata)
         history (:history pdata)
