@@ -154,10 +154,11 @@
                              (+ i c) (rest ws)))))
         words (vec (mapcat (comp :words :data) word-hyps))
         model (get models (count words))
-        alt-ngrams (if (empty? acc-indexes) []
-                       (filter (fn [ws] (every? (fn [i] (= (nth ws i) (nth words i)))
-                                                acc-indexes))
-                               (keys model)))
+        alt-ngrams (if (empty? acc-indexes)
+                     (filter (fn [ws] (= (butlast ws) (butlast words))) (keys model))
+                     (filter (fn [ws] (every? (fn [i] (= (nth ws i) (nth words i)))
+                                              acc-indexes))
+                             (keys model)))
         sum (reduce + (vals (select-keys model alt-ngrams)))
         c (get model words)]
     ;; if we have a probability in the model, return it
