@@ -546,7 +546,7 @@ robustness analysis occurs and the results are displayed.
   - *The hypothesis was originally accepted*: Let *H* be the set of
      hypotheses that this hypothesis directly explains.
      
-  - *The hypothesis *h* was originally rejected*: Let *H* be the
+  - *The hypothesis h was originally rejected*: Let *H* be the
      intersection of the set of accepted hypotheses and the set of
      hypotheses that conflict with *h* (the hypothesis being
      analyzed).
@@ -562,11 +562,11 @@ abduction (find explainers for the sensor data).
 The result of the analysis depends on the nature of the hypothesis
 being analyzed:
 
-  - *The hypothesis *h* was originally accepted*: if the hypothesis is
+  - *The hypothesis h was originally accepted*: if the hypothesis is
     now rejected, add *p* to the set of hypothesis groups that cause
     *h* to be rejected.
 
-  - *The hypothesis *h* was originally rejected*: if the hypothesis is
+  - *The hypothesis h was originally rejected*: if the hypothesis is
      now accepted, add *p* to the set of hypothesis groups that cause
      *h* to be accepted.
      
