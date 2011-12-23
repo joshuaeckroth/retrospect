@@ -15,22 +15,25 @@
    hypotheses and it is not the case that the tail of one is the prefix of the
    other; or (2) they overlap in their start-end range."
   [hyp1 hyp2]
-  (if (and (:word-seq? (:data hyp1)) (:word-seq? (:data hyp2)))
-    (some (fn [n] (or (= (take n (:pos-seqs (:data hyp1)))
-                         (:pos-seqs (:data hyp2)))
-                      (= (take-last n (:pos-seqs (:data hyp1)))
-                         (:pos-seqs (:data hyp2)))
-                      (= (take n (:pos-seqs (:data hyp2)))
-                         (:pos-seqs (:data hyp1)))
-                      (= (take-last n (:pos-seqs (:data hyp2)))
-                         (:pos-seqs (:data hyp1)))))
-          (range 1 (inc (min (count (:pos-seqs (:data hyp1)))
-                             (count (:pos-seqs (:data hyp2)))))))
-    (let [start1 (:start (:data hyp1))
-          end1 (:end (:data hyp1))
-          start2 (:start (:data hyp2))
-          end2 (:end (:data hyp2))]
-      (not (or (< end1 start2) (< end2 start1))))))
+  (cond
+   (or (= :sensor (:type hyp1)) (= :sensor (:type hyp2))) false
+   (and (= :word-seq (:type hyp1)) (= :word-seq (:type hyp2)))
+   (some (fn [n] (or (= (take n (:pos-seqs (:data hyp1)))
+                        (:pos-seqs (:data hyp2)))
+                     (= (take-last n (:pos-seqs (:data hyp1)))
+                        (:pos-seqs (:data hyp2)))
+                     (= (take n (:pos-seqs (:data hyp2)))
+                        (:pos-seqs (:data hyp1)))
+                     (= (take-last n (:pos-seqs (:data hyp2)))
+                        (:pos-seqs (:data hyp1)))))
+         (range 1 (inc (min (count (:pos-seqs (:data hyp1)))
+                            (count (:pos-seqs (:data hyp2)))))))
+   :else
+   (let [start1 (:start (:data hyp1))
+         end1 (:end (:data hyp1))
+         start2 (:start (:data hyp2))
+         end2 (:end (:data hyp2))]
+     (not (or (< end1 start2) (< end2 start1))))))
 
 (defn count-changes
   [word letters]
@@ -49,7 +52,7 @@
                         (reduce + (map (fn [w] (get unimodel w)) similar-words))))
         changes (count-changes word letters)
         apriori (max 0.001 (* prob (/ (- (count word) changes) (count word))))]
-    (new-hyp "Word" :words conflicts?
+    (new-hyp "Word" :word conflicts?
              apriori :and explains []
              (format "Word: \"%s\" at positions %s (%s) (%d changes)"
                      word (str adjusted-pos-seq) (apply str letters) changes)
@@ -62,7 +65,7 @@
         adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))
         apriori (- 1.0 (Math/pow (/ (:BelievedKnowledge params) 100.0)
                                  (/ (count word) 4)))]
-    (new-hyp "WordLearn" :words conflicts?
+    (new-hyp "WordLearn" :learned-word conflicts?
              apriori :and explains []
              (format "Learned word: \"%s\" at positions %s (%s)"
                      word (str adjusted-pos-seq) (apply str letters))
@@ -174,7 +177,7 @@
               (let [words (mapcat (comp :words :data) c)
                     pos-seqs (mapcat (comp :pos-seqs :data) c)
                     accepted-in-words (set/intersection accepted (set c))]
-                (new-hyp "WordSeq" :words conflicts?
+                (new-hyp "WordSeq" :word-seq conflicts?
                          (lookup-prob models c accepted-in-words)
                          :and c [] ;; explains & depends
                          (format "Word sequence \"%s\" at positions %s"

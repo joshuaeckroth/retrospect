@@ -286,8 +286,7 @@
   (let [g (if (some #{:static} opts)
             (:graph-static workspace)
             (:graph workspace))
-        ;; a hyp can only conflict with hyps of the same type
-        hyps (filter #(= (:type hyp) (:type %)) (nodes g))
+        hyps (nodes g)
         c (:conflict hyp)]
     (cond
       ;; no conflict id; so it conflicts with nothing

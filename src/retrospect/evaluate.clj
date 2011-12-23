@@ -1,5 +1,6 @@
 (ns retrospect.evaluate
   (:require [clojure.set :as set])
+  (:require [clojure.string :as str])
   (:use [loom.graph :only [incoming nodes neighbors]])
   (:use [loom.alg-generic :only [dijkstra-span]])
   (:use [retrospect.epistemicstates :only [current-ep-state previous-ep-state]])
@@ -25,13 +26,29 @@
 (defn calc-true-false-confs
   "Find average confidence for true hyps, average confidence for false hyps."
   [truedata pdata workspace time true-hyp?]
-  (let [hyps (set/difference (get-hyps workspace :static)
-                             (:forced workspace))
-        true-false (group-by (partial true-hyp? truedata pdata time) hyps)
-        true-confs (or (map #(hyp-conf workspace %) (get true-false true)) [])
-        false-confs (or (map #(hyp-conf workspace %) (get true-false false)) [])
+  (let [hyps (group-by :type (set/difference (get-hyps workspace :static)
+                                             (:forced workspace)))
+        true-false (let [tf (reduce (fn [m t]
+                                      (assoc m t (group-by
+                                                  (partial true-hyp? truedata pdata time)
+                                                  (get hyps t))))
+                                    {} (keys hyps))
+                         all-true (mapcat #(get % true) (vals tf))
+                         all-false (mapcat #(get % false) (vals tf))]
+                     (assoc tf :all {true all-true false all-false}))
+        confs (reduce (fn [m t]
+                        (assoc m t
+                               {true (or (map #(hyp-conf workspace %)
+                                              (get (get true-false t) true)) [])
+                                false (or (map #(hyp-conf workspace %)
+                                               (get (get true-false t) false)) [])}))
+                      {} (keys true-false))
         avg (fn [vals] (if (empty? vals) 0.0 (/ (reduce + 0.0 vals) (count vals))))]
-    {:AvgTrueConfs (avg true-confs) :AvgFalseConfs (avg false-confs)}))
+    (reduce (fn [m t]
+              (let [k (apply str (map str/capitalize (str/split (name t) #"-")))]
+                (assoc m (keyword (format "AvgTrue%s" k)) (avg (get (get confs t) true))
+                       (keyword (format "AvgFalse%s" k)) (avg (get (get confs t) false)))))
+            {} (keys confs))))
 
 (defn evaluate
   [truedata or-state]
