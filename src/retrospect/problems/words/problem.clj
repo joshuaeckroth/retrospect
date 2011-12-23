@@ -31,11 +31,12 @@
 (defn generate-problem-data
   [truedata sensors]
   (let [full-dict (my-shuffle (:dictionary (meta truedata)))
-        ;; the agent always "knows" about all 1-2 letter words
+        ;; the agent always "knows" about all words less than :MinLearnLength
         dict (set/union (set (take (int (* (count full-dict)
                                            (/ (:Knowledge params) 100)))
                                    full-dict))
-                        (set (filter #(<= (count %) 2) full-dict)))]
+                        (set (filter #(< (count %) (:MinLearnLength params))
+                                     full-dict)))]
     {:dictionary dict
      :models (zipmap (range 1 (inc (:MaxModelGrams params)))
                      (for [n (range 1 (inc (:MaxModelGrams params)))]
@@ -74,6 +75,8 @@
                 :SensorNoise 0
                 :BeliefNoise 0
                 :MaxModelGrams 3
+                :MinWordLength 3
+                :MinLearnLength 3
                 :MetaReasoning "NoMetaReasoning"
                 :Knowledge 100
                 :BelievedKnowledge 100

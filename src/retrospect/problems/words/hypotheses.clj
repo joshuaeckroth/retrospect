@@ -258,8 +258,9 @@
                                :else (recur (rest ps) (conj subs [(first ps)]))))
         words (sort-by first (map (fn [subset] (map (fn [i] (nth indexed-letters i))
                                                     subset)) contig-subsets))
-        ;; learn only words that have length >= 3 and are not in the dictionary
-        new-words (filter (fn [w] (and (>= (count w) 3)
+        ;; learn only words that have length >= :MinLearnLength
+        ;; and are not in the dictionary
+        new-words (filter (fn [w] (and (>= (count w) (:MinLearnLength params))
                                        (not (dictionary (apply str (map second w))))))
                           words)]
     (map (fn [w] (make-learned-word-hyp (apply str (map second w))
@@ -290,8 +291,8 @@
         ws (:workspace ep-state)
         existing-hyps (get-hyps ws)
         sensor-hyps (sort-by (comp :pos :data) (:forced ws))
-        unexp-pos (map (comp :pos :data)
-                       (set/intersection (find-unexplained ws) (:forced ws)))
+        unexp-pos (sort (map (comp :pos :data)
+                             (set/intersection (find-unexplained ws) (:forced ws))))
         sub-indexed-letters (sort-by first (map (fn [i] (nth indexed-letters i))
                                                 unexp-pos))
         sensor-noise-hyps (if (< 0 (:SensorNoise params))

@@ -333,6 +333,8 @@ Metrics:
   
   - *Correct*:
   
+  - *LearnedCount*:
+  
   - *LearnedCorrect*:
 
 ### Comparative metrics
@@ -349,7 +351,7 @@ Metrics:
 
 #### Words comparative metrics
 
-*LD*, *Correct*, *LearnedCorrect*
+*LD*, *Correct*, *LearnedCount*, *LearnedCorrect*
     
 ## Epistemic states
 

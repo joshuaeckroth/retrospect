@@ -87,7 +87,7 @@
     (format "History: %s" (apply str (interpose " " history)))))
 
 (defn player-setup-diagram
-  [p])
+  [])
 
 (defn player-update-diagram
   [])

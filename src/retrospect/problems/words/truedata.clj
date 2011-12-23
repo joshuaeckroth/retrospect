@@ -15,11 +15,12 @@
 
 (defn generate-truedata
   []
-  (let [dict (set (str/split-lines (slurp (str @datadir "/words/dictionary.txt"))))
-        truedata-all (str/split (slurp (str @datadir "/words/truedata.txt")) #" ")
-        start (my-rand-int (reduce + 0 (map count truedata-all)))
-        ambiguous (take (:Steps params)
-                        (drop start (seq (slurp (str @datadir "/words/ambiguous.txt"))))) 
+  (let [dict (set (filter #(>= (count %) (:MinWordLength params))
+                          (str/split-lines (slurp (str @datadir "/words/dictionary.txt")))))
+        truedata-all (filter #(>= (count %) (:MinWordLength params))
+                             (str/split (slurp (str @datadir "/words/truedata.txt")) #" "))
+        start (my-rand-int (reduce + (map count truedata-all)))
+        ambiguous (take (:Steps params) (drop start (apply str truedata-all))) 
         [td prefix] (loop [td truedata-all
                            i 0]
                       (cond (= i start) [(take (:Steps params) td) []] 
