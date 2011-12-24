@@ -102,10 +102,19 @@
                    ((:evaluate-comparative-fn @problem) control comparison
                     control-params comparison-params)
                    (map #(calc-increase control comparison %)
-                        [:MetaActivations :MetaAccepted :Milliseconds :SharedExplains
-                         :Unexplained :UnexplainedPct :NoExplainers
-                         :ExplainCycles :HypothesisCount
-                         :Compute :Memory :DeepestDep])))]
+                        (concat [:MetaActivations :MetaAccepted :Milliseconds :SharedExplains
+                                 :Unexplained :UnexplainedPct :NoExplainers
+                                 :ExplainCycles :HypothesisCount
+                                 :Compute :Memory :DeepestDep]
+                                (mapcat
+                                 (fn [tf]
+                                   (map #(keyword
+                                          (format "Avg%s%s" tf
+                                                  (apply str
+                                                         (map str/capitalize
+                                                              (str/split (name %) #"-")))))
+                                        (:hyp-subtypes @problem)))
+                                 ["True" "False"])))))]
     ;; if control/comparison have different number of results
     ;; (different steps between or steps), then just use the last
     ;; result set
