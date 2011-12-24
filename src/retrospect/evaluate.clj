@@ -70,7 +70,7 @@
                                    (:time ep-state) (:true-hyp?-fn @problem))
             (if (:AnalyzeSensitivity params)
               (analyze-sensitivity or-state truedata)
-              {})
+              {:AvgTrueSensitivity 0.0 :AvgFalseSensitivity 0.0})
             {:Step (:time ep-state)
              :MetaActivations (:meta-activations ors-resources)
              :MetaAccepted (:meta-accepted ors-resources)
@@ -105,7 +105,8 @@
                         (concat [:MetaActivations :MetaAccepted :Milliseconds :SharedExplains
                                  :Unexplained :UnexplainedPct :NoExplainers
                                  :ExplainCycles :HypothesisCount
-                                 :Compute :Memory :DeepestDep]
+                                 :Compute :Memory :DeepestDep
+                                 :AvgTrueSensitivity :AvgFalseSensitivity]
                                 (mapcat
                                  (fn [tf]
                                    (map #(keyword
