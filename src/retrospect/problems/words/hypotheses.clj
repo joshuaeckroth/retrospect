@@ -66,7 +66,7 @@
   (let [explains (map #(nth sensor-hyps %) pos-seq)
         adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))
         bk (- 1.0 (/ (:BelievedKnowledge params) 100.0))
-        ;; bk-awl (Math/pow bk (inc (Math/abs (- (count word) avg-word-length))))
+        bk-awl (Math/pow bk (inc (Math/abs (- (count word) avg-word-length))))
         sim (similarity word centroid)
         apriori (* bk sim)]
     (new-hyp "WordLearn" :learned-word conflicts?
