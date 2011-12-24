@@ -236,6 +236,10 @@ Transitive explanation is a parameter. If `:TransitiveExplanation` is
   - `:MinLearnLength` (1+); the length of the shortest word that the
     agent will consider learning; the agent is promised to know about
     all true words shorter than this length
+    
+  - `:MaxLearnLength` (1+, greater than `:MinLearnLength`); the length
+    of the longest word that the agent will consider learning; this
+    prevents combinatorial explosions
 
 ### Tracking domain parameters
 

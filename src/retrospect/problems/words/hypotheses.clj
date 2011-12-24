@@ -270,7 +270,7 @@
         contig-subsets-allsizes (mapcat (fn [sub]
                                           (mapcat #(partition % 1 sub)
                                                   (range (:MinLearnLength params)
-                                                         (inc (count sub)))))
+                                                         (inc (:MaxLearnLength params)))))
                                         contig-subsets)
         words (sort-by first (map (fn [subset] (map (fn [i] (nth indexed-letters i))
                                                     subset)) contig-subsets-allsizes))

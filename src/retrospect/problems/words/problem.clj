@@ -94,6 +94,7 @@
                 :MaxModelGrams 3
                 :MinWordLength 3
                 :MinLearnLength 5
+                :MaxLearnLength 8
                 :MetaReasoning "NoMetaReasoning"
                 :Knowledge 60
                 :BelievedKnowledge 60
