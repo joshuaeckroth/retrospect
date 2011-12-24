@@ -116,4 +116,4 @@
    hypothesize-fn get-more-hyps-fn commit-decision-fn retract-fn
    gen-problem-data-fn inconsistent-fn no-explainer-hyps-fn
    evaluate-fn evaluate-comparative-fn true-hyp?-fn hyps-equal?-fn perturb-fn
-   hyp-types default-params])
+   hyp-subtypes default-params])

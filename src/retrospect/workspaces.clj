@@ -20,7 +20,7 @@
   (def last-id n))
 
 (defrecord Hypothesis
-    [id type conflict apriori expl-func explains depends desc data]
+    [id type subtype conflict apriori expl-func explains depends desc data]
   Object
   (toString [self] (format "%s: %s" id desc))
   Comparable
@@ -33,7 +33,7 @@
 (comment   (print-simple (str "#<" (:id o) ": \"" (:desc o) "\">") w))
 
 (defn new-hyp
-  [prefix type conflict apriori expl-func explains depends desc data]
+  [prefix type subtype conflict apriori expl-func explains depends desc data]
   (let [id (inc last-id)]
     ;; use var-set if running batch mode; def if using player or repl
     ;; (in batch mode, thread is called something like pool-2-thread-1)
@@ -42,7 +42,7 @@
       (def last-id (inc last-id))
       (var-set (var last-id) (inc last-id)))
     (Hypothesis. (format "%s%d" (if meta? (str "M" prefix) prefix) id)
-                 type conflict apriori expl-func explains depends desc data)))
+                 type subtype conflict apriori expl-func explains depends desc data)))
 
 (defn init-workspace
   ([]

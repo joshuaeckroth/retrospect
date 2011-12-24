@@ -17,7 +17,7 @@
   [pdata cov-or-uncov sensor-hyp]
   (some (fn [h] (and (= (:id (:sensor (:data h))) (:id (:sensor (:data sensor-hyp))))
                      (= (:det (:data h)) (:det (:data sensor-hyp)))
-                     (= (:type h) (:type sensor-hyp))))
+                     (= (:subtype h) (:subtype sensor-hyp))))
         (concat (get pdata (keyword (format "%s-from" (name cov-or-uncov))))
                 (get pdata (keyword (format "%s-to" (name cov-or-uncov)))))))
 
@@ -25,8 +25,10 @@
   [sensor {:keys [x y color time] :as det}]
   (let [desc (format (str "Sensor detection by %s - color: %s, x: %d, y: %d, time: %d")
                      (:id sensor) (color-str color) x y time)]
-    [(new-hyp "SensFrom" :sensor-from nil 1.0 nil [] [] desc {:sensor sensor :det det})
-     (new-hyp "SensTo" :sensor-to nil 1.0 nil [] [] desc {:sensor sensor :det det})]))
+    [(new-hyp "SensFrom" :sensor :sensor-from nil 1.0 nil [] [] desc
+              {:sensor sensor :det det})
+     (new-hyp "SensTo" :sensor :sensor-to nil 1.0 nil [] [] desc
+              {:sensor sensor :det det})]))
 
 (defn process-sensors
   "Add to \"uncovered-from/to\" sets any sensor data we don't already
@@ -84,7 +86,7 @@
                                    :score (score-movement det det2 walk-dist)}))
                               unc-pairs)]
     (for [{:keys [det det-hyp det2 det2-hyp score]} unc-pairs-scored :when score]
-      (new-hyp "Mov" :movement nil score
+      (new-hyp "Mov" :movement :movement nil score
                :and [det-hyp det2-hyp] [det-hyp det2-hyp] (path-str [det det2])
                {:det det :det2 det2
                 :det-hyp det-hyp :det2-hyp det2-hyp
@@ -103,7 +105,7 @@
   (let [det-seq (sort-by :time (set (mapcat (fn [hyp] [(:det (:data hyp))
                                                        (:det2 (:data hyp))])
                                             movs)))]
-    (new-hyp "Path" :path nil
+    (new-hyp "Path" :path :path nil
              (avg (map :apriori movs)) :and movs movs
              (format "%s (%s)" (path-str det-seq) (name bias))
              {:movements movs :bias bias})))
@@ -112,7 +114,7 @@
   "All paths should have the same start and end point and bias."
   [entity prior-loc-hyp bias bias-hyp paths]
   (let [{:keys [x y time color]} (:det2 (:data (last (:movements (:data (first paths))))))]
-    (new-hyp "Loc" :location
+    (new-hyp "Loc" :location :location
              [:location entity] ;; conflict with entity/location-hyps
              (apply max (map :apriori paths)) :or paths
              ;; depends
@@ -163,7 +165,7 @@
     (map (fn [ls]
            (let [entity (:entity (:data (first ls)))
                  bias (:bias (:data (first ls)))]
-             (new-hyp "Bias" :bias
+             (new-hyp "Bias" :bias :bias
                       [:bias entity] ;; conflict with entity/bias-hyps
                       (apply max (map :apriori ls)) :or ls ls
                       (format "Entity %s has bias %s" entity bias)
@@ -227,7 +229,7 @@
                                    (score-movement det (det2-fn e entities) walk-dist))))
                              (keys entities))]
               (map (fn [e] (:loc-hyp (last (get entities e)))) es)))
-          (filter #(or (= :sensor-from (:type %)) (= :sensor-to (:type %))) hyps)))))
+          (filter #(or (= :sensor-from (:subtype %)) (= :sensor-to (:subtype %))) hyps)))))
 
 (defn commit-decision
   [pdata accepted rejected unaccepted time-now]
@@ -246,8 +248,8 @@
         bel-movs (set (map (comp :movement :data) (filter #(= :movement (:type %)) accepted)))
         dis-movs (set (map (comp :movement :data) (filter #(= :movement (:type %)) rejected)))
         explained-det-hyps (mapcat :explains (filter #(= :movement (:type %)) accepted))
-        covered-from (set (filter #(= :sensor-from (:type %)) explained-det-hyps))
-        covered-to (set (filter #(= :sensor-to (:type %)) explained-det-hyps))]
+        covered-from (set (filter #(= :sensor-from (:subtype %)) explained-det-hyps))
+        covered-to (set (filter #(= :sensor-to (:subtype %)) explained-det-hyps))]
     (-> pdata (assoc :entities entities)
         (assoc :entity-biases entity-biases)
         (update-in [:accepted] set/union accepted)
@@ -280,6 +282,6 @@
             (update-in [:uncovered-from] set/union #{(:det2-hyp (:data hyp))})
             (update-in [:uncovered-to] set/union #{(:det-hyp (:data hyp))})
             (update-in [:accepted] disj hyp))
-        (or (= :sensor-from (:type hyp)) (= :sensor-to (:type hyp)))
+        (or (= :sensor-from (:subtype hyp)) (= :sensor-to (:subtype hyp)))
         (update-in pdata [:accepted] disj hyp)
         :else pdata))

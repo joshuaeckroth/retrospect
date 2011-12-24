@@ -7,14 +7,15 @@
 Both "facts" (data received from sensors) and explanations of facts
 are "hypotheses," in order to maintain a common abstraction. Each
 hypothesis has several attributes: an identifier (a prefix followed by
-a number); a type (such as `:sensor` or `:movement`); a function that
-identifies which other hypotheses conflict; a tag `:and` or `:or` (or
-`nil`) indicating whether the hypothesis can only be accepted
-(assuming transitive explanation is disabled) when either all the
-hypotheses it explains have already been accepted (`:and`) or at least
-one hypothesis it explains has already been accepted (`:or`) or
-neither (`nil`, no restriction is enforced); a set of hypotheses that
-this hypothesis explains; a description; and domain-specific data.
+a number); a type (such as `:sensor` or `:movement` or `:word`); a
+subtype (such as `:learned-word`); a function that identifies which
+other hypotheses conflict; a tag `:and` or `:or` (or `nil`) indicating
+whether the hypothesis can only be accepted (assuming transitive
+explanation is disabled) when either all the hypotheses it explains
+have already been accepted (`:and`) or at least one hypothesis it
+explains has already been accepted (`:or`) or neither (`nil`, no
+restriction is enforced); a set of hypotheses that this hypothesis
+explains; a description; and domain-specific data.
 
 #### Definition: Hypothesis confidence
 

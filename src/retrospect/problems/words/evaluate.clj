@@ -3,18 +3,10 @@
   (:use [retrospect.evaluate :only [calc-increase]])
   (:use [retrospect.state]))
 
-(defn get-truewords-starts
-  [truedata time]
-  (loop [ws []
-         ws-count (count (:prefix (meta truedata)))
-         td (:words (meta truedata))]
-    (let [c (+ ws-count (count (first td)))]
-      (if (< time c) ws 
-          (recur (conj ws [(first td) ws-count]) c (rest td))))))
-
 (defn true-hyp?
   [truedata pdata time hyp]
-  (let [truewords-starts (get-truewords-starts truedata time)
+  (let [truewords-starts (filter #(<= (second %) time)
+                                 (:word-starts (meta truedata)))
         words (:words (:data hyp))
         pos-seqs (:pos-seqs (:data hyp))]
     (every? (fn [i]
@@ -37,8 +29,9 @@
   [ep-state sensors truedata]
   (let [accepted (:accepted (:problem-data ep-state))
         dict (:dictionary (meta truedata))
-        learned (filter #(= :learned-word (:type %)) accepted)
-        truewords-starts (get-truewords-starts truedata (:time ep-state))
+        learned (filter #(= :learned-word (:subtype %)) accepted)
+        truewords-starts (filter #(<= (second %) (:time ep-state))
+                                 (:word-starts (meta truedata)))
         truewords (map first truewords-starts)
         correct-pcts
         (for [hyp (sort-by (comp ffirst :pos-seq :data) accepted)]

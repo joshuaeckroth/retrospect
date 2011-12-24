@@ -54,7 +54,7 @@
                         (reduce + (map (fn [w] (get unimodel w)) similar-words))))
         changes (count-changes word letters)
         apriori (max 0.001 (* prob (/ (- (count word) changes) (count word))))]
-    (new-hyp "Word" :word conflicts?
+    (new-hyp "Word" :word :word conflicts?
              apriori :and explains []
              (format "Word: \"%s\" at positions %s (%s) (%d changes)"
                      word (str adjusted-pos-seq) (apply str letters) changes)
@@ -66,14 +66,12 @@
   (let [explains (map #(nth sensor-hyps %) pos-seq)
         adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))
         bk (- 1.0 (/ (:BelievedKnowledge params) 100.0))
-        bk-awl (Math/pow bk (inc (Math/abs (- (count word) avg-word-length))))
-        sim (similarity word centroid)
-        apriori (* bk sim)]
-    (new-hyp "WordLearn" :learned-word conflicts?
+        sim (* 2000 (similarity word centroid))
+        apriori (min 1.0 (* bk sim))]
+    (new-hyp "WordLearn" :word :learned-word conflicts?
              apriori :and explains []
-             (format "Learned word: \"%s\" at positions %s (%s) (bk-awl: %.4f, sim: %.4f)"
-                     word (str adjusted-pos-seq) (apply str letters)
-                     bk-awl sim)
+             (format "Learned word: \"%s\" at positions %s (%s) (sim: %.4f)"
+                     word (str adjusted-pos-seq) (apply str letters) sim)
              {:start (first adjusted-pos-seq) :end (last adjusted-pos-seq)
               :words [word] :pos-seqs [adjusted-pos-seq]})))
 
@@ -183,8 +181,8 @@
                     pos-seqs (mapcat (comp :pos-seqs :data) c)
                     c-set (set c)
                     accepted-words (set/intersection accepted c-set)
-                    unaccepted (set/difference accepted c-set)]
-                (new-hyp "WordSeq" :word-seq conflicts?
+                    unaccepted (set/difference c-set accepted)]
+                (new-hyp "WordSeq" :word-seq :word-seq conflicts?
                          (lookup-prob models c accepted-words)
                          :and unaccepted [] ;; explains & depends
                          (format "Word sequence \"%s\" at positions %s"
@@ -195,7 +193,7 @@
 
 (defn make-sensor-hyp
   [pos letter]
-  (new-hyp "Sens" :sensor nil 1.0 nil [] []
+  (new-hyp "Sens" :sensor :sensor nil 1.0 nil [] []
            (format "Letter: '%c' at position %d" letter pos) {:pos pos}))
 
 (defn make-sensor-hyps
@@ -279,7 +277,8 @@
     (map (fn [w] (make-learned-word-hyp (apply str (map second w))
                                         (map first w) (map second w)
                                         left-off sensor-hyps avg-word-length centroid))
-         ;; don't learn words that stop at or later than 3 letters from the time boundary
+         ;; don't learn words that stop at or later than
+         ;; 3 letters from the time boundary
          (filter #(< (first (last %)) (- last-time 3)) new-words))))
 
 (defn get-more-hyps

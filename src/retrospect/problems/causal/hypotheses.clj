@@ -51,7 +51,7 @@
                                    explanatory)))
         hyps-no-explains
         (reduce (fn [m {:keys [node1 val1 node2 val2 delta]}]
-                  (let [h (new-hyp "Expl" :explanation node1 delta :and [] []
+                  (let [h (new-hyp "Expl" :explanation :explanation node1 delta :and [] []
                                    (format "%s=%s explains %s=%s" node1 val1 node2 val2)
                                    {:node1 node1 :val1 val1
                                     :node2 node2 :val2 val2})]
@@ -99,7 +99,7 @@
                                        observed)
           sensor-hyps (reduce (fn [m [n v]]
                                 (assoc m [n v]
-                                       (new-hyp "Obs" :sensor nil
+                                       (new-hyp "Obs" :sensor :sensor nil
                                                 1.0 :or [] []
                                                 (format "%s observed %s" n v)
                                                 {:node n :value v})))
