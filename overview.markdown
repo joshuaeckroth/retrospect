@@ -222,6 +222,20 @@ Transitive explanation is a parameter. If `:TransitiveExplanation` is
 
   - `:MaxModelGrams` (1-10); word transition model size (i.e. unigram,
     bigram, trigram, etc.)
+    
+  - `:LearnFeatureSize` (1+); letter transition size (like an n-gram
+    model on words) that are recorded for each word in the dictionary;
+    these transition frequencies are normalized and use to calculate
+    word similarities between known words and a potential learned
+    word
+    
+  - `:MinWordLength` (1+); the length of the shortest word that the
+    agent will know about and will be found in the data (including the
+    truedata)
+    
+  - `:MinLearnLength` (1+); the length of the shortest word that the
+    agent will consider learning; the agent is promised to know about
+    all true words shorter than this length
 
 ### Tracking domain parameters
 
@@ -532,7 +546,21 @@ composite).
   
 ### Learning
 
-Only words with length *|w|>=3* are offered for learning.
+A learned words score is <i>B * S</i> where *B* is the agent's
+estimate of its own knowledge (a value in the range [0.0, 1.0]) and
+*S* is the similarity of the word with known words, based on letter
+transition frequences and the cosine similarity metric. Letter
+transitions are essentially stored in normalized vectors, one such
+feature vector for each known word. The potential learned word's
+feature vector is compared with a centroid of known word feature
+vectors using the cosine similarity calculation. The value for *S* is
+in the range [0.0, 1.0].
+
+Additionally, a word will not be learned if it is within three steps
+from the end of a collection of sensor reports (since there is a high
+chance the letters at the cutoff will be part of a different word).
+
+Finally, learned words must have length at least `:MinLearnLength`.
 
 
 ## Robustness analysis
@@ -596,8 +624,8 @@ way:
     (accepted/rejected/unaccepted); the domain provides the means to
     compare hypotheses (with distinct identifiers) for equality.
     
-  - If the hypothesis retains its state, its sensitivity is
-    0. Otherwise, its sensitivity is 1.
+  - If the hypothesis retains its state, its sensitivity is 0.
+    Otherwise, its sensitivity is 1.
     
 Obviously, this process is performed only once for all hypotheses, not
 once for each hypothesis. The metrics *AvgTrueSensitivity* and

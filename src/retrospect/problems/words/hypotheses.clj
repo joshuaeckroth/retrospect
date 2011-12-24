@@ -5,6 +5,8 @@
   (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.workspaces :only [find-unexplained new-hyp get-hyps]])
   (:use [retrospect.epistemicstates :only [add-hyp add-fact add-more-hyp]])
+  (:use [retrospect.problems.words.learning :only
+         [update-features calc-centroid similarity]])
   (:use [retrospect.state]))
 
 (def compute 0)
@@ -60,15 +62,18 @@
               :words [word] :pos-seqs [adjusted-pos-seq] :changes changes})))
 
 (defn make-learned-word-hyp
-  [word pos-seq letters left-off sensor-hyps avg-word-length]
+  [word pos-seq letters left-off sensor-hyps avg-word-length centroid]
   (let [explains (map #(nth sensor-hyps %) pos-seq)
         adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))
-        apriori (Math/pow (- 1.0 (/ (:BelievedKnowledge params) 100.0))
-                          (inc (Math/abs (- (count word) avg-word-length))))]
+        bk (- 1.0 (/ (:BelievedKnowledge params) 100.0))
+        ;; bk-awl (Math/pow bk (inc (Math/abs (- (count word) avg-word-length))))
+        sim (similarity word centroid)
+        apriori (* bk sim)]
     (new-hyp "WordLearn" :learned-word conflicts?
              apriori :and explains []
-             (format "Learned word: \"%s\" at positions %s (%s)"
-                     word (str adjusted-pos-seq) (apply str letters))
+             (format "Learned word: \"%s\" at positions %s (%s) (bk-awl: %.4f, sim: %.4f)"
+                     word (str adjusted-pos-seq) (apply str letters)
+                     bk-awl sim)
              {:start (first adjusted-pos-seq) :end (last adjusted-pos-seq)
               :words [word] :pos-seqs [adjusted-pos-seq]})))
 
@@ -252,7 +257,8 @@
     (concat word-hyps composite-hyps)))
 
 (defn make-learning-hyps
-  [indexed-letters unexp-pos left-off dictionary sensor-hyps avg-word-length]
+  [indexed-letters unexp-pos left-off dictionary sensor-hyps
+   avg-word-length centroid last-time]
   (let [contig-subsets (loop [ps (rest unexp-pos)
                               subs (if-let [p (first unexp-pos)] [[p]] [])]
                          (cond (empty? ps) subs
@@ -272,8 +278,9 @@
         new-words (filter (fn [w] (not (dictionary (apply str (map second w))))) words)]
     (map (fn [w] (make-learned-word-hyp (apply str (map second w))
                                         (map first w) (map second w)
-                                        left-off sensor-hyps avg-word-length))
-         new-words)))
+                                        left-off sensor-hyps avg-word-length centroid))
+         ;; don't learn words that stop at or later than 3 letters from the time boundary
+         (filter #(< (first (last %)) (- last-time 3)) new-words))))
 
 (defn get-more-hyps
   "The `(hypothesize)` function only offers word hypotheses that have
@@ -292,13 +299,14 @@
    and the already accepted, and not accepted, hypotheses found in the
    workspace of `ep-state`. "
   [ep-state]
-  (let [{:keys [dictionary models left-off
+  (let [{:keys [dictionary models left-off centroid
                 indexed-letters avg-word-length accepted]} (:problem-data ep-state)
         max-n (apply max (keys models))
         sensor-noise (double (/ (:SensorNoise params) 100.0))
         ws (:workspace ep-state)
         existing-hyps (get-hyps ws)
         sensor-hyps (sort-by (comp :pos :data) (:forced ws))
+        last-time (apply max 0 (map (comp :pos :data) sensor-hyps))
         unexp-pos (sort (map (comp :pos :data)
                              (set/intersection (find-unexplained ws) (:forced ws))))
         sub-indexed-letters (sort-by first (map (fn [i] (nth indexed-letters i))
@@ -309,7 +317,9 @@
                                                     sensor-hyps existing-hyps models) [])
         learning-hyps (if (and (> 100 (:BelievedKnowledge params)) (:Learn params))
                         (make-learning-hyps indexed-letters unexp-pos left-off
-                                            dictionary sensor-hyps avg-word-length) [])
+                                            dictionary sensor-hyps
+                                            avg-word-length centroid
+                                            last-time) [])
         composite-hyps (make-composite-hyps models (concat (filter #(= :word (:type %))
                                                                    existing-hyps)
                                                            sensor-noise-hyps learning-hyps)
@@ -359,6 +369,8 @@
                                                   words)))
                            {} (range 1 (inc max-n)))
         new-dict (set/union (:dictionary pdata) (set learned-words))
+        new-features (update-features (:features pdata) new-dict)
+        new-centroid (calc-centroid new-features (get new-models 1))
         new-accepted (set (concat (:accepted pdata)
                                   (filter #(not= :sensor (:type %)) accepted)))]
     (-> pdata
@@ -369,6 +381,8 @@
         (assoc :avg-word-length (if (empty? new-dict) 0
                                     (double (/ (reduce + (map count new-dict))
                                                (count new-dict)))))
+        (assoc :features new-features)
+        (assoc :centroid new-centroid)
         (assoc :letters [])
         (assoc :left-off left-off))))
 

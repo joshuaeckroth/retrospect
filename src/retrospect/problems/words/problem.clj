@@ -15,6 +15,7 @@
           player-get-problem-log player-setup-diagram player-update-diagram]])
   (:use [retrospect.problems.words.monitor :only [monitor]])
   (:use [retrospect.problems.words.prepared :only [prepared-map]])
+  (:use [retrospect.problems.words.learning :only [update-features calc-centroid]])
   (:use [retrospect.random])
   (:use [retrospect.state]))
 
@@ -40,12 +41,21 @@
                                            (/ (:Knowledge params) 100)))
                                    sorted-dict))
                         (set (filter #(< (count %) (:MinLearnLength params))
-                                     sorted-dict)))]
+                                     sorted-dict)))
+        limited-models (reduce (fn [ms ngram]
+                                 (assoc ms ngram
+                                        (reduce (fn [m ws] (if (every? dict ws) m
+                                                               (dissoc m ws)))
+                                                (get ms ngram) (keys (get ms ngram)))))
+                               models (keys models))
+        features (update-features {} dict)]
     {:dictionary dict
      :avg-word-length (if (empty? dict) 0
                           (double (/ (reduce + (map count dict))
                                      (count dict))))
-     :models models
+     :models limited-models
+     :features features
+     :centroid (calc-centroid features (get limited-models 1))
      :left-off -1
      :indexed-letters []
      :accepted #{}
@@ -76,18 +86,19 @@
                hyps-equal?
                perturb
                [:word :word-seq :learned-word]
-               {:Steps 120
+               {:Steps 600
                 :Threshold 20
                 :StepsBetween 30
                 :SensorNoise 0
                 :BeliefNoise 0
                 :MaxModelGrams 3
                 :MinWordLength 3
-                :MinLearnLength 3
+                :MinLearnLength 5
                 :MetaReasoning "NoMetaReasoning"
-                :Knowledge 100
-                :BelievedKnowledge 100
-                :Learn false
+                :Knowledge 60
+                :BelievedKnowledge 60
+                :Learn true
+                :LearnFeatureSize 2
                 :TransitiveExplanation true
                 :AnalyzeSensitivity false}))
 
