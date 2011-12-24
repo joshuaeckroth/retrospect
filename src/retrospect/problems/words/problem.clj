@@ -75,6 +75,7 @@
                true-hyp?
                hyps-equal?
                perturb
+               [:word :word-seq :learned-word]
                {:Steps 120
                 :Threshold 20
                 :StepsBetween 30

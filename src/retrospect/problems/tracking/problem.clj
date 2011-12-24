@@ -68,6 +68,7 @@
                true-hyp?
                (constantly false) ;; hyps-equal?
                identity ;; perturb
+               [:movement :path :location :bias]
                {:Steps 25
                 :Threshold 20
                 :StepsBetween 6

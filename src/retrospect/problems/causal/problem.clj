@@ -52,6 +52,7 @@
             true-hyp?
             (constantly false) ;; hyps-equal?
             identity ;; perturb
+            [] ;; hyp-types
             {:Steps 25
              :Threshold 20
              :StepsBetween 6

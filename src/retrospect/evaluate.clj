@@ -27,8 +27,10 @@
 (defn calc-true-false-confs
   "Find average confidence for true hyps, average confidence for false hyps."
   [truedata pdata workspace time true-hyp?]
-  (let [hyps (group-by :type (set/difference (get-hyps workspace :static)
-                                             (:forced workspace)))
+  (let [hyps (reduce (fn [m t] (if (nil? (get m t)) (assoc m t #{}) m))
+                     (group-by :type (set/difference (get-hyps workspace :static)
+                                                     (:forced workspace)))
+                     (:hyp-types @problem))
         true-false (let [tf (reduce (fn [m t]
                                       (assoc m t (group-by
                                                   (partial true-hyp? truedata pdata time)
