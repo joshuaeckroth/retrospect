@@ -356,7 +356,7 @@
                   (recur words (rest wps) end-time)
                   :else (recur (conj words word)
                                (rest wps) (last pos-seq)))))
-        learned-hyps (filter (fn [hyp] (= :learned-word (:type hyp))) accepted)
+        learned-hyps (filter (fn [hyp] (= :learned-word (:subtype hyp))) accepted)
         learned-words (map (comp first :words :data) learned-hyps)
         models (:models pdata)
         history (:history pdata)

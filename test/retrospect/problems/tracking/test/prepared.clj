@@ -22,6 +22,17 @@
     (is (= 1.0 (:Recall (first results))))
     (is (= 1.0 (:Spec (first results))))))
 
+(deftest case-gray-in-range
+  (let [results (run tracking-problem (gray-in-range))]
+    (is (= 2 (count results)))
+    (is (= 100.0 (:PEC (first results))))
+    (is (= 0.0 (:PEW (first results))))
+    (is (= 1.0 (:IDCorrect (first results))))
+    (is (= 1.0 (:Acc (first results))))
+    (is (= 1.0 (:Prec (first results))))
+    (is (= 1.0 (:Recall (first results))))
+    (is (= 1.0 (:Spec (first results))))))
+
 (deftest case-intersection-ambiguity
   ;; default is BatchBeginning
   (let [results (run tracking-problem (intersection-ambiguity))]
@@ -50,8 +61,8 @@
   (let [results (run tracking-problem
                      (assoc-in (intersection-ambiguity)
                                [:params :MetaReasoning] "Batch1"))]
-    (is (approx= 33.3 (:PEC (last results)) 0.1))
-    (is (approx= 33.3 (:PEW (last results)) 0.1)))
+    (is (approx= 100.0 (:PEC (last results)) 0.1))
+    (is (approx= 0.0 (:PEW (last results)) 0.1)))
   (let [results (run tracking-problem
                      (assoc-in (intersection-ambiguity)
                                [:params :MetaReasoning] "Batch2"))]

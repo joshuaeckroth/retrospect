@@ -34,6 +34,10 @@
   "Add to \"uncovered-from/to\" sets any sensor data we don't already
    have in one of those sets or the \"covered-from/to\" sets."
   [ep-state sensors time-now]
+  (mapcat (fn [s] (map (fn [dets] (make-sensor-hyps s dets))
+                                      (mapcat (fn [t] (sensed-at s t))
+                                              (range 0 (inc time-now)))))
+                         sensors)
   (let [pdata (:problem-data ep-state)
         det-hyps (mapcat (fn [s] (map (fn [dets] (make-sensor-hyps s dets))
                                       (mapcat (fn [t] (sensed-at s t))

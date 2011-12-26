@@ -49,7 +49,7 @@
 
 (defn color-update
   []
-  (let [params (merge basic-params {:Steps 2 :StepsBetween 3})]
+  (let [params (merge basic-params {:Steps 2 :StepsBetween 2})]
     {:params params
      :sensors [(new-sensor (keyword "1") 0 3 0 9 false)
                (new-sensor (keyword "2g") 4 7 0 9 true)
@@ -64,7 +64,7 @@
                (new-sensor (keyword "middle-gray") 0 9 4 6 false)
                (new-sensor (keyword "bottom") 0 9 7 9 true)]
      :truedata (entity-paths params
-                             ["1" :straigt red  0 3,0 3,5 3,9]
+                             ["1" :straigt red   0 3,0 3,5 3,9]
                              ["2" :straight blue 0 7,0 7,5 7,9])}))
 
 (defn intersection-ambiguity

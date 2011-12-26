@@ -18,8 +18,9 @@
   [time time-now truedata or-state]
   (loop [t time
          ors or-state]
-    (if (>= t time-now) ors
-        (recur (inc t) (update-in ors [:sensors] update-sensors truedata t)))))
+    (let [ors2 (update-in ors [:sensors] update-sensors truedata t)]
+      (if (>= t time-now) ors2
+          (recur (inc t) ors2)))))
 
 (defn hypothesize
   [or-state time-now]
