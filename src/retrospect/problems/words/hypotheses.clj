@@ -140,7 +140,8 @@
                                                     word-hyps))
                                    n))
                                 (range 2 (inc max-n))))]
-    (filter valid-composite? (filter (fn [c] (some #(not (accepted %)) c)) composites))))
+    (set (filter valid-composite? (filter (fn [c] (some #(not (accepted %)) c))
+                                          composites)))))
 
 (defn lookup-prob
   [models word-hyps accepted]
