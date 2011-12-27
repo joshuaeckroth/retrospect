@@ -12,7 +12,7 @@
 (def basic-params
   {:GridHeight 10, :GridWidth 10, :MaxWalk 10, :Knowledge 100, :Seed 100,
    :SensorNoise 0, :SensorSeesColor 100, :SensorCoverage 100,
-   :BeliefNoise 0, :StepsBetween 1, :Steps 50,
+   :BeliefNoise 0, :StepsBetween 1, :Steps 50, :KnowBiases true,
    :ProbNewEntities 0, :NumberEntities 1, :MetaReasoning "NoMetareasoning",
    :TransitiveExplanation false, :Threshold 0})
 
@@ -64,13 +64,14 @@
                (new-sensor (keyword "middle-gray") 0 9 4 6 false)
                (new-sensor (keyword "bottom") 0 9 7 9 true)]
      :truedata (entity-paths params
-                             ["1" :straigt red   0 3,0 3,5 3,9]
+                             ["1" :straight red   0 3,0 3,5 3,9]
                              ["2" :straight blue 0 7,0 7,5 7,9])}))
 
 (defn intersection-ambiguity
   []
   (let [params (merge basic-params {:Steps 3 :SensorSeesColor 80
-                                    :MetaReasoning "BatchBeginning" :MaxWalk 3})]
+                                    :MetaReasoning "BatchBeginning" :MaxWalk 3
+                                    :KnowBiases false})]
     {:params params
      :sensors [(new-sensor (keyword "left") 0 2 0 9 true)
                (new-sensor (keyword "middle") 3 4 0 9 false)
@@ -78,6 +79,17 @@
      :truedata (entity-paths params
                              ["1" :left red  0 5,7 4,4 3,3 2,2]
                              ["2" :right blue 0 5,4 4,7 3,8 2,9])}))
+
+(defn intersection-continued-ambiguity
+  []
+  (let [params (merge basic-params {:Steps 5 :SensorSeesColor 20
+                                    :MetaReasoning "NoMetareasoning" :MaxWalk 3})]
+    {:params params
+     :sensors [(new-sensor :top 0 9 0 2 true)
+               (new-sensor :bottom 0 9 3 9 false)]
+     :truedata (entity-paths params
+                             ["1" :straight red  0 2,0 2,1 3,2 3,3 2,4 1,5 0,6 0,7]
+                             ["2" :straight blue 0 7,0 7,1 6,2 6,3 7,4 8,5 9,6 9,7])}))
 
 (defn random-bias-bug-nometa
   []
@@ -311,5 +323,6 @@
               "simple-dis" simple-disappearance
               "gray-in-range" gray-in-range
               "intersect" intersection-ambiguity
+              "intersect-cont" intersection-continued-ambiguity
               "r-bias-bug" random-bias-bug-nometa
               "r-bug" random-bug))

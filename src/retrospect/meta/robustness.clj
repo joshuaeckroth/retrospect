@@ -1,5 +1,8 @@
 (ns retrospect.meta.robustness
   (:require [clojure.set :as set])
+  (:use [clojure.contrib.combinatorics :only [combinations]])
+  (:use [loom.graph :only [nodes incoming]])
+  (:use [loom.alg :only [pre-traverse]])
   (:use [retrospect.epistemicstates :only
          [current-ep-state previous-ep-state new-branch-ep-state
           new-branch-root ep-state-depth explain]])
@@ -40,3 +43,14 @@
                                 :else
                                 (- 1.0 (double (/ (count false-same)
                                                   (- (count hyps) (count true-hyps))))))}))
+
+(defn analyze-dependency
+  [or-state hyp]
+  (let [ep-state (:ep-state or-state)
+        depgraph (:depgraph ep-state)
+        hyp-deps (set (pre-traverse depgraph hyp))
+        starts (filter #(empty? (incoming depgraph %)) (nodes depgraph))
+        common-deps (map (fn [s] [s (set/intersection (set (pre-traverse depgraph s))
+                                                      hyp-deps)])
+                         (filter #(not= hyp %) starts))]
+    common-deps))

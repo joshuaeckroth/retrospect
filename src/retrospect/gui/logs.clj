@@ -12,6 +12,7 @@
   (:require [retrospect.workspaces :as ws])
   (:use [retrospect.epistemicstates :only
          [previous-ep-state flatten-ep-state-tree]])
+  (:use [retrospect.meta.robustness :only [analyze-dependency]])
   (:use [retrospect.confidences])
   (:use [retrospect.state]))
 
@@ -108,6 +109,14 @@
             (expls (:last-immediate-explainers (:final (:log workspace))))
             (expls (:last-transitive-explainers (:final (:log workspace)))))))
 
+(defn format-hyp-info
+  [workspace hyp]
+  (let [info (hyp-info workspace hyp)
+        dep-analysis (apply str (map (fn [[s hyps]]
+                                       (format "%s: %s\n" (:id s)
+                                               (apply str (interpose ", " (map :id (sort-by :id hyps)))))) (filter (comp not-empty second) (analyze-dependency @or-state hyp))))]
+    (format "%s\n\nDependency analysis:\n\n%s" info dep-analysis)))
+
 (defn show-log
   [path]
   (if path
@@ -126,7 +135,7 @@
           (let [hyp (if ws (find-first #(= (:id %) last-comp) (ws/get-hyps ws :static)))]
             (swap! hyp-selected (constantly hyp))
             (if hyp
-              (dosync (alter workspace-log (constantly (hyp-info ws hyp))))
+              (dosync (alter workspace-log (constantly (format-hyp-info ws hyp))))
               (dosync (alter workspace-log (constantly (final-explainers ws)))))))))))
 
 (defn show-analysis
@@ -146,7 +155,8 @@
                            (group-str "unaccepted" unacc))]
       (dosync
        (alter workspace-log
-              (fn [log] (format "%s\n\nAnalysis:\n\n%s" log analysis)))))))
+              (fn [log] (format "%s\n\nAnalysis:\n\n%s\n\n%s"
+                                log analysis)))))))
 
 (defn update-logs
   []

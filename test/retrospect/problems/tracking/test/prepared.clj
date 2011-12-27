@@ -1,5 +1,9 @@
 (ns retrospect.problems.tracking.test.prepared
   (:use [clojure.test :only [deftest is]])
+  (:require [clojure.set :as set])
+  (:use [clojure.contrib.combinatorics :only [combinations]])
+  (:use [loom.graph :only [nodes incoming]])
+  (:use [loom.alg :only [pre-traverse scc]])
   (:use [retrospect.test.utils])
   (:use [retrospect.problems.tracking.problem :only
          [tracking-problem]])
@@ -77,6 +81,10 @@
     (is (= 1.0 (:IDCorrect (last results))))
     (is (= 1 (:MetaActivations (last results))))
     (is (= 1 (:MetaAccepted (last results))))))
+
+(deftest case-intersection-continued-ambiguity
+  (let [results (run tracking-problem (intersection-continued-ambiguity))]
+    (is (= 2 2))))
 
 (deftest case-random-bias-bug
   (let [results (run tracking-problem

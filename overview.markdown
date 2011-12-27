@@ -256,6 +256,10 @@ Transitive explanation is a parameter. If `:TransitiveExplanation` is
 
   - `:NumberEntities` (1+); number of (starting) entities in the grid
     *(truth-changing)*
+    
+  - `:KnowBiases` (true or false); whether or not the agent knows the
+    entities' biases (left/right/straight) and thus need not
+    hypothesize them
 
   - `:ProbNewEntities` (0-100); probability that a new entity will be
     generated each time step; a value *p* causes a *p*/100 chance, in

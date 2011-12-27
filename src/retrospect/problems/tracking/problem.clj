@@ -32,7 +32,10 @@
   [truedata sensors]
   {:entities (reduce (fn [es e] (assoc es e [(first (get truedata e))]))
                      {} (keys truedata))
-   :entity-biases {}
+   :entity-biases (if-not (:KnowBiases params) {}
+                          (reduce (fn [m e]
+                                    (assoc m e {:bias (:bias (first (get truedata e)))}))
+                                  {} (keys truedata)))
    :accepted #{}
    :unaccepted #{}
    :believed-movements #{}
@@ -77,6 +80,7 @@
                 :GridWidth 20
                 :GridHeight 20
                 :NumberEntities 6
+                :KnowBiases true
                 :MaxWalk 10
                 :SensorSeesColor 70
                 :SensorCoverage 100
