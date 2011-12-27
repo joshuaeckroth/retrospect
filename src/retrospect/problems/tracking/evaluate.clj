@@ -12,7 +12,7 @@
                   (map (comp :movement :data) (:movements (:data hyp))))
           (= :location (:type hyp))
           (dets-match? (assoc (:loc (:data hyp)) :color (:color (:data hyp)))
-                       (nth (get truedata (:entity (:data hyp))) (dec time)))
+                       (nth (get truedata (:entity (:data hyp))) time))
           :else true)))
 
 (defn count-matches
