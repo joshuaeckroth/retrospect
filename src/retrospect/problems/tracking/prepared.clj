@@ -14,7 +14,7 @@
    :SensorNoise 0, :SensorSeesColor 100, :SensorCoverage 100,
    :BeliefNoise 0, :StepsBetween 1, :Steps 50, :KnowBiases true,
    :ProbNewEntities 0, :NumberEntities 1, :MetaReasoning "NoMetareasoning",
-   :TransitiveExplanation false, :Threshold 0})
+   :TransitiveExplanation false, :Threshold 0, :PathBranches 2})
 
 (defn entity-paths
   [params & eps]
@@ -98,7 +98,7 @@
     :Seed 4872271, :MetaReasoning "NoMetareasoning", :SensorNoise 0,
     :SensorSeesColor 60, :SensorCoverage 100, :BeliefNoise 0,
     :StepsBetween 3, :GridWidth 20, :Steps 18, :ProbNewEntities 0,
-    :Threshold 0, :NumberEntities 4}))
+    :Threshold 0, :NumberEntities 4, :PathBranches 5}))
 
 (defn random-bug
   []
@@ -107,7 +107,7 @@
     :Seed 6186076, :MetaReasoning "NoMetareasoning", :SensorNoise 0,
     :SensorSeesColor 60, :SensorCoverage 100, :BeliefNoise 0,
     :StepsBetween 3, :GridWidth 20, :Steps 18, :ProbNewEntities 0,
-    :Threshold 60, :NumberEntities 4}))
+    :Threshold 60, :NumberEntities 4, :PathBranches 5}))
 
 (comment
   (defn intersection-ambiguity-nometa

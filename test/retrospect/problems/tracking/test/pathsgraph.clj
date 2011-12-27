@@ -4,10 +4,12 @@
   (:use [retrospect.workspaces :only [last-id new-hyp]])
   (:use [loom.graph :only [nodes edges incoming neighbors]])
   (:use [loom.attr :only [add-attr attr]])
-  (:use [retrospect.problems.tracking.pathsgraph]))
+  (:use [retrospect.problems.tracking.pathsgraph])
+  (:use [retrospect.state]))
 
 (deftest color-update
-  (binding [last-id 0]
+  (binding [last-id 0
+            params {:PathBranches 2}]
     (let [det1 {:x 0 :y 0 :time 0 :color red}
           det2 {:x 1 :y 1 :time 1 :color gray}
           det3 {:x 2 :y 2 :time 2 :color red}
@@ -30,7 +32,8 @@
              paths)))))
 
 (deftest bad-edges-1
-  (binding [last-id 0]
+  (binding [last-id 0
+            params {:PathBranches 2}]
     (let [det1 {:x 0 :y 0 :time 0 :color red}
           det2 {:x 1 :y 1 :time 1 :color gray}
           det3 {:x 2 :y 2 :time 2 :color blue}
@@ -51,7 +54,8 @@
                paths))))))
 
 (deftest bad-edges-2
-  (binding [last-id 0]
+  (binding [last-id 0
+            params {:PathBranches 2}]
     (let [det1 {:x 0 :y 0 :time 0 :color red}
           det2 {:x 2 :y 1 :time 1 :color gray} ;; should turn red
           det3 {:x 0 :y 2 :time 2 :color blue} ;; should be part of a "bad edge"

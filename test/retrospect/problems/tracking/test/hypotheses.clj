@@ -4,12 +4,14 @@
   (:use [retrospect.workspaces :only [last-id new-hyp]])
   (:use [retrospect.problems.tracking.hypotheses])
   (:use [retrospect.problems.tracking.pathsgraph :only
-         [build-paths-graph paths-graph-paths]]))
+         [build-paths-graph paths-graph-paths]])
+  (:use [retrospect.state]))
 
 (deftest gaps
   (binding [last-id 0
             compute 0
-            memory 0]
+            memory 0
+            params {:PathBranches 2}]
     (let [det1 {:x 0 :y 0 :color red :time 0}
           det2 {:x 0 :y 1 :color red :time 1}
           det3 {:x 0 :y 2 :color gray :time 2}
