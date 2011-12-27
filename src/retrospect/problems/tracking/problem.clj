@@ -7,7 +7,7 @@
   (:use [retrospect.problems.tracking.truedata :only
          [generate-truedata]])
   (:use [retrospect.problems.tracking.sensors :only
-         [generate-sensors]])
+         [generate-sensors perturb]])
   (:use [retrospect.problems.tracking.hypotheses :only
          [hypothesize commit-decision retract no-explainer-hyps]])
   (:use [retrospect.problems.tracking.player :only
@@ -70,7 +70,7 @@
                evaluate-comparative
                true-hyp?
                (constantly false) ;; hyps-equal?
-               identity ;; perturb
+               perturb
                [:movement :path :location :bias]
                {:Steps 25
                 :Threshold 20

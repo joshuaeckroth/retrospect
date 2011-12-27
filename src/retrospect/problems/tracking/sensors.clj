@@ -5,8 +5,19 @@
   (:use [retrospect.sensors :only [init-sensor add-sensed]])
   (:require [clojure.contrib.math :as math])
   (:use [retrospect.problems.tracking.movements :only
-         [entity-movements entities-at]])
+         [entity-movements entities-at walk-rand]])
   (:use [retrospect.state]))
+
+(defn perturb
+  [sensor]
+  (letfn [(rand-alter [det] (let [[x y] (walk-rand [(:x det) (:y det)])]
+                              (if (and (< x (:GridWidth params)) (>= x 0)
+                                       (< y (:GridHeight params)) (>= y 0))
+                                (assoc det :x x :y y))))]
+    (assoc sensor :sensed
+           (reduce (fn [sensed time]
+                     (assoc sensed time (map rand-alter sensed)))
+                   (:sensed sensor) (keys (:sensed sensor))))))
 
 (defn sees
   [sensor x y]
