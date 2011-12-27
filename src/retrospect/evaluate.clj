@@ -5,7 +5,7 @@
   (:use [loom.alg-generic :only [dijkstra-span]])
   (:use [retrospect.epistemicstates :only [current-ep-state previous-ep-state]])
   (:use [retrospect.workspaces :only [get-unexplained-pct hyp-conf get-hyps]])
-  (:use [retrospect.meta.robustness :only [analyze-sensitivity]])
+  (:use [retrospect.meta.robustness :only [analyze-sensitivity analyze-dependency]])
   (:use [retrospect.state]))
 
 (defn calc-increase
@@ -53,6 +53,22 @@
                        (keyword (format "AvgFalse%s" k)) (avg (get (get confs t) false)))))
             {} (keys confs))))
 
+(defn calc-avg-true-false-deps
+  [truedata or-state ep-state pdata workspace time true-hyp?]
+  (let [depgraph (:depgraph ep-state)
+        starts (filter #(empty? (incoming depgraph %)) (nodes depgraph))
+        tf-starts (group-by (partial true-hyp? truedata pdata time) starts)
+        tf-counts (map (fn [tf] (let [hyps (get tf-starts tf)
+                                      deps (set (map first
+                                                     (mapcat #(analyze-dependency or-state %)
+                                                             hyps)))]
+                                  (count deps)))
+                       [true false])]
+    {:AvgTrueDeps (if (empty? (get tf-starts true)) 0.0
+                      (double (/ (first tf-counts) (count (get tf-starts true)))))
+     :AvgFalseDeps (if (empty? (get tf-starts false)) 0.0
+                       (double (/ (second tf-counts) (count (get tf-starts false)))))}))
+
 (defn evaluate
   [truedata or-state]
   (let [ep-state (current-ep-state (:ep-state-tree or-state))
@@ -71,6 +87,9 @@
             (if (:AnalyzeSensitivity params)
               (analyze-sensitivity or-state truedata)
               {:AvgTrueSensitivity 0.0 :AvgFalseSensitivity 0.0})
+            (calc-avg-true-false-deps truedata or-state ep-state (:pdata ep-state)
+                                      (:workspace prev-ep) (:time ep-state)
+                                      (:true-hyp?-fn @problem))
             {:Step (:time ep-state)
              :MetaActivations (:meta-activations ors-resources)
              :MetaAccepted (:meta-accepted ors-resources)
@@ -106,7 +125,8 @@
                                  :Unexplained :UnexplainedPct :NoExplainers
                                  :ExplainCycles :HypothesisCount
                                  :Compute :Memory :DeepestDep
-                                 :AvgTrueSensitivity :AvgFalseSensitivity]
+                                 :AvgTrueSensitivity :AvgFalseSensitivity
+                                 :AvgTrueDeps :AvgFalseDeps]
                                 (mapcat
                                  (fn [tf]
                                    (map #(keyword

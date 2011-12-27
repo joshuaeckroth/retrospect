@@ -50,7 +50,8 @@
         depgraph (:depgraph ep-state)
         hyp-deps (set (pre-traverse depgraph hyp))
         starts (filter #(empty? (incoming depgraph %)) (nodes depgraph))
-        common-deps (map (fn [s] [s (set/intersection (set (pre-traverse depgraph s))
-                                                      hyp-deps)])
-                         (filter #(not= hyp %) starts))]
+        common-deps (filter (comp not-empty second)
+                            (map (fn [s] [s (set/intersection (set (pre-traverse depgraph s))
+                                                              hyp-deps)])
+                                 (filter #(not= hyp %) starts)))]
     common-deps))
