@@ -261,6 +261,10 @@ Transitive explanation is a parameter. If `:TransitiveExplanation` is
   - `:KnowBiases` (true or false); whether or not the agent knows the
     entities' biases (left/right/straight) and thus need not
     hypothesize them
+    
+  - `:PathBranches` (1+); how many branches to hypothesize at each
+    point where more than one movement may continue a path; there may
+    be a combinatorial explosion if this parameter is large
 
   - `:ProbNewEntities` (0-100); probability that a new entity will be
     generated each time step; a value *p* causes a *p*/100 chance, in

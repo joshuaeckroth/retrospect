@@ -80,6 +80,7 @@
                 :GridWidth 20
                 :GridHeight 20
                 :NumberEntities 6
+                :PathBranches 2
                 :KnowBiases true
                 :MaxWalk 10
                 :SensorSeesColor 70

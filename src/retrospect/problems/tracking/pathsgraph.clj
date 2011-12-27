@@ -6,7 +6,8 @@
   (:use [loom.attr :only [add-attr attr]])
   (:use [loom.io :only [view]])
   (:use [retrospect.colors])
-  (:use [retrospect.problems.tracking.movements :only [valid-angle? dets-match?]]))
+  (:use [retrospect.problems.tracking.movements :only [valid-angle? dets-match?]])
+  (:use [retrospect.state]))
 
 (defn paths-graph-add-edge
   [paths-graph hyp hyp-orig]
@@ -190,7 +191,8 @@
                                     (filter (fn [det]
                                               (let [p (conj path det)]
                                                 (some #(fits-bias? p %) (path-biases p))))
-                                            (find-n-best-next paths-graph (last path) 5))]
+                                            (find-n-best-next paths-graph (last path)
+                                                              (:PathBranches params)))]
                                 (if (empty? next-links) [path]
                                     (map (fn [det] (conj path det)) next-links))))
                             paths)]
