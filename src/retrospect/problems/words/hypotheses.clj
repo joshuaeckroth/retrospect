@@ -182,10 +182,15 @@
                     pos-seqs (mapcat (comp :pos-seqs :data) c)
                     c-set (set c)
                     accepted-words (set/intersection accepted c-set)
-                    unaccepted (set/difference c-set accepted)]
+                    unaccepted (set/difference c-set accepted)
+                    depends (set (for [h accepted-words]
+                                   (if-let [com (first (filter (fn [c] (some #{h} (:explains c)))
+                                                               (filter #(= :word-seq (:type %))
+                                                                       accepted)))]
+                                     com h)))]
                 (new-hyp "WordSeq" :word-seq :word-seq conflicts?
                          (lookup-prob models c accepted-words)
-                         :and unaccepted [] ;; explains & depends
+                         :and unaccepted depends ;; explains & depends
                          (format "Word sequence \"%s\" at positions %s"
                                  (apply str (interpose " " words))
                                  (apply str (interpose ", " pos-seqs)))
@@ -205,11 +210,6 @@
   [pdata hyps rejected]
   [])
 
-(defn make-dep-node
-  [hyp]
-  (format "%d: %s" (:start (:data hyp))
-          (apply str (interpose " " (:words (:data hyp))))))
-
 (defn make-indexed-letters
   [letters]
   ;; if not enough sensed data to fill time, indexed-letters will have some
@@ -228,8 +228,10 @@
           indexed-letters (make-indexed-letters letters)
           sensor-hyps (make-sensor-hyps indexed-letters)
           ep-sensor-hyps (reduce #(add-fact %1 %2) ep-state sensor-hyps)
-          ep-letters (assoc-in ep-sensor-hyps [:problem-data :indexed-letters] indexed-letters)
-          word-hyps (make-word-hyps indexed-letters left-off dictionary 0.0 sensor-hyps models)
+          ep-letters (assoc-in ep-sensor-hyps [:problem-data :indexed-letters]
+                               indexed-letters)
+          word-hyps (make-word-hyps indexed-letters left-off dictionary 0.0
+                                    sensor-hyps models)
           composite-hyps (make-composite-hyps models word-hyps accepted max-n)]
       [(reduce (fn [ep hyp] (add-hyp ep hyp))
                ep-letters (concat word-hyps composite-hyps))
@@ -346,7 +348,8 @@
   (let [words-pos-seqs
         (sort-by (comp first second)
                  (partition 2 (mapcat (fn [hyp] (interleave (:words (:data hyp))
-                                                            (:pos-seqs (:data hyp)))) accepted))) 
+                                                            (:pos-seqs (:data hyp))))
+                                      accepted))) 
         [words left-off]
         (loop [words []
                wps words-pos-seqs
