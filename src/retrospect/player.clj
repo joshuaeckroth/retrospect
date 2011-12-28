@@ -35,7 +35,7 @@
 
 (defn get-saved-params
   []
-  (let [ps (try (read-string (.get @prefs "params"
+  (let [ps (try (read-string (.get @prefs (format "%s-params" (:name @problem))
                                    (pr-str (:default-params @problem))))
                 (catch Exception _ (:default-params @problem)))]
     (alter-var-root (var params) (constantly ps))))
@@ -50,7 +50,7 @@
 (defn set-default-params
   []
   (alter-var-root (var params) (:default-params @problem))
-  (.put @prefs "params" (pr-str (:default-params @problem)))
+  (.put @prefs (format "%s-params" (:name @problem)) (pr-str (:default-params @problem)))
   (dosync (alter params-edit (constantly (format-params (:default-params @problem))))))
 
 (defn clear-params
@@ -101,7 +101,7 @@
     (when (not prepared?)
       (let [ps (read-string @params-edit)]
         (alter-var-root (var params) (constantly ps))
-        (.put @prefs "params" (pr-str ps))
+        (.put @prefs (format "%s-params" (:name @problem)) (pr-str ps))
         (dosync (alter params-edit (constantly (format-params ps))))
         (let [seed (if (:Seed ps) (:Seed ps) (get-seed))]
           (alter-var-root (var rgen) (constantly (new-seed seed))))
@@ -127,7 +127,7 @@
           sens (:sensors prepared)]
       (dosync (alter params-edit (constantly (format-params ps))))
       (alter-var-root (var params) (constantly ps))
-      (.put @prefs "params" (pr-str ps))
+      (.put @prefs (format "%s-params" (:name @problem)) (pr-str ps))
       (alter-var-root (var rgen) (constantly (new-seed seed)))
       (set-last-id 0)
       (dosync
