@@ -31,36 +31,38 @@
         e (symbol (str (count (keys movements))))]
     (assoc movements e [{:x x :y y :time time :color c :bias b}])))
 
-(defn dets-match?
-  [det det2]
-  (and (= (:x det) (:x det2))
-       (= (:y det) (:y det2))
-       (= (:time det) (:time det2))
-       (match-color? (:color det) (:color det2))))
+(def dets-match?
+  (memoize
+   (fn [det det2]
+     (and (= (:x det) (:x det2))
+          (= (:y det) (:y det2))
+          (= (:time det) (:time det2))
+          (match-color? (:color det) (:color det2))))))
 
-(defn valid-angle?
-  [bias x y ox oy oox ooy]
-  (let [theta (Math/atan2 (- oy ooy) (- ox oox))
-        cos-mult (Math/cos (- theta))
-        sin-mult (Math/sin (- theta))
-        nox (- (* cos-mult ox) (* sin-mult oy))
-        noy (+ (* sin-mult ox) (* cos-mult oy))
-        nx (- (* cos-mult x) (* sin-mult y))
-        ny (+ (* sin-mult x) (* cos-mult y))
-        ntheta (Math/atan2 (- ny noy) (- nx nox))
-        degrees (/ (* ntheta 180.0) 3.1415926)]
-    (cond
-     ;; angle is between -50 and 50 degrees
-     (= bias :straight)
-     (and (< -50 degrees) (> 50 degrees))
-     ;; angle is between -140 and -40 degrees
-     (= bias :left)
-     (and (< -140 degrees) (> -40 degrees))
-     ;; angle is between 40 and 140 degrees
-     (= bias :right)
-     (and (< 40 degrees) (> 140 degrees))
-     ;; otherwise, no bias, any angle is valid
-     :else true)))
+(def valid-angle?
+  (memoize
+   (fn [bias x y ox oy oox ooy]
+     (let [theta (Math/atan2 (- oy ooy) (- ox oox))
+           cos-mult (Math/cos (- theta))
+           sin-mult (Math/sin (- theta))
+           nox (- (* cos-mult ox) (* sin-mult oy))
+           noy (+ (* sin-mult ox) (* cos-mult oy))
+           nx (- (* cos-mult x) (* sin-mult y))
+           ny (+ (* sin-mult x) (* cos-mult y))
+           ntheta (Math/atan2 (- ny noy) (- nx nox))
+           degrees (/ (* ntheta 180.0) 3.1415926)]
+       (cond
+        ;; angle is between -50 and 50 degrees
+        (= bias :straight)
+        (and (< -50 degrees) (> 50 degrees))
+        ;; angle is between -140 and -40 degrees
+        (= bias :left)
+        (and (< -140 degrees) (> -40 degrees))
+        ;; angle is between 40 and 140 degrees
+        (= bias :right)
+        (and (< 40 degrees) (> 140 degrees))
+        ;; otherwise, no bias, any angle is valid
+        :else true)))))
 
 (defn walk-rand
   [[x y]]

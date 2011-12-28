@@ -57,3 +57,12 @@
                                                               hyp-deps)])
                                  (filter #(not= hyp %) starts)))]
     common-deps))
+
+(defn analyze-dependency-quick
+  [or-state hyp]
+  (let [ep-state (:ep-state or-state)
+        depgraph (:depgraph ep-state)
+        hyp-deps (set (pre-traverse depgraph hyp))
+        starts (filter #(empty? (incoming depgraph %)) (nodes depgraph))]
+    (filter (fn [s] (some hyp-deps (pre-traverse depgraph s)))
+            (filter #(not= hyp %) starts))))

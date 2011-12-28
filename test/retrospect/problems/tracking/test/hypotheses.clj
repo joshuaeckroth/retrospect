@@ -11,7 +11,7 @@
   (binding [last-id 0
             compute 0
             memory 0
-            params {:PathBranches 2}]
+            params {:PathBranches 2 :GridWidth 10 :GridHeight 10}]
     (let [det1 {:x 0 :y 0 :color red :time 0}
           det2 {:x 0 :y 1 :color red :time 1}
           det3 {:x 0 :y 2 :color gray :time 2}

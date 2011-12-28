@@ -5,7 +5,7 @@
   (:use [loom.alg-generic :only [dijkstra-span]])
   (:use [retrospect.epistemicstates :only [current-ep-state previous-ep-state]])
   (:use [retrospect.workspaces :only [get-unexplained-pct hyp-conf get-hyps]])
-  (:use [retrospect.meta.robustness :only [analyze-sensitivity analyze-dependency]])
+  (:use [retrospect.meta.robustness :only [analyze-sensitivity analyze-dependency-quick]])
   (:use [retrospect.state]))
 
 (defn calc-increase
@@ -60,7 +60,7 @@
         tf-starts (group-by (partial true-hyp? truedata pdata time) starts)
         tf-counts (map (fn [tf] (let [hyps (get tf-starts tf)
                                       deps (set (map first
-                                                     (mapcat #(analyze-dependency or-state %)
+                                                     (mapcat #(analyze-dependency-quick or-state %)
                                                              hyps)))]
                                   (count deps)))
                        [true false])]

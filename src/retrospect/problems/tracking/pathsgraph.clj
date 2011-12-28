@@ -169,34 +169,40 @@
   (and (or (= x 0) (= x (dec (:GridWidth params))))
        (or (= y 0) (= y (dec (:GridHeight params))))))
 
+(def move-fits-bias?
+  (memoize
+   (fn [bias [olddet det newdet]]
+     (let [[x y] [(:x newdet) (:y newdet)]
+           [ox oy] [(:x det) (:y det)]
+           [oox ooy] [(:x olddet) (:y olddet)]]
+       (or (and (in-corner x y) (in-corner ox oy))
+           (valid-angle? bias x y ox oy oox ooy))))))
+
 (defn fits-bias?
   [path bias]
   (or (>= 2 (count path))
-      (every? (fn [[olddet det newdet]]
-                (let [[x y] [(:x newdet) (:y newdet)]
-                      [ox oy] [(:x det) (:y det)]
-                      [oox ooy] [(:x olddet) (:y olddet)]]
-                  (or (and (in-corner x y) (in-corner ox oy))
-                      (valid-angle? bias x y ox oy oox ooy))))
-              (partition 3 1 path))))
+      (every? (partial move-fits-bias? bias) (partition 3 1 path))))
 
 (defn paths-graph-paths-build
   [paths-graph paths entities entity-biases]
   (if (empty? (mapcat (fn [path] (neighbors paths-graph (last path))) paths))
     paths
-    (let [path-biases (fn [path]
-                        (let [bs (filter identity
-                                         (map #(:bias (get entity-biases %))
-                                              (filter (fn [e]
-                                                        (dets-match? (first path)
-                                                                     (last (get entities e))))
-                                                      (keys entities))))]
-                          (if (empty? bs) [:left :right :straight] bs)))
+    (let [path-biases (memoize
+                       (fn [path-start]
+                         (let [bs (filter identity
+                                          (map #(:bias (get entity-biases %))
+                                               (filter
+                                                (fn [e]
+                                                  (dets-match? path-start
+                                                               (last (get entities e))))
+                                                (keys entities))))]
+                           (if (empty? bs) [:left :right :straight] bs))))
           new-paths (mapcat (fn [path]
                               (let [next-links
                                     (filter (fn [det]
                                               (let [p (conj path det)]
-                                                (some #(fits-bias? p %) (path-biases p))))
+                                                (some #(fits-bias? (take-last 3 p) %)
+                                                      (path-biases (first p)))))
                                             (find-n-best-next paths-graph (last path)
                                                               (:PathBranches params)))]
                                 (if (empty? next-links) [path]
