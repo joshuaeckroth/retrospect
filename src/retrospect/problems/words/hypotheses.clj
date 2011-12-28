@@ -334,12 +334,11 @@
         unexp-pos (set (map (comp :pos :data)
                             (set/intersection (find-unexplained ws) (:forced ws))))
         ;; positions also from any nearby word-hyps
+        word-hyp-positions (apply concat (mapcat (comp :pos-seqs :data)
+                                                 (find-adjacent-hyps unexp-pos word-hyps)))
         positions (sort (set/union unexp-pos
-                                   (set (map #(- % left-off)
-                                             (apply concat
-                                                    (mapcat (comp :pos-seqs :data)
-                                                            (find-adjacent-hyps
-                                                             unexp-pos word-hyps)))))))
+                                   (set (if (= -1 left-off) word-hyp-positions
+                                            (map #(- % left-off) word-hyp-positions)))))
         sub-indexed-letters (sort-by first (map (fn [i] (nth indexed-letters i))
                                                 positions))
         sensor-noise-hyps (if (< 0 (:SensorNoise params))
