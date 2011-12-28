@@ -443,6 +443,28 @@ doubt of branch *B*.
 
 ## Dependency graph
 
+Every hypothesis depends on zero or more prior hypotheses (typically
+only accepted hypotheses and hypotheses under consideration when the
+depending hypothesis was generated). For example, a tracking domain's
+"entity location" hypothesis commonly depends on a prior location
+hypothesis (the entity's prior location) plus the path hypothesis or
+hypotheses that form the basis of the location hypothesis.
+
+These dependencies are stored in the epistemic state as a directed
+graph. The agent has access to the dependency graph. The agent may
+ask questions of this graph such as the following:
+
+  - For some hypothesis, what does it depend on?
+  
+  - For some hypothesis, which hypotheses (possibly from the past) of
+    the same type share dependencies with this hypothesis, yet are not
+    members of the dependency hierarchy starting from this hyp? (That
+    is, which hypotheses of the same type share children with this
+    hypothesis's children yet are included in this hypothesis's
+    children?)
+
+  - 
+
 ### Tracking domain
 
   - A sensor hypothesis depends on nothing.
