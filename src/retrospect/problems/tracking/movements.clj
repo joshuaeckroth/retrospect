@@ -38,18 +38,6 @@
        (= (:time det) (:time det2))
        (match-color? (:color det) (:color det2))))
 
-(defn calc-angle
-  [x y ox oy oox ooy]
-  (let [[dx1 dy1] [(- oox ox) (- ooy oy)]
-        [dx2 dy2] [(- x ox) (- y oy)]]
-    (if (or (and (= 0 dx1) (= 0 dy1))
-            (and (= 0 dx2) (= 0 dy2)))
-      ;; if no movement, just say nil
-      nil
-      (Math/acos (/ (+ (* dx1 dx2) (* dy1 dy2))
-                    (* (Math/sqrt (+ (* dx1 dx1) (* dy1 dy1)))
-                       (Math/sqrt (+ (* dx2 dx2) (* dy2 dy2)))))))))
-
 (defn valid-angle?
   [bias x y ox oy oox ooy]
   (let [theta (Math/atan2 (- oy ooy) (- ox oox))

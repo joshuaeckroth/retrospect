@@ -164,6 +164,11 @@
                                    (color-str (:color det))))
                  dets))))
 
+(defn in-corner
+  [x y]
+  (and (or (= x 0) (= x (dec (:GridWidth params))))
+       (or (= y 0) (= y (dec (:GridHeight params))))))
+
 (defn fits-bias?
   [path bias]
   (or (>= 2 (count path))
@@ -171,7 +176,8 @@
                 (let [[x y] [(:x newdet) (:y newdet)]
                       [ox oy] [(:x det) (:y det)]
                       [oox ooy] [(:x olddet) (:y olddet)]]
-                  (valid-angle? bias x y ox oy oox ooy)))
+                  (or (and (in-corner x y) (in-corner ox oy))
+                      (valid-angle? bias x y ox oy oox ooy))))
               (partition 3 1 path))))
 
 (defn paths-graph-paths-build
