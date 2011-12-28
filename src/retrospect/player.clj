@@ -1,6 +1,7 @@
 (ns retrospect.player
   (:import (java.awt GridBagLayout Insets Dimension))
   (:import (javax.swing JSpinner SpinnerNumberModel JTabbedPane))
+  (:import (java.util.prefs Preferences))
   (:use [clj-swing.frame])
   (:use [clj-swing.label])
   (:use [clj-swing.panel])
@@ -30,6 +31,14 @@
 (def ep-list (ref '[]))
 (def ep-selected (atom nil))
 (def steplabel (label ""))
+(def prefs (atom nil))
+
+(defn get-saved-params
+  []
+  (let [ps (try (read-string (.get @prefs "params"
+                                   (pr-str (:default-params @problem))))
+                (catch Exception _ (:default-params @problem)))]
+    (alter-var-root (var params) (constantly ps))))
 
 (defn format-params
   [params]
@@ -37,6 +46,16 @@
        (apply str (interpose "\n" (for [k (sort (keys params))]
                                     (format "%s %s" k (pr-str (params k))))))
        "\n}"))
+
+(defn set-default-params
+  []
+  (alter-var-root (var params) (:default-params @problem))
+  (.put @prefs "params" (pr-str (:default-params @problem)))
+  (dosync (alter params-edit (constantly (format-params (:default-params @problem))))))
+
+(defn clear-params
+  []
+  (dosync (alter params-edit (constantly ""))))
 
 (def seed-spinner (JSpinner. (SpinnerNumberModel. 10 nil nil 1)))
 
@@ -82,6 +101,7 @@
     (when (not prepared?)
       (let [ps (read-string @params-edit)]
         (alter-var-root (var params) (constantly ps))
+        (.put @prefs "params" (pr-str ps))
         (dosync (alter params-edit (constantly (format-params ps))))
         (let [seed (if (:Seed ps) (:Seed ps) (get-seed))]
           (alter-var-root (var rgen) (constantly (new-seed seed))))
@@ -107,6 +127,7 @@
           sens (:sensors prepared)]
       (dosync (alter params-edit (constantly (format-params ps))))
       (alter-var-root (var params) (constantly ps))
+      (.put @prefs "params" (pr-str ps))
       (alter-var-root (var rgen) (constantly (new-seed seed)))
       (set-last-id 0)
       (dosync
@@ -146,7 +167,7 @@
          :size [1000 700]
          :show true
          :on-close :exit
-         [:gridx 0 :gridy 0 :gridheight 9 :weightx 1.0 :weighty 1.0
+         [:gridx 0 :gridy 0 :gridheight 10 :weightx 1.0 :weighty 1.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
           _ (doto (JTabbedPane.)
               (.addTab "Diagram" ((:setup-diagram-fn (:player-fns @problem))))
@@ -159,7 +180,7 @@
               (.addTab "Results" (results-tab))
               (.setSelectedIndex 0))
 
-          :gridx 1 :gridy 0 :gridheight 1 :gridwidth 2 :weightx 0.05 :weighty 0.0
+          :gridx 1 :gridy 0 :gridheight 1 :gridwidth 2 :weightx 0.0 :weighty 0.0
           _ (combo-box
              [] :model (seq-ref-combobox-model
                         (ref (concat ["None"] (keys (:prepared-map @problem))))
@@ -172,35 +193,42 @@
                                      :wrap false :rows 30))
 
           :gridx 1 :gridy 3 :gridwidth 1 :weighty 0.0
+          _ (button "Default params" :action ([_] (set-default-params)))
+
+          :gridx 2
+          _ (button "Clear" :action ([_] (clear-params)))
+
+          :gridx 1 :gridy 4 :gridwidth 1 :weighty 0.0
           _ (label "Seed")
           :gridx 2
           _ seed-spinner
 
-          :gridx 1 :gridy 4 :gridwidth 2
+          :gridx 1 :gridy 5 :gridwidth 2
           _ (doto (panel)
               (.add (button "New" :action ([_] (new-simulation))))
               (.add (button "Next" :action ([_] (next-step)))))
 
-          :gridx 1 :gridy 5
+          :gridx 1 :gridy 6
           _ (doto (panel)
               (.add (doto (combo-box
                            [] :model (seq-ref-combobox-model ep-list ep-selected))
                       (.setMinimumSize (Dimension. 100 0))))
               (.add (button "Goto" :action ([_] (goto-ep-state-action)))))
 
-          :gridx 1 :gridy 6
+          :gridx 1 :gridy 7
           _ steplabel
 
-          :gridx 1 :gridy 7
+          :gridx 1 :gridy 8
           _ ((:get-stats-panel-fn (:player-fns @problem)))
 
-          :gridy 8 :weighty 1.0
+          :gridy 9 :weighty 1.0
           _ (panel)]))
 
 (defn start-player
   [& opts]
 
-  (alter-var-root (var params) (constantly (:default-params @problem)))
+  (swap! prefs (constantly (.node (Preferences/userRoot) "/cc/artifice/retrospect/player")))
+  (get-saved-params)
   (dosync (alter params-edit (constantly (format-params params))))
 
   (let [options (apply hash-map opts)]
