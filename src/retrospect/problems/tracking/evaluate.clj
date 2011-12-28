@@ -1,5 +1,6 @@
 (ns retrospect.problems.tracking.evaluate
   (:use [retrospect.evaluate :only [calc-increase]])
+  (:use [retrospect.colors :only [match-color?]])
   (:use [retrospect.problems.tracking.movements :only [moves-match? dets-match?]]))
 
 (defn true-hyp?
@@ -14,6 +15,23 @@
           (dets-match? (assoc (:loc (:data hyp)) :color (:color (:data hyp)))
                        (nth (get truedata (:entity (:data hyp))) time))
           :else true)))
+
+(defn hyps-equal?
+  [hyp1 hyp2]
+  (let [d1 (:data hyp1)
+        d2 (:data hyp2)]
+    (if (not= (:type hyp1) (:type hyp2)) false
+        (cond (= :movement (:type hyp1))
+              (= (:movement d1) (:movement d2))
+              (= :path (:type hyp1))
+              (and (= (:movements d1) (:movements d2))
+                   (= (:bias d1) (:bias d2)))
+              (= :location (:type hyp1))
+              (and (= (:entity d1) (:entity d2))
+                   (= (:bias d1) (:bias d2))
+                   (match-color? (:color d1) (:color d2))
+                   (= (:loc d1) (:loc d2)))
+              :else false))))
 
 (defn count-matches
   [true-movements movs]

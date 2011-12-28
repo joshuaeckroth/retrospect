@@ -3,7 +3,7 @@
   (:import [retrospect.problem Problem])
   (:require [clojure.string :as str])
   (:use [retrospect.problems.tracking.evaluate :only
-         [evaluate evaluate-comparative true-hyp?]])
+         [evaluate evaluate-comparative true-hyp? hyps-equal?]])
   (:use [retrospect.problems.tracking.truedata :only
          [generate-truedata]])
   (:use [retrospect.problems.tracking.sensors :only
@@ -69,7 +69,7 @@
                evaluate
                evaluate-comparative
                true-hyp?
-               (constantly false) ;; hyps-equal?
+               hyps-equal?
                perturb
                [:movement :path :location :bias]
                {:Steps 25
@@ -80,11 +80,12 @@
                 :GridWidth 20
                 :GridHeight 20
                 :NumberEntities 6
-                :PathBranches 2
+                :PathBranches 5
                 :KnowBiases true
                 :MaxWalk 10
                 :SensorSeesColor 70
                 :SensorCoverage 100
                 :ProbNewEntities 0
                 :MetaReasoning "NoMetareasoning"
-                :TransitiveExplanation false}))
+                :TransitiveExplanation false
+                :AnalyzeSensitivity false}))
