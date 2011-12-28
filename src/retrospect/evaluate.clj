@@ -86,7 +86,8 @@
                                    (:time ep-state) (:true-hyp?-fn @problem))
             (if (:AnalyzeSensitivity params)
               (analyze-sensitivity or-state truedata)
-              {:AvgTrueSensitivity 0.0 :AvgFalseSensitivity 0.0})
+              {:AvgTrueSensitivity 0.0 :AvgFalseSensitivity 0.0
+               :CountTrueSame 0 :CountFalseSame 0})
             (calc-avg-true-false-deps truedata or-state ep-state (:pdata ep-state)
                                       (:workspace prev-ep) (:time ep-state)
                                       (:true-hyp?-fn @problem))
@@ -126,6 +127,7 @@
                                  :ExplainCycles :HypothesisCount
                                  :Compute :Memory :DeepestDep
                                  :AvgTrueSensitivity :AvgFalseSensitivity
+                                 :CountTrueSame :CountFalseSame
                                  :AvgTrueDeps :AvgFalseDeps]
                                 (mapcat
                                  (fn [tf]

@@ -1,5 +1,6 @@
 (ns retrospect.meta.robustness
   (:require [clojure.set :as set])
+  (:use [clojure.contrib.seq :only [find-first]])
   (:use [clojure.contrib.combinatorics :only [combinations]])
   (:use [loom.graph :only [nodes incoming]])
   (:use [loom.alg :only [pre-traverse]])
@@ -11,7 +12,8 @@
 
 (defn analyze-sensitivity
   [or-state truedata]
-  (let [est (:ep-state-tree or-state)
+  (let [hyps-equal? (:hyps-equal?-fn @problem)
+        est (:ep-state-tree or-state)
         ep-state (current-ep-state est)
         prev-ep (previous-ep-state est)
         pdata (:problem-data ep-state)
@@ -29,20 +31,20 @@
         ep-expl (explain ep-hyps time)
         workspace2 (:workspace ep-expl)
         hyps2 (set/difference (ws/get-hyps workspace2 :static) (:forced workspace2))
-        hyps-same (set (filter (fn [h] (some (fn [h2] ((:hyps-equal?-fn @problem) h h2))
-                                             hyps2)) hyps))
-        true-same (filter true-hyps hyps-same)
-        false-same (filter false-hyps hyps-same)]
-    {:AvgTrueSensitivity (cond (empty? true-hyps) 0.0
-                               (empty? true-same) 1.0
-                               :else
-                               (- 1.0 (double (/ (count true-same)
-                                                 (count true-hyps)))))
-     :AvgFalseSensitivity (cond (empty? false-hyps) 0.0
-                                (empty? false-same) 1.0
-                                :else
-                                (- 1.0 (double (/ (count false-same)
-                                                  (- (count hyps) (count true-hyps))))))}))
+        hyps-same (map (fn [h] (let [h-same (find-first
+                                             (fn [h2] (hyps-equal? h h2)) hyps2)]
+                                 (if h-same
+                                   [h (Math/abs (- (ws/hyp-conf workspace h)
+                                                   (ws/hyp-conf workspace2 h-same)))])))
+                       hyps)
+        true-same (filter (comp true-hyps first) (filter identity hyps-same))
+        false-same (filter (comp false-hyps first) (filter identity hyps-same))]
+    {:AvgTrueSensitivity (if (empty? true-same) 0.0
+                             (/ (reduce + (map second true-same)) (count true-same)))
+     :CountTrueSame (count true-same)
+     :AvgFalseSensitivity (if (empty? false-same) 0.0
+                              (/ (reduce + (map second false-same)) (count false-same)))
+     :CountFalseSame (count false-same)}))
 
 (defn analyze-dependency
   [or-state hyp]
