@@ -189,7 +189,7 @@
                                          (map #(:bias (get entity-biases %))
                                               (filter (fn [e]
                                                         (dets-match? (first path)
-                                                                     (get entities e)))
+                                                                     (last (get entities e))))
                                                       (keys entities))))]
                           (if (empty? bs) [:left :right :straight] bs)))
           new-paths (mapcat (fn [path]
