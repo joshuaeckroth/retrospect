@@ -5,6 +5,7 @@
   (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.workspaces :only [find-unexplained new-hyp get-hyps]])
   (:use [retrospect.epistemicstates :only [add-hyp add-fact]])
+  (:use [retrospect.problems.words.evaluate :only [hyps-equal?]])
   (:use [retrospect.problems.words.learning :only
          [update-features calc-centroid similarity]])
   (:use [retrospect.state]))
@@ -53,7 +54,9 @@
         prob (double (/ (get unimodel [word])
                         (reduce + (map (fn [w] (get unimodel w)) similar-words))))
         changes (count-changes word letters)
-        apriori (max 0.001 (* prob (/ (- (count word) changes) (count word))))]
+        ;; heuristic
+        changes-factor (/ (- (count word) changes) (count word))
+        apriori (max 0.001 (* prob changes-factor changes-factor))]
     (new-hyp "Word" :word :word conflicts?
              apriori :and explains []
              (format "Word: \"%s\" at positions %s (%s) (%d changes)"
@@ -247,7 +250,13 @@
 
 (defn make-learning-hyps
   [indexed-letters unexp-pos left-off dictionary sensor-hyps
-   avg-word-length centroid last-time]
+   avg-word-length centroid last-time word-hyps]
+  ;; some heuristics:
+  ;; don't learn words that stop at or later than
+  ;; 3 letters from the time boundary, or
+  ;; whose 'sim' value is less than 1.0, or
+  ;; do not fit the full length between some two word hyps
+  ;; (if any word hyp proceeds or follows)
   (let [contig-subsets (loop [ps (rest unexp-pos)
                               subs (if-let [p (first unexp-pos)] [[p]] [])]
                          (cond (empty? ps) subs
@@ -264,17 +273,24 @@
         words (sort-by first (map (fn [subset] (map (fn [i] (nth indexed-letters i))
                                                     subset)) contig-subsets-allsizes))
         ;; learn only words that are not in the dictionary
-        new-words (filter (fn [w] (not (dictionary (apply str (map second w))))) words)]
-    ;; some heuristics:
-    ;; don't learn words that stop at or later than
-    ;; 3 letters from the time boundary, or
-    ;; whose 'sim' value is less than 1.0
-    (filter
-     (fn [h] (>= (:sim (:data h)) 1.0))
-     (map (fn [w] (make-learned-word-hyp (apply str (map second w))
-                                         (map first w) (map second w)
-                                         left-off sensor-hyps avg-word-length centroid))
-          (filter #(< (first (last %)) (- last-time 3)) new-words)))))
+        new-words (filter (fn [w] (not (dictionary (apply str (map second w))))) words)
+        snug? (fn [hyps h]
+                (let [w-hyps-prior (filter #(< (:end (:data %)) (:start (:data h))) hyps)
+                      w-hyps-after (filter #(> (:start (:data %)) (:end (:data h))) hyps)]
+                  (and (or (empty? w-hyps-prior)
+                           (some #(= (inc (:end (:data %))) (:start (:data h)))
+                                 w-hyps-prior))
+                       (or (empty? w-hyps-after)
+                           (some #(= (dec (:start (:data %))) (:end (:data h)))
+                                 w-hyps-after)))))
+        learning-hyps (filter
+                       (fn [h] (>= (:sim (:data h)) 1.0))
+                       (map (fn [w] (make-learned-word-hyp
+                                     (apply str (map second w))
+                                     (map first w) (map second w)
+                                     left-off sensor-hyps avg-word-length centroid))
+                            (filter #(< (first (last %)) (- last-time 3)) new-words)))]
+    (filter (fn [h] (snug? (concat word-hyps learning-hyps) h)) learning-hyps)))
 
 (defn find-adjacent-hyps
   [unexp-pos word-hyps]
@@ -313,6 +329,7 @@
         sensor-hyps (sort-by (comp :pos :data) (:forced ws))
         last-time (apply max 0 (map (comp :pos :data) sensor-hyps))
         word-hyps (filter #(= :word (:type %)) (get-hyps ws :static))
+        word-seq-hyps (filter #(= :word-seq (:type %)) (get-hyps ws :static))
         ;; unexplained positions
         unexp-pos (set (map (comp :pos :data)
                             (set/intersection (find-unexplained ws) (:forced ws))))
@@ -330,10 +347,13 @@
         learning-hyps (if (and (> 100 (:BelievedKnowledge params)) (:Learn params))
                         (make-learning-hyps indexed-letters positions left-off
                                             dictionary sensor-hyps
-                                            avg-word-length centroid
-                                            last-time) [])
-        composite-hyps (make-composite-hyps models (concat sensor-noise-hyps word-hyps)
-                                            accepted max-n)]
+                                            avg-word-length centroid last-time
+                                            (concat word-hyps sensor-noise-hyps)) [])
+        composite-hyps (filter
+                        ;; don't create identical composite hyps
+                        (fn [h] (not-any? #(hyps-equal? % h) word-seq-hyps))
+                        (make-composite-hyps models (concat sensor-noise-hyps word-hyps)
+                                             accepted max-n))]
     (reduce (fn [ep hyp] (add-hyp ep hyp))
             ep-state (concat sensor-noise-hyps learning-hyps composite-hyps))))
 

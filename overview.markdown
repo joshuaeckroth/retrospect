@@ -595,9 +595,20 @@ feature vector is compared with a centroid of known word feature
 vectors using the cosine similarity calculation. The value for *S* is
 in the range [0.0, 1.0].
 
-Additionally, a word will not be learned if it is within three steps
-from the end of a collection of sensor reports (since there is a high
-chance the letters at the cutoff will be part of a different word).
+The following heuristics are also in effect:
+
+  - A learned word's *S* score must be greater than or equal to 1.0.
+  
+  - A learned word must be "snug" between other learned word
+    hypotheses, non-noisy word hypotheses, and noisy word hypotheses
+    (where "snug" means there is no gap before or after the learned
+    word if some other hypothesis of the type listed comes before or
+    after the learned word). This attempts to learn the right word
+    boundaries and prevent learning partial words.
+    
+  - A learned word must end at or before the last three letters
+    received by sensor reports. This attempts to prevent learning
+    partial words.
 
 Finally, learned words must have length at least `:MinLearnLength`.
 
