@@ -4,7 +4,7 @@
   (:use [clojure.contrib.combinatorics :only [combinations]])
   (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.workspaces :only [find-unexplained new-hyp get-hyps]])
-  (:use [retrospect.epistemicstates :only [add-hyp add-fact add-more-hyp]])
+  (:use [retrospect.epistemicstates :only [add-hyp add-fact]])
   (:use [retrospect.problems.words.learning :only
          [update-features calc-centroid similarity]])
   (:use [retrospect.state]))
@@ -66,14 +66,14 @@
   (let [explains (map #(nth sensor-hyps %) pos-seq)
         adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))
         bk (- 1.0 (/ (:BelievedKnowledge params) 100.0))
-        sim (* 2000 (similarity word centroid))
+        sim (* 100 (similarity word centroid))
         apriori (min 1.0 (* bk sim))]
     (new-hyp "WordLearn" :word :learned-word conflicts?
              apriori :and explains []
              (format "Learned word: \"%s\" at positions %s (%s) (sim: %.4f)"
                      word (str adjusted-pos-seq) (apply str letters) sim)
              {:start (first adjusted-pos-seq) :end (last adjusted-pos-seq)
-              :words [word] :pos-seqs [adjusted-pos-seq]})))
+              :words [word] :pos-seqs [adjusted-pos-seq] :sim sim})))
 
 (defn acceptable-noise?
   [letters word sensor-noise]
@@ -237,24 +237,12 @@
                ep-letters (concat word-hyps composite-hyps))
        {:compute compute :memory memory}])))
 
-(defn filter-out-existing-hyps
-  [hyps existing-hyps]
-  (filter (fn [h] (not-any? #(= (:data (first h)) (:data %))
-                            existing-hyps)) hyps))
-
 (defn make-sensor-noise-hyps
   [sub-indexed-letters left-off dictionary max-n
-   sensor-noise sensor-hyps existing-hyps models]
-  (let [word-hyps (filter-out-existing-hyps
-                   (make-word-hyps sub-indexed-letters left-off
-                                   dictionary sensor-noise sensor-hyps models)
-                   existing-hyps)
-        composite-hyps (filter-out-existing-hyps
-                        (make-composite-hyps models word-hyps
-                                             (set (filter #(= :single-word (:type %))
-                                                          existing-hyps))
-                                             max-n)
-                        existing-hyps)]
+   sensor-noise sensor-hyps accepted models]
+  (let [word-hyps (make-word-hyps sub-indexed-letters left-off
+                                  dictionary sensor-noise sensor-hyps models)
+        composite-hyps (make-composite-hyps models word-hyps accepted max-n)]
     (concat word-hyps composite-hyps)))
 
 (defn make-learning-hyps
@@ -277,12 +265,26 @@
                                                     subset)) contig-subsets-allsizes))
         ;; learn only words that are not in the dictionary
         new-words (filter (fn [w] (not (dictionary (apply str (map second w))))) words)]
-    (map (fn [w] (make-learned-word-hyp (apply str (map second w))
-                                        (map first w) (map second w)
-                                        left-off sensor-hyps avg-word-length centroid))
-         ;; don't learn words that stop at or later than
-         ;; 3 letters from the time boundary
-         (filter #(< (first (last %)) (- last-time 3)) new-words))))
+    ;; some heuristics:
+    ;; don't learn words that stop at or later than
+    ;; 3 letters from the time boundary, or
+    ;; whose 'sim' value is less than 1.0
+    (filter
+     (fn [h] (>= (:sim (:data h)) 1.0))
+     (map (fn [w] (make-learned-word-hyp (apply str (map second w))
+                                         (map first w) (map second w)
+                                         left-off sensor-hyps avg-word-length centroid))
+          (filter #(< (first (last %)) (- last-time 3)) new-words)))))
+
+(defn find-adjacent-hyps
+  [unexp-pos word-hyps]
+  (filter (fn [h] (let [s (:start (:data h))
+                        e (:end (:data h))]
+                    (not-empty
+                     (set/intersection
+                      unexp-pos (set [(inc s) (dec s)
+                                      (inc e) (dec e)])))))
+          word-hyps))
 
 (defn get-more-hyps
   "The `(hypothesize)` function only offers word hypotheses that have
@@ -302,31 +304,37 @@
    workspace of `ep-state`. "
   [ep-state]
   (let [{:keys [dictionary models left-off centroid
-                indexed-letters avg-word-length accepted]} (:problem-data ep-state)
+                indexed-letters avg-word-length accepted]}
+        (:problem-data ep-state)
+        ws (:workspace ep-state)
         max-n (apply max (keys models))
         sensor-noise (double (/ (:SensorNoise params) 100.0))
-        ws (:workspace ep-state)
-        existing-hyps (get-hyps ws)
+        ;; need sensor-hyps to be a seq for make-learning-hyp function
         sensor-hyps (sort-by (comp :pos :data) (:forced ws))
         last-time (apply max 0 (map (comp :pos :data) sensor-hyps))
-        unexp-pos (sort (map (comp :pos :data)
-                             (set/intersection (find-unexplained ws) (:forced ws))))
+        word-hyps (filter #(= :word (:type %)) (get-hyps ws :static))
+        ;; unexplained positions
+        unexp-pos (set (map (comp :pos :data)
+                            (set/intersection (find-unexplained ws) (:forced ws))))
+        ;; positions also from any nearby word-hyps
+        positions (sort (set/union unexp-pos
+                                   (apply concat
+                                          (mapcat (comp :pos-seqs :data)
+                                                  (find-adjacent-hyps unexp-pos word-hyps)))))
         sub-indexed-letters (sort-by first (map (fn [i] (nth indexed-letters i))
-                                                unexp-pos))
+                                                positions))
         sensor-noise-hyps (if (< 0 (:SensorNoise params))
                             (make-sensor-noise-hyps sub-indexed-letters left-off
                                                     dictionary max-n sensor-noise
-                                                    sensor-hyps existing-hyps models) [])
+                                                    sensor-hyps accepted models) [])
         learning-hyps (if (and (> 100 (:BelievedKnowledge params)) (:Learn params))
-                        (make-learning-hyps indexed-letters unexp-pos left-off
+                        (make-learning-hyps indexed-letters positions left-off
                                             dictionary sensor-hyps
                                             avg-word-length centroid
                                             last-time) [])
-        composite-hyps (make-composite-hyps models (concat (filter #(= :word (:type %))
-                                                                   existing-hyps)
-                                                           sensor-noise-hyps learning-hyps)
+        composite-hyps (make-composite-hyps models (concat sensor-noise-hyps word-hyps)
                                             accepted max-n)]
-    (reduce (fn [ep hyp] (add-more-hyp ep hyp))
+    (reduce (fn [ep hyp] (add-hyp ep hyp))
             ep-state (concat sensor-noise-hyps learning-hyps composite-hyps))))
 
 (defn no-explainer-hyps

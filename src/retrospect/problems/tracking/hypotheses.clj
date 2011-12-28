@@ -1,7 +1,7 @@
 (ns retrospect.problems.tracking.hypotheses
   (:require [clojure.set :as set])
   (:use [clojure.contrib.seq :only [find-first]])
-  (:use [retrospect.epistemicstates :only [add-hyp add-more-hyp add-fact]])
+  (:use [retrospect.epistemicstates :only [add-hyp add-fact]])
   (:use [retrospect.workspaces :only [new-hyp]])
   (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.colors])

@@ -166,10 +166,6 @@
   [ep-state hyp]
   (add-hyp-helper ep-state hyp :static))
 
-(defn add-more-hyp
-  [ep-state hyp]
-  (add-hyp-helper ep-state hyp))
-
 (defn add-fact
   [ep-state hyp]
   (update-in ep-state [:workspace]
@@ -242,9 +238,9 @@
         ep-explained (if (not-empty (:unexplained (:final (:log ws-explained))))
                        (if-let [ep-more-hyps ((:get-more-hyps-fn @problem)
                                               (assoc ep-state :workspace ws-explained))]
-                         (assoc ep-more-hyps :workspace
-                                (ws/explain (:workspace ep-more-hyps)
-                                            (:problem-data ep-more-hyps)))
+                         (let [ws (ws/prepare-workspace (:workspace ep-more-hyps))
+                               ws-expl (ws/explain ws (:problem-data ep-more-hyps))]
+                           (assoc ep-more-hyps :workspace ws-expl))
                          (assoc ep-state :workspace ws-explained))
                        (assoc ep-state :workspace ws-explained))]
     (commit-decision ep-explained time-now)))
