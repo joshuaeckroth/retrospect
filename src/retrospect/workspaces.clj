@@ -468,8 +468,6 @@
                    #(reduce (fn [g h] (-> g (remove-attr h :fontcolor)
                                           (remove-attr h :color)))
                             % (set/difference (nodes %) (:forced ws))))
-        (assoc-in [:log :best] [])
-        (assoc-in [:log :accrej] {})
         (assoc-in [:log :accepted] (:forced workspace))
         (assoc-in [:accepted] (:forced workspace)))))
 
