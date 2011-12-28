@@ -88,4 +88,5 @@
                 :ProbNewEntities 0
                 :MetaReasoning "NoMetareasoning"
                 :TransitiveExplanation false
-                :AnalyzeSensitivity false}))
+                :AnalyzeSensitivity false
+                :ProbPerturb 25}))

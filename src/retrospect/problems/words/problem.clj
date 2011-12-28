@@ -101,5 +101,6 @@
                 :Learn true
                 :LearnFeatureSize 2
                 :TransitiveExplanation true
-                :AnalyzeSensitivity false}))
+                :AnalyzeSensitivity false
+                :ProbPerturb 25}))
 

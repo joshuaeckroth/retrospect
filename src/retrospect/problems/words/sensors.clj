@@ -1,6 +1,7 @@
 (ns retrospect.problems.words.sensors
   (:use [retrospect.sensors :only [init-sensor add-sensed]])
-  (:use [retrospect.problems.words.truedata :only [add-noise]]))
+  (:use [retrospect.problems.words.truedata :only [add-noise]])
+  (:use [retrospect.state]))
 
 (defn sense
   [sensor truedata time]
@@ -14,5 +15,6 @@
   [sensor]
   (assoc sensor :sensed
          (reduce (fn [sensed time] (assoc sensed time
-                                          (first (add-noise [(get sensed time)] 0.25))))
+                                          (first (add-noise [(get sensed time)]
+                                                            (:ProbPerturb params)))))
                  (:sensed sensor) (keys (:sensed sensor)))))

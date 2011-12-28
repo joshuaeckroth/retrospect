@@ -6,12 +6,14 @@
   (:require [clojure.contrib.math :as math])
   (:use [retrospect.problems.tracking.movements :only
          [entity-movements entities-at walk-rand]])
+  (:use [retrospect.random])
   (:use [retrospect.state]))
 
 (defn perturb
   [sensor]
   (letfn [(rand-alter [det] (let [[x y] (walk-rand [(:x det) (:y det)])]
-                              (if (and (< x (:GridWidth params)) (>= x 0)
+                              (if (and (< (my-rand) (/ (:ProbPerturb params) 100.0))
+                                       (< x (:GridWidth params)) (>= x 0)
                                        (< y (:GridHeight params)) (>= y 0))
                                 (assoc det :x x :y y) det)))]
     (assoc sensor :sensed

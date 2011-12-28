@@ -218,6 +218,9 @@ Transitive explanation is a parameter. If `:TransitiveExplanation` is
   - `:AnalyzeSensitivity` (true or false); add extra metrics
     (domain-independent) that attempt to measure the sensitivity of
     hypotheses
+    
+  - `:ProbPerturb` (0-100); probability (%) of a perturbation on
+    some sensor data when performing sensitivity analysis
 
 ### Words domain parameters
 
