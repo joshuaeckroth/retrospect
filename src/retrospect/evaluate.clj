@@ -25,7 +25,8 @@
     (apply max 0 (mapcat (comp vals second) paths))))
 
 (defn calc-true-false-confs
-  "Find average confidence for true hyps, average confidence for false hyps."
+  "Find average confidence and apriori values for true hyps, average
+   confidence for false hyps."
   [truedata pdata workspace time true-hyp?]
   (let [hyps (reduce (fn [m t] (if (nil? (get m t)) (assoc m t #{}) m))
                      (group-by :subtype (set/difference (get-hyps workspace :static)
@@ -46,12 +47,24 @@
                                 false (map #(hyp-conf workspace %)
                                            (get (get true-false t) false))}))
                       {} (keys true-false))
+        apriori (reduce (fn [m t]
+                          (assoc m t
+                                 {true (map :apriori (get (get true-false t) true))
+                                  false (map :apriori (get (get true-false t) false))}))
+                        {} (keys true-false))
         avg (fn [vals] (if (empty? vals) 0.0 (/ (reduce + vals) (count vals))))]
     (reduce (fn [m t]
               (let [k (apply str (map str/capitalize (str/split (name t) #"-")))]
-                (assoc m (keyword (format "AvgTrue%s" k)) (avg (get (get confs t) true))
-                       (keyword (format "AvgFalse%s" k)) (avg (get (get confs t) false)))))
-            {} (keys confs))))
+                (assoc m
+                  (keyword (format "AvgTrueConf%s" k))
+                  (avg (get (get confs t) true))
+                  (keyword (format "AvgTrueApriori%s" k))
+                  (avg (get (get apriori t) true))
+                  (keyword (format "AvgFalseConf%s" k))
+                  (avg (get (get confs t) false))
+                  (keyword (format "AvgFalseApriori%s" k))
+                  (avg (get (get apriori t) false)))))
+            {} (keys true-false))))
 
 (defn calc-avg-true-false-deps
   [truedata or-state ep-state pdata workspace time true-hyp?]
@@ -137,7 +150,8 @@
                                                          (map str/capitalize
                                                               (str/split (name %) #"-")))))
                                         (:hyp-subtypes @problem)))
-                                 ["True" "False"])))))]
+                                 ["TrueConf" "TrueApriori"
+                                  "FalseConf" "FalseApriori"])))))]
     ;; if control/comparison have different number of results
     ;; (different steps between or steps), then just use the last
     ;; result set
