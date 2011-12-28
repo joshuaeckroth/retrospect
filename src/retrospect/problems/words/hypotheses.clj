@@ -69,7 +69,7 @@
   (let [explains (map #(nth sensor-hyps %) pos-seq)
         adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))
         bk (- 1.0 (/ (:BelievedKnowledge params) 100.0))
-        sim (* 100 (similarity word centroid))
+        sim (Math/log (+ 1 (* 100 (similarity word centroid))))
         apriori (min 1.0 (* bk sim))]
     (new-hyp "WordLearn" :word :learned-word conflicts?
              apriori :and explains []
@@ -283,13 +283,11 @@
                        (or (empty? w-hyps-after)
                            (some #(= (dec (:start (:data %))) (:end (:data h)))
                                  w-hyps-after)))))
-        learning-hyps (filter
-                       (fn [h] (>= (:sim (:data h)) 1.0))
-                       (map (fn [w] (make-learned-word-hyp
-                                     (apply str (map second w))
-                                     (map first w) (map second w)
-                                     left-off sensor-hyps avg-word-length centroid))
-                            (filter #(< (first (last %)) (- last-time 3)) new-words)))]
+        learning-hyps (map (fn [w] (make-learned-word-hyp
+                                    (apply str (map second w))
+                                    (map first w) (map second w)
+                                    left-off sensor-hyps avg-word-length centroid))
+                           (filter #(< (first (last %)) (- last-time 3)) new-words))]
     (filter (fn [h] (snug? (concat word-hyps learning-hyps) h)) learning-hyps)))
 
 (defn find-adjacent-hyps
@@ -330,6 +328,7 @@
         last-time (apply max 0 (map (comp :pos :data) sensor-hyps))
         word-hyps (filter #(= :word (:type %)) (get-hyps ws :static))
         word-seq-hyps (filter #(= :word-seq (:type %)) (get-hyps ws :static))
+        existing-hyps (concat word-hyps word-seq-hyps)
         ;; unexplained positions
         unexp-pos (set (map (comp :pos :data)
                             (set/intersection (find-unexplained ws) (:forced ws))))
@@ -350,13 +349,12 @@
                                             dictionary sensor-hyps
                                             avg-word-length centroid last-time
                                             (concat word-hyps sensor-noise-hyps)) [])
-        composite-hyps (filter
-                        ;; don't create identical composite hyps
-                        (fn [h] (not-any? #(hyps-equal? % h) word-seq-hyps))
-                        (make-composite-hyps models (concat sensor-noise-hyps word-hyps)
-                                             accepted max-n))]
+        composite-hyps (make-composite-hyps models (concat sensor-noise-hyps word-hyps)
+                                            accepted max-n)]
+    ;; don't add any already-existing hyps
     (reduce (fn [ep hyp] (add-hyp ep hyp))
-            ep-state (concat sensor-noise-hyps learning-hyps composite-hyps))))
+            ep-state (filter (fn [h] (not-any? #(hyps-equal? % h) existing-hyps))
+                             (concat sensor-noise-hyps learning-hyps composite-hyps)))))
 
 (defn no-explainer-hyps
   [hyps pdata]

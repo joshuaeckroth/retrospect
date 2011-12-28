@@ -18,7 +18,8 @@
 
 (defn get-features
   [word]
-  (normalize (get-letter-trans-freqs word (:LearnFeatureSize params))))
+  (normalize (apply merge (map #(get-letter-trans-freqs word %)
+                               (range 1 (inc (:LearnFeatureSize params)))))))
 
 (defn update-features
   [features dictionary]
