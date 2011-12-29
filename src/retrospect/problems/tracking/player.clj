@@ -220,15 +220,16 @@
         lines (fn [ss] (apply str (interpose "\n" ss)))]
     (format "Entity locations:\n%s\n\nBelieved movements:\n%s\n"
             (lines (map (fn [e] (let [loc (last (get entities e))]
-                                  (format "%s (%s, %s): %d,%d@%d (from %s)"
+                                  (format "%s (%s, %s): %d,%d@%d (%s)"
                                           e (color-str (:color loc))
                                           (if-let [b (get entity-biases e)]
-                                            (format "%s/%s"
-                                                    (name (:bias b)) (:id (:bias-hyp b)))
+                                            (if-let [h (:bias-hyp b)]
+                                              (format "%s/%s" (name (:bias b)) (:id h))
+                                              "given")
                                             "?")
                                           (:x loc) (:y loc) (:time loc)
                                           (if (:loc-hyp loc) (:id (:loc-hyp loc))
-                                              "initial problem data"))))
+                                              "given"))))
                         (sort-by str (AlphanumComparator.)
                                  (keys entities))))
             (lines (map move-str
