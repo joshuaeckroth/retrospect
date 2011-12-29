@@ -11,7 +11,7 @@
   (:use [retrospect.epistemicstates :only
          [current-ep-state previous-ep-state]]))
 
-(def canvas (JSVGCanvas.))
+(def canvas (ref nil))
 
 (defn listener
   [_])
@@ -22,15 +22,16 @@
                    (if (re-find #"\?" (str ep))
                      (previous-ep-state (:ep-state-tree @or-state)) ep))
         depgraph (:depgraph ep-state)]
-    (generate-graph depgraph canvas listener true)))
+    (generate-graph depgraph @canvas listener true)))
 
 (defn depgraph-tab
   []
+  (dosync (alter canvas (constantly (create-canvas))))
   (panel :layout (GridBagLayout.)
          :constrains (java.awt.GridBagConstraints.)
          [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0 :gridwidth 2 :fill :BOTH
           :insets (Insets. 5 5 5 5)
-          _ (scroll-panel canvas)
+          _ @canvas
           :gridy 1 :gridwidth 1 :gridx 0 :weightx 1.0 :weighty 0.0
           _ (panel)
           :gridx 1 :weightx 0.0
