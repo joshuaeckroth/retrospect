@@ -181,7 +181,9 @@
 (defn fits-bias?
   [path bias]
   (or (>= 2 (count path))
-      (every? (partial move-fits-bias? bias) (partition 3 1 path))))
+      (every? (partial move-fits-bias? bias)
+              (map (fn [par] (map #(dissoc % :time :color) par))
+                   (partition 3 1 path)))))
 
 (defn paths-graph-paths-build
   [paths-graph paths entities entity-biases]

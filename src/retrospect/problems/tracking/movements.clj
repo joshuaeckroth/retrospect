@@ -42,27 +42,29 @@
 (def valid-angle?
   (memoize
    (fn [bias x y ox oy oox ooy]
-     (let [theta (Math/atan2 (- oy ooy) (- ox oox))
-           cos-mult (Math/cos (- theta))
-           sin-mult (Math/sin (- theta))
-           nox (- (* cos-mult ox) (* sin-mult oy))
-           noy (+ (* sin-mult ox) (* cos-mult oy))
-           nx (- (* cos-mult x) (* sin-mult y))
-           ny (+ (* sin-mult x) (* cos-mult y))
-           ntheta (Math/atan2 (- ny noy) (- nx nox))
-           degrees (/ (* ntheta 180.0) 3.1415926)]
-       (cond
-        ;; angle is between -50 and 50 degrees
-        (= bias :straight)
-        (and (< -50 degrees) (> 50 degrees))
-        ;; angle is between -140 and -40 degrees
-        (= bias :left)
-        (and (< -140 degrees) (> -40 degrees))
-        ;; angle is between 40 and 140 degrees
-        (= bias :right)
-        (and (< 40 degrees) (> 140 degrees))
-        ;; otherwise, no bias, any angle is valid
-        :else true)))))
+     (if (or (and (= x ox) (= y oy))
+             (and (= ox oox) (= oy ooy))) true
+         (let [theta (Math/atan2 (- oy ooy) (- ox oox))
+               cos-mult (Math/cos (- theta))
+               sin-mult (Math/sin (- theta))
+               nox (- (* cos-mult ox) (* sin-mult oy))
+               noy (+ (* sin-mult ox) (* cos-mult oy))
+               nx (- (* cos-mult x) (* sin-mult y))
+               ny (+ (* sin-mult x) (* cos-mult y))
+               ntheta (Math/atan2 (- ny noy) (- nx nox))
+               degrees (/ (* ntheta 180.0) 3.1415926)]
+           (cond
+            ;; angle is between -50 and 50 degrees
+            (= bias :straight)
+            (and (< -50 degrees) (> 50 degrees))
+            ;; angle is between -140 and -40 degrees
+            (= bias :left)
+            (and (< -140 degrees) (> -40 degrees))
+            ;; angle is between 40 and 140 degrees
+            (= bias :right)
+            (and (< 40 degrees) (> 140 degrees))
+            ;; otherwise, no bias, any angle is valid
+            :else true))))))
 
 (defn walk-rand
   [[x y]]
