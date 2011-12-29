@@ -69,13 +69,15 @@
 (defn calc-avg-true-false-deps
   [truedata or-state ep-state pdata workspace time true-hyp?]
   (let [depgraph (:depgraph ep-state)
-        starts (filter #(empty? (incoming depgraph %)) (nodes depgraph))
+        starts (set/difference (get-hyps workspace :static) (:forced workspace))
         tf-starts (group-by (partial true-hyp? truedata pdata time) starts)
-        tf-counts (map (fn [tf] (let [hyps (get tf-starts tf)
-                                      deps (set (map first
-                                                     (mapcat #(analyze-dependency-quick or-state %)
-                                                             hyps)))]
-                                  (count deps)))
+        tf-counts (map (fn [tf]
+                         (let [hyps (get tf-starts tf)
+                               deps (set (map first
+                                              (mapcat #(analyze-dependency-quick
+                                                        or-state % starts)
+                                                      hyps)))]
+                           (count deps)))
                        [true false])]
     {:AvgTrueDeps (if (empty? (get tf-starts true)) 0.0
                       (double (/ (first tf-counts) (count (get tf-starts true)))))

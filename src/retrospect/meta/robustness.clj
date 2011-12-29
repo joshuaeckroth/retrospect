@@ -2,7 +2,7 @@
   (:require [clojure.set :as set])
   (:use [clojure.contrib.seq :only [find-first]])
   (:use [clojure.contrib.combinatorics :only [combinations]])
-  (:use [loom.graph :only [nodes incoming]])
+  (:use [loom.graph :only [nodes]])
   (:use [loom.alg :only [pre-traverse]])
   (:use [retrospect.epistemicstates :only
          [current-ep-state previous-ep-state new-branch-ep-state
@@ -47,22 +47,22 @@
      :CountFalseSame (count false-same)}))
 
 (defn analyze-dependency
-  [or-state hyp]
+  [or-state hyp starts]
   (let [ep-state (:ep-state or-state)
         depgraph (:depgraph ep-state)
         hyp-deps (set (pre-traverse depgraph hyp))
-        starts (filter #(empty? (incoming depgraph %)) (nodes depgraph))
+        consider (filter #(= (:type hyp) (:type %)) starts)
         common-deps (filter (comp not-empty second)
                             (map (fn [s] [s (set/intersection (set (pre-traverse depgraph s))
                                                               hyp-deps)])
-                                 (filter #(not= hyp %) starts)))]
+                                 (filter #(not= hyp %) consider)))]
     common-deps))
 
 (defn analyze-dependency-quick
-  [or-state hyp]
+  [or-state hyp starts]
   (let [ep-state (:ep-state or-state)
         depgraph (:depgraph ep-state)
         hyp-deps (set (pre-traverse depgraph hyp))
-        starts (filter #(empty? (incoming depgraph %)) (nodes depgraph))]
+        consider (filter #(= (:type hyp) (:type %)) starts)]
     (filter (fn [s] (some hyp-deps (pre-traverse depgraph s)))
-            (filter #(not= hyp %) starts))))
+            (filter #(not= hyp %) consider))))

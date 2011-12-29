@@ -9,6 +9,7 @@
   (:import (clj-swing.tree Pathed))
   (:use [clj-swing.panel])
   (:use [clojure.contrib.seq :only [find-first]])
+  (:require [clojure.set :as set])
   (:require [retrospect.workspaces :as ws])
   (:use [retrospect.epistemicstates :only
          [previous-ep-state flatten-ep-state-tree]])
@@ -112,9 +113,10 @@
 (defn format-hyp-info
   [workspace hyp]
   (let [info (hyp-info workspace hyp)
+        starts (set/difference (ws/get-hyps workspace :static) (:forced workspace))
         dep-analysis (apply str (map (fn [[s hyps]]
                                        (format "%s: %s\n" (:id s)
-                                               (apply str (interpose ", " (map :id (sort-by :id hyps)))))) (filter (comp not-empty second) (analyze-dependency @or-state hyp))))]
+                                               (apply str (interpose ", " (map :id (sort-by :id hyps)))))) (filter (comp not-empty second) (analyze-dependency @or-state hyp starts))))]
     (format "%s\n\nDependency analysis:\n\n%s" info dep-analysis)))
 
 (defn show-log
