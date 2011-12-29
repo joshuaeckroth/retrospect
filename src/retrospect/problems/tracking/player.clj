@@ -225,7 +225,7 @@
                                           (if-let [b (get entity-biases e)]
                                             (if-let [h (:bias-hyp b)]
                                               (format "%s/%s" (name (:bias b)) (:id h))
-                                              "given")
+                                              (format "%s/given" (name (:bias b))))
                                             "?")
                                           (:x loc) (:y loc) (:time loc)
                                           (if (:loc-hyp loc) (:id (:loc-hyp loc))
