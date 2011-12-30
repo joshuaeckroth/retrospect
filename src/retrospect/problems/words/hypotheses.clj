@@ -56,8 +56,9 @@
         changes (count-changes word letters)
         ;; heuristic
         changes-factor (/ (- (count word) changes) (count word))
-        apriori (max 0.001 (* prob changes-factor changes-factor))]
-    (new-hyp "Word" :word (if noise? :noise-word :word) conflicts?
+        apriori (max 0.001 (* prob (Math/pow changes-factor 3.0)))]
+    (new-hyp (if noise? "WordNoisy" "Word") :word
+             (if noise? :noise-word :word) conflicts?
              apriori :and explains []
              (format "Word: \"%s\" at positions %s (%s) (%d changes)"
                      word (str adjusted-pos-seq) (apply str letters) changes)
@@ -174,11 +175,9 @@
     ;; if we have a probability in the model, return it
     (if c (max 0.001 (double (/ c (if (= 0 sum) (:sum (meta model)) sum))))
         ;; otherwise, this sequence is not in the model; if we have a
-        ;; learned word hyp, the prob is the average of the word
-        ;; probs; otherwise, prob is nil
-        (if (some #{:learned-word} (map :type word-hyps))
-          (let [s (reduce + (map :apriori word-hyps))]
-            (max 0.001 (/ s (count word-hyps))))))))
+        ;; learned word hyp somewhere, the overall prob is 1.0 - BelievedKnowledge
+        (if (some #{:learned-word} (map :subtype word-hyps))
+          (- 1.0 (/ (:BelievedKnowledge params) 100.0))))))
 
 (defn make-composite-hyps
   [models word-hyps accepted max-n]
@@ -187,16 +186,19 @@
             (for [c composites]
               (let [words (mapcat (comp :words :data) c)
                     pos-seqs (mapcat (comp :pos-seqs :data) c)
+                    c-aprioris (map :apriori c)
                     c-set (set c)
                     accepted-words (set/intersection accepted c-set)
                     unaccepted (set/difference c-set accepted)
                     depends (set (for [h accepted-words]
-                                   (if-let [com (first (filter (fn [c] (some #{h} (:explains c)))
-                                                               (filter #(= :word-seq (:type %))
-                                                                       accepted)))]
-                                     com h)))]
+                                   (if-let [com (first (filter
+                                                        (fn [c] (some #{h} (:explains c)))
+                                                        (filter #(= :word-seq (:type %))
+                                                                accepted)))]
+                                     com h)))
+                    apriori (lookup-prob models c accepted-words)]
                 (new-hyp "WordSeq" :word-seq :word-seq conflicts?
-                         (lookup-prob models c accepted-words)
+                         (if apriori (* apriori (apply min c-aprioris)))
                          :and unaccepted depends ;; explains & depends
                          (format "Word sequence \"%s\" at positions %s"
                                  (apply str (interpose " " words))
@@ -351,8 +353,9 @@
                                             dictionary sensor-hyps
                                             avg-word-length centroid last-time
                                             (concat word-hyps sensor-noise-hyps)) [])
-        composite-hyps (make-composite-hyps models (concat sensor-noise-hyps word-hyps)
-                                            accepted max-n)]
+        composite-hyps (make-composite-hyps
+                        models (concat sensor-noise-hyps learning-hyps word-hyps)
+                        accepted max-n)]
     ;; don't add any already-existing hyps
     (reduce (fn [ep hyp] (add-hyp ep hyp))
             ep-state (filter (fn [h] (not-any? #(hyps-equal? % h) existing-hyps))
