@@ -54,18 +54,15 @@
 
 (defn results-tab
   []
-  (panel :layout (GridBagLayout.)
-         :constrains (java.awt.GridBagConstraints.)
-         [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0 :gridwidth 5
-          :fill :BOTH :insets (Insets. 5 5 5 5)
-          _ scroll
-          :gridx 0 :gridy 1 :weighty 0.5
-          _ (let [p (panel)]
-              (.setLayout p (BoxLayout. p BoxLayout/X_AXIS))
-              (.setLayout p-left (BoxLayout. p-left BoxLayout/Y_AXIS))
-              (.setLayout p-middle (BoxLayout. p-middle BoxLayout/Y_AXIS))
-              (.setLayout p-right (BoxLayout. p-right BoxLayout/Y_AXIS))
-              (.add p p-left)
-              (.add p p-middle)
-              (.add p p-right)
-              (scroll-panel p))]))
+  (doto (split-vertical
+         scroll
+         (let [p (panel)]
+           (.setLayout p (BoxLayout. p BoxLayout/X_AXIS))
+           (.setLayout p-left (BoxLayout. p-left BoxLayout/Y_AXIS))
+           (.setLayout p-middle (BoxLayout. p-middle BoxLayout/Y_AXIS))
+           (.setLayout p-right (BoxLayout. p-right BoxLayout/Y_AXIS))
+           (.add p p-left)
+           (.add p p-middle)
+           (.add p p-right)
+           (scroll-panel p)))
+    (.setDividerLocation 500)))
