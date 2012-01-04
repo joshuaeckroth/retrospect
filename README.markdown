@@ -21,12 +21,9 @@
 
 - Go into the `retrospect` directory: `cd retrospect`
 
-- Download the [data package][data] and unzip (creating the `data`
-  folder)
+- Start the retrospect GUI (as a test):
 
-- Start the retrospect player (as a test):
-
-    lein run -m retrospect.core --database "http://fier.ath.cx:5984/retrospect"
+    lein run -m retrospect.core --problem tracking
 
 ## Installation (Windows)
 
@@ -36,19 +33,16 @@
 - Run `lein self-install` in a command prompt (in the newly extracted
   folder)
 
-- Set up git with your SSH keys
+- Set up git with your SSH keys (on Bitbucket as well, in your account settings)
 
 - Download retrospect source (in a command prompt):
   `git clone git@bitbucket.org:joshuaeckroth/retrospect.git`
 
 - Go into the `retrospect` directory: `cd retrospect`
 
-- Download the [data package][data] and unzip (creating the `data`
-  folder)
+- Start the retrospect GUI (as a test):
 
-- Start the retrospect player (as a test):
-
-    lein run -m retrospect.core --database "http://fier.ath.cx:5984/retrospect"
+    lein run -m retrospect.core --problem tracking
     
 ## Eclipse IDE plugin: Counterclockwise
 
@@ -118,7 +112,8 @@ Other optional arguments:
   
 ### Results
 
-The results of a batch run are shown in the web interface: [http://sisyphus.artifice.cc](http://sisyphus.artifice.cc)
+The results of a batch run are shown in the web interface:
+[http://sisyphus.artifice.cc](http://sisyphus.artifice.cc)
 
 [lein-unix]: https://raw.github.com/technomancy/leiningen/stable/bin/lein
 [lein-win]: https://github.com/downloads/technomancy/leiningen/leiningen-1.5.2-win.zip

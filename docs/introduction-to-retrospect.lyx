@@ -256,7 +256,7 @@ Examples:
 \begin_inset Quotes eld
 \end_inset
 
-meta-reasoning,
+metareasoning,
 \begin_inset Quotes erd
 \end_inset
 
@@ -518,8 +518,8 @@ Batch simulation
 
 \family typewriter
 ~/bin/lein run -m retrospect.core --action run --params "Tracking/thresh-meta"
- --nthreads 4 --repetitions 10 --datadir "data" --seed 123 --database "http://fi
-er.ath.cx:5984/retrospect"
+ --nthreads 4 --repetitions 10 --seed 123 --database "http://retrospect.artifice.c
+c:5984"
 \end_layout
 
 \begin_layout BeginFrame
@@ -527,27 +527,11 @@ Parameters
 \end_layout
 
 \begin_layout Example
-{ :Steps 25
+{ :AnalyzeSensitivity true
 \end_layout
 
 \begin_layout Example
-:Threshold [0 20 40 60 80 100]
-\end_layout
-
-\begin_layout Example
-:StepsBetween 5
-\end_layout
-
-\begin_layout Example
-:SensorNoise 0
-\end_layout
-
-\begin_layout Example
-:BeliefNoise 0
-\end_layout
-
-\begin_layout Example
-:GridWidth 30
+:ProbPerturb 25
 \end_layout
 
 \begin_layout Example
@@ -555,7 +539,7 @@ Parameters
 \end_layout
 
 \begin_layout Example
-:NumberEntities 15
+:GridWidth 30
 \end_layout
 
 \begin_layout Example
@@ -563,23 +547,43 @@ Parameters
 \end_layout
 
 \begin_layout Example
-:SensorSeesColor [0 50 100]
+:MetaReasoning "NoMetareasoning"
 \end_layout
 
 \begin_layout Example
-:SensorCoverage 100
+:NumberEntities [2 4 6]
 \end_layout
 
 \begin_layout Example
-:ProbNewEntities 0
+:KnowBiases true 
 \end_layout
 
 \begin_layout Example
-:MetaReasoning false
+:PathBranches 5
 \end_layout
 
 \begin_layout Example
-:TransitiveExplanation [true false] }
+:SensorNoise 0
+\end_layout
+
+\begin_layout Example
+:SensorSeesColor [50 60 70 80 90 100]
+\end_layout
+
+\begin_layout Example
+:Steps 30
+\end_layout
+
+\begin_layout Example
+:StepsBetween 3
+\end_layout
+
+\begin_layout Example
+:Threshold 20
+\end_layout
+
+\begin_layout Example
+:TransitiveExplanation true }
 \end_layout
 
 \begin_layout BeginFrame
@@ -627,7 +631,7 @@ retrospect
 \shape default
  source code: 
 \begin_inset Flex URL
-status collapsed
+status open
 
 \begin_layout Plain Layout
 
@@ -648,11 +652,11 @@ sisyphus
 \shape default
  system: 
 \begin_inset Flex URL
-status collapsed
+status open
 
 \begin_layout Plain Layout
 
-http://fier.ath.cx:8081/
+http://sisyphus.artifice.cc/
 \end_layout
 
 \end_inset
@@ -669,11 +673,11 @@ sisyphus
 \shape default
  source code: 
 \begin_inset Flex URL
-status collapsed
+status open
 
 \begin_layout Plain Layout
 
-https://bitbucket.org/joshuaeckroth/sisyphus
+https://github.com/joshuaeckroth/sisyphus
 \end_layout
 
 \end_inset
