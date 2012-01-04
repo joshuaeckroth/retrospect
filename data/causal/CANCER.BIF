@@ -1,0 +1,41 @@
+// Bayesian Network in the Interchange Format
+// Produced by BayesianNetworks package in JavaBayes
+// Output created Sun Nov 02 18:04:15 GMT+00:00 1997
+// Bayesian network 
+network "Cancer" { //5 variables and 5 probability distributions
+}
+variable  "MetastaticCancer" { //2 values
+	type discrete[2] {  "Present"  "Absent" };
+	property "position = (242, 136)" ;
+}
+variable  "SerumCalcium" { //2 values
+	type discrete[2] {  "Increased"  "NotIncreased" };
+	property "position = (126, 221)" ;
+}
+variable  "BrainTumor" { //2 values
+	type discrete[2] {  "Present"  "Absent" };
+	property "position = (368, 216)" ;
+}
+variable  "Coma" { //2 values
+	type discrete[2] {  "Present"  "Absent" };
+	property "position = (244, 313)" ;
+}
+variable  "SevereHeadaches" { //2 values
+	type discrete[2] {  "Present"  "Absent" };
+	property "position = (490, 309)" ;
+}
+probability (  "MetastaticCancer" ) { //1 variable(s) and 2 values
+	table 0.2 0.8 ;
+}
+probability (  "SerumCalcium"  "MetastaticCancer" ) { //2 variable(s) and 4 values
+	table 0.8 0.2 0.2 0.8 ;
+}
+probability (  "BrainTumor"  "MetastaticCancer" ) { //2 variable(s) and 4 values
+	table 0.2 0.05 0.8 0.95 ;
+}
+probability (  "Coma"  "BrainTumor"  "SerumCalcium" ) { //3 variable(s) and 8 values
+	table 0.8 0.8 0.8 0.05 0.2 0.2 0.2 0.95 ;
+}
+probability (  "SevereHeadaches"  "BrainTumor" ) { //2 variable(s) and 4 values
+	table 0.8 0.6 0.2 0.4 ;
+}

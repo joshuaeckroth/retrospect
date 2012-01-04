@@ -1,0 +1,398 @@
+// Bayesian Network in the Interchange Format
+// Produced by BayesianNetworks package in JavaBayes
+// Output created Sun Nov 02 18:14:20 GMT+00:00 1997
+// Bayesian network 
+network "Hailfinder" { //56 variables and 56 probability distributions
+}
+variable  "WindFieldMt" { //2 values
+	type discrete[2] {  "Westerly"  "LVorOther" };
+	property "position = (832, 590)" ;
+}
+variable  "MorningCIN" { //4 values
+	type discrete[4] {  "None"  "PartInhibit"  "Stifling"  "TotalInhibit" };
+	property "position = (418, 311)" ;
+}
+variable  "VISCloudCov" { //3 values
+	type discrete[3] {  "Cloudy"  "PC"  "Clear" };
+	property "position = (676, 44)" ;
+}
+variable  "IRCloudCover" { //3 values
+	type discrete[3] {  "Cloudy"  "PC"  "Clear" };
+	property "position = (560, 42)" ;
+}
+variable  "AMInstabMt" { //3 values
+	type discrete[3] {  "None"  "Weak"  "Strong" };
+	property "position = (245, 36)" ;
+}
+variable  "R5Fcst" { //3 values
+	type discrete[3] {  "NIL"  "SIG"  "SVR" };
+	property "position = (468, 632)" ;
+}
+variable  "MountainFcst" { //3 values
+	type discrete[3] {  "NIL"  "SIG"  "SVR" };
+	property "position = (396, 609)" ;
+}
+variable  "MeanRH" { //3 values
+	type discrete[3] {  "VeryMoist"  "Average"  "Dry" };
+	property "position = (783, 528)" ;
+}
+variable  "MidLLapse" { //3 values
+	type discrete[3] {  "CloseToDryAd"  "Steep"  "ModerateOrLe" };
+	property "position = (1061, 155)" ;
+}
+variable  "RHRatio" { //3 values
+	type discrete[3] {  "MoistMDryL"  "DryMMoistL"  "Other" };
+	property "position = (996, 415)" ;
+}
+variable  "LoLevMoistAd" { //4 values
+	type discrete[4] {  "StrongPos"  "WeakPos"  "Neutral"  "Negative" };
+	property "position = (577, 285)" ;
+}
+variable  "LowLLapse" { //4 values
+	type discrete[4] {  "CloseToDryAd"  "Steep"  "ModerateOrLe"  "Stable" };
+	property "position = (857, 440)" ;
+}
+variable  "MvmtFeatures" { //4 values
+	type discrete[4] {  "StrongFront"  "MarkedUpper"  "OtherRapid"  "NoMajor" };
+	property "position = (1028, 542)" ;
+}
+variable  "TempDis" { //4 values
+	type discrete[4] {  "QStationary"  "Moving"  "None"  "Other" };
+	property "position = (1069, 456)" ;
+}
+variable  "WindAloft" { //4 values
+	type discrete[4] {  "LV"  "SWQuad"  "NWQuad"  "AllElse" };
+	property "position = (774, 228)" ;
+}
+variable  "AMCINInScen" { //3 values
+	type discrete[3] {  "LessThanAve"  "Average"  "MoreThanAve" };
+	property "position = (361, 355)" ;
+}
+variable  "CapChange" { //3 values
+	type discrete[3] {  "Decreasing"  "LittleChange"  "Increasing" };
+	property "position = (270, 463)" ;
+}
+variable  "SynForcng" { //5 values
+	type discrete[5] {  "SigNegative"  "NegToPos"  "SigPositive"  "PosToNeg"  "LittleChange" };
+	property "position = (913, 493)" ;
+}
+variable  "SatContMoist" { //4 values
+	type discrete[4] {  "VeryWet"  "Wet"  "Neutral"  "Dry" };
+	property "position = (351, 37)" ;
+}
+variable  "RaoContMoist" { //4 values
+	type discrete[4] {  "VeryWet"  "Wet"  "Neutral"  "Dry" };
+	property "position = (424, 57)" ;
+}
+variable  "CombMoisture" { //4 values
+	type discrete[4] {  "VeryWet"  "Wet"  "Neutral"  "Dry" };
+	property "position = (383, 107)" ;
+}
+variable  "LatestCIN" { //4 values
+	type discrete[4] {  "None"  "PartInhibit"  "Stifling"  "TotalInhibit" };
+	property "position = (425, 404)" ;
+}
+variable  "LLIW" { //4 values
+	type discrete[4] {  "Unfavorable"  "Weak"  "Moderate"  "Strong" };
+	property "position = (374, 407)" ;
+}
+variable  "Date" { //6 values
+	type discrete[6] {  "May15_Jun14"  "Jun15_Jul1"  "Jul2_Jul15"  "Jul16_Aug10"  "Aug11_Aug20"  "Aug20_Sep15" };
+	property "position = (1024, 29)" ;
+}
+variable  "WindFieldPln" { //6 values
+	type discrete[6] {  "LV"  "DenvCyclone"  "LongAnticyc"  "E_NE"  "SEQuad"  "WidespdDnsl" };
+	property "position = (746, 476)" ;
+}
+variable  "Dewpoints" { //7 values
+	type discrete[7] {  "LowEvrywhere"  "LowAtStation"  "LowSHighN"  "LowNHighS"  "LowMtsHighPl"  "HighEvrywher"  "Other" };
+	property "position = (1073, 291)" ;
+}
+variable  "SfcWndShfDis" { //7 values
+	type discrete[7] {  "DenvCyclone"  "E_W_N"  "E_W_S"  "MovingFtorOt"  "DryLine"  "None"  "Other" };
+	property "position = (930, 603)" ;
+}
+variable  "InsChange" { //3 values
+	type discrete[3] {  "Decreasing"  "LittleChange"  "Increasing" };
+	property "position = (504, 419)" ;
+}
+variable  "MorningBound" { //3 values
+	type discrete[3] {  "None"  "Weak"  "Strong" };
+	property "position = (16, 257)" ;
+}
+variable  "OutflowFrMt" { //3 values
+	type discrete[3] {  "None"  "Weak"  "Strong" };
+	property "position = (198, 310)" ;
+}
+variable  "WndHodograph" { //4 values
+	type discrete[4] {  "DCVZFavor"  "StrongWest"  "Westerly"  "Other" };
+	property "position = (197, 81)" ;
+}
+variable  "N34StarFcst" { //3 values
+	type discrete[3] {  "NIL"  "SIG"  "SVR" };
+	property "position = (544, 609)" ;
+}
+variable  "AreaMoDryAir" { //4 values
+	type discrete[4] {  "VeryWet"  "Wet"  "Neutral"  "Dry" };
+	property "position = (386, 167)" ;
+}
+variable  "CombClouds" { //3 values
+	type discrete[3] {  "Cloudy"  "PC"  "Clear" };
+	property "position = (605, 111)" ;
+}
+variable  "ScenRelAMCIN" { //2 values
+	type discrete[2] {  "AB"  "CThruK" };
+	property "position = (348, 287)" ;
+}
+variable  "LIfr12ZDENSd" { //4 values
+	type discrete[4] {  "LIGt0"  "N1GtLIGt_4"  "N5GtLIGt_8"  "LILt_8" };
+	property "position = (622, 324)" ;
+}
+variable  "AMDewptCalPl" { //3 values
+	type discrete[3] {  "Instability"  "Neutral"  "Stability" };
+	property "position = (681, 367)" ;
+}
+variable  "AMInsWliScen" { //3 values
+	type discrete[3] {  "LessUnstable"  "Average"  "MoreUnstable" };
+	property "position = (566, 416)" ;
+}
+variable  "N0_7muVerMo" { //4 values
+	type discrete[4] {  "StrongUp"  "WeakUp"  "Neutral"  "Down" };
+	property "position = (84, 29)" ;
+}
+variable  "SubjVertMo" { //4 values
+	type discrete[4] {  "StronUp"  "WeakUp"  "Neutral"  "Down" };
+	property "position = (26, 101)" ;
+}
+variable  "QGVertMotion" { //4 values
+	type discrete[4] {  "StrongUp"  "WeakUp"  "Neutral"  "Down" };
+	property "position = (128, 57)" ;
+}
+variable  "CombVerMo" { //4 values
+	type discrete[4] {  "StrongUp"  "WeakUp"  "Neutral"  "Down" };
+	property "position = (42, 168)" ;
+}
+variable  "AreaMeso_ALS" { //4 values
+	type discrete[4] {  "StrongUp"  "WeakUp"  "Neutral"  "Down" };
+	property "position = (95, 197)" ;
+}
+variable  "CldShadeOth" { //3 values
+	type discrete[3] {  "Cloudy"  "PC"  "Clear" };
+	property "position = (279, 252)" ;
+}
+variable  "Boundaries" { //3 values
+	type discrete[3] {  "None"  "Weak"  "Strong" };
+	property "position = (55, 372)" ;
+}
+variable  "CldShadeConv" { //3 values
+	type discrete[3] {  "None"  "Some"  "Marked" };
+	property "position = (141, 270)" ;
+}
+variable  "InsInMt" { //3 values
+	type discrete[3] {  "None"  "Weak"  "Strong" };
+	property "position = (290, 123)" ;
+}
+variable  "ScenRel3_4" { //5 values
+	type discrete[5] {  "ACEFK"  "B"  "D"  "GJ"  "HI" };
+	property "position = (620, 592)" ;
+}
+variable  "ScenRelAMIns" { //6 values
+	type discrete[6] {  "ABI"  "CDEJ"  "F"  "G"  "H"  "K" };
+	property "position = (754, 286)" ;
+}
+variable  "CompPlFcst" { //3 values
+	type discrete[3] {  "IncCapDecIns"  "LittleChange"  "DecCapIncIns" };
+	property "position = (173, 435)" ;
+}
+variable  "CurPropConv" { //4 values
+	type discrete[4] {  "None"  "Slight"  "Moderate"  "Strong" };
+	property "position = (421, 463)" ;
+}
+variable  "Scenario" { //11 values
+	type discrete[11] {  "A"  "B"  "C"  "D"  "E"  "F"  "G"  "H"  "I"  "J"  "K" };
+	property "position = (1029, 100)" ;
+}
+variable  "CapInScen" { //3 values
+	type discrete[3] {  "LessThanAve"  "Average"  "MoreThanAve" };
+	property "position = (324, 467)" ;
+}
+variable  "InsSclInScen" { //3 values
+	type discrete[3] {  "LessUnstable"  "Average"  "MoreUnstable" };
+	property "position = (538, 469)" ;
+}
+variable  "ScnRelPlFcst" { //11 values
+	type discrete[11] {  "A"  "B"  "C"  "D"  "E"  "F"  "G"  "H"  "I"  "J"  "K" };
+	property "position = (637, 454)" ;
+}
+variable  "PlainsFcst" { //3 values
+	type discrete[3] {  "NIL"  "SIG"  "SVR" };
+	property "position = (586, 541)" ;
+}
+probability (  "WindFieldMt"  "Scenario" ) { //2 variable(s) and 22 values
+	table 0.8 0.35 0.75 0.7 0.65 0.15 0.7 0.3 0.5 0.01 0.7 0.2 0.65 0.25 0.3 0.35 0.85 0.3 0.7 0.5 0.99 0.3 ;
+}
+probability (  "MorningCIN" ) { //1 variable(s) and 4 values
+	table 0.15 0.57 0.2 0.08 ;
+}
+probability (  "VISCloudCov" ) { //1 variable(s) and 3 values
+	table 0.1 0.5 0.4 ;
+}
+probability (  "IRCloudCover" ) { //1 variable(s) and 3 values
+	table 0.15 0.45 0.4 ;
+}
+probability (  "AMInstabMt" ) { //1 variable(s) and 3 values
+	table 0.333333 0.333333 0.333334 ;
+}
+probability (  "R5Fcst"  "MountainFcst"  "N34StarFcst" ) { //3 variable(s) and 27 values
+	table 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 1.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 1.0 1.0 1.0 1.0 ;
+}
+probability (  "MountainFcst"  "InsInMt" ) { //2 variable(s) and 9 values
+	table 1.0 0.48 0.2 0.0 0.5 0.5 0.0 0.02 0.3 ;
+}
+probability (  "MeanRH"  "Scenario" ) { //2 variable(s) and 33 values
+	table 0.33 0.4 0.05 0.1 0.05 1.0 0.0 0.4 0.2 0.05 0.2 0.5 0.4 0.45 0.5 0.65 0.0 0.07 0.55 0.45 0.55 0.4 0.17 0.2 0.5 0.4 0.3 0.0 0.93 0.05 0.35 0.4 0.4 ;
+}
+probability (  "MidLLapse"  "Scenario" ) { //2 variable(s) and 33 values
+	table 0.25 0.25 0.4 0.43 0.02 0.0 0.84 0.25 0.41 0.23 0.16 0.55 0.5 0.38 0.37 0.38 0.1 0.16 0.31 0.29 0.42 0.28 0.2 0.25 0.22 0.2 0.6 0.9 0.0 0.44 0.3 0.35 0.56 ;
+}
+probability (  "RHRatio"  "Scenario" ) { //2 variable(s) and 33 values
+	table 0.05 0.1 0.4 0.2 0.8 0.0 0.6 0.0 0.1 0.4 0.15 0.5 0.5 0.15 0.45 0.05 0.0 0.0 0.7 0.7 0.4 0.45 0.45 0.4 0.45 0.35 0.15 1.0 0.4 0.3 0.2 0.2 0.4 ;
+}
+probability (  "LoLevMoistAd" ) { //1 variable(s) and 4 values
+	table 0.12 0.28 0.3 0.3 ;
+}
+probability (  "LowLLapse"  "Scenario" ) { //2 variable(s) and 44 values
+	table 0.04 0.07 0.35 0.4 0.45 0.01 0.78 0.0 0.22 0.13 0.09 0.25 0.31 0.47 0.4 0.35 0.35 0.19 0.02 0.4 0.4 0.4 0.35 0.31 0.14 0.13 0.15 0.45 0.03 0.33 0.3 0.35 0.33 0.36 0.31 0.04 0.07 0.05 0.19 0.0 0.65 0.08 0.12 0.18 ;
+}
+probability (  "MvmtFeatures"  "Scenario" ) { //2 variable(s) and 44 values
+	table 0.25 0.05 0.1 0.18 0.02 0.05 0.1 0.0 0.2 0.04 0.5 0.55 0.1 0.3 0.38 0.02 0.07 0.25 0.6 0.1 0.0 0.35 0.2 0.1 0.3 0.34 0.26 0.05 0.15 0.1 0.2 0.04 0.09 0.0 0.75 0.3 0.1 0.7 0.83 0.5 0.3 0.5 0.92 0.06 ;
+}
+probability (  "TempDis"  "Scenario" ) { //2 variable(s) and 44 values
+	table 0.13 0.15 0.12 0.1 0.04 0.05 0.03 0.05 0.8 0.1 0.2 0.15 0.15 0.1 0.15 0.04 0.12 0.03 0.4 0.19 0.05 0.3 0.1 0.25 0.35 0.4 0.82 0.75 0.84 0.5 0.0 0.4 0.3 0.62 0.45 0.43 0.35 0.1 0.08 0.1 0.05 0.01 0.45 0.2 ;
+}
+probability (  "WindAloft"  "Scenario" ) { //2 variable(s) and 44 values
+	table 0.0 0.2 0.05 0.03 0.07 0.5 0.25 0.2 0.2 0.96 0.03 0.95 0.3 0.09 0.32 0.66 0.0 0.3 0.14 0.41 0.0 0.08 0.01 0.2 0.59 0.42 0.02 0.0 0.25 0.43 0.1 0.0 0.33 0.04 0.3 0.27 0.23 0.25 0.5 0.2 0.23 0.29 0.04 0.56 ;
+}
+probability (  "AMCINInScen"  "ScenRelAMCIN"  "MorningCIN" ) { //3 variable(s) and 24 values
+	table 1.0 0.6 0.25 0.0 0.75 0.3 0.01 0.0 0.0 0.37 0.45 0.1 0.25 0.6 0.4 0.03 0.0 0.03 0.3 0.9 0.0 0.1 0.59 0.97 ;
+}
+probability (  "CapChange"  "CompPlFcst" ) { //2 variable(s) and 9 values
+	table 0.0 0.0 1.0 0.0 1.0 0.0 1.0 0.0 0.0 ;
+}
+probability (  "SynForcng"  "Scenario" ) { //2 variable(s) and 55 values
+	table 0.35 0.06 0.1 0.35 0.15 0.15 0.15 0.25 0.25 0.01 0.2 0.25 0.1 0.27 0.2 0.15 0.1 0.1 0.25 0.2 0.05 0.2 0.0 0.06 0.4 0.1 0.1 0.05 0.1 0.25 0.15 0.01 0.35 0.35 0.3 0.08 0.25 0.15 0.15 0.25 0.15 0.2 0.05 0.15 0.05 0.48 0.15 0.1 0.45 0.55 0.4 0.1 0.2 0.88 0.1 ;
+}
+probability (  "SatContMoist" ) { //1 variable(s) and 4 values
+	table 0.15 0.2 0.4 0.25 ;
+}
+probability (  "RaoContMoist" ) { //1 variable(s) and 4 values
+	table 0.15 0.2 0.4 0.25 ;
+}
+probability (  "CombMoisture"  "SatContMoist"  "RaoContMoist" ) { //3 variable(s) and 64 values
+	table 0.9 0.6 0.3 0.25 0.55 0.15 0.05 0.1 0.25 0.1 0.0 0.0 0.25 0.25 0.25 0.25 0.1 0.35 0.5 0.35 0.4 0.6 0.4 0.3 0.3 0.35 0.15 0.1 0.25 0.25 0.25 0.25 0.0 0.05 0.2 0.25 0.05 0.2 0.45 0.3 0.35 0.5 0.7 0.4 0.25 0.25 0.25 0.25 0.0 0.0 0.0 0.15 0.0 0.05 0.1 0.3 0.1 0.05 0.15 0.5 0.25 0.25 0.25 0.25 ;
+}
+probability (  "LatestCIN" ) { //1 variable(s) and 4 values
+	table 0.4 0.4 0.15 0.05 ;
+}
+probability (  "LLIW" ) { //1 variable(s) and 4 values
+	table 0.12 0.32 0.38 0.18 ;
+}
+probability (  "Date" ) { //1 variable(s) and 6 values
+	table 0.254098 0.131148 0.106557 0.213115 0.07377 0.221312 ;
+}
+probability (  "WindFieldPln"  "Scenario" ) { //2 variable(s) and 66 values
+	table 0.05 0.08 0.1 0.1 0.43 0.6 0.25 0.04 0.2 0.6 0.1 0.6 0.6 0.0 0.15 0.1 0.07 0.01 0.02 0.3 0.08 0.05 0.02 0.02 0.75 0.2 0.15 0.01 0.3 0.04 0.05 0.07 0.1 0.1 0.1 0.0 0.05 0.06 0.12 0.01 0.8 0.37 0.03 0.05 0.23 0.2 0.0 0.3 0.06 0.2 0.03 0.1 0.07 0.2 0.2 0.0 0.0 0.15 0.2 0.2 0.0 0.4 0.0 0.01 0.02 0.5 ;
+}
+probability (  "Dewpoints"  "Scenario" ) { //2 variable(s) and 77 values
+	table 0.04 0.05 0.4 0.13 0.15 0.0 0.5 0.0 0.0 0.1 0.1 0.05 0.07 0.25 0.22 0.2 0.0 0.27 0.02 0.02 0.45 0.1 0.15 0.15 0.0 0.18 0.2 0.0 0.15 0.1 0.7 0.1 0.1 0.05 0.1 0.15 0.07 0.18 0.0 0.02 0.05 0.0 0.05 0.2 0.19 0.3 0.05 0.34 0.11 0.0 0.02 0.5 0.2 0.26 0.05 0.3 0.27 0.02 0.03 0.11 0.98 0.0 0.2 0.04 0.02 0.1 0.22 0.06 0.13 0.03 0.05 0.02 0.04 0.13 0.04 0.02 0.35 ;
+}
+probability (  "SfcWndShfDis"  "Scenario" ) { //2 variable(s) and 77 values
+	table 0.65 0.65 0.0 0.12 0.06 0.1 0.02 0.01 0.02 0.06 0.05 0.05 0.05 0.65 0.02 0.14 0.1 0.05 0.1 0.1 0.08 0.13 0.1 0.1 0.2 0.02 0.04 0.1 0.05 0.15 0.5 0.04 0.05 0.08 0.1 0.02 0.02 0.04 0.02 0.0 0.4 0.3 0.02 0.39 0.04 0.02 0.06 0.45 0.25 0.0 0.35 0.0 0.01 0.6 0.13 0.07 0.07 0.05 0.27 0.4 0.56 0.33 0.23 0.02 0.14 0.15 0.01 0.01 0.02 0.1 0.07 0.12 0.2 0.11 0.05 0.06 0.1 ;
+}
+probability (  "InsChange"  "LoLevMoistAd"  "CompPlFcst" ) { //3 variable(s) and 36 values
+	table 0.0 0.0 0.05 0.05 0.1 0.25 0.15 0.2 0.35 0.5 0.8 0.9 0.05 0.12 0.15 0.15 0.4 0.5 0.5 0.6 0.5 0.4 0.16 0.09 0.95 0.88 0.8 0.8 0.5 0.25 0.35 0.2 0.15 0.1 0.04 0.01 ;
+}
+probability (  "MorningBound" ) { //1 variable(s) and 3 values
+	table 0.5 0.35 0.15 ;
+}
+probability (  "OutflowFrMt"  "InsInMt"  "WndHodograph" ) { //3 variable(s) and 36 values
+	table 1.0 1.0 1.0 1.0 0.5 0.15 0.35 0.8 0.05 0.01 0.1 0.6 0.0 0.0 0.0 0.0 0.4 0.4 0.6 0.19 0.45 0.15 0.25 0.3 0.0 0.0 0.0 0.0 0.1 0.45 0.05 0.01 0.5 0.84 0.65 0.1 ;
+}
+probability (  "WndHodograph" ) { //1 variable(s) and 4 values
+	table 0.3 0.25 0.25 0.2 ;
+}
+probability (  "N34StarFcst"  "ScenRel3_4"  "PlainsFcst" ) { //3 variable(s) and 45 values
+	table 0.94 0.06 0.01 0.98 0.04 0.0 0.92 0.01 0.0 0.92 0.03 0.01 0.99 0.09 0.03 0.05 0.89 0.05 0.02 0.94 0.03 0.06 0.89 0.01 0.06 0.92 0.04 0.01 0.9 0.12 0.01 0.05 0.94 0.0 0.02 0.97 0.02 0.1 0.99 0.02 0.05 0.95 0.0 0.01 0.85 ;
+}
+probability (  "AreaMoDryAir"  "AreaMeso_ALS"  "CombMoisture" ) { //3 variable(s) and 64 values
+	table 0.99 0.7 0.2 0.0 0.8 0.35 0.01 0.0 0.7 0.2 0.01 0.0 0.2 0.05 0.0 0.0 0.01 0.29 0.55 0.25 0.2 0.55 0.39 0.02 0.29 0.6 0.09 0.0 0.74 0.4 0.05 0.0 0.0 0.01 0.24 0.55 0.0 0.1 0.55 0.43 0.01 0.2 0.8 0.3 0.06 0.45 0.5 0.01 0.0 0.0 0.01 0.2 0.0 0.0 0.05 0.55 0.0 0.0 0.1 0.7 0.0 0.1 0.45 0.99 ;
+}
+probability (  "CombClouds"  "VISCloudCov"  "IRCloudCover" ) { //3 variable(s) and 27 values
+	table 0.95 0.85 0.8 0.45 0.1 0.05 0.1 0.02 0.0 0.04 0.13 0.1 0.52 0.8 0.45 0.4 0.28 0.02 0.01 0.02 0.1 0.03 0.1 0.5 0.5 0.7 0.98 ;
+}
+probability (  "ScenRelAMCIN"  "Scenario" ) { //2 variable(s) and 22 values
+	table 1.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 ;
+}
+probability (  "LIfr12ZDENSd" ) { //1 variable(s) and 4 values
+	table 0.1 0.52 0.3 0.08 ;
+}
+probability (  "AMDewptCalPl" ) { //1 variable(s) and 3 values
+	table 0.3 0.25 0.45 ;
+}
+probability (  "AMInsWliScen"  "ScenRelAMIns"  "LIfr12ZDENSd"  "AMDewptCalPl" ) { //4 variable(s) and 216 values
+	table 0.6 0.85 0.95 0.3 0.5 0.75 0.06 0.2 0.5 0.01 0.05 0.35 0.4 0.7 0.9 0.15 0.25 0.6 0.03 0.2 0.45 0.01 0.05 0.25 0.35 0.55 0.85 0.07 0.2 0.5 0.0 0.05 0.25 0.0 0.0 0.04 0.3 0.5 0.75 0.15 0.2 0.15 0.07 0.13 0.1 0.02 0.04 0.07 0.35 0.4 0.58 0.1 0.15 0.4 0.02 0.05 0.15 0.01 0.03 0.08 0.3 0.4 0.5 0.1 0.25 0.3 0.05 0.1 0.15 0.02 0.04 0.1 0.3 0.13 0.04 0.3 0.3 0.2 0.21 0.4 0.4 0.04 0.2 0.35 0.3 0.2 0.08 0.3 0.5 0.3 0.17 0.3 0.4 0.04 0.18 0.4 0.35 0.4 0.13 0.38 0.6 0.43 0.05 0.35 0.5 0.02 0.05 0.16 0.4 0.3 0.2 0.35 0.6 0.7 0.23 0.47 0.75 0.18 0.26 0.3 0.45 0.5 0.4 0.25 0.45 0.45 0.18 0.25 0.35 0.09 0.17 0.32 0.55 0.5 0.43 0.35 0.5 0.5 0.22 0.35 0.35 0.1 0.16 0.25 0.1 0.02 0.01 0.4 0.2 0.05 0.73 0.4 0.1 0.95 0.75 0.3 0.3 0.1 0.02 0.55 0.25 0.1 0.8 0.5 0.15 0.95 0.77 0.35 0.3 0.05 0.02 0.55 0.2 0.07 0.95 0.6 0.25 0.98 0.95 0.8 0.3 0.2 0.05 0.5 0.2 0.15 0.7 0.4 0.15 0.8 0.7 0.63 0.2 0.1 0.02 0.65 0.4 0.15 0.8 0.7 0.5 0.9 0.8 0.6 0.15 0.1 0.07 0.55 0.25 0.2 0.73 0.55 0.5 0.88 0.8 0.65 ;
+}
+probability (  "N0_7muVerMo" ) { //1 variable(s) and 4 values
+	table 0.25 0.25 0.25 0.25 ;
+}
+probability (  "SubjVertMo" ) { //1 variable(s) and 4 values
+	table 0.15 0.15 0.5 0.2 ;
+}
+probability (  "QGVertMotion" ) { //1 variable(s) and 4 values
+	table 0.15 0.15 0.5 0.2 ;
+}
+probability (  "CombVerMo"  "N0_7muVerMo"  "SubjVertMo"  "QGVertMotion" ) { //4 variable(s) and 256 values
+	table 1.0 0.9 0.7 0.2 0.9 0.7 0.15 0.1 0.7 0.15 0.2 0.1 0.2 0.1 0.1 0.1 0.9 0.7 0.15 0.1 0.7 0.0 0.0 0.0 0.15 0.0 0.0 0.0 0.1 0.0 0.0 0.0 0.7 0.15 0.2 0.1 0.15 0.0 0.0 0.0 0.2 0.0 0.0 0.0 0.1 0.0 0.0 0.0 0.2 0.1 0.1 0.1 0.1 0.0 0.0 0.0 0.1 0.0 0.0 0.0 0.1 0.0 0.0 0.0 0.0 0.1 0.2 0.5 0.1 0.3 0.7 0.35 0.2 0.7 0.6 0.2 0.5 0.35 0.2 0.1 0.1 0.3 0.7 0.35 0.3 1.0 0.7 0.2 0.7 0.7 0.3 0.15 0.35 0.2 0.15 0.1 0.2 0.7 0.6 0.2 0.7 0.7 0.3 0.15 0.6 0.3 0.0 0.0 0.2 0.15 0.0 0.0 0.5 0.35 0.2 0.1 0.35 0.2 0.15 0.1 0.2 0.15 0.0 0.0 0.1 0.1 0.0 0.0 0.0 0.0 0.1 0.2 0.0 0.0 0.15 0.45 0.1 0.15 0.2 0.6 0.2 0.45 0.6 0.2 0.0 0.0 0.15 0.45 0.0 0.0 0.3 0.7 0.15 0.3 0.7 0.5 0.45 0.7 0.5 0.2 0.1 0.15 0.2 0.6 0.15 0.3 0.7 0.5 0.2 0.7 1.0 0.7 0.6 0.5 0.7 0.3 0.2 0.45 0.6 0.2 0.45 0.7 0.5 0.2 0.6 0.5 0.7 0.3 0.2 0.2 0.3 0.0 0.0 0.0 0.0 0.1 0.0 0.0 0.0 0.1 0.0 0.0 0.0 0.1 0.1 0.1 0.1 0.6 0.0 0.0 0.0 0.1 0.0 0.0 0.0 0.1 0.0 0.0 0.0 0.35 0.1 0.1 0.35 0.7 0.0 0.0 0.0 0.1 0.0 0.0 0.0 0.35 0.0 0.0 0.0 0.3 0.1 0.35 0.3 0.7 0.1 0.1 0.1 0.6 0.1 0.1 0.35 0.7 0.1 0.35 0.3 0.7 0.6 0.7 0.7 1.0 ;
+}
+probability (  "AreaMeso_ALS"  "CombVerMo" ) { //2 variable(s) and 16 values
+	table 1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 ;
+}
+probability (  "CldShadeOth"  "AreaMoDryAir"  "AreaMeso_ALS"  "CombClouds" ) { //4 variable(s) and 144 values
+	table 1.0 0.85 0.25 0.95 0.4 0.05 0.93 0.2 0.01 0.74 0.0 0.0 0.92 0.7 0.15 0.9 0.25 0.01 0.8 0.01 0.0 0.65 0.0 0.0 0.88 0.4 0.1 0.85 0.15 0.0 0.8 0.03 0.0 0.5 0.01 0.0 0.85 0.55 0.1 0.6 0.01 0.0 0.78 0.01 0.0 0.42 0.05 0.0 0.0 0.15 0.35 0.05 0.55 0.45 0.07 0.78 0.29 0.25 0.5 0.1 0.08 0.29 0.4 0.09 0.6 0.3 0.2 0.89 0.1 0.34 0.4 0.02 0.12 0.5 0.4 0.15 0.75 0.2 0.18 0.85 0.05 0.48 0.74 0.01 0.14 0.43 0.25 0.39 0.9 0.15 0.2 0.74 0.04 0.55 0.65 0.0 0.0 0.0 0.4 0.0 0.05 0.5 0.0 0.02 0.7 0.01 0.5 0.9 0.0 0.01 0.45 0.01 0.15 0.69 0.0 0.1 0.9 0.01 0.6 0.98 0.0 0.1 0.5 0.0 0.1 0.8 0.02 0.12 0.95 0.02 0.25 0.99 0.01 0.02 0.65 0.01 0.09 0.85 0.02 0.25 0.96 0.03 0.3 1.0 ;
+}
+probability (  "Boundaries"  "OutflowFrMt"  "WndHodograph"  "MorningBound" ) { //4 variable(s) and 108 values
+	table 0.5 0.3 0.1 0.75 0.45 0.25 0.8 0.35 0.25 0.7 0.25 0.05 0.3 0.1 0.05 0.15 0.1 0.05 0.15 0.05 0.05 0.4 0.2 0.05 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.02 0.01 0.01 0.48 0.5 0.25 0.22 0.45 0.4 0.18 0.5 0.35 0.28 0.6 0.35 0.63 0.5 0.2 0.7 0.75 0.5 0.7 0.8 0.45 0.55 0.65 0.3 0.55 0.4 0.15 0.5 0.4 0.2 0.7 0.5 0.2 0.73 0.5 0.2 0.02 0.2 0.65 0.03 0.1 0.35 0.02 0.15 0.4 0.02 0.15 0.6 0.07 0.4 0.75 0.15 0.15 0.45 0.15 0.15 0.5 0.05 0.15 0.65 0.45 0.6 0.85 0.5 0.6 0.8 0.3 0.5 0.8 0.25 0.49 0.79 ;
+}
+probability (  "CldShadeConv"  "InsInMt"  "WndHodograph" ) { //3 variable(s) and 36 values
+	table 1.0 1.0 1.0 1.0 0.3 0.2 0.5 0.8 0.0 0.0 0.1 0.5 0.0 0.0 0.0 0.0 0.6 0.7 0.46 0.19 0.3 0.2 0.5 0.38 0.0 0.0 0.0 0.0 0.1 0.1 0.04 0.01 0.7 0.8 0.4 0.12 ;
+}
+probability (  "InsInMt"  "CldShadeOth"  "AMInstabMt" ) { //3 variable(s) and 27 values
+	table 0.9 0.01 0.0 0.6 0.0 0.0 0.5 0.0 0.0 0.1 0.4 0.05 0.39 0.4 0.0 0.35 0.15 0.0 0.0 0.59 0.95 0.01 0.6 1.0 0.15 0.85 1.0 ;
+}
+probability (  "ScenRel3_4"  "Scenario" ) { //2 variable(s) and 55 values
+	table 1.0 0.0 1.0 0.0 1.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 1.0 0.0 0.0 ;
+}
+probability (  "ScenRelAMIns"  "Scenario" ) { //2 variable(s) and 66 values
+	table 1.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 1.0 1.0 1.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 ;
+}
+probability (  "CompPlFcst"  "Boundaries"  "CldShadeConv"  "AreaMeso_ALS"  "CldShadeOth" ) { //5 variable(s) and 324 values
+	table 0.4 0.1 0.05 0.6 0.4 0.2 0.6 0.45 0.25 0.7 0.65 0.6 0.4 0.25 0.15 0.65 0.45 0.25 0.65 0.5 0.3 0.75 0.7 0.65 0.45 0.4 0.35 0.7 0.55 0.4 0.7 0.6 0.55 0.85 0.8 0.75 0.35 0.05 0.03 0.5 0.3 0.15 0.55 0.4 0.2 0.6 0.6 0.55 0.35 0.1 0.05 0.55 0.35 0.2 0.6 0.45 0.25 0.65 0.65 0.6 0.4 0.25 0.2 0.65 0.45 0.3 0.65 0.55 0.5 0.78 0.75 0.7 0.3 0.01 0.01 0.35 0.15 0.1 0.45 0.3 0.15 0.5 0.48 0.45 0.3 0.05 0.04 0.4 0.2 0.12 0.5 0.35 0.2 0.55 0.55 0.5 0.3 0.15 0.13 0.5 0.35 0.2 0.55 0.45 0.4 0.7 0.65 0.6 0.35 0.35 0.3 0.25 0.3 0.5 0.35 0.4 0.45 0.27 0.3 0.35 0.35 0.3 0.35 0.25 0.3 0.5 0.3 0.4 0.45 0.23 0.26 0.32 0.3 0.3 0.3 0.22 0.3 0.45 0.27 0.3 0.33 0.14 0.17 0.23 0.35 0.35 0.25 0.25 0.35 0.45 0.3 0.4 0.4 0.35 0.3 0.33 0.35 0.35 0.3 0.25 0.35 0.5 0.3 0.4 0.5 0.3 0.3 0.35 0.35 0.4 0.4 0.25 0.35 0.5 0.3 0.3 0.3 0.18 0.2 0.25 0.3 0.25 0.2 0.25 0.4 0.35 0.3 0.4 0.4 0.35 0.32 0.35 0.3 0.6 0.27 0.25 0.4 0.43 0.3 0.4 0.45 0.35 0.3 0.4 0.35 0.35 0.35 0.25 0.35 0.45 0.35 0.35 0.35 0.24 0.28 0.3 0.25 0.55 0.65 0.15 0.3 0.3 0.05 0.15 0.3 0.03 0.05 0.05 0.25 0.45 0.5 0.1 0.25 0.25 0.05 0.1 0.25 0.02 0.04 0.03 0.25 0.3 0.35 0.08 0.15 0.15 0.03 0.1 0.12 0.01 0.03 0.02 0.3 0.6 0.72 0.25 0.35 0.4 0.15 0.2 0.4 0.05 0.1 0.12 0.3 0.55 0.65 0.2 0.3 0.3 0.1 0.15 0.25 0.05 0.05 0.05 0.25 0.35 0.4 0.1 0.2 0.2 0.05 0.15 0.2 0.04 0.05 0.05 0.4 0.74 0.79 0.4 0.45 0.55 0.25 0.3 0.45 0.15 0.2 0.2 0.4 0.35 0.69 0.35 0.4 0.45 0.2 0.25 0.35 0.1 0.15 0.1 0.35 0.5 0.52 0.25 0.3 0.35 0.1 0.2 0.25 0.06 0.07 0.1 ;
+}
+probability (  "CurPropConv"  "LatestCIN"  "LLIW" ) { //3 variable(s) and 64 values
+	table 0.7 0.1 0.01 0.0 0.9 0.65 0.25 0.01 0.95 0.75 0.4 0.2 1.0 0.95 0.75 0.5 0.28 0.5 0.14 0.02 0.09 0.25 0.35 0.15 0.05 0.23 0.4 0.3 0.0 0.05 0.2 0.35 0.02 0.3 0.35 0.18 0.01 0.09 0.3 0.33 0.0 0.02 0.18 0.35 0.0 0.0 0.05 0.1 0.0 0.1 0.5 0.8 0.0 0.01 0.1 0.51 0.0 0.0 0.02 0.15 0.0 0.0 0.0 0.05 ;
+}
+probability (  "Scenario"  "Date" ) { //2 variable(s) and 66 values
+	table 0.1 0.05 0.04 0.04 0.04 0.05 0.16 0.16 0.13 0.13 0.11 0.11 0.1 0.09 0.1 0.09 0.1 0.1 0.08 0.09 0.08 0.07 0.07 0.08 0.08 0.12 0.15 0.2 0.17 0.11 0.01 0.02 0.03 0.08 0.05 0.02 0.08 0.13 0.14 0.06 0.1 0.11 0.1 0.06 0.04 0.05 0.05 0.06 0.09 0.07 0.06 0.07 0.07 0.08 0.03 0.11 0.15 0.13 0.14 0.11 0.17 0.1 0.08 0.08 0.1 0.17 ;
+}
+probability (  "CapInScen"  "AMCINInScen"  "CapChange" ) { //3 variable(s) and 27 values
+	table 1.0 0.98 0.35 0.75 0.03 0.0 0.3 0.0 0.0 0.0 0.02 0.35 0.25 0.94 0.25 0.35 0.02 0.0 0.0 0.0 0.3 0.0 0.03 0.75 0.35 0.98 1.0 ;
+}
+probability (  "InsSclInScen"  "AMInsWliScen"  "InsChange" ) { //3 variable(s) and 27 values
+	table 1.0 0.9 0.4 0.6 0.15 0.0 0.25 0.0 0.0 0.0 0.1 0.35 0.4 0.7 0.4 0.35 0.1 0.0 0.0 0.0 0.25 0.0 0.15 0.6 0.4 0.9 1.0 ;
+}
+probability (  "ScnRelPlFcst"  "Scenario" ) { //2 variable(s) and 121 values
+	table 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 ;
+}
+probability (  "PlainsFcst"  "CurPropConv"  "InsSclInScen"  "CapInScen"  "ScnRelPlFcst" ) { //5 variable(s) and 1188 values
+	table 0.75 0.75 0.9 0.9 0.88 0.92 0.85 1.0 0.9 0.9 0.95 0.75 0.65 0.9 0.91 0.85 0.9 0.84 0.99 0.88 0.92 0.96 0.75 0.75 0.95 0.93 0.92 0.87 0.9 0.98 0.92 0.95 0.97 0.5 0.6 0.8 0.85 0.85 0.88 0.8 0.92 0.8 0.75 0.9 0.35 0.55 0.82 0.82 0.75 0.88 0.75 0.9 0.7 0.8 0.9 0.5 0.6 0.85 0.85 0.75 0.85 0.75 0.94 0.65 0.83 0.93 0.35 0.45 0.8 0.72 0.78 0.86 0.65 0.85 0.65 0.72 0.85 0.25 0.45 0.65 0.55 0.55 0.81 0.6 0.8 0.6 0.75 0.88 0.4 0.45 0.75 0.65 0.52 0.82 0.65 0.85 0.5 0.77 0.9 0.7 0.6 0.82 0.85 0.82 0.85 0.8 0.97 0.88 0.86 0.88 0.65 0.58 0.8 0.85 0.8 0.83 0.77 0.93 0.85 0.85 0.9 0.6 0.65 0.9 0.85 0.82 0.8 0.8 0.91 0.85 0.9 0.93 0.3 0.55 0.7 0.75 0.62 0.85 0.75 0.82 0.6 0.68 0.82 0.28 0.48 0.7 0.7 0.6 0.82 0.63 0.8 0.5 0.7 0.8 0.4 0.5 0.72 0.65 0.55 0.78 0.55 0.85 0.45 0.73 0.85 0.3 0.4 0.65 0.6 0.6 0.83 0.45 0.7 0.55 0.6 0.72 0.22 0.35 0.45 0.45 0.48 0.72 0.43 0.68 0.35 0.6 0.74 0.27 0.35 0.55 0.45 0.42 0.74 0.45 0.77 0.3 0.68 0.75 0.5 0.45 0.75 0.75 0.72 0.78 0.66 0.88 0.7 0.78 0.8 0.45 0.45 0.7 0.72 0.7 0.75 0.62 0.85 0.75 0.76 0.8 0.35 0.45 0.75 0.7 0.6 0.72 0.6 0.8 0.75 0.75 0.88 0.2 0.4 0.7 0.65 0.5 0.74 0.6 0.67 0.35 0.6 0.75 0.23 0.38 0.58 0.55 0.53 0.73 0.35 0.65 0.3 0.6 0.68 0.3 0.35 0.55 0.5 0.4 0.7 0.35 0.6 0.35 0.62 0.7 0.25 0.3 0.45 0.5 0.4 0.72 0.25 0.57 0.25 0.48 0.6 0.19 0.25 0.35 0.35 0.35 0.65 0.22 0.45 0.25 0.48 0.58 0.15 0.25 0.4 0.3 0.25 0.6 0.18 0.47 0.25 0.5 0.5 0.4 0.35 0.6 0.6 0.55 0.69 0.54 0.75 0.55 0.7 0.7 0.35 0.35 0.55 0.55 0.5 0.65 0.38 0.7 0.65 0.67 0.7 0.2 0.3 0.55 0.5 0.45 0.6 0.28 0.65 0.63 0.62 0.8 0.16 0.3 0.45 0.52 0.35 0.65 0.48 0.58 0.25 0.5 0.65 0.18 0.3 0.45 0.45 0.35 0.62 0.2 0.52 0.23 0.47 0.55 0.23 0.25 0.4 0.4 0.3 0.57 0.15 0.5 0.25 0.5 0.55 0.18 0.2 0.3 0.4 0.25 0.63 0.15 0.4 0.2 0.3 0.5 0.15 0.18 0.25 0.25 0.25 0.58 0.13 0.3 0.22 0.35 0.5 0.1 0.2 0.2 0.23 0.15 0.5 0.1 0.28 0.2 0.3 0.38 0.2 0.2 0.08 0.06 0.1 0.08 0.13 0.0 0.08 0.08 0.04 0.2 0.3 0.08 0.05 0.13 0.1 0.12 0.01 0.1 0.06 0.03 0.2 0.2 0.04 0.04 0.06 0.13 0.06 0.02 0.06 0.04 0.02 0.3 0.3 0.14 0.09 0.1 0.11 0.17 0.06 0.12 0.22 0.08 0.3 0.3 0.13 0.1 0.18 0.11 0.2 0.07 0.2 0.15 0.08 0.2 0.25 0.1 0.07 0.15 0.14 0.2 0.05 0.22 0.1 0.06 0.2 0.35 0.1 0.14 0.15 0.12 0.25 0.1 0.2 0.2 0.1 0.15 0.35 0.2 0.2 0.25 0.17 0.28 0.13 0.2 0.15 0.08 0.08 0.25 0.1 0.15 0.25 0.16 0.27 0.09 0.2 0.1 0.07 0.25 0.33 0.13 0.1 0.15 0.14 0.17 0.02 0.1 0.1 0.1 0.25 0.32 0.15 0.1 0.16 0.16 0.17 0.06 0.12 0.1 0.08 0.3 0.28 0.08 0.1 0.13 0.19 0.13 0.08 0.12 0.08 0.06 0.4 0.34 0.2 0.15 0.28 0.14 0.2 0.14 0.25 0.22 0.15 0.37 0.35 0.2 0.17 0.29 0.16 0.3 0.15 0.3 0.2 0.16 0.28 0.25 0.18 0.2 0.3 0.2 0.35 0.12 0.3 0.15 0.12 0.25 0.36 0.2 0.2 0.28 0.14 0.4 0.18 0.25 0.25 0.2 0.17 0.37 0.3 0.25 0.29 0.25 0.4 0.2 0.3 0.2 0.16 0.1 0.3 0.22 0.25 0.3 0.22 0.4 0.13 0.25 0.15 0.15 0.4 0.42 0.18 0.15 0.22 0.21 0.27 0.1 0.22 0.16 0.16 0.35 0.35 0.2 0.17 0.22 0.24 0.3 0.12 0.15 0.17 0.16 0.4 0.4 0.19 0.2 0.3 0.27 0.3 0.16 0.17 0.2 0.1 0.45 0.4 0.2 0.22 0.34 0.24 0.3 0.24 0.4 0.25 0.2 0.4 0.35 0.25 0.25 0.32 0.25 0.53 0.24 0.4 0.24 0.24 0.34 0.35 0.25 0.27 0.38 0.28 0.5 0.25 0.35 0.22 0.22 0.28 0.38 0.3 0.25 0.35 0.24 0.57 0.28 0.35 0.26 0.26 0.18 0.4 0.3 0.3 0.35 0.3 0.58 0.35 0.34 0.26 0.25 0.16 0.3 0.3 0.3 0.4 0.34 0.62 0.3 0.3 0.22 0.27 0.45 0.45 0.27 0.22 0.32 0.29 0.36 0.2 0.3 0.22 0.25 0.4 0.4 0.3 0.27 0.35 0.33 0.5 0.24 0.2 0.23 0.25 0.45 0.45 0.3 0.3 0.38 0.38 0.57 0.28 0.25 0.28 0.17 0.47 0.45 0.32 0.26 0.45 0.32 0.39 0.3 0.45 0.28 0.27 0.45 0.35 0.3 0.3 0.43 0.35 0.65 0.33 0.42 0.3 0.3 0.4 0.4 0.3 0.3 0.45 0.4 0.65 0.33 0.36 0.28 0.3 0.3 0.4 0.3 0.3 0.48 0.32 0.63 0.38 0.37 0.35 0.32 0.2 0.4 0.35 0.35 0.42 0.36 0.62 0.45 0.35 0.32 0.3 0.2 0.3 0.4 0.3 0.45 0.42 0.65 0.4 0.32 0.28 0.32 0.05 0.05 0.02 0.04 0.02 0.0 0.02 0.0 0.02 0.02 0.01 0.05 0.05 0.02 0.04 0.02 0.0 0.04 0.0 0.02 0.02 0.01 0.05 0.05 0.01 0.03 0.02 0.0 0.04 0.0 0.02 0.01 0.01 0.2 0.1 0.06 0.06 0.05 0.01 0.03 0.02 0.08 0.03 0.02 0.35 0.15 0.05 0.08 0.07 0.01 0.05 0.03 0.1 0.05 0.02 0.3 0.15 0.05 0.08 0.1 0.01 0.05 0.01 0.13 0.07 0.01 0.45 0.2 0.1 0.14 0.07 0.02 0.1 0.05 0.15 0.08 0.05 0.6 0.2 0.15 0.25 0.2 0.02 0.12 0.07 0.2 0.1 0.04 0.52 0.3 0.15 0.2 0.23 0.02 0.08 0.06 0.3 0.13 0.03 0.05 0.07 0.05 0.05 0.03 0.01 0.03 0.01 0.02 0.04 0.02 0.1 0.1 0.05 0.05 0.04 0.01 0.06 0.01 0.03 0.05 0.02 0.1 0.07 0.02 0.05 0.05 0.01 0.07 0.01 0.03 0.02 0.01 0.3 0.11 0.1 0.1 0.1 0.01 0.05 0.04 0.15 0.1 0.03 0.35 0.17 0.1 0.13 0.11 0.02 0.07 0.05 0.2 0.1 0.04 0.32 0.25 0.1 0.15 0.15 0.02 0.1 0.03 0.25 0.12 0.03 0.45 0.24 0.15 0.2 0.12 0.03 0.15 0.12 0.2 0.15 0.08 0.61 0.28 0.25 0.3 0.23 0.03 0.17 0.12 0.35 0.2 0.1 0.63 0.35 0.23 0.3 0.28 0.04 0.15 0.1 0.45 0.17 0.1 0.1 0.13 0.07 0.1 0.06 0.01 0.07 0.02 0.08 0.06 0.04 0.2 0.2 0.1 0.11 0.08 0.01 0.08 0.03 0.1 0.07 0.04 0.25 0.15 0.06 0.1 0.1 0.01 0.1 0.04 0.08 0.05 0.02 0.35 0.2 0.1 0.13 0.16 0.02 0.1 0.09 0.25 0.15 0.05 0.37 0.27 0.17 0.2 0.15 0.02 0.12 0.11 0.3 0.16 0.08 0.36 0.3 0.2 0.23 0.22 0.02 0.15 0.15 0.3 0.16 0.08 0.47 0.32 0.25 0.25 0.25 0.04 0.18 0.15 0.4 0.26 0.14 0.63 0.35 0.35 0.35 0.3 0.05 0.2 0.2 0.41 0.26 0.17 0.69 0.45 0.3 0.4 0.35 0.06 0.2 0.23 0.45 0.28 0.23 0.15 0.2 0.13 0.18 0.13 0.02 0.1 0.05 0.15 0.08 0.05 0.25 0.25 0.15 0.18 0.15 0.02 0.12 0.06 0.15 0.1 0.05 0.35 0.25 0.15 0.2 0.17 0.02 0.15 0.07 0.12 0.1 0.03 0.37 0.25 0.23 0.22 0.2 0.03 0.13 0.12 0.3 0.22 0.08 0.37 0.35 0.25 0.25 0.22 0.03 0.15 0.15 0.35 0.23 0.15 0.37 0.35 0.3 0.3 0.25 0.03 0.2 0.17 0.39 0.22 0.15 0.52 0.4 0.4 0.3 0.27 0.05 0.22 0.22 0.43 0.35 0.18 0.65 0.42 0.4 0.4 0.33 0.06 0.25 0.25 0.43 0.33 0.2 0.7 0.5 0.4 0.47 0.4 0.08 0.25 0.32 0.48 0.42 0.3 ;
+}

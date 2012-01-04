@@ -11,5 +11,4 @@ autodoc
 params.xml
 explains-graphs
 *.swp
-data
 sphinx4

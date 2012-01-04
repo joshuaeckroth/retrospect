@@ -76,11 +76,15 @@ command line (using the usual `lein run ...` commands).
 
 Load the tracking GUI:
 
-    lein run -m retrospect.core --database "http://fier.ath.cx:5984/retrospect"
+    lein run -m retrospect.core --problem tracking
     
 Load the words GUI:
 
-    lein run -m retrospect.core --problem words --database "http://fier.ath.cx:5984/retrospect"
+    lein run -m retrospect.core --problem words
+    
+Load the causal graph GUI:
+
+    lein run -m retrospect.core --problem causal
     
 ### Batch runs
 
@@ -90,7 +94,7 @@ Required arguments:
 
 - `--params Tracking/foobar`
 
-- `--database "http://fier.ath.cx:5984/retrospect"`
+- `--database "http://retrospect.artifice.cc:5984"`
 
 Other optional arguments:
 
@@ -111,6 +115,10 @@ Other optional arguments:
   (default is false); various monitors can be programmed that detect
   specified situations, stop the batch run if the situation occurs,
   and starts the player so that the user may examine the situation
+  
+### Results
+
+The results of a batch run are shown in the web interface: [http://sisyphus.artifice.cc](http://sisyphus.artifice.cc)
 
 [lein-unix]: https://raw.github.com/technomancy/leiningen/stable/bin/lein
 [lein-win]: https://github.com/downloads/technomancy/leiningen/leiningen-1.5.2-win.zip

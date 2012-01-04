@@ -1,0 +1,132 @@
+// Bayesian Network in the Interchange Format
+// Produced by BayesianNetworks package in JavaBayes
+// Output created Sun Nov 02 18:08:01 GMT+00:00 1997
+// Bayesian network
+network "CarStarts" { //18 variables and 18 probability distributions
+}
+variable  "Alternator" { //2 values
+	type discrete[2] {  "Ok"  "Faulted" };
+	property "position = (47, 42)" ;
+}
+variable  "FanBelt" { //3 values
+	type discrete[3] {  "Ok"  "Slipping"  "Broken" };
+	property "position = (154, 42)" ;
+}
+variable  "Leak" { //2 values
+	type discrete[2] {  "Leak"  "NoLeak" };
+	property "position = (245, 43)" ;
+}
+variable  "Charge" { //2 values
+	type discrete[2] {  "Good"  "Low" };
+	property "position = (137, 125)" ;
+}
+variable  "BatteryAge" { //2 values
+	type discrete[2] {  "New"  "Old" };
+	property "position = (384, 42)" ;
+}
+variable  "BatteryState" { //2 values
+	type discrete[2] {  "Ok"  "Weak" };
+	property "position = (371, 122)" ;
+}
+variable  "BatteryPower" { //2 values
+	type discrete[2] {  "Good"  "Poor" };
+	property "position = (248, 197)" ;
+}
+variable  "GasInTank" { //2 values
+	type discrete[2] {  "Gas"  "NoGas" };
+	property "position = (404, 198)" ;
+}
+variable  "GasGauge" { //2 values
+	type discrete[2] {  "Gas"  "NoGas" };
+	property "position = (326, 247)" ;
+}
+variable  "Lights" { //2 values
+	type discrete[2] {  "Work"  "NoLight" };
+	property "position = (137, 203)" ;
+}
+variable  "Radio" { //2 values
+	type discrete[2] {  "Works"  "Dead" };
+	property "position = (165, 252)" ;
+}
+variable  "Starter" { //2 values
+	type discrete[2] {  "Ok"  "Faulted" };
+	property "position = (177, 317)" ;
+}
+variable  "Leak2" { //2 values
+	type discrete[2] {  "True"  "False" };
+	property "position = (331, 315)" ;
+}
+variable  "EngineCranks" { //2 values
+	type discrete[2] {  "Cranks"  "NoCrank" };
+	property "position = (248, 363)" ;
+}
+variable  "FuelPump" { //2 values
+	type discrete[2] {  "Ok"  "Faulted" };
+	property "position = (186, 446)" ;
+}
+variable  "Distributor" { //2 values
+	type discrete[2] {  "Ok"  "Faulted" };
+	property "position = (201, 506)" ;
+}
+variable  "SparkPlugs" { //2 values
+	type discrete[2] {  "Ok"  "Bad" };
+	property "position = (264, 547)" ;
+}
+variable  "Starts" { //2 values
+	type discrete[2] {  "Yes"  "No" };
+	property "position = (307, 443)" ;
+}
+probability (  "Alternator" ) { //1 variable(s) and 2 values
+	table 0.9995 5.0E-4 ;
+}
+probability (  "FanBelt" ) { //1 variable(s) and 3 values
+	table 0.995 0.0020 0.0030 ;
+}
+probability (  "Leak" ) { //1 variable(s) and 2 values
+	table 1.0E-4 0.9999 ;
+}
+probability (  "Charge"  "Alternator"  "FanBelt"  "Leak" ) { //4 variable(s) and 24 values
+	table 0.0 1.0 0.0 0.0 0.0 0.0 0.5 0.5 0.5 0.5 0.5 0.5 1.0 0.0 1.0 1.0 1.0 1.0 0.5 0.5 0.5 0.5 0.5 0.5 ;
+}
+probability (  "BatteryAge" ) { //1 variable(s) and 2 values
+	table 0.7 0.3 ;
+}
+probability (  "BatteryState"  "BatteryAge" ) { //2 variable(s) and 4 values
+	table 0.99 0.8 0.01 0.2 ;
+}
+probability (  "BatteryPower"  "Charge"  "BatteryState" ) { //3 variable(s) and 8 values
+	table 1.0 0.0 0.0 0.0 0.0 1.0 1.0 1.0 ;
+}
+probability (  "GasInTank" ) { //1 variable(s) and 2 values
+	table 0.5 0.5 ;
+}
+probability (  "GasGauge"  "BatteryPower"  "GasInTank" ) { //3 variable(s) and 8 values
+	table 1.0 0.0 0.2 0.0 0.0 1.0 0.8 1.0 ;
+}
+probability (  "Lights"  "BatteryPower" ) { //2 variable(s) and 4 values
+	table 0.9 0.0 0.1 1.0 ;
+}
+probability (  "Radio"  "BatteryPower" ) { //2 variable(s) and 4 values
+	table 0.9 0.1 0.1 0.9 ;
+}
+probability (  "Starter" ) { //1 variable(s) and 2 values
+	table 0.99 0.01 ;
+}
+probability (  "Leak2" ) { //1 variable(s) and 2 values
+	table 1.0E-4 0.9999 ;
+}
+probability (  "EngineCranks"  "BatteryPower"  "Starter"  "Leak2" ) { //4 variable(s) and 16 values
+	table 0.0 1.0 0.0 0.0 0.0 0.2 0.0 0.0 1.0 0.0 1.0 1.0 1.0 0.8 1.0 1.0 ;
+}
+probability (  "FuelPump" ) { //1 variable(s) and 2 values
+	table 0.999 0.0010 ;
+}
+probability (  "Distributor" ) { //1 variable(s) and 2 values
+	table 0.999 0.0010 ;
+}
+probability (  "SparkPlugs" ) { //1 variable(s) and 2 values
+	table 0.9998 2.0E-4 ;
+}
+probability (  "Starts"  "EngineCranks"  "FuelPump"  "Distributor"  "SparkPlugs" ) { //5 variable(s) and 32 values
+	table 1.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 1.0 ;
+}
