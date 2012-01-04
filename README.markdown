@@ -4,7 +4,7 @@
 
 - Java (JDK 5+)
 
-- git (Windows: [msysgit](http://code.google.com/p/msysgit/)
+- git (Windows: [msysgit](http://code.google.com/p/msysgit/))
 
 - [Graphviz](http://www.graphviz.org/Download.php) (Available for Mac,
   Windows, and Linux)
