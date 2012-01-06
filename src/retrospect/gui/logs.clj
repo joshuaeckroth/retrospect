@@ -156,7 +156,7 @@
                            (group-str "unaccepted" unacc))]
       (dosync
        (alter workspace-log
-              (fn [log] (format "%s\n\nAnalysis:\n\n%s\n\n%s"
+              (fn [log] (format "%s\n\nAnalysis:\n\n%s"
                                 log analysis)))))))
 
 (defn update-logs
