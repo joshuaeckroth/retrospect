@@ -1,6 +1,6 @@
 (defproject cc.artifice/retrospect "1.0.0-SNAPSHOT"
   :description "retrospect"
-  :dependencies [[org.clojure/clojure "1.2.0"]
+  :dependencies [[org.clojure/clojure "1.2.1"]
                  [org.clojure/clojure-contrib "1.2.0"]
                  [org.clojars.overtone/vijual "0.2.1"]
                  [cc.artifice/clj-swing "0.1.4"]

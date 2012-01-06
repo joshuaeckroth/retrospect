@@ -6,7 +6,6 @@
   (:use [clj-swing.text-field])
   (:use [clj-swing.tree])
   (:use [clj-swing.button])
-  (:import (clj-swing.tree Pathed))
   (:use [clj-swing.panel])
   (:use [clojure.contrib.seq :only [find-first]])
   (:require [clojure.set :as set])
