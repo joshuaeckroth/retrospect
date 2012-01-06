@@ -15,7 +15,7 @@
   (:use [retrospect.colors])
   (:use [retrospect.state]))
 
-(def resized (atom nil))
+(def resized (atom true)) ;; start at true so that, when loading, widths are calculated
 (def diagram (ref nil))
 
 (def diagram-width (ref nil))
