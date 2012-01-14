@@ -109,6 +109,17 @@
     :StepsBetween 3, :GridWidth 20, :Steps 18, :ProbNewEntities 0,
     :Threshold 60, :NumberEntities 4, :PathBranches 5}))
 
+(defn color-matching-bug
+  []
+  (prepared-from-params
+   {:AnalyzeSensitivity true, :BeliefNoise 0, :GridHeight 30,
+    :GridWidth 30, :KnowBiases true, :MaxWalk 10,
+    :MetaReasoning "NoMetareasoning", :NumberEntities 6,
+    :PathBranches 5, :ProbNewEntities 0, :ProbPerturb 25,
+    :Seed 7359843, :SensorCoverage 100, :SensorNoise 0,
+    :SensorSeesColor 60, :Steps 30, :StepsBetween 3,
+    :Threshold 20, :TransitiveExplanation true}))
+
 (comment
   (defn intersection-ambiguity-nometa
     []
@@ -325,4 +336,5 @@
               "intersect" intersection-ambiguity
               "intersect-cont" intersection-continued-ambiguity
               "r-bias-bug" random-bias-bug-nometa
-              "r-bug" random-bug))
+              "r-bug" random-bug
+              "color-matching-bug" color-matching-bug))

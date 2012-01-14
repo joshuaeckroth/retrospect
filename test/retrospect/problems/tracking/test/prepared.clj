@@ -86,15 +86,23 @@
   (let [results (run tracking-problem (intersection-continued-ambiguity))]
     (is (= 2 2))))
 
+(defn update-params
+  [prepared key val]
+  (assoc-in prepared [:params key] val))
+
 (deftest case-random-bias-bug
-  (let [results (run tracking-problem
-                     (random-bias-bug-nometa))]
-    (is (approx= 1.0 (:IDCorrect (last results)) 0.01)))
-  (let [results (run tracking-problem
-                     (assoc-in (random-bias-bug-nometa)
-                               [:params :MetaReasoning] "RetractNoExplainers"))]
-    (is (approx= 1.0 (:IDCorrect (last results)) 0.01)))
-  (let [results (run tracking-problem
-                     (assoc-in (random-bias-bug-nometa)
-                               [:params :MetaReasoning] "BatchBeginning"))]
-    (is (approx= 1.0 (:IDCorrect (last results)) 0.01))))
+  (let [case-nometa (random-bias-bug-nometa)
+        case-retract (update-params case-nometa :MetaReasoning
+                                    "RetractNoExplainers")
+        case-batch (update-params case-nometa :MetaReasoning
+                                  "BatchBeginning")
+        results-nometa (run tracking-problem case-nometa)
+        results-retract (run tracking-problem case-retract)
+        results-batch (run tracking-problem case-batch)]
+    (is (approx= 1.0 (:IDCorrect (last results-nometa)) 0.01))
+    (is (approx= 1.0 (:IDCorrect (last results-retract)) 0.01))
+    (is (approx= 1.0 (:IDCorrect (last results-batch)) 0.01))))
+
+(deftest case-color-matching-bug
+  (let [results (run tracking-problem (color-matching-bug))]
+    (is (approx= 0.66 (:IDCorrect (last results)) 0.1))))

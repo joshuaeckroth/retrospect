@@ -1,5 +1,6 @@
 (ns retrospect.problems.tracking.pathsgraph
   (:require [clojure.set :as set])
+  (:use [clojure.contrib.seq :only [find-first]])
   (:use [loom.graph :only
          [digraph add-edges remove-edges remove-nodes nodes edges
           incoming neighbors]])
@@ -185,6 +186,11 @@
               (map (fn [par] (map #(dissoc % :time :color) par))
                    (partition 3 1 path)))))
 
+(defn all-colors-match?
+  [path]
+  (let [c (find-first #(not= gray %) (map :color path))]
+    (or (nil? c) (every? #(or (= gray %) (= c %)) (map :color path)))))
+
 (defn paths-graph-paths-build
   [paths-graph paths entities entity-biases]
   (if (empty? (mapcat (fn [path] (neighbors paths-graph (last path))) paths))
@@ -203,8 +209,9 @@
                               (let [next-links
                                     (filter (fn [det]
                                               (let [p (conj path det)]
-                                                (some #(fits-bias? (take-last 3 p) %)
-                                                      (path-biases (first p)))))
+                                                (and (all-colors-match? p)
+                                                     (some #(fits-bias? (take-last 3 p) %)
+                                                           (path-biases (first p))))))
                                             (find-n-best-next paths-graph (last path)
                                                               (:PathBranches params)))]
                                 (if (empty? next-links) [path]
