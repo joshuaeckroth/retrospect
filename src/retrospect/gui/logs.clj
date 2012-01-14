@@ -1,6 +1,6 @@
 (ns retrospect.gui.logs
   (:import (java.awt GridBagLayout Insets Dimension))
-  (:import (javax.swing Box))
+  (:import (javax.swing Box JScrollBar))
   (:import (misc AlphanumComparator))
   (:use [clj-swing.label])
   (:use [clj-swing.text-field])
@@ -17,13 +17,16 @@
   (:use [retrospect.state]))
 
 (def truedata-log (ref ""))
+(def truedata-log-textbox (ref nil))
 (def problem-log (ref ""))
+(def problem-log-textbox (ref nil))
 (def problem-log-label (label ""))
 (def hyp-choices (ref []))
 (def hyp-selected (atom nil))
 (def workspace-selected (atom nil))
 (def hyp-info (ref ""))
 (def abduction-tree-map (ref {}))
+(def workspace-log-textbox (ref nil))
 (def workspace-log (ref ""))
 
 (defn build-abduction-tree-map
@@ -118,6 +121,12 @@
                                                (apply str (interpose ", " (map :id (sort-by :id hyps)))))) (filter (comp not-empty second) (analyze-dependency @or-state hyp starts))))]
     (format "%s\n\nDependency analysis:\n\n%s" info dep-analysis)))
 
+(defn scroll-top
+  [scroll]
+  (javax.swing.SwingUtilities/invokeLater
+   (proxy [Runnable] []
+     (run [] (.. scroll (getVerticalScrollBar) (setValue 0))))))
+
 (defn show-log
   [path]
   (if path
@@ -137,7 +146,8 @@
             (swap! hyp-selected (constantly hyp))
             (if hyp
               (dosync (alter workspace-log (constantly (format-hyp-info ws hyp))))
-              (dosync (alter workspace-log (constantly (final-explainers ws)))))))))))
+              (dosync (alter workspace-log (constantly (final-explainers ws))))))))
+      (scroll-top @workspace-log-textbox))))
 
 (defn show-analysis
   []
@@ -157,7 +167,8 @@
       (dosync
        (alter workspace-log
               (fn [log] (format "%s\n\nAnalysis:\n\n%s"
-                                log analysis)))))))
+                                log analysis))))
+      (scroll-top @workspace-log-textbox))))
 
 (defn update-logs
   []
@@ -170,13 +181,26 @@
                                                   :static)))))
    (alter abduction-tree-map
           (constantly (build-abduction-tree-map @or-state))))
-  (. problem-log-label setText (format "Problem log for: %s" (str (:ep-state @or-state)))))
+  (. problem-log-label setText (format "Problem log for: %s" (str (:ep-state @or-state))))
+  (when (and @truedata-log-textbox @problem-log-textbox @workspace-log-textbox)
+    (scroll-top @truedata-log-textbox)
+    (scroll-top @problem-log-textbox)
+    (scroll-top @workspace-log-textbox)))
 
 (defn logs-tab
   []
+  (dosync
+   (alter truedata-log-textbox
+          (constantly (scroll-panel (text-area :str-ref truedata-log
+                                               :editable false :wrap true))))
+   (alter problem-log-textbox
+          (constantly (scroll-panel (text-area :str-ref problem-log
+                                               :editable false :wrap true))))
+   (alter workspace-log-textbox
+          (constantly (scroll-panel (text-area :str-ref workspace-log
+                                               :editable false :wrap true)))))
   (doto (split-vertical
-         (scroll-panel (text-area :str-ref truedata-log
-                                  :editable false :wrap true))
+         @truedata-log-textbox
          (doto (split-vertical
                 (panel :layout (GridBagLayout.)
                        :constrains (java.awt.GridBagConstraints.)
@@ -184,8 +208,7 @@
                         :fill :BOTH :insets (Insets. 5 0 5 0)
                         _ problem-log-label
                         :gridy 1 :weighty 1.0
-                        _ (scroll-panel (text-area :str-ref problem-log
-                                                   :editable false :wrap true))])
+                        _ @problem-log-textbox])
                 (doto (split-horizontal
                        (tree :name tr
                              :model (mapref-tree-model
@@ -195,8 +218,7 @@
                               :constrains (java.awt.GridBagConstraints.)
                               [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0 :gridwidth 2
                                :fill :BOTH :insets (Insets. 0 0 0 0)
-                               _ (scroll-panel (text-area :str-ref workspace-log
-                                                          :editable false :wrap true))
+                               _ @workspace-log-textbox
                                :gridx 0 :gridy 1 :weightx 1.0 :weighty 0.0 :gridwidth 1
                                _ (panel)
                                :gridx 1 :weightx 0.0
