@@ -91,7 +91,9 @@
                               unc-pairs)]
     (for [{:keys [det det-hyp det2 det2-hyp score]} unc-pairs-scored :when score]
       (new-hyp "Mov" :movement :movement nil score
-               :and [det-hyp det2-hyp] [det-hyp det2-hyp] (path-str [det det2])
+               :and [det-hyp det2-hyp] [det-hyp det2-hyp]
+               (str (path-str [det det2]) " (dist=" (str (dist (:x det) (:y det)
+                                                               (:x det2) (:y det2))) ")")
                {:det det :det2 det2
                 :det-hyp det-hyp :det2-hyp det2-hyp
                 :movement {:x (:x det2) :y (:y det2) :time (:time det2)

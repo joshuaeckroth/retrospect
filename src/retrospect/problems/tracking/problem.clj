@@ -40,7 +40,7 @@
    :unaccepted #{}
    :believed-movements #{}
    :disbelieved-movements #{}
-   :walk-dist (read-walk-dist (str @datadir "/tracking/walks-" (:MaxWalk params) ".txt")) 
+   :walk-dist (read-walk-dist (format "%s/tracking/walks-%d.txt" @datadir (:MaxWalk params)))
    :log [] ;; log is reset each time by commit-decision
    :covered-from #{}
    :covered-to #{}

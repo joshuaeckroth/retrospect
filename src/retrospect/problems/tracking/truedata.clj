@@ -22,18 +22,19 @@
            (new-entity movements time)
            movements))
 
-;; TODO: fix for 'movements' structure
 (defn output-walk-sizes
   [movements]
-  (let [dists (mapcat (fn [grid] (map #(dist (:ox %) (:oy %) (:x %) (:y %))
-                                      (vals (:movements (meta grid)))))
-                      (rest truedata))
-        dist-counts (reduce (fn [dc d] (if (dc (str d))
-                                         (update-in dc [(str d)] inc)
-                                         (assoc dc (str d) 1))) {} dists)
-        dc-strs (map #(format "%s,%d" % (dist-counts %)) (sort (keys dist-counts)))]
-    (spit "walks.txt" (str (count dists) "\n"
-                           (apply str (interpose "\n" dc-strs))))))
+  (let [dists (map #(dist (:ox %) (:oy %) (:x %) (:y %))
+                   (mapcat rest (vals movements)))
+        dist-counts (reduce (fn [dc d]
+                              (if (dc (str d))
+                                (update-in dc [(str d)] inc)
+                                (assoc dc (str d) 1)))
+                            {} dists)
+        dc-strs (map #(format "%s,%d\n" % (get dist-counts %))
+                     (sort (keys dist-counts)))]
+    (spit (format "walks-%s.txt" (:MaxWalk params))
+          (str (count dists) "\n" (apply str dc-strs)))))
 
 (defn generate-truedata
   []
@@ -42,8 +43,8 @@
                    (:NumberEntities params))]
     (loop [time 1
            m movements]
-      (if (> time (:Steps params)) m
-        ;(do (output-walk-sizes m params) m) 
+      (if (> time (:Steps params))
+        (do (comment (output-walk-sizes m)) m) 
         (recur (inc time) (-> m (random-walks time)
                               (possibly-add-new-entity time)))))))
 
