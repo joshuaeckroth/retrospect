@@ -31,7 +31,8 @@
                                                         (:forced workspace)))
                      (:hyp-subtypes @problem))
         tf (reduce (fn [m subtype]
-                     (let [grouped (group-by (partial true-hyp? truedata pdata time)
+                     (let [grouped (group-by (fn [h] (if (true-hyp? truedata pdata time h)
+                                                       true false))
                                              (get hyps subtype))]
                        (assoc m subtype
                               (reduce (fn [g tf] (if (nil? (get g tf)) (assoc g tf []) g))
@@ -150,8 +151,7 @@
                                  :ExplainCycles :HypothesisCount
                                  :Compute :Memory :DeepestDep
                                  :AvgTrueSensitivity :AvgFalseSensitivity
-                                 :CountTrueSame :CountFalseSame
-                                 :AvgTrueDeps :AvgFalseDeps]
+                                 :CountTrueSame :CountFalseSame]
                                 (mapcat
                                  (fn [tf]
                                    (map #(keyword
@@ -161,7 +161,8 @@
                                                               (str/split (name %) #"-")))))
                                         (:hyp-subtypes @problem)))
                                  ["TrueConf" "TrueApriori"
-                                  "FalseConf" "FalseApriori"])))))]
+                                  "FalseConf" "FalseApriori"
+                                  "TrueDeps" "FalseDeps"])))))]
     ;; if control/comparison have different number of results
     ;; (different steps between or steps), then just use the last
     ;; result set
