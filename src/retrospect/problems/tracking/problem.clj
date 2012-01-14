@@ -9,7 +9,7 @@
   (:use [retrospect.problems.tracking.sensors :only
          [generate-sensors perturb]])
   (:use [retrospect.problems.tracking.hypotheses :only
-         [hypothesize commit-decision retract no-explainer-hyps]])
+         [hypothesize get-more-hyps commit-decision retract no-explainer-hyps]])
   (:use [retrospect.problems.tracking.player :only
          [player-get-stats-panel player-update-stats player-get-truedata-log
           player-get-problem-log player-setup-diagram player-update-diagram]])
@@ -60,7 +60,7 @@
                generate-sensors
                prepared-map
                hypothesize
-               identity ;; get-more-hyps
+               get-more-hyps
                commit-decision
                retract
                generate-problem-data
@@ -83,6 +83,7 @@
                 :PathBranches 5
                 :KnowBiases true
                 :MaxWalk 10
+                :WindowSize 10
                 :SensorSeesColor 70
                 :SensorCoverage 100
                 :ProbNewEntities 0

@@ -51,9 +51,12 @@
                                    (not (covered-or-uncovered? pdata :uncovered %))
                                    (not= time-now (:time (:det (:data %)))))
                              (map second det-hyps)))
-        pdata-new (-> pdata
-                      (update-in [:uncovered-from] set/union from-hyps)
-                      (update-in [:uncovered-to] set/union to-hyps))
+        earliest (max 0 (- time-now (:WindowSize params)))
+        new-uncovered-from (set (filter #(> (:time (:det (:data %))) (inc earliest))
+                                        (set/union (:uncovered-from pdata) from-hyps)))
+        new-uncovered-to (set (filter #(> (:time (:det (:data %))) earliest)
+                                      (set/union (:uncovered-to pdata) to-hyps)))
+        pdata-new (assoc pdata :uncovered-from from-hyps :uncovered-to to-hyps)
         ep-new (assoc ep-state :problem-data pdata-new)]
     (reduce (fn [ep hyp] (add-fact ep hyp)) ep-new
             (concat (:uncovered-from pdata-new) (:uncovered-to pdata-new)))))
@@ -214,8 +217,44 @@
                                       ;; don't add a hyp that explains only accepted hyps
                                       (some (fn [e] (not-any? #(= (:id %) (:id e)) accepted))
                                             (:explains h))))
-                      (concat valid-mov-hyps valid-path-hyps loc-hyps bias-hyps)))
+                             (concat valid-mov-hyps valid-path-hyps loc-hyps bias-hyps)))
        {:compute compute :memory memory}])))
+
+(defn get-more-hyps
+  [ep-state]
+  (let [ws (:workspace ep-state)
+        pdata (:problem-data ep-state)
+        es-not-updated (filter (fn [e] (not-any? #(and (= :location (:type %))
+                                                       (= e (:entity (:data %))))
+                                                 (:accepted ws)))
+                               (keys (:entities pdata)))
+        new-time (min (:Steps params) (+ (:time ep-state) (:StepsBetween params)))
+        latest-dets-unexplained (filter #(and (= :sensor-from (:subtype %))
+                                              (= new-time (:time (:det (:data %)))))
+                                        (:unexplained (:final (:log ws))))
+        loc-hyps (mapcat
+                  (fn [e]
+                    (let [last-pos (last (get (:entities pdata) e))]
+                      (map (fn [d]
+                             (new-hyp "LocRec" :location :location-recovery
+                                      [:location-recovery e]
+                                      (/ (dist (:x last-pos) (:y last-pos)
+                                               (:x (:det (:data d))) (:y (:det (:data d))))
+                                         (* (Math/sqrt 2)
+                                            (- new-time (:time last-pos))))
+                                      :or [d] [] ;; explains & depends
+                                      (format "Entity %s is at %d,%d at time %d"
+                                              e (:x (:det (:data d)))
+                                              (:y (:det (:data d)))
+                                              (:time (:det (:data d))))
+                                      {:entity e :loc (select-keys (:det (:data d))
+                                                                   [:x :y :time])}))
+                           (filter #(match-color?
+                                     (:color (first (get (:entities pdata) e)))
+                                     (:color (:det (:data %))))
+                                   latest-dets-unexplained))))
+                  es-not-updated)]
+    (reduce (fn [ep hyp] (add-hyp ep hyp)) ep-state loc-hyps)))
 
 (defn no-explainer-hyps
   "Return hypotheses that \"should have\" helped produce explainers
