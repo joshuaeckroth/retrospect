@@ -48,6 +48,7 @@
                    ors-meta (current-ep-state (:ep-state-tree ors-meta)))
         ors-resources (assoc-in ors-next [:resources :milliseconds] ms)
         ors-results (evaluate truedata ors-resources)]
+    (.write System/out (int \.)) (.flush System/out)
     (if (and (not player?) monitor?)
       ((:monitor-fn @problem) truedata (:sensors ors-results) ors-results)
       ors-results)))
@@ -59,7 +60,7 @@
     (when (nil? ors)
       (throw (ExecutionException. "Monitor took control." (Throwable.))))
     (if (>= (:time (:ep-state ors)) (:Steps params))
-      (:results ors)
+      (do (println "") (:results ors))
       (recur (run-simulation-step truedata ors monitor? false)))))
 
 (defn get-default-params-ranges
