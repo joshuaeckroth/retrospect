@@ -86,21 +86,22 @@
                hyps-equal?
                perturb
                [:word :noise-word :word-seq :learned-word]
-               {:Steps 600
-                :Threshold 20
-                :StepsBetween 30
-                :SensorNoise 0
-                :BeliefNoise 0
-                :MaxModelGrams 3
-                :MinWordLength 3
-                :MinLearnLength 5
-                :MaxLearnLength 8
-                :MetaReasoning "NoMetaReasoning"
-                :Knowledge 60
-                :BelievedKnowledge 60
-                :Learn true
-                :LearnFeatureSize 2
-                :TransitiveExplanation true
-                :AnalyzeSensitivity false
-                :ProbPerturb 25}))
+               {:Steps [600 [600]]
+                :Threshold [20 (range 0 101 20)]
+                :StepsBetween [30 (range 10 101 30)]
+                :SensorNoise [0 [0 5 10 15 20]]
+                :BeliefNoise [0 [0]]
+                :MaxModelGrams [3 (range 1 6)]
+                :MinWordLength [3 (range 1 5)]
+                :MinLearnLength [5 (range 5 10)]
+                :MaxLearnLength [8 (range 8 13)]
+                :MetaReasoning ["NoMetareasoning" ["NoMetareasoning" "Batch1"
+                                                   "Batch2" "Batch3" "BatchBeginning"]]
+                :Knowledge [60 (range 0 101 20)]
+                :BelievedKnowledge [60 (range 0 101 20)]
+                :Learn [true [true false]]
+                :LearnFeatureSize [2 (range 1 4)]
+                :TransitiveExplanation [true [true false]]
+                :AnalyzeSensitivity [false [true false]]
+                :ProbPerturb [25 [25 50 75]]}))
 

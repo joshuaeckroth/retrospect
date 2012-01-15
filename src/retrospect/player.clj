@@ -8,7 +8,8 @@
   (:use [clj-swing.button])
   (:use [clj-swing.combo-box])
   (:use [clj-swing.text-field])
-  (:use [retrospect.problem :only [run-simulation-step]])
+  (:use [retrospect.problem :only [run-simulation-step merge-default-params
+                                   get-default-params]])
   (:use [retrospect.state])
   (:use [retrospect.gui.eptree :only [ep-tree-tab update-ep-tree]])
   (:use [retrospect.gui.depgraph :only [depgraph-tab update-depgraph]])
@@ -36,8 +37,8 @@
 (defn get-saved-params
   []
   (let [ps (try (read-string (.get @prefs (format "%s-params" (:name @problem))
-                                   (pr-str (:default-params @problem))))
-                (catch Exception _ (:default-params @problem)))]
+                                   (pr-str (get-default-params))))
+                (catch Exception _ (get-default-params)))]
     (alter-var-root (var params) (constantly ps))))
 
 (defn format-params
@@ -49,9 +50,9 @@
 
 (defn set-default-params
   []
-  (alter-var-root (var params) (:default-params @problem))
-  (.put @prefs (format "%s-params" (:name @problem)) (pr-str (:default-params @problem)))
-  (dosync (alter params-edit (constantly (format-params (:default-params @problem))))))
+  (alter-var-root (var params) (get-default-params))
+  (.put @prefs (format "%s-params" (:name @problem)) (pr-str (get-default-params)))
+  (dosync (alter params-edit (constantly (format-params (get-default-params))))))
 
 (defn clear-params
   []
@@ -95,11 +96,11 @@
   []
   (let [prepared? (and (not (nil? @prepared-selected))
                        (not= "None" @prepared-selected))
-        ps (read-string @params-edit)]
+        ps (merge-default-params (read-string @params-edit))]
     (alter-var-root (var params) (constantly ps))
     (set-last-id 0)
     (when (not prepared?)
-      (let [ps (read-string @params-edit)]
+      (let [ps (merge-default-params (read-string @params-edit))]
         (alter-var-root (var params) (constantly ps))
         (.put @prefs (format "%s-params" (:name @problem)) (pr-str ps))
         (dosync (alter params-edit (constantly (format-params ps))))
@@ -121,7 +122,7 @@
   (when (and (not (nil? @prepared-selected)) (not= "None" @prepared-selected))
     ;; apply the 'prepared' function
     (let [prepared ((get (:prepared-map @problem) @prepared-selected))
-          ps (:params prepared)
+          ps (merge-default-params (:params prepared))
           seed (if (:seed ps) (:seed ps) 1)
           td (:truedata prepared)
           sens (:sensors prepared)]

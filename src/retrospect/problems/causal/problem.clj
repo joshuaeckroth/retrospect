@@ -53,12 +53,13 @@
             (constantly false) ;; hyps-equal?
             identity ;; perturb
             [] ;; hyp-types
-            {:Steps 25
-             :Threshold 20
-             :StepsBetween 6
-             :SensorNoise 0
-             :BeliefNoise 0
-             :ObservableNodes 10
-             :InternalNodes 10
-             :MetaReasoning "NoMetareasoning"
-             :TransitiveExplanation false}))
+            {:Steps [25 [25]]
+             :Threshold [20 (range 0 101 20)]
+             :StepsBetween [6 [6]]
+             :SensorNoise [0 [0]]
+             :BeliefNoise [0 [0]]
+             :ObservableNodes [10 [10]]
+             :InternalNodes [10 [10]]
+             :MetaReasoning ["NoMetareasoning" ["NoMetareasoning" "Batch1"
+                                                "Batch2" "Batch3" "BatchBeginning"]]
+             :TransitiveExplanation [false [true false]]}))

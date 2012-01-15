@@ -72,22 +72,23 @@
                hyps-equal?
                perturb
                [:movement :path :location :bias]
-               {:Steps 25
-                :Threshold 20
-                :StepsBetween 6
-                :SensorNoise 0
-                :BeliefNoise 0
-                :GridWidth 20
-                :GridHeight 20
-                :NumberEntities 6
-                :PathBranches 5
-                :KnowBiases true
-                :MaxWalk 10
-                :WindowSize 10
-                :SensorSeesColor 70
-                :SensorCoverage 100
-                :ProbNewEntities 0
-                :MetaReasoning "NoMetareasoning"
-                :TransitiveExplanation false
-                :AnalyzeSensitivity false
-                :ProbPerturb 25}))
+               {:Steps [30 [30]]
+                :Threshold [20 (range 0 101 20)]
+                :StepsBetween [6 (range 1 11)]
+                :SensorNoise [0 [0]]
+                :BeliefNoise [0 [0]]
+                :GridWidth [20 [20]]
+                :GridHeight [20 [20]]
+                :NumberEntities [6 (range 1 11)]
+                :PathBranches [6 (range 1 9 2)]
+                :KnowBiases [true [true false]]
+                :MaxWalk [10 (range 1 11)]
+                :WindowSize [10 (range 5 31 5)]
+                :SensorSeesColor [70 (range 0 101 20)]
+                :SensorCoverage [100 [100]]
+                :ProbNewEntities [0 [0]]
+                :MetaReasoning ["NoMetareasoning" ["NoMetareasoning" "Batch1"
+                                                   "Batch2" "Batch3" "BatchBeginning"]]
+                :TransitiveExplanation [false [true false]]
+                :AnalyzeSensitivity [false [true false]]
+                :ProbPerturb [25 [25 50 75]]}))

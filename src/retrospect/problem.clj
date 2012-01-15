@@ -62,11 +62,21 @@
       (:results ors)
       (recur (run-simulation-step truedata ors monitor? false)))))
 
+(defn get-default-params
+  []
+  (reduce (fn [m k] (assoc m k (first (get (:default-params @problem) k))))
+          {} (keys (:default-params @problem))))
+
+(defn merge-default-params
+  [params]
+  (let [default (get-default-params)]
+    (merge default params)))
+
 (defn run
   [comparative? monitor? params]
   (if comparative?
     ;; if comparative, run two simulations
-    (let [[control-params comparison-params] params
+    (let [[control-params comparison-params] (map merge-default-params params)
           control-results
           (binding [rgen (new-seed (:Seed control-params))
                     last-id 0
