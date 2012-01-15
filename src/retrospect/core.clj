@@ -11,12 +11,13 @@
   (:use [retrospect.problems.words.problem :only [words-problem]])
   (:use [retrospect.problems.causal.problem :only [causal-problem]])
   (:use [retrospect.records :only [run-with-new-record]])
+  (:use [retrospect.explore :only [explore]])
   (:use [retrospect.player :only [start-player]]))
 
 (defn -main [& args]
   (with-command-line args
     "retrospect"
-    [[action "Action (run/player)" "player"]
+    [[action "Action (run/player/explore)" "player"]
      [problem "Problem" "tracking"]
      [params "Parameters identifier (e.g. 'Words/foobar')" ""]
      [datadir "Data directory" "data"]
@@ -27,26 +28,33 @@
      [git "Git path" "git"]
      [seed "Seed" "0"]
      [database "Database identifier" "http://127.0.0.1:5984/retrospect"]
-     [upload "Upload?" "true"]]
-    (let [seed (Integer/parseInt seed)]
+     [upload "Upload?" "true"]
+     [metric "Explore metric to optimize" "Milliseconds"]
+     [min-max "Optimization goal (min/max)" "min"]]
+    (let [seed (Integer/parseInt seed)
+          prob (cond (or (= "Tracking" problem) (= "tracking" problem))
+                     tracking-problem
+                     (or (= "Words" problem) (= "words" problem))
+                     words-problem
+                     (or (= "Causal" problem) (= "causal" problem))
+                     causal-problem)]
       (alter-var-root (var rgen) (constantly (new-seed seed)))
       (dosync
        (alter state/datadir (constantly datadir))
-       (alter state/database (constantly database)))
-      (cond (and (not= action "player") (= "" params))
+       (alter state/database (constantly database))
+       (alter state/problem (constantly prob)))
+      (cond (and (not= action "explore") (not= action "player") (= "" params))
             (println "--params identifier required.")
             
             (= action "player")
-            (let [prob (cond (or (= "Tracking" problem) (= "tracking" problem))
-                             tracking-problem
-                             (or (= "Words" problem) (= "words" problem))
-                             words-problem
-                             (or (= "Causal" problem) (= "causal" problem))
-                             causal-problem)]
+            (do
               (dosync
                (alter state/problem (constantly prob)))
               ;; start the player on swing's "event dispatch thread"
               (SwingUtilities/invokeLater start-player))
+
+            (= action "explore")
+            (explore seed (keyword metric) min-max)
             
             (= action "run")
             (let [nthreads (Integer/parseInt nthreads)
@@ -54,17 +62,17 @@
                   monitor? (Boolean/parseBoolean monitor)
                   upload? (Boolean/parseBoolean upload)
                   ps (read-params params)
-                  prob (cond (= "Tracking" (:problem ps)) tracking-problem
-                             (= "Words" (:problem ps)) words-problem)
-                  git-dirty? (not-empty (filter #(not= "??" (subs % 0 2))
-                                                (split-lines (sh git "status" "--porcelain"))))]
-              (when (and upload? git-dirty? (not (or (re-matches #".*127\.0\.0\.1.*" database)
-                                                     (re-matches #".*localhost.*" database))))
+                  git-dirty? (not-empty
+                              (filter #(not= "??" (subs % 0 2))
+                                      (split-lines (sh git "status" "--porcelain"))))]
+              (when (and upload? git-dirty?
+                         (not (or (re-matches #".*127\.0\.0\.1.*" database)
+                                  (re-matches #".*localhost.*" database))))
                 (println "Project has uncommitted changes. Commit with git before"
-                         "running simulations, or use the default (localhost) database connection.")
+                         "running simulations, or use the default (localhost)"
+                         "database connection.")
                 (System/exit -1))
               (dosync
-               (alter state/problem (constantly prob))
                (alter state/db-params (constantly ps)))
               (run-with-new-record seed git recordsdir nthreads monitor? upload? repetitions))
             

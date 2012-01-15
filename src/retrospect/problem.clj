@@ -62,6 +62,11 @@
       (:results ors)
       (recur (run-simulation-step truedata ors monitor? false)))))
 
+(defn get-default-params-ranges
+  []
+  (reduce (fn [m k] (assoc m k (second (get (:default-params @problem) k))))
+          {} (keys (:default-params @problem))))
+
 (defn get-default-params
   []
   (reduce (fn [m k] (assoc m k (first (get (:default-params @problem) k))))
