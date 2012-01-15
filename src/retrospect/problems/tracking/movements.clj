@@ -31,13 +31,12 @@
         e (symbol (str (count (keys movements))))]
     (assoc movements e [{:x x :y y :time time :color c :bias b}])))
 
-(def dets-match?
-  (memoize
-   (fn [det det2]
-     (and (= (:x det) (:x det2))
-          (= (:y det) (:y det2))
-          (= (:time det) (:time det2))
-          (match-color? (:color det) (:color det2))))))
+(defn dets-match?
+  [det det2]
+  (and (= (:x det) (:x det2))
+       (= (:y det) (:y det2))
+       (= (:time det) (:time det2))
+       (match-color? (:color det) (:color det2))))
 
 (def valid-angle?
   (memoize
