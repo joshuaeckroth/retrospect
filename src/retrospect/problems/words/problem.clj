@@ -90,7 +90,6 @@
                 :Threshold [20 (range 0 101 20)]
                 :StepsBetween [30 (range 10 101 30)]
                 :SensorNoise [0 [0 5 10 15 20]]
-                :BeliefNoise [0 [0]]
                 :MaxModelGrams [3 (range 1 6)]
                 :MinWordLength [3 (range 1 5)]
                 :MinLearnLength [5 (range 5 10)]
@@ -102,6 +101,7 @@
                 :Learn [true [true false]]
                 :LearnFeatureSize [2 (range 1 4)]
                 :TransitiveExplanation [true [true false]]
-                :AnalyzeSensitivity [false [true false]]
+                :AnalyzeSensitivity [false [false]]
+                :AnalyzeDeps [false [false]]
                 :ProbPerturb [25 [25 50 75]]}))
 
