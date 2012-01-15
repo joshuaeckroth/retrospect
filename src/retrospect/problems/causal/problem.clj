@@ -61,5 +61,5 @@
              :ObservableNodes [10 [10]]
              :InternalNodes [10 [10]]
              :MetaReasoning ["NoMetareasoning" ["NoMetareasoning" "Batch1"
-                                                "Batch2" "Batch3" "BatchBeginning"]]
+                                                "Batch2" "BatchBeginning"]]
              :TransitiveExplanation [false [true false]]}))

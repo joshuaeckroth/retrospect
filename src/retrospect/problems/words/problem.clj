@@ -96,7 +96,7 @@
                 :MinLearnLength [5 (range 5 10)]
                 :MaxLearnLength [8 (range 8 13)]
                 :MetaReasoning ["NoMetareasoning" ["NoMetareasoning" "Batch1"
-                                                   "Batch2" "Batch3" "BatchBeginning"]]
+                                                   "Batch2" "BatchBeginning"]]
                 :Knowledge [60 (range 0 101 20)]
                 :BelievedKnowledge [60 (range 0 101 20)]
                 :Learn [true [true false]]
