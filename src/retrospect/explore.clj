@@ -21,7 +21,7 @@
 (defn standard-prob
   [e e1 comp temp]
   (if (comp e1 e) 1
-      (Math/exp (/ (Math/abs (- e e1)) temp))))
+      (Math/exp (/ (Math/abs (double (- e e1))) temp))))
 
 (defn linear-cooling
   [steps]
@@ -83,7 +83,7 @@
                        results (run-simulation truedata or-state false)]
                    (println (format "%s = %s" (name metric) (get (last results) metric)))
                    results))))
-        avg (/ (reduce + (map #(get (last %) metric) rs)) repetitions)]
+        avg (double (/ (reduce + (map #(get (last %) metric) rs)) repetitions))]
     (swap! attempted assoc params rs)
     (println "Average =" avg)
     avg))
