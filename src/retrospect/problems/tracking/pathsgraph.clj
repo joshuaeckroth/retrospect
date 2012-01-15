@@ -156,7 +156,7 @@
   [paths-graph det n]
   (let [scored (map (fn [det2] [det2 (:apriori (attr paths-graph det det2 :hyp))])
                     (neighbors paths-graph det))]
-    (take n (map first (sort-by second scored)))))
+    (take-last n (map first (sort-by second scored)))))
 
 (defn path-str
   [dets]
@@ -192,7 +192,7 @@
     (or (nil? c) (every? #(or (= gray %) (= c %)) (map :color path)))))
 
 (defn paths-graph-paths-build
-  [paths-graph paths entities entity-biases]
+  [paths-graph path-starts paths entities entity-biases]
   (if (empty? (mapcat (fn [path] (neighbors paths-graph (last path))) paths))
     paths
     (let [path-biases (memoize
@@ -216,10 +216,15 @@
                                                               (:PathBranches params)))]
                                 (if (empty? next-links) [path]
                                     (map (fn [det] (conj path det)) next-links))))
-                            paths)]
-      (if (= (reduce + (map count paths)) (reduce + (map count new-paths)))
-        new-paths
-        (recur paths-graph new-paths entities entity-biases)))))
+                            paths)
+          reduced-new-paths (apply concat
+                                   (for [s (map first path-starts)]
+                                     (let [paths-at-start (filter #(= s (first %)) new-paths)]
+                                       (take-last (:MaxEntityPaths params)
+                                                  paths-at-start))))]
+      (if (= (reduce + (map count paths)) (reduce + (map count reduced-new-paths)))
+        reduced-new-paths
+        (recur paths-graph path-starts reduced-new-paths entities entity-biases)))))
 
 (defn paths-graph-paths
   [paths-graph entities entity-biases]
@@ -227,7 +232,8 @@
         starts (filter (fn [det] (some #(dets-match? det %) entity-ends))
                        (nodes paths-graph))
         path-starts (map (fn [det] [det]) starts)
-        paths (paths-graph-paths-build paths-graph path-starts entities entity-biases)
+        paths (paths-graph-paths-build paths-graph path-starts path-starts
+                                       entities entity-biases)
         biases [:left :right :straight]
         paths-by-bias (reduce (fn [m p]
                                 (let [p-biases (filter #(fits-bias? p %) biases)]
