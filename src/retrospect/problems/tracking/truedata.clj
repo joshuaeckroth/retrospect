@@ -14,14 +14,6 @@
   (let [maxwalk (:MaxWalk params)]
     (reduce #(walk %1 %2 time maxwalk) movements (entities movements))))
 
-(defn possibly-add-new-entity
-  [movements time]
-  movements)
-
-(comment (if (>= (double (/ (:ProbNewEntities params) 100)) (my-rand))
-           (new-entity movements time)
-           movements))
-
 (defn output-walk-sizes
   [movements]
   (let [dists (map #(dist (:ox %) (:oy %) (:x %) (:y %))
@@ -45,8 +37,7 @@
            m movements]
       (if (> time (:Steps params))
         (do (comment (output-walk-sizes m)) m) 
-        (recur (inc time) (-> m (random-walks time)
-                              (possibly-add-new-entity time)))))))
+        (recur (inc time) (random-walks m time))))))
 
 (defn format-movements-comparative
   [true-movements believed-movements mintime maxtime]
