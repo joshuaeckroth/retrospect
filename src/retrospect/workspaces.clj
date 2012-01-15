@@ -51,7 +51,7 @@
       :cycle 0
       :hyp-confidences {}
       :log {:added [] :forced [] :best [] :accrej {}
-            :final {:accepted [] :rejected [] :shared-explains []
+            :final {:accepted [] :rejected []
                     :unexplained [] :no-explainers [] :unaccepted []}
             :doubt nil}
       :hyp-log {}
@@ -77,22 +77,6 @@
   (if (some #{:static} opts)
     (neighbors (:graph-static workspace) hyp)
     (neighbors (:graph workspace) hyp)))
-
-(defn shared-explains?
-  [workspace hyp hyps]
-  (let [expl (find-explains workspace hyp :static)]
-    (not-empty
-     (apply set/union
-            (map #(set/intersection expl
-                   (find-explains workspace % :static))
-                 (disj hyps hyp))))))
-
-(defn find-shared-explains
-  [workspace]
-  (let [hyps (:accepted workspace)]
-    (if (>= 1 (count hyps)) []
-        (sort-by :id (AlphanumComparator.)
-                 (filter #(shared-explains? workspace % hyps) hyps)))))
 
 (defn transitive-explainer-paths
   [workspace hyp]
@@ -500,7 +484,6 @@
   (let [ws (assoc-in workspace [:log :final]
                      {:accepted (:accepted workspace)
                       :rejected (:rejected workspace)
-                      :shared-explains (find-shared-explains workspace)
                       :unexplained (find-unexplained workspace)
                       :no-explainers (find-no-explainers workspace)
                       :unaccepted (set/difference
