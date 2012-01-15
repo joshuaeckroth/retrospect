@@ -171,8 +171,6 @@ Transitive explanation is a parameter. If `:TransitiveExplanation` is
 
 ### Generic parameters
 
-  - `:BeliefNoise` (0-100) not used
-
   - `:SensorNoise` (0-100) used only in words domain; a value *p*
     causes each letter to have a *p*/100 chance of switching to a
     random letter when reported by the sensor
@@ -214,6 +212,9 @@ Transitive explanation is a parameter. If `:TransitiveExplanation` is
     - "BatchBeginning"
 
     - "Batch5", "Batch4", "Batch3", "Batch2", "Batch1"
+    
+  - `:AnalyzeDeps` (true or false); add extra metrics that measure the
+    dependencies of hypotheses (from the "dependency graph")
     
   - `:AnalyzeSensitivity` (true or false); add extra metrics
     (domain-independent) that attempt to measure the sensitivity of
@@ -268,11 +269,12 @@ Transitive explanation is a parameter. If `:TransitiveExplanation` is
   - `:PathBranches` (1+); how many branches to hypothesize at each
     point where more than one movement may continue a path; there may
     be a combinatorial explosion if this parameter is large
-
-  - `:ProbNewEntities` (0-100); probability that a new entity will be
-    generated each time step; a value *p* causes a *p*/100 chance, in
-    a time step, that an entity will be created in a random location;
-    for now, leave this parameter at 0 *(truth-changing)*
+    
+  - `:MaxEntityPaths` (1+); how many paths to consider that start at
+    the same point
+    
+  - `:WindowSize` (1+); how far back (time-steps) to consider sensor
+    data
 
   - `:SensorCoverage` (0-100); how much of the grid (as a percentage)
     the sensors can "see"; for now, leave this parameter at 100
@@ -312,9 +314,6 @@ Description of what a non-comparative metric is...
   - *NoExplainers*: number of forced hypotheses (sensor data) that
       have no potential explainers; this means the agent never offered
       explainers of those forced hypotheses
-
-  - *SharedExplains*: number of hypotheses that do not uniquely
-      explain (regardless of acceptance)
 
   - *ExplainCycles*: number of accept/reject cycles in the most
       recent abduction workspace
@@ -381,7 +380,7 @@ Metrics:
 #### Generic comparative metrics
 
 *MetaActivations*, *MetaAccepted*, *Milliseconds*,
-*SharedExplains*, *Unexplained*, *UnexplainedPct*, *NoExplainers*,
+*Unexplained*, *UnexplainedPct*, *NoExplainers*,
 *ExplainCycles*, *HypothesisCount*, *Compute*, *Memory*, *DeepestDep*
 
 #### Tracking comparative metrics
@@ -465,8 +464,6 @@ ask questions of this graph such as the following:
     is, which hypotheses of the same type share children with this
     hypothesis's children yet are included in this hypothesis's
     children?)
-
-  - 
 
 ### Tracking domain
 

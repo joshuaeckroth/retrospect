@@ -37,7 +37,8 @@
                      (or (= "Words" problem) (= "words" problem))
                      words-problem
                      (or (= "Causal" problem) (= "causal" problem))
-                     causal-problem)]
+                     causal-problem)
+          repetitions (Integer/parseInt repetitions)]
       (alter-var-root (var rgen) (constantly (new-seed seed)))
       (dosync
        (alter state/datadir (constantly datadir))
@@ -54,11 +55,10 @@
               (SwingUtilities/invokeLater start-player))
 
             (= action "explore")
-            (explore seed (keyword metric) min-max)
+            (explore seed (keyword metric) min-max repetitions)
             
             (= action "run")
             (let [nthreads (Integer/parseInt nthreads)
-                  repetitions (Integer/parseInt repetitions)
                   monitor? (Boolean/parseBoolean monitor)
                   upload? (Boolean/parseBoolean upload)
                   ps (read-params params)

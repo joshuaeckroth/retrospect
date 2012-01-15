@@ -68,39 +68,44 @@
 ;; end external clojure code
 
 (defn run
-  [metric params]
-  (binding [rgen (new-seed (:Seed params))
-            last-id 0
-            retrospect.state/params params]
-    (println "Simulating" (pr-str params))
-    (let [truedata ((:truedata-fn @problem))
-          sensors ((:sensor-gen-fn @problem))
-          problem-data ((:gen-problem-data-fn @problem) truedata sensors)
-          or-state (init-one-run-state sensors problem-data)
-          results (run-simulation truedata or-state false)]
-      (println (format "%s = %s" (name metric) (get (last results) metric)))
-      (swap! attempted assoc params results)
-      (get (last results) metric))))
+  [metric params repetitions]
+  (println "Simulating" (pr-str params))
+  (let [rs (for [i (range repetitions)]
+             (let [seed (my-rand-int 10000000)]
+               (binding [rgen (new-seed seed)
+                         last-id 0
+                         retrospect.state/params (assoc params :Seed seed)]
+                 (println "Seed:" seed)
+                 (let [truedata ((:truedata-fn @problem))
+                       sensors ((:sensor-gen-fn @problem))
+                       problem-data ((:gen-problem-data-fn @problem) truedata sensors)
+                       or-state (init-one-run-state sensors problem-data)
+                       results (run-simulation truedata or-state false)]
+                   (println (format "%s = %s" (name metric) (get (last results) metric)))
+                   results))))
+        avg (/ (reduce + (map #(get (last %) metric) rs)) repetitions)]
+    (swap! attempted assoc params rs)
+    (println "Average =" avg)
+    avg))
 
 (defn next-params
   [def-ps last-params]
   (loop []
     (let [field (my-rand-nth (filter #(second (get def-ps %)) (keys def-ps)))
           val (my-rand-nth (get def-ps field))
-          params (assoc last-params field val :Seed (my-rand-int 10000000))]
-      (println "Swapping" field "with" val)
-      (if (or (some #{params} (keys @attempted)) (= (get last-params field) val))
-        (recur) (do (swap! attempted conj params) params)))))
+          params (assoc last-params field val)]
+      (println "\nSwapping" field "with" val "\n")
+      (if (or (= (get last-params field) val) (some #{params} (keys @attempted)))
+        (recur) params))))
 
 (defn explore
-  [seed metric min-max]
+  [seed metric min-max repetitions]
   (binding [rgen (new-seed seed)]
     (let [def-ps (get-default-params-ranges)
-          first-ps (assoc (reduce (fn [m k] (assoc m k (my-rand-nth (get def-ps k))))
-                                  {} (keys def-ps))
-                     :Seed (my-rand-int 10000000))]
-      (anneal #(run metric %)
-              (linear-cooling 1000)
+          first-ps (reduce (fn [m k] (assoc m k (my-rand-nth (get def-ps k))))
+                           {} (keys def-ps))]
+      (anneal #(run metric % repetitions)
+              (linear-cooling 100)
               (partial next-params def-ps)
               standard-prob
               first-ps

@@ -110,6 +110,22 @@ Other optional arguments:
   specified situations, stop the batch run if the situation occurs,
   and starts the player so that the user may examine the situation
   
+### Exploratory runs
+
+Required arguments:
+
+- `--action explore`
+
+- `--problem tracking` (some problem domain)
+
+- `--metric Acc` (some metric)
+
+- `--min-max min` ("min" or "max")
+
+- `--repetitions 5`
+
+- `--seed 0`
+  
 ### Results
 
 The results of a batch run are shown in the web interface:
