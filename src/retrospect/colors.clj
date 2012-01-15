@@ -26,10 +26,10 @@
 
 (defn color-str
   [c]
-  (cond (. c equals red) "red"
-        (. c equals blue) "blue"
-        (. c equals green) "green"
-        (. c equals gray) "gray"
+  (cond (= c red) "red"
+        (= c blue) "blue"
+        (= c green) "green"
+        (= c gray) "gray"
         :else "color?"))
 
 (defn match-color?
