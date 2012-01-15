@@ -114,7 +114,18 @@
               (analyze-sensitivity or-state truedata)
               {:AvgTrueSensitivity 0.0 :AvgFalseSensitivity 0.0
                :CountTrueSame 0 :CountFalseSame 0})
-            (calc-avg-true-false-deps or-state true-false)
+            (if (:AnalyzeDeps params)
+              (calc-avg-true-false-deps or-state true-false)
+              (reduce
+               (fn [m tf]
+                 (reduce (fn [m2 k] (assoc m2 k 0))
+                         m (map #(keyword
+                                  (format "Avg%s%s" tf
+                                          (apply str
+                                                 (map str/capitalize
+                                                      (str/split (name %) #"-")))))
+                                (:hyp-subtypes @problem))))
+               {} ["TrueDeps" "FalseDeps"]))
             {:Step (:time ep-state)
              :MetaActivations (:meta-activations ors-resources)
              :MetaAccepted (:meta-accepted ors-resources)
@@ -122,12 +133,12 @@
              :Unexplained (count (:unexplained final-log))
              :UnexplainedPct (* 100.0 (get-unexplained-pct (:workspace prev-ep)))
              :NoExplainers (count (:no-explainers final-log))
-             :SharedExplains (count (:shared-explains final-log))
              :ExplainCycles (:explain-cycles ws-resources)
              :HypothesisCount (:hypothesis-count ws-resources)
              :Compute (:compute ors-resources)
              :Memory (:memory ors-resources)
-             :DeepestDep (calc-deepest-dep (:depgraph ep-state))}))))
+             :DeepestDep (if-not (:AnalyzeDeps params) 0
+                                 (calc-deepest-dep (:depgraph ep-state)))}))))
 
 (defn prefix-params
   [prefix params]
@@ -146,7 +157,7 @@
                    ((:evaluate-comparative-fn @problem) control comparison
                     control-params comparison-params)
                    (map #(calc-increase control comparison %)
-                        (concat [:MetaActivations :MetaAccepted :Milliseconds :SharedExplains
+                        (concat [:MetaActivations :MetaAccepted :Milliseconds
                                  :Unexplained :UnexplainedPct :NoExplainers
                                  :ExplainCycles :HypothesisCount
                                  :Compute :Memory :DeepestDep
