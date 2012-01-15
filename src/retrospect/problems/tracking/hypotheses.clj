@@ -35,9 +35,9 @@
    have in one of those sets or the \"covered-from/to\" sets."
   [ep-state sensors time-now]
   (mapcat (fn [s] (map (fn [dets] (make-sensor-hyps s dets))
-                                      (mapcat (fn [t] (sensed-at s t))
-                                              (range 0 (inc time-now)))))
-                         sensors)
+                       (mapcat (fn [t] (sensed-at s t))
+                               (range 0 (inc time-now)))))
+          sensors)
   (let [pdata (:problem-data ep-state)
         det-hyps (mapcat (fn [s] (map (fn [dets] (make-sensor-hyps s dets))
                                       (mapcat (fn [t] (sensed-at s t))
@@ -51,15 +51,16 @@
                                    (not (covered-or-uncovered? pdata :uncovered %))
                                    (not= time-now (:time (:det (:data %)))))
                              (map second det-hyps)))
-        earliest (max 0 (- time-now (:WindowSize params)))
-        new-uncovered-from (set (filter #(> (:time (:det (:data %))) (inc earliest))
-                                        (set/union (:uncovered-from pdata) from-hyps)))
-        new-uncovered-to (set (filter #(> (:time (:det (:data %))) earliest)
-                                      (set/union (:uncovered-to pdata) to-hyps)))
-        pdata-new (assoc pdata :uncovered-from from-hyps :uncovered-to to-hyps)
+        earliest (max -1 (- time-now (:WindowSize params)))
+        uncovered-from (set (filter #(> (:time (:det (:data %))) (inc earliest))
+                                    (set/union (:uncovered-from pdata) from-hyps)))
+        uncovered-to (set (filter #(> (:time (:det (:data %))) earliest)
+                                  (set/union (:uncovered-to pdata) to-hyps)))
+        pdata-new (assoc pdata :uncovered-from uncovered-from
+                         :uncovered-to uncovered-to)
         ep-new (assoc ep-state :problem-data pdata-new)]
     (reduce (fn [ep hyp] (add-fact ep hyp)) ep-new
-            (concat (:uncovered-from pdata-new) (:uncovered-to pdata-new)))))
+            (concat uncovered-from uncovered-to))))
 
 (defn score-movement
   "Returns nil if not matched or not in range."
@@ -70,7 +71,7 @@
   (when (and (or (= (inc t1) t2) (= (inc t2) t1))
              (match-color? c1 c2))
     (let [d (dist x1 y1 x2 y2) 
-          dist-count (walk-dist d)]
+          dist-count (get walk-dist d)]
       (if dist-count (double (/ dist-count (:walk-count (meta walk-dist))))))))
 
 (defn make-movement-hyps
@@ -238,10 +239,11 @@
                       (map (fn [d]
                              (new-hyp "LocRec" :location :location-recovery
                                       [:location-recovery e]
-                                      (/ (dist (:x last-pos) (:y last-pos)
-                                               (:x (:det (:data d))) (:y (:det (:data d))))
-                                         (* (Math/sqrt 2)
-                                            (- new-time (:time last-pos))))
+                                      (- 1.0
+                                         (/ (dist (:x last-pos) (:y last-pos)
+                                                  (:x (:det (:data d))) (:y (:det (:data d))))
+                                            (* (Math/sqrt 2)
+                                               (- new-time (:time last-pos)))))
                                       :or [d] [] ;; explains & depends
                                       (format "Entity %s is at %d,%d at time %d"
                                               e (:x (:det (:data d)))
@@ -249,9 +251,14 @@
                                               (:time (:det (:data d))))
                                       {:entity e :loc (select-keys (:det (:data d))
                                                                    [:x :y :time])}))
-                           (filter #(match-color?
-                                     (:color (first (get (:entities pdata) e)))
-                                     (:color (:det (:data %))))
+                           (filter #(and (match-color?
+                                          (:color (first (get (:entities pdata) e)))
+                                          (:color (:det (:data %))))
+                                         (> (* (Math/sqrt 2)
+                                               (- new-time (:time last-pos)))
+                                            (dist (:x last-pos) (:y last-pos)
+                                                  (:x (:det (:data %)))
+                                                  (:y (:det (:data %))))))
                                    latest-dets-unexplained))))
                   es-not-updated)]
     (reduce (fn [ep hyp] (add-hyp ep hyp)) ep-state loc-hyps)))
