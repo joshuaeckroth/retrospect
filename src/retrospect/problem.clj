@@ -118,16 +118,17 @@
             (evaluate-comparative control-results comparison-results
                                   control-params comparison-params))])
     ;; if non-comparative, just run the simulation
-    (binding [rgen (new-seed (:Seed params))
-              last-id 0
-              params params]
-      (let [truedata ((:truedata-fn @problem))
-            sensors ((:sensor-gen-fn @problem))
-            problem-data ((:gen-problem-data-fn @problem) truedata sensors)
-            or-state (init-one-run-state sensors problem-data)]
-        (println "Params:" (pr-str params))
-        (map (fn [rs] (assoc rs :params (pr-str params)))
-             (run-simulation truedata or-state monitor?))))))
+    (let [params (merge-default-params params)]
+      (binding [rgen (new-seed (:Seed params))
+                last-id 0
+                params params]
+        (let [truedata ((:truedata-fn @problem))
+              sensors ((:sensor-gen-fn @problem))
+              problem-data ((:gen-problem-data-fn @problem) truedata sensors)
+              or-state (init-one-run-state sensors problem-data)]
+          (println "Params:" (pr-str params))
+          (map (fn [rs] (assoc rs :params (pr-str params)))
+               (run-simulation truedata or-state monitor?)))))))
 
 (defrecord Problem
   [name monitor-fn player-fns truedata-fn sensor-gen-fn prepared-map
