@@ -66,7 +66,7 @@
                                          (range (count (:best wslog)))))
                  "Final" {"Accepted" (list-hyps (:accepted (:final wslog)))
                           "Rejected" (list-hyps (:rejected (:final wslog)))
-                          "Shared explains" (list-hyps (:shared-explains (:final wslog)))
+                          "No explainers" (list-hyps (:no-explainers (:final wslog)))
                           "Unexplained" (list-hyps (:unexplained (:final wslog)))
                           "Unaccepted" (list-hyps (:unaccepted (:final wslog)))}})]
     (apply sorted-map-by (AlphanumComparator.)
