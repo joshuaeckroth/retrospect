@@ -83,7 +83,6 @@
                 :MaxEntityPaths [3 [1 2 3 4 5 6]]
                 :KnowBiases [true [true]]
                 :MaxWalk [10 [1 2 3 4 5 6 7 8 9 10]]
-                :WindowSize [10 [10 15 20]]
                 :SensorSeesColor [60 [0 20 40 60 80 100]]
                 :SensorCoverage [100 [100]]
                 :MetaReasoning ["NoMetareasoning" ["NoMetareasoning"]]

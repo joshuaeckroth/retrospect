@@ -273,9 +273,6 @@ Transitive explanation is a parameter. If `:TransitiveExplanation` is
   - `:MaxEntityPaths` (1+); how many paths to consider that start at
     the same point
     
-  - `:WindowSize` (1+); how far back (time-steps) to consider sensor
-    data
-
   - `:SensorCoverage` (0-100); how much of the grid (as a percentage)
     the sensors can "see"; for now, leave this parameter at 100
 
