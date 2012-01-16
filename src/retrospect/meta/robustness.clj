@@ -44,8 +44,6 @@
                                                  false (calc-sensitivity subtype false)}))
                                        {} (keys true-false))
         avg (fn [xs] (if (empty? xs) 0.0 (double (/ (reduce + xs) (count xs)))))]
-    (println true-false)
-    (println true-false-sensitivity)
     (reduce (fn [m subtype]
               (let [k (apply str (map str/capitalize (str/split (name subtype) #"-")))]
                 (assoc m
