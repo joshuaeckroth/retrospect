@@ -30,7 +30,9 @@
      [database "Database identifier" "http://127.0.0.1:5984/retrospect"]
      [upload "Upload?" "true"]
      [metric "Explore metric to optimize" "Milliseconds"]
-     [min-max "Optimization goal (min/max)" "min"]]
+     [min-max "Optimization goal (min/max)" "min"]
+     [restarts "# of explore restarts" "5"]
+     [permutations "# of explore permutations" "100"]]
     (let [seed (Integer/parseInt seed)
           prob (cond (or (= "Tracking" problem) (= "tracking" problem))
                      tracking-problem
@@ -55,7 +57,9 @@
               (SwingUtilities/invokeLater start-player))
 
             (= action "explore")
-            (explore seed (keyword metric) min-max repetitions)
+            (let [restarts (Integer/parseInt restarts)
+                  permutations (Integer/parseInt permutations)]
+              (explore seed (keyword metric) min-max repetitions restarts permutations))
             
             (= action "run")
             (let [nthreads (Integer/parseInt nthreads)
