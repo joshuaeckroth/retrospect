@@ -62,11 +62,13 @@
                                  no-explainer-hyps))))
     (is (approx= 33.3 (:PEC (last results)) 0.1))
     (is (approx= 33.3 (:PEW (last results)) 0.1)))
+  ;; Batch1 is not enough to fix the problem
   (let [results (run tracking-problem
                      (assoc-in (intersection-ambiguity)
                                [:params :MetaReasoning] "Batch1"))]
-    (is (approx= 100.0 (:PEC (last results)) 0.1))
-    (is (approx= 0.0 (:PEW (last results)) 0.1)))
+    (is (approx= 33.3 (:PEC (last results)) 0.1))
+    (is (approx= 33.3 (:PEW (last results)) 0.1)))
+  ;; Batch2 is enough to fix the problem
   (let [results (run tracking-problem
                      (assoc-in (intersection-ambiguity)
                                [:params :MetaReasoning] "Batch2"))]
@@ -105,4 +107,4 @@
 
 (deftest case-color-matching-bug
   (let [results (run tracking-problem (color-matching-bug))]
-    (is (approx= 0.66 (:IDCorrect (last results)) 0.1))))
+    (is (approx= 0.83 (:IDCorrect (last results)) 0.1))))

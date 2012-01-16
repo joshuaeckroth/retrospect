@@ -12,7 +12,7 @@
 (deftest grab-bag
   (binding [last-id 0
             params {:BelievedKnowledge 80 :MaxModelGrams 3 :LearnFeatureSize 1
-                    :MinLearnLength 3 :MaxLearnLength 8}]
+                    :MinLearnLength 3 :MaxLearnLength 8 :SensorNoise 10}]
     (let [truedata "goobarquuxxyz"
           models {1 (with-meta {["foo"] 1 ["bar"] 1 ["quux"] 1} {:sum 3})
                   2 (with-meta {["foo" "bar"] 1 ["bar" "quux"] 1} {:sum 2})
@@ -29,15 +29,16 @@
           letters (seq truedata)
           indexed-letters (make-indexed-letters letters)
           word-hyps-nonoise (make-word-hyps indexed-letters 0 dictionary
-                                            0.0 sensor-hyps models)
+                                            false sensor-hyps models)
           word-hyps-noise (make-word-hyps indexed-letters 0 dictionary
-                                          0.1 sensor-hyps models)
+                                          true sensor-hyps models)
           noise-hyps (filter #(not= 0 (:changes (:data %))) word-hyps-noise)
           composite-hyps-nonoise (make-composite-hyps models word-hyps-nonoise #{} 3)
           composite-hyps-noise (make-composite-hyps models word-hyps-noise #{} 3)
           learning-hyps (make-learning-hyps indexed-letters [0 1 2 10 11 12]
                                             0 dictionary sensor-hyps avg-word-length
-                                            centroid (count truedata))
+                                            centroid (count truedata)
+                                            (concat word-hyps-noise word-hyps-nonoise))
           pdata {:history [] :dictionary dictionary :models models :accepted []
                  :letters [] :left-off -1}
           new-pdata (commit-decision pdata (set (concat learning-hyps word-hyps-nonoise
