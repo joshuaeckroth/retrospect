@@ -111,7 +111,7 @@
             ((:evaluate-fn @problem) ep-state (:sensors or-state) truedata)
             (calc-true-false-confs workspace true-false)
             (if (:AnalyzeSensitivity params)
-              (analyze-sensitivity or-state truedata)
+              (analyze-sensitivity or-state true-false)
               {:AvgTrueSensitivity 0.0 :AvgFalseSensitivity 0.0
                :CountTrueSame 0 :CountFalseSame 0})
             (if (:AnalyzeDeps params)
@@ -160,9 +160,7 @@
                         (concat [:MetaActivations :MetaAccepted :Milliseconds
                                  :Unexplained :UnexplainedPct :NoExplainers
                                  :ExplainCycles :HypothesisCount
-                                 :Compute :Memory :DeepestDep
-                                 :AvgTrueSensitivity :AvgFalseSensitivity
-                                 :CountTrueSame :CountFalseSame]
+                                 :Compute :Memory :DeepestDep]
                                 (mapcat
                                  (fn [tf]
                                    (map #(keyword
@@ -173,7 +171,8 @@
                                         (:hyp-subtypes @problem)))
                                  ["TrueConf" "TrueApriori"
                                   "FalseConf" "FalseApriori"
-                                  "TrueDeps" "FalseDeps"])))))]
+                                  "TrueDeps" "FalseDeps"
+                                  "TrueSensitivity" "FalseSensitivity"])))))]
     ;; if control/comparison have different number of results
     ;; (different steps between or steps), then just use the last
     ;; result set

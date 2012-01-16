@@ -1,5 +1,6 @@
 (ns retrospect.meta.robustness
   (:require [clojure.set :as set])
+  (:require [clojure.string :as str])
   (:use [clojure.contrib.seq :only [find-first]])
   (:use [clojure.contrib.combinatorics :only [combinations]])
   (:use [loom.graph :only [nodes]])
@@ -11,7 +12,7 @@
   (:use [retrospect.state]))
 
 (defn analyze-sensitivity
-  [or-state truedata]
+  [or-state true-false]
   (let [hyps-equal? (:hyps-equal?-fn @problem)
         est (:ep-state-tree or-state)
         ep-state (current-ep-state est)
@@ -19,9 +20,6 @@
         pdata (:problem-data ep-state)
         workspace (:workspace prev-ep)
         time (:time ep-state)
-        hyps (set/difference (ws/get-hyps workspace :static) (:forced workspace))
-        true-hyps (set (filter (partial (:true-hyp?-fn @problem) truedata pdata time) hyps))
-        false-hyps (set/difference hyps true-hyps)
         ep-branch (current-ep-state
                    (if (= 2 (ep-state-depth est))
                      (new-branch-root est (:original-problem-data or-state))
@@ -31,24 +29,31 @@
         ep-expl (explain ep-hyps time)
         workspace2 (:workspace ep-expl)
         hyps2 (set/difference (ws/get-hyps workspace2 :static) (:forced workspace2))
-        hyps-same (map (fn [h] (let [h-same (find-first
-                                             (fn [h2] (hyps-equal? h h2)) hyps2)]
-                                 (if h-same
-                                   [h (Math/abs (- (ws/hyp-conf workspace h)
-                                                   (ws/hyp-conf workspace2 h-same)))])))
-                       hyps)
-        true-same (filter (comp true-hyps first) (filter identity hyps-same))
-        false-same (filter (comp false-hyps first) (filter identity hyps-same))]
-    {:AvgTrueSensitivity (cond
-                          (empty? true-hyps) 0.0
-                          (empty? true-same) 1.0
-                          :else (/ (reduce + (map second true-same)) (count true-same)))
-     :CountTrueSame (count true-same)
-     :AvgFalseSensitivity (cond
-                           (empty? false-hyps) 0.0
-                           (empty? false-same) 1.0
-                           :else (/ (reduce + (map second false-same)) (count false-same)))
-     :CountFalseSame (count false-same)}))
+        calc-sensitivity (fn [subtype tf]
+                           (map (fn [h]
+                                  (let [h-same (find-first (fn [h2] (hyps-equal? h h2))
+                                                           hyps2)]
+                                    (if-not h-same 1.0
+                                            (Math/abs
+                                             (- (ws/hyp-conf workspace h)
+                                                (ws/hyp-conf workspace2 h-same))))))
+                                (get (get true-false subtype) tf)))
+        true-false-sensitivity (reduce (fn [m subtype]
+                                         (assoc m subtype
+                                                {true (calc-sensitivity subtype true)
+                                                 false (calc-sensitivity subtype false)}))
+                                       {} (keys true-false))
+        avg (fn [xs] (if (empty? xs) 0.0 (double (/ (reduce + xs) (count xs)))))]
+    (println true-false)
+    (println true-false-sensitivity)
+    (reduce (fn [m subtype]
+              (let [k (apply str (map str/capitalize (str/split (name subtype) #"-")))]
+                (assoc m
+                  (keyword (format "AvgTrueSensitivity%s" k))
+                  (avg (get (get true-false-sensitivity subtype) true))
+                  (keyword (format "AvgFalseSensitivity%s" k))
+                  (avg (get (get true-false-sensitivity subtype) false)))))
+            {} (keys true-false-sensitivity))))
 
 (defn analyze-dependency
   [or-state hyp starts]
