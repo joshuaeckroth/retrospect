@@ -86,7 +86,7 @@
                 :WindowSize [10 [10 15 20]]
                 :SensorSeesColor [60 [0 20 40 60 80 100]]
                 :SensorCoverage [100 [100]]
-                :MetaReasoning ["NoMetareasoning" ["NoMetareasoning" "Batch1" "Batch2"]]
+                :MetaReasoning ["NoMetareasoning" ["NoMetareasoning"]]
                 :TransitiveExplanation [false [true false]]
                 :AnalyzeSensitivity [false [false]]
                 :AnalyzeDeps [false [false]]
