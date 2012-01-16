@@ -39,11 +39,15 @@
                        hyps)
         true-same (filter (comp true-hyps first) (filter identity hyps-same))
         false-same (filter (comp false-hyps first) (filter identity hyps-same))]
-    {:AvgTrueSensitivity (if (empty? true-same) 0.0
-                             (/ (reduce + (map second true-same)) (count true-same)))
+    {:AvgTrueSensitivity (cond
+                          (empty? true-hyps) 0.0
+                          (empty? true-same) 1.0
+                          :else (/ (reduce + (map second true-same)) (count true-same)))
      :CountTrueSame (count true-same)
-     :AvgFalseSensitivity (if (empty? false-same) 0.0
-                              (/ (reduce + (map second false-same)) (count false-same)))
+     :AvgFalseSensitivity (cond
+                           (empty? false-hyps) 0.0
+                           (empty? false-same) 1.0
+                           :else (/ (reduce + (map second false-same)) (count false-same)))
      :CountFalseSame (count false-same)}))
 
 (defn analyze-dependency
