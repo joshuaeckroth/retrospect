@@ -156,7 +156,7 @@
   [paths-graph det n]
   (let [scored (map (fn [det2] [det2 (:apriori (attr paths-graph det det2 :hyp))])
                     (neighbors paths-graph det))]
-    (take-last n (map first (sort-by second scored)))))
+    (take-last n (map first (sort-by second (sort-by (comp :id first) scored))))))
 
 (defn path-str
   [dets]

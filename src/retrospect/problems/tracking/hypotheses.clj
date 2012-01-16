@@ -5,6 +5,7 @@
   (:use [retrospect.workspaces :only [new-hyp]])
   (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.colors])
+  (:use [retrospect.problems.tracking.evaluate :only [hyps-equal?]])
   (:use [retrospect.problems.tracking.movements :only [dist dets-match?]])
   (:use [retrospect.problems.tracking.pathsgraph :only
          [paths-graph-paths build-paths-graph path-str]])
@@ -177,17 +178,16 @@
   (binding [compute 0 memory 0]
     (let [ep-sensors (process-sensors ep-state sensors time-now)
           pdata (:problem-data ep-sensors)
-          {:keys [entities entity-biases accepted unaccepted
+          {:keys [entities entity-biases accepted
                   uncovered-from uncovered-to walk-dist]} pdata
+          acc (set (filter #(not= :sensor (:type %)) accepted))
           mov-hyps (make-movement-hyps uncovered-from uncovered-to walk-dist)
-          pg (build-paths-graph
-              (set/union (set mov-hyps)
-                         (set (filter #(= :movement (:type %))
-                                      (concat accepted unaccepted)))) entities)
+          pg (build-paths-graph (concat mov-hyps (filter #(= :movement (:type %)) acc))
+                                entities)
           ep-pg (assoc-in ep-sensors [:problem-data :paths-graph] pg)
           paths (paths-graph-paths pg entities entity-biases)
           path-hyps (filter
-                     (fn [h] (some #(not (accepted %)) (:movements (:data h))))
+                     (fn [h] (some #(not (acc %)) (:movements (:data h))))
                      (apply concat
                             (for [bias (keys paths)]
                               (map #(make-path-hyp bias %)
@@ -204,9 +204,9 @@
       [(reduce (fn [ep hyp] (add-hyp ep hyp))
                ep-pg (filter (fn [h] (and
                                       ;; don't add a hyp that has been accepted
-                                      (not-any? #(= (:id %) (:id h)) accepted)
+                                      (not-any? #(= (:id %) (:id h)) acc)
                                       ;; don't add a hyp that explains only accepted hyps
-                                      (some (fn [e] (not-any? #(= (:id %) (:id e)) accepted))
+                                      (some (fn [e] (not-any? #(= (:id %) (:id e)) acc))
                                             (:explains h))))
                              (concat valid-mov-hyps valid-path-hyps loc-hyps bias-hyps)))
        {:compute compute :memory memory}])))

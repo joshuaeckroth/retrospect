@@ -85,7 +85,7 @@
   (let [ep-state (current-ep-state (:ep-state-tree or-state))
         no-explainers (:no-explainers (:final (:log (:workspace ep-state))))
         hyps ((:no-explainer-hyps-fn @problem) no-explainers (:problem-data ep-state))
-        deps (set/union (set no-explainers) (set (find-dependents ep-state hyps)))
+        deps (find-dependents ep-state hyps)
         est (new-branch-ep-state (:ep-state-tree or-state) ep-state false false)
         ep-state-retracted (assoc (retract-dependents (current-ep-state est) deps)
                              :workspace (ws/init-workspace))

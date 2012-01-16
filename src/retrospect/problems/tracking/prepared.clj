@@ -71,14 +71,14 @@
   []
   (let [params (merge basic-params {:Steps 3 :SensorSeesColor 80
                                     :MetaReasoning "BatchBeginning" :MaxWalk 3
-                                    :KnowBiases false})]
+                                    :KnowBiases true})]
     {:params params
      :sensors [(new-sensor (keyword "left") 0 2 0 9 true)
                (new-sensor (keyword "middle") 3 4 0 9 false)
                (new-sensor (keyword "right") 5 9 0 9 true)]
      :truedata (entity-paths params
-                             ["1" :left red  0 5,7 4,4 3,3 2,2]
-                             ["2" :right blue 0 5,4 4,7 3,8 2,9])}))
+                             ["1" :straight red  0 5,7 4,4 3,3 2,2]
+                             ["2" :straight blue 0 5,4 4,7 3,8 2,9])}))
 
 (defn intersection-continued-ambiguity
   []
