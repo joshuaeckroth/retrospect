@@ -14,6 +14,15 @@
   (:use [retrospect.explore :only [explore]])
   (:use [retrospect.player :only [start-player]]))
 
+(defn choose-problem
+  [problem]
+  (cond (or (= "Tracking" problem) (= "tracking" problem))
+        tracking-problem
+        (or (= "Words" problem) (= "words" problem))
+        words-problem
+        (or (= "Causal" problem) (= "causal" problem))
+        causal-problem))
+
 (defn -main [& args]
   (with-command-line args
     "retrospect"
@@ -34,12 +43,7 @@
      [restarts "# of explore restarts" "5"]
      [permutations "# of explore permutations" "100"]]
     (let [seed (Integer/parseInt seed)
-          prob (cond (or (= "Tracking" problem) (= "tracking" problem))
-                     tracking-problem
-                     (or (= "Words" problem) (= "words" problem))
-                     words-problem
-                     (or (= "Causal" problem) (= "causal" problem))
-                     causal-problem)
+          prob (choose-problem problem)
           repetitions (Integer/parseInt repetitions)]
       (alter-var-root (var rgen) (constantly (new-seed seed)))
       (dosync
@@ -50,11 +54,8 @@
             (println "--params identifier required.")
             
             (= action "player")
-            (do
-              (dosync
-               (alter state/problem (constantly prob)))
-              ;; start the player on swing's "event dispatch thread"
-              (SwingUtilities/invokeLater start-player))
+            ;; start the player on swing's "event dispatch thread"
+            (SwingUtilities/invokeLater start-player)
 
             (= action "explore")
             (let [restarts (Integer/parseInt restarts)
@@ -65,7 +66,7 @@
             (let [nthreads (Integer/parseInt nthreads)
                   monitor? (Boolean/parseBoolean monitor)
                   upload? (Boolean/parseBoolean upload)
-                  ps (read-params params)
+                  [prob ps] (read-params params)
                   git-dirty? (not-empty
                               (filter #(not= "??" (subs % 0 2))
                                       (split-lines (sh git "status" "--porcelain"))))]
@@ -77,6 +78,7 @@
                          "database connection.")
                 (System/exit -1))
               (dosync
+               (alter state/problem (constantly (choose-problem prob)))
                (alter state/db-params (constantly ps)))
               (run-with-new-record seed git recordsdir nthreads monitor? upload? repetitions))
             

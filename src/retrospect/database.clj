@@ -29,11 +29,11 @@
       (do
         (println "No such parameters.")
         (System/exit -1))
-      (if (= "comparative" (:paramstype params))
-        (-> params
-            (update-in [:control] read-string)
-            (update-in [:comparison] read-string))
-        (update-in params [:control] read-string)))))
+      [problem (if (= "comparative" (:paramstype params))
+                 (-> params
+                     (update-in [:control] read-string)
+                     (update-in [:comparison] read-string))
+                 (update-in params [:control] read-string))])))
 
 (defn get-player-params
   [pname]
