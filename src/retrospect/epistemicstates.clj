@@ -4,9 +4,11 @@
   (:require [clojure.zip :as zip])
   (:require [clojure.set :as set])
   (:require [vijual :as vijual])
-  (:use [loom.graph :only [digraph add-edges add-nodes remove-nodes nodes edges]])
+  (:use [loom.graph :only [digraph add-edges add-nodes remove-nodes
+                           nodes edges neighbors has-edge?]])
   (:use [loom.alg :only [pre-traverse]])
   (:use [loom.attr :only [add-attr]])
+  (:use [loom.io :only [view]])
   (:use [clojure.java [io :only [file]] [shell :only [sh]]])
   (:use [retrospect.state]))
 
@@ -152,24 +154,20 @@
   [ep-state-tree]
   (map str (flatten-ep-state-tree ep-state-tree)))
 
-(defn add-hyp-helper
-  [ep-state hyp & opts]
-  (let [g (reduce (fn [g d] (-> g (add-edges [hyp d])))
+(defn add-hyp
+  [ep-state hyp]
+  (let [g (reduce (fn [g d] (if (has-edge? g hyp d) g
+                                (add-edges g [hyp d])))
                   (-> (:depgraph ep-state)
                       (add-nodes hyp))
                   (:depends hyp))]
     (assoc ep-state
-      :workspace (apply ws/add (:workspace ep-state) hyp opts)
+      :workspace (ws/add (:workspace ep-state) hyp :static)
       :depgraph g)))
-
-(defn add-hyp
-  [ep-state hyp]
-  (add-hyp-helper ep-state hyp :static))
 
 (defn add-fact
   [ep-state hyp]
-  (update-in ep-state [:workspace]
-             #(-> % (ws/add hyp :static) (ws/force-accept hyp))))
+  (update-in (add-hyp ep-state hyp) [:workspace] ws/force-accept hyp))
 
 (defn commit-decision
   [ep-state time-now]
@@ -184,15 +182,25 @@
 
 (defn find-dependents
   [ep-state hyps]
-  (let [g (:depgraph ep-state)]
-    (set (mapcat #(pre-traverse g %) hyps))))
+  (let [g (:depgraph ep-state)
+        leafs (set (filter #(empty? (neighbors (:depgraph ep-state) %))
+                           (nodes (:depgraph ep-state))))]
+    (set/difference (set (mapcat #(pre-traverse g %) hyps)) leafs)))
 
 (defn retract-dependents
   [ep-state deps]
-  (assoc ep-state
-    :problem-data (reduce (fn [pdata h] ((:retract-fn @problem) pdata h))
-                          (:problem-data ep-state) deps)
-    :depgraph (apply remove-nodes (:depgraph ep-state) deps)))
+  (let [leafs (set (filter #(empty? (neighbors (:depgraph ep-state) %))
+                           (nodes (:depgraph ep-state))))]
+    (loop [ep ep-state
+           ds deps]
+      (let [ep-retracted (assoc ep
+                           :problem-data (reduce (fn [pdata h] ((:retract-fn @problem)
+                                                                pdata h))
+                                                 (:problem-data ep) ds)
+                           :depgraph (apply remove-nodes (:depgraph ep) ds))
+            new-leafs (filter #(not-any? leafs (pre-traverse (:depgraph ep-retracted) %))
+                              (set/difference (nodes (:depgraph ep-retracted)) leafs))]
+        (if (empty? new-leafs) ep-retracted (recur ep-retracted new-leafs))))))
 
 (defn new-branch-ep-state
   [ep-state-tree branch clear-workspace? reinstate-pdata?]
