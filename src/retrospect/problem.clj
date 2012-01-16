@@ -48,7 +48,8 @@
                    ors-meta (current-ep-state (:ep-state-tree ors-meta)))
         ors-resources (assoc-in ors-next [:resources :milliseconds] ms)
         ors-results (evaluate truedata ors-resources)]
-    (.write System/out (int \.)) (.flush System/out)
+    (when (not player?)
+      (.write System/out (int \.))) (.flush System/out)
     (if (and (not player?) monitor?)
       ((:monitor-fn @problem) truedata (:sensors ors-results) ors-results)
       ors-results)))
