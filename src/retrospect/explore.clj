@@ -5,8 +5,6 @@
   (:use [retrospect.workspaces :only [last-id]])
   (:use [retrospect.state]))
 
-(def attempted (atom {}))
-
 (defn search
   [scorer permute state min-max permutations]
   (let [init state
@@ -49,7 +47,6 @@
                    (println (format "%s = %s" (name metric) (get (last results) metric)))
                    results))))
         avg (double (/ (reduce + (map #(get (last %) metric) rs)) repetitions))]
-    (swap! attempted assoc params rs)
     (println "Average =" avg)
     avg))
 
@@ -59,9 +56,10 @@
     (let [field (my-rand-nth (filter #(second (get def-ps %)) (keys def-ps)))
           val (my-rand-nth (get def-ps field))
           params (assoc last-params field val)]
-      (println "\nSwapping" field "with" val "\n")
-      (if (or (= (get last-params field) val) (some #{params} (keys @attempted)))
-        (recur) params))))
+      (if (or (= (get last-params field) val))
+        (recur)
+        (do (println "\nSwapping" field "with" val "\n")
+            params)))))
 
 (defn explore
   [seed metric min-max repetitions restarts permutations]
@@ -72,14 +70,12 @@
                   (if (> 0 i) bests
                       (let [first-ps (reduce (fn [m k]
                                                (assoc m k (my-rand-nth (get def-ps k))))
-                                             {} (keys def-ps))
-                            ;; do a permutation to ensure the first chosen
-                            ;; was not already attempted
-                            ps (next-params def-ps first-ps)]
+                                             {} (keys def-ps))]
                         (println "Restart number" (- restarts i))
-                        (recur (dec i) (conj bests (search #(run metric % repetitions)
-                                                           (partial next-params def-ps)
-                                                           ps min-max permutations))))))
+                        (recur (dec i) (conj bests
+                                             (search #(run metric % repetitions)
+                                                     (partial next-params def-ps)
+                                                     first-ps min-max permutations))))))
           best (first (if (= "max" min-max) (reverse (sort-by :best-score bests))
                           (sort-by :best-score bests)))]
       (println "Restarting from best...")
