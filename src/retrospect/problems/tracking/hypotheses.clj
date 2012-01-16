@@ -13,13 +13,12 @@
 (def compute 0)
 (def memory 0)
 
-(defn covered-or-uncovered?
-  [pdata cov-or-uncov sensor-hyp]
+(defn covered?
+  [pdata sensor-hyp from-to]
   (some (fn [h] (and (= (:id (:sensor (:data h))) (:id (:sensor (:data sensor-hyp))))
                      (= (:det (:data h)) (:det (:data sensor-hyp)))
                      (= (:subtype h) (:subtype sensor-hyp))))
-        (concat (get pdata (keyword (format "%s-from" (name cov-or-uncov))))
-                (get pdata (keyword (format "%s-to" (name cov-or-uncov)))))))
+        (get pdata (if (= :from from-to) :covered-from :covered-to))))
 
 (defn make-sensor-hyps
   [sensor {:keys [x y color time] :as det}]
@@ -34,33 +33,21 @@
   "Add to \"uncovered-from/to\" sets any sensor data we don't already
    have in one of those sets or the \"covered-from/to\" sets."
   [ep-state sensors time-now]
-  (mapcat (fn [s] (map (fn [dets] (make-sensor-hyps s dets))
-                       (mapcat (fn [t] (sensed-at s t))
-                               (range 0 (inc time-now)))))
-          sensors)
   (let [pdata (:problem-data ep-state)
+        earliest (first (sort (map (comp :time last) (vals (:entities pdata)))))
         det-hyps (mapcat (fn [s] (map (fn [dets] (make-sensor-hyps s dets))
                                       (mapcat (fn [t] (sensed-at s t))
-                                              (range 0 (inc time-now)))))
+                                              (range earliest (inc time-now)))))
                          sensors)
-        from-hyps (set (filter #(and (not (covered-or-uncovered? pdata :covered %))
-                                     (not (covered-or-uncovered? pdata :uncovered %))
-                                     (not= 0 (:time (:det (:data %)))))
+        from-hyps (set (filter #(and (not (covered? pdata % :from))
+                                     (not= earliest (:time (:det (:data %)))))
                                (map first det-hyps)))
-        to-hyps (set (filter #(and (not (covered-or-uncovered? pdata :covered %))
-                                   (not (covered-or-uncovered? pdata :uncovered %))
+        to-hyps (set (filter #(and (not (covered? pdata % :to))
                                    (not= time-now (:time (:det (:data %)))))
                              (map second det-hyps)))
-        earliest (max -1 (- time-now (:WindowSize params)))
-        uncovered-from (set (filter #(> (:time (:det (:data %))) (inc earliest))
-                                    (set/union (:uncovered-from pdata) from-hyps)))
-        uncovered-to (set (filter #(> (:time (:det (:data %))) earliest)
-                                  (set/union (:uncovered-to pdata) to-hyps)))
-        pdata-new (assoc pdata :uncovered-from uncovered-from
-                         :uncovered-to uncovered-to)
+        pdata-new (assoc pdata :uncovered-from from-hyps :uncovered-to to-hyps)
         ep-new (assoc ep-state :problem-data pdata-new)]
-    (reduce (fn [ep hyp] (add-fact ep hyp)) ep-new
-            (concat uncovered-from uncovered-to))))
+    (reduce (fn [ep hyp] (add-fact ep hyp)) ep-new (concat from-hyps to-hyps))))
 
 (defn score-movement
   "Returns nil if not matched or not in range."
@@ -229,10 +216,8 @@
                                                        (= e (:entity (:data %))))
                                                  (:accepted ws)))
                                (keys (:entities pdata)))
-        new-time (min (:Steps params) (+ (:time ep-state) (:StepsBetween params)))
-        latest-dets-unexplained (filter #(and (= :sensor-from (:subtype %))
-                                              (= new-time (:time (:det (:data %)))))
-                                        (:unexplained (:final (:log ws))))
+        dets-unexplained (filter #(= :sensor-from (:subtype %))
+                                 (:unexplained (:final (:log ws))))
         loc-hyps (mapcat
                   (fn [e]
                     (let [last-pos (last (get (:entities pdata) e))]
@@ -243,7 +228,8 @@
                                          (/ (dist (:x last-pos) (:y last-pos)
                                                   (:x (:det (:data d))) (:y (:det (:data d))))
                                             (* (Math/sqrt 2)
-                                               (- new-time (:time last-pos)))))
+                                               (- (:time (:det (:data d)))
+                                                  (:time last-pos)))))
                                       :or [d] [] ;; explains & depends
                                       (format "Entity %s is at %d,%d at time %d"
                                               e (:x (:det (:data d)))
@@ -255,11 +241,12 @@
                                           (:color (first (get (:entities pdata) e)))
                                           (:color (:det (:data %))))
                                          (> (* (Math/sqrt 2)
-                                               (- new-time (:time last-pos)))
+                                               (- (:time (:det (:data %)))
+                                                  (:time last-pos)))
                                             (dist (:x last-pos) (:y last-pos)
                                                   (:x (:det (:data %)))
                                                   (:y (:det (:data %))))))
-                                   latest-dets-unexplained))))
+                                   dets-unexplained))))
                   es-not-updated)]
     (reduce (fn [ep hyp] (add-hyp ep hyp)) ep-state loc-hyps)))
 
@@ -299,7 +286,10 @@
                                                              accepted))
         bel-movs (set (map (comp :movement :data) (filter #(= :movement (:type %)) accepted)))
         dis-movs (set (map (comp :movement :data) (filter #(= :movement (:type %)) rejected)))
-        explained-det-hyps (mapcat :explains (filter #(= :movement (:type %)) accepted))
+        explained-det-hyps (mapcat :explains
+                                   (filter #(or (= :movement (:type %))
+                                                (= :location-recovery (:subtype %)))
+                                           accepted))
         covered-from (set (filter #(= :sensor-from (:subtype %)) explained-det-hyps))
         covered-to (set (filter #(= :sensor-to (:subtype %)) explained-det-hyps))]
     (-> pdata (assoc :entities entities)
@@ -309,9 +299,7 @@
         (update-in [:believed-movements] set/union bel-movs)
         (update-in [:disbelieved-movements] set/union dis-movs)
         (update-in [:covered-from] set/union covered-from)
-        (update-in [:covered-to] set/union covered-to)
-        (update-in [:uncovered-from] set/difference covered-from)
-        (update-in [:uncovered-to] set/difference covered-to))))
+        (update-in [:covered-to] set/union covered-to))))
 
 (defn retract
   [pdata hyp]
@@ -331,8 +319,6 @@
             (update-in [:believed-movements] disj (:movement (:data hyp)))
             (update-in [:covered-from] set/difference #{(:det2-hyp (:data hyp))})
             (update-in [:covered-to] set/difference #{(:det-hyp (:data hyp))})
-            (update-in [:uncovered-from] set/union #{(:det2-hyp (:data hyp))})
-            (update-in [:uncovered-to] set/union #{(:det-hyp (:data hyp))})
             (update-in [:accepted] disj hyp))
         (or (= :sensor-from (:subtype hyp)) (= :sensor-to (:subtype hyp)))
         (update-in pdata [:accepted] disj hyp)
