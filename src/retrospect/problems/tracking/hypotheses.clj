@@ -186,12 +186,15 @@
                                       (concat accepted unaccepted)))) entities)
           ep-pg (assoc-in ep-sensors [:problem-data :paths-graph] pg)
           paths (paths-graph-paths pg entities entity-biases)
-          path-hyps (filter (fn [h] (some #(not (accepted %)) (:movements (:data h))))
-                            (apply concat (for [bias (keys paths)]
-                                            (map #(make-path-hyp bias %)
-                                                 (filter #(and (not-empty %)
-                                                               (= time-now (:time (:det2 (:data (last %))))))
-                                                         (get paths bias))))))
+          path-hyps (filter
+                     (fn [h] (some #(not (accepted %)) (:movements (:data h))))
+                     (apply concat
+                            (for [bias (keys paths)]
+                              (map #(make-path-hyp bias %)
+                                   (filter
+                                    #(and (not-empty %)
+                                          (= time-now (:time (:det2 (:data (last %))))))
+                                    (get paths bias))))))
           loc-hyps (make-location-hyps entities entity-biases path-hyps)
           valid-path-hyps (set (mapcat (comp :paths :data) loc-hyps))
           valid-mov-hyps (set (mapcat (comp :movements :data) valid-path-hyps))
