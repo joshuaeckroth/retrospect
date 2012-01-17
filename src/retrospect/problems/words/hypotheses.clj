@@ -48,9 +48,8 @@
   (let [explains (map #(nth sensor-hyps %) pos-seq)
         adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))
         unimodel (get models 1)
-        similar-words (filter #(re-find (re-pattern (format ".*%s.*" (apply str word)))
-                                        (first %))
-                              (keys unimodel))
+        pattern (re-pattern (format ".*%s.*" (apply str word)))
+        similar-words (filter #(re-find pattern (first %)) (keys unimodel))
         prob (double (/ (get unimodel [word])
                         (reduce + (map (fn [w] (get unimodel w)) similar-words))))
         changes (count-changes word letters)
@@ -87,9 +86,9 @@
                               (min 1.0 (+ (/ (:SensorNoise params) 100.0)
                                           (/ (- 1.0 (/ (:BelievedKnowledge params) 100.0))
                                              4.0))))))]
-    (if (= max-noise 0) (= (apply str letters) (apply str word))
-        (>= max-noise (count (filter #(not= (first %) (second %))
-                                     (partition 2 (interleave letters word))))))))
+    (let [w1 (to-array letters)
+          w2 (to-array word)]
+      (>= max-noise (areduce w1 i c 0 (if (not= (aget w1 i) (aget w2 i)) (inc c) c))))))
 
 (defn make-starts-ends
   [hyps]
@@ -120,8 +119,10 @@
                       (filter #(let [starts-ends (map (fn [i] [i i]) (map first %))]
                                  (= 1 (apply max 1 (gap-sizes starts-ends)))) i-ls))
         parts (map (fn [length] (filter-gaps (partition length 1 indexed-letters)))
-                   (range 1 (inc max-word-length)))]
-    (reduce (fn [m w] (assoc m w (search-word w (nth parts (dec (count w))) noise?)))
+                   (range (:MinWordLength params) (inc max-word-length)))]
+    (reduce (fn [m w] (assoc m w (search-word w (nth parts (- (count w)
+                                                              (:MinWordLength params)))
+                                              noise?)))
             {} dict)))
 
 (defn make-word-hyps
@@ -248,10 +249,8 @@
 
 (defn make-sensor-noise-hyps
   [sub-indexed-letters left-off dictionary max-n sensor-hyps accepted models]
-  (let [word-hyps (make-word-hyps sub-indexed-letters left-off
-                                  dictionary true sensor-hyps models)
-        composite-hyps (make-composite-hyps models word-hyps accepted max-n)]
-    (concat word-hyps composite-hyps)))
+  (make-word-hyps sub-indexed-letters left-off
+                  dictionary true sensor-hyps models))
 
 (defn make-learning-hyps
   [indexed-letters unexp-pos left-off dictionary sensor-hyps
@@ -343,11 +342,16 @@
                             (make-sensor-noise-hyps sub-indexed-letters left-off
                                                     dictionary max-n sensor-hyps
                                                     accepted models) [])
-        learning-hyps (if (and (> 100 (:BelievedKnowledge params)) (:Learn params))
-                        (make-learning-hyps indexed-letters positions left-off
-                                            dictionary sensor-hyps
-                                            avg-word-length centroid last-time
-                                            (concat word-hyps sensor-noise-hyps)) [])
+        learning-hyps (take (:MaxLearnedWords params)
+                            (sort-by :apriori
+                                     (if-not (and (> 100 (:BelievedKnowledge params))
+                                                  (:Learn params))
+                                       []
+                                       (make-learning-hyps
+                                        indexed-letters positions left-off
+                                        dictionary sensor-hyps
+                                        avg-word-length centroid last-time
+                                        (concat word-hyps sensor-noise-hyps)))))
         composite-hyps (make-composite-hyps
                         models (concat sensor-noise-hyps learning-hyps word-hyps)
                         accepted max-n)]

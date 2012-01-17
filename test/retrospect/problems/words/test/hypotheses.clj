@@ -12,7 +12,7 @@
 (deftest grab-bag
   (binding [last-id 0
             params {:BelievedKnowledge 80 :MaxModelGrams 3 :LearnFeatureSize 1
-                    :MinLearnLength 3 :MaxLearnLength 8 :SensorNoise 10}]
+                    :MinLearnLength 3 :MaxLearnLength 8 :SensorNoise 10 :MinWordLength 3}]
     (let [truedata "goobarquuxxyz"
           models {1 (with-meta {["foo"] 1 ["bar"] 1 ["quux"] 1} {:sum 3})
                   2 (with-meta {["foo" "bar"] 1 ["bar" "quux"] 1} {:sum 2})

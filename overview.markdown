@@ -242,6 +242,10 @@ Transitive explanation is a parameter. If `:TransitiveExplanation` is
     agent will consider learning; the agent is promised to know about
     all true words shorter than this length *(truth-changing)*
     
+  - `:MaxLearnedWords` (0+); the maximum number of "learned word"
+    hypotheses that will be offered at each step; the highest-scoring
+    learned word hypotheses are chosen
+    
   - `:MaxLearnLength` (1+, greater than `:MinLearnLength`); the length
     of the longest word that the agent will consider learning; no
     words longer than this length will be in the truedata; this
