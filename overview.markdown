@@ -246,6 +246,8 @@ Transitive explanation is a parameter. If `:TransitiveExplanation` is
     hypotheses that will be offered at each step; the highest-scoring
     learned word hypotheses are chosen
     
+  - `:MaxNoisyWords` (0+); analogue to `:MaxLearnedWords`
+    
   - `:MaxLearnLength` (1+, greater than `:MinLearnLength`); the length
     of the longest word that the agent will consider learning; no
     words longer than this length will be in the truedata; this

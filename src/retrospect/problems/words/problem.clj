@@ -101,6 +101,7 @@
                 :Learn [true [true false]]
                 :LearnFeatureSize [2 (range 1 4)]
                 :MaxLearnedWords [10 [10]]
+                :MaxNoisyWords [10 [10]]
                 :TransitiveExplanation [true [true false]]
                 :AnalyzeSensitivity [false [false]]
                 :AnalyzeDeps [false [false]]

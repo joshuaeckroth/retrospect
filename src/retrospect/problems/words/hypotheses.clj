@@ -338,10 +338,13 @@
         positions (sort unexp-pos)
         sub-indexed-letters (sort-by first (map (fn [i] (nth indexed-letters i))
                                                 positions))
-        sensor-noise-hyps (if (< 0 (:SensorNoise params))
-                            (make-sensor-noise-hyps sub-indexed-letters left-off
-                                                    dictionary max-n sensor-hyps
-                                                    accepted models) [])
+        sensor-noise-hyps (take (:MaxNoisyWords params)
+                                (sort-by :apriori
+                                         (if (< 0 (:SensorNoise params))
+                                           (make-sensor-noise-hyps
+                                            sub-indexed-letters left-off
+                                            dictionary max-n sensor-hyps
+                                            accepted models) [])))
         learning-hyps (take (:MaxLearnedWords params)
                             (sort-by :apriori
                                      (if-not (and (> 100 (:BelievedKnowledge params))
