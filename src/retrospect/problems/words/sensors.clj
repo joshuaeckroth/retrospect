@@ -14,7 +14,8 @@
 (defn perturb
   [sensor]
   (assoc sensor :sensed
-         (reduce (fn [sensed time] (assoc sensed time
-                                          (first (add-noise [(get sensed time)]
-                                                            (:ProbPerturb params)))))
+         (reduce (fn [sensed time]
+                   (assoc sensed time
+                          (first (add-noise [(get sensed time)]
+                                            (/ (:ProbPerturb params) 100.0)))))
                  (:sensed sensor) (keys (:sensed sensor)))))
