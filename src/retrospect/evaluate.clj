@@ -11,10 +11,11 @@
 (defn calc-increase
   [control-results comparison-results field]
   (let [increase-field (keyword (format "Inc%s" (name field)))
-        increase-val (if (= 0 (control-results field)) 0.0
-                         (double (* 100.0 (/ (- (comparison-results field)
-                                                (control-results field))
-                                             (control-results field)))))]
+        increase-val (cond (= 0 (control-results field)) nil
+                           (> 1.0e-5 (control-results field)) nil
+                           :else (double (* 100.0 (/ (- (comparison-results field)
+                                                        (control-results field))
+                                                     (control-results field)))))]
     {increase-field increase-val}))
 
 (defn calc-deepest-dep
