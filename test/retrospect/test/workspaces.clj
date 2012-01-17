@@ -22,12 +22,12 @@
           c (new-hyp "C" :hyp :hyp (constantly []) 0.25 :and [a] [a] "" {})
           d (new-hyp "D" :hyp :hyp (constantly []) 0.6  :and [a b] [a b] "" {})
           workspace (-> (init-workspace)
-                        (add s1 :static) (force-accept s1)
-                        (add s2 :static) (force-accept s2)
-                        (add a :static)
-                        (add b :static)
-                        (add c :static)
-                        (add d :static)
+                        (add s1) (force-accept s1)
+                        (add s2) (force-accept s2)
+                        (add a)
+                        (add b)
+                        (add c)
+                        (add d)
                         (prepare-workspace)
                         (cache-transitive-explainers))]
       (binding [workspace workspace
