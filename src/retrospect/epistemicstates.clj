@@ -162,7 +162,7 @@
                       (add-nodes hyp))
                   (:depends hyp))]
     (assoc ep-state
-      :workspace (ws/add (:workspace ep-state) hyp :static)
+      :workspace (ws/add (:workspace ep-state) hyp)
       :depgraph g)))
 
 (defn add-fact
@@ -249,7 +249,7 @@
                          (if (= (count (ws/get-hyps (:workspace ep-more-hyps) :static))
                                 (count (ws/get-hyps (:workspace ep-ws) :static)))
                            ep-ws
-                           (let [ws (ws/prepare-workspace (:workspace ep-more-hyps))
+                           (let [ws (:workspace ep-more-hyps)
                                  ws-expl (ws/explain ws (:problem-data ep-more-hyps))]
                              (assoc ep-more-hyps :workspace ws-expl)))
                          ep-ws)

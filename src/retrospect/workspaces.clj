@@ -46,7 +46,7 @@
 
 (defn init-workspace
   ([]
-     {:graph nil
+     {:graph (digraph)
       :graph-static (digraph)
       :cycle 0
       :hyp-confidences {}
@@ -296,41 +296,27 @@
       (filter #(and (not= % hyp) (= c (:conflict %))) hyps))))
 
 (defn add
-  [workspace hyp & opts]
-  (let [gtype (if (some #{:static} opts) :graph-static :graph)
-        ns (nodes (get workspace gtype))
-        ;; expl has only those hyps that are explained and currently reside in the graph
-        expl (filter ns (:explains hyp))
-        ;; is this hyp explaining something in the graph? (or is it :graph-static?)
-        explains-something-unexplained? (or (= gtype :graph-static) (not-empty expl))]
-    (if (not explains-something-unexplained?) workspace
-        ;; add to :graph-static if :static was not indicated;
-        ;; here, add even already-explains links
-        (let [ws-static
-              (if (not= gtype :graph) workspace
-                  (let [g-added (reduce (fn [g n] (-> g (add-nodes n)
-                                                      (add-attr n :id (:id n))
-                                                      (add-attr n :label (:id n))))
-                                        (:graph-static workspace)
-                                        (conj (:explains hyp) hyp))
-                        g-edges (reduce (fn [g e] (add-edges g [hyp e]))
-                                        g-added (:explains hyp))]
-                    (assoc workspace :graph-static g-edges)))
-              g-added (reduce (fn [g n] (-> g (add-nodes n)
-                                            (add-attr n :id (:id n))
-                                            (add-attr n :label (:id n))))
-                              (gtype ws-static) (conj expl hyp))
-              g-edges (reduce (fn [g e] (add-edges g [hyp e])) g-added expl)
-              ws-updated (-> ws-static
-                             (assoc gtype g-edges)
-                             (assoc-in [:hyp-confidences hyp] (:apriori hyp))
-                             (update-in [:resources :hypothesis-count] inc)
-                             (update-in [:log :added] conj {:hyp hyp :explains expl}))]
-          ;; abort if added hyp conflicts with something accepted (only when adding
-          ;; hyps after explaining has begun)
-          (if (and (not-any? #{:static} opts)
-                   (some (:accepted ws-updated) (find-conflicts ws-updated hyp)))
-            workspace ws-updated)))))
+  [workspace hyp]
+  (let [expl (filter (nodes (get workspace :graph)) (:explains hyp))
+        expl-static (filter (nodes (get workspace :graph-static)) (:explains hyp))
+        g-added-static (reduce (fn [g n] (-> g (add-nodes n)
+                                             (add-attr n :id (:id n))
+                                             (add-attr n :label (:id n))))
+                               (:graph-static workspace)
+                               (conj expl-static hyp))
+        g-edges-static (reduce (fn [g e] (add-edges g [hyp e]))
+                               g-added-static expl-static)
+        g-added (reduce (fn [g n] (-> g (add-nodes n)
+                                      (add-attr n :id (:id n))
+                                      (add-attr n :label (:id n))))
+                        (:graph workspace) (conj expl hyp))
+        g-edges (reduce (fn [g e] (add-edges g [hyp e])) g-added expl)]
+    (-> workspace
+        (assoc :graph-static g-edges-static)
+        (assoc :graph g-edges)
+        (assoc-in [:hyp-confidences hyp] (:apriori hyp))
+        (update-in [:resources :hypothesis-count] inc)
+        (update-in [:log :added] conj {:hyp hyp :explains expl}))))
 
 (defn reject-many
   [workspace hyps]
