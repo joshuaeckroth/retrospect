@@ -113,8 +113,16 @@
             (calc-true-false-confs workspace true-false)
             (if (:AnalyzeSensitivity params)
               (analyze-sensitivity or-state true-false)
-              {:AvgTrueSensitivity 0.0 :AvgFalseSensitivity 0.0
-               :CountTrueSame 0 :CountFalseSame 0})
+              (reduce
+               (fn [m tf]
+                 (reduce (fn [m2 k] (assoc m2 k 0))
+                         m (map #(keyword
+                                  (format "Avg%s%s" tf
+                                          (apply str
+                                                 (map str/capitalize
+                                                      (str/split (name %) #"-")))))
+                                (:hyp-subtypes @problem))))
+               {} ["TrueSensitivity" "FalseSensitivity"]))
             (if (:AnalyzeDeps params)
               (calc-avg-true-false-deps or-state true-false)
               (reduce
