@@ -229,8 +229,9 @@
                                       [:location-recovery e]
                                       (- 1.0
                                          (/ (dist (:x last-pos) (:y last-pos)
-                                                  (:x (:det (:data d))) (:y (:det (:data d))))
-                                            (* (Math/sqrt 2)
+                                                  (:x (:det (:data d)))
+                                                  (:y (:det (:data d))))
+                                            (* (Math/sqrt 2) (:MaxWalk params)
                                                (- (:time (:det (:data d)))
                                                   (:time last-pos)))))
                                       :or [d] [] ;; explains & depends
@@ -243,7 +244,7 @@
                            (filter #(and (match-color?
                                           (:color (first (get (:entities pdata) e)))
                                           (:color (:det (:data %))))
-                                         (> (* (Math/sqrt 2)
+                                         (> (* (Math/sqrt 2) (:MaxWalk params)
                                                (- (:time (:det (:data %)))
                                                   (:time last-pos)))
                                             (dist (:x last-pos) (:y last-pos)
