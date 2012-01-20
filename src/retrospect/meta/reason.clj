@@ -107,27 +107,16 @@
 
 (defn lower-threshold
   [or-state]
-  (let [ep-state (current-ep-state (:ep-state-tree or-state))
-        new-est (new-branch-ep-state (:ep-state-tree or-state) ep-state)
-        new-ep (current-ep-state new-est)
-        ;; repeatedly lower threshold until new stuff is accepted
-        ;; or cannot lower it any more (or there's nothing left to accept)
-        final-ws
-        (loop [workspace (:workspace ep-state)
-               threshold (- (:Threshold params) 25)]
-          (cond (or (empty? (:unaccepted (:final (:log workspace))))
-                    (> 0 threshold))
-                workspace
-                (< (ws/get-doubt workspace) (ws/get-doubt (:workspace ep-state)))
-                workspace
-                :else
-                (recur (ws/explain workspace (:problem-data new-ep))
-                       (- threshold 25))))
-        final-or-state (update-one-run-state
-                         (assoc or-state :ep-state-tree new-est)
-                         (assoc new-ep :workspace final-ws)
-                         {:compute 0 :memory 0})]
-    (update-in final-or-state [:resources :meta-activations] inc)))
+  (if (= 0 (:Threshold params)) or-state
+      (let [est (:ep-state-tree or-state)
+            ep-state (current-ep-state est)
+            new-est (if (= 1 (ep-state-depth est))
+                      (new-branch-root est (:original-problem-data or-state))
+                      (new-branch-ep-state est ep-state true true))
+            new-ep (current-ep-state new-est)]
+        ;; drop threshold to 0
+        (binding [params (assoc params :Threshold 0)]
+          (apply-and-evaluate or-state ep-state new-est)))))
 
 (defn gradual
   [or-state]
@@ -144,7 +133,7 @@
 
 (defn metareason
   "Activate the appropriate metareasoning strategy (as given by
-   the parameter :MetaStrategy)"
+   the parameter :MetaReasoning)"
   [or-state]
   (cond (= "BatchBeginning" (:MetaReasoning params))
         (batch nil or-state)
@@ -160,4 +149,6 @@
         (batch 5 or-state)
         (= "RetractNoExplainers" (:MetaReasoning params))
         (retract-no-explainers or-state)
+        (= "LowerThreshold" (:MetaReasoning params))
+        (lower-threshold or-state)
         :else or-state))
