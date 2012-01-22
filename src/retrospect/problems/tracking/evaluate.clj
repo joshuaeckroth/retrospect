@@ -52,8 +52,10 @@
             false-pos (- (count believed-movements) true-pos)
             false-neg (count-matches true-movements disbelieved-movements)
             true-neg (- (count disbelieved-movements) false-neg)]
-        ;; precision
-        [(if (= 0 (+ true-pos false-pos)) 1.0
+        
+        [true-pos true-neg false-pos false-neg
+         ;; precision
+         (if (= 0 (+ true-pos false-pos)) 1.0
              (double (/ true-pos (+ true-pos false-pos)))) 
          ;; recall
          (if (= 0 (+ true-pos false-neg)) 1.0
@@ -82,16 +84,22 @@
         true-movs (filter #(and (:ot %) (<= (:time %) maxtime))
                           (apply concat (vals truedata)))
         [pec pew] (percent-events-correct-wrong true-movs believed-movements)
-        [p r s a] (precision-recall true-movs believed-movements disbelieved-movements)]
+        [tp tn fp fn p r s a] (precision-recall true-movs believed-movements disbelieved-movements)]
     {:PEC pec
      :PEW pew
      :Prec p
      :Recall r
      :Spec s
      :Acc a
+     :TruePositive tp
+     :TrueNegative tn
+     :FalsePositive fp
+     :FalseNegative fn
      :IDCorrect (id-correct truedata (:entities pdata) maxtime)}))
 
 (defn evaluate-comparative
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
-                    [:PEC :PEW :Prec :Recall :Spec :Acc :IDCorrect])))
+                    [:PEC :PEW :Prec :Recall :Spec :Acc
+                     :TruePositive :TrueNegative :FalsePositive :FalseNegative
+                     :IDCorrect])))
