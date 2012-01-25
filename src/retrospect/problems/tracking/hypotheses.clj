@@ -60,7 +60,12 @@
              (match-color? c1 c2))
     (let [d (dist x1 y1 x2 y2) 
           dist-count (get walk-dist d)]
-      (if dist-count (double (/ dist-count (:walk-count (meta walk-dist))))))))
+      (if dist-count (double (/ dist-count (:walk-count (meta walk-dist))))
+          ;; if we don't have learning, make possible movements worth
+          ;; a tiny amount if the model doesn't have a frequency for
+          ;; this distance
+          (if (<= d (* (Math/sqrt 2) (:MaxWalk params)))
+            (double (/ 1 (:walk-count (meta walk-dist)))))))))
 
 (defn make-movement-hyps
   [uncovered-from uncovered-to walk-dist]
