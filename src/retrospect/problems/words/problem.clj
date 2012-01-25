@@ -23,7 +23,8 @@
   [file dict]
   (let [model
         (reduce #(assoc %1 (vec (butlast %2)) (Integer/parseInt (last %2))) {}
-                (map #(str/split % #",") (str/split-lines (slurp file))))
+                (map #(str/split % #",")
+                     (str/split-lines (slurp file :encoding (:Encoding params)))))
         ;; select only those n-grams that have all their words from dict
         reduced-model (select-keys model (filter #(every? dict %) (keys model)))
         sum (reduce + 0 (vals reduced-model))]
@@ -33,7 +34,8 @@
   [truedata sensors]
   (let [models (zipmap (range 1 (inc (:MaxModelGrams params)))
                        (for [n (range 1 (inc (:MaxModelGrams params)))]
-                         (let [csv (str @datadir (format "/words/model-%d.csv" n))]
+                         (let [csv (format "%s/words/%s/model-%d.csv"
+                                           @datadir (:Dataset params) n)]
                            (read-model-csv csv (:dictionary (meta truedata))))))
         sorted-dict (sort-by #(get (get models 1) %) (:dictionary (meta truedata)))
         ;; the agent always "knows" about all words less than :MinLearnLength
@@ -90,6 +92,8 @@
                 :Threshold [20 (range 0 101 20)]
                 :StepsBetween [30 (range 10 101 30)]
                 :SensorNoise [0 [0 5 10 15 20]]
+                :Dataset "cityu"
+                :Encoding "big5"
                 :MaxModelGrams [3 (range 1 6)]
                 :MinWordLength [3 (range 1 5)]
                 :MinLearnLength [5 (range 5 10)]

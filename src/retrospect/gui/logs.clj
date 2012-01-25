@@ -1,5 +1,5 @@
 (ns retrospect.gui.logs
-  (:import (java.awt GridBagLayout Insets Dimension))
+  (:import (java.awt GridBagLayout Insets Dimension Font))
   (:import (javax.swing Box JScrollBar))
   (:import (misc AlphanumComparator))
   (:use [clj-swing.label])
@@ -191,14 +191,20 @@
   []
   (dosync
    (alter truedata-log-textbox
-          (constantly (scroll-panel (text-area :str-ref truedata-log
-                                               :editable false :wrap true))))
+          (constantly (scroll-panel
+                       (doto (text-area :str-ref truedata-log
+                                        :editable false :wrap true)
+                         (.setFont (Font. "WenQuanYi Micro Hei" Font/PLAIN 14))))))
    (alter problem-log-textbox
-          (constantly (scroll-panel (text-area :str-ref problem-log
-                                               :editable false :wrap true))))
+          (constantly (scroll-panel
+                       (doto (text-area :str-ref problem-log
+                                        :editable false :wrap true)
+                         (.setFont (Font. "WenQuanYi Micro Hei" Font/PLAIN 14))))))
    (alter workspace-log-textbox
-          (constantly (scroll-panel (text-area :str-ref workspace-log
-                                               :editable false :wrap true)))))
+          (constantly (scroll-panel
+                       (doto (text-area :str-ref workspace-log
+                                        :editable false :wrap true)
+                         (.setFont (Font. "WenQuanYi Micro Hei" Font/PLAIN 14)))))))
   (doto (split-vertical
          @truedata-log-textbox
          (doto (split-vertical

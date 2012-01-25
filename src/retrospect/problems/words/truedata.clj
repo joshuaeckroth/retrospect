@@ -31,10 +31,14 @@
   []
   (let [sensor-noise (double (/ (:SensorNoise params) 100.0))
         dict (set (filter #(>= (count %) (:MinWordLength params))
-                          (str/split-lines (slurp (str @datadir "/words/dictionary.txt")))))
+                          (str/split-lines (slurp (format "%s/words/%s/dictionary.txt"
+                                                          @datadir (:Dataset params))
+                                                  :encoding (:Encoding params)))))
         truedata-all (filter #(and (>= (count %) (:MinWordLength params))
                                    (<= (count %) (:MaxLearnLength params)))
-                             (str/split (slurp (str @datadir "/words/truedata.txt")) #" "))
+                             (str/split (slurp (format "%s/words/%s/truedata.txt"
+                                                       @datadir (:Dataset params))
+                                               :encoding (:Encoding params)) #" "))
         truedata-all-noisy (map #(add-noise % sensor-noise) truedata-all)
         start (my-rand-int (- (reduce + (map count truedata-all)) (:Steps params)))
         ambiguous (take (:Steps params) (drop start (apply str truedata-all)))
