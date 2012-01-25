@@ -225,6 +225,10 @@ Transitive explanation is a parameter. If `:TransitiveExplanation` is
 
 ### Words domain parameters
 
+  - `:Dataset` ("cityu" or "carrol"); which text to use
+  
+  - `:Encoding` ("big5" or "utf-8"); the encoding of the dataset text
+
   - `:MaxModelGrams` (1-10); word transition model size (i.e. unigram,
     bigram, trigram, etc.)
     

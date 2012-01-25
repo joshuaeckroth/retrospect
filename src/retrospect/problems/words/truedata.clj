@@ -36,7 +36,7 @@
                                                   :encoding (:Encoding params)))))
         truedata-all (filter #(and (>= (count %) (:MinWordLength params))
                                    (<= (count %) (:MaxLearnLength params)))
-                             (str/split (slurp (format "%s/words/%s/truedata.txt"
+                             (str/split (slurp (format "%s/words/%s/test.txt"
                                                        @datadir (:Dataset params))
                                                :encoding (:Encoding params)) #" "))
         truedata-all-noisy (map #(add-noise % sensor-noise) truedata-all)
