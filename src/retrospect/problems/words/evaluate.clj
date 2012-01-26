@@ -1,4 +1,5 @@
 (ns retrospect.problems.words.evaluate
+  (:use [clojure.java.shell :only [sh]])
   (:import (misc LevenshteinDistance))
   (:use [retrospect.evaluate :only [calc-increase]])
   (:use [retrospect.state]))
@@ -27,10 +28,12 @@
 
 (defn evaluate
   [ep-state sensors truedata]
-  (let [accepted (:accepted (:problem-data ep-state))
+  (let [pdata (:problem-data ep-state)
+        accepted (:accepted pdata)
         dict (:dictionary (meta truedata))
         learned (filter #(= :learned-word (:subtype %)) accepted)
-        truewords-starts (filter #(<= (second %) (:time ep-state))
+        truewords-starts (filter #(<= (+ (second %) (count (first %)))
+                                      (:time ep-state))
                                  (:word-starts (meta truedata)))
         truewords (map first truewords-starts)
         correct-pcts
@@ -45,11 +48,35 @@
                                          tw (ffirst (filter #(= word-start (second %))
                                                             truewords-starts))]
                                      (= tw word)))))]
-            (double (/ correct (count words)))))]
-    {:LD (double (/ (calc-ld (:history (:problem-data ep-state)) truewords)
+            (double (/ correct (count words)))))
+        [prec recall f-score]
+        (try (do
+               (spit "/tmp/truewords.txt" (apply str (interpose " " truewords))
+                     :encoding (:Encoding params))
+               (spit "/tmp/history.txt" (apply str (interpose " " (:history pdata)))
+                     :encoding (:Encoding params))
+               (spit "/tmp/dictionary.txt" (apply str (interpose " " dict))
+                     :encoding (:Encoding params))
+               (let [results (sh "/home/josh/research/retrospect/helpers/words/bakeoff-scorer.pl"
+                                 "/tmp/dictionary.txt" "/tmp/truewords.txt" "/tmp/history.txt")
+                     prec (Double/parseDouble
+                           (second (re-find #"TOTAL TEST WORDS PRECISION:\s+(\d\.\d\d\d)"
+                                            (:out results))))
+                     recall (Double/parseDouble
+                             (second (re-find #"TOTAL TRUE WORDS RECALL:\s+(\d\.\d\d\d)"
+                                              (:out results))))
+                     f-score (Double/parseDouble
+                              (second (re-find #"F MEASURE:\s+(\d\.\d\d\d)"
+                                               (:out results))))]
+                 [prec recall f-score]))
+             (catch Exception _ [-1.0 -1.0 -1.0]))]
+    {:LD (double (/ (calc-ld (:history pdata) truewords)
                     (if (empty? truewords) 1 (count truewords))))
      :Correct (* 100.0 (/ (reduce + correct-pcts)
                           (if (empty? correct-pcts) 1 (count correct-pcts))))
+     :Prec prec
+     :Recall recall
+     :FScore f-score
      :LearnedCount (count learned)
      :LearnedCorrect (if (empty? learned) 100.0
                          (* 100.0 (/ (count (filter #(dict (first (:words (:data %))))
@@ -59,4 +86,5 @@
 (defn evaluate-comparative
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
-                    [:LD :Correct :LearnedCount :LearnedCorrect])))
+                    [:LD :Correct :LearnedCount :LearnedCorrect
+                     :Prec :Recall :FScore])))
