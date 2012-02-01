@@ -30,7 +30,8 @@
 (defn generate-truedata
   []
   (let [sensor-noise (double (/ (:SensorNoise params) 100.0))
-        dict (set (filter #(>= (count %) (:MinWordLength params))
+        dict (set (filter #(and (>= (count %) (:MinWordLength params))
+                                (<= (count %) (:MaxLearnLength params)))
                           (str/split-lines (slurp (format "%s/words/%s/dictionary.txt"
                                                           @datadir (:Dataset params))
                                                   :encoding (:Encoding params)))))

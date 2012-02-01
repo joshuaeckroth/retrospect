@@ -70,7 +70,8 @@
         adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))
         bk (- 1.0 (/ (:BelievedKnowledge params) 100.0))
         sim (Math/log (+ 1 (* 100 (similarity word centroid))))
-        apriori (min 1.0 (* bk sim))]
+        length-diff (Math/abs (- avg-word-length (count letters)))
+        apriori (min 1.0 (+ (* bk sim) (Math/pow 0.25 (inc length-diff))))]
     (new-hyp "WordLearn" :word :learned-word conflicts?
              apriori :and explains []
              (format "Learned word: \"%s\" at positions %s (%s) (sim: %.4f)"
@@ -174,11 +175,7 @@
         sum (reduce + (vals (select-keys model alt-ngrams)))
         c (get model words)]
     ;; if we have a probability in the model, return it
-    (if c (max 0.001 (double (/ c (if (= 0 sum) (:sum (meta model)) sum))))
-        ;; otherwise, this sequence is not in the model; if we have a
-        ;; learned word hyp somewhere, the overall prob is 1.0 - BelievedKnowledge
-        (if (some #{:learned-word} (map :subtype word-hyps))
-          (- 1.0 (/ (:BelievedKnowledge params) 100.0))))))
+    (if c (max 0.001 (double (/ c (if (= 0 sum) (:sum (meta model)) sum)))))))
 
 (defn make-composite-hyps
   [models word-hyps accepted max-n]
@@ -335,7 +332,12 @@
         ;; unexplained positions
         unexp-pos (set (map (comp :pos :data)
                             (set/intersection (find-unexplained ws) (:forced ws))))
-        positions (sort unexp-pos)
+        ;; positions also from any nearby word-hyps
+        word-hyp-positions (apply concat (mapcat (comp :pos-seqs :data)
+                                                 (find-adjacent-hyps unexp-pos word-hyps)))
+        positions (sort (set/union unexp-pos
+                                   (set (if (= -1 left-off) word-hyp-positions
+                                            (map #(- % left-off) word-hyp-positions)))))
         sub-indexed-letters (sort-by first (map (fn [i] (nth indexed-letters i))
                                                 positions))
         sensor-noise-hyps (take (:MaxNoisyWords params)
@@ -355,9 +357,7 @@
                                         dictionary sensor-hyps
                                         avg-word-length centroid last-time
                                         (concat word-hyps sensor-noise-hyps)))))
-        composite-hyps (make-composite-hyps
-                        models (concat sensor-noise-hyps learning-hyps word-hyps)
-                        accepted max-n)]
+        composite-hyps (make-composite-hyps models sensor-noise-hyps accepted max-n)]
     ;; don't add any already-existing hyps
     (reduce (fn [ep hyp] (add-hyp ep hyp))
             ep-state (filter (fn [h] (not-any? #(hyps-equal? % h) existing-hyps))

@@ -3,17 +3,18 @@ exec java -Dfile.encoding=big5 -cp "$HOME/clojure/clojure-1.2.1/clojure.jar" clo
 ]
 
 (require '[clojure.string :as str])
+(require '[clojure.set :as set])
 
 (defn build-markov-model
   "Build a Markov n-gram model of word transitions."
-  [n truedata dictionary]
-  (loop [td (concat (repeat (dec n) "") ;; prepend n-1 blanks
-                    (str/split truedata #" ")) 
+  [n training]
+  (loop [tr (concat (repeat (dec n) "") ;; prepend n-1 blanks
+                    (str/split training #" ")) 
          model {}]
-    (if (> n (count td)) model
-        (let [words (take n td)
+    (if (> n (count tr)) model
+        (let [words (take n tr)
               prior-this (or (get model words) 0)]
-          (recur (rest td)
+          (recur (rest tr)
                  (assoc model words (inc prior-this)))))))
 
 (defn markov-model-to-csv
@@ -29,11 +30,12 @@ exec java -Dfile.encoding=big5 -cp "$HOME/clojure/clojure-1.2.1/clojure.jar" clo
                      (str/replace #"\s+" " ")
                      (str/lower-case))
         ;; consider only words with 1 or more letters
-        truedata-large-words (filter #(>= (count %) 1) (str/split truedata #"\s+"))
-        ;; split truedata into 50% for training and 50% for testing
-        [training test] (split-at (int (/ (count truedata-large-words) 2))
+        truedata-large-words (shuffle (filter #(>= (count %) 1)
+                                              (str/split truedata #"\s+")))
+        ;; split truedata into 90% for training and 10% for testing
+        [training test] (split-at (int (* (count truedata-large-words) 0.9))
                                   truedata-large-words)
-        dictionary (sort (set training)) 
+        dictionary (sort (set test)) 
         ambiguous (apply str test)]
     [(apply str (interpose " " training)) (apply str (interpose " " test))
      dictionary ambiguous]))
@@ -50,7 +52,7 @@ exec java -Dfile.encoding=big5 -cp "$HOME/clojure/clojure-1.2.1/clojure.jar" clo
             [training test dictionary ambiguous] (process-text file encoding)
             maxn (Integer/parseInt n)
             models-csv (for [n (range 1 (inc maxn))]
-                         (markov-model-to-csv (build-markov-model n training dictionary)))] 
+                         (markov-model-to-csv (build-markov-model n training)))]
         (spit "training.txt" training :encoding encoding)
         (spit "test.txt" test :encoding encoding)
         (spit "dictionary.txt" (apply str (interpose "\n" dictionary)) :encoding encoding)

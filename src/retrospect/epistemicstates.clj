@@ -240,7 +240,7 @@
 (defn explain
   [ep-state time-now & opts]
   (let [workspace (if (some #{:no-prepare} opts) (:workspace ep-state)
-                      (ws/prepare-workspace (:workspace ep-state)))
+                      (ws/reset-workspace (:workspace ep-state)))
         pdata (:problem-data ep-state)
         ws-explained (ws/explain workspace pdata)
         ep-ws (assoc ep-state :workspace ws-explained)
@@ -249,7 +249,7 @@
                          (if (= (count (ws/get-hyps (:workspace ep-more-hyps) :static))
                                 (count (ws/get-hyps (:workspace ep-ws) :static)))
                            ep-ws
-                           (let [ws (:workspace ep-more-hyps)
+                           (let [ws (ws/reset-workspace (:workspace ep-more-hyps))
                                  ws-expl (ws/explain ws (:problem-data ep-more-hyps))]
                              (assoc ep-more-hyps :workspace ws-expl)))
                          ep-ws)

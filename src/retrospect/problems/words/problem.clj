@@ -20,15 +20,12 @@
   (:use [retrospect.state]))
 
 (defn read-model-csv
-  [file dict]
-  (let [model
-        (reduce #(assoc %1 (vec (butlast %2)) (Integer/parseInt (last %2))) {}
-                (map #(str/split % #",")
-                     (str/split-lines (slurp file :encoding (:Encoding params)))))
-        ;; select only those n-grams that have all their words from dict
-        reduced-model (select-keys model (filter #(every? dict %) (keys model)))
-        sum (reduce + 0 (vals reduced-model))]
-    (with-meta reduced-model {:sum sum})))
+  [file]
+  (let [model (reduce #(assoc %1 (vec (butlast %2)) (Integer/parseInt (last %2))) {}
+                      (map #(str/split % #",")
+                           (str/split-lines (slurp file :encoding (:Encoding params)))))
+        sum (reduce + 0 (vals model))]
+    (with-meta model {:sum sum})))
 
 (defn generate-problem-data
   [truedata sensors]
@@ -36,18 +33,22 @@
                        (for [n (range 1 (inc (:MaxModelGrams params)))]
                          (let [csv (format "%s/words/%s/model-%d.csv"
                                            @datadir (:Dataset params) n)]
-                           (read-model-csv csv (:dictionary (meta truedata))))))
-        sorted-dict (sort-by #(get (get models 1) %) (:dictionary (meta truedata)))
-        ;; the agent always "knows" about all words less than :MinLearnLength
+                           (read-model-csv csv))))
+        ;; the agent knows the most common words
+        sorted-dict (reverse (sort-by #(get (get models 1) %)
+                                      (map first (keys (get models 1)))))
+        ;; the agent knows about all words less than :MinLearnLength
+        ;; from the true dictionary
         dict (set/union (set (take (int (* (count sorted-dict)
                                            (/ (:Knowledge params) 100)))
                                    sorted-dict))
                         (set (filter #(< (count %) (:MinLearnLength params))
-                                     sorted-dict)))
+                                     (:dictionary truedata))))
         limited-models (reduce (fn [ms ngram]
                                  (assoc ms ngram
-                                        (reduce (fn [m ws] (if (every? dict ws) m
-                                                               (dissoc m ws)))
+                                        (reduce (fn [m ws]
+                                                  (if (every? dict ws) m
+                                                      (dissoc m ws)))
                                                 (get ms ngram) (keys (get ms ngram)))))
                                models (keys models))
         features (update-features {} dict)]

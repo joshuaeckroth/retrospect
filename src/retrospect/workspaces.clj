@@ -428,7 +428,7 @@
         (assoc workspace :hyp-confidences
                (apply assoc {} (mapcat (fn [h] [h (:apriori h)]) hyps))))))
 
-(defn prepare-workspace
+(defn reset-workspace
   "Clear the decision, except for what was 'forced'."
   [workspace]
   (let [ws (assoc workspace :doubt nil :accepted #{} :rejected #{}
@@ -439,7 +439,9 @@
                                           (remove-attr h :color)))
                             % (set/difference (nodes %) (:forced ws))))
         (assoc-in [:log :accepted] (:forced workspace))
-        (assoc-in [:accepted] (:forced workspace)))))
+        (assoc-in [:log :accrej] {})
+        (assoc :hyp-log {})
+        (assoc :accepted (:forced workspace)))))
 
 (defn measure-doubt
   [workspace]
@@ -571,7 +573,7 @@
            rej []]
       (if (empty? to-check) [acc unacc rej]
           (let [check (first to-check)
-                ws (prepare-workspace workspace)
+                ws (reset-workspace workspace)
                 ws-altered (-> ws (update-in [:accepted] set/difference check)
                                (reject-many check))
                 ws-explained (explain ws-altered pdata)
