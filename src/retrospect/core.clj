@@ -68,7 +68,7 @@
                   upload? (Boolean/parseBoolean upload)
                   [prob ps] (read-params params)
                   git-dirty? (not-empty
-                              (filter #(not= "??" (subs % 0 2))
+                              (filter #(not= "??" (if (>= 2 (count %)) "" (subs % 0 2)))
                                       (split-lines (sh git "status" "--porcelain"))))]
               (when (and upload? git-dirty?
                          (not (or (re-matches #".*127\.0\.0\.1.*" database)
