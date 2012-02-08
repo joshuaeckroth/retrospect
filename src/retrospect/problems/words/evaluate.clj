@@ -49,7 +49,7 @@
                                                             truewords-starts))]
                                      (= tw word)))))]
             (double (/ correct (count words)))))
-        [prec recall f-score]
+        [prec recall f-score oov-recall]
         (try (do
                (spit "/tmp/truewords.txt" (apply str (interpose " " truewords))
                      :encoding (:Encoding params))
@@ -67,9 +67,12 @@
                                               (:out results))))
                      f-score (Double/parseDouble
                               (second (re-find #"F MEASURE:\s+(\d\.\d\d\d)"
-                                               (:out results))))]
-                 [prec recall f-score]))
-             (catch Exception _ [-1.0 -1.0 -1.0]))]
+                                               (:out results))))
+                     oov-recall (Double/parseDouble
+                                 (second (re-find #"OOV Recall Rate:\s+(\d\.\d\d\d)"
+                                                  (:out results))))]
+                 [prec recall f-score oov-recall]))
+             (catch Exception _ [-1.0 -1.0 -1.0 -1.0 -1.0]))]
     {:LD (double (/ (calc-ld (:history pdata) truewords)
                     (if (empty? truewords) 1 (count truewords))))
      :Correct (* 100.0 (/ (reduce + correct-pcts)
@@ -77,6 +80,7 @@
      :Prec prec
      :Recall recall
      :FScore f-score
+     :OOVRecall oov-recall
      :LearnedCount (count learned)
      :LearnedCorrect (if (empty? learned) 100.0
                          (* 100.0 (/ (count (filter #(dict (first (:words (:data %))))
@@ -87,4 +91,4 @@
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
                     [:LD :Correct :LearnedCount :LearnedCorrect
-                     :Prec :Recall :FScore])))
+                     :Prec :Recall :FScore :OOVRecall])))
