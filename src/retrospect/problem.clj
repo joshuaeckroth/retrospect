@@ -6,11 +6,11 @@
          [init-one-run-state update-one-run-state proceed-one-run-state
           clear-resources]])
   (:use [retrospect.epistemicstates :only
-         [explain current-ep-state previous-ep-state]])
+         [explain current-ep-state previous-ep-state add-fact]])
   (:use [retrospect.meta.reason :only
          [metareasoning-activated? metareason]])
   (:use [retrospect.evaluate :only [evaluate evaluate-comparative]])
-  (:use [retrospect.sensors :only [update-sensors]])
+  (:use [retrospect.sensors :only [update-sensors sensed-at]])
   (:use [retrospect.random :only [rgen new-seed my-rand-int]])
   (:use [retrospect.state]))
 
@@ -22,11 +22,13 @@
       (if (>= t time-now) ors2
           (recur (inc t) ors2)))))
 
-(defn hypothesize
-  [or-state time-now]
-  (let [[ep resources] ((:hypothesize-fn @problem) (:ep-state or-state)
-                          (:sensors or-state) time-now)]
-    (update-one-run-state or-state ep resources)))
+(defn add-sensor-hyps
+  [time time-now ep-state sensors]
+  (let [msh (fn [s h t] ((:make-sensor-hyps-fn @problem) s h t time time-now))]
+    (reduce (fn [ep t]
+              (let [hs (mapcat (fn [s] (mapcat #(msh s % t) (sensed-at s t))) sensors)]
+                (reduce add-fact ep hs)))
+            ep-state (range time (inc time-now)))))
 
 (defn run-simulation-step
   [truedata or-state monitor? player?]
@@ -34,18 +36,21 @@
         time-now (min (:Steps params) (+ (:StepsBetween params) time))
         ors-clean (clear-resources or-state)
         ors-sensors (update-sensors-from-to time time-now truedata ors-clean)
+        ep-sensor-hyps (add-sensor-hyps time time-now (:ep-state ors-sensors)
+                                        (:sensors ors-sensors))
+        ors-sensor-hyps (update-one-run-state ors-sensors ep-sensor-hyps
+                                              {:compute 0 :memory 0})
         ;; start the clock
         start-time (. System (nanoTime))
-        ors-hyps (hypothesize ors-sensors time-now)
-        ep-state (:ep-state ors-hyps)
+        ep-state (:ep-state ors-sensor-hyps)
         ep-explained (explain ep-state time-now)
-        ors-expl (update-one-run-state ors-hyps ep-explained {:compute 0 :memory 0})
+        ors-expl (update-one-run-state ors-sensor-hyps ep-explained {:compute 0 :memory 0})
         ors-meta (if (metareasoning-activated? ors-expl)
                    (metareason ors-expl) ors-expl)
         ;; stop the clock
         ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
         ors-next (proceed-one-run-state
-                   ors-meta (current-ep-state (:ep-state-tree ors-meta)))
+                  ors-meta (current-ep-state (:ep-state-tree ors-meta)))
         ors-resources (assoc-in ors-next [:resources :milliseconds] ms)
         ors-results (evaluate truedata ors-resources)]
     (when (not player?)
@@ -132,7 +137,7 @@
 
 (defrecord Problem
   [name monitor-fn player-fns truedata-fn sensor-gen-fn prepared-map
-   hypothesize-fn get-more-hyps-fn commit-decision-fn retract-fn
+   make-sensor-hyps-fn hypothesize-fn get-more-hyps-fn commit-decision-fn retract-fn
    gen-problem-data-fn inconsistent-fn no-explainer-hyps-fn
    evaluate-fn evaluate-comparative-fn true-hyp?-fn hyps-equal?-fn perturb-fn
    hyp-subtypes default-params])

@@ -11,9 +11,6 @@
          [paths-graph-paths build-paths-graph path-str]])
   (:use [retrospect.state]))
 
-(def compute 0)
-(def memory 0)
-
 (defn covered?
   [pdata sensor-hyp from-to]
   (some (fn [h] (and (= (:id (:sensor (:data h))) (:id (:sensor (:data sensor-hyp))))
@@ -22,13 +19,16 @@
         (get pdata (if (= :from from-to) :covered-from :covered-to))))
 
 (defn make-sensor-hyps
-  [sensor {:keys [x y color time] :as det}]
+  [sensor {:keys [x y color time] :as det} t time-prev time-now]
   (let [desc (format (str "Sensor detection by %s - color: %s, x: %d, y: %d, time: %d")
-                     (:id sensor) (color-str color) x y time)]
-    [(new-hyp "SensFrom" :sensor :sensor-from nil 1.0 nil [] [] desc
-              {:sensor sensor :det det})
-     (new-hyp "SensTo" :sensor :sensor-to nil 1.0 nil [] [] desc
-              {:sensor sensor :det det})]))
+                     (:id sensor) (color-str color) x y time)
+        from (new-hyp "SensFrom" :sensor :sensor-from nil 1.0 [] [] desc
+                      {:sensor sensor :det det})
+        to (new-hyp "SensTo" :sensor :sensor-to nil 1.0 [] [] desc
+                    {:sensor sensor :det det})]
+    (cond (= t time-prev) [to]
+          (= t time-now) [from]
+          :else [from to])))
 
 (defn process-sensors
   "Add to \"uncovered-from/to\" sets any sensor data we don't already
@@ -52,20 +52,19 @@
 
 (defn score-movement
   "Returns nil if not matched or not in range."
-  [{x1 :x y1 :y t1 :time c1 :color :as det}
-   {x2 :x y2 :y t2 :time c2 :color :as det2}
-   walk-dist]
-  (var-set (var compute) (inc compute))
-  (when (and (or (= (inc t1) t2) (= (inc t2) t1))
-             (match-color? c1 c2))
-    (let [d (dist x1 y1 x2 y2) 
-          dist-count (get walk-dist d)]
-      (if dist-count (double (/ dist-count (:walk-count (meta walk-dist))))
-          ;; if we don't have learning, make possible movements worth
-          ;; a tiny amount if the model doesn't have a frequency for
-          ;; this distance
-          (if (<= d (* (Math/sqrt 2) (:MaxWalk params)))
-            (double (/ 1 (:walk-count (meta walk-dist)))))))))
+  [to from walk-dist]
+  (let [{x1 :x y1 :y t1 :time c1 :color :as det} (:det to)
+        {x2 :x y2 :y t2 :time c2 :color :as det2} (:det from)]
+    (when (and (or (= (inc t1) t2) (= (inc t2) t1))
+               (match-color? c1 c2))
+      (let [d (dist x1 y1 x2 y2) 
+            dist-count (get walk-dist d)]
+        (if dist-count (double (/ dist-count (:walk-count (meta walk-dist))))
+            ;; if we don't have learning, make possible movements worth
+            ;; a tiny amount if the model doesn't have a frequency for
+            ;; this distance
+            (if (<= d (* (Math/sqrt 2) (:MaxWalk params)))
+              (double (/ 1 (:walk-count (meta walk-dist))))))))))
 
 (defn make-movement-hyps
   [uncovered-from uncovered-to walk-dist]
@@ -175,46 +174,83 @@
                       {:entity entity :bias bias :locs ls})))
          biases)))
 
-(defn hypothesize
+(defn conflicts [h1 h2] nil)
+
+(defmulti hypothesize
+  (fn [evidence accepted rejected pdata] [(:type evidence) (:subtype evidence)]))
+
+(defmethod hypothesize :default [_ _ _ _] [])
+
+(defn new-mov-hyp
+  [from to apriori]
+  (let [det (:det to)
+        det2 (:det from)]
+    (new-hyp "Mov" :movement :movement conflicts
+             apriori [from to] []
+             (str (path-str [(:det from) (:det to)]) " (dist="
+                  (str (dist (:x (:det from)) (:y (:det to))
+                             (:x (:det from)) (:y (:det to)))) ")")
+             {:det det :det2 det2
+              :movement {:x (:x det2) :y (:y det2) :time (:time det2)
+                         :ox (:x det) :oy (:y det) :ot (:time det)
+                         :color (cond (not= gray (:color det)) (:color det)
+                                      (not= gray (:color det2)) (:color det2)
+                                      :else gray)}})))
+
+(defmethod hypothesize [:sensor :sensor-from]
+  [evidence accepted rejected pdata]
+  (let [sm (fn [h] (score-movement h evidence (:walk-dist pdata)))
+        nearby (filter second (map (fn [h] [h (sm h)])
+                                   (filter #(= :sensor-to (:subtype %)) accepted)))]
+    (for [[h apriori] nearby]
+      (new-mov-hyp evidence h apriori))))
+
+(defmethod hypothesize [:sensor :sensor-to]
+  [evidence accepted rejected pdata]
+  (let [sm (fn [h] (score-movement evidence h (:walk-dist pdata)))
+        nearby (filter second (map (fn [h] [h (sm h)])
+                                   (filter #(= :sensor-from (:subtype %)) accepted)))]
+    (for [[h apriori] nearby]
+      (new-mov-hyp h evidence apriori))))
+
+(defn hypothesize2
   "Process sensor reports, then make hypotheses for all possible
   movements, paths, and locations, and add them to the epistemic
   state."
   [ep-state sensors time-now]
-  (binding [compute 0 memory 0]
-    (let [ep-sensors (process-sensors ep-state sensors time-now)
-          pdata (:problem-data ep-sensors)
-          {:keys [entities entity-biases accepted
-                  uncovered-from uncovered-to walk-dist]} pdata
-          acc (set (filter #(not= :sensor (:type %)) accepted))
-          mov-hyps (make-movement-hyps uncovered-from uncovered-to walk-dist)
-          pg (build-paths-graph (concat mov-hyps (filter #(= :movement (:type %)) acc))
-                                entities)
-          ep-pg (assoc-in ep-sensors [:problem-data :paths-graph] pg)
-          paths (paths-graph-paths pg entities entity-biases)
-          path-hyps (filter
-                     (fn [h] (some #(not (acc %)) (:movements (:data h))))
-                     (apply concat
-                            (for [bias (keys paths)]
-                              (map #(make-path-hyp bias %)
-                                   (filter
-                                    #(and (not-empty %)
-                                          (= time-now (:time (:det2 (:data (last %))))))
-                                    (get paths bias))))))
-          loc-hyps (make-location-hyps entities entity-biases path-hyps)
-          valid-path-hyps (set (mapcat (comp :paths :data) loc-hyps))
-          valid-mov-hyps (set (mapcat (comp :movements :data) valid-path-hyps))
-          bias-hyps (make-bias-hyps
-                     (filter #(nil? (get entity-biases (:entity (:data %))))
-                             loc-hyps))]
-      [(reduce (fn [ep hyp] (add-hyp ep hyp))
-               ep-pg (filter (fn [h] (and
-                                      ;; don't add a hyp that has been accepted
-                                      (not-any? #(= (:id %) (:id h)) acc)
-                                      ;; don't add a hyp that explains only accepted hyps
-                                      (some (fn [e] (not-any? #(= (:id %) (:id e)) acc))
-                                            (:explains h))))
-                             (concat valid-mov-hyps valid-path-hyps loc-hyps bias-hyps)))
-       {:compute compute :memory memory}])))
+  (let [ep-sensors (process-sensors ep-state sensors time-now)
+        pdata (:problem-data ep-sensors)
+        {:keys [entities entity-biases accepted
+                uncovered-from uncovered-to walk-dist]} pdata
+        acc (set (filter #(not= :sensor (:type %)) accepted))
+        mov-hyps (make-movement-hyps uncovered-from uncovered-to walk-dist)
+        pg (build-paths-graph (concat mov-hyps (filter #(= :movement (:type %)) acc))
+                              entities)
+        ep-pg (assoc-in ep-sensors [:problem-data :paths-graph] pg)
+        paths (paths-graph-paths pg entities entity-biases)
+        path-hyps (filter
+                   (fn [h] (some #(not (acc %)) (:movements (:data h))))
+                   (apply concat
+                          (for [bias (keys paths)]
+                            (map #(make-path-hyp bias %)
+                                 (filter
+                                  #(and (not-empty %)
+                                        (= time-now (:time (:det2 (:data (last %))))))
+                                  (get paths bias))))))
+        loc-hyps (make-location-hyps entities entity-biases path-hyps)
+        valid-path-hyps (set (mapcat (comp :paths :data) loc-hyps))
+        valid-mov-hyps (set (mapcat (comp :movements :data) valid-path-hyps))
+        bias-hyps (make-bias-hyps
+                   (filter #(nil? (get entity-biases (:entity (:data %))))
+                           loc-hyps))]
+    [(reduce (fn [ep hyp] (add-hyp ep hyp))
+             ep-pg (filter (fn [h] (and
+                                    ;; don't add a hyp that has been accepted
+                                    (not-any? #(= (:id %) (:id h)) acc)
+                                    ;; don't add a hyp that explains only accepted hyps
+                                    (some (fn [e] (not-any? #(= (:id %) (:id e)) acc))
+                                          (:explains h))))
+                           (concat valid-mov-hyps valid-path-hyps loc-hyps bias-hyps)))]))
 
 (defn get-more-hyps
   [ep-state]
@@ -273,8 +309,7 @@
                                        (assoc (:loc (:data h2)) :color gray)))
                   es (filter (fn [e]
                                (if (:loc-hyp (last (get entities e)))
-                                 (binding [compute 0 memory 0]
-                                   (score-movement det (det2-fn e entities) walk-dist))))
+                                 (score-movement det (det2-fn e entities) walk-dist)))
                              (keys entities))]
               (map (fn [e] (:loc-hyp (last (get entities e)))) es)))
           (filter #(or (= :sensor-from (:subtype %)) (= :sensor-to (:subtype %))) hyps)))))

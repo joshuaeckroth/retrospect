@@ -9,7 +9,8 @@
   (:use [retrospect.problems.tracking.sensors :only
          [generate-sensors perturb]])
   (:use [retrospect.problems.tracking.hypotheses :only
-         [hypothesize get-more-hyps commit-decision retract no-explainer-hyps]])
+         [make-sensor-hyps hypothesize get-more-hyps
+          commit-decision retract no-explainer-hyps]])
   (:use [retrospect.problems.tracking.player :only
          [player-get-stats-panel player-update-stats player-get-truedata-log
           player-get-problem-log player-setup-diagram player-update-diagram]])
@@ -59,6 +60,7 @@
                generate-truedata
                generate-sensors
                prepared-map
+               make-sensor-hyps
                hypothesize
                get-more-hyps
                commit-decision

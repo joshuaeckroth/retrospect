@@ -7,31 +7,29 @@
   [truedata pdata time hyp]
   (let [true-moves (apply concat (vals truedata))]
     (cond (= :movement (:type hyp))
-          (some #(moves-match? (:movement (:data hyp)) %) true-moves)
+          (some #(moves-match? (:movement hyp) %) true-moves)
           (= :path (:type hyp))
           (every? (fn [m] (some #(moves-match? m %) true-moves))
-                  (map (comp :movement :data) (:movements (:data hyp))))
+                  (map :movement (:movements hyp)))
           (= :location (:type hyp))
-          (dets-match? (assoc (:loc (:data hyp)) :color (:color (:data hyp)))
-                       (nth (get truedata (:entity (:data hyp))) time))
+          (dets-match? (assoc (:loc hyp) :color (:color hyp))
+                       (nth (get truedata (:entity hyp)) time))
           :else true)))
 
 (defn hyps-equal?
   [hyp1 hyp2]
-  (let [d1 (:data hyp1)
-        d2 (:data hyp2)]
-    (if (not= (:type hyp1) (:type hyp2)) false
-        (cond (= :movement (:type hyp1))
-              (= (:movement d1) (:movement d2))
-              (= :path (:type hyp1))
-              (and (= (:movements d1) (:movements d2))
-                   (= (:bias d1) (:bias d2)))
-              (= :location (:type hyp1))
-              (and (= (:entity d1) (:entity d2))
-                   (= (:bias d1) (:bias d2))
-                   (match-color? (:color d1) (:color d2))
-                   (= (:loc d1) (:loc d2)))
-              :else false))))
+  (if (not= (:type hyp1) (:type hyp2)) false
+      (cond (= :movement (:type hyp1))
+            (= (:movement hyp1) (:movement hyp2))
+            (= :path (:type hyp1))
+            (and (= (:movements hyp1) (:movements hyp2))
+                 (= (:bias hyp1) (:bias hyp2)))
+            (= :location (:type hyp1))
+            (and (= (:entity hyp1) (:entity hyp2))
+                 (= (:bias hyp1) (:bias hyp2))
+                 (match-color? (:color hyp1) (:color hyp2))
+                 (= (:loc hyp1) (:loc hyp2)))
+            :else false)))
 
 (defn count-matches
   [true-movements movs]

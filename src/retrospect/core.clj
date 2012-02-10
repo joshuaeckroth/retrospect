@@ -8,11 +8,14 @@
   (:require [retrospect.state :as state])
   (:use [retrospect.database :only [read-params]])
   (:use [retrospect.problems.tracking.problem :only [tracking-problem]])
-  (:use [retrospect.problems.words.problem :only [words-problem]])
-  (:use [retrospect.problems.causal.problem :only [causal-problem]])
+  #_(:use [retrospect.problems.words.problem :only [words-problem]])
+  #_(:use [retrospect.problems.causal.problem :only [causal-problem]])
   (:use [retrospect.records :only [run-with-new-record]])
   (:use [retrospect.explore :only [explore]])
   (:use [retrospect.player :only [start-player]]))
+
+(def words-problem)
+(def causal-problem)
 
 (defn choose-problem
   [problem]

@@ -243,15 +243,5 @@
                       (ws/reset-workspace (:workspace ep-state)))
         pdata (:problem-data ep-state)
         ws-explained (ws/explain workspace pdata)
-        ep-ws (assoc ep-state :workspace ws-explained)
-        ep-explained (if (not-empty (:unexplained (:final (:log ws-explained))))
-                       (if-let [ep-more-hyps ((:get-more-hyps-fn @problem) ep-ws)]
-                         (if (= (count (ws/get-hyps (:workspace ep-more-hyps) :static))
-                                (count (ws/get-hyps (:workspace ep-ws) :static)))
-                           ep-ws
-                           (let [ws (ws/reset-workspace (:workspace ep-more-hyps))
-                                 ws-expl (ws/explain ws (:problem-data ep-more-hyps))]
-                             (assoc ep-more-hyps :workspace ws-expl)))
-                         ep-ws)
-                       ep-ws)]
-    (commit-decision ep-explained time-now)))
+        ep-ws (assoc ep-state :workspace ws-explained)]
+    (commit-decision ep-ws time-now)))

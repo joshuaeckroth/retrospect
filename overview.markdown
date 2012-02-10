@@ -1,21 +1,75 @@
+## Fundamental datatype: Hypothesis
+
+Both "facts" (data received from sensors) and explanations of facts
+are "hypotheses," in order to maintain a common abstraction. A
+hypothesis has several attributes: an identifier (a prefix followed by
+a number); a type (e.g., `:sensor`, `:movement`, `:word`); a subtype
+(e.g., `:learned-word`); a function of two arguments that determines
+whether the two hypotheses conflict (this hypothesis will be the first
+argument); a set of hypotheses that this hypothesis explains; a
+description; and domain-specific data.
+
+### Revision hypotheses
+
+(puts hypotheses from believed set into `:conflicts` relation)
+
+### Updating hypotheses
+
+(don't have believed hyps in the `:conflicts` relation)
+
+## Domain-specific component
+
+### Knowledge database
+
+The knowledge database takes the form of hypotheses that are accepted
+by default.
+
+## Domain-general component
+
+
+
+## Interface between domain-general and domain-specific components
+
+The domain-specific component creates hypotheses to explain
+evidence. The domain-general component processes hypotheses (figures
+out what to accept) and manages the reasoning process.
+
+The domain-specific component should be as simple as possible. This
+component should not try to "influence" the reasoning process by
+generating or scoring hypotheses in a "non-natural" way with the
+intention of ensuring certain hypotheses are accepted or rejected.
+
+To ensure that the domain-specific component does not try to influence
+the reasoning process, this component is provided with minimal
+information about the present state of the reasoning process. The
+domain-specific component provides a function to the domain-general
+component, the `hypothesize` function, that generates hypotheses based
+on evidence and the knowledge database.
+
+> function **hypothesize**(*evidence*, *accepted*, *rejected*, *pdata*)  
+> &nbsp; &nbsp; returns list of hypotheses
+
+*evidence* is a single hypothesis that needs to be explained; evidence
+may be a sensor detection or a previously accepted higher-level
+hypothesis; in any event, the *hypothesize* function assumes that the
+evidence hypothesis, whatever it is, is true and tries to explain it.
+
+*accepted* is a set of hypotheses that have been accepted, either
+accepted earlier in this reasoning cycle or a prior reasoning cycle,
+or part of domain knowledge; in any event, the *hypothesize* function
+should assume that the *accepted* hypotheses are true.
+
+*rejected* is a set of hypotheses that have been rejected or are part
+of domain knowledge about what is not true; in any event, the
+*hypothesize* function should assume that the *rejected* hypotheses
+are false.
+
+*pdata* is the "problem data," which is domain-specific data such as
+trained models.
+
 ## Abductive reasoner
 
 ### Definitions
-
-#### Definition: Hypothesis
-
-Both "facts" (data received from sensors) and explanations of facts
-are "hypotheses," in order to maintain a common abstraction. Each
-hypothesis has several attributes: an identifier (a prefix followed by
-a number); a type (such as `:sensor` or `:movement` or `:word`); a
-subtype (such as `:learned-word`); a function that identifies which
-other hypotheses conflict; a tag `:and` or `:or` (or `nil`) indicating
-whether the hypothesis can only be accepted (assuming transitive
-explanation is disabled) when either all the hypotheses it explains
-have already been accepted (`:and`) or at least one hypothesis it
-explains has already been accepted (`:or`) or neither (`nil`, no
-restriction is enforced); a set of hypotheses that this hypothesis
-explains; a description; and domain-specific data.
 
 #### Definition: Hypothesis confidence
 
@@ -288,7 +342,7 @@ Transitive explanation is a parameter. If `:TransitiveExplanation` is
 
   - `:SensorSeesColor` (0-100); how much of the grid (as a percentage)
     the sensors can report the color of entities; a value *p* causes
-    the middle *p*% of the grid to be "greyed-out"
+    the middle (100-*p*)% of the grid to be "greyed-out"
   
 ## Metrics
 
