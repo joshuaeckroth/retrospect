@@ -80,7 +80,7 @@
             (let [nthreads (Integer/parseInt nthreads)
                   monitor? (Boolean/parseBoolean monitor)
                   upload? (Boolean/parseBoolean upload)
-                  [reason problem ps] (read-params params)
+                  [problem ps] (read-params params)
                   git-dirty? (not-empty
                               (filter #(not= "??" (if (>= 2 (count %)) "??" (subs % 0 2)))
                                       (split-lines (sh git "status" "--porcelain"))))]
@@ -92,7 +92,6 @@
                          "database connection.")
                 (System/exit -1))
               (dosync
-               (alter state/reason (constantly (choose-reason reason)))
                (alter state/problem (constantly (choose-problem problem)))               
                (alter state/db-params (constantly ps)))
               (run-with-new-record seed git recordsdir nthreads monitor? upload? repetitions))
