@@ -13,7 +13,8 @@
   #_(:use [retrospect.reason.abduction.problems.causal.problem :only [causal-problem]])
   (:use [retrospect.records :only [run-with-new-record]])
   (:use [retrospect.explore :only [explore]])
-  (:use [retrospect.player :only [start-player]]))
+  (:use [retrospect.player :only [start-player]])
+  (:use [retrospect.bugreport]))
 
 (def words-problem)
 (def causal-problem)
@@ -33,6 +34,7 @@
         reason-abduction))
 
 (defn -main [& args]
+  (set-exception-handler)
   (with-command-line args
     "retrospect"
     [[action "Action (run/player/explore)" "player"]
