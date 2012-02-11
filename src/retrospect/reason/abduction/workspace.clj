@@ -58,15 +58,23 @@
   [workspace]
   (set (filter #(empty? (find-explainers workspace %)) (:forced workspace))))
 
+(defn find-active-explains
+  [workspace hyp]
+  (set/intersection (set (:explains hyp)) (set (keys (:explainers workspace)))))
+
 (defn compare-by-conf
   "Since we are using probabilities, smaller value = less confidence. We want
-   most confident first."
+   most confident first. If confidences are equal, hyps that explain more are
+   moved first. Otherwise, comparison is done by the :id's."
   [workspace hyp1 hyp2]
-  (if (= 0 (compare (hyp-conf workspace hyp1)
-                    (hyp-conf workspace hyp2)))
-    (compare (:id hyp1) (:id hyp2))
-    (compare (hyp-conf workspace hyp1)
-             (hyp-conf workspace hyp2))))
+  (let [conf (- (compare (hyp-conf workspace hyp1)
+                         (hyp-conf workspace hyp2)))
+        expl (- (compare (count (find-active-explains workspace hyp1))
+                         (count (find-active-explains workspace hyp2))))
+        id (compare (:id hyp1) (:id hyp2))]
+    (if (= 0 conf)
+      (if (= 0 expl) id expl)
+      conf)))
 
 (defn compare-by-delta
   [workspace hyps1 hyps2]
@@ -80,20 +88,20 @@
       (if (= 0 (compare (hyp-conf workspace (first hyps1))
                         (hyp-conf workspace (first hyps2))))
         (compare (:id (first hyps1)) (:id (first hyps2)))
-        (compare (hyp-conf workspace (first hyps1))
-                 (hyp-conf workspace (first hyps2))))
-      (compare hyps1-delta hyps2-delta))))
+        (- (compare (hyp-conf workspace (first hyps1))
+                    (hyp-conf workspace (first hyps2)))))
+      (- (compare hyps1-delta hyps2-delta)))))
 
 (defn sort-explainers
   [workspace explainers]
   (let [internal-sorted (map (fn [expl]
                                (assoc expl :explainers
-                                      (reverse (sort (partial compare-by-conf workspace)
-                                                     (:explainers expl)))))
+                                      (sort (partial compare-by-conf workspace)
+                                            (:explainers expl))))
                              explainers)]
-    (reverse (sort (fn [expl1 expl2]
-                     (compare-by-delta workspace (:explainers expl1) (:explainers expl2)))
-                   internal-sorted))))
+    (sort (fn [expl1 expl2]
+            (compare-by-delta workspace (:explainers expl1) (:explainers expl2)))
+          internal-sorted)))
 
 (defn find-all-explainers
   [workspace]
@@ -301,7 +309,7 @@
   (if (empty? explainers) {}
       (let [essentials (filter #(= 1 (count (:explainers %))) explainers)]
         (if (not-empty essentials)
-          ;; choose most-confident essential
+          ;; choose most confident/most-explaining essential
           (let [expl (first essentials)
                 best (first (:explainers expl))]
             {:best best
@@ -326,30 +334,41 @@
                                (get-hyps workspace)))
                       (sort-by :id (keys (:explainers workspace)))))))
 
+(defn need-more-hyps?
+  [workspace]
+  ;; every hyp that has an explainer, also has an explainer that
+  ;; explains something already accepted
+  (every? (fn [h] (some (fn [h2] (some (:accepted workspace) (:explains h2)))
+                        (get (:explainers workspace) h)))
+          (filter #(not-empty (get (:explainers workspace) %))
+                  (keys (:explainers workspace)))))
+
 (defn explain
   [workspace]
   (loop [ws workspace]
     (if (empty? (:explainers ws)) (log-final ws [])
-        (let [explainers (find-all-explainers ws)]
-          (if (empty? explainers)
-            (if-let [hs (get-more-hyps ws)]
-              (recur (reduce add ws hs))
-              (log-final ws []))
-            (let [ws-confs (update-confidences ws explainers)
-                  explainers-sorted (sort-explainers ws-confs explainers)
-                  {:keys [best alts essential? delta] :as b}
-                  (find-best ws-confs explainers-sorted
-                             (/ (:Threshold params) 100.0))]
-              (if-not best
-                (if-let [hs (get-more-hyps ws)]
-                  (recur (reduce add ws hs))
-                  (log-final ws-confs explainers-sorted))
-                (recur
-                 (let [ws-logged (-> ws-confs
-                                     (update-in [:cycle] inc)
-                                     (update-in [:resources :explain-cycles] inc)
-                                     (update-in [:log :best] conj b))]
-                   (accept ws-logged best alts))))))))))
+        (if-let [hs (and (need-more-hyps? workspace) (get-more-hyps ws))]
+          (recur (reduce add ws hs))
+          (let [explainers (find-all-explainers ws)]
+            (if (empty? explainers)
+              (if-let [hs (get-more-hyps ws)]
+                (recur (reduce add ws hs))
+                (log-final ws []))
+              (let [ws-confs (update-confidences ws explainers)
+                    explainers-sorted (sort-explainers ws-confs explainers)
+                    {:keys [best alts essential? delta] :as b}
+                    (find-best ws-confs explainers-sorted
+                               (/ (:Threshold params) 100.0))]
+                (if-not best
+                  (if-let [hs (get-more-hyps ws)]
+                    (recur (reduce add ws hs))
+                    (log-final ws-confs explainers-sorted))
+                  (recur
+                   (let [ws-logged (-> ws-confs
+                                       (update-in [:cycle] inc)
+                                       (update-in [:resources :explain-cycles] inc)
+                                       (update-in [:log :best] conj b))]
+                     (accept ws-logged best alts)))))))))))
 
 (defn analyze
   [workspace hyp]
@@ -405,7 +424,10 @@
 
 (defn add-kb
   [ws]
-  (reduce add-fact ws ((:generate-kb-fn (:abduction @problem)))))
+  (reduce (fn [ws2 h] (-> ws2 (add h)
+                          (update-in [:accepted] conj h)
+                          (update-in [:log :accepted] conj h)))
+          ws ((:generate-kb-fn (:abduction @problem)))))
 
 (defn init-workspace
   []
