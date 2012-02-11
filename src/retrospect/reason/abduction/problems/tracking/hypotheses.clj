@@ -215,14 +215,15 @@
   (filter (fn [h] (not-any? (fn [h2] (hyps-equal? h h2)) hyps)) hs))
 
 (defn new-mov-hyp
-  [from to apriori]
+  [to from apriori]
   (let [det (:det to)
         det2 (:det from)]
     (new-hyp "Mov" :movement :movement conflicts
-             apriori [from to] []
-             (str (path-str [(:det from) (:det to)]) " (dist="
-                  (str (dist (:x (:det from)) (:y (:det to))
-                             (:x (:det from)) (:y (:det to)))) ")")
+             apriori [to from] []
+             (format "%s (dist=%.2f)"
+                     (path-str [(:det to) (:det from)])
+                     (dist (:x (:det to)) (:y (:det to))
+                           (:x (:det from)) (:y (:det from))))
              {:det det :det2 det2
               :mov {:x (:x det2) :y (:y det2) :time (:time det2)
                     :ox (:x det) :oy (:y det) :ot (:time det)
@@ -236,7 +237,7 @@
         nearby (filter second (map (fn [h] [h (sm h)])
                                    (filter #(= :sensor-to (:subtype %)) accepted)))]
     (filter-existing hyps (for [[h apriori] nearby]
-                            (new-mov-hyp evidence h apriori)))))
+                            (new-mov-hyp h evidence apriori)))))
 
 (defmethod hypothesize [:sensor :sensor-to]
   [evidence accepted rejected hyps]
@@ -244,7 +245,7 @@
         nearby (filter second (map (fn [h] [h (sm h)])
                                    (filter #(= :sensor-from (:subtype %)) accepted)))]
     (filter-existing hyps (for [[h apriori] nearby]
-                            (new-mov-hyp h evidence apriori)))))
+                            (new-mov-hyp evidence h apriori)))))
 
 (defn score-path
   [mov-hyps]
