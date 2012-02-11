@@ -330,8 +330,9 @@
   ;;TODO figure out order hyps should be attempted
   (first (filter not-empty
                  (map (fn [h] ((:hypothesize-fn (:abduction @problem)) h
-                               (:accepted workspace) (:rejected workspace)))
-                      (:unexplained workspace)))))
+                               (:accepted workspace) (:rejected workspace)
+                               (get-hyps workspace)))
+                      (sort-by :id (:unexplained workspace))))))
 
 (defn explain
   [workspace]
@@ -348,7 +349,9 @@
                   (find-best ws-confs explainers-sorted
                              (/ (:Threshold params) 100.0))]
               (if-not best
-                (log-final ws-confs explainers-sorted)
+                (if-let [hs (get-more-hyps ws)]
+                  (recur (reduce add ws hs))
+                  (log-final ws-confs explainers-sorted))
                 (recur
                  (let [ws-logged (-> ws-confs
                                      (update-in [:cycle] inc)

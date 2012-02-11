@@ -20,10 +20,9 @@
   [hyp1 hyp2]
   (if (not= (:type hyp1) (:type hyp2)) false
       (cond (= :movement (:type hyp1))
-            (= (:movement hyp1) (:movement hyp2))
+            (= (:mov hyp1) (:mov hyp2))
             (= :path (:type hyp1))
-            (and (= (:movs hyp1) (:movs hyp2))
-                 (= (:bias hyp1) (:bias hyp2)))
+            (and (= (:movs hyp1) (:movs hyp2)))
             (= :location (:type hyp1))
             (and (= (:entity hyp1) (:entity hyp2))
                  (= (:bias hyp1) (:bias hyp2))

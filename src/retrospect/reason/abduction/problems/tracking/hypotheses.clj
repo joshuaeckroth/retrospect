@@ -206,9 +206,13 @@
   (:walk-dist (find-first #(= :kb (:type %)) accepted)))
 
 (defmulti hypothesize
-  (fn [evidence accepted rejected] [(:type evidence) (:subtype evidence)]))
+  (fn [evidence accepted rejected hyps] [(:type evidence) (:subtype evidence)]))
 
-(defmethod hypothesize :default [_ _ _] [])
+(defmethod hypothesize :default [_ _ _ _] [])
+
+(defn filter-existing
+  [hyps hs]
+  (filter (fn [h] (not-any? (fn [h2] (hyps-equal? h h2)) hyps)) hs))
 
 (defn new-mov-hyp
   [from to apriori]
@@ -227,35 +231,35 @@
                                  :else gray)}})))
 
 (defmethod hypothesize [:sensor :sensor-from]
-  [evidence accepted rejected]
+  [evidence accepted rejected hyps]
   (let [sm (fn [h] (score-movement h evidence (get-walk-dist accepted)))
         nearby (filter second (map (fn [h] [h (sm h)])
                                    (filter #(= :sensor-to (:subtype %)) accepted)))]
-    (for [[h apriori] nearby]
-      (new-mov-hyp evidence h apriori))))
+    (filter-existing hyps (for [[h apriori] nearby]
+                            (new-mov-hyp evidence h apriori)))))
 
 (defmethod hypothesize [:sensor :sensor-to]
-  [evidence accepted rejected]
+  [evidence accepted rejected hyps]
   (let [sm (fn [h] (score-movement evidence h (get-walk-dist accepted)))
         nearby (filter second (map (fn [h] [h (sm h)])
                                    (filter #(= :sensor-from (:subtype %)) accepted)))]
-    (for [[h apriori] nearby]
-      (new-mov-hyp h evidence apriori))))
+    (filter-existing hyps (for [[h apriori] nearby]
+                            (new-mov-hyp h evidence apriori)))))
 
 (defn score-path
   [mov-hyps]
   (avg (map :apriori mov-hyps)))
 
 (defmethod hypothesize [:movement :movement]
-  [evidence accepted rejected]
+  [evidence accepted rejected hyps]
   (let [pg (build-paths-graph (filter #(= :movement (:type %)) accepted)
                               (filter #(= :location (:type %)) accepted))
         paths (get-paths pg evidence)]
-    (for [p paths]
-      (new-hyp "Path" :path :path conflicts
-               (score-path p) p []
-               (path-str (conj (vec (map :det p)) (:det2 (last p))))
-               {:movs p}))))
+    (filter-existing hyps (for [p paths]
+                            (new-hyp "Path" :path :path conflicts
+                                     (score-path p) p []
+                                     (path-str (conj (vec (map :det p)) (:det2 (last p))))
+                                     {:movs p})))))
 
 (comment
   (defn hypothesize2
