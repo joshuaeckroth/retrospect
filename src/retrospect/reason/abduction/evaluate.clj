@@ -13,8 +13,8 @@
 (defn calc-increase
   [control-results comparison-results field]
   (let [increase-field (keyword (format "Diff%s" (name field)))
-        increase-val (- (comparison-results field)
-                        (control-results field))]
+        increase-val (- (or (comparison-results field) 0.0)
+                        (or (control-results field) 0.0))]
     {increase-field increase-val}))
 
 (comment
@@ -165,7 +165,7 @@
                    (prefix-params "Comp" (dissoc comparison-params :simulation))
                    {:simulation (:simulation control-params)
                     :Step (:Step control)}
-                   ((:evaluate-comparative-fn @problem) control comparison
+                   ((:evaluate-comp-fn (:abduction @problem)) control comparison
                     control-params comparison-params)
                    (map #(calc-increase control comparison %)
                         (concat [:MetaActivations :MetaAccepted :Milliseconds

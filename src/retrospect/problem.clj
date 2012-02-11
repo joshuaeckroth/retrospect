@@ -54,7 +54,7 @@
     (dosync (alter retrospect.state/or-state (constantly ors)))
     (when (nil? ors)
       (throw (ExecutionException. "Monitor took control." (Throwable.))))
-    (if (>= (:time (:ep-state ors)) (:Steps params))
+    (if (>= (:time (cur-ep (:est ors))) (:Steps params))
       (do (println "") (:results ors))
       (recur (run-simulation-step truedata ors monitor? false)))))
 
