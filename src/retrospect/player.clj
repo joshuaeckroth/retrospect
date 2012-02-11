@@ -42,10 +42,11 @@
 
 (defn set-default-params
   []
-  (alter-var-root (var params) (get-default-params))
-  (.put @prefs (format "%s-%s-params" (:name @reason) (:name @problem))
-        (pr-str (get-default-params)))
-  (dosync (alter params-edit (constantly (format-params (get-default-params))))))
+  (let [ps (get-default-params)]
+    (alter-var-root (var params) (constantly ps))
+    (.put @prefs (format "%s-%s-params" (:name @reason) (:name @problem))
+          (pr-str ps))
+    (dosync (alter params-edit (constantly (format-params ps))))))
 
 (defn clear-params
   []

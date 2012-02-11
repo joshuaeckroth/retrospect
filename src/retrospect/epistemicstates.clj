@@ -140,6 +140,6 @@
     (zip/right (zip/insert-right est ep))))
 
 (defn new-child-ep
-  [est time-now]
-  (let [ep-child (clone-ep (cur-ep est) (make-ep-id est) [])]
+  [est ep time-now]
+  (let [ep-child (clone-ep ep (make-ep-id est) [])]
     (zip/down (zip/append-child est (assoc ep-child :time time-now)))))

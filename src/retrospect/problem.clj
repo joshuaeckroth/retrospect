@@ -17,7 +17,7 @@
 (defn proceed-ors
   [ors ep sensors time-now ms]
   (-> ors
-      (update-in [:est] #(new-child-ep (update-est % ep) time-now))
+      (update-in [:est] new-child-ep ep time-now)
       (assoc :sensors sensors)
       (update-in [:resources :milliseconds] + ms)))
 
