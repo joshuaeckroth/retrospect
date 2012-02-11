@@ -100,25 +100,25 @@
   [est ep]
   (zip/replace est ep))
 
-(defn ep-state-tree-to-nested-helper
-  [ep-state]
-  (let [deeper (map ep-state-tree-to-nested-helper (:children ep-state))]
-    (conj deeper (str ep-state))))
+(defn est-to-nested-helper
+  [ep]
+  (let [deeper (map est-to-nested-helper (:children ep))]
+    (conj deeper (str ep))))
 
-(defn ep-state-tree-to-nested
-  [ep-state-tree]
-  (conj (map ep-state-tree-to-nested-helper (:children (zip/root ep-state-tree)))
+(defn est-to-nested
+  [est]
+  (conj (map est-to-nested-helper (:children (zip/root est)))
         "root"))
 
-(defn print-ep-state-tree
-  [ep-state-tree]
-  (vijual/draw-tree [(ep-state-tree-to-nested ep-state-tree)]))
-
-(defn draw-ep-state-tree
+(defn print-est
   [est]
-  (vijual/draw-tree-image [(ep-state-tree-to-nested est)]))
+  (vijual/draw-tree [(est-to-nested est)]))
 
-(defn flatten-ep-state-tree
+(defn draw-est
+  [est]
+  (vijual/draw-tree-image [(est-to-nested est)]))
+
+(defn flatten-est
   [est]
   (loop [loc (zip/down (zip-est (:children (zip/root est))))
          states []]
@@ -129,7 +129,7 @@
   "List ep-states in the order that they were created (i.e., sorted by id,
    which is the same as a depth-first left-first walk)."
   [est]
-  (map str (flatten-ep-state-tree est)))
+  (map str (flatten-est est)))
 
 (defn new-branch-ep
   [est branch]

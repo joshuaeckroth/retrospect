@@ -11,7 +11,7 @@
   (:require [clojure.set :as set])
   (:require [retrospect.reason.abduction.workspace :as ws])
   (:use [retrospect.epistemicstates :only
-         [cur-ep flatten-ep-state-tree]])
+         [cur-ep flatten-est]])
   #_(:use [retrospect.reason.abduction.robustness :only [analyze-dependency]])
   (:use [retrospect.confidences])
   (:use [retrospect.state]))
@@ -31,10 +31,10 @@
 
 (defn build-abduction-tree-map
   [or-state]
-  (let [ep-state-tree (:est or-state)
+  (let [est (:est or-state)
         list-hyps #(apply sorted-map-by (AlphanumComparator.)
                           (mapcat (fn [h] [(:id h) nil]) %))
-        ep-states (flatten-ep-state-tree ep-state-tree)
+        ep-states (flatten-est est)
         ws-fn (fn [wslog]
                 {"Added" (list-hyps (map :hyp (:added wslog)))
                  "Forced" (list-hyps (:forced wslog))
@@ -131,7 +131,7 @@
           ep-state (if (< 1 (. path getPathCount))
                      (if-let [ep-id (re-find #"^[A-Z]+"
                                              (str (. path getPathComponent 1)))]
-                       (find-first #(= (:id %) ep-id) (flatten-ep-state-tree
+                       (find-first #(= (:id %) ep-id) (flatten-est
                                                        (:est @or-state)))))
           ws (if ep-state (:workspace ep-state))]
       (if (= "Meta-Log" last-comp)
