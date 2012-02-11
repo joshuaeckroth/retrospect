@@ -1,0 +1,21 @@
+<!DOCTYPE log4j:configuration SYSTEM "log4j.dtd">
+<log4j:configuration xmlns:log4j="http://jakarta.apache.org/log4j/">
+    <appender name="console" class="org.apache.log4j.ConsoleAppender">
+        <param name="Target" value="System.out"/>
+        <layout class="org.apache.log4j.PatternLayout">
+            <param name="ConversionPattern" value="%-5p %c{1} - %m%n"/>
+        </layout>
+    </appender>
+    <appender name="bug4j" class="org.bug4j.client.Bug4jAppender">
+        <param name="serverUrl" value="http://bugs.artifice.cc/"/>
+        <param name="applicationName" value="retrospect"/>
+        <param name="applicationVersion" value="1.0"/>
+    </appender>
+
+    <root>
+        <priority value="debug"/>
+        <appender-ref ref="console"/>
+        <appender-ref ref="bug4j"/>
+    </root>
+
+</log4j:configuration>
