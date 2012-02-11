@@ -13,6 +13,7 @@
   (:use [retrospect.problems.tracking.truedata :only
          [format-movements-comparative]])
   (:use [retrospect.problems.tracking.colors])
+  (:use [retrospect.epistemicstates :only [cur-ep]])
   (:use [retrospect.state]))
 
 (def resized (atom true)) ;; start at true so that, when loading, widths are calculated
@@ -201,9 +202,11 @@
 
 (defn player-get-truedata-log
   []
+  ;; TODO: fix so it's not specific to abduction
   (if (<= @time-now 0) ""
       (format-movements-comparative
-       @truedata (:accepted (:workspace (:ep-state @or-state)))
+       @truedata (map :mov (filter #(= :movement (:type %))
+                                   (:accepted (:workspace (cur-ep (:est @or-state))))))
        (max 0 @time-prev) @time-now)))
 
 (defn move-str
