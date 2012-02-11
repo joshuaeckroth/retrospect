@@ -51,8 +51,8 @@
 
 (defn find-explainers
   [workspace hyp]
-  (vals (group-by :type (sort-by :id (filter (fn [h] (some #{hyp} (:explains h)))
-                                             (:hypotheses workspace))))))
+  (set (filter (fn [h] (some #{hyp} (:explains h)))
+               (:hypotheses workspace))))
 
 (defn find-no-explainers
   [workspace]
@@ -233,6 +233,7 @@
                 (format "Accepted in cycle %d (alts: %s)"
                         (:cycle workspace) (commas (map :id alts))))
                (update-in [:accepted] conj hyp)
+               (assoc-in [:explainers hyp] (find-explainers workspace hyp))
                (update-in [:graph] add-attr hyp :fontcolor "green")
                (update-in [:graph] add-attr hyp :color "green"))
         ws-expl (reduce (fn [ws2 h] (update-in ws2 [:explainers] dissoc h))
@@ -295,7 +296,8 @@
   (let [ws (assoc-in workspace [:log :final]
                      {:accepted (:accepted workspace)
                       :rejected (:rejected workspace)
-                      :unexplained (keys (:explainers workspace))
+                      :unexplained (set/intersection (set (keys (:explainers workspace)))
+                                                     (:forced workspace))
                       :no-explainers (find-no-explainers workspace)
                       :unaccepted (set/difference
                                    (get-hyps workspace)

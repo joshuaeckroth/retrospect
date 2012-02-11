@@ -81,11 +81,13 @@
   (format (str "%s\n\nExplains: %s\n\nExplainers: %s\n\n"
                "Conflicts: %s\n\nApriori: %s\nConfidence: %s\n\nLog:\n%s")
           (:desc hyp)
-          (commas (:explains hyp))
+          (commas (sort-by :id (:explains hyp)))
           (apply str
                  (interpose ", "
                             (map #(format "[%s]" %)
-                                 (map commas (ws/find-explainers workspace hyp)))))
+                                 (map commas                                      
+                                      (vals (group-by :type
+                                                      (ws/find-explainers workspace hyp)))))))
           (commas (ws/find-conflicts workspace hyp))
           (conf-str (:apriori hyp))
           (conf-str (ws/hyp-conf workspace hyp))

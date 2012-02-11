@@ -36,11 +36,11 @@
 
 (defn percent-events-correct-wrong
   [true-movs bel-movs]
-  (if (empty? true-movs) [100.0 0.0] 
+  (if (empty? true-movs) [1.0 0.0] 
       (let [correct (count-matches true-movs bel-movs)]
-        [(double (* 100.0 (/ correct (count true-movs))))
-         (double (* 100.0 (/ (- (count bel-movs) correct)
-                             (count true-movs))))])))
+        [(double (/ correct (count true-movs)))
+         (double (/ (- (count bel-movs) correct)
+                    (count true-movs)))])))
 
 (defn precision-recall
   [true-movs bel-movs disbel-movs]
