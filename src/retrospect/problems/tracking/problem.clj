@@ -39,11 +39,8 @@
                :hyps-equal?-fn hyps-equal?
                :hyp-typs [:movement :path :location :bias]
                :default-params
-               {:Threshold [20 [0 10 20 30]]
-                :PathBranches [6 [2 4 6 8]]
-                :MaxEntityPaths [3 [1 2 3 4 5 6]]
-                :MetaReasoning ["NoMetareasoning" ["NoMetareasoning"]]
-                :TransitiveExplanation [false [true false]]}}
+               {:PathBranches [6 [2 4 6 8]]
+                :MaxEntityPaths [3 [1 2 3 4 5 6]]}}
    :default-params
    {:Steps [20 [20]]
     :StepsBetween [3 [1 2 3]]
@@ -51,7 +48,6 @@
     :GridWidth [20 [20]]
     :GridHeight [20 [20]]
     :NumberEntities [4 [2 4 6]]
-    :KnowBiases [true [true]]
     :MaxWalk [10 [1 2 3 4 5 6 7 8 9 10]]
     :SensorSeesColor [60 [0 20 40 60 80 100]]
     :SensorCoverage [100 [100]]

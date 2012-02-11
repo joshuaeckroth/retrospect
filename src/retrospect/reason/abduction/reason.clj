@@ -17,7 +17,12 @@
    :analyze-fn analyze
    :evaluate-fn evaluate
    :evaluate-comp-fn evaluate-comp
-   :default-params-fn (fn [] (:default-params (:abduction @problem)))
+   :default-params-fn (fn []
+                        (merge {:Knowledge [80 [40 60 80 100]]
+                                :BelievedKnowledge [80 [40 60 80 100]]
+                                :Metareasoning ["NoMetareasoning" ["NoMetareasoning"]]
+                                :Threshold [20 [0 10 20 30]]}
+                               (:default-params (:abduction @problem))))
    :init-workspace-fn init-workspace
    :player-fns
    {:get-tabs-fn (fn [] [["Logs" (logs-tab)]
