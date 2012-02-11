@@ -1,4 +1,4 @@
-(ns retrospect.colors
+(ns retrospect.problems.tracking.colors
   (:import (java.awt Color)))
 
 (def red (Color. 204 0 0))

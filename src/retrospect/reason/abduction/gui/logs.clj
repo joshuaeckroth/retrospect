@@ -1,4 +1,4 @@
-(ns retrospect.gui.logs
+(ns retrospect.reason.abduction.gui.logs
   (:import (java.awt GridBagLayout Insets Dimension Font))
   (:import (javax.swing Box JScrollBar))
   (:import (misc AlphanumComparator))
@@ -9,10 +9,10 @@
   (:use [clj-swing.panel])
   (:use [clojure.contrib.seq :only [find-first]])
   (:require [clojure.set :as set])
-  (:require [retrospect.workspaces :as ws])
+  (:require [retrospect.reason.abduction.workspace :as ws])
   (:use [retrospect.epistemicstates :only
-         [previous-ep-state flatten-ep-state-tree]])
-  (:use [retrospect.meta.robustness :only [analyze-dependency]])
+         [cur-ep flatten-ep-state-tree]])
+  #_(:use [retrospect.reason.abduction.robustness :only [analyze-dependency]])
   (:use [retrospect.confidences])
   (:use [retrospect.state]))
 
@@ -31,7 +31,7 @@
 
 (defn build-abduction-tree-map
   [or-state]
-  (let [ep-state-tree (:ep-state-tree or-state)
+  (let [ep-state-tree (:est or-state)
         list-hyps #(apply sorted-map-by (AlphanumComparator.)
                           (mapcat (fn [h] [(:id h) nil]) %))
         ep-states (flatten-ep-state-tree ep-state-tree)
@@ -50,16 +50,14 @@
                                                                 (:delta b)))
                                                       (if (:transitive? b)
                                                         " (trans)" ""))
-                                              {(if (:transitive? b)
-                                                 "Best (trans)" "Best")
+                                              {"Best"
                                                {(:id (:best b)) nil}
                                                "Explained"
                                                {(:id (:explained b)) nil}
-                                               "Accepted (trans)"
+                                               "Accepted"
                                                (list-hyps (disj (set (map :acc ars))
                                                                 (:best b)))
-                                               (if (:transitive? b)
-                                                 "Alternatives (trans)" "Alternatives")
+                                               "Alternatives"
                                                (list-hyps (:alts b))
                                                "Rejected"
                                                (list-hyps (mapcat :rej ars))}]))
@@ -80,12 +78,9 @@
 
 (defn hyp-info
   [workspace hyp]
-  (format (str "%s\n\nExplains (%s): %s\n\nExplainers: %s\n\n"
+  (format (str "%s\n\nExplains: %s\n\nExplainers: %s\n\n"
                "Conflicts: %s\n\nApriori: %s\nConfidence: %s\n\nLog:\n%s")
           (:desc hyp)
-          (cond (= :and (:expl-func hyp)) "AND"
-                (= :or (:expl-func hyp)) "OR"
-                :else "NEITHER AND/OR")
           (commas (ws/find-explains workspace hyp params :static))
           (apply str
                  (interpose ", "
@@ -93,8 +88,8 @@
                                  (map commas (ws/find-explainers workspace hyp
                                                                  params :static)))))
           (commas (ws/find-conflicts workspace hyp params :static))
-          (confidence-str (:apriori hyp))
-          (confidence-str (ws/hyp-conf workspace hyp))
+          (conf-str (:apriori hyp))
+          (conf-str (ws/hyp-conf workspace hyp))
           (apply str (interpose "\n" (ws/hyp-log workspace hyp)))))
 
 (defn final-explainers
@@ -114,12 +109,13 @@
 
 (defn format-hyp-info
   [workspace hyp]
-  (let [info (hyp-info workspace hyp)
-        starts (set/difference (ws/get-hyps workspace :static) (:forced workspace))
-        dep-analysis (apply str (map (fn [[s hyps]]
-                                       (format "%s: %s\n" (:id s)
-                                               (apply str (interpose ", " (map :id (sort-by :id hyps)))))) (filter (comp not-empty second) (analyze-dependency @or-state hyp starts))))]
-    (format "%s\n\nDependency analysis:\n\n%s" info dep-analysis)))
+  (hyp-info workspace hyp))
+
+(comment
+  starts (set/difference (ws/get-hyps workspace :static) (:forced workspace))
+  dep-analysis (apply str (map (fn [[s hyps]]
+                                 (format "%s: %s\n" (:id s)
+                                         (apply str (interpose ", " (map :id (sort-by :id hyps)))))) (filter (comp not-empty second) (analyze-dependency @or-state hyp starts)))))
 
 (defn scroll-top
   [scroll]
@@ -136,7 +132,7 @@
                      (if-let [ep-id (re-find #"^[A-Z]+"
                                              (str (. path getPathComponent 1)))]
                        (find-first #(= (:id %) ep-id) (flatten-ep-state-tree
-                                                       (:ep-state-tree @or-state)))))
+                                                       (:est @or-state)))))
           ws (if ep-state (:workspace ep-state))]
       (if (= "Meta-Log" last-comp)
         (dosync (alter workspace-log (constantly (get (:meta-logs @or-state) (:id ep-state)))))
@@ -149,26 +145,28 @@
               (dosync (alter workspace-log (constantly (final-explainers ws))))))))
       (scroll-top @workspace-log-textbox))))
 
-(defn show-analysis
-  []
-  (when (and @workspace-selected @hyp-selected)
-    (let [pdata (:problem-data (previous-ep-state (:ep-state-tree @or-state)))
-          ws @workspace-selected
-          hyp @hyp-selected
-          accepted? ((:accepted ws) hyp)
-          [acc unacc rej] (ws/analyze ws hyp pdata)
-          group-str (fn [type hyps]
-                      (format "Hyp groups, when rejected, cause this hyp to be %s: %s"
-                              type (apply str (interpose ", " (map #(format "[%s]" %)
-                                                                   (map commas hyps))))))
-          analysis (format "%s\n\n%s" (if accepted? (group-str "rejected" rej)
-                                          (group-str "accepted" acc))
-                           (group-str "unaccepted" unacc))]
-      (dosync
-       (alter workspace-log
-              (fn [log] (format "%s\n\nAnalysis:\n\n%s"
-                                log analysis))))
-      (scroll-top @workspace-log-textbox))))
+(defn show-analysis [])
+
+(comment
+  (defn show-analysis
+    []
+    (when (and @workspace-selected @hyp-selected)
+      (let [ws @workspace-selected
+            hyp @hyp-selected
+            accepted? ((:accepted ws) hyp)
+            [acc unacc rej] (ws/analyze ws hyp pdata)
+            group-str (fn [type hyps]
+                        (format "Hyp groups, when rejected, cause this hyp to be %s: %s"
+                                type (apply str (interpose ", " (map #(format "[%s]" %)
+                                                                     (map commas hyps))))))
+            analysis (format "%s\n\n%s" (if accepted? (group-str "rejected" rej)
+                                            (group-str "accepted" acc))
+                             (group-str "unaccepted" unacc))]
+        (dosync
+         (alter workspace-log
+                (fn [log] (format "%s\n\nAnalysis:\n\n%s"
+                                  log analysis))))
+        (scroll-top @workspace-log-textbox)))))
 
 (defn update-logs
   []
@@ -177,11 +175,11 @@
    (alter problem-log (constantly ((:get-problem-log (:player-fns @problem)))))
    (alter hyp-choices
           (constantly (sort (AlphanumComparator.)
-                            (map :id (ws/get-hyps (:workspace (:ep-state @or-state))
+                            (map :id (ws/get-hyps (:workspace (cur-ep (:est @or-state)))
                                                   :static)))))
    (alter abduction-tree-map
           (constantly (build-abduction-tree-map @or-state))))
-  (. problem-log-label setText (format "Problem log for: %s" (str (:ep-state @or-state))))
+  (. problem-log-label setText (format "Problem log for: %s" (str (cur-ep (:est @or-state)))))
   (when (and @truedata-log-textbox @problem-log-textbox @workspace-log-textbox)
     (scroll-top @truedata-log-textbox)
     (scroll-top @problem-log-textbox)

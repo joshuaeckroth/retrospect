@@ -1,7 +1,7 @@
 (ns retrospect.problems.tracking.truedata
   (:import (misc AlphanumComparator))
   (:use [retrospect.random])
-  (:use [retrospect.colors])
+  (:use [retrospect.problems.tracking.colors])
   (:use [retrospect.problems.tracking.movements])
   (:use [retrospect.state]))
 
@@ -45,9 +45,8 @@
         arrows (fn [ss] (apply str (interpose " -> " ss)))
         lines (fn [ss] (apply str (interpose "\n" ss)))]
     (lines (for [e es]
-             (format "%s (%s, %s): %s"
+             (format "%s (%s): %s"
                      e (color-str (:color (first (get true-movements e))))
-                     (name (:bias (first (get true-movements e))))
                      (arrows (for [{:keys [x y time] :as mov}
                                    (entity-movements true-movements e mintime maxtime)]
                                (if (or (= 0 time)

@@ -1,6 +1,5 @@
-(ns retrospect.problems.tracking.monitor
+(ns retrospect.reason.abduction.problems.tracking.monitor
   (:use [retrospect.player :only [start-player]])
-  (:use [retrospect.epistemicstates :only [previous-ep-state]])
   (:use [retrospect.state]))
 
 ;; The monitor is used to halt the runner and bring up the GUI so that

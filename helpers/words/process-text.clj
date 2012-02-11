@@ -22,19 +22,19 @@ exec java -Dfile.encoding=big5 -cp "$HOME/clojure/clojure-1.2.1/clojure.jar" clo
   (for [words (keys model)]
     (format "%s,%d" (apply str (interpose "," words)) (get model words))))
 
-(defn process-text [file encoding]
-  (let [truedata (-> (slurp file :encoding encoding)
+(defn process-text [dataset]
+  (let [[folder prefix] (str/split dataset "/")
+        test (str/split-lines (slurp (format "%s/testing/%s_test.utf8" folder prefix)
+                                     :encoding "utf-8"))
+        truedata (-> (slurp (format "%s/training/") :encoding "utf-8")
                      (str/trim)
                      (str/replace #"[\-/]" " ")
-                     (str/replace #"[^\p{L}\s]" "")
-                     (str/replace #"\s+" " ")
-                     (str/lower-case))
-        ;; consider only words with 1 or more letters
-        truedata-large-words (shuffle (filter #(>= (count %) 1)
-                                              (str/split truedata #"\s+")))
+                     (str/replace #"([^\p{L}\s])" " \1 ")
+                     (str/replace #"\s+" " "))
+        truedata-words (str/split truedata #"\s+")
         ;; split truedata into 90% for training and 10% for testing
-        [training test] (split-at (int (* (count truedata-large-words) 0.9))
-                                  truedata-large-words)
+        [training test] (split-at (int (* (count truedata-words) 0.9))
+                                  truedata-words)
         dictionary (sort (set test)) 
         ambiguous (apply str test)]
     [(apply str (interpose " " training)) (apply str (interpose " " test))
@@ -47,9 +47,9 @@ exec java -Dfile.encoding=big5 -cp "$HOME/clojure/clojure-1.2.1/clojure.jar" clo
 
 (if-not *command-line-args*
   (print-command-line-args)
-  (if (not= 3 (count *command-line-args*)) (print-command-line-args)
-      (let [[file encoding n] *command-line-args*
-            [training test dictionary ambiguous] (process-text file encoding)
+  (if (not= 2 (count *command-line-args*)) (print-command-line-args)
+      (let [[dataset n] *command-line-args*
+            [training test dictionary ambiguous] (process-text dataset)
             maxn (Integer/parseInt n)
             models-csv (for [n (range 1 (inc maxn))]
                          (markov-model-to-csv (build-markov-model n training)))]

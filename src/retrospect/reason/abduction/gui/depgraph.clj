@@ -1,4 +1,4 @@
-(ns retrospect.gui.depgraph
+(ns retrospect.reason.abduction.gui.depgraph
   (:import (java.awt GridBagLayout Insets Graphics Dimension Color))
   (:import (java.awt.image BufferedImage))
   (:import (javax.swing JLabel ImageIcon JViewport))
@@ -8,8 +8,7 @@
   (:use [clj-swing.button])
   (:use [retrospect.gui.graphs])
   (:use [retrospect.state])
-  (:use [retrospect.epistemicstates :only
-         [current-ep-state previous-ep-state]]))
+  (:use [retrospect.epistemicstates :only [cur-ep]]))
 
 (def canvas (ref nil))
 
@@ -18,10 +17,8 @@
 
 (defn generate-depgraph
   []
-  (let [ep-state (let [ep (current-ep-state (:ep-state-tree @or-state))]
-                   (if (re-find #"\?" (str ep))
-                     (previous-ep-state (:ep-state-tree @or-state)) ep))
-        depgraph (:depgraph ep-state)]
+  (let [ep (cur-ep (:est @or-state))
+        depgraph (:depgraph ep)]
     (generate-graph depgraph @canvas listener true)))
 
 (defn depgraph-tab

@@ -6,9 +6,9 @@
   (:use [loom.graph :only [nodes]])
   (:use [loom.alg :only [pre-traverse]])
   (:use [retrospect.epistemicstates :only
-         [current-ep-state previous-ep-state new-branch-ep-state
+         [cur-ep previous-ep-state new-branch-ep-state
           new-branch-root ep-state-depth explain]])
-  (:require [retrospect.workspaces :as ws])
+  (:require [retrospect.reason.abduction.workspace :as ws])
   (:use [retrospect.state]))
 
 (defn analyze-sensitivity

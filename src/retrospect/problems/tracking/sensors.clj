@@ -1,7 +1,7 @@
 (ns retrospect.problems.tracking.sensors
   (:use [retrospect.confidences])
   (:use [retrospect.random])
-  (:use [retrospect.colors])
+  (:use [retrospect.problems.tracking.colors])
   (:use [retrospect.sensors :only [init-sensor add-sensed]])
   (:require [clojure.contrib.math :as math])
   (:use [retrospect.problems.tracking.movements :only

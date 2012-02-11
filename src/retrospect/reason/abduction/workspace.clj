@@ -1,4 +1,4 @@
-(ns retrospect.workspaces
+(ns retrospect.reason.abduction.workspace
   (:import (misc AlphanumComparator))
   (:use [retrospect.confidences])
   (:require [clojure.set :as set])
@@ -9,15 +9,8 @@
   (:use [loom.alg :only [pre-traverse]])
   (:use [loom.attr :only [add-attr remove-attr]])
   (:use [clojure.contrib.combinatorics :only [combinations]])
+  (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.state]))
-
-(def last-id 0)
-
-(def meta? false)
-
-(defn set-last-id
-  [n]
-  (def last-id n))
 
 (defrecord Hypothesis
     [id type subtype conflict apriori explains depends desc]
@@ -35,34 +28,14 @@
 (defn new-hyp
   [prefix type subtype conflict apriori explains depends desc data]
   (let [id (inc last-id)]
+    (set-last-id id)
     ;; use var-set if running batch mode; def if using player or repl
     ;; (in batch mode, thread is called something like pool-2-thread-1)
-    (if (or (= "AWT-EventQueue-0" (. (Thread/currentThread) getName))
-            (= "Thread-1" (. (Thread/currentThread) getName))) 
-      (def last-id (inc last-id))
-      (var-set (var last-id) (inc last-id)))
+
     (merge
-     (Hypothesis. (format "%s%d" (if meta? (str "M" prefix) prefix) id)
+     (Hypothesis. (format "%s%d" prefix id)
                   type subtype conflict apriori explains depends desc)
      data)))
-
-(defn init-workspace
-  ([]
-     {:graph (digraph)
-      :graph-static (digraph)
-      :cycle 0
-      :hyp-confidences {}
-      :log {:added [] :forced [] :best [] :accrej {}
-            :final {:accepted [] :rejected []
-                    :unexplained [] :no-explainers [] :unaccepted []}
-            :doubt nil}
-      :hyp-log {}
-      :doubt nil
-      :unexplained #{}
-      :accepted #{}
-      :forced #{}
-      :rejected #{}
-      :resources {:explain-cycles 0 :hypothesis-count 0}}))
 
 (defn hyp-log
   [workspace hyp]
@@ -251,7 +224,7 @@
         (update-in [:log :final :rejected] concat rejectable))))
 
 (defn accept
-  [workspace hyp alts pdata]
+  [workspace hyp alts]
   (let [commas (fn [ss] (apply str (interpose ", " (sort ss))))
         ws (-> workspace
                (update-in
@@ -268,22 +241,14 @@
                                                  (format "Alternate in cycle %d"
                                                          (:cycle workspace))))
                         ws alts)
-        conflicts (find-conflicts ws-alts hyp)]
-    (loop [ws (reject-many ws-alts conflicts)
-           rejected #{}]
-      (let [hyps (sort-by :id (set/union (:accepted ws)
-                                         (apply concat (find-all-explainers ws))))
-            incon (set/difference (set ((:inconsistent-fn @problem)
-                                        pdata hyps (:rejected ws)))
-                                  rejected)]
-        (if (not-empty incon)
-          (recur (reject-many ws incon) (set/union rejected (set incon)))
-          (update-in ws [:log :accrej (:cycle workspace)] conj
-                     {:acc hyp :rej (concat conflicts rejected)}))))))
+        conflicts (find-conflicts ws-alts hyp)
+        ws-rejected (reject-many ws-alts conflicts)]
+    (update-in ws-rejected [:log :accrej (:cycle workspace)] conj
+               {:acc hyp :rej conflicts})))
 
-(defn force-accept
+(defn add-fact
   [workspace hyp]
-  (-> workspace
+  (-> (add workspace hyp)
       (update-in [:unexplained] conj hyp)
       (update-in [:forced] conj hyp)
       (update-in [:log :forced] conj hyp)
@@ -299,21 +264,6 @@
         (assoc workspace :hyp-confidences
                (apply assoc {} (mapcat (fn [h] [h (:apriori h)]) hyps))))))
 
-(defn reset-workspace
-  "Clear the decision, except for what was 'forced'."
-  [workspace]
-  (let [ws (assoc workspace :doubt nil :accepted #{} :rejected #{}
-                  :graph (:graph-static workspace))]
-    (-> ws
-        (update-in [:graph-static]
-                   #(reduce (fn [g h] (-> g (remove-attr h :fontcolor)
-                                          (remove-attr h :color)))
-                            % (set/difference (nodes %) (:forced ws))))
-        (assoc-in [:log :accepted] (:forced workspace))
-        (assoc-in [:log :accrej] {})
-        (assoc :hyp-log {})
-        (assoc :accepted (:forced workspace)))))
-
 (defn measure-doubt
   [workspace]
   (let [acc-not-forced (set/difference (:accepted workspace) (:forced workspace))]
@@ -326,7 +276,7 @@
   [workspace]
   (:doubt (:log workspace)))
 
-(defn measure-unexplained-pct
+(defn get-unexp-pct
   "Only measure unexplained forced hyps."
   [workspace]
   (if (empty? (:forced workspace)) 0.0
@@ -334,9 +284,11 @@
                                           (:unexplained (:final (:log workspace)))))
                  (count (:forced workspace))))))
 
-(defn get-unexplained-pct
+(defn get-noexp-pct
   [workspace]
-  (:unexplained-pct (:log workspace)))
+  (if (empty? (:forced workspace)) 0.0
+      (double (/ (count (:no-explainers (:final (:log workspace))))
+                 (count (:forced workspace))))))
 
 (defn log-final
   [workspace explainers]
@@ -349,9 +301,8 @@
                                    (get-hyps workspace)
                                    (:accepted workspace)
                                    (:rejected workspace))
-                      :last-explainers explainers})
-        ws2 (assoc-in ws [:log :unexplained-pct] (measure-unexplained-pct ws))]
-    (assoc-in ws2 [:log :doubt] (measure-doubt ws2))))
+                      :last-explainers explainers})]
+    (assoc-in ws [:log :doubt] (measure-doubt ws))))
 
 (defn find-best
   [workspace explainers threshold]
@@ -375,20 +326,20 @@
                :essential? false :delta delta :explained (:hyp expl)}))))))
 
 (defn get-more-hyps
-  [workspace pdata]
+  [workspace]
   ;;TODO figure out order hyps should be attempted
   (first (filter not-empty
-                 (map (fn [h] ((:hypothesize-fn @problem) h
-                               (:accepted workspace) (:rejected workspace) pdata))
+                 (map (fn [h] ((:hypothesize-fn (:abduction @problem)) h
+                               (:accepted workspace) (:rejected workspace)))
                       (:unexplained workspace)))))
 
 (defn explain
-  [workspace pdata]
+  [workspace]
   (loop [ws workspace]
     (if (empty? (:unexplained ws)) (log-final ws [])
         (let [explainers (find-all-explainers ws)]
           (if (empty? explainers)
-            (if-let [hs (get-more-hyps ws pdata)]
+            (if-let [hs (get-more-hyps ws)]
               (recur (reduce add ws hs))
               (log-final ws []))
             (let [ws-confs (update-confidences ws explainers)
@@ -403,10 +354,10 @@
                                      (update-in [:cycle] inc)
                                      (update-in [:resources :explain-cycles] inc)
                                      (update-in [:log :best] conj b))]
-                   (accept ws-logged best alts pdata))))))))))
+                   (accept ws-logged best alts))))))))))
 
 (defn analyze
-  [workspace hyp pdata]
+  [workspace hyp]
   (let [accepted? ((:accepted workspace) hyp)
         rejected? ((:rejected workspace) hyp)
         ;; hyps worth considering are those that this hyp explains (if
@@ -428,10 +379,10 @@
            rej []]
       (if (empty? to-check) [acc unacc rej]
           (let [check (first to-check)
-                ws (reset-workspace workspace)
+                ws (reset-confidences workspace)
                 ws-altered (-> ws (update-in [:accepted] set/difference check)
                                (reject-many check))
-                ws-explained (explain ws-altered pdata)
+                ws-explained (explain ws-altered)
                 now-accepted? ((:accepted ws-explained) hyp)
                 now-rejected? ((:rejected ws-explained) hyp)]
             (cond
@@ -447,3 +398,36 @@
              ;; else, turned into unaccepted
              :else
              (recur (rest to-check) acc (conj unacc check) rej)))))))
+
+(defn add-sensor-hyps
+  [workspace time time-now sensors]
+  (let [msh (fn [s h t] ((:make-sensor-hyps-fn (:abduction @problem))
+                         s h t time time-now))]
+    (reduce (fn [ws t]
+              (let [hs (mapcat (fn [s] (mapcat #(msh s % t) (sensed-at s t))) sensors)]
+                (reduce add-fact ws hs)))
+            workspace (range time (inc time-now)))))
+
+(defn add-kb
+  [ws]
+  (reduce add-fact ws ((:generate-kb-fn (:abduction @problem)))))
+
+(defn init-workspace
+  []
+  (add-kb
+   {:graph (digraph)
+    :graph-static (digraph)
+    :cycle 0
+    :hyp-confidences {}
+    :log {:added [] :forced [] :best [] :accrej {}
+          :final {:accepted [] :rejected []
+                  :unexplained [] :no-explainers [] :unaccepted []}
+          :doubt nil}
+    :hyp-log {}
+    :conf nil
+    :unexplained #{}
+    :accepted #{}
+    :forced #{}
+    :rejected #{}
+    :resources {:explain-cycles 0 :hypothesis-count 0}}))
+

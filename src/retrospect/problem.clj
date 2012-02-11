@@ -1,62 +1,51 @@
 (ns retrospect.problem
   (:import (java.util.concurrent ExecutionException))
   (:use [clojure.string :only [split]])
-  (:use [retrospect.workspaces :only [last-id]])
-  (:use [retrospect.onerun :only
-         [init-one-run-state update-one-run-state proceed-one-run-state
-          clear-resources]])
-  (:use [retrospect.epistemicstates :only
-         [explain current-ep-state previous-ep-state add-fact]])
-  (:use [retrospect.meta.reason :only
-         [metareasoning-activated? metareason]])
-  (:use [retrospect.evaluate :only [evaluate evaluate-comparative]])
-  (:use [retrospect.sensors :only [update-sensors sensed-at]])
+  (:use [retrospect.epistemicstates :only [cur-ep new-child-ep init-est update-est]])
+  (:use [retrospect.sensors :only [update-sensors]])
   (:use [retrospect.random :only [rgen new-seed my-rand-int]])
   (:use [retrospect.state]))
 
-(defn update-sensors-from-to
-  [time time-now truedata or-state]
-  (loop [t time
-         ors or-state]
-    (let [ors2 (update-in ors [:sensors] update-sensors truedata t)]
-      (if (>= t time-now) ors2
-          (recur (inc t) ors2)))))
+(defn init-ors
+  [sensors]
+  (let [est (init-est ((:init-workspace-fn @reason)))]
+    {:resources {:milliseconds 0}
+     :results []
+     :sensors sensors
+     :est est}))
 
-(defn add-sensor-hyps
-  [time time-now ep-state sensors]
-  (let [msh (fn [s h t] ((:make-sensor-hyps-fn @problem) s h t time time-now))]
-    (reduce (fn [ep t]
-              (let [hs (mapcat (fn [s] (mapcat #(msh s % t) (sensed-at s t))) sensors)]
-                (reduce add-fact ep hs)))
-            ep-state (range time (inc time-now)))))
+(defn proceed-ors
+  [ors ep sensors ms]
+  (-> ors
+      (update-in [:est] #(new-child-ep (update-est % ep)))
+      (assoc :sensors sensors)
+      (update-in [:resources :milliseconds] + ms)))
+
+(defn update-sensors-from-to
+  [time time-now truedata sensors]
+  (loop [t time
+         sens sensors]
+    (let [sens2 (update-sensors sens truedata t)]
+      (if (>= t time-now) sens2
+          (recur (inc t) sens2)))))
 
 (defn run-simulation-step
-  [truedata or-state monitor? player?]
-  (let [time (:time (:ep-state or-state))
+  [truedata ors monitor? player?]
+  (let [time (or (:time (cur-ep (:est ors))) 0)
         time-now (min (:Steps params) (+ (:StepsBetween params) time))
-        ors-clean (clear-resources or-state)
-        ors-sensors (update-sensors-from-to time time-now truedata ors-clean)
-        ep-sensor-hyps (add-sensor-hyps time time-now (:ep-state ors-sensors)
-                                        (:sensors ors-sensors))
-        ors-sensor-hyps (update-one-run-state ors-sensors ep-sensor-hyps
-                                              {:compute 0 :memory 0})
+        sensors (update-sensors-from-to time time-now truedata (:sensors ors))
         ;; start the clock
         start-time (. System (nanoTime))
-        ep-state (:ep-state ors-sensor-hyps)
-        ep-explained (explain ep-state time-now)
-        ors-expl (update-one-run-state ors-sensor-hyps ep-explained {:compute 0 :memory 0})
-        ors-meta (if (metareasoning-activated? ors-expl)
-                   (metareason ors-expl) ors-expl)
+        ep (cur-ep (:est ors))
+        ep-reason (update-in ep [:workspace] (:reason-fn @reason) time time-now sensors)
         ;; stop the clock
         ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
-        ors-next (proceed-one-run-state
-                  ors-meta (current-ep-state (:ep-state-tree ors-meta)))
-        ors-resources (assoc-in ors-next [:resources :milliseconds] ms)
-        ors-results (evaluate truedata ors-resources)]
+        ors-next (proceed-ors ors ep-reason sensors ms)
+        ors-results ((:evaluate-fn @reason) truedata ors-next)]
     (when (not player?)
       (.write System/out (int \.))) (.flush System/out)
     (if (and (not player?) monitor?)
-      ((:monitor-fn @problem) truedata (:sensors ors-results) ors-results)
+      ((:monitor-fn @problem) truedata sensors ors-results)
       ors-results)))
 
 (defn run-simulation
@@ -71,13 +60,15 @@
 
 (defn get-default-params-ranges
   []
-  (reduce (fn [m k] (assoc m k (second (get (:default-params @problem) k))))
-          {} (keys (:default-params @problem))))
+  (let [ps (merge (:default-params @problem) ((:default-params-fn @reason)))]
+    (reduce (fn [m k] (assoc m k (second (get ps k))))
+            {} (keys ps))))
 
 (defn get-default-params
   []
-  (reduce (fn [m k] (assoc m k (first (get (:default-params @problem) k))))
-          {} (keys (:default-params @problem))))
+  (let [ps (merge (:default-params @problem) ((:default-params-fn @reason)))]
+    (reduce (fn [m k] (assoc m k (first (get ps k))))
+            {} (keys ps))))
 
 (defn merge-default-params
   [params]
@@ -93,51 +84,40 @@
           (binding [rgen (new-seed (:Seed control-params))
                     last-id 0
                     params control-params]
-            (let [control-truedata ((:truedata-fn @problem))
-                  control-sensors ((:sensor-gen-fn @problem))
-                  control-problem-data ((:gen-problem-data-fn @problem)
-                                        control-truedata control-sensors)
-                  control-or-state (init-one-run-state control-sensors control-problem-data)]
+            (let [control-truedata ((:generate-truedata-fn @problem))
+                  control-sensors ((:generate-sensors-fn @problem))
+                  control-ors (init-ors control-sensors)]
               (println "Control:" (pr-str control-params))
               (map (fn [rs] (assoc rs :control-params (pr-str control-params)
                                    :comparison-params (pr-str comparison-params)))
-                   (run-simulation control-truedata control-or-state monitor?))))
+                   (run-simulation control-truedata control-ors monitor?))))
           comparison-results
           (binding [rgen (new-seed (:Seed comparison-params))
                     last-id 0
                     params comparison-params]
-            (let [comparison-truedata ((:truedata-fn @problem))
-                  comparison-sensors ((:sensor-gen-fn @problem))
-                  comparison-problem-data ((:gen-problem-data-fn @problem)
-                                           comparison-truedata comparison-sensors)
-                  comparison-or-state (init-one-run-state comparison-sensors comparison-problem-data)]
+            (let [comparison-truedata ((:generate-truedata-fn @problem))
+                  comparison-sensors ((:generate-sensors-fn @problem))
+                  comparison-ors (init-ors comparison-sensors)]
               (println "Comparison:" (pr-str comparison-params))
               (map (fn [rs] (assoc rs
                               :control-params (pr-str control-params)
                               :comparison-params (pr-str comparison-params)))
-                   (run-simulation comparison-truedata comparison-or-state monitor?))))]
+                   (run-simulation comparison-truedata comparison-ors monitor?))))]
       [control-results comparison-results
        (map (fn [rs] (assoc rs
                        :control-params (pr-str (first params))
                        :comparison-params (pr-str (second params))))
-            (evaluate-comparative control-results comparison-results
-                                  control-params comparison-params))])
+            ((:evaluate-comp-fn @reason) control-results comparison-results
+             control-params comparison-params))])
     ;; if non-comparative, just run the simulation
     (let [params (merge-default-params params)]
       (binding [rgen (new-seed (:Seed params))
                 last-id 0
                 params params]
-        (let [truedata ((:truedata-fn @problem))
-              sensors ((:sensor-gen-fn @problem))
-              problem-data ((:gen-problem-data-fn @problem) truedata sensors)
-              or-state (init-one-run-state sensors problem-data)]
+        (let [truedata ((:generate-truedata-fn @problem))
+              sensors ((:generate-sensors-fn @problem))
+              ors (init-ors sensors)]
           (println "Params:" (pr-str params))
           (map (fn [rs] (assoc rs :params (pr-str params)))
-               (run-simulation truedata or-state monitor?)))))))
+               (run-simulation truedata ors monitor?)))))))
 
-(defrecord Problem
-  [name monitor-fn player-fns truedata-fn sensor-gen-fn prepared-map
-   make-sensor-hyps-fn hypothesize-fn get-more-hyps-fn commit-decision-fn retract-fn
-   gen-problem-data-fn inconsistent-fn no-explainer-hyps-fn
-   evaluate-fn evaluate-comparative-fn true-hyp?-fn hyps-equal?-fn perturb-fn
-   hyp-subtypes default-params])

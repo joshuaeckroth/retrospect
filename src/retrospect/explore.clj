@@ -1,8 +1,6 @@
 (ns retrospect.explore
   (:use [retrospect.random :only [rgen new-seed my-rand-nth my-rand-int my-rand]])
-  (:use [retrospect.problem :only [get-default-params-ranges run-simulation]])
-  (:use [retrospect.onerun :only [init-one-run-state]])
-  (:use [retrospect.workspaces :only [last-id]])
+  (:use [retrospect.problem :only [get-default-params-ranges run-simulation init-ors]])
   (:use [retrospect.state]))
 
 (defn search
@@ -41,9 +39,8 @@
                  (println "Seed:" seed)
                  (let [truedata ((:truedata-fn @problem))
                        sensors ((:sensor-gen-fn @problem))
-                       problem-data ((:gen-problem-data-fn @problem) truedata sensors)
-                       or-state (init-one-run-state sensors problem-data)
-                       results (run-simulation truedata or-state false)]
+                       ors (init-ors sensors)
+                       results (run-simulation truedata ors false)]
                    (println (format "%s = %s" (name metric) (get (last results) metric)))
                    results))))
         avg (double (/ (reduce + (map #(get (last %) metric) rs)) repetitions))]

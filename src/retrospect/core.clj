@@ -7,9 +7,10 @@
   (:use [retrospect.random :only [rgen new-seed]])
   (:require [retrospect.state :as state])
   (:use [retrospect.database :only [read-params]])
+  (:use [retrospect.reason.abduction.reason :only [reason-abduction]])
   (:use [retrospect.problems.tracking.problem :only [tracking-problem]])
-  #_(:use [retrospect.problems.words.problem :only [words-problem]])
-  #_(:use [retrospect.problems.causal.problem :only [causal-problem]])
+  #_(:use [retrospect.reason.abduction.problems.words.problem :only [words-problem]])
+  #_(:use [retrospect.reason.abduction.problems.causal.problem :only [causal-problem]])
   (:use [retrospect.records :only [run-with-new-record]])
   (:use [retrospect.explore :only [explore]])
   (:use [retrospect.player :only [start-player]]))
@@ -26,10 +27,16 @@
         (or (= "Causal" problem) (= "causal" problem))
         causal-problem))
 
+(defn choose-reason
+  [reason]
+  (cond (or (= "Abduction" reason) (= "abduction" reason))
+        reason-abduction))
+
 (defn -main [& args]
   (with-command-line args
     "retrospect"
     [[action "Action (run/player/explore)" "player"]
+     [reason "Reasoning algorithm" "abduction"]
      [problem "Problem" "tracking"]
      [params "Parameters identifier (e.g. 'Words/foobar')" ""]
      [datadir "Data directory" "data"]
@@ -46,13 +53,15 @@
      [restarts "# of explore restarts" "5"]
      [permutations "# of explore permutations" "100"]]
     (let [seed (Integer/parseInt seed)
-          prob (choose-problem problem)
+          reason (choose-reason reason)
+          problem (choose-problem problem)
           repetitions (Integer/parseInt repetitions)]
       (alter-var-root (var rgen) (constantly (new-seed seed)))
       (dosync
        (alter state/datadir (constantly datadir))
        (alter state/database (constantly database))
-       (alter state/problem (constantly prob)))
+       (alter state/reason (constantly reason))
+       (alter state/problem (constantly problem)))
       (cond (and (not= action "explore") (not= action "player") (= "" params))
             (println "--params identifier required.")
             
@@ -69,7 +78,7 @@
             (let [nthreads (Integer/parseInt nthreads)
                   monitor? (Boolean/parseBoolean monitor)
                   upload? (Boolean/parseBoolean upload)
-                  [prob ps] (read-params params)
+                  [reason problem ps] (read-params params)
                   git-dirty? (not-empty
                               (filter #(not= "??" (if (>= 2 (count %)) "??" (subs % 0 2)))
                                       (split-lines (sh git "status" "--porcelain"))))]
@@ -81,7 +90,8 @@
                          "database connection.")
                 (System/exit -1))
               (dosync
-               (alter state/problem (constantly (choose-problem prob)))
+               (alter state/reason (constantly (choose-reason reason)))
+               (alter state/problem (constantly (choose-problem problem)))               
                (alter state/db-params (constantly ps)))
               (run-with-new-record seed git recordsdir nthreads monitor? upload? repetitions))
             

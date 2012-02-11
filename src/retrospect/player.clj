@@ -8,23 +8,14 @@
   (:use [clj-swing.button])
   (:use [clj-swing.combo-box])
   (:use [clj-swing.text-field])
-  (:use [retrospect.problem :only [run-simulation-step merge-default-params
-                                   get-default-params]])
+  (:use [retrospect.problem
+         :only [run-simulation-step merge-default-params get-default-params init-ors]])
   (:use [retrospect.state])
   (:use [retrospect.gui.eptree :only [ep-tree-tab update-ep-tree]])
-  (:use [retrospect.gui.depgraph :only [depgraph-tab update-depgraph]])
-  (:use [retrospect.gui.hypgraph :only [hypgraph-tab update-hypgraph]])
-  (:use [retrospect.gui.explainsgraph :only
-         [explains-graph-tab update-explains-graph]])
   (:use [retrospect.gui.results :only [update-results results-tab]])
-  (:use [retrospect.gui.logs :only [update-logs logs-tab]])
   (:use [retrospect.gui.repl :only [update-repl-tab repl-tab]])
-  (:use [retrospect.workspaces :only [set-last-id]])
-  (:use [retrospect.onerun :only [init-one-run-state]])
-  (:use [retrospect.epistemicstates :only
-         [list-ep-states current-ep-state goto-ep-state root-ep-state?
-          previous-ep-state non-accepted-current-ep-state?
-          nth-previous-ep-state]])
+  (:use [retrospect.epistemicstates
+         :only [list-ep-states cur-ep prev-ep goto-ep]])
   (:use [retrospect.random :only [rgen new-seed]]))
 
 (def prepared-selected (atom "None"))
@@ -36,7 +27,8 @@
 
 (defn get-saved-params
   []
-  (let [ps (try (read-string (.get @prefs (format "%s-params" (:name @problem))
+  (let [ps (try (read-string (.get @prefs (format "%s-%s-params"
+                                                  (:name @reason) (:name @problem))
                                    (pr-str (get-default-params))))
                 (catch Exception _ (get-default-params)))]
     (alter-var-root (var params) (constantly ps))))
@@ -51,7 +43,8 @@
 (defn set-default-params
   []
   (alter-var-root (var params) (get-default-params))
-  (.put @prefs (format "%s-params" (:name @problem)) (pr-str (get-default-params)))
+  (.put @prefs (format "%s-%s-params" (:name @reason) (:name @problem))
+        (pr-str (get-default-params)))
   (dosync (alter params-edit (constantly (format-params (get-default-params))))))
 
 (defn clear-params
@@ -59,35 +52,23 @@
   (dosync (alter params-edit (constantly ""))))
 
 (def seed-spinner (JSpinner. (SpinnerNumberModel. 10 nil nil 1)))
-
 (defn get-seed [] (->> seed-spinner .getModel .getNumber .intValue))
 (defn set-seed-spinner [seed] (. seed-spinner setValue seed))
 
 (defn update-everything
   []
-  (let [est (:ep-state-tree @or-state)
-        ep-state (let [ep (current-ep-state est)]
-                   (if (re-find #"\?" (str ep))
-                     (previous-ep-state est) ep))
-        prev-ep (let [ep (current-ep-state est)]
-                  (if (re-find #"\?" (str ep))
-                    (nth-previous-ep-state est 2)
-                    (previous-ep-state est)))
-        time-n (or (:time ep-state) 0)
-        time-p (or (:time prev-ep) 0)]
+  (let [time-n (or (:time (cur-ep (:est @or-state))) 0)
+        time-p (or (:time (prev-ep (:est @or-state))) 0)]
     (dosync
      (alter time-now (constantly time-n))
      (alter time-prev (constantly time-p)))
     (. steplabel (setText (format "Step: %d->%d" @time-prev
                                   @time-now))))
   (dosync
-   (alter ep-list (constantly (sort (list-ep-states (:ep-state-tree @or-state))))))
+   (alter ep-list (constantly (sort (list-ep-states (:est @or-state))))))
   (update-ep-tree)
-  (update-depgraph)
-  (update-hypgraph)
-  #_(update-explains-graph)
+  ((:update-tabs-fn (:player-fns @reason)))
   (update-results)
-  (update-logs)
   (update-repl-tab)
   ((:update-stats-fn (:player-fns @problem)))
   ((:update-diagram-fn (:player-fns @problem))))
@@ -109,12 +90,10 @@
         (if (:Seed ps) (set-seed-spinner (:Seed ps)))
         (set-last-id 0)
         (dosync
-         (alter truedata (constantly ((:truedata-fn @problem))))
-         (alter sensors (constantly ((:sensor-gen-fn @problem)))))))
+         (alter truedata (constantly ((:generate-truedata-fn @problem))))
+         (alter sensors (constantly ((:generate-sensors-fn @problem)))))))
     (dosync
-     (alter or-state (constantly (init-one-run-state
-                                  @sensors ((:gen-problem-data-fn @problem)
-                                            @truedata @sensors)))))
+     (alter or-state (constantly (init-ors @sensors))))
     (update-everything)))
 
 (defn set-prepared-action
@@ -134,19 +113,14 @@
       (dosync
        (alter truedata (constantly td))
        (alter sensors (constantly sens))
-       (alter or-state (constantly (init-one-run-state
-                                    @sensors ((:gen-problem-data-fn @problem)
-                                              @truedata @sensors)))))
+       (alter or-state (constantly (init-ors @sensors))))
       (update-everything))))
 
 (defn goto-ep-state-action
   []
   (if @ep-selected
-    (let [id (re-find #"^[A-Z]+" @ep-selected)
-          est (goto-ep-state (:ep-state-tree @or-state) id)
-          ep-state (current-ep-state est)]
-      (dosync (alter or-state assoc :ep-state-tree est
-                     :ep-state (current-ep-state est)))
+    (let [id (re-find #"^[A-Z]+" @ep-selected)]
+      (dosync (alter or-state assoc :est (goto-ep (:est @or-state) id)))
       (update-everything))))
 
 (defn step
@@ -170,16 +144,16 @@
          :on-close :exit
          [:gridx 0 :gridy 0 :gridheight 10 :weightx 1.0 :weighty 1.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
-          _ (doto (JTabbedPane.)
-              (.addTab "Diagram" ((:setup-diagram-fn (:player-fns @problem))))
-              (.addTab "Ep tree" (ep-tree-tab))
-              (.addTab "Logs" (logs-tab))
-              (.addTab "Hyp graph" (hypgraph-tab))
-              (.addTab "Dep graph" (depgraph-tab))
-              ;;(.addTab "Explains graph" (explains-graph-tab))
-              (.addTab "REPL" (repl-tab))
-              (.addTab "Results" (results-tab))
-              (.setSelectedIndex 0))
+          _ (let [tabs (doto (JTabbedPane.)
+                         (.addTab "Diagram" ((:setup-diagram-fn (:player-fns @problem))))
+                         (.addTab "Ep tree" (ep-tree-tab)))]
+              (doseq [t ((:get-tabs-fn (:player-fns @reason)))]
+                (.addTab tabs (first t) (second t)))
+              (doto tabs
+                (.addTab "REPL" (repl-tab))
+                (.addTab "Results" (results-tab))
+                (.setSelectedIndex 0))
+              tabs)
 
           :gridx 1 :gridy 0 :gridheight 1 :gridwidth 2 :weightx 0.0 :weighty 0.0
           _ (combo-box

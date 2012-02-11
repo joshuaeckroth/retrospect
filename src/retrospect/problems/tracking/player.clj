@@ -12,7 +12,7 @@
          [entities-at entity-movements]])
   (:use [retrospect.problems.tracking.truedata :only
          [format-movements-comparative]])
-  (:use [retrospect.colors])
+  (:use [retrospect.problems.tracking.colors])
   (:use [retrospect.state]))
 
 (def resized (atom true)) ;; start at true so that, when loading, widths are calculated
@@ -203,7 +203,7 @@
   []
   (if (<= @time-now 0) ""
       (format-movements-comparative
-       @truedata (:believed-movements (:problem-data (:ep-state @or-state)))
+       @truedata (:accepted (:workspace (:ep-state @or-state)))
        (max 0 @time-prev) @time-now)))
 
 (defn move-str
@@ -214,11 +214,10 @@
 (defn player-get-problem-log
   []
   (let [pdata (:problem-data (:ep-state @or-state))
-        believed-movements (sort-by :time (:believed-movements pdata))
         entities (:entities pdata)
         entity-biases (:entity-biases pdata)
         lines (fn [ss] (apply str (interpose "\n" ss)))]
-    (format "Entity locations:\n%s\n\nBelieved movements:\n%s\n"
+    (format "Entity locations:\n%s"
             (lines (map (fn [e] (let [loc (last (get entities e))]
                                   (format "%s (%s, %s): %d,%d@%d (%s)"
                                           e (color-str (:color loc))
@@ -231,6 +230,4 @@
                                           (if (:loc-hyp loc) (:id (:loc-hyp loc))
                                               "given"))))
                         (sort-by str (AlphanumComparator.)
-                                 (keys entities))))
-            (lines (map move-str
-                        (sort-by :time believed-movements))))))
+                                 (keys entities)))))))

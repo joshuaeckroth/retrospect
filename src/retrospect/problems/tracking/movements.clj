@@ -1,7 +1,7 @@
 (ns retrospect.problems.tracking.movements
   (:require [clojure.contrib.math :as math])
   (:use [retrospect.random])
-  (:use [retrospect.colors]))
+  (:use [retrospect.problems.tracking.colors]))
 
 ;; Entity movements are stored in a map, whose keys are entity
 ;; symbols. An entity symbol has metadata key :color. Also, the
@@ -20,7 +20,7 @@
   (let [last-pos (last (get movements entity))]
     (update-in movements [entity] conj
                {:ox (:x last-pos) :oy (:y last-pos) :ot (:time last-pos)
-                :x x :y y :time time :color (:color last-pos) :bias (:bias last-pos)})))
+                :x x :y y :time time :color (:color last-pos)})))
 
 (defn new-entity
   [movements time]
@@ -29,7 +29,7 @@
         c (my-rand-nth [red blue green])
         b (my-rand-nth [:straight :left :right])
         e (symbol (str (count (keys movements))))]
-    (assoc movements e [{:x x :y y :time time :color c :bias b}])))
+    (assoc movements e [{:x x :y y :time time :color c}])))
 
 (defn dets-match?
   [det det2]
@@ -37,33 +37,6 @@
        (= (:y det) (:y det2))
        (= (:time det) (:time det2))
        (match-color? (:color det) (:color det2))))
-
-(def valid-angle?
-  (memoize
-   (fn [bias x y ox oy oox ooy]
-     (if (or (and (= x ox) (= y oy))
-             (and (= ox oox) (= oy ooy))) true
-         (let [theta (Math/atan2 (- oy ooy) (- ox oox))
-               cos-mult (Math/cos (- theta))
-               sin-mult (Math/sin (- theta))
-               nox (- (* cos-mult ox) (* sin-mult oy))
-               noy (+ (* sin-mult ox) (* cos-mult oy))
-               nx (- (* cos-mult x) (* sin-mult y))
-               ny (+ (* sin-mult x) (* cos-mult y))
-               ntheta (Math/atan2 (- ny noy) (- nx nox))
-               degrees (/ (* ntheta 180.0) 3.1415926)]
-           (cond
-            ;; angle is between -50 and 50 degrees
-            (= bias :straight)
-            (and (< -50 degrees) (> 50 degrees))
-            ;; angle is between -140 and -40 degrees
-            (= bias :left)
-            (and (< -140 degrees) (> -40 degrees))
-            ;; angle is between 40 and 140 degrees
-            (= bias :right)
-            (and (< 40 degrees) (> 140 degrees))
-            ;; otherwise, no bias, any angle is valid
-            :else true))))))
 
 (defn walk-rand
   [[x y]]
@@ -85,7 +58,6 @@
         movs (reverse (get movements entity))
         last-last-pos (second movs)
         last-pos (first movs)
-        bias (:bias last-pos)
         [oox ooy] [(:x last-last-pos) (:y last-last-pos)]
         [ox oy] [(:x last-pos) (:y last-pos)]]
     (loop [attempts 0]
@@ -103,16 +75,14 @@
                        :else (recur (dec i) [nx ny]))))]
         (cond (= attempts 50) (move-entity movements entity ox oy time)
               (and (< x (:width (meta movements))) (>= x 0)
-                   (< y (:height (meta movements))) (>= y 0)
-                   ;; don't check angle if the entity has not made two moves
-                   (or (nil? last-last-pos)
-                       (valid-angle? bias x y ox oy oox ooy)))
+                   (< y (:height (meta movements))) (>= y 0))
               (move-entity movements entity x y time)
               :else (recur (inc attempts)))))))
 
 (defn entity-movements
   [movements entity mintime maxtime]
-  (filter #(and (>= (:time %) mintime) (<= (:time %) maxtime)) (get movements entity)))
+  (filter #(and (>= (:time %) mintime) (<= (:time %) maxtime))
+          (get movements entity)))
 
 (defn entities-at
   [movements x y time]

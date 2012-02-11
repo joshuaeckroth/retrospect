@@ -1,6 +1,6 @@
 (ns retrospect.confidences)
 
-(defn confidence-str
+(defn conf-str
   [conf]
   (if conf (format "%.2f" conf) "?"))
 

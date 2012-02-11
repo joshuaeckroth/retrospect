@@ -1,4 +1,4 @@
-(ns retrospect.gui.hypgraph
+(ns retrospect.reason.abduction.gui.hypgraph
   (:import (java.awt GridBagLayout Insets Graphics Dimension Color))
   (:import (java.awt.image BufferedImage))
   (:import (javax.swing JLabel ImageIcon JViewport))
@@ -9,27 +9,21 @@
   (:use [retrospect.gui.graphs])
   (:use [retrospect.state])
   (:use [retrospect.epistemicstates :only [cur-ep]])
-  (:use [retrospect.workspaces :only [get-hyps]])
-  (:use [retrospect.gui.logs :only [format-hyp-info]]))
+  (:use [retrospect.reason.abduction.workspace :only [get-hyps]])
+  (:use [retrospect.reason.abduction.gui.logs :only [format-hyp-info]]))
 
 (def canvas (ref nil))
 
-(defn get-ep-state
-  []
-  (let [ep (current-ep-state (:ep-state-tree @or-state))]
-    (if (re-find #"\?" (str ep))
-      (previous-ep-state (:ep-state-tree @or-state)) ep)))
-
 (defn listener
   [node]
-  (let [workspace (:workspace (:ep-state (get-ep-state)))
+  (let [workspace (:workspace (cur-ep (:est @or-state)))
         hyp (find-first #(= (:id %) node) (get-hyps workspace :static))]
     (println (format-hyp-info workspace hyp))))
 
 (defn generate-hypgraph
   []
-  (let [ep-state (get-ep-state)
-        hypgraph (:graph-static (:workspace ep-state))]
+  (let [ep (cur-ep (:est @or-state))
+        hypgraph (:graph-static (:workspace ep))]
     (generate-graph hypgraph @canvas listener true)))
 
 (defn hypgraph-tab

@@ -7,7 +7,7 @@
   (:use [retrospect.problems.tracking.sensors :only
          [new-sensor generate-sensors]])
   (:use [retrospect.problems.tracking.movements :only [new-movements move-entity]])
-  (:use [retrospect.colors]))
+  (:use [retrospect.problems.tracking.colors]))
 
 (def basic-params
   {:GridHeight 10, :GridWidth 10, :MaxWalk 10, :Knowledge 100, :Seed 100,
