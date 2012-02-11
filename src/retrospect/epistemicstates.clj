@@ -91,7 +91,7 @@
 
 (defn goto-ep
   [est id]
-  (loop [loc (zip/next (zip/root est))]
+  (loop [loc (zip/down (zip-est (:children (zip/root est))))]
     (cond (zip/end? loc) nil
           (= id (:id (zip/node loc))) loc
           :else (recur (zip/next loc)))))
