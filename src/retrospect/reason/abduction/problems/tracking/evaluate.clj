@@ -4,7 +4,7 @@
   (:use [retrospect.problems.tracking.movements :only [moves-match? dets-match?]]))
 
 (defn true-hyp?
-  [truedata pdata time hyp]
+  [truedata time hyp]
   (let [true-movs (apply concat (vals truedata))]
     (cond (= :movement (:type hyp))
           (some #(moves-match? (:mov hyp) %) true-movs)
@@ -77,8 +77,8 @@
   [accepted rejected time-now sensors truedata]
   (let [true-movs (filter #(and (:ot %) (<= (:time %) time-now))
                           (apply concat (vals truedata)))
-        bel-movs (filter #(= :movement (:type %)) accepted)
-        disbel-movs (filter #(= :movement (:type %)) rejected)
+        bel-movs (map :mov (filter #(= :movement (:type %)) accepted))
+        disbel-movs (map :mov (filter #(= :movement (:type %)) rejected))
         [pec pew] (percent-events-correct-wrong true-movs bel-movs)
         [tp tn fp fn p r s a] (precision-recall true-movs bel-movs disbel-movs)]
     {:PEC pec
