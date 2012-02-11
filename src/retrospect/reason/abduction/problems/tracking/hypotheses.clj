@@ -253,8 +253,7 @@
 
 (defmethod hypothesize [:movement :movement]
   [evidence accepted rejected hyps]
-  (let [pg (build-paths-graph (filter #(= :movement (:type %)) accepted)
-                              (filter #(= :location (:type %)) accepted))
+  (let [pg (build-paths-graph (filter #(= :movement (:type %)) accepted))
         paths (get-paths pg evidence)]
     (filter-existing hyps (for [p paths]
                             (new-hyp "Path" :path :path conflicts

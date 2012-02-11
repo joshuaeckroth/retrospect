@@ -46,7 +46,7 @@
     (reduce change-edge paths-graph-no-det hyp-changes)))
 
 (defn update-colors
-  [paths-graph loc-hyps]
+  [paths-graph]
   (let [grays #(filter (fn [det] (= gray (:color det))) %)]
     (loop [unchecked (grays (nodes paths-graph))
            modified #{}
@@ -57,9 +57,6 @@
                                   modified))
                    #{} g))
         (let [det (first unchecked)
-              heads (filter #(and (= (:x det) (:x %)) (= (:y det) (:y %))
-                                  (= (:time det) (:time %)))
-                            (map :loc loc-hyps))
               in (incoming g det)
               out (neighbors g det)
               count-color (fn [dets color]
@@ -83,21 +80,19 @@
                                        (= 0 c-blue)
                                        (not= 0 c-green))
                                   green))))
-              head-color (single-color heads)
               in-color (single-color in)
               out-color (single-color out)
-              det-color (assoc det :color (or in-color out-color head-color))
-              in-heads-possible (disj
-                                 (apply set/union
-                                        (if (and (empty? heads) (empty? in))
-                                          #{red blue green} #{})
-                                        (map #(set/union
-                                               (if (not= gray (:color %)) #{(:color %)}
-                                                   (if-let [p (attr g % :possible-colors)]
-                                                     p #{red blue green})))
-                                             (concat heads in)))
-                                 gray)
-              out-possible (if (or (empty? out) )
+              det-color (assoc det :color (or in-color out-color))
+              in-possible (disj (apply set/union
+                                       (if (empty? in)
+                                         #{red blue green} #{})
+                                       (map #(set/union
+                                              (if (not= gray (:color %)) #{(:color %)}
+                                                  (if-let [p (attr g % :possible-colors)]
+                                                    p #{red blue green})))
+                                            in))
+                                gray)
+              out-possible (if (empty? out) 
                              #{red blue green}
                              (apply set/union
                                     (map #(set/union
@@ -105,9 +100,9 @@
                                                (if-let [p (attr g % :possible-colors)]
                                                  p #{red blue green})))
                                          out)))
-              possible-colors (set/intersection in-heads-possible out-possible)
+              possible-colors (set/intersection in-possible out-possible)
               prior-possible-colors (attr g det :possible-colors)]
-          (if (or in-color out-color head-color)
+          (if (or in-color out-color)
             (recur (rest unchecked) (conj modified det-color)
                    (change-color g det det-color))
             (if (= possible-colors prior-possible-colors)
@@ -115,41 +110,20 @@
               (recur (rest unchecked) (conj modified det)
                      (add-attr g det :possible-colors possible-colors)))))))))
 
-(defn find-bad-edges
-  [paths-graph loc-hyps]
-  (let [get-heads (fn [det] (filter #(and (= (:x det) (:x %)) (= (:y det) (:y %))
-                                          (= (:time det) (:time %)))
-                                    (map :loc loc-hyps)))]
-    (filter
-     (fn [[det det2]]
-       (let [heads-det (get-heads det)
-             heads-det2 (get-heads det2)
-             possible-match?
-             (fn [det det-other]
-               (let [pc (attr paths-graph det :possible-colors)]
-                 (if (not-empty pc)
-                   (some #(match-color? (:color det-other) %) pc)
-                   (match-color? (:color det) (:color det-other)))))]
-         (or
-          (and (not-empty heads-det)
-               (every? #(not (possible-match? det %)) heads-det))
-          (and (not-empty heads-det2)
-               (every? #(not (possible-match? det2 %)) heads-det2))
-          (not (possible-match? det det2))
-          (not (possible-match? det2 det)))))
-     (edges paths-graph))))
-
-(defn remove-inconsistent-edges
-  [paths-graph loc-hyps]
-  (let [bad-edges (find-bad-edges paths-graph loc-hyps)]
-    (apply remove-edges paths-graph bad-edges)))
+(def pg-cache [#{} nil])
 
 (defn build-paths-graph
-  [mov-hyps loc-hyps]
-  (let [pg-inconsistent (reduce (fn [g h] (paths-graph-add-edge g h h))
-                                (digraph) mov-hyps)
-        pg-updated-colors (update-colors pg-inconsistent loc-hyps)]
-    (remove-inconsistent-edges pg-updated-colors loc-hyps)))
+  [mov-hyps]
+  (let [ms (set mov-hyps)
+        mov-rm (set/difference (first pg-cache) ms)
+        mov-add (set/difference ms (first pg-cache))
+        pg-removed (remove-edges (or (second pg-cache) (digraph))
+                                 (map (fn [h] [(:det h) (:det2 h)]) mov-rm))
+        pg-added (reduce (fn [g h] (paths-graph-add-edge g h h))
+                         pg-removed mov-add)
+        pg (update-colors pg-added)]
+    (def pg-cache [ms pg])
+    pg))
 
 (defn path-str
   [dets]
