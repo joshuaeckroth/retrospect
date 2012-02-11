@@ -81,13 +81,12 @@
   (format (str "%s\n\nExplains: %s\n\nExplainers: %s\n\n"
                "Conflicts: %s\n\nApriori: %s\nConfidence: %s\n\nLog:\n%s")
           (:desc hyp)
-          (commas (ws/find-explains workspace hyp params :static))
+          (commas (:explains hyp))
           (apply str
                  (interpose ", "
                             (map #(format "[%s]" %)
-                                 (map commas (ws/find-explainers workspace hyp
-                                                                 params :static)))))
-          (commas (ws/find-conflicts workspace hyp params :static))
+                                 (map commas (ws/find-explainers workspace hyp)))))
+          (commas (ws/find-conflicts workspace hyp))
           (conf-str (:apriori hyp))
           (conf-str (ws/hyp-conf workspace hyp))
           (apply str (interpose "\n" (ws/hyp-log workspace hyp)))))
@@ -112,7 +111,7 @@
   (hyp-info workspace hyp))
 
 (comment
-  starts (set/difference (ws/get-hyps workspace :static) (:forced workspace))
+  starts (set/difference (ws/get-hyps workspace) (:forced workspace))
   dep-analysis (apply str (map (fn [[s hyps]]
                                  (format "%s: %s\n" (:id s)
                                          (apply str (interpose ", " (map :id (sort-by :id hyps)))))) (filter (comp not-empty second) (analyze-dependency @or-state hyp starts)))))
@@ -138,7 +137,7 @@
         (dosync (alter workspace-log (constantly (get (:meta-logs @or-state) (:id ep-state)))))
         (do
           (swap! workspace-selected (constantly ws))
-          (let [hyp (if ws (find-first #(= (:id %) last-comp) (ws/get-hyps ws :static)))]
+          (let [hyp (if ws (find-first #(= (:id %) last-comp) (ws/get-hyps ws)))]
             (swap! hyp-selected (constantly hyp))
             (if hyp
               (dosync (alter workspace-log (constantly (format-hyp-info ws hyp))))
@@ -175,8 +174,7 @@
    (alter problem-log (constantly ((:get-problem-log (:player-fns @problem)))))
    (alter hyp-choices
           (constantly (sort (AlphanumComparator.)
-                            (map :id (ws/get-hyps (:workspace (cur-ep (:est @or-state)))
-                                                  :static)))))
+                            (map :id (ws/get-hyps (:workspace (cur-ep (:est @or-state))))))))
    (alter abduction-tree-map
           (constantly (build-abduction-tree-map @or-state))))
   (. problem-log-label setText (format "Problem log for: %s" (str (cur-ep (:est @or-state)))))

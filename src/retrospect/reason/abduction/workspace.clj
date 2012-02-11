@@ -41,34 +41,22 @@
   [workspace hyp]
   (get (:hyp-log workspace) hyp))
 
-(defn get-hyps
-  [workspace & opts]
-  (if (some #{:static} opts)
-    (nodes (:graph-static workspace))
-    (nodes (:graph workspace))))
-
-(defn find-explains
-  [workspace hyp & opts]
-  (if (some #{:static} opts)
-    (neighbors (:graph-static workspace) hyp)
-    (neighbors (:graph workspace) hyp)))
-
-(defn find-explainers
-  [workspace hyp & opts]
-  (let [g (if (some #{:static} opts)
-            (:graph-static workspace)
-            (:graph workspace))]
-    (vals (group-by :type (sort-by :id (incoming g hyp))))))
-
-;; TODO: fix
-(defn find-no-explainers
-  [workspace]
-  (let [g (:graph-static workspace)]
-    (set (filter #(empty? (incoming g %)) (:forced workspace)))))
-
 (defn hyp-conf
   [workspace hyp]
   (get (:hyp-confidences workspace) hyp))
+
+(defn get-hyps
+  [workspace]
+  (:hypotheses workspace))
+
+(defn find-explainers
+  [workspace hyp]
+  (vals (group-by :type (sort-by :id (filter (fn [h] (some #{hyp} (:explains h)))
+                                             (:hypotheses workspace))))))
+
+(defn find-no-explainers
+  [workspace]
+  (set (filter #(empty? (find-explainers workspace %)) (:forced workspace))))
 
 (defn compare-by-conf
   "Since we are using probabilities, smaller value = less confidence. We want
@@ -109,16 +97,12 @@
 
 (defn find-all-explainers
   [workspace]
-  (let [g (:graph workspace)
-        explainers (mapcat
-                    (fn [h]
-                      (let [hyps (filter #(not ((:accepted workspace) %))
-                                         (incoming g h))
-                            grouped (group-by :type hyps)]
-                        (map (fn [expl] {:hyp h :explainers expl}) (vals grouped))))
-                    (:unexplained workspace))]
-    (sort-by (comp :id :hyp)
-             (filter (comp first :explainers) explainers))))
+  (sort-by (comp :id first)
+           (filter (comp first :explainers)
+                   (mapcat (fn [h] (map (fn [expl] {:hyp h :explainers expl})
+                                        (vals (group-by :type
+                                                        (get (:explainers workspace) h)))))
+                           (keys (:explainers workspace))))))
 
 (defn normalize-confidences
   "Normalize the apriori confidences of a collection of hyps.
@@ -149,77 +133,86 @@
           workspace explainers))
 
 (defn find-conflicts
-  "If a hypothesis's :conflict value is a function (a predicate), that function
+  [workspace hyp]
+  [])
+
+(comment
+  (defn find-conflicts
+    "If a hypothesis's :conflict value is a function (a predicate), that function
    is called with the hyp and each other hyp. If the :conflict value is
    a keyword, the conflicts of a hyp are those other hyps that share the
    :conflict keyword, except if the keyword is :shared-explains. In that case,
    the hyp conflicts with any other that also indicates :shared-explains and
    shares at least one explainer."
-  [workspace hyp & opts]
-  (let [g (if (some #{:static} opts)
-            (:graph-static workspace)
-            (:graph workspace))
-        ;; can't conflict with what it explains or what explains it
-        hyps (set/difference (nodes g) (incoming g hyp) (neighbors g hyp))
-        c (:conflict hyp)]
-    (cond
-      ;; no conflict id; so it conflicts with nothing
-      (nil? c) []
+    [workspace hyp & opts]
+    (let [g (if (some #{:static} opts)
+              (:graph-static workspace)
+              (:graph workspace))
+          ;; can't conflict with what it explains or what explains it
+          hyps (set/difference (nodes g) (incoming g hyp) (neighbors g hyp))
+          c (:conflict hyp)]
+      (cond
+       ;; no conflict id; so it conflicts with nothing
+       (nil? c) []
 
-      ;; we have a function (predicate), so call the function on other hyps
-      (fn? c) (filter #(and (not= % hyp) (c hyp %)) hyps)
+       ;; we have a function (predicate), so call the function on other hyps
+       (fn? c) (filter #(and (not= % hyp) (c hyp %)) hyps)
 
-      ;; :shared-explains conflict id; may conflict with other hyps
-      ;; that have :shared-explains id
-      (= c :shared-explains)
-      (let [other-hyps (filter #(and (not= % hyp)
-                                     (= :shared-explains (:conflict %)))
-                               hyps)]
-        ;; :shared-explains hyps conflict if they shared an explains
-        ;; link (neighbor)
-        (filter #(not-empty (set/intersection (neighbors g %)
-                                              (neighbors g hyp)))
-                other-hyps))
-      ;; otherwise, hyps conflict if their conflict ids are identical
-      :else
-      (filter #(and (not= % hyp) (= c (:conflict %))) hyps))))
+       ;; :shared-explains conflict id; may conflict with other hyps
+       ;; that have :shared-explains id
+       (= c :shared-explains)
+       (let [other-hyps (filter #(and (not= % hyp)
+                                      (= :shared-explains (:conflict %)))
+                                hyps)]
+         ;; :shared-explains hyps conflict if they shared an explains
+         ;; link (neighbor)
+         (filter #(not-empty (set/intersection (neighbors g %)
+                                               (neighbors g hyp)))
+                 other-hyps))
+       ;; otherwise, hyps conflict if their conflict ids are identical
+       :else
+       (filter #(and (not= % hyp) (= c (:conflict %))) hyps)))))
+
+(defn add-explainer
+  [workspace hyp]
+  (reduce (fn [ws h] (update-in ws [:explainers h] conj hyp))
+          workspace (:explains hyp)))
+
+(defn remove-explainer
+  [workspace hyp]
+  (reduce (fn [ws h] (update-in ws [:explainers h] disj hyp))
+          workspace (:explains hyp)))
 
 (defn add
   [workspace hyp]
-  (let [expl (filter (nodes (get workspace :graph)) (:explains hyp))
-        expl-static (filter (nodes (get workspace :graph-static)) (:explains hyp))
-        g-added-static (reduce (fn [g n] (-> g (add-nodes n)
-                                             (add-attr n :id (:id n))
-                                             (add-attr n :label (:id n))))
-                               (:graph-static workspace)
-                               (conj expl-static hyp))
-        g-edges-static (reduce (fn [g e] (add-edges g [hyp e]))
-                               g-added-static expl-static)
-        g-added (reduce (fn [g n] (-> g (add-nodes n)
+  (let [g-added (reduce (fn [g n] (-> g (add-nodes n)
                                       (add-attr n :id (:id n))
                                       (add-attr n :label (:id n))))
-                        (:graph workspace) (conj expl hyp))
-        g-edges (reduce (fn [g e] (add-edges g [hyp e])) g-added expl)]
-    (-> workspace
-        (assoc :graph-static g-edges-static)
+                        (:graph workspace)
+                        (conj (:explains hyp) hyp))
+        g-edges (reduce (fn [g e] (add-edges g [hyp e]))
+                        g-added (:explains hyp))]
+    (-> (add-explainer workspace hyp)
         (assoc :graph g-edges)
         (assoc-in [:hyp-confidences hyp] (:apriori hyp))
+        (update-in [:hypotheses] conj hyp)
         (update-in [:resources :hypothesis-count] inc)
-        (update-in [:log :added] conj {:hyp hyp :explains expl}))))
+        (update-in [:log :added] conj {:hyp hyp :explains (:explains hyp)}))))
 
 (defn reject-many
   [workspace hyps]
   (let [accepted (:accepted workspace)
         rejectable (filter #(not (accepted %)) hyps)]
     (-> (reduce (fn [ws hyp]
-                  (update-in ws [:hyp-log hyp] conj
-                             (format "Rejected in cycle %d" (:cycle workspace))))
+                  (-> ws
+                      (remove-explainer hyp)
+                      (update-in [:hyp-log hyp] conj
+                                 (format "Rejected in cycle %d" (:cycle workspace)))))
                 workspace rejectable)
-        (update-in [:graph-static]
+        (update-in [:graph]
                    #(reduce (fn [g r] (-> g (add-attr r :fontcolor "red")
                                           (add-attr r :color "red")))
                             % rejectable))
-        (update-in [:graph] #(apply remove-nodes % rejectable))
         (update-in [:rejected] set/union (set rejectable))
         (update-in [:log :final :rejected] concat rejectable))))
 
@@ -232,15 +225,14 @@
                 (format "Accepted in cycle %d (alts: %s)"
                         (:cycle workspace) (commas (map :id alts))))
                (update-in [:accepted] conj hyp)
-               (update-in [:unexplained] set/difference
-                          (neighbors (:graph workspace) hyp))
-               (update-in [:unexplained] conj hyp)
-               (update-in [:graph-static] add-attr hyp :fontcolor "green")
-               (update-in [:graph-static] add-attr hyp :color "green"))
+               (update-in [:graph] add-attr hyp :fontcolor "green")
+               (update-in [:graph] add-attr hyp :color "green"))
+        ws-expl (reduce (fn [ws2 h] (update-in ws2 [:explainers] dissoc h))
+                        ws (:explains hyp))
         ws-alts (reduce (fn [ws2 alt] (update-in ws2 [:hyp-log alt] conj
                                                  (format "Alternate in cycle %d"
                                                          (:cycle workspace))))
-                        ws alts)
+                        ws-expl alts)
         conflicts (find-conflicts ws-alts hyp)
         ws-rejected (reject-many ws-alts conflicts)]
     (update-in ws-rejected [:log :accrej (:cycle workspace)] conj
@@ -249,13 +241,13 @@
 (defn add-fact
   [workspace hyp]
   (-> (add workspace hyp)
-      (update-in [:unexplained] conj hyp)
       (update-in [:forced] conj hyp)
       (update-in [:log :forced] conj hyp)
       (update-in [:accepted] conj hyp)
       (update-in [:log :accepted] conj hyp)
-      (update-in [:graph-static] add-attr hyp :fontcolor "gray50")
-      (update-in [:graph-static] add-attr hyp :color "gray50")))
+      (assoc-in [:explainers hyp] #{})
+      (update-in [:graph] add-attr hyp :fontcolor "gray50")
+      (update-in [:graph] add-attr hyp :color "gray50")))
 
 (defn reset-confidences
   [workspace]
@@ -295,7 +287,7 @@
   (let [ws (assoc-in workspace [:log :final]
                      {:accepted (:accepted workspace)
                       :rejected (:rejected workspace)
-                      :unexplained (:unexplained workspace)
+                      :unexplained (keys (:explainers workspace))
                       :no-explainers (find-no-explainers workspace)
                       :unaccepted (set/difference
                                    (get-hyps workspace)
@@ -332,12 +324,12 @@
                  (map (fn [h] ((:hypothesize-fn (:abduction @problem)) h
                                (:accepted workspace) (:rejected workspace)
                                (get-hyps workspace)))
-                      (sort-by :id (:unexplained workspace))))))
+                      (sort-by :id (keys (:explainers workspace)))))))
 
 (defn explain
   [workspace]
   (loop [ws workspace]
-    (if (empty? (:unexplained ws)) (log-final ws [])
+    (if (empty? (:explainers ws)) (log-final ws [])
         (let [explainers (find-all-explainers ws)]
           (if (empty? explainers)
             (if-let [hs (get-more-hyps ws)]
@@ -419,8 +411,8 @@
   []
   (add-kb
    {:graph (digraph)
-    :graph-static (digraph)
     :cycle 0
+    :hypotheses #{}
     :hyp-confidences {}
     :log {:added [] :forced [] :best [] :accrej {}
           :final {:accepted [] :rejected []
@@ -428,7 +420,7 @@
           :doubt nil}
     :hyp-log {}
     :conf nil
-    :unexplained #{}
+    :explainers {}
     :accepted #{}
     :forced #{}
     :rejected #{}

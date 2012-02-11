@@ -17,13 +17,13 @@
 (defn listener
   [node]
   (let [workspace (:workspace (cur-ep (:est @or-state)))
-        hyp (find-first #(= (:id %) node) (get-hyps workspace :static))]
+        hyp (find-first #(= (:id %) node) (get-hyps workspace))]
     (println (format-hyp-info workspace hyp))))
 
 (defn generate-hypgraph
   []
   (let [ep (cur-ep (:est @or-state))
-        hypgraph (:graph-static (:workspace ep))]
+        hypgraph (:graph (:workspace ep))]
     (generate-graph hypgraph @canvas listener true)))
 
 (defn hypgraph-tab
