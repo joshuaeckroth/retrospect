@@ -15,9 +15,9 @@
      :est est}))
 
 (defn proceed-ors
-  [ors ep sensors ms]
+  [ors ep sensors time-now ms]
   (-> ors
-      (update-in [:est] #(new-child-ep (update-est % ep)))
+      (update-in [:est] #(new-child-ep (update-est % ep) time-now))
       (assoc :sensors sensors)
       (update-in [:resources :milliseconds] + ms)))
 
@@ -40,7 +40,7 @@
         ep-reason (update-in ep [:workspace] (:reason-fn @reason) time time-now sensors)
         ;; stop the clock
         ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
-        ors-next (proceed-ors ors ep-reason sensors ms)
+        ors-next (proceed-ors ors ep-reason sensors time-now ms)
         ors-results ((:evaluate-fn @reason) truedata ors-next)]
     (when (not player?)
       (.write System/out (int \.))) (.flush System/out)
