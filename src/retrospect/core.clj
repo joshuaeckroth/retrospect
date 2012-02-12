@@ -9,14 +9,13 @@
   (:use [retrospect.database :only [read-params]])
   (:use [retrospect.reason.abduction.reason :only [reason-abduction]])
   (:use [retrospect.problems.tracking.problem :only [tracking-problem]])
-  #_(:use [retrospect.reason.abduction.problems.words.problem :only [words-problem]])
+  (:use [retrospect.problems.words.problem :only [words-problem]])
   #_(:use [retrospect.reason.abduction.problems.causal.problem :only [causal-problem]])
   (:use [retrospect.records :only [run-with-new-record]])
   (:use [retrospect.explore :only [explore]])
   (:use [retrospect.player :only [start-player]])
   (:use [retrospect.bugreport]))
 
-(def words-problem)
 (def causal-problem)
 
 (defn choose-problem

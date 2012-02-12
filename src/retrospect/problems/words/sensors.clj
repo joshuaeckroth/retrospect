@@ -5,7 +5,7 @@
 
 (defn sense
   [sensor truedata time]
-  (add-sensed sensor time (get truedata time)))
+  (add-sensed sensor time [(get truedata time)]))
 
 (defn generate-sensors
   []

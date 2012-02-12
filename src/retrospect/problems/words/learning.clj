@@ -1,8 +1,6 @@
 (ns retrospect.problems.words.learning
   (:use [retrospect.state]))
 
-(def alphabet (map char (range 97 (+ 97 26))))
-
 (defn get-letter-trans-freqs
   [word n]
   (let [gs (partition n 1 (seq word))]
