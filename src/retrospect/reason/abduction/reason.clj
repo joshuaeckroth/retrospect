@@ -21,7 +21,11 @@
                         (merge {:Knowledge [80 [40 60 80 100]]
                                 :BelievedKnowledge [80 [40 60 80 100]]
                                 :Metareasoning ["NoMetareasoning" ["NoMetareasoning"]]
-                                :Threshold [20 [0 10 20 30]]}
+                                :Threshold [20 [0 10 20 30]]
+                                :AnalyzeSensitivity [false [false]]
+                                :AnalyzeDeps [false [false]]
+                                :ProbPerturb [25 [25]]
+                                :Learn [true [true false]]}
                                (:default-params (:abduction @problem))))
    :init-workspace-fn init-workspace
    :player-fns
