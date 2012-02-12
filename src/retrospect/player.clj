@@ -84,7 +84,7 @@
     (when (not prepared?)
       (let [ps (merge-default-params (read-string @params-edit))]
         (alter-var-root (var params) (constantly ps))
-        (.put @prefs (format "%s-params" (:name @problem)) (pr-str ps))
+        (.put @prefs (format "%s-%s-params" (:name @reason) (:name @problem)) (pr-str ps))
         (dosync (alter params-edit (constantly (format-params ps))))
         (let [seed (if (:Seed ps) (:Seed ps) (get-seed))]
           (alter-var-root (var rgen) (constantly (new-seed seed))))
@@ -108,7 +108,7 @@
           sens (:sensors prepared)]
       (dosync (alter params-edit (constantly (format-params ps))))
       (alter-var-root (var params) (constantly ps))
-      (.put @prefs (format "%s-params" (:name @problem)) (pr-str ps))
+      (.put @prefs (format "%s-%s-params" (:name @reason) (:name @problem)) (pr-str ps))
       (alter-var-root (var rgen) (constantly (new-seed seed)))
       (set-last-id 0)
       (dosync
@@ -126,7 +126,7 @@
 
 (defn step
   []
-  (let [ors (run-simulation-step @truedata @or-state false true)]
+  (let [ors (run-simulation-step @truedata @or-state true)]
     (dosync (alter or-state (constantly ors)))
     (update-everything)))
 
@@ -140,7 +140,7 @@
   (frame :title "Player"
          :layout (GridBagLayout.)
          :constrains (java.awt.GridBagConstraints.)
-         :size [1000 700]
+         :size [800 600]
          :show true
          :on-close :exit
          [:gridx 0 :gridy 0 :gridheight 10 :weightx 1.0 :weighty 1.0
@@ -208,12 +208,5 @@
   (dosync (alter params-edit (constantly (format-params params))))
 
   (let [options (apply hash-map opts)]
-    (when (:monitor options)
-      (dosync
-       (alter or-state (constantly (:or-state options)))
-       (alter sensors (constantly (:sensors options)))
-       (alter truedata (constantly (:truedata options))))
-      (update-everything))
-    (when (not (:monitor options))
-      (new-simulation))
+    (new-simulation)
     (mainframe)))
