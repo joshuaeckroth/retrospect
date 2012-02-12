@@ -11,15 +11,12 @@
   (:use [retrospect.problems.tracking.player :only
          [player-get-stats-panel player-update-stats player-get-truedata-log
           player-get-problem-log player-setup-diagram player-update-diagram]])
-  (:use [retrospect.reason.abduction.problems.tracking.monitor :only
-         [monitor]])
   (:use [retrospect.problems.tracking.prepared :only
          [prepared-map]])
   (:use [retrospect.state]))
 
 (def tracking-problem
   {:name "Tracking"
-   :monitor monitor
    :player-fns {:get-stats-panel-fn player-get-stats-panel
                 :update-stats-fn player-update-stats
                 :get-truedata-log player-get-truedata-log
@@ -50,7 +47,4 @@
     :NumberEntities [4 [2 4 6]]
     :MaxWalk [10 [1 2 3 4 5 6 7 8 9 10]]
     :SensorSeesColor [60 [0 20 40 60 80 100]]
-    :SensorCoverage [100 [100]]
-    :AnalyzeSensitivity [false [false]]
-    :AnalyzeDeps [false [false]]
-    :ProbPerturb [25 [25]]}})
+    :SensorCoverage [100 [100]]}})

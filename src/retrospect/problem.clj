@@ -30,7 +30,7 @@
           (recur (inc t) sens2)))))
 
 (defn run-simulation-step
-  [truedata ors monitor? player?]
+  [truedata ors player?]
   (let [time (or (:time (cur-ep (:est ors))) 0)
         time-now (min (:Steps params) (+ (:StepsBetween params) time))
         sensors (update-sensors-from-to time time-now truedata (:sensors ors))
@@ -43,20 +43,16 @@
         ors-next (proceed-ors ors ep-reason sensors time-now ms)
         ors-results ((:evaluate-fn @reason) truedata ors-next)]
     (when (not player?)
-      (.write System/out (int \.))) (.flush System/out)
-    (if (and (not player?) monitor?)
-      ((:monitor-fn @problem) truedata sensors ors-results)
-      ors-results)))
+      (.write System/out (int \.)) (.flush System/out))
+    ors-results))
 
 (defn run-simulation
-  [truedata or-state monitor?]
+  [truedata or-state]
   (loop [ors or-state]
     (dosync (alter retrospect.state/or-state (constantly ors)))
-    (when (nil? ors)
-      (throw (ExecutionException. "Monitor took control." (Throwable.))))
     (if (>= (:time (cur-ep (:est ors))) (:Steps params))
       (do (println "") (:results ors))
-      (recur (run-simulation-step truedata ors monitor? false)))))
+      (recur (run-simulation-step truedata ors false)))))
 
 (defn get-default-params-ranges
   []
@@ -76,7 +72,7 @@
     (merge default params)))
 
 (defn run
-  [comparative? monitor? params]
+  [comparative? params]
   (if comparative?
     ;; if comparative, run two simulations
     (let [[control-params comparison-params] (map merge-default-params params)
@@ -90,7 +86,7 @@
               (println "Control:" (pr-str control-params))
               (map (fn [rs] (assoc rs :control-params (pr-str control-params)
                                    :comparison-params (pr-str comparison-params)))
-                   (run-simulation control-truedata control-ors monitor?))))
+                   (run-simulation control-truedata control-ors))))
           comparison-results
           (binding [rgen (new-seed (:Seed comparison-params))
                     last-id 0
@@ -102,7 +98,7 @@
               (map (fn [rs] (assoc rs
                               :control-params (pr-str control-params)
                               :comparison-params (pr-str comparison-params)))
-                   (run-simulation comparison-truedata comparison-ors monitor?))))]
+                   (run-simulation comparison-truedata comparison-ors))))]
       [control-results comparison-results
        (map (fn [rs] (assoc rs
                        :control-params (pr-str (first params))
@@ -119,5 +115,5 @@
               ors (init-ors sensors)]
           (println "Params:" (pr-str params))
           (map (fn [rs] (assoc rs :params (pr-str params)))
-               (run-simulation truedata ors monitor?)))))))
+               (run-simulation truedata ors)))))))
 
