@@ -5,7 +5,7 @@
   (:use [loom.alg-generic :only [dijkstra-span]])
   (:use [retrospect.epistemicstates :only [cur-ep]])
   (:use [retrospect.reason.abduction.workspace
-         :only [get-unexp-pct get-noexp-pct hyp-conf get-hyps]])
+         :only [get-unexp-pct get-noexp-pct hyp-conf]])
   #_(:use [retrospect.reason.abduction.robustness
          :only [analyze-sensitivity analyze-dependency-quick]])
   (:use [retrospect.state]))
@@ -105,9 +105,7 @@
         workspace (:workspace ep)
         accepted (:accepted workspace)
         rejected (:rejected workspace)
-        final-log (:final (:log workspace))
-        ors-resources (:resources ors)
-        ws-resources (:resources workspace)]
+        ors-resources (:resources ors)]
     (update-in
      ors [:results] conj
      (merge {:Problem (:name @problem)}
@@ -145,8 +143,8 @@
              :Milliseconds (:milliseconds ors-resources) 
              :UnexplainedPct (get-unexp-pct (:workspace ep))
              :NoExplainersPct (get-noexp-pct (:workspace ep))
-             :ExplainCycles (:explain-cycles ws-resources)
-             :HypothesisCount (:hypothesis-count ws-resources)}))))
+             :ExplainCycles (:cycle workspace)
+             :HypothesisCount (reduce + (map count (:hypotheses workspace)))}))))
 
 (comment              :DeepestDep (if-not (:AnalyzeDeps params) 0
                                  (calc-deepest-dep (:depgraph ep))))

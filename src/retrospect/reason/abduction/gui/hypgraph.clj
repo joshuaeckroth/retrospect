@@ -9,7 +9,6 @@
   (:use [retrospect.gui.graphs])
   (:use [retrospect.state])
   (:use [retrospect.epistemicstates :only [cur-ep]])
-  (:use [retrospect.reason.abduction.workspace :only [get-hyps]])
   (:use [retrospect.reason.abduction.gui.logs :only [format-hyp-info]]))
 
 (def canvas (ref nil))
@@ -17,7 +16,7 @@
 (defn listener
   [node]
   (let [workspace (:workspace (cur-ep (:est @or-state)))
-        hyp (find-first #(= (:id %) node) (get-hyps workspace))]
+        hyp (find-first #(= (:id %) node) (apply concat (vals (:hypotheses workspace))))]
     (println (format-hyp-info workspace hyp))))
 
 (defn generate-hypgraph

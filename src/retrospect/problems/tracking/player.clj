@@ -212,8 +212,8 @@
   ;; TODO: fix so it's not specific to abduction
   (if (<= @time-now 0) ""
       (format-movements-comparative
-       @truedata (map :mov (filter #(= :movement (:type %))
-                                   (:accepted (:workspace (cur-ep (:est @or-state))))))
+       @truedata (map :mov (get (:accepted (:workspace (cur-ep (:est @or-state))))
+                                :movement))
        (max 0 @time-prev) @time-now)))
 
 (defn move-str

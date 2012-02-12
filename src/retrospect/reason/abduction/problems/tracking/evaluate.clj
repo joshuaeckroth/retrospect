@@ -76,8 +76,8 @@
   [accepted rejected time-now sensors truedata]
   (let [true-movs (filter #(and (:ot %) (<= (:time %) time-now))
                           (apply concat (vals truedata)))
-        bel-movs (map :mov (filter #(= :movement (:type %)) accepted))
-        disbel-movs (map :mov (filter #(= :movement (:type %)) rejected))
+        bel-movs (map :mov (get accepted :movement))
+        disbel-movs (map :mov (get rejected :movement))
         [pec pew] (percent-events-correct-wrong true-movs bel-movs)
         [tp tn fp fn p r s a] (precision-recall true-movs bel-movs disbel-movs)]
     {:PEC pec

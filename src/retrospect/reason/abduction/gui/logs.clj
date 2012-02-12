@@ -35,41 +35,39 @@
         list-hyps #(apply sorted-map-by (AlphanumComparator.)
                           (mapcat (fn [h] [(:id h) nil]) %))
         ep-states (flatten-est est)
-        ws-fn (fn [wslog]
-                {"Added" (list-hyps (map :hyp (:added wslog)))
-                 "Forced" (list-hyps (:forced wslog))
-                 "Cycles" (apply sorted-map-by (AlphanumComparator.)
-                                 (mapcat (fn [i]
-                                           (let [b (nth (:best wslog) i)
-                                                 ;; seq of {:acc :rej} pairs (maps)
-                                                 ars (get (:accrej wslog) (inc i))]
-                                             [(format "Cycle %d (%s)%s" (inc i)
-                                                      (if (:essential? b)
-                                                        "essential"
-                                                        (format "delta %.2f"
-                                                                (:delta b)))
-                                                      (if (:transitive? b)
-                                                        " (trans)" ""))
-                                              {"Best"
-                                               {(:id (:best b)) nil}
-                                               "Explained"
-                                               {(:id (:explained b)) nil}
-                                               "Accepted"
-                                               (list-hyps (disj (set (map :acc ars))
-                                                                (:best b)))
-                                               "Alternatives"
-                                               (list-hyps (:alts b))
-                                               "Rejected"
-                                               (list-hyps (mapcat :rej ars))}]))
-                                         (range (count (:best wslog)))))
-                 "Final" {"Accepted" (list-hyps (:accepted (:final wslog)))
-                          "Rejected" (list-hyps (:rejected (:final wslog)))
-                          "No explainers" (list-hyps (:no-explainers (:final wslog)))
-                          "Unexplained" (list-hyps (:unexplained (:final wslog)))
-                          "Unaccepted" (list-hyps (:unaccepted (:final wslog)))}})]
+        ws-fn (fn [ws]
+                (let [wslog (:log ws)]
+                  {"Forced" (list-hyps (:forced ws))
+                   "Cycles" (apply sorted-map-by (AlphanumComparator.)
+                                   (mapcat (fn [i]
+                                             (let [b (nth (:best wslog) i)
+                                                   ;; seq of {:acc :rej} pairs (maps)
+                                                   ars (get (:accrej wslog) (inc i))]
+                                               [(format "Cycle %d %s" (inc i)
+                                                        (if (:essential? b)
+                                                          "essential"
+                                                          (format "delta %.2f"
+                                                                  (:delta b))))
+                                                {"Best"
+                                                 {(:id (:best b)) nil}
+                                                 "Explained"
+                                                 {(:id (:explained b)) nil}
+                                                 "Accepted"
+                                                 (list-hyps (disj (set (map :acc ars))
+                                                                  (:best b)))
+                                                 "Alternatives"
+                                                 (list-hyps (:alts b))
+                                                 "Rejected"
+                                                 (list-hyps (mapcat :rej ars))}]))
+                                           (range (count (:best wslog)))))
+                   "Accepted" (list-hyps (apply concat (vals (:accepted ws))))
+                   "Rejected" (list-hyps (apply concat (vals (:rejected ws))))
+                   "No explainers" (list-hyps (:no-explainers wslog))
+                   "Unexplained" (list-hyps (:unexplained wslog))
+                   "Unaccepted" (list-hyps (:unaccepted wslog))}))]
     (apply sorted-map-by (AlphanumComparator.)
-           (mapcat (fn [ep] [(str ep) {"Workspace" (ws-fn (:log (:workspace ep)))
-                                       "Meta-Log" nil}])
+           (mapcat (fn [ep] [(str ep) (merge (ws-fn (:workspace ep))
+                                             {"Meta-Log" nil})])
                    ep-states))))
 
 (defn commas
@@ -87,7 +85,7 @@
                             (map #(format "[%s]" %)
                                  (map commas                                      
                                       (vals (group-by :type
-                                                      (ws/find-explainers workspace hyp)))))))
+                                                      (get (:explainers workspace) hyp)))))))
           (commas (ws/find-conflicts workspace hyp))
           (conf-str (:apriori hyp))
           (conf-str (ws/hyp-conf workspace hyp))
@@ -100,13 +98,12 @@
                                      expl))
           (lines [ss] (apply str (interpose "\n" ss)))
           (expls [explainers]
-            (lines (map (fn [{hyp :hyp expl :explainers}]
+            (lines (map (fn [{hyp :hyp expl :expl}]
                           (format "%s: %s" (:id hyp)
                                   (apply str (interpose ", " (expl-id-confs expl)))))
                         explainers)))]
-    (format "Final immediate explainers:\n\n%s\n\nFinal transitive explainers:\n\n%s"
-            (expls (:last-immediate-explainers (:final (:log workspace))))
-            (expls (:last-transitive-explainers (:final (:log workspace)))))))
+    (format "Final explainers:\n\n%s"
+            (expls (:last-explainers (:log workspace))))))
 
 (defn format-hyp-info
   [workspace hyp]
@@ -139,7 +136,8 @@
         (dosync (alter workspace-log (constantly (get (:meta-logs @or-state) (:id ep-state)))))
         (do
           (swap! workspace-selected (constantly ws))
-          (let [hyp (if ws (find-first #(= (:id %) last-comp) (ws/get-hyps ws)))]
+          (let [hyp (if ws (find-first #(= (:id %) last-comp)
+                                       (apply concat (vals (:hypotheses ws)))))]
             (swap! hyp-selected (constantly hyp))
             (if hyp
               (dosync (alter workspace-log (constantly (format-hyp-info ws hyp))))
@@ -176,7 +174,7 @@
    (alter problem-log (constantly ((:get-problem-log (:player-fns @problem)))))
    (alter hyp-choices
           (constantly (sort (AlphanumComparator.)
-                            (map :id (ws/get-hyps (:workspace (cur-ep (:est @or-state))))))))
+                            (map :id (apply concat (vals (:hypotheses (:workspace (cur-ep (:est @or-state))))))))))
    (alter abduction-tree-map
           (constantly (build-abduction-tree-map @or-state))))
   (. problem-log-label setText (format "Problem log for: %s" (str (cur-ep (:est @or-state)))))

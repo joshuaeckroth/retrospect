@@ -203,7 +203,7 @@
 
 (defn get-walk-dist
   [accepted]
-  (:walk-dist (find-first #(= :kb (:type %)) accepted)))
+  (:walk-dist (first (get accepted :kb))))
 
 (defmulti hypothesize
   (fn [evidence accepted rejected hyps] [(:type evidence) (:subtype evidence)]))
@@ -212,7 +212,22 @@
 
 (defn filter-existing
   [hyps hs]
-  (filter (fn [h] (not-any? (fn [h2] (hyps-equal? h h2)) hyps)) hs))
+  (filter (fn [h] (not-any? (fn [h2] (hyps-equal? h h2)) (get hyps (:type h)))) hs))
+
+(defn filter-valid-movs
+  [mov-hyps accepted]
+  (let [acc-mov-hyps (get accepted :movement)
+        match-loc (fn [det det2] (and (= (:x det) (:x det2))
+                                      (= (:y det) (:y det2))
+                                      (= (:time det) (:time det2))))
+        nearby (fn [h] (filter (fn [h2] (or (match-loc (:det h) (:det2 h2))
+                                            (match-loc (:det2 h) (:det h2))))
+                               acc-mov-hyps))
+        valid? (fn [h] (let [nb (nearby h)]
+                         (or (empty? nb)
+                             (some #(dets-match? (:det h) (:det2 %)) nb)
+                             (some #(dets-match? (:det %) (:det2 h)) nb))))]
+    (filter valid? mov-hyps)))
 
 (defn new-mov-hyp
   [to from apriori]
@@ -233,19 +248,23 @@
 
 (defmethod hypothesize [:sensor :sensor-from]
   [evidence accepted rejected hyps]
-  (let [sm (fn [h] (score-movement h evidence (get-walk-dist accepted)))
+  (let [sm (fn [h] (score-movement h evidence (get-walk-dist hyps)))
         nearby (filter second (map (fn [h] [h (sm h)])
-                                   (filter #(= :sensor-to (:subtype %)) accepted)))]
-    (filter-existing hyps (for [[h apriori] nearby]
-                            (new-mov-hyp h evidence apriori)))))
+                                   (filter #(= :sensor-to (:subtype %))
+                                           (get accepted :sensor))))
+        mov-hyps (filter-existing hyps (for [[h apriori] nearby]
+                                         (new-mov-hyp h evidence apriori)))]
+    (filter-valid-movs mov-hyps accepted)))
 
 (defmethod hypothesize [:sensor :sensor-to]
   [evidence accepted rejected hyps]
   (let [sm (fn [h] (score-movement evidence h (get-walk-dist accepted)))
         nearby (filter second (map (fn [h] [h (sm h)])
-                                   (filter #(= :sensor-from (:subtype %)) accepted)))]
-    (filter-existing hyps (for [[h apriori] nearby]
-                            (new-mov-hyp evidence h apriori)))))
+                                   (filter #(= :sensor-from (:subtype %))
+                                           (get accepted :sensor))))
+        mov-hyps (filter-existing hyps (for [[h apriori] nearby]
+                                         (new-mov-hyp evidence h apriori)))]
+    (filter-valid-movs mov-hyps accepted)))
 
 (defn score-path
   [mov-hyps]
@@ -253,7 +272,7 @@
 
 (defmethod hypothesize [:movement :movement]
   [evidence accepted rejected hyps]
-  (let [pg (build-paths-graph (filter #(= :movement (:type %)) accepted))
+  (let [pg (build-paths-graph (get accepted :movement))
         paths (get-paths pg evidence)]
     (filter-existing hyps (for [p paths]
                             (new-hyp "Path" :path :path conflicts
