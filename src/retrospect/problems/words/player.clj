@@ -4,11 +4,14 @@
   (:use [clj-swing.label])
   (:use [clj-swing.panel])
   (:require [clojure.string :as str])
+  (:use [retrospect.epistemicstates :only [cur-ep]])
+  (:use [retrospect.reason.abduction.problems.words.evaluate :only [get-history]])
   (:use [retrospect.state]))
 
-(def ld-label (label ""))
-(def correct-label (label ""))
+(def fscore-label (label ""))
+(def oovrecall-label (label ""))
 (def unexp-label (label ""))
+(def noexp-label (label ""))
 
 (defn player-get-stats-panel
   []
@@ -16,29 +19,36 @@
          :constrains (java.awt.GridBagConstraints.)
          [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0
           :fill :BOTH :insets (Insets. 5 0 5 0)
-          _ (label "Levenshtein dist:")
+          :gridy 0 :gridx 0
+          _ (label "FScore:")
           :gridx 1
-          _ ld-label
+          _ fscore-label
           :gridy 1 :gridx 0
-          _ (label "Correct:")
+          _ (label "OOVRecall:")
           :gridx 1
-          _ correct-label
+          _ oovrecall-label
           :gridy 2 :gridx 0
           _ (label "Unexplained:")
           :gridx 1
-          _ unexp-label]))
+          _ unexp-label
+          :gridy 3 :gridx 0
+          _ (label "NoExplainers:")
+          :gridx 1
+          _ noexp-label]))
 
 (defn player-update-stats
   []
   (if (> @time-now 0)
     (let [t (int (/ (dec @time-now) (:StepsBetween params)))
           results (get (:results @or-state) t)]
-      (. ld-label (setText (format "%.2f" (:LD results))))
-      (. correct-label (setText (format "%.2f%%" (:Correct results))))
-      (. unexp-label (setText (format "%.2f%%" (:UnexplainedPct results)))))
-    (do (. ld-label (setText "N/A"))
-        (. correct-label (setText "N/A"))
-        (. unexp-label (setText "N/A")))))
+      (. fscore-label (setText (format "%.2f" (:FScore results))))
+      (. oovrecall-label (setText (format "%.2f" (:OOVRecall results))))
+      (. unexp-label (setText (format "%.2f%%" (:UnexplainedPct results))))
+      (. noexp-label (setText (format "%.2f%%" (:NoExplainersPct results)))))
+    (do (. fscore-label (setText "N/A"))
+        (. oovrecall-label (setText "N/A"))
+        (. unexp-label (setText "N/A"))
+        (. noexp-label (setText "N/A")))))
 
 (defn format-truedata-log
   [log sb pre]
@@ -82,14 +92,11 @@
 
 (defn player-get-problem-log
   []
-  (let [pdata (:problem-data (:ep-state @or-state))
-        {:keys [predicted active-word history]} pdata]
-    (format "History: %s" (apply str (interpose " " history)))))
+  (let [accepted (:accepted (:workspace (cur-ep (:est @or-state))))]
+    (format "History: %s" (apply str (interpose " " (get-history accepted))))))
 
 (defn player-setup-diagram
   [])
 
 (defn player-update-diagram
   [])
-
-
