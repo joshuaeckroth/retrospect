@@ -16,7 +16,7 @@
             (format "Letter: '%c' at position %d" letter pos)
             {:pos pos :letter letter})])
 
-(defn conflicts?
+(defn conflicts
   "Two words-domain hypotheses conflict if: (1) they are both composite
    hypotheses and it is not the case that the tail of one is the prefix of the
    other; or (2) they overlap in their start-end range."
@@ -65,14 +65,14 @@
                {:start (first adjusted-pos-seq) :end (last adjusted-pos-seq)
                 :words [word] :pos-seqs [adjusted-pos-seq] :changes changes}))))
 
-(defn conflicts
-  [h1 h2]
-  false)
-
 (defn read-model-csv
   [file]
-  (let [model (reduce #(assoc %1 (vec (butlast %2)) (Integer/parseInt (last %2))) {}
-                      (map #(str/split % #",")
+  (let [model (reduce (fn [m [ws c]]
+                        (let [ws-large (filter #(>= (count %) (:MinWordLength params)) ws)]
+                          (if (empty? ws-large) m
+                              (assoc m (vec ws-large) (Integer/parseInt c)))))
+                      {}
+                      (map (fn [s] (let [sp (str/split s #",")] [(butlast sp) (last sp)]))
                            (str/split-lines (slurp file :encoding (:Encoding params)))))
         sum (reduce + 0 (vals model))]
     (with-meta model {:sum sum})))
@@ -130,11 +130,13 @@
                                                 similar))))))]
     (filter-existing hyps
                      (for [[w start] matched]
-                       (new-hyp "Word" :word :word conflicts (calc-prob w)
-                                (subvec nearby start (+ start (count w))) []
-                                (format "Word \"%s\" starting at %d" w start)
-                                {:words [w]
-                                 :pos-seqs [(range start (+ start (count w)))]})))))
+                       (let [sens-hyps (subvec nearby start (+ start (count w)))]
+                         (new-hyp "Word" :word :word conflicts (calc-prob w) sens-hyps []
+                                  (format "Word \"%s\" (pos %d-%d)"
+                                          w (:pos (first sens-hyps))
+                                          (:pos (last sens-hyps)))
+                                  {:words [w]
+                                   :pos-seqs [(map :pos sens-hyps)]}))))))
 
 (comment
   (defn make-learned-word-hyp

@@ -307,11 +307,16 @@
 (defn get-more-hyps
   [workspace]
   ;;TODO figure out order hyps should be attempted
-  (first (filter not-empty
-                 (map (fn [h] ((:hypothesize-fn (:abduction @problem)) h
-                               (:accepted workspace) (:rejected workspace)
-                               (:hypotheses workspace)))
-                      (sort-by :id (keys (:active-explainers workspace)))))))
+  (let [expls (filter not-empty
+                      (map (fn [h] ((:hypothesize-fn (:abduction @problem)) h
+                                    (:accepted workspace) (:rejected workspace)
+                                    (:hypotheses workspace)))
+                           (sort-by :id (keys (:active-explainers workspace)))))]
+    ;; expls is a lazy seq of seqs of explainers (one seq per unexplained);
+    ;; we only one one of these seqs of explainers;
+    ;; also, we only want the best two of those explainers
+    (when-not (empty? expls)
+      (take 2 (reverse (sort-by :apriori (first expls)))))))
 
 (defn need-more-hyps?
   [workspace]
