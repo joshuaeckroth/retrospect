@@ -23,8 +23,6 @@
   [o w]
   (print-simple (:id o) w))
 
-(comment   (print-simple (str "#<" (:id o) ": \"" (:desc o) "\">") w))
-
 (defn new-hyp
   [prefix type subtype conflict apriori explains depends desc data]
   (let [id (inc last-id)]
@@ -133,70 +131,39 @@
           workspace explainers))
 
 (defn find-conflicts
-  [workspace hyp]
-  [])
-
-(comment
-  (defn find-conflicts
-    "If a hypothesis's :conflict value is a function (a predicate), that function
+  "If a hypothesis's :conflict value is a function (a predicate), that function
    is called with the hyp and each other hyp. If the :conflict value is
    a keyword, the conflicts of a hyp are those other hyps that share the
-   :conflict keyword, except if the keyword is :shared-explains. In that case,
-   the hyp conflicts with any other that also indicates :shared-explains and
-   shares at least one explainer."
-    [workspace hyp & opts]
-    (let [g (if (some #{:static} opts)
-              (:graph-static workspace)
-              (:graph workspace))
-          ;; can't conflict with what it explains or what explains it
-          hyps (set/difference (nodes g) (incoming g hyp) (neighbors g hyp))
-          c (:conflict hyp)]
-      (cond
-       ;; no conflict id; so it conflicts with nothing
-       (nil? c) []
+   :conflict keyword"
+  [workspace hyp]
+  (let [hyps (apply concat (vals (:accepted workspace)))
+        c (:conflict hyp)]
+    (cond
+     ;; no conflict id; so it conflicts with nothing
+     (nil? c) []
 
-       ;; we have a function (predicate), so call the function on other hyps
-       (fn? c) (filter #(and (not= % hyp) (c hyp %)) hyps)
+     ;; we have a function (predicate), so call the function on other hyps
+     (fn? c) (filter #(and (not= % hyp) (c hyp %)) hyps)
 
-       ;; :shared-explains conflict id; may conflict with other hyps
-       ;; that have :shared-explains id
-       (= c :shared-explains)
-       (let [other-hyps (filter #(and (not= % hyp)
-                                      (= :shared-explains (:conflict %)))
-                                hyps)]
-         ;; :shared-explains hyps conflict if they shared an explains
-         ;; link (neighbor)
-         (filter #(not-empty (set/intersection (neighbors g %)
-                                               (neighbors g hyp)))
-                 other-hyps))
-       ;; otherwise, hyps conflict if their conflict ids are identical
-       :else
-       (filter #(and (not= % hyp) (= c (:conflict %))) hyps)))))
+     ;; otherwise, hyps conflict if their conflict ids are identical
+     :else
+     (filter #(and (not= % hyp) (= c (:conflict %))) hyps))))
 
 (defn add-explainers
   [workspace hyp]
-  (reduce (fn [ws h] (-> ws (update-in [:active-explainers h] conj hyp)
-                         (update-in [:explainers h] conj hyp)))
+  (reduce (fn [ws h]
+            (let [ws2 (update-in ws [:explainers h] conj hyp)]
+              ;; don't add active-explainers to hyps that have already
+              ;; been fully explained (indicated by no set of
+              ;; active-explainers)
+              (if-not (get (:active-explainers ws2) h) ws2
+                (update-in ws2 [:active-explainers h] conj hyp))))
           workspace (:explains hyp)))
 
 (defn remove-explainer
   [workspace hyp]
   (reduce (fn [ws h] (update-in ws [:active-explainers h] disj hyp))
           workspace (:explains hyp)))
-
-(defn add
-  [workspace hyp]
-  (let [g-added (reduce (fn [g n] (-> g (add-nodes n)
-                                      (add-attr n :id (:id n))
-                                      (add-attr n :label (:id n))))
-                        (:graph workspace)
-                        (conj (:explains hyp) hyp))
-        g-edges (reduce (fn [g e] (add-edges g [hyp e]))
-                        g-added (:explains hyp))]
-    (-> (add-explainers workspace hyp)
-        (assoc :graph g-edges)
-        (assoc-in [:hyp-confidences hyp] (:apriori hyp))
-        (update-in [:hypotheses (:type hyp)] conj hyp))))
 
 (defn reject-many
   [workspace hyps]
@@ -215,6 +182,22 @@
                                           (add-attr r :color "red")))
                             % rejectable)))))
 
+(defn add
+  [workspace hyp]
+  (let [g-added (reduce (fn [g n] (-> g (add-nodes n)
+                                      (add-attr n :id (:id n))
+                                      (add-attr n :label (:id n))))
+                        (:graph workspace)
+                        (conj (:explains hyp) hyp))
+        g-edges (reduce (fn [g e] (add-edges g [hyp e]))
+                        g-added (:explains hyp))
+        ws (-> (add-explainers workspace hyp)
+               (assoc :graph g-edges)
+               (assoc-in [:hyp-confidences hyp] (:apriori hyp))
+               (update-in [:hypotheses (:type hyp)] conj hyp))
+        conflicts (find-conflicts ws hyp)]
+    (if (not-empty conflicts) (reject-many ws [hyp]) ws)))
+
 (defn accept
   [workspace hyp alts]
   (let [commas (fn [ss] (apply str (interpose ", " (sort ss))))
@@ -224,7 +207,10 @@
                 (format "Accepted in cycle %d (alts: %s)"
                         (:cycle workspace) (commas (map :id alts))))
                (update-in [:accepted (:type hyp)] conj hyp)
-               (assoc-in [:active-explainers hyp] (get (:explainers workspace) hyp))
+               (assoc-in [:active-explainers hyp]
+                         ;; don't let a "more" hyp be the only remaining explainer
+                         (let [expl (get (:explainers workspace) hyp)]
+                           (if (every? #(= :more (:type %)) expl) nil expl)))
                (update-in [:graph] add-attr hyp :fontcolor "green")
                (update-in [:graph] add-attr hyp :color "green"))
         ws-expl (reduce (fn [ws2 h] (update-in ws2 [:active-explainers] dissoc h))
@@ -232,11 +218,9 @@
         ws-alts (reduce (fn [ws2 alt] (update-in ws2 [:hyp-log alt] conj
                                                  (format "Alternate in cycle %d"
                                                          (:cycle workspace))))
-                        ws-expl alts)
-        conflicts (find-conflicts ws-alts hyp)
-        ws-rejected (reject-many ws-alts conflicts)]
-    (update-in ws-rejected [:log :accrej (:cycle workspace)] conj
-               {:acc hyp :rej conflicts})))
+                        ws-expl alts)]
+    (update-in ws-alts [:log :accrej (:cycle workspace)] conj
+               {:acc hyp :rej []})))
 
 (defn add-fact
   [workspace hyp]
@@ -304,24 +288,38 @@
               {:best best :alts (rest alts)
                :essential? false :delta delta :explained (:hyp expl)}))))))
 
+(defn make-more-hyp
+  [evidence apriori]
+  (new-hyp "?" :more (:type evidence) nil apriori evidence [] "" {}))
+
+(defn remove-hyp
+  [workspace hyp]
+  (-> workspace
+      (remove-explainer hyp)
+      (update-in [:graph] remove-nodes hyp)
+      (update-in [:hyp-confidences] dissoc hyp)
+      (update-in [:hypotheses (:type hyp)] (fn [hs] (filter #(not= % hyp) hs)))
+      (update-in [:active-explainers] dissoc hyp)
+      (update-in [:explainers] dissoc hyp)))
+
 (defn get-more-hyps
-  [workspace]
   ;;TODO figure out order hyps should be attempted
-  (let [expls (filter not-empty
-                      (map (fn [h] ((:hypothesize-fn (:abduction @problem)) h
-                                    (:accepted workspace) (:rejected workspace)
-                                    (:hypotheses workspace)))
-                           (sort-by :id (keys (:active-explainers workspace)))))]
-    ;; expls is a lazy seq of seqs of explainers (one seq per unexplained);
-    ;; we only one one of these seqs of explainers;
-    ;; also, we only want the best two of those explainers
-    (when-not (empty? expls)
-      (take 2 (reverse (sort-by :apriori (first expls)))))))
+  ([workspace]
+     (get-more-hyps workspace (sort-by :id (keys (:active-explainers workspace)))))
+  ([workspace hyps]
+     (let [expl (filter identity
+                        (map (fn [h] ((:hypothesize-fn (:abduction @problem)) h
+                                      (:accepted workspace) (:rejected workspace)
+                                      (:hypotheses workspace)))
+                             hyps))]
+       (when-not (empty? expl)
+         (let [[hyp more-apriori] (first expl)]
+           [hyp (make-more-hyp (:explains hyp) more-apriori)])))))
 
 (defn need-more-hyps?
   [workspace]
   ;; every hyp that has an explainer, also has an explainer that
-  ;; explains something already accepted
+  ;; explains something already accepted that's not also forced
   (every? (fn [h]
             ;; h is a hyp that is an active explainer
             (some (fn [h2]
@@ -329,9 +327,10 @@
                     (some                           
                      (fn [h3]
                        ;; h3 is a hyp that h2 explains
-                       (not-empty
-                        (filter #(= (:id h3) (:id %))
-                                (get (:accepted workspace) (:type h3)))))
+                       (and (not ((:forced workspace) h3))
+                            (not-empty
+                             (filter #(= (:id h3) (:id %))
+                                     (get (:accepted workspace) (:type h3))))))
                      (:explains h2)))
                   (get (:active-explainers workspace) h)))
           (filter #(not-empty (get (:active-explainers workspace) %))
@@ -341,7 +340,7 @@
   [workspace]
   (loop [ws workspace]
     (if (empty? (:active-explainers ws)) (log-final ws [])
-        (if-let [hs (and (need-more-hyps? workspace) (get-more-hyps ws))]
+        (if-let [hs (and (need-more-hyps? ws) (get-more-hyps ws))]
           (recur (reduce add ws hs))
           (let [explainers (find-all-explainers ws)]
             (if (empty? explainers)
@@ -354,14 +353,18 @@
                     (find-best ws-confs explainers-sorted
                                (/ (:Threshold params) 100.0))]
                 (if-not best
-                  (if-let [hs (get-more-hyps ws)]
-                    (recur (reduce add ws hs))
+                  (if-let [hs (get-more-hyps ws-confs)]
+                    (recur (reduce add ws-confs hs))
                     (log-final ws-confs explainers-sorted))
-                  (recur
-                   (let [ws-logged (-> ws-confs
-                                       (update-in [:cycle] inc)
-                                       (update-in [:log :best] conj b))]
-                     (accept ws-logged best alts)))))))))))
+                  (if (= (:type best) :more)
+                    (if-let [hs (get-more-hyps ws-confs (:explains best))]
+                      (recur (remove-hyp (reduce add ws-confs hs) best))
+                      (log-final ws-confs explainers-sorted))
+                    (recur
+                     (let [ws-logged (-> ws-confs
+                                         (update-in [:cycle] inc)
+                                         (update-in [:log :best] conj b))]
+                       (accept ws-logged best alts))))))))))))
 
 (defn analyze
   [workspace hyp]

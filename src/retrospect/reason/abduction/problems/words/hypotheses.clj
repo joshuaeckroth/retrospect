@@ -34,12 +34,13 @@
                         (:pos-seqs (:data hyp1)))))
          (range 1 (inc (min (count (:pos-seqs (:data hyp1)))
                             (count (:pos-seqs (:data hyp2)))))))
-   :else
-   (let [start1 (:start (:data hyp1))
-         end1 (:end (:data hyp1))
-         start2 (:start (:data hyp2))
-         end2 (:end (:data hyp2))]
-     (not (or (< end1 start2) (< end2 start1))))))
+   (and (= :word (:type hyp1)) (= :word (:type hyp2)))
+   (let [start1 (ffirst (:pos-seqs hyp1))
+         end1 (last (last (:pos-seqs hyp1)))
+         start2 (ffirst (:pos-seqs hyp2))
+         end2 (last (last (:pos-seqs hyp2)))]
+     (not (or (< end1 start2) (< end2 start1))))
+   :else false))
 
 (comment
   (defn count-changes
@@ -105,7 +106,7 @@
 (defmulti hypothesize
   (fn [evidence accepted rejected hyps] [(:type evidence) (:subtype evidence)]))
 
-(defmethod hypothesize :default [_ _ _ _] [])
+(defmethod hypothesize :default [_ _ _ _] nil)
 
 (defmethod hypothesize [:sensor :letter]
   [evidence accepted rejected hyps]
@@ -114,29 +115,34 @@
                                  (< (- (:pos evidence) (:MaxLearnLength params))
                                     (:pos h))))
         nearby (vec (sort-by :pos (filter nearby-test (get accepted :sensor))))
-        indexed-letters (map (fn [h] [(:pos h) (:letter h)]) nearby)
         unigram-model (get (:models (get-kb accepted)) 1)
-        nearby-str (apply str (map :letter nearby))
-        matched (filter identity
-                        (map (fn [w] (let [m (re-matcher (re-pattern (format ".*(%s).*" w))
-                                                         nearby-str)]
-                                       (when (.matches m) [w (.start m 1)])))
-                             (map first (keys unigram-model))))
-        calc-prob (fn [w]
-                    (let [similar (filter #(re-find (re-pattern (format ".*%s.*" w)) %)
-                                          (map first (keys unigram-model)))]
-                      (double (/ (get unigram-model [w])
-                                 (reduce + (map (fn [w2] (get unigram-model [w2]))
-                                                similar))))))]
-    (filter-existing hyps
-                     (for [[w start] matched]
-                       (let [sens-hyps (subvec nearby start (+ start (count w)))]
-                         (new-hyp "Word" :word :word conflicts (calc-prob w) sens-hyps []
-                                  (format "Word \"%s\" (pos %d-%d)"
-                                          w (:pos (first sens-hyps))
-                                          (:pos (last sens-hyps)))
-                                  {:words [w]
-                                   :pos-seqs [(map :pos sens-hyps)]}))))))
+        nearby-str (apply str (map :letter nearby))]
+    (loop [words (map first (keys unigram-model))]
+      (if (empty? words) nil
+          (let [w (first words)
+                m (re-matcher (re-pattern (format ".*(%s).*" w)) nearby-str)]
+            (if (and (.matches m)
+                     (not-any? (fn [h]
+                                 (and (= w (first (:words h)))
+                                      (= (ffirst (:pos-seqs h))
+                                         (:pos (nth nearby (.start m 1))))))
+                               (get hyps :word)))
+              (let [start (.start m 1)
+                    sens-hyps (subvec nearby start (+ start (count w)))
+                    similar-words (filter #(re-find (re-pattern (format ".*%s.*" w)) %)
+                                          (map first (keys unigram-model)))
+                    similar-sum (reduce + (map (fn [w2] (get unigram-model [w2]))
+                                               similar-words))]
+                [(new-hyp "Word" :word :word conflicts
+                          (double (/ (get unigram-model [w]) similar-sum))
+                          sens-hyps []
+                          (format "Word \"%s\" (pos %d-%d)"
+                                  w (:pos (first sens-hyps))
+                                  (:pos (last sens-hyps)))
+                          {:words [w] :pos-seqs [(map :pos sens-hyps)]})
+                 ;; what's the estimate of "more" hyps?
+                 (double (/ similar-sum (:sum (meta unigram-model))))])
+              (recur (rest words))))))))
 
 (comment
   (defn make-learned-word-hyp
