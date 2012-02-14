@@ -22,16 +22,16 @@
   (cond
    (or (= :sensor (:type hyp1)) (= :sensor (:type hyp2))) false
    (and (= :word-seq (:type hyp1)) (= :word-seq (:type hyp2)))
-   (some (fn [n] (or (= (take n (:pos-seqs (:data hyp1)))
-                        (:pos-seqs (:data hyp2)))
-                     (= (take-last n (:pos-seqs (:data hyp1)))
-                        (:pos-seqs (:data hyp2)))
-                     (= (take n (:pos-seqs (:data hyp2)))
-                        (:pos-seqs (:data hyp1)))
-                     (= (take-last n (:pos-seqs (:data hyp2)))
-                        (:pos-seqs (:data hyp1)))))
-         (range 1 (inc (min (count (:pos-seqs (:data hyp1)))
-                            (count (:pos-seqs (:data hyp2)))))))
+   (some (fn [n] (or (= (take n (:pos-seqs hyp1))
+                        (:pos-seqs hyp2))
+                     (= (take-last n (:pos-seqs hyp1))
+                        (:pos-seqs hyp2))
+                     (= (take n (:pos-seqs hyp2))
+                        (:pos-seqs hyp1))
+                     (= (take-last n (:pos-seqs hyp2))
+                        (:pos-seqs hyp1))))
+         (range 1 (inc (min (count (:pos-seqs hyp1))
+                            (count (:pos-seqs hyp2))))))
    (and (= :word (:type hyp1)) (= :word (:type hyp2)))
    (let [start1 (ffirst (:pos-seqs hyp1))
          end1 (last (last (:pos-seqs hyp1)))
@@ -47,7 +47,7 @@
             0 (range (count word)))))
 
 (comment
-  (defn make-word-hyp
+v  (defn make-word-hyp
     [word pos-seq letters noise? left-off sensor-hyps models]
     (let [explains (map #(nth sensor-hyps %) pos-seq)
           adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))
@@ -97,10 +97,6 @@
   [accepted]
   (first (get accepted :kb)))
 
-(defn filter-existing
-  [hyps hs]
-  (filter (fn [h] (not-any? (fn [h2] (hyps-equal? h h2)) (get hyps (:type h)))) hs))
-
 (defmulti hypothesize
   (fn [evidence accepted rejected hyps] [(:type evidence) (:subtype evidence)]))
 
@@ -141,6 +137,51 @@
                  ;; what's the estimate of "more" hyps?
                  (double (/ similar-sum (:sum (meta unigram-model))))])
               (recur (rest words))))))))
+
+(defmethod hypothesize [:word :word]
+  [evidence accepted rejected hyps]
+  (let [kb (get-kb accepted)
+        words-ordered (sort-by (comp ffirst :pos-seqs)
+                               (filter #(not= evidence %) (get accepted :word)))
+        preceding (vec (filter #(< (last (last (:pos-seqs %)))
+                                   (ffirst (:pos-seqs evidence)))
+                               words-ordered))
+        preceding-nogaps (loop [pre (reverse (conj preceding evidence))
+                                nogaps '()] ;; a list to conj at front
+                           (if (or (empty? pre) (nil? (second pre)))
+                             (butlast nogaps) ;; drop evidence from end
+                             (if (= (dec (ffirst (:pos-seqs (first pre))))
+                                    (last (last (:pos-seqs (second pre)))))
+                               (recur (rest pre) (conj nogaps (first pre)))
+                               (butlast nogaps))))
+        following (vec (filter #(> (ffirst (:pos-seqs %))
+                                   (last (last (:pos-seqs evidence))))
+                               words-ordered))
+        following-nogaps (loop [fol (concat [evidence] following)
+                                nogaps []] ;; a vector to conj at end
+                           (if (or (empty? fol) (nil? (second fol)))
+                             (rest nogaps) ;; drop evidence from front
+                             (if (= (last (last (:pos-seqs (first fol))))
+                                    (dec (ffirst (:pos-seqs (second fol)))))
+                               (recur (rest fol) (conj nogaps (first fol)))
+                               (rest nogaps))))
+        half (int (/ (:MaxModelGrams params) 2))
+        word-seq (concat (take-last half preceding-nogaps)
+                         [evidence]
+                         (drop-last (inc half) following-nogaps))
+        model (get (:models kb) (count word-seq))
+        words (mapcat :words word-seq)
+        freq (get model words)]
+    (when (and freq (>= (count word-seq) 2))
+      (let [pos-seqs (mapcat :pos-seqs word-seq)
+            hyp (new-hyp "WordSeq" :word-seq :word-seq false conflicts
+                         (double (/ freq (:sum (meta model)))) word-seq []
+                         (format "WordSeq \"%s\" (pos %d-%d)"
+                                 (apply str (interpose " " words))
+                                 (ffirst pos-seqs) (last (last pos-seqs)))
+                         {:words words :pos-seqs pos-seqs})]
+        (when (not-any? (fn [h] (hyps-equal? hyp h)) (get hyps :word-seq))
+          [hyp nil])))))
 
 (comment
   (defn make-learned-word-hyp

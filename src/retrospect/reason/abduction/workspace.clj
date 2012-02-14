@@ -200,7 +200,8 @@
                (assoc-in [:hyp-confidences hyp] (:apriori hyp))
                (update-in [:hypotheses (:type hyp)] conj hyp))
         ws-needs-explainer (if-not (:needs-explainer? hyp) ws
-                                   (update-in ws [:needs-explainer] conj hyp))
+                                   (-> ws (update-in [:needs-explainer] conj hyp)
+                                       (assoc-in [:active-explainers hyp] #{})))
         conflicts (find-conflicts ws-needs-explainer hyp)]
     (if (empty? conflicts) ws-needs-explainer
         (reject-many ws-needs-explainer [hyp]))))
@@ -214,10 +215,6 @@
                 (format "Accepted in cycle %d (alts: %s)"
                         (:cycle workspace) (commas (map :id alts))))
                (update-in [:accepted (:type hyp)] conj hyp)
-               (assoc-in [:active-explainers hyp]
-                         ;; don't let a "more" hyp be the only remaining explainer
-                         (let [expl (get (:explainers workspace) hyp)]
-                           (if (every? #(= :more (:type %)) expl) nil expl)))
                (update-in [:graph] add-attr hyp :fontcolor "green")
                (update-in [:graph] add-attr hyp :color "green"))
         ws-expl (reduce (fn [ws2 h] (update-in ws2 [:active-explainers] dissoc h))
@@ -234,10 +231,8 @@
 (defn add-fact
   [workspace hyp]
   (-> (add workspace hyp)
-      (update-in [:needs-explainer] conj hyp)
       (update-in [:forced] conj hyp)
       (update-in [:accepted (:type hyp)] conj hyp)
-      (assoc-in [:active-explainers hyp] #{})
       (update-in [:graph] add-attr hyp :fontcolor "gray50")
       (update-in [:graph] add-attr hyp :color "gray50")))
 
@@ -324,7 +319,8 @@
                              hyps))]
        (when-not (empty? expl)
          (let [[hyp more-apriori] (first expl)]
-           [hyp (make-more-hyp (:explains hyp) more-apriori)])))))
+           (if (nil? more-apriori) [hyp]
+             [hyp (make-more-hyp (:explains hyp) more-apriori)]))))))
 
 (defn need-more-hyps?
   [workspace]
