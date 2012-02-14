@@ -43,8 +43,8 @@
           results (get (:results @or-state) t)]
       (. fscore-label (setText (format "%.2f" (:FScore results))))
       (. oovrecall-label (setText (format "%.2f" (:OOVRecall results))))
-      (. unexp-label (setText (format "%.2f%%" (:UnexplainedPct results))))
-      (. noexp-label (setText (format "%.2f%%" (:NoExplainersPct results)))))
+      (. unexp-label (setText (format "%.2f" (:UnexplainedPct results))))
+      (. noexp-label (setText (format "%.2f" (:NoExplainersPct results)))))
     (do (. fscore-label (setText "N/A"))
         (. oovrecall-label (setText "N/A"))
         (. unexp-label (setText "N/A"))
