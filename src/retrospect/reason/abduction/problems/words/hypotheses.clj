@@ -159,45 +159,58 @@ v  (defn make-word-hyp
   (let [kb (get-kb accepted)
         words-ordered (sort-by (comp ffirst :pos-seqs)
                                (filter #(not= evidence %) (get accepted :word)))
-        preceding (vec (filter #(< (last (last (:pos-seqs %)))
-                                   (ffirst (:pos-seqs evidence)))
-                               words-ordered))
-        preceding-nogaps (loop [pre (reverse (conj preceding evidence))
-                                nogaps '()] ;; a list to conj at front
+        preceding (filter #(< (last (last (:pos-seqs %)))
+                              (ffirst (:pos-seqs evidence)))
+                          words-ordered)
+        preceding-nogaps (loop [pre (concat [evidence] (reverse preceding))
+                                nogaps []]
                            (if (or (empty? pre) (nil? (second pre)))
-                             (butlast nogaps) ;; drop evidence from end
+                             (reverse nogaps)
                              (if (= (dec (ffirst (:pos-seqs (first pre))))
                                     (last (last (:pos-seqs (second pre)))))
-                               (recur (rest pre) (conj nogaps (first pre)))
-                               (butlast nogaps))))
-        following (vec (filter #(> (ffirst (:pos-seqs %))
-                                   (last (last (:pos-seqs evidence))))
-                               words-ordered))
+                               (recur (rest pre) (conj nogaps (second pre)))
+                               (reverse nogaps))))
+        following (filter #(> (ffirst (:pos-seqs %))
+                              (last (last (:pos-seqs evidence))))
+                          words-ordered)
         following-nogaps (loop [fol (concat [evidence] following)
-                                nogaps []] ;; a vector to conj at end
+                                nogaps []]
                            (if (or (empty? fol) (nil? (second fol)))
-                             (rest nogaps) ;; drop evidence from front
+                             nogaps
                              (if (= (last (last (:pos-seqs (first fol))))
                                     (dec (ffirst (:pos-seqs (second fol)))))
-                               (recur (rest fol) (conj nogaps (first fol)))
-                               (rest nogaps))))
-        half (int (/ (:MaxModelGrams params) 2))
-        word-seq (concat (take-last half preceding-nogaps)
-                         [evidence]
-                         (drop-last (inc half) following-nogaps))
-        model (get (:models kb) (count word-seq))
-        words (mapcat :words word-seq)
-        freq (get model words)]
-    (when (and freq (>= (count word-seq) 2))
-      (let [pos-seqs (mapcat :pos-seqs word-seq)
-            hyp (new-hyp "WordSeq" :word-seq :word-seq false conflicts
-                         (double (/ freq (:sum (meta model)))) word-seq []
-                         (format "WordSeq \"%s\" (pos %d-%d)"
-                                 (apply str (interpose " " words))
-                                 (ffirst pos-seqs) (last (last pos-seqs)))
-                         {:words words :pos-seqs pos-seqs})]
-        (when (not-any? (fn [h] (hyps-equal? hyp h)) (get hyps :word-seq))
-          [hyp nil])))))
+                               (recur (rest fol) (conj nogaps (second fol)))
+                               nogaps)))
+        ngrams (:MaxModelGrams params)
+        word-seqs (filter #(> (count %) 1)
+                          (partition-all
+                           ngrams 1
+                           (concat (take-last (dec ngrams) preceding-nogaps)
+                                   [evidence]
+                                   (reverse
+                                    (take-last (dec ngrams)
+                                               (reverse following-nogaps))))))]
+    (loop [ws word-seqs]
+      (when (not-empty ws)
+        (let [word-seq (first ws)
+              model (get (:models kb) (count word-seq))
+              words (mapcat :words word-seq)
+              freq (get model words)]
+          (if (and freq (>= (count word-seq) 2))
+            (let [pos-seqs (mapcat :pos-seqs word-seq)
+                  hyp (new-hyp "WordSeq" :word-seq :word-seq false conflicts
+                               (double (/ freq (:sum (meta model)))) word-seq []
+                               (format "WordSeq \"%s\" (pos %d-%d)"
+                                       (apply str (interpose " " words))
+                                       (ffirst pos-seqs) (last (last pos-seqs)))
+                               {:words words :pos-seqs pos-seqs})]
+              (if (not-any? (fn [h] (hyps-equal? hyp h)) (get hyps :word-seq))
+                [hyp (double (/ (reduce + (map #(get (get (:models kb) (count %)) %)
+                                               (mapcat :words (filter #(not= word-seq %)
+                                                                      word-seqs))))
+                                (:sum (meta model))))]
+                (recur (rest ws))))
+            (recur (rest ws))))))))
 
 (comment
   (defn make-learned-word-hyp
