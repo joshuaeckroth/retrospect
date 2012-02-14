@@ -1,6 +1,4 @@
 (ns retrospect.reason.abduction.problems.words.hypotheses
-  (:import (misc LevenshteinDistance))
-  (:require [clojure.set :as set])
   (:require [clojure.string :as str])
   (:use [clojure.contrib.combinatorics :only [combinations]])
   (:use [retrospect.sensors :only [sensed-at]])
@@ -12,7 +10,7 @@
 
 (defn make-sensor-hyps
   [sensor letter pos time-prev time-now]
-  [(new-hyp "Sens" :sensor :letter nil 1.0 [] []
+  [(new-hyp "Sens" :sensor :letter true nil 1.0 [] []
             (format "Letter: '%c' at position %d" letter pos)
             {:pos pos :letter letter})])
 
@@ -87,7 +85,7 @@
                            (read-model-csv csv))))
         dict (map first (keys (get models 1)))
         features (update-features {} dict)]
-    [(new-hyp "KB" :kb :kb conflicts 1.0 [] [] ""
+    [(new-hyp "KB" :kb :kb false conflicts 1.0 [] [] ""
               {:avg-word-length (if (empty? dict) 0
                                     (double (/ (reduce + (map count dict))
                                                (count dict))))
@@ -133,7 +131,7 @@
                                           (map first (keys unigram-model)))
                     similar-sum (reduce + (map (fn [w2] (get unigram-model [w2]))
                                                similar-words))]
-                [(new-hyp "Word" :word :word conflicts
+                [(new-hyp "Word" :word :word true conflicts
                           (double (/ (get unigram-model [w]) similar-sum))
                           sens-hyps []
                           (format "Word \"%s\" (pos %d-%d)"

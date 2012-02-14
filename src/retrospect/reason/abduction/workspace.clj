@@ -13,7 +13,8 @@
   (:use [retrospect.state]))
 
 (defrecord Hypothesis
-    [id type subtype conflict apriori explains depends desc]
+    [id type subtype needs-explainer?
+     conflict apriori explains depends desc]
   Object
   (toString [self] (format "%s: %s" id desc))
   Comparable
@@ -24,7 +25,8 @@
   (print-simple (:id o) w))
 
 (defn new-hyp
-  [prefix type subtype conflict apriori explains depends desc data]
+  [prefix type subtype needs-explainer?
+   conflict apriori explains depends desc data]
   (let [id (inc last-id)]
     (set-last-id id)
     ;; use var-set if running batch mode; def if using player or repl
@@ -32,7 +34,8 @@
 
     (merge
      (Hypothesis. (format "%s%d" prefix id)
-                  type subtype conflict apriori explains depends desc)
+                  type subtype needs-explainer? conflict
+                  apriori explains depends desc)
      data)))
 
 (defn hyp-log
@@ -45,7 +48,8 @@
 
 (defn find-no-explainers
   [workspace]
-  (set (filter #(empty? (get (:explainers workspace) %)) (:forced workspace))))
+  (set (filter #(empty? (get (:explainers workspace) %))
+               (:needs-explainer workspace))))
 
 (defn find-active-explains
   [workspace hyp]
@@ -195,8 +199,11 @@
                (assoc :graph g-edges)
                (assoc-in [:hyp-confidences hyp] (:apriori hyp))
                (update-in [:hypotheses (:type hyp)] conj hyp))
-        conflicts (find-conflicts ws hyp)]
-    (if (not-empty conflicts) (reject-many ws [hyp]) ws)))
+        ws-needs-explainer (if-not (:needs-explainer? hyp) ws
+                                   (update-in ws [:needs-explainer] conj hyp))
+        conflicts (find-conflicts ws-needs-explainer hyp)]
+    (if (empty? conflicts) ws-needs-explainer
+        (reject-many ws-needs-explainer [hyp]))))
 
 (defn accept
   [workspace hyp alts]
@@ -218,13 +225,16 @@
         ws-alts (reduce (fn [ws2 alt] (update-in ws2 [:hyp-log alt] conj
                                                  (format "Alternate in cycle %d"
                                                          (:cycle workspace))))
-                        ws-expl alts)]
-    (update-in ws-alts [:log :accrej (:cycle workspace)] conj
-               {:acc hyp :rej []})))
+                        ws-expl alts)
+        conflicts (find-conflicts ws-alts hyp)
+        ws-conflicts (reject-many ws-alts conflicts)]
+    (update-in ws-conflicts [:log :accrej (:cycle workspace)] conj
+               {:acc hyp :rej conflicts})))
 
 (defn add-fact
   [workspace hyp]
   (-> (add workspace hyp)
+      (update-in [:needs-explainer] conj hyp)
       (update-in [:forced] conj hyp)
       (update-in [:accepted (:type hyp)] conj hyp)
       (assoc-in [:active-explainers hyp] #{})
@@ -241,23 +251,23 @@
         (double (/ (reduce + 0.0 (map #(- 1.0 %) confs)) (count confs)))))))
 
 (defn get-unexp-pct
-  "Only measure unexplained forced hyps."
+  "Only measure unexplained \"needs-explainer\" hyps."
   [workspace]
   (if (empty? (:forced workspace)) 0.0
-      (double (/ (count (filter (:forced workspace)
+      (double (/ (count (filter (:needs-explainer workspace)
                                 (:unexplained (:log workspace))))
-                 (count (:forced workspace))))))
+                 (count (:needs-explainer workspace))))))
 
 (defn get-noexp-pct
   [workspace]
-  (if (empty? (:forced workspace)) 0.0
+  (if (empty? (:needs-explainer workspace)) 0.0
       (double (/ (count (:no-explainers (:log workspace)))
-                 (count (:forced workspace))))))
+                 (count (:needs-explainer workspace))))))
 
 (defn log-final
   [workspace explainers]
   (let [ws (update-in workspace [:log] merge
-                      {:unexplained (filter (:forced workspace)
+                      {:unexplained (filter (:needs-explainer workspace)
                                             (keys (:active-explainers workspace)))
                        :no-explainers (find-no-explainers workspace)
                        :unaccepted (set/difference
@@ -290,7 +300,7 @@
 
 (defn make-more-hyp
   [evidence apriori]
-  (new-hyp "?" :more (:type evidence) nil apriori evidence [] "" {}))
+  (new-hyp "?" :more (:type evidence) false nil apriori evidence [] "" {}))
 
 (defn remove-hyp
   [workspace hyp]
@@ -439,6 +449,7 @@
     ;; a map of type => seq
     :hypotheses {}
     :hyp-confidences {}    
+    :needs-explainer #{}
     :forced #{}
     ;; a map of type => seq
     :accepted {}
