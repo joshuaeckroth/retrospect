@@ -1,5 +1,4 @@
 (ns retrospect.reason.abduction.workspace
-  (:import (misc AlphanumComparator))
   (:use [retrospect.confidences])
   (:require [clojure.set :as set])
   (:use [loom.io :only [dot-str]])
@@ -101,11 +100,8 @@
   [workspace]
   (sort-by (comp :id first)
            (filter (comp first :expl)
-                   (mapcat (fn [h]
-                             (map (fn [expl] {:hyp h :expl expl})
-                                  (vals (group-by :type
-                                                  (get (:active-explainers workspace) h)))))
-                           (keys (:active-explainers workspace))))))
+                   (map (fn [h] {:hyp h :expl (get (:active-explainers workspace) h)})
+                        (keys (:active-explainers workspace))))))
 
 (defn normalize-confidences
   "Normalize the apriori confidences of a collection of hyps.
@@ -186,6 +182,8 @@
     (-> (reduce (fn [ws hyp]
                   (-> ws
                       (remove-explainer hyp)
+                      (update-in [:active-explainers] dissoc hyp)
+                      (update-in [:needs-explainer] disj hyp)
                       (update-in [:rejected (:type hyp)] conj hyp)
                       (update-in [:hyp-log hyp] conj
                                  (format "Rejected in cycle %d" (:cycle workspace)))))
@@ -386,8 +384,8 @@
                     (log-final ws-confs explainers-sorted))
                   (if (= (:type best) :more)
                     (if-let [hs (get-more-hyps ws-confs (:explains best))]
-                      (recur (do (println best) (remove-hyp (reduce add ws-confs hs) best)))
-                      (log-final ws-confs explainers-sorted))
+                      (recur (remove-hyp (reduce add ws-confs hs) best))
+                      (recur (remove-hyp ws-confs best)))
                     (recur
                      (let [ws-logged (-> ws-confs
                                          (update-in [:cycle] inc)
@@ -437,13 +435,13 @@
              (recur (rest to-check) acc (conj unacc check) rej)))))))
 
 (defn add-sensor-hyps
-  [workspace time time-now sensors]
+  [workspace time-prev time-now sensors]
   (let [msh (fn [s h t] ((:make-sensor-hyps-fn (:abduction @problem))
-                         s h t time time-now))]
+                         s h t time-prev time-now))]
     (reduce (fn [ws t]
               (let [hs (mapcat (fn [s] (mapcat #(msh s % t) (sensed-at s t))) sensors)]
                 (reduce add-fact ws hs)))
-            workspace (range time (inc time-now)))))
+            workspace (range time-prev (inc time-now)))))
 
 (defn add-kb
   [training ws]
@@ -473,4 +471,3 @@
            :accepted {}
            ;; a map of type => seq
            :rejected {}}))
-

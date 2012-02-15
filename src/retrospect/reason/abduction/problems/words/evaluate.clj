@@ -27,10 +27,12 @@
 
 (defn evaluate
   [accepted rejected time-now sensors truedata]
-  (let [believed (filter #(re-matches #"\p{Alpha}+" %) (get-history accepted))
-        learned (filter #(= :learned-word (:subtype %)) (get accepted :word))
+  (let [believed (filter #(re-matches #"\p{Alpha}+" %)
+                         (get-history accepted))
+        learned (filter #(= :learned-word (:subtype %))
+                        (get accepted :word))
         sentence (filter #(re-matches #"\p{Alpha}+" %)
-                         (nth (:test-sentences truedata) time-now))
+                         (nth (:test-sentences truedata) (dec time-now)))
         [prec recall f-score oov-recall]
         (try (do
                (spit "/tmp/truewords.txt" (apply str (interpose " " sentence))

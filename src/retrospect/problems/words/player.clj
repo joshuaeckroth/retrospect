@@ -67,8 +67,10 @@
 
 (defn player-get-truedata-log
   []
-  (format "%s\n\n%s" (get (:test @truedata) @time-now)
-          (apply str (interpose " " (nth (:test-sentences @truedata) @time-now)))))
+  (if (= @time-now 0) ""
+      (format "%s\n\n%s" (get (:test @truedata) @time-now)
+              (apply str (interpose " " (nth (:test-sentences @truedata)
+                                             (dec @time-now)))))))
 
 (defn player-get-problem-log
   []

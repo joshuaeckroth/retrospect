@@ -42,7 +42,7 @@
                                        [training test])
         ;; TODO: handle noise
         ambiguous (map #(apply str %) test)]
-    {:training [training training-dict]
+    {:training [test test-dict] #_[training training-dict]
      :test (zipmap (range (count ambiguous)) ambiguous)
      :test-sentences test
      :test-dict test-dict}))

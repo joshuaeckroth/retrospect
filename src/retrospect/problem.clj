@@ -22,8 +22,8 @@
       (update-in [:resources :milliseconds] + ms)))
 
 (defn update-sensors-from-to
-  [time time-now truedata sensors]
-  (loop [t time
+  [time-prev time-now truedata sensors]
+  (loop [t time-prev
          sens sensors]
     (let [sens2 (update-sensors sens (:test truedata) t)]
       (if (>= t time-now) sens2
@@ -31,13 +31,17 @@
 
 (defn run-simulation-step
   [truedata ors player?]
-  (let [time (or (:time (cur-ep (:est ors))) 0)
-        time-now (min (:Steps params) (+ (:StepsBetween params) time))
-        sensors (update-sensors-from-to time time-now truedata (:sensors ors))
+  (let [time-prev (or (:time (cur-ep (:est ors))) 0)
+        time-now (min (:Steps params) (+ (:StepsBetween params) time-prev))
+        sensors (update-sensors-from-to time-prev time-now truedata (:sensors ors))
         ;; start the clock
         start-time (. System (nanoTime))
         ep (cur-ep (:est ors))
-        ep-reason (update-in ep [:workspace] (:reason-fn @reason) time time-now sensors)
+        workspace (if (and (not= 0 time-prev) (:ResetEachStep params))
+                    ((:init-workspace-fn @reason) (:training truedata))
+                    (:workspace ep))
+        ep-reason (assoc ep :workspace ((:reason-fn @reason) workspace
+                                        time-prev time-now sensors))
         ;; stop the clock
         ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
         ors-next (proceed-ors ors ep-reason sensors time-now ms)

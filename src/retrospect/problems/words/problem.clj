@@ -35,7 +35,8 @@
                 :MaxNoisyWords [10 [10]]}}
    :default-params
    {:Steps [600 [600]]
-    :StepsBetween [30 (range 10 101 30)]
+    :StepsBetween [1 [1]]
+    :ResetEachStep [true [true]]
     :SensorNoise [0 [0 5 10 15 20]]
     :Dataset ["cityu" ["cityu"]]
     :Encoding ["big5" ["big5"]]
