@@ -30,32 +30,21 @@
 (defn generate-truedata
   []
   (let [sensor-noise (double (/ (:SensorNoise params) 100.0))
-        dict (set (filter #(and (>= (count %) (:MinWordLength params))
-                                (<= (count %) (:MaxLearnLength params)))
-                          (str/split-lines (slurp (format "%s/words/%s/dictionary.txt"
-                                                          @datadir (:Dataset params))
-                                                  :encoding (:Encoding params)))))
-        truedata-all (filter #(and (>= (count %) (:MinWordLength params))
-                                   (<= (count %) (:MaxLearnLength params)))
-                             (str/split (slurp (format "%s/words/%s/test.txt"
+        sentences (map (fn [sent] (str/split sent #"\s+"))
+                       (str/split-lines (slurp (format "%s/words/%s.txt"
                                                        @datadir (:Dataset params))
-                                               :encoding (:Encoding params)) #" "))
-        truedata-all-noisy (map #(add-noise % sensor-noise) truedata-all)
-        start (my-rand-int (- (reduce + (map count truedata-all)) (:Steps params)))
-        ambiguous (take (:Steps params) (drop start (apply str truedata-all)))
-        ambiguous-noisy (take (:Steps params) (drop start (apply str truedata-all-noisy)))
-        [td prefix] (loop [td truedata-all
-                           i 0]
-                      (cond (= i start) [(take (:Steps params) td) []] 
-                            (> i start) [(take (:Steps params) td)
-                                         (vec (take (- i start) ambiguous))]
-                            :else (recur (rest td) (+ i (count (first td))))))
-        chop (inc (- (count prefix) (:StepsBetween params)))
-        pre (drop chop prefix)
-        am (drop chop ambiguous)
-        am-noisy (drop chop ambiguous-noisy)
-        pre-noisy (take (count pre) am-noisy)]
-    (with-meta (zipmap (range (count am-noisy)) am-noisy)
-      {:dictionary dict :words td :ambiguous am :ambiguous-noisy am-noisy
-       :prefix pre :prefix-noisy pre-noisy
-       :word-starts (get-trueword-starts prefix td)})))
+                                               :encoding "utf-8")))
+        [training test] (split-at (int (* 0.9 (count sentences)))
+                                  (my-shuffle sentences))
+        [training-dict test-dict] (map (fn [sents]
+                                         (set (filter #(re-matches #"^\p{Alpha}+$" %)
+                                                      (apply concat sents))))
+                                       [training test])
+        ;; TODO: handle noise
+        ambiguous (map #(apply str %) test)]
+    {:training [test test-dict]
+     :test (zipmap (range (count ambiguous)) ambiguous)
+     :test-sentences test
+     :test-dict test-dict}))
+
+(comment :training [training training-dict])

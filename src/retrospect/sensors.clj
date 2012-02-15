@@ -8,7 +8,7 @@
 
 (defn init-sensor
   [id sense-fn meta]
-  (with-meta (Sensor. id sense-fn {} -1) meta))
+  (with-meta (Sensor. id sense-fn {} 0) meta))
 
 (defn sensed-at
   [sensor time]
@@ -23,7 +23,7 @@
 
 (defn update-sensors
   "Don't resense already sensed time steps."
-  [sensors moment time]
+  [sensors test time]
   (doall (map (fn [s] (if (<= time (:sensed-up-to s)) s
-                          ((:sense-fn s) s moment time)))
+                          ((:sense-fn s) s test time)))
               sensors)))

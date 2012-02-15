@@ -94,7 +94,7 @@
          (alter truedata (constantly ((:generate-truedata-fn @problem))))
          (alter sensors (constantly ((:generate-sensors-fn @problem)))))))
     (dosync
-     (alter or-state (constantly (init-ors @sensors))))
+     (alter or-state (constantly (init-ors @sensors (:training @truedata)))))
     (update-everything)))
 
 (defn set-prepared-action
@@ -114,7 +114,7 @@
       (dosync
        (alter truedata (constantly td))
        (alter sensors (constantly sens))
-       (alter or-state (constantly (init-ors @sensors))))
+       (alter or-state (constantly (init-ors @sensors (:training @truedata)))))
       (update-everything))))
 
 (defn goto-ep-state-action

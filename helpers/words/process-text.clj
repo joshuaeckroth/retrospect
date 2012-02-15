@@ -5,17 +5,7 @@ exec java -Dfile.encoding=big5 -cp "$HOME/clojure/clojure-1.2.1/clojure.jar" clo
 (require '[clojure.string :as str])
 (require '[clojure.set :as set])
 
-(defn build-markov-model
-  "Build a Markov n-gram model of word transitions."
-  [n training]
-  (loop [tr (concat (repeat (dec n) "") ;; prepend n-1 blanks
-                    (str/split training #" ")) 
-         model {}]
-    (if (> n (count tr)) model
-        (let [words (take n tr)
-              prior-this (or (get model words) 0)]
-          (recur (rest tr)
-                 (assoc model words (inc prior-this)))))))
+
 
 (defn markov-model-to-csv
   [model]

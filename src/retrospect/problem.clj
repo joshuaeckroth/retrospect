@@ -7,8 +7,8 @@
   (:use [retrospect.state]))
 
 (defn init-ors
-  [sensors]
-  (let [est (init-est ((:init-workspace-fn @reason)))]
+  [sensors training]
+  (let [est (init-est ((:init-workspace-fn @reason) training))]
     {:resources {:milliseconds 0}
      :results []
      :sensors sensors
@@ -25,7 +25,7 @@
   [time time-now truedata sensors]
   (loop [t time
          sens sensors]
-    (let [sens2 (update-sensors sens truedata t)]
+    (let [sens2 (update-sensors sens (:test truedata) t)]
       (if (>= t time-now) sens2
           (recur (inc t) sens2)))))
 
@@ -82,7 +82,7 @@
                     params control-params]
             (let [control-truedata ((:generate-truedata-fn @problem))
                   control-sensors ((:generate-sensors-fn @problem))
-                  control-ors (init-ors control-sensors)]
+                  control-ors (init-ors control-sensors (:training truedata))]
               (println "Control:" (pr-str control-params))
               (map (fn [rs] (assoc rs :control-params (pr-str control-params)
                                    :comparison-params (pr-str comparison-params)))
@@ -93,7 +93,7 @@
                     params comparison-params]
             (let [comparison-truedata ((:generate-truedata-fn @problem))
                   comparison-sensors ((:generate-sensors-fn @problem))
-                  comparison-ors (init-ors comparison-sensors)]
+                  comparison-ors (init-ors comparison-sensors (:training truedata))]
               (println "Comparison:" (pr-str comparison-params))
               (map (fn [rs] (assoc rs
                               :control-params (pr-str control-params)
@@ -112,7 +112,7 @@
                 params params]
         (let [truedata ((:generate-truedata-fn @problem))
               sensors ((:generate-sensors-fn @problem))
-              ors (init-ors sensors)]
+              ors (init-ors sensors (:training truedata))]
           (println "Params:" (pr-str params))
           (map (fn [rs] (assoc rs :params (pr-str params)))
                (run-simulation truedata ors)))))))

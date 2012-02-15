@@ -67,28 +67,8 @@
 
 (defn player-get-truedata-log
   []
-  (if (= @time-now 0) ""
-      (let [sb (:StepsBetween params)
-            pre (:prefix (meta @truedata))
-            pre-noisy (:prefix-noisy (meta @truedata))
-            am-noisy (take @time-now (:ambiguous-noisy (meta @truedata)))
-            log-noisy (format-truedata-log (drop (count pre-noisy) am-noisy) sb pre-noisy)]
-        (loop [t (count pre)
-               words (:words (meta @truedata))
-               log ""]
-          (let [remaining (- @time-now t)
-                next-word (first words)]
-            (cond (= remaining 0) (format "%s\n\n%s" log-noisy (format-truedata-log log sb pre))
-                  
-                  (< remaining (count next-word))
-                  (format "%s\n\n%s" log-noisy
-                          (format-truedata-log (str log (if (= "" log) "" " ")
-                                                    (subs next-word 0 remaining))
-                                               sb pre)) 
-                  
-                  :else
-                  (recur (+ t (count next-word)) (rest words)
-                         (str log (if (= "" log) "" " ") next-word))))))))
+  (format "%s\n\n%s" (get (:test @truedata) @time-now)
+          (apply str (interpose " " (nth (:test-sentences @truedata) @time-now)))))
 
 (defn player-get-problem-log
   []

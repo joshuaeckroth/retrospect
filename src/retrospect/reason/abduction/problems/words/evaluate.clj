@@ -27,21 +27,19 @@
 
 (defn evaluate
   [accepted rejected time-now sensors truedata]
-  (let [believed (get-history accepted)
-        dict (:dictionary (meta truedata))
+  (let [believed (filter #(re-matches #"\p{Alpha}+" %) (get-history accepted))
         learned (filter #(= :learned-word (:subtype %)) (get accepted :word))
-        truewords-starts (filter #(<= (+ (second %) (count (first %)))
-                                      time-now)
-                                 (:word-starts (meta truedata)))
-        truewords (map first truewords-starts)
+        sentence (filter #(re-matches #"\p{Alpha}+" %)
+                         (nth (:test-sentences truedata) time-now))
         [prec recall f-score oov-recall]
         (try (do
-               (spit "/tmp/truewords.txt" (apply str (interpose " " truewords))
-                     :encoding (:Encoding params))
+               (spit "/tmp/truewords.txt" (apply str (interpose " " sentence))
+                     :encoding "utf-8")
                (spit "/tmp/history.txt" (apply str (interpose " " believed))
-                     :encoding (:Encoding params))
-               (spit "/tmp/dictionary.txt" (apply str (interpose " " dict))
-                     :encoding (:Encoding params))
+                     :encoding "utf-8")
+               (spit "/tmp/dictionary.txt"
+                     (apply str (interpose "\n" (second (:training truedata))))
+                     :encoding "utf-8")
                (let [results (sh "/home/josh/research/retrospect/helpers/words/bakeoff-scorer.pl"
                                  "/tmp/dictionary.txt" "/tmp/truewords.txt" "/tmp/history.txt")
                      prec (Double/parseDouble
@@ -64,7 +62,8 @@
      :OOVRecall oov-recall
      :LearnedCount (count learned)
      :LearnedCorrect (if (empty? learned) 100.0
-                         (* 100.0 (/ (count (filter #(dict (first (:words %)))
+                         (* 100.0 (/ (count (filter #((:test-dict truedata)
+                                                      (first (:words %)))
                                                     learned))
                                      (count learned))))}))
 

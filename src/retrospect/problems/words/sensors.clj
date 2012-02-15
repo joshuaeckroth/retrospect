@@ -4,8 +4,10 @@
   (:use [retrospect.state]))
 
 (defn sense
-  [sensor truedata time]
-  (add-sensed sensor time [(get truedata time)]))
+  [sensor test time]
+  (let [sentence-letters (partition 2 (interleave (get test time)
+                                                  (range (count (get test time)))))]
+    (add-sensed sensor time sentence-letters)))
 
 (defn generate-sensors
   []
