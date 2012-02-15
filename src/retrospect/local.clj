@@ -62,12 +62,12 @@
 (def results (ref []))
 
 (defn run-partition
-  [comparative? monitor? recdir params]
+  [comparative? recdir params]
   (loop [ps params]
     (if (not-empty ps)
       (if comparative?
         (let [[control-results comparison-results comparative-results]
-              (run comparative? monitor? (first ps))]
+              (run comparative? (first ps))]
           (doseq [rs control-results]
             (write-csv (str recdir "/control-results.csv") rs))
           (doseq [rs comparison-results]
@@ -80,7 +80,7 @@
                                 :comparison comparison-results
                                 :comparative comparative-results}))
           (recur (rest ps)))
-        (let [control-results (run comparative? monitor? (first ps))]
+        (let [control-results (run comparative? (first ps))]
           (doseq [rs control-results]
             (write-csv (str recdir "/control-results.csv") rs))
           (dosync (alter progress inc)
@@ -88,7 +88,7 @@
           (recur (rest ps)))))))
 
 (defn run-partitions
-  [run-meta comparative? params recdir nthreads monitor? upload? repetitions]
+  [run-meta comparative? params recdir nthreads upload? repetitions]
   (let [sim-count (* repetitions (count params))]
     (send (agent sim-count) check-progress sim-count (.getTime (Date.))))
   (let [seeds (repeatedly repetitions #(my-rand-int 10000000))
@@ -105,7 +105,7 @@
         partitions (partition-all (math/ceil (/ (count numbered-params) nthreads))
                                   (my-shuffle numbered-params))
         workers (for [part partitions]
-                  (future (run-partition comparative? monitor? recdir part)))]
+                  (future (run-partition comparative? recdir part)))]
     (doall (pmap (fn [w] @w) workers))
     (when (and upload? (not= "" @database))
       (println "Writing results to database...")

@@ -44,7 +44,6 @@
      [recordsdir "Records directory" "records"]
      [nthreads "Number of threads" "1"]
      [repetitions "Number of repetitions" "10"]
-     [monitor "Activate monitor?" "false"]
      [git "Git path" "git"]
      [seed "Seed" "0"]
      [database "Database identifier" "http://127.0.0.1:5984/retrospect"]
@@ -77,7 +76,6 @@
             
             (= action "run")
             (let [nthreads (Integer/parseInt nthreads)
-                  monitor? (Boolean/parseBoolean monitor)
                   upload? (Boolean/parseBoolean upload)
                   [problem ps] (read-params params)
                   git-dirty? (not-empty
@@ -93,7 +91,7 @@
               (dosync
                (alter state/problem (constantly (choose-problem problem)))               
                (alter state/db-params (constantly ps)))
-              (run-with-new-record seed git recordsdir nthreads monitor? upload? repetitions))
+              (run-with-new-record seed git recordsdir nthreads upload? repetitions))
             
             :else
             (println "No action given.")))))
