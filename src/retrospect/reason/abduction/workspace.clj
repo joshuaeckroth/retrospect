@@ -10,6 +10,7 @@
   (:use [loom.attr :only [add-attr remove-attr]])
   (:use [clojure.contrib.combinatorics :only [combinations]])
   (:use [retrospect.sensors :only [sensed-at]])
+  (:use [retrospect.random])
   (:use [retrospect.state]))
 
 (defrecord Hypothesis
@@ -323,18 +324,18 @@
 (defn get-more-hyps
   ;;TODO figure out order hyps should be attempted
   ([workspace]
-     (get-more-hyps workspace (sort-by :id (keys (:active-explainers workspace)))))
+     (get-more-hyps workspace (my-shuffle (keys (:active-explainers workspace)))))
   ([workspace hyps]
      (println "Getting more hyps...")
-     (let [expl (filter identity
-                        (map (fn [h] ((:hypothesize-fn (:abduction @problem)) h
-                                      (:accepted workspace) (:rejected workspace)
-                                      (:hypotheses workspace)))
-                             hyps))]
-       (when-not (empty? expl)
-         (let [[hyp more-apriori] (last (sort-by (comp count :explains) expl))]
-           (if (nil? more-apriori) [hyp]
-             [hyp (make-more-hyp (:explains hyp) more-apriori)]))))))
+     (loop [hs hyps]
+       (when (not-empty hs)
+         (let [expl ((:hypothesize-fn (:abduction @problem)) (first hs)
+                     (:accepted workspace) (:rejected workspace)
+                     (:hypotheses workspace))]
+           (if expl
+             (if (nil? (second expl)) [(first expl)]
+                 [(first expl) (make-more-hyp (:explains (first expl)) (second expl))])
+             (recur (rest hs))))))))
 
 (defn need-more-hyps?
   [workspace]

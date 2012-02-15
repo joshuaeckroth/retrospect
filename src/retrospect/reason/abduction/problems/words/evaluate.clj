@@ -51,11 +51,12 @@
                      f-score (Double/parseDouble
                               (second (re-find #"F MEASURE:\s+(\d\.\d\d\d)"
                                                (:out results))))
-                     oov-recall (Double/parseDouble
-                                 (second (re-find #"OOV Recall Rate:\s+(\d\.\d\d\d)"
-                                                  (:out results))))]
+                     oov-recall (try (Double/parseDouble
+                                      (second (re-find #"OOV Recall Rate:\s+(\d\.\d\d\d)"
+                                                       (:out results))))
+                                     (catch Exception _ 0.0))]
                  [prec recall f-score oov-recall]))
-             (catch Exception _ [-1.0 -1.0 -1.0 -1.0 -1.0]))]
+             (catch Exception e (do (println e) [-1.0 -1.0 -1.0 -1.0 -1.0])))]
     {:Prec prec
      :Recall recall
      :FScore f-score

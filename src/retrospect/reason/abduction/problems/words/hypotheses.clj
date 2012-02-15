@@ -104,35 +104,27 @@
 (defmethod hypothesize :default [_ _ _ _] nil)
 
 (defn same-hyp
-  [m w h nearby]
+  [pos-start w h]
   (and (= w (first (:words h)))
-       (= (ffirst (:pos-seqs h))
-          (:pos (nth nearby (.start m 1))))))
+       (= (ffirst (:pos-seqs h)) pos-start)))
 
 (defn find-match
-  [w nearby hyps]
+  [evidence w nearby hyps]
   (let [nearby-str (apply str (map :letter nearby))
-        m (re-matcher (re-pattern (format ".*(%s).*" w)) nearby-str)]
-    (when (and (.matches m) (not-any? #(same-hyp m w % nearby) (get hyps :word)))
+        m (re-matcher (re-pattern (format ".*(%s).*" w)) nearby-str)
+        start-pos (if (.matches m) (:pos (nth nearby (.start m 1))))
+        end-pos (if (.matches m) (:pos (nth nearby (+ (.start m 1) (dec (count w))))))]
+    (when (and (.matches m)
+               (<= start-pos (:pos evidence))
+               (>= end-pos (:pos evidence))
+               (not-any? #(same-hyp start-pos w %) (get hyps :word)))
       [w (.start m 1)])))
 
-(defn find-words
-  [nearby hyps unigram-model]
-  (let [matched (map #(find-match % nearby hyps)
+(defn find-word
+  [evidence nearby hyps unigram-model]
+  (let [matched (map #(find-match evidence % nearby hyps)
                      (reverse (sort-by count (map first (keys unigram-model)))))]
-    (take 5 (filter identity matched))))
-
-(defn find-linked-words
-  [words accepted nearby]
-  (filter (fn [[w start]]
-            (let [pos-start (:pos (nth nearby start))
-                  pos-end (:pos (nth nearby (dec (+ start (count w)))))]
-              (some (fn [h] (or (= (ffirst (:pos-seqs h))
-                                   (inc pos-end))
-                                (= (last (last (:pos-seqs h)))
-                                   (dec pos-start))))
-                    (get accepted :word))))
-          words))
+    (first (filter identity matched))))
 
 (defmethod hypothesize [:sensor :letter]
   [evidence accepted rejected hyps]
@@ -148,27 +140,17 @@
                                                         (re-matches #"[^\p{Alpha}]"
                                                                     (str (:letter %))))
                                                   (get accepted :sensor))))
-          nearby-test (fn [h] (and (> (+ (:pos evidence) (:MaxLearnLength params))
-                                      (:pos h))
-                                   (< (- (:pos evidence) (:MaxLearnLength params))
-                                      (:pos h))
-                                   (or (nil? nearest-right-punc)
+          nearby-test (fn [h] (and (or (nil? nearest-right-punc)
                                        (> nearest-right-punc (:pos h)))
                                    (or (nil? nearest-left-punc)
                                        (< nearest-left-punc (:pos h)))))
           nearby (vec (filter #(re-matches #"\p{Alpha}" (str (:letter %)))
                               (sort-by :pos (filter nearby-test (get accepted :sensor)))))
           unigram-model (get (:models (get-kb accepted)) 1)
-          words (find-words nearby hyps unigram-model)
-          ;; find those words that would be placed next to an already-accepted word
-          linked-words (find-linked-words words accepted nearby)
-          word-choice (if (not-empty linked-words)
-                        ;; choose longest words
-                        (last (sort-by (comp count first) linked-words))
-                        (last (sort-by (comp count first) words)))]
-      (println evidence words)
-      (if word-choice
-        (let [[w start] word-choice
+          word (find-word evidence nearby hyps unigram-model)]
+      (println evidence word)
+      (if word
+        (let [[w start] word
               sens-hyps (subvec nearby start (+ start (count w)))
               similar-words (filter #(re-find (re-pattern (format ".*%s.*" w)) %)
                                     (map first (keys unigram-model)))
