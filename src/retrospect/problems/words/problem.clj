@@ -39,9 +39,6 @@
     :ResetEachStep [true [true]]
     :SensorNoise [0 [0 5 10 15 20]]
     :Dataset ["cityu" ["cityu"]]
-    :Encoding ["big5" ["big5"]]
     :LearnFeatureSize [2 (range 1 4)]
     :MaxModelGrams [3 (range 1 6)]
-    :MinWordLength [3 (range 1 5)]
-    :MinLearnLength [5 (range 5 10)]
     :MaxLearnLength [8 (range 8 13)]}})

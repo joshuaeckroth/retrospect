@@ -1,6 +1,7 @@
 (ns retrospect.reason.abduction.problems.words.evaluate
   (:use [clojure.java.shell :only [sh]])
   (:use [retrospect.reason.abduction.evaluate :only [calc-increase]])
+  (:use [retrospect.problems.words.symbols])
   (:use [retrospect.state]))
 
 (defn true-hyp?
@@ -21,11 +22,11 @@
 
 (defn evaluate
   [accepted rejected time-now sensors truedata]
-  (let [believed (filter #(re-matches #"\p{Alpha}+" %)
+  (let [believed (filter #(not (re-matches punctuation-regex %))
                          (get-history accepted))
         learned (filter #(= :learned-word (:subtype %))
                         (get accepted :word))
-        sentence (filter #(re-matches #"\p{Alpha}+" %)
+        sentence (filter #(not (re-matches punctuation-regex %))
                          (nth (:test-sentences truedata) (dec time-now)))
         [prec recall f-score oov-recall]
         (try (do

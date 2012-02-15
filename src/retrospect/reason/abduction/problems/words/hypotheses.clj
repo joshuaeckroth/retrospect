@@ -6,6 +6,7 @@
   (:use [retrospect.reason.abduction.problems.words.evaluate :only [hyps-equal?]])
   (:use [retrospect.problems.words.learning :only
          [update-features calc-centroid similarity]])
+  (:use [retrospect.problems.words.symbols])
   (:use [retrospect.state]))
 
 (defn make-sensor-hyps
@@ -135,23 +136,26 @@
   [evidence accepted rejected hyps]
   (let [sensor-hyps (get accepted :sensor)
         other-hyps (concat (get hyps :word) (get hyps :word-seq))]
-    (if (re-matches #"[^\p{Alpha}]" (str (:symbol evidence)))
+    (if (re-matches punctuation-regex (str (:symbol evidence)))
       [(new-hyp "Punc" :punctuation :punctuation false nil 1.0 [evidence] [] ""
                 {:pos [(:pos evidence)] :symbol (:symbol evidence)})
        nil]
-      (let [nearest-left-punc (:pos (first (filter #(and (> (:pos evidence) (:pos %))
-                                                         (re-matches #"[^\p{Alpha}]"
-                                                                     (str (:symbol %))))
-                                                   sensor-hyps)))
-            nearest-right-punc (:pos (first (filter #(and (< (:pos evidence) (:pos %))
-                                                          (re-matches #"[^\p{Alpha}]"
-                                                                      (str (:symbol %))))
-                                                    sensor-hyps)))
+      (let [nearest-left-punc
+            (:pos (first (filter #(and (> (:pos evidence) (:pos %))
+                                       (re-matches punctuation-regex
+                                                   (str (:symbol %))))
+                                 sensor-hyps)))
+            nearest-right-punc
+            (:pos (first (filter #(and (< (:pos evidence) (:pos %))
+                                       (re-matches punctuation-regex
+                                                   (str (:symbol %))))
+                                 sensor-hyps)))
             nearby-test (fn [h] (and (or (nil? nearest-right-punc)
                                          (> nearest-right-punc (:pos h)))
                                      (or (nil? nearest-left-punc)
                                          (< nearest-left-punc (:pos h)))))
-            nearby (vec (filter #(re-matches #"\p{Alpha}" (str (:symbol %)))
+            nearby (vec (filter #(not (re-matches punctuation-regex
+                                                  (str (:symbol %))))
                                 (sort-by :pos (filter nearby-test sensor-hyps))))
             unigram-model (get (:models (get-kb accepted)) 1)
             word (find-word evidence nearby other-hyps unigram-model)]

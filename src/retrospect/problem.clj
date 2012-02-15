@@ -4,6 +4,7 @@
   (:use [retrospect.epistemicstates :only [cur-ep new-child-ep init-est update-est]])
   (:use [retrospect.sensors :only [update-sensors]])
   (:use [retrospect.random :only [rgen new-seed my-rand-int]])
+  (:use [retrospect.logging])
   (:use [retrospect.state]))
 
 (defn init-ors
@@ -38,7 +39,7 @@
         start-time (. System (nanoTime))
         ep (cur-ep (:est ors))
         workspace (if (and (not= 0 time-prev) (:ResetEachStep params))
-                    (do (println "Resetting workspace...")
+                    (do (log "Resetting workspace...")
                         ((:init-workspace-fn @reason) (:training truedata)))
                     (:workspace ep))
         ep-reason (assoc ep :workspace ((:reason-fn @reason) workspace

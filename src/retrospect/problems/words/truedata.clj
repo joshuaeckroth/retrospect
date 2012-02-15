@@ -1,5 +1,6 @@
 (ns retrospect.problems.words.truedata
   (:require [clojure.string :as str])
+  (:use [retrospect.problems.words.symbols])
   (:use [retrospect.random])
   (:use [retrospect.state]))
 
@@ -30,16 +31,16 @@
 (defn generate-truedata
   []
   (let [sensor-noise (double (/ (:SensorNoise params) 100.0))
-        sentences (map (fn [sent] (str/split sent #"\s+"))
-                       (str/split-lines (slurp (format "%s/words/%s.txt"
+        sentences (map (fn [sent] (filter not-empty (str/split sent #"\s+")))
+                       (str/split-lines (slurp (format "%s/words/%s.utf8"
                                                        @datadir (:Dataset params))
                                                :encoding "utf-8")))
         [training test] (split-at (int (* 0.9 (count sentences)))
                                   (my-shuffle sentences))
-        [training-dict test-dict] (map (fn [sents]
-                                         (set (filter #(re-matches #"^\p{Alpha}+$" %)
-                                                      (apply concat sents))))
-                                       [training test])
+        [training-dict test-dict]
+        (map (fn [sents] (set (filter #(not (re-matches punctuation-regex %))
+                                      (apply concat sents))))
+             [training test])
         ;; TODO: handle noise
         ambiguous (map #(apply str %) test)]
     {:training [training training-dict]
