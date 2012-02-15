@@ -332,7 +332,7 @@
                      (:hypotheses workspace))]
            (if expl
              (if (nil? (second expl)) [(first expl)]
-                 [(first expl) (make-more-hyp (:explains (first expl)) (second expl))])
+                 [(first expl) (make-more-hyp (ffirst expl) (second (second expl)))])
              (recur (rest hs))))))))
 
 (defn need-more-hyps?
@@ -441,7 +441,7 @@
     (reduce (fn [ws t]
               (let [hs (mapcat (fn [s] (mapcat #(msh s % t) (sensed-at s t))) sensors)]
                 (reduce add-fact ws hs)))
-            workspace (range time-prev (inc time-now)))))
+            workspace (range (inc time-prev) (inc time-now)))))
 
 (defn add-kb
   [training ws]

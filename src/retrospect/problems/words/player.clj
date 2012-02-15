@@ -68,14 +68,14 @@
 (defn player-get-truedata-log
   []
   (if (= @time-now 0) ""
-      (format "%s\n\n%s" (get (:test @truedata) @time-now)
+      (format "%s\n\n%s" (get (:test @truedata) (dec @time-now))
               (apply str (interpose " " (nth (:test-sentences @truedata)
                                              (dec @time-now)))))))
 
 (defn player-get-problem-log
   []
   (let [accepted (:accepted (:workspace (cur-ep (:est @or-state))))]
-    (format "History: %s" (apply str (interpose " " (get-history accepted))))))
+    (apply str (interpose " " (get-history accepted)))))
 
 (defn player-setup-diagram
   [])

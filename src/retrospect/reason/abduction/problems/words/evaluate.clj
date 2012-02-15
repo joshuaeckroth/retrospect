@@ -5,25 +5,19 @@
 
 (defn true-hyp?
   [truedata pdata time hyp]
-  (let [truewords-starts (filter #(<= (second %) time)
-                                 (:word-starts (meta truedata)))
-        words (:words (:data hyp))
-        pos-seqs (:pos-seqs (:data hyp))]
-    (every? (fn [i]
-              (let [word (nth words i)
-                    word-start (first (nth pos-seqs i))
-                    tw (ffirst (filter #(= word-start (second %)) truewords-starts))]
-                (= tw word)))
-            (range (count words)))))
+  false)
 
 (defn hyps-equal?
   [hyp1 hyp2]
   (if (not= (:type hyp1) (:type hyp2)) false
-      (apply = (map #(select-keys % [:words :pos-seqs]) [hyp1 hyp2]))))
+      (apply = (map #(select-keys % [:words :pos]) [hyp1 hyp2]))))
 
 (defn get-history
   [accepted]
-  (mapcat :words (sort-by (comp ffirst :pos-seqs) (get accepted :word))))
+  (map (fn [h] (if (= :word (:type h)) (:word h) (str (:symbol h))))
+       (sort-by (comp first :pos)
+                (concat (get accepted :word)
+                        (get accepted :punctuation)))))
 
 (defn evaluate
   [accepted rejected time-now sensors truedata]

@@ -38,7 +38,8 @@
         start-time (. System (nanoTime))
         ep (cur-ep (:est ors))
         workspace (if (and (not= 0 time-prev) (:ResetEachStep params))
-                    ((:init-workspace-fn @reason) (:training truedata))
+                    (do (println "Resetting workspace...")
+                        ((:init-workspace-fn @reason) (:training truedata)))
                     (:workspace ep))
         ep-reason (assoc ep :workspace ((:reason-fn @reason) workspace
                                         time-prev time-now sensors))

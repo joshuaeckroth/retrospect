@@ -9,10 +9,10 @@
   (:use [retrospect.state]))
 
 (defn make-sensor-hyps
-  [sensor [letter pos] time time-prev time-now]
-  [(new-hyp "Sens" :sensor :letter true nil 1.0 [] []
-            (format "Letter: '%c' at position %d" letter pos)
-            {:pos pos :letter letter})])
+  [sensor [symbol pos] time time-prev time-now]
+  [(new-hyp "Sens" :sensor :symbol true nil 1.0 [] []
+            (format "Symbol: '%c' at position %d" symbol pos)
+            {:pos pos :symbol symbol})])
 
 (defn conflicts
   "Two words-domain hypotheses conflict if: (1) they are both composite
@@ -21,7 +21,7 @@
   [hyp1 hyp2]
   (cond
    (or (= :sensor (:type hyp1)) (= :sensor (:type hyp2))) false
-   
+
    (and (= :word-seq (:type hyp1)) (= :word-seq (:type hyp2)))
    (some (fn [n] (or (= (take n (:pos-seqs hyp1))
                         (:pos-seqs hyp2))
@@ -35,10 +35,10 @@
                             (count (:pos-seqs hyp2))))))
    
    (and (= :word (:type hyp1)) (= :word (:type hyp2)))
-   (let [start1 (ffirst (:pos-seqs hyp1))
-         end1 (last (last (:pos-seqs hyp1)))
-         start2 (ffirst (:pos-seqs hyp2))
-         end2 (last (last (:pos-seqs hyp2)))]
+   (let [start1 (first (:pos hyp1))
+         end1 (last (:pos hyp1))
+         start2 (first (:pos hyp2))
+         end2 (last (:pos hyp2))]
      (not (or (< end1 start2) (< end2 start1))))
    
    :else false))
@@ -108,15 +108,15 @@
 
 (defn same-hyp
   [pos-start w h]
-  (and (= w (first (:words h)))
-       (= (ffirst (:pos-seqs h)) pos-start)))
+  (and (= w (:word h))
+       (= (first (:pos h)) pos-start)))
 
 (defn find-match
   [evidence w nearby other-hyps]
   (let [nearby-reduced (vec (filter #(and (> (:pos %) (- (:pos evidence) (count w)))
                                           (< (:pos %) (+ (:pos evidence) (count w))))
                                     nearby))
-        nearby-str (apply str (map :letter nearby-reduced))
+        nearby-str (apply str (map :symbol nearby-reduced))
         m (re-matcher (re-pattern (format ".*(%s).*" w)) nearby-str)]
     (loop []
       (when (re-find m)
@@ -131,27 +131,27 @@
                      (reverse (sort-by count (map first (keys unigram-model)))))]
     (first (filter identity matched))))
 
-(defmethod hypothesize [:sensor :letter]
+(defmethod hypothesize [:sensor :symbol]
   [evidence accepted rejected hyps]
   (let [sensor-hyps (get accepted :sensor)
         other-hyps (concat (get hyps :word) (get hyps :word-seq))]
-    (if (re-matches #"[^\p{Alpha}]" (str (:letter evidence)))
-      [(new-hyp "Punc" :word :word false nil 1.0 [evidence] [] ""
-                {:pos-seqs [[(:pos evidence)]] :words [(str (:letter evidence))]})
+    (if (re-matches #"[^\p{Alpha}]" (str (:symbol evidence)))
+      [(new-hyp "Punc" :punctuation :punctuation false nil 1.0 [evidence] [] ""
+                {:pos [(:pos evidence)] :symbol (:symbol evidence)})
        nil]
       (let [nearest-left-punc (:pos (first (filter #(and (> (:pos evidence) (:pos %))
                                                          (re-matches #"[^\p{Alpha}]"
-                                                                     (str (:letter %))))
+                                                                     (str (:symbol %))))
                                                    sensor-hyps)))
             nearest-right-punc (:pos (first (filter #(and (< (:pos evidence) (:pos %))
                                                           (re-matches #"[^\p{Alpha}]"
-                                                                      (str (:letter %))))
+                                                                      (str (:symbol %))))
                                                     sensor-hyps)))
             nearby-test (fn [h] (and (or (nil? nearest-right-punc)
                                          (> nearest-right-punc (:pos h)))
                                      (or (nil? nearest-left-punc)
                                          (< nearest-left-punc (:pos h)))))
-            nearby (vec (filter #(re-matches #"\p{Alpha}" (str (:letter %)))
+            nearby (vec (filter #(re-matches #"\p{Alpha}" (str (:symbol %)))
                                 (sort-by :pos (filter nearby-test sensor-hyps))))
             unigram-model (get (:models (get-kb accepted)) 1)
             word (find-word evidence nearby other-hyps unigram-model)]
@@ -167,35 +167,35 @@
                       (format "Word \"%s\" (pos %d-%d)"
                               w (:pos (first expl))
                               (:pos (last expl)))
-                      {:words [w] :pos-seqs [(map :pos expl)]})
+                      {:word w :pos (map :pos expl)})
              ;; what's the estimate of "more" hyps?
-             (double (/ similar-sum (:sum (meta unigram-model))))]))))))
+             [evidence (double (/ similar-sum (:sum (meta unigram-model))))]]))))))
 
 (defmethod hypothesize [:word :word]
   [evidence accepted rejected hyps]
   (let [kb (get-kb accepted)
-        words-ordered (sort-by (comp ffirst :pos-seqs)
+        words-ordered (sort-by (comp first :pos)
                                (filter #(not= evidence %) (get accepted :word)))
-        preceding (filter #(< (last (last (:pos-seqs %)))
-                              (ffirst (:pos-seqs evidence)))
+        preceding (filter #(< (last (:pos %))
+                              (first (:pos evidence)))
                           words-ordered)
         preceding-nogaps (loop [pre (concat [evidence] (reverse preceding))
                                 nogaps []]
                            (if (or (empty? pre) (nil? (second pre)))
                              (reverse nogaps)
-                             (if (= (dec (ffirst (:pos-seqs (first pre))))
-                                    (last (last (:pos-seqs (second pre)))))
+                             (if (= (dec (first (:pos (first pre))))
+                                    (last (:pos (second pre))))
                                (recur (rest pre) (conj nogaps (second pre)))
                                (reverse nogaps))))
-        following (filter #(> (ffirst (:pos-seqs %))
-                              (last (last (:pos-seqs evidence))))
+        following (filter #(> (first (:pos %))
+                              (last (:pos evidence)))
                           words-ordered)
         following-nogaps (loop [fol (concat [evidence] following)
                                 nogaps []]
                            (if (or (empty? fol) (nil? (second fol)))
                              nogaps
-                             (if (= (last (last (:pos-seqs (first fol))))
-                                    (dec (ffirst (:pos-seqs (second fol)))))
+                             (if (= (last (:pos (first fol)))
+                                    (dec (first (:pos (second fol)))))
                                (recur (rest fol) (conj nogaps (second fol)))
                                nogaps)))
         ngrams (:MaxModelGrams params)
@@ -211,22 +211,23 @@
       (when (not-empty ws)
         (let [word-seq (first ws)
               model (get (:models kb) (count word-seq))
-              words (mapcat :words word-seq)
+              words (map :word word-seq)
               freq (get model words)]
-          (println words word-seq word-seqs)
           (if (and freq (>= (count word-seq) 2))
-            (let [pos-seqs (mapcat :pos-seqs word-seq)
+            (let [pos-seqs (map :pos word-seq)
+                  pos (apply concat pos-seqs)
                   hyp (new-hyp "WordSeq" :word-seq :word-seq false conflicts
                                (double (/ freq (:sum (meta model)))) word-seq []
                                (format "WordSeq \"%s\" (pos %d-%d)"
                                        (apply str (interpose " " words))
                                        (ffirst pos-seqs) (last (last pos-seqs)))
-                               {:words words :pos-seqs pos-seqs})]
+                               {:words words :pos pos :pos-seqs pos-seqs})]
               (if (not-any? (fn [h] (hyps-equal? hyp h)) (get hyps :word-seq))
-                [hyp (double (/ (reduce + (map #(get (get (:models kb) (count %)) %)
-                                               (mapcat :words (filter #(not= word-seq %)
-                                                                      word-seqs))))
-                                (:sum (meta model))))]
+                [hyp
+                 [evidence (double (/ (reduce + (map #(get (get (:models kb) (count %) {})
+                                                           (map :word %) 0.0)
+                                                     (filter #(not= word-seq %) word-seqs)))
+                                      (:sum (meta model))))]]
                 (recur (rest ws))))
             (recur (rest ws))))))))
 
