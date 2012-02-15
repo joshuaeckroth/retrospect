@@ -14,9 +14,6 @@
                  [org.apache.httpcomponents/httpclient "4.1.2"]
                  [log4j/log4j "1.2.16"]
                  [com.intellij/annotations "5.1"]]
-  :dev-dependencies [[marginalia "0.7.0-SNAPSHOT"]
-                     [lein-marginalia "0.7.0-SNAPSHOT"]
-                     [radagast "1.1.0"]]
   :main retrospect.core
   :keep-non-project-classes true
   :java-source-path "src/jvm"
