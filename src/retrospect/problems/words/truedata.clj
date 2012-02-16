@@ -35,7 +35,7 @@
                        (str/split-lines (slurp (format "%s/words/%s.utf8"
                                                        @datadir (:Dataset params))
                                                :encoding "utf-8")))
-        [training test] (split-at (int (* 0.1 (count sentences)))
+        [training test] (split-at (int (* 0.9 (count sentences)))
                                   (my-shuffle sentences))
         [training-dict test-dict]
         (map (fn [sents] (set (filter #(not (re-matches punctuation-regex %))
