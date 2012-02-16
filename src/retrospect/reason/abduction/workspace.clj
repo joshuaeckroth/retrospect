@@ -49,7 +49,8 @@
 
 (defn find-no-explainers
   [workspace]
-  (set (filter #(empty? (get (:explainers workspace) %))
+  (set (filter (fn [h] (empty? (filter #(not= :more (:type %))
+                                       (get (:explainers workspace) h))))
                (:needs-explainer workspace))))
 
 (defn find-active-explains
@@ -165,13 +166,11 @@
                 (update-in ws2 [:active-explainers h] conj hyp))))
           workspace (:explains hyp)))
 
-(defn remove-explainer
+(defn remove-explainers
   [workspace hyp]
   (log "Removing explainers for" hyp)
-  (reduce (fn [ws h] (let [new-ae (update-in (:active-explainers ws) [h] disj hyp)]
-                       (if (empty? (get new-ae h))
-                         (assoc ws :active-explainers (dissoc new-ae h))
-                         (assoc ws :active-explainers new-ae))))
+  (reduce (fn [ws h] (if (nil? (get (:active-explainers ws) h)) ws
+                         (update-in ws [:active-explainers h] disj hyp)))
           workspace (:explains hyp)))
 
 (defn reject-many
@@ -182,7 +181,7 @@
     (log "Rejecting" hyps)
     (-> (reduce (fn [ws hyp]
                   (-> ws
-                      (remove-explainer hyp)
+                      (remove-explainers hyp)
                       (update-in [:active-explainers] dissoc hyp)
                       (update-in [:needs-explainer] disj hyp)
                       (update-in [:rejected (:type hyp)] conj hyp)
@@ -196,7 +195,7 @@
 
 (defn add
   [workspace hyp]
-  (log "Adding" hyp)
+  (log "Adding" hyp "which explains" (:explains hyp))
   (let [g-added (reduce (fn [g n] (-> g (add-nodes n)
                                       (add-attr n :id (:id n))
                                       (add-attr n :label (:id n))))
@@ -218,6 +217,8 @@
 (defn accept
   [workspace hyp alts]
   (log "Accepting" hyp)
+  (println "Active explainers BEFORE accepting" hyp "which explains" (:explains hyp)
+           (:active-explainers workspace))
   (let [commas (fn [ss] (apply str (interpose ", " (sort ss))))
         ws (-> workspace
                (update-in
@@ -231,11 +232,13 @@
                         ws (:explains hyp))
         ws-alts (reduce (fn [ws2 alt] (update-in ws2 [:hyp-log alt] conj
                                                  (format "Alternate in cycle %d"
-                                                         (:cycle workspace))))
+                                                         (:cycle ws2))))
                         ws-expl alts)
         conflicts (find-conflicts ws-alts hyp)
         ws-conflicts (reject-many ws-alts conflicts)]
-    (update-in ws-conflicts [:log :accrej (:cycle workspace)] conj
+    (println "Active explainers AFTER accepting" hyp "which explains" (:explains hyp)
+             (:active-explainers ws-conflicts))
+    (update-in ws-conflicts [:log :accrej (:cycle ws-conflicts)] conj
                {:acc hyp :rej conflicts})))
 
 (defn add-fact
@@ -280,6 +283,9 @@
                                     (set (apply concat (vals (:accepted workspace))))
                                     (set (apply concat (vals (:rejected workspace)))))
                        :last-explainers explainers})]
+    (doseq [e (:no-explainers (:log ws))]
+      (println ((:learn-fn (:abduction @problem)) e (:no-explainers (:log ws))
+                (:hypotheses ws))))
     (assoc ws :doubt (measure-doubt ws))))
 
 (defn find-best
@@ -307,13 +313,13 @@
 
 (defn make-more-hyp
   [evidence apriori]
-  (new-hyp "?" :more (:type evidence) false nil apriori evidence [] "" {}))
+  (new-hyp "?" :more (:type evidence) false nil apriori [evidence] [] "" {}))
 
 (defn remove-hyp
   [workspace hyp]
   (log "Removing" hyp)
   (-> workspace
-      (remove-explainer hyp)
+      (remove-explainers hyp)
       (update-in [:graph] remove-nodes hyp)
       (update-in [:hyp-confidences] dissoc hyp)
       (update-in [:hypotheses (:type hyp)] (fn [hs] (filter #(not= % hyp) hs)))
@@ -332,8 +338,9 @@
                      (:accepted workspace) (:rejected workspace)
                      (:hypotheses workspace))]
            (if expl
-             (if (nil? (second expl)) [(first expl)]
-                 [(first expl) (make-more-hyp (ffirst expl) (second (second expl)))])
+             (if (second expl)
+               [(first expl) (make-more-hyp (first (second expl)) (second (second expl)))]
+               [(first expl)])
              (recur (rest hs))))))))
 
 (defn need-more-hyps?
@@ -364,6 +371,7 @@
 (defn explain
   [workspace]
   (loop [ws workspace]
+    (println "Active explainers:" (:active-explainers ws))
     (if (empty? (:active-explainers ws))
       (do (log "No more active explainers") (log-final ws []))
         (if-let [hs (and (need-more-hyps? ws) (get-more-hyps ws))]

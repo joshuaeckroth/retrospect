@@ -235,6 +235,35 @@
                 (recur (rest ws))))
             (recur (rest ws))))))))
 
+(defmulti learn
+  (fn [evidence no-explainer-hyps hyps] [(:type evidence) (:subtype evidence)]))
+
+(defmethod learn :default [_ _ _] nil)
+
+(defmethod learn [:sensor :symbol]
+  [evidence no-explainer-hyps hyps]
+  (let [sensor-no-exp (filter #(= :sensor (:type %)) no-explainer-hyps)
+        no-exp-left (reverse (sort-by :pos (filter #(< (:pos %) (:pos evidence))
+                                                   sensor-no-exp)))
+        no-exp-right (sort-by :pos (filter #(> (:pos %) (:pos evidence))
+                                           sensor-no-exp))
+        left-pairs (take-while #(or (nil? (second %))
+                                    (= (inc (:pos (first %))) (:pos (second %))))
+                               (partition-all 2 1 no-exp-left))
+        right-pairs (take-while #(or (nil? (second %))
+                                     (= (inc (:pos (first %))) (:pos (second %))))
+                                (partition-all 2 1 no-exp-right))
+        left-hyps (reverse (concat (map first left-pairs)
+                                   (if-let [h (second (last left-pairs))] [h] [])))
+        right-hyps (concat (map first right-pairs)
+                           (if-let [h (second (last right-pairs))] [h] []))
+        sensor-hyps (concat (if (= (dec (:pos evidence)) (last left-hyps))
+                              left-hyps [])
+                            [evidence]
+                            (if (= (inc (:pos evidence)) (first right-hyps))
+                              right-hyps []))]
+    (println evidence sensor-hyps)))
+
 (comment
   (defn make-learned-word-hyp
     [word pos-seq letters left-off sensor-hyps avg-word-length centroid]
