@@ -86,8 +86,7 @@
                                  (map commas                                      
                                       (vals (group-by :type
                                                       (get (:explainers workspace) hyp)))))))
-          (commas (ws/find-conflicts-selected
-                   workspace hyp (apply concat (vals (:hypotheses workspace)))))
+          (commas (ws/find-conflicts workspace hyp))
           (conf-str (:apriori hyp))
           (conf-str (ws/hyp-conf workspace hyp))
           (apply str (interpose "\n" (ws/hyp-log workspace hyp)))))

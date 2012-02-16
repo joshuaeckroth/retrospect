@@ -25,6 +25,30 @@
   [o w]
   (print-simple (:id o) w))
 
+(def empty-workspace
+  {:graph (digraph)
+   :cycle 0
+   ;; remember the order hyps were added
+   :added []
+   :log {:unexplained [] :no-explainers [] :unaccepted []
+         :best [] :accrej {}}
+   :hyp-log {}
+   :doubt nil
+   ;; a list of hyps that explain each key;
+   ;; hyps that are keys need to be explained
+   :active-explainers {}
+   ;; all explainers; serves as a cache
+   :explainers {}
+   ;; a map of type => seq
+   :hypotheses {}
+   :hyp-confidences {}    
+   :needs-explainer #{}
+   :forced #{}
+   ;; a map of type => seq
+   :accepted {}
+   ;; a map of type => seq
+   :rejected {}})
+
 (defn new-hyp
   [prefix type subtype needs-explainer?
    conflict apriori explains depends desc data]
@@ -153,7 +177,7 @@
 
 (defn find-conflicts
   [workspace hyp]
-  (find-conflicts-selected workspace hyp (apply concat (vals (:accepted workspace)))))
+  (find-conflicts-selected workspace hyp (apply concat (vals (:hypotheses workspace)))))
 
 (defn add-explainers
   [workspace hyp]
@@ -176,9 +200,10 @@
 (defn reject-many
   [workspace hyps]
   (let [rejectable (filter (fn [h] (not-any? #(= (:id %) (:id h))
-                                             (get (:accepted workspace) (:type h))))
+                                             (concat (get (:accepted workspace) (:type h))
+                                                     (get (:rejected workspace) (:type h)))))
                            hyps)]
-    (log "Rejecting" hyps)
+    (log "Rejecting" rejectable)
     (-> (reduce (fn [ws hyp]
                   (-> ws
                       (remove-explainers hyp)
@@ -203,22 +228,26 @@
                         (conj (:explains hyp) hyp))
         g-edges (reduce (fn [g e] (add-edges g [hyp e]))
                         g-added (:explains hyp))
-        ws (-> (add-explainers workspace hyp)
+        ws (-> workspace
+               (update-in [:added] conj hyp)
+               (add-explainers hyp)
                (assoc :graph g-edges)
                (assoc-in [:hyp-confidences hyp] (:apriori hyp))
                (update-in [:hypotheses (:type hyp)] conj hyp))
         ws-needs-explainer (if-not (:needs-explainer? hyp) ws
                                    (-> ws (update-in [:needs-explainer] conj hyp)
                                        (assoc-in [:active-explainers hyp] #{})))
-        conflicts (find-conflicts ws-needs-explainer hyp)]
+        conflicts (find-conflicts-selected
+                   ws-needs-explainer hyp
+                   (apply concat (vals (:accepted ws-needs-explainer))))]
     (if (empty? conflicts) ws-needs-explainer
         (reject-many ws-needs-explainer [hyp]))))
 
 (defn accept
   [workspace hyp alts]
   (log "Accepting" hyp)
-  (println "Active explainers BEFORE accepting" hyp "which explains" (:explains hyp)
-           (:active-explainers workspace))
+  (log "Active explainers BEFORE accepting" hyp "which explains" (:explains hyp)
+       (:active-explainers workspace))
   (let [commas (fn [ss] (apply str (interpose ", " (sort ss))))
         ws (-> workspace
                (update-in
@@ -236,8 +265,8 @@
                         ws-expl alts)
         conflicts (find-conflicts ws-alts hyp)
         ws-conflicts (reject-many ws-alts conflicts)]
-    (println "Active explainers AFTER accepting" hyp "which explains" (:explains hyp)
-             (:active-explainers ws-conflicts))
+    (log "Active explainers AFTER accepting" hyp "which explains" (:explains hyp)
+         (:active-explainers ws-conflicts))
     (update-in ws-conflicts [:log :accrej (:cycle ws-conflicts)] conj
                {:acc hyp :rej conflicts})))
 
@@ -283,9 +312,6 @@
                                     (set (apply concat (vals (:accepted workspace))))
                                     (set (apply concat (vals (:rejected workspace)))))
                        :last-explainers explainers})]
-    (doseq [e (:no-explainers (:log ws))]
-      (println ((:learn-fn (:abduction @problem)) e (:no-explainers (:log ws))
-                (:hypotheses ws))))
     (assoc ws :doubt (measure-doubt ws))))
 
 (defn find-best
@@ -326,10 +352,10 @@
       (update-in [:active-explainers] dissoc hyp)
       (update-in [:explainers] dissoc hyp)))
 
-(defn get-more-hyps
+(defn get-another-hyp
   ;;TODO figure out order hyps should be attempted
   ([workspace]
-     (get-more-hyps workspace (my-shuffle (keys (:active-explainers workspace)))))
+     (get-another-hyp workspace (my-shuffle (keys (:active-explainers workspace)))))
   ([workspace hyps]
      (log "Getting more hyps...")
      (loop [hs hyps]
@@ -342,6 +368,21 @@
                [(first expl) (make-more-hyp (first (second expl)) (second (second expl)))]
                [(first expl)])
              (recur (rest hs))))))))
+
+(defn get-learn-hyp
+  [workspace]
+  (let [noexp (find-no-explainers workspace)]
+    (loop [hs noexp]
+      (when (not-empty hs)
+        (log "Trying to get a learn explainer for" (first hs))
+        (let [expl ((:learn-fn (:abduction @problem)) (first hs)
+                    noexp (:hypotheses workspace))]
+          (log "Got:" expl)
+          (if expl
+            (if (second expl)
+              [(first expl) (make-more-hyp (first (second expl)) (second (second expl)))]
+              [(first expl)])
+            (recur (rest hs))))))))
 
 (defn need-more-hyps?
   [workspace]
@@ -368,38 +409,51 @@
   false
   )
 
+(defn reset-workspace
+  [workspace]
+  (let [added (:added workspace)
+        forced (:forced workspace)]
+    (reduce (fn [ws h] (if (forced h) (add-fact ws h) (add ws h)))
+            empty-workspace added)))
+
 (defn explain
   [workspace]
   (loop [ws workspace]
-    (println "Active explainers:" (:active-explainers ws))
+    (log "Active explainers:" (:active-explainers ws))
     (if (empty? (:active-explainers ws))
-      (do (log "No more active explainers") (log-final ws []))
-        (if-let [hs (and (need-more-hyps? ws) (get-more-hyps ws))]
-          (recur (reduce add ws hs))
-          (let [explainers (find-all-explainers ws)]
-            (log "Explainers:" explainers)
-            (if (empty? explainers)
-              (if-let [hs (get-more-hyps ws)]
-                (recur (reduce add ws hs))
-                (log-final ws []))
-              (let [ws-confs (update-confidences ws explainers)
-                    explainers-sorted (sort-explainers ws-confs explainers)
-                    {:keys [best alts essential? delta] :as b}
-                    (find-best ws-confs explainers-sorted
-                               (/ (:Threshold params) 100.0))]
-                (if-not best
-                  (if-let [hs (get-more-hyps ws-confs)]
-                    (recur (reduce add ws-confs hs))
-                    (log-final ws-confs explainers-sorted))
-                  (if (= (:type best) :more)
-                    (if-let [hs (get-more-hyps ws-confs (:explains best))]
-                      (recur (remove-hyp (reduce add ws-confs hs) best))
-                      (recur (remove-hyp ws-confs best)))
-                    (recur
-                     (let [ws-logged (-> ws-confs
-                                         (update-in [:cycle] inc)
-                                         (update-in [:log :best] conj b))]
-                       (accept ws-logged best alts))))))))))))
+      (do (log "No more active explainers; attempting to learn...")
+          (if-let [hs (get-learn-hyp ws)]
+            (recur (reduce add (reset-workspace ws) hs))
+            (log-final ws [])))
+      (if-let [hs (and (need-more-hyps? ws) (get-another-hyp ws))]
+        (recur (reduce add ws hs))
+        (let [explainers (find-all-explainers ws)]
+          (log "Explainers:" explainers)
+          (if (empty? explainers)
+            (if-let [hs (get-another-hyp ws)]
+              (recur (reduce add ws hs))
+              (do (log "No more explainers; attempting to learn...")
+                  (if-let [hs (get-learn-hyp ws)]
+                    (recur (reduce add (reset-workspace ws) hs))
+                    (log-final ws []))))
+            (let [ws-confs (update-confidences ws explainers)
+                  explainers-sorted (sort-explainers ws-confs explainers)
+                  {:keys [best alts essential? delta] :as b}
+                  (find-best ws-confs explainers-sorted
+                             (/ (:Threshold params) 100.0))]
+              (if-not best
+                (if-let [hs (get-another-hyp ws-confs)]
+                  (recur (reduce add ws-confs hs))
+                  (log-final ws-confs explainers-sorted))
+                (if (= (:type best) :more)
+                  (if-let [hs (get-another-hyp ws-confs (:explains best))]
+                    (recur (remove-hyp (reduce add ws-confs hs) best))
+                    (recur (remove-hyp ws-confs best)))
+                  (recur
+                   (let [ws-logged (-> ws-confs
+                                       (update-in [:cycle] inc)
+                                       (update-in [:log :best] conj b))]
+                     (accept ws-logged best alts))))))))))))
 
 (defn analyze
   [workspace hyp]
@@ -412,7 +466,7 @@
                          accepted? (neighbors (:graph-static workspace) hyp)
                          rejected? (set/intersection
                                     (:accepted workspace)
-                                    (set (find-conflicts workspace hyp :static)))
+                                    (set (find-conflicts workspace hyp)))
                          :else #{})
         check-sets (set (mapcat (fn [n] (map set (combinations hyps-consequent n)))
                                 [1 2 3 4]))]
@@ -459,24 +513,4 @@
 
 (defn init-workspace
   [training]
-  (add-kb training
-          {:graph (digraph)
-           :cycle 0
-           :log {:unexplained [] :no-explainers [] :unaccepted []
-                 :best [] :accrej {}}
-           :hyp-log {}
-           :doubt nil
-           ;; a list of hyps that explain each key;
-           ;; hyps that are keys need to be explained
-           :active-explainers {}
-           ;; all explainers; serves as a cache
-           :explainers {}
-           ;; a map of type => seq
-           :hypotheses {}
-           :hyp-confidences {}    
-           :needs-explainer #{}
-           :forced #{}
-           ;; a map of type => seq
-           :accepted {}
-           ;; a map of type => seq
-           :rejected {}}))
+  (add-kb training empty-workspace))

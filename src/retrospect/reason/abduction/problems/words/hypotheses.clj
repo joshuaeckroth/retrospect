@@ -257,22 +257,42 @@
                                    (if-let [h (second (last left-pairs))] [h] [])))
         right-hyps (concat (map first right-pairs)
                            (if-let [h (second (last right-pairs))] [h] []))
-        sensor-hyps (concat (if (= (dec (:pos evidence)) (last left-hyps))
-                              left-hyps [])
-                            [evidence]
-                            (if (= (inc (:pos evidence)) (first right-hyps))
-                              right-hyps []))]
-    (println evidence sensor-hyps)))
+        to-expl-hyps (concat (if (= (dec (:pos evidence)) (last left-hyps))
+                               left-hyps [])
+                             [evidence]
+                             (if (= (inc (:pos evidence)) (first right-hyps))
+                               right-hyps []))
+        left-word-hyp (first (filter #(= (inc (last (:pos %))) (:pos (first to-expl-hyps)))
+                                     (get hyps :word)))
+        right-word-hyp (first (filter #(= (dec (first (:pos %))) (:pos (last to-expl-hyps)))
+                                      (get hyps :word)))]
+    ;; try to extend a nearby word
+    (if left-word-hyp
+      (let [word (str/join [(:word left-word-hyp)
+                            (apply str (map :symbol to-expl-hyps))])
+            expl (concat (:explains left-word-hyp) to-expl-hyps)
+            pos (sort (map :pos expl))
+            belknow (- 1.0 (/ (:BelievedKnowledge params) 100.0))
+            kb  (get-kb hyps)
+            centroid (:centroid kb)
+            avg-word-length (:avg-word-length kb)
+            sim (Math/log (+ 1 (* 100 (similarity word centroid))))
+            length-diff (Math/abs (- avg-word-length (count word)))
+            apriori (min 1.0 (+ (* belknow sim) (Math/pow 0.25 (inc length-diff))))]
+        [(new-hyp "LearnWord" :word :learned-word false conflicts
+                  apriori expl []
+                  (format "Learned word: \"%s\" (pos %d-%d) (sim: %.4f)"
+                          word (first pos) (last pos) sim)
+                  {:word word :pos pos})
+         nil]))))
 
 (comment
   (defn make-learned-word-hyp
     [word pos-seq letters left-off sensor-hyps avg-word-length centroid]
     (let [explains (map #(nth sensor-hyps %) pos-seq)
           adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))
-          bk (- 1.0 (/ (:BelievedKnowledge params) 100.0))
-          sim (Math/log (+ 1 (* 100 (similarity word centroid))))
-          length-diff (Math/abs (- avg-word-length (count letters)))
-          apriori (min 1.0 (+ (* bk sim) (Math/pow 0.25 (inc length-diff))))]
+          
+]
       (new-hyp "WordLearn" :word :learned-word conflicts?
                apriori :and explains []
                (format "Learned word: \"%s\" at positions %s (%s) (sim: %.4f)"

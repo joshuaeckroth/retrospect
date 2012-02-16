@@ -2,6 +2,7 @@
   (:use [clojure.java.shell :only [sh]])
   (:use [retrospect.reason.abduction.evaluate :only [calc-increase]])
   (:use [retrospect.problems.words.symbols])
+  (:use [retrospect.logging])
   (:use [retrospect.state]))
 
 (defn true-hyp?
@@ -28,7 +29,7 @@
                         (get accepted :word))
         sentence (filter #(not (re-matches punctuation-regex %))
                          (nth (:test-sentences truedata) (dec time-now)))
-        [prec recall f-score oov-recall]
+        [prec recall f-score oov-rate oov-recall iv-recall]
         (try (do
                (spit "/tmp/truewords.txt" (apply str (interpose " " sentence))
                      :encoding "utf-8")
@@ -48,16 +49,26 @@
                      f-score (Double/parseDouble
                               (second (re-find #"F MEASURE:\s+(\d\.\d\d\d)"
                                                (:out results))))
+                     oov-rate (try (Double/parseDouble
+                                    (second (re-find #"OOV Rate:\s+(\d\.\d\d\d)"
+                                                     (:out results))))
+                                   (catch Exception _ 0.0))
                      oov-recall (try (Double/parseDouble
                                       (second (re-find #"OOV Recall Rate:\s+(\d\.\d\d\d)"
                                                        (:out results))))
-                                     (catch Exception _ 0.0))]
-                 [prec recall f-score oov-recall]))
-             (catch Exception e (do (println e) [-1.0 -1.0 -1.0 -1.0 -1.0])))]
+                                     (catch Exception _ 0.0))
+                     iv-recall (try (Double/parseDouble
+                                     (second (re-find #"IV Recall Rate:\s+(\d\.\d\d\d)"
+                                                      (:out results))))
+                                    (catch Exception _ 0.0))]
+                 [prec recall f-score oov-rate oov-recall iv-recall]))
+             (catch Exception e (do (log e) [-1.0 -1.0 -1.0 -1.0 -1.0 -1.0 -1.0])))]
     {:Prec prec
      :Recall recall
      :FScore f-score
+     :OOVRate oov-rate
      :OOVRecall oov-recall
+     :IVRecall iv-recall
      :LearnedCount (count learned)
      :LearnedCorrect (if (empty? learned) 100.0
                          (* 100.0 (/ (count (filter #((:test-dict truedata)
