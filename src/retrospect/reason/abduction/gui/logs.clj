@@ -37,7 +37,8 @@
         ep-states (flatten-est est)
         ws-fn (fn [ws]
                 (let [wslog (:log ws)]
-                  {"Forced" (list-hyps (:forced ws))
+                  {"Hypotheses" (list-hyps (apply concat (vals (:hypotheses ws))))
+                   "Forced" (list-hyps (:forced ws))
                    "Cycles" (apply sorted-map-by (AlphanumComparator.)
                                    (mapcat (fn [i]
                                              (let [b (nth (:best wslog) i)
@@ -67,7 +68,7 @@
                    "Unaccepted" (list-hyps (:unaccepted wslog))}))]
     (apply sorted-map-by (AlphanumComparator.)
            (mapcat (fn [ep] [(str ep) (merge (ws-fn (:workspace ep))
-                                             {"Meta-Log" nil})])
+                                             {"Log" nil})])
                    ep-states))))
 
 (defn commas
@@ -132,8 +133,8 @@
                        (find-first #(= (:id %) ep-id) (flatten-est
                                                        (:est @or-state)))))
           ws (if ep-state (:workspace ep-state))]
-      (if (= "Meta-Log" last-comp)
-        (dosync (alter workspace-log (constantly (get (:meta-logs @or-state) (:id ep-state)))))
+      (if (= "Log" last-comp)
+        (dosync (alter workspace-log (constantly @reason-log)))
         (do
           (swap! workspace-selected (constantly ws))
           (let [hyp (if ws (find-first #(= (:id %) last-comp)
@@ -225,6 +226,6 @@
                                _ (panel)
                                :gridx 1 :weightx 0.0
                                _ (button "Analyze" :action ([_] (show-analysis)))]))
-                  (.setDividerLocation 300)))
-           (.setDividerLocation 200)))
-    (.setDividerLocation 200)))
+                  (.setDividerLocation 200)))
+           (.setDividerLocation 100)))
+    (.setDividerLocation 100)))

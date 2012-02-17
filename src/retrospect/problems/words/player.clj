@@ -6,6 +6,7 @@
   (:require [clojure.string :as str])
   (:use [retrospect.epistemicstates :only [cur-ep]])
   (:use [retrospect.reason.abduction.problems.words.evaluate :only [get-history]])
+  (:use [retrospect.problems.words.symbols])
   (:use [retrospect.state]))
 
 (def fscore-label (label ""))
@@ -68,9 +69,12 @@
 (defn player-get-truedata-log
   []
   (if (= @time-now 0) ""
-      (format "%s\n\n%s" (get (:test @truedata) (dec @time-now))
-              (apply str (interpose " " (nth (:test-sentences @truedata)
-                                             (dec @time-now)))))))
+      (let [sentence (nth (:test-sentences @truedata) (dec @time-now))]
+        (format "%s\n\n%s\n\nOOV: %s" (get (:test @truedata) (dec @time-now))
+                (str/join " " sentence)
+                (str/join ", " (filter #(not ((second (:training @truedata)) %))
+                                       (filter #(not (re-matches punctuation-regex %))
+                                               sentence)))))))
 
 (defn player-get-problem-log
   []

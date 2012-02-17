@@ -1,6 +1,6 @@
 (ns retrospect.reason.abduction.reason
   (:use [retrospect.reason.abduction.workspace
-         :only [explain add-sensor-hyps analyze init-workspace init-kb]])
+         :only [explain add-sensor-hyps init-workspace init-kb]])
   (:use [retrospect.reason.abduction.evaluate
          :only [evaluate evaluate-comp]])
   (:use [retrospect.reason.abduction.gui.hypgraph
@@ -14,7 +14,6 @@
 (def reason-abduction
   {:name "Abduction"
    :reason-fn (comp explain add-sensor-hyps)
-   :analyze-fn analyze
    :evaluate-fn evaluate
    :evaluate-comp-fn evaluate-comp
    :default-params-fn (fn []

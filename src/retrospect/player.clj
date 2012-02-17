@@ -72,23 +72,28 @@
   (update-results)
   (update-repl-tab)
   ((:update-stats-fn (:player-fns @problem)))
-  ((:update-diagram-fn (:player-fns @problem))))
+  (when-let [f (:update-diagram-fn (:player-fns @problem))]
+    (f)))
 
 (defn new-simulation
   []
   (let [prepared? (and (not (nil? @prepared-selected))
                        (not= "None" @prepared-selected))
-        ps (merge-default-params (read-string @params-edit))]
-    (alter-var-root (var params) (constantly ps))
+        ps (dissoc (merge-default-params (read-string @params-edit)) :simulation)
+        ps-noseed (dissoc ps :Seed)]
+    (alter-var-root (var params) (constantly ps-noseed))
     (set-last-id 0)
     (when (not prepared?)
-      (let [ps (merge-default-params (read-string @params-edit))]
-        (alter-var-root (var params) (constantly ps))
-        (.put @prefs (format "%s-%s-params" (:name @reason) (:name @problem)) (pr-str ps))
-        (dosync (alter params-edit (constantly (format-params ps))))
-        (let [seed (if (:Seed ps) (:Seed ps) (get-seed))]
-          (alter-var-root (var rgen) (constantly (new-seed seed))))
-        (if (:Seed ps) (set-seed-spinner (:Seed ps)))
+      (let [ps (merge-default-params (read-string @params-edit))
+            ps-noseed (dissoc ps :Seed)
+            seed (if (:Seed ps) (:Seed ps) (get-seed))
+            ps-seed (assoc ps :Seed seed)]
+        (alter-var-root (var params) (constantly ps-noseed))
+        (.put @prefs (format "%s-%s-params" (:name @reason) (:name @problem))
+              (pr-str ps-seed))
+        (dosync (alter params-edit (constantly (format-params ps-noseed))))
+        (alter-var-root (var rgen) (constantly (new-seed seed)))
+        (set-seed-spinner seed)
         (set-last-id 0)
         (dosync
          (alter truedata (constantly ((:generate-truedata-fn @problem))))
@@ -102,13 +107,15 @@
   (when (and (not (nil? @prepared-selected)) (not= "None" @prepared-selected))
     ;; apply the 'prepared' function
     (let [prepared ((get (:prepared-map @problem) @prepared-selected))
-          ps (merge-default-params (:params prepared))
+          ps (dissoc (merge-default-params (:params prepared)) :simulation)
           seed (if (:seed ps) (:seed ps) 1)
+          ps-noseed (dissoc ps :Seed)
+          ps-seed (assoc ps :Seed seed)
           td (:truedata prepared)
           sens (:sensors prepared)]
-      (dosync (alter params-edit (constantly (format-params ps))))
-      (alter-var-root (var params) (constantly ps))
-      (.put @prefs (format "%s-%s-params" (:name @reason) (:name @problem)) (pr-str ps))
+      (dosync (alter params-edit (constantly (format-params ps-noseed))))
+      (alter-var-root (var params) (constantly ps-noseed))
+      (.put @prefs (format "%s-%s-params" (:name @reason) (:name @problem)) (pr-str ps-seed))
       (alter-var-root (var rgen) (constantly (new-seed seed)))
       (set-last-id 0)
       (dosync
@@ -145,12 +152,13 @@
          :on-close :exit
          [:gridx 0 :gridy 0 :gridheight 10 :weightx 1.0 :weighty 1.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
-          _ (let [tabs (doto (JTabbedPane.)
-                         (.addTab "Diagram" ((:setup-diagram-fn (:player-fns @problem))))
-                         (.addTab "Ep tree" (ep-tree-tab)))]
+          _ (let [tabs (JTabbedPane.)]
+              (when-let [f (:setup-diagram-fn (:player-fns @problem))]
+                (.addTab tabs "Diagram" (f)))
               (doseq [t ((:get-tabs-fn (:player-fns @reason)))]
                 (.addTab tabs (first t) (second t)))
               (doto tabs
+                (.addTab "Ep tree" (ep-tree-tab))
                 (.addTab "REPL" (repl-tab))
                 (.addTab "Results" (results-tab))
                 (.setSelectedIndex 0))

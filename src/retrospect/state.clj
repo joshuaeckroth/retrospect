@@ -6,6 +6,8 @@
 (def database (ref nil))
 (def db-params (ref nil))
 
+(def reason-log (ref ""))
+
 (def last-id 0)
 
 (defn set-last-id

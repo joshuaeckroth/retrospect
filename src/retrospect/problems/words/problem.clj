@@ -15,9 +15,7 @@
    :player-fns {:get-stats-panel-fn player-get-stats-panel
                 :update-stats-fn player-update-stats
                 :get-truedata-log player-get-truedata-log
-                :get-problem-log player-get-problem-log
-                :setup-diagram-fn player-setup-diagram
-                :update-diagram-fn player-update-diagram}
+                :get-problem-log player-get-problem-log}
    :generate-truedata-fn generate-truedata
    :generate-sensors-fn generate-sensors
    :perturb-fn perturb
@@ -31,9 +29,7 @@
                :true-hyp?-fn true-hyp?
                :hyps-equal?-fn hyps-equal?
                :hyp-types [:word :noise-word :word-seq :learned-word]
-               :default-params
-               {:MaxLearnedWords [10 [10]]
-                :MaxNoisyWords [10 [10]]}}
+               :default-params {}}
    :default-params
    {:Steps [10 [10]]
     :StepsBetween [1 [1]]
@@ -41,5 +37,4 @@
     :SensorNoise [0 [0 5 10 15 20]]
     :Dataset ["cityu" ["cityu"]]
     :LearnFeatureSize [2 (range 1 4)]
-    :MaxModelGrams [3 (range 1 6)]
-    :MaxLearnLength [8 (range 8 13)]}})
+    :MaxModelGrams [3 (range 1 6)]}})
