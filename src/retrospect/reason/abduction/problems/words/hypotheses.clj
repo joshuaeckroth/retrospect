@@ -119,12 +119,14 @@
                                     nearby))
         nearby-str (apply str (map :symbol nearby-reduced))
         m (re-matcher (re-pattern (format ".*(%s).*" w)) nearby-str)]
-    (loop []
-      (when (re-find m)
-        (if (not-any? #(same-hyp (:pos (nth nearby-reduced (.start m 1))) w %)
-                      other-hyps)
-          [w (subvec nearby-reduced (.start m 1) (+ (.start m 1) (count w)))]
-          (recur))))))
+    (try
+      (loop []
+        (when (re-find m)
+          (if (not-any? #(same-hyp (:pos (nth nearby-reduced (.start m 1))) w %)
+                        other-hyps)
+            [w (subvec nearby-reduced (.start m 1) (+ (.start m 1) (count w)))]
+            (recur))))
+      (catch Exception e (println e (.start m 1) (count nearby-reduced) nearby-reduced nearby-str w)))))
 
 (defn find-word
   [evidence nearby other-hyps unigram-model]
@@ -265,26 +267,44 @@
         left-word-hyp (first (filter #(= (inc (last (:pos %))) (:pos (first to-expl-hyps)))
                                      (get hyps :word)))
         right-word-hyp (first (filter #(= (dec (first (:pos %))) (:pos (last to-expl-hyps)))
-                                      (get hyps :word)))]
-    ;; try to extend a nearby word
-    (if left-word-hyp
-      (let [word (str/join [(:word left-word-hyp)
-                            (apply str (map :symbol to-expl-hyps))])
-            expl (concat (:explains left-word-hyp) to-expl-hyps)
-            pos (sort (map :pos expl))
-            belknow (- 1.0 (/ (:BelievedKnowledge params) 100.0))
-            kb  (get-kb hyps)
-            centroid (:centroid kb)
-            avg-word-length (:avg-word-length kb)
-            sim (Math/log (+ 1 (* 100 (similarity word centroid))))
-            length-diff (Math/abs (- avg-word-length (count word)))
-            apriori (min 1.0 (+ (* belknow sim) (Math/pow 0.25 (inc length-diff))))]
-        [(new-hyp "LearnWord" :word :learned-word false conflicts
-                  apriori expl []
-                  (format "Learned word: \"%s\" (pos %d-%d) (sim: %.4f)"
-                          word (first pos) (last pos) sim)
-                  {:word word :pos pos})
-         nil]))))
+                                      (get hyps :word)))
+        expl (sort-by :pos to-expl-hyps)
+        expl-left (sort-by :pos (concat (:explains left-word-hyp) to-expl-hyps))
+        expl-right (sort-by :pos (concat to-expl-hyps (:explains right-word-hyp)))
+        word (apply str (map :symbol to-expl-hyps))
+        word-left (str/join [(:word left-word-hyp) (apply str (map :symbol to-expl-hyps))])
+        word-right (str/join [(apply str (map :symbol to-expl-hyps)) (:word right-word-hyp)])
+        other-hyps (concat (get hyps :word) (get hyps :word-seq))
+        kb (get-kb hyps)
+        make-learn-hyp (fn [es w more-score]
+                         (let [pos (map :pos es)
+                               belknow (- 1.0 (/ (:BelievedKnowledge params) 100.0))
+                               centroid (:centroid kb)
+                               avg-word-length (:avg-word-length kb)
+                               sim (Math/log (+ 1 (* 100 (similarity w centroid))))
+                               length-diff (Math/abs (- avg-word-length (count w)))
+                               apriori (min 1.0 (+ (* belknow sim) (Math/pow 0.25 (inc length-diff))))]
+                           (conj
+                            [(new-hyp "LearnWord" :word :learned-word false conflicts
+                                      apriori es []
+                                      (format "Learned word: \"%s\" (pos %d-%d) (sim: %.4f)"
+                                              w (first pos) (last pos) sim)
+                                      {:word w :pos pos})]
+                            (when more-score [evidence more-score]))))]
+    (log "Learning left" left-word-hyp expl-left word-left)
+    (log "Learning right" right-word-hyp expl-right word-right)
+    (log "Learning isolated" expl word)
+    (cond
+     ;; try to extend a word on the left (suffix)
+     (and left-word-hyp (not-any? #(same-hyp (:pos (first expl-left)) word-left %) other-hyps))
+     (make-learn-hyp expl-left word-left 0.67)
+     ;; try to extend a word on the right (prefix)
+     (and right-word-hyp (not-any? #(same-hyp (:pos (first expl-right)) word-right %) other-hyps))
+     (make-learn-hyp expl-right word-right 0.33)
+     ;; otherwise try to make an isolated new word
+     (not-any? #(same-hyp (:pos (first expl)) word %) other-hyps)
+     (make-learn-hyp expl word nil)
+     :else nil)))
 
 (comment
   (defn make-learned-word-hyp

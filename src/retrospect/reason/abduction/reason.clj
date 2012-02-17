@@ -1,6 +1,6 @@
 (ns retrospect.reason.abduction.reason
   (:use [retrospect.reason.abduction.workspace
-         :only [explain add-sensor-hyps analyze init-workspace]])
+         :only [explain add-sensor-hyps analyze init-workspace init-kb]])
   (:use [retrospect.reason.abduction.evaluate
          :only [evaluate evaluate-comp]])
   (:use [retrospect.reason.abduction.gui.hypgraph
@@ -28,6 +28,7 @@
                                 :Learn [true [true false]]}
                                (:default-params (:abduction @problem))))
    :init-workspace-fn init-workspace
+   :init-kb-fn init-kb
    :player-fns
    {:get-tabs-fn (fn [] [["Logs" (logs-tab)]
                          ["Hypgraph" (hypgraph-tab)]

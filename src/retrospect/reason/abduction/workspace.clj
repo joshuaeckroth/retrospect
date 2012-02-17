@@ -30,6 +30,7 @@
    :cycle 0
    ;; remember the order hyps were added
    :added []
+   :initial-kb []
    :log {:unexplained [] :no-explainers [] :unaccepted []
          :best [] :accrej {}}
    :hyp-log {}
@@ -507,10 +508,16 @@
             workspace (range (inc time-prev) (inc time-now)))))
 
 (defn add-kb
-  [training ws]
-  (reduce (fn [ws2 h] (-> ws2 (add h) (update-in [:accepted (:type h)] conj h)))
-          ws ((:generate-kb-fn (:abduction @problem)) training)))
+  [workspace hyps]
+  (reduce (fn [ws h] (-> ws (add h) (update-in [:accepted (:type h)] conj h)
+                         (update-in [:initial-kb] conj h)))
+          workspace hyps))
+
+(defn init-kb
+  [workspace training]
+  (add-kb workspace ((:generate-kb-fn (:abduction @problem)) training)))
 
 (defn init-workspace
-  [training]
-  (add-kb training empty-workspace))
+  ([] empty-workspace)
+  ([workspace]
+     (add-kb empty-workspace (:initial-kb workspace))))

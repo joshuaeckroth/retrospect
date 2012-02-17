@@ -38,27 +38,27 @@
                (spit "/tmp/dictionary.txt"
                      (apply str (interpose "\n" (second (:training truedata))))
                      :encoding "utf-8")
-               (let [results (sh "/home/josh/research/retrospect/helpers/words/bakeoff-scorer.pl"
+               (let [results (sh (format "%s/words/score" @datadir)
                                  "/tmp/dictionary.txt" "/tmp/truewords.txt" "/tmp/history.txt")
                      prec (Double/parseDouble
-                           (second (re-find #"TOTAL TEST WORDS PRECISION:\s+(\d\.\d\d\d)"
+                           (second (re-find #"=== TOTAL TEST WORDS PRECISION:\s+(\d\.\d\d\d)"
                                             (:out results))))
                      recall (Double/parseDouble
-                             (second (re-find #"TOTAL TRUE WORDS RECALL:\s+(\d\.\d\d\d)"
+                             (second (re-find #"=== TOTAL TRUE WORDS RECALL:\s+(\d\.\d\d\d)"
                                               (:out results))))
                      f-score (Double/parseDouble
-                              (second (re-find #"F MEASURE:\s+(\d\.\d\d\d)"
+                              (second (re-find #"=== F MEASURE:\s+(\d\.\d\d\d)"
                                                (:out results))))
                      oov-rate (try (Double/parseDouble
-                                    (second (re-find #"OOV Rate:\s+(\d\.\d\d\d)"
+                                    (second (re-find #"=== OOV Rate:\s+(\d\.\d\d\d)"
                                                      (:out results))))
                                    (catch Exception _ 0.0))
                      oov-recall (try (Double/parseDouble
-                                      (second (re-find #"OOV Recall Rate:\s+(\d\.\d\d\d)"
+                                      (second (re-find #"=== OOV Recall Rate:\s+(\d\.\d\d\d)"
                                                        (:out results))))
                                      (catch Exception _ 0.0))
                      iv-recall (try (Double/parseDouble
-                                     (second (re-find #"IV Recall Rate:\s+(\d\.\d\d\d)"
+                                     (second (re-find #"=== IV Recall Rate:\s+(\d\.\d\d\d)"
                                                       (:out results))))
                                     (catch Exception _ 0.0))]
                  [prec recall f-score oov-rate oov-recall iv-recall]))
@@ -71,8 +71,7 @@
      :IVRecall iv-recall
      :LearnedCount (count learned)
      :LearnedCorrect (if (empty? learned) 100.0
-                         (* 100.0 (/ (count (filter #((:test-dict truedata)
-                                                      (first (:words %)))
+                         (* 100.0 (/ (count (filter #((:test-dict truedata) (:word %))
                                                     learned))
                                      (count learned))))}))
 

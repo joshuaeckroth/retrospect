@@ -9,7 +9,7 @@
 
 (defn init-ors
   [sensors training]
-  (let [est (init-est ((:init-workspace-fn @reason) training))]
+  (let [est (init-est ((:init-kb-fn @reason) ((:init-workspace-fn @reason)) training))]
     {:resources {:milliseconds 0}
      :results []
      :sensors sensors
@@ -40,7 +40,7 @@
         ep (cur-ep (:est ors))
         workspace (if (and (not= 0 time-prev) (:ResetEachStep params))
                     (do (log "Resetting workspace...")
-                        ((:init-workspace-fn @reason) (:training truedata)))
+                        ((:init-workspace-fn @reason) (:workspace ep)))
                     (:workspace ep))
         ep-reason (assoc ep :workspace ((:reason-fn @reason) workspace
                                         time-prev time-now sensors))
