@@ -110,8 +110,7 @@
      ors [:results] conj
      (merge {:Problem (:name @problem)}
             params
-            ((:evaluate-fn (:abduction @problem)) accepted rejected (:time ep)
-             (:sensors ors) truedata)
+            ((:evaluate-fn (:abduction @problem)) truedata ors)
             #_(calc-true-false-confs workspace true-false)
             #_(if (:AnalyzeSensitivity params)
               (analyze-sensitivity ors true-false)

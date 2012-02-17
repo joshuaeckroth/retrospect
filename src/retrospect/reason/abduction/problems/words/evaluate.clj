@@ -1,7 +1,9 @@
 (ns retrospect.reason.abduction.problems.words.evaluate
   (:use [clojure.java.shell :only [sh]])
+  (:use [clojure.string :only [join]])
   (:use [retrospect.reason.abduction.evaluate :only [calc-increase]])
   (:use [retrospect.problems.words.symbols])
+  (:use [retrospect.epistemicstates :only [cur-ep flatten-est]])
   (:use [retrospect.logging])
   (:use [retrospect.state]))
 
@@ -22,24 +24,25 @@
                         (get accepted :punctuation)))))
 
 (defn evaluate
-  [accepted rejected time-now sensors truedata]
-  (let [believed (filter #(not (re-matches punctuation-regex %))
-                         (get-history accepted))
-        learned (filter #(= :learned-word (:subtype %))
-                        (get accepted :word))
-        sentence (filter #(not (re-matches punctuation-regex %))
-                         (nth (:test-sentences truedata) (dec time-now)))
+  [truedata ors]
+  (let [eps (rest (flatten-est (:est ors)))
+        time-now (:time (last eps))
+        believed (map (fn [ep] (filter #(not (re-matches punctuation-regex %))
+                                       (get-history (:accepted (:workspace ep)))))
+                      eps)
+        sentences (map (fn [i] (filter #(not (re-matches punctuation-regex %))
+                                       (nth (:test-sentences truedata) i)))
+                       (range time-now))
         [prec recall f-score oov-rate oov-recall iv-recall]
         (try (do
-               (spit "/tmp/truewords.txt" (apply str (interpose " " sentence))
+               (spit "/tmp/truth.txt" (join "\n" (map #(join " " %) sentences))
                      :encoding "utf-8")
-               (spit "/tmp/history.txt" (apply str (interpose " " believed))
+               (spit "/tmp/believed.txt" (join "\n" (map #(join " " %) believed))
                      :encoding "utf-8")
-               (spit "/tmp/dictionary.txt"
-                     (apply str (interpose "\n" (second (:training truedata))))
+               (spit "/tmp/dictionary.txt" (join "\n" (sort (second (:training truedata))))
                      :encoding "utf-8")
                (let [results (sh (format "%s/words/score" @datadir)
-                                 "/tmp/dictionary.txt" "/tmp/truewords.txt" "/tmp/history.txt")
+                                 "/tmp/dictionary.txt" "/tmp/truth.txt" "/tmp/believed.txt")
                      prec (Double/parseDouble
                            (second (re-find #"=== TOTAL TEST WORDS PRECISION:\s+(\d\.\d\d\d)"
                                             (:out results))))
@@ -68,12 +71,7 @@
      :FScore f-score
      :OOVRate oov-rate
      :OOVRecall oov-recall
-     :IVRecall iv-recall
-     :LearnedCount (count learned)
-     :LearnedCorrect (if (empty? learned) 100.0
-                         (* 100.0 (/ (count (filter #((:test-dict truedata) (:word %))
-                                                    learned))
-                                     (count learned))))}))
+     :IVRecall iv-recall}))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]

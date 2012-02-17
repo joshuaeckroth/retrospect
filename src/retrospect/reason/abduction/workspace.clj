@@ -415,7 +415,8 @@
   (let [added (:added workspace)
         forced (:forced workspace)]
     (reduce (fn [ws h] (if (forced h) (add-fact ws h) (add ws h)))
-            empty-workspace added)))
+            (assoc empty-workspace :initial-kb (:initial-kb workspace))
+            added)))
 
 (defn explain
   [workspace]
@@ -519,5 +520,4 @@
 
 (defn init-workspace
   ([] empty-workspace)
-  ([workspace]
-     (add-kb empty-workspace (:initial-kb workspace))))
+  ([workspace] (add-kb empty-workspace (:initial-kb workspace))))

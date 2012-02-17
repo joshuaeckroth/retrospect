@@ -1,4 +1,5 @@
 (ns retrospect.reason.abduction.problems.words.hypotheses
+  (:import (java.util.regex Pattern))
   (:require [clojure.string :as str])
   (:use [clojure.contrib.combinatorics :only [combinations]])
   (:use [retrospect.sensors :only [sensed-at]])
@@ -7,6 +8,7 @@
   (:use [retrospect.problems.words.learning :only
          [update-features calc-centroid similarity]])
   (:use [retrospect.problems.words.symbols])
+  (:use [retrospect.logging])
   (:use [retrospect.state]))
 
 (defn make-sensor-hyps
@@ -99,8 +101,8 @@
                :centroid (calc-centroid features (get models 1))})]))
 
 (defn get-kb
-  [accepted]
-  (first (get accepted :kb)))
+  [hyps]
+  (first (get hyps :kb)))
 
 (defmulti hypothesize
   (fn [evidence accepted rejected hyps] [(:type evidence) (:subtype evidence)]))
