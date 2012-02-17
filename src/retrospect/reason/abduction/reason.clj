@@ -25,6 +25,7 @@
                                 :AnalyzeSensitivity [false [false]]
                                 :AnalyzeDeps [false [false]]
                                 :ProbPerturb [25 [25]]
+                                :UseScores [true [true false]]
                                 :Learn [true [true false]]}
                                (:default-params (:abduction @problem))))
    :init-workspace-fn init-workspace

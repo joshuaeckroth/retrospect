@@ -70,7 +70,7 @@
 
 (defn hyp-conf
   [workspace hyp]
-  (get (:hyp-confidences workspace) hyp))
+  (if-not (:UseScores params) 0.0 (get (:hyp-confidences workspace) hyp)))
 
 (defn find-no-explainers
   [workspace]
@@ -247,8 +247,8 @@
 (defn accept
   [workspace hyp alts]
   (log "Accepting" hyp)
-  (log "Active explainers BEFORE accepting" hyp "which explains" (:explains hyp)
-       (:active-explainers workspace))
+  #_(log "Active explainers BEFORE accepting" hyp "which explains" (:explains hyp)
+         (:active-explainers workspace))
   (let [commas (fn [ss] (apply str (interpose ", " (sort ss))))
         ws (-> workspace
                (update-in
@@ -266,8 +266,8 @@
                         ws-expl alts)
         conflicts (find-conflicts ws-alts hyp)
         ws-conflicts (reject-many ws-alts conflicts)]
-    (log "Active explainers AFTER accepting" hyp "which explains" (:explains hyp)
-         (:active-explainers ws-conflicts))
+    #_(log "Active explainers AFTER accepting" hyp "which explains" (:explains hyp)
+           (:active-explainers ws-conflicts))
     (update-in ws-conflicts [:log :accrej (:cycle ws-conflicts)] conj
                {:acc hyp :rej conflicts})))
 
@@ -342,6 +342,10 @@
   [evidence apriori]
   (new-hyp "?" :more (:type evidence) false nil apriori [evidence] [] "" {}))
 
+(defn make-more-learn-hyp
+  [evidence apriori]
+  (new-hyp "L?" :learn-more (:type evidence) false nil apriori [evidence] [] "" {}))
+
 (defn remove-hyp
   [workspace hyp]
   (log "Removing" hyp)
@@ -364,6 +368,7 @@
          (let [expl ((:hypothesize-fn (:abduction @problem)) (first hs)
                      (:accepted workspace) (:rejected workspace)
                      (:hypotheses workspace))]
+           (log "Result:" expl)
            (if expl
              (if (second expl)
                [(first expl) (make-more-hyp (first (second expl)) (second (second expl)))]
@@ -371,19 +376,21 @@
              (recur (rest hs))))))))
 
 (defn get-learn-hyp
-  [workspace]
-  (let [noexp (find-no-explainers workspace)]
-    (loop [hs noexp]
-      (when (not-empty hs)
-        (log "Trying to get a learn explainer for" (first hs))
-        (let [expl ((:learn-fn (:abduction @problem)) (first hs)
-                    noexp (:hypotheses workspace))]
-          (log "Got:" expl)
-          (if expl
-            (if (second expl)
-              [(first expl) (make-more-hyp (first (second expl)) (second (second expl)))]
-              [(first expl)])
-            (recur (rest hs))))))))
+  ([workspace]
+     (get-learn-hyp workspace (sort-by :id (find-no-explainers workspace))))
+  ([workspace hyps]
+     (let [noexp (sort-by :id (find-no-explainers workspace))]
+       (loop [hs hyps]
+         (when (not-empty hs)
+           (log "Trying to get a learn explainer for" (first hs))
+           (let [expl ((:learn-fn (:abduction @problem)) (first hs)
+                       noexp (:hypotheses workspace))]
+             (log "Got:" expl)
+             (if expl
+               (if (second expl)
+                 [(first expl) (make-more-learn-hyp (first (second expl)) (second (second expl)))]
+                 [(first expl)])
+               (recur (rest hs)))))))))
 
 (defn need-more-hyps?
   [workspace]
@@ -421,7 +428,7 @@
 (defn explain
   [workspace]
   (loop [ws workspace]
-    (log "Active explainers:" (:active-explainers ws))
+    #_(log "Active explainers:" (:active-explainers ws))
     (if (empty? (:active-explainers ws))
       (do (log "No more active explainers; attempting to learn...")
           (if-let [hs (get-learn-hyp ws)]
@@ -430,7 +437,7 @@
       (if-let [hs (and (need-more-hyps? ws) (get-another-hyp ws))]
         (recur (reduce add ws hs))
         (let [explainers (find-all-explainers ws)]
-          (log "Explainers:" explainers)
+          #_(log "Explainers:" explainers)
           (if (empty? explainers)
             (if-let [hs (get-another-hyp ws)]
               (recur (reduce add ws hs))
@@ -447,15 +454,20 @@
                 (if-let [hs (get-another-hyp ws-confs)]
                   (recur (reduce add ws-confs hs))
                   (log-final ws-confs explainers-sorted))
-                (if (= (:type best) :more)
-                  (if-let [hs (get-another-hyp ws-confs (:explains best))]
-                    (recur (remove-hyp (reduce add ws-confs hs) best))
-                    (recur (remove-hyp ws-confs best)))
-                  (recur
-                   (let [ws-logged (-> ws-confs
-                                       (update-in [:cycle] inc)
-                                       (update-in [:log :best] conj b))]
-                     (accept ws-logged best alts))))))))))))
+                (cond (= (:type best) :more)
+                      (if-let [hs (get-another-hyp ws-confs (:explains best))]
+                        (recur (remove-hyp (reduce add ws-confs hs) best))
+                        (recur (remove-hyp ws-confs best)))
+                      (= (:type best) :learn-more)
+                      (if-let [hs (get-learn-hyp ws-confs (:explains best))]
+                        (recur (reduce add (reset-workspace ws-confs) hs))
+                        (recur (remove-hyp ws-confs best)))
+                      :else
+                      (recur
+                       (let [ws-logged (-> ws-confs
+                                           (update-in [:cycle] inc)
+                                           (update-in [:log :best] conj b))]
+                         (accept ws-logged best alts))))))))))))
 
 (defn analyze
   [workspace hyp]
