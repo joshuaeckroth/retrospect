@@ -268,14 +268,28 @@
                                right-hyps []))
         left-word-hyp (first (filter #(= (inc (last (:pos %))) (:pos (first to-expl-hyps)))
                                      (get hyps :word)))
+        left-word-hyp-2 (first (filter #(= (inc (last (:pos %))) (first (:pos left-word-hyp)))
+                                       (get hyps :word)))
         right-word-hyp (first (filter #(= (dec (first (:pos %))) (:pos (last to-expl-hyps)))
                                       (get hyps :word)))
+        right-word-hyp-2 (filter #(= (dec (first (:pos %))) (last (:pos right-word-hyp)))
+                                  (get hyps :word))
         expl (sort-by :pos to-expl-hyps)
         expl-left (sort-by :pos (concat (:explains left-word-hyp) to-expl-hyps))
+        expl-left-2 (sort-by :pos (concat (:explains left-word-hyp-2)
+                                          (:explains left-word-hyp)
+                                          to-expl-hyps))
         expl-right (sort-by :pos (concat to-expl-hyps (:explains right-word-hyp)))
+        expl-right-2 (sort-by :pos (concat to-expl-hyps
+                                           (:explains right-word-hyp)
+                                           (:explains right-word-hyp-2)))
         word (apply str (map :symbol to-expl-hyps))
         word-left (str/join [(:word left-word-hyp) (apply str (map :symbol to-expl-hyps))])
+        word-left-2 (str/join [(:word left-word-hyp-2) (:word left-word-hyp)
+                               (apply str (map :symbol to-expl-hyps))])
         word-right (str/join [(apply str (map :symbol to-expl-hyps)) (:word right-word-hyp)])
+        word-right-2 (str/join [(apply str (map :symbol to-expl-hyps))
+                                (:word right-word-hyp) (:word right-word-hyp-2)])
         other-hyps (concat (get hyps :word) (get hyps :word-seq))
         kb (get-kb hyps)
         make-learn-hyp (fn [es w more-score]
@@ -283,7 +297,7 @@
                                belknow (- 1.0 (/ (:BelievedKnowledge params) 100.0))
                                centroid (:centroid kb)
                                avg-word-length (:avg-word-length kb)
-                               sim (Math/log (+ 1 (* 100 (similarity w centroid))))
+                               sim (Math/log (+ 1 (* 200 (similarity w centroid))))
                                length-diff (Math/abs (- avg-word-length (count w)))
                                apriori (min 1.0 (+ (* belknow sim) (Math/pow 0.25 (inc length-diff))))]
                            (conj
@@ -294,18 +308,26 @@
                                       {:word w :pos pos})]
                             (when more-score [evidence more-score]))))]
     (log "Learning left" left-word-hyp expl-left word-left)
+    (log "Learning left-2" left-word-hyp-2 left-word-hyp expl-left-2 word-left-2)
     (log "Learning right" right-word-hyp expl-right word-right)
+    (log "Learning right-2" right-word-hyp right-word-hyp-2 expl-right-2 word-right-2)
     (log "Learning isolated" expl word)
     (cond
+     ;; two words on the left
+     (and left-word-hyp-2 (not-any? #(same-hyp (:pos (first expl-left-2)) word-left-2 %) other-hyps))
+     (make-learn-hyp expl-left-2 word-left-2 0.8)
      ;; try to extend a word on the left (suffix)
      (and left-word-hyp (not-any? #(same-hyp (:pos (first expl-left)) word-left %) other-hyps))
-     (make-learn-hyp expl-left word-left 0.67)
+     (make-learn-hyp expl-left word-left 0.6)
+     ;; try to make an isolated new word
+     (not-any? #(same-hyp (:pos (first expl)) word %) other-hyps)
+     (make-learn-hyp expl word 0.4)
      ;; try to extend a word on the right (prefix)
      (and right-word-hyp (not-any? #(same-hyp (:pos (first expl-right)) word-right %) other-hyps))
-     (make-learn-hyp expl-right word-right 0.33)
-     ;; otherwise try to make an isolated new word
-     (not-any? #(same-hyp (:pos (first expl)) word %) other-hyps)
-     (make-learn-hyp expl word nil)
+     (make-learn-hyp expl-right word-right 0.2)
+     ;; two words on right
+     (and right-word-hyp-2 (not-any? #(same-hyp (:pos (first expl-right-2)) word-right-2 %) other-hyps))
+     (make-learn-hyp expl-right-2 word-right-2 nil)
      :else nil)))
 
 (comment
