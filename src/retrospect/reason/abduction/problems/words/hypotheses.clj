@@ -335,67 +335,83 @@
      (make-learn-hyp expl-right-2 word-right-2 nil [right-word-hyp right-word-hyp-2])
      :else nil)))
 
-(defmethod learn :word
-  [evidence noexp hyps]
-  (let [word-noexp (filter #(= :word (:type %)) noexp)
-        noexp-left (reverse (sort-by (comp first :pos)
-                                     (filter #(< (last (:pos %)) (first (:pos evidence)))
-                                             word-noexp)))
-        noexp-right (sort-by (comp first :pos)
-                             (filter #(> (first (:pos %)) (last (:pos evidence)))
-                                     word-noexp))
+(defn get-left-hyps
+  [evidence hyps]
+  (let [word-hyps (filter #(= :word (:type %)) hyps)
+        left-hyps (reverse (sort-by (comp first :pos)
+                                    (filter #(< (last (:pos %)) (first (:pos evidence)))
+                                            word-hyps)))
         left-pairs (take-while #(or (nil? (second %))
                                     (= (dec (first (:pos (first %)))) (last (:pos (second %)))))
-                               (partition-all 2 1 noexp-left))
+                               (partition-all 2 1 left-hyps))]
+    (reverse (concat (map first left-pairs)
+                     (if-let [h (second (last left-pairs))] [h] [])))))
+
+(defn get-right-hyps
+  [evidence hyps]
+  (let [word-hyps (filter #(= :word (:type %)) hyps)
+        right-hyps (sort-by (comp first :pos)
+                            (filter #(> (first (:pos %)) (last (:pos evidence)))
+                                    word-hyps))
         right-pairs (take-while #(or (nil? (second %))
                                      (= (inc (last (:pos (first %)))) (first (:pos (second %)))))
-                                (partition-all 2 1 noexp-right))
-        left-hyps (reverse (concat (map first left-pairs)
-                                   (if-let [h (second (last left-pairs))] [h] [])))
-        right-hyps (concat (map first right-pairs)
-                           (if-let [h (second (last right-pairs))] [h] []))
-        to-expl-hyps (concat (if (= (dec (first (:pos evidence))) (last (:pos (last left-hyps))))
-                               (take-last 1 left-hyps) [])
-                             [evidence]
-                             (if (= (inc (last (:pos evidence))) (first (:pos (first right-hyps))))
-                               right-hyps []))
-        expl (sort-by (comp first :pos) to-expl-hyps)
-        word (apply str (map :word expl))
-        kb (get-kb hyps)
-        avg-word-length (:avg-word-length kb)
-        length-diff (Math/abs (- avg-word-length (count word)))]
-    ;; don't create a one-word sequence
-    (when (second expl)
-      ;; hypothesize a joined word first
-      (if (and (not-any? #(same-hyp (first (:pos (first expl))) word %) (get hyps :word))
-               (< length-diff avg-word-length))
-        (let [centroid (:centroid kb)
-              sim (Math/log (+ 1 (* 200 (similarity word centroid))))
-              apriori (min 1.0 (+ sim (Math/pow 0.25 (inc length-diff))))]
-          (log "Attempting to explain" evidence "with" expl word)
-          [(new-hyp "LearnedWord" :word :learned-word true conflicts
-                    apriori (mapcat :explains expl) []
-                    (format (str "Learned word from existing words: \"%s\" (pos %d-%d)"
-                                 "\nTo explain: %s\nEntire sequence: %s")
-                            word (first (:pos (first expl)))
-                            (last (:pos (last expl)))
-                            evidence (str/join "; " (map str expl)))
-                    {:word word :pos (apply concat (map :pos expl))})
-           nil])
-        ;; hypothesize a word sequence second
-        (let [hyp (new-hyp "LearnedWordSeq" :word-seq :learned-word-seq false conflicts
-                           0.0 expl []
-                           (format (str "Learned word sequence: \"%s\" (pos %d-%d)"
-                                        "\nTo explain: %s\nEntire sequence: %s")
-                                   (str/join " " (map :word expl))
-                                   (first (:pos (first expl)))
-                                   (last (:pos (last expl)))
-                                   evidence (str/join "; " (map str expl)))
-                           {:words (map :word expl) :pos (apply concat (map :pos expl))
-                            :pos-seqs (map :pos expl)})]
-          (when (not-any? (fn [h] (hyps-equal? hyp h)) (get hyps :word-seq))
-            (log "Attempting to explain" evidence "with" (map :word expl))
-            [hyp nil]))))))
+                                (partition-all 2 1 right-hyps))]
+    (concat (map first right-pairs)
+            (if-let [h (second (last right-pairs))] [h] []))))
+
+(defmethod learn :word
+  [evidence noexp hyps]
+  (when (not= :learned-word (:subtype evidence))
+    (let [left-hyps (let [hs (get-left-hyps evidence noexp)]
+                      (if (not-empty hs) (take-last 1 hs)
+                          (take-last 1 (get-left-hyps evidence (get hyps :word)))))
+          right-hyps (let [hs (get-right-hyps evidence noexp)]
+                       (if (not-empty hs) (take 1 hs)
+                           (take 1 (get-right-hyps evidence (get hyps :word)))))
+          to-expl-hyps (concat (if (= (dec (first (:pos evidence))) (last (:pos (last left-hyps))))
+                                 left-hyps [])
+                               [evidence]
+                               (if (= (inc (last (:pos evidence))) (first (:pos (first right-hyps))))
+                                 right-hyps []))
+          expl (sort-by (comp first :pos) to-expl-hyps)
+          word (apply str (map :word expl))
+          kb (get-kb hyps)
+          avg-word-length (:avg-word-length kb)
+          length-diff (Math/abs (- avg-word-length (count word)))]
+      (log evidence (str/join "," (map :id left-hyps)) "; " (str/join "," (map :id right-hyps))
+           "; " (str/join ", " (map :id expl)) "avg:" avg-word-length length-diff word)
+      ;; don't create a one-word sequence
+      (when (second expl)
+        ;; hypothesize a joined word first
+        (if (and (not-any? #(same-hyp (first (:pos (first expl))) word %) (get hyps :word))
+                 (< length-diff avg-word-length))
+          (let [centroid (:centroid kb)
+                sim (Math/log (+ 1 (* 200 (similarity word centroid))))
+                apriori (min 1.0 (+ sim (Math/pow 0.25 (inc length-diff))))]
+            (log "Attempting to explain" evidence "with" expl word)
+            [(new-hyp "LearnedWord" :word :learned-word true conflicts
+                      apriori (mapcat :explains expl) []
+                      (format (str "Learned word from existing words: \"%s\" (pos %d-%d)"
+                                   "\nTo explain: %s\nEntire sequence: %s")
+                              word (first (:pos (first expl)))
+                              (last (:pos (last expl)))
+                              (:id evidence) (str/join ", " (map :id expl)))
+                      {:word word :pos (apply concat (map :pos expl))})
+             nil])
+          ;; hypothesize a word sequence second
+          (let [hyp (new-hyp "LearnedWordSeq" :word-seq :learned-word-seq false conflicts
+                             0.0 expl []
+                             (format (str "Learned word sequence: \"%s\" (pos %d-%d)"
+                                          "\nTo explain: %s\nEntire sequence: %s")
+                                     (str/join " " (map :word expl))
+                                     (first (:pos (first expl)))
+                                     (last (:pos (last expl)))
+                                     evidence (str/join "; " (map :id expl)))
+                             {:words (map :word expl) :pos (apply concat (map :pos expl))
+                              :pos-seqs (map :pos expl)})]
+            (when (not-any? (fn [h] (hyps-equal? hyp h)) (get hyps :word-seq))
+              (log "Attempting to explain" evidence "with" (map :word expl))
+              [hyp nil])))))))
 
 (comment
   (defn make-learned-word-hyp

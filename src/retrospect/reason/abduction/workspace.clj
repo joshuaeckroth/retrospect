@@ -186,7 +186,7 @@
 
 (defn add-explainers
   [workspace hyp]
-  (log "Adding explainers for" hyp)
+  (log "Adding explainers for" (:id hyp))
   (reduce (fn [ws h]
             (let [ws2 (update-in ws [:explainers h] conj hyp)]
               ;; don't add active-explainers to hyps that have already
@@ -198,7 +198,7 @@
 
 (defn remove-explainers
   [workspace hyp]
-  (log "Removing explainers for" hyp)
+  (log "Removing explainers for" (:id hyp))
   (reduce (fn [ws h] (if (nil? (get (:active-explainers ws) h)) ws
                          (update-in ws [:active-explainers h] disj hyp)))
           workspace (:explains hyp)))
@@ -209,7 +209,7 @@
                                              (concat (get (:accepted workspace) (:type h))
                                                      (get (:rejected workspace) (:type h)))))
                            hyps)]
-    (when (not-empty rejectable) (log "Rejecting" (str/join ", " (map str rejectable))))
+    (when (not-empty rejectable) (log "Rejecting" (str/join ", " (map :id rejectable))))
     (-> (reduce (fn [ws hyp]
                   (-> ws
                       (remove-explainers hyp)
@@ -225,7 +225,7 @@
 
 (defn add
   [workspace hyp]
-  (log "Adding" hyp "which explains" (:explains hyp))
+  (log "Adding" (:id hyp) "which explains" (map :id (:explains hyp)))
   (let [g-added (reduce (fn [g n] (-> g (add-nodes n)
                                       (add-attr n :id (:id n))
                                       (add-attr n :label (:id n))))
@@ -249,7 +249,7 @@
 (defn accept
   [workspace hyp alts]
   (if (some #(= (:id hyp) (:id %)) (get (:accepted workspace) (:type hyp))) workspace
-      (do (log "Accepting" hyp (:desc hyp))
+      (do (log "Accepting" (:id hyp))
           (let [commas (fn [ss] (apply str (interpose ", " (sort ss))))
                 ;; recursively accept explained hyps
                 ws workspace #_(reduce (fn [ws2 h] (accept ws2 h [])) workspace (:explains hyp))
@@ -297,21 +297,21 @@
   "Only measure unexplained \"needs-explainer\" hyps."
   [workspace]
   (if (empty? (:forced workspace)) 0.0
-      (double (/ (count (filter (:needs-explainer workspace)
-                                (:unexplained (:log workspace))))
-                 (count (:needs-explainer workspace))))))
+      (double (/ (count (:unexplained (:log workspace)))
+                 (count (filter #(:needs-explainer? %)
+                                (apply concat (vals (:accepted workspace)))))))))
 
 (defn get-noexp-pct
   [workspace]
   (if (empty? (:needs-explainer workspace)) 0.0
       (double (/ (count (:no-explainers (:log workspace)))
-                 (count (:needs-explainer workspace))))))
+                 (count (filter #(:needs-explainer? %)
+                                (apply concat (vals (:accepted workspace)))))))))
 
 (defn log-final
   [workspace explainers]
   (let [ws (update-in workspace [:log] merge
-                      {:unexplained (filter (:needs-explainer workspace)
-                                            (keys (:active-explainers workspace)))
+                      {:unexplained (:needs-explainer workspace)
                        :no-explainers (find-no-explainers workspace)
                        :unaccepted (set/difference
                                     (set (apply concat (vals (:hypotheses workspace))))
@@ -328,7 +328,7 @@
           ;; choose most confident/most-explaining essential
           (let [expl (first essentials)
                 best (first (:expl expl))]
-            (log "Choosing best (essential)" best)
+            (log "Choosing best (essential)" (:id best))
             {:best best
              :alts (disj (set (mapcat :expl (rest essentials))) best)
              :essential? true :delta nil :explained (:hyp expl)})
@@ -339,7 +339,7 @@
                 delta (- (hyp-conf workspace (first alts))
                          (hyp-conf workspace (second alts)))]            
             (when (>= delta threshold)
-              (log "Choosing best" best "delta" delta)
+              (log "Choosing best" (:id best) "delta" delta)
               {:best best :alts (rest alts)
                :essential? false :delta delta :explained (:hyp expl)}))))))
 
@@ -353,7 +353,7 @@
 
 (defn remove-hyp
   [workspace hyp]
-  (log "Removing" hyp)
+  (log "Removing" (:id hyp))
   (-> workspace
       (remove-explainers hyp)
       (update-in [:graph] remove-nodes hyp)
@@ -366,16 +366,16 @@
 (defn get-another-hyp
   ([workspace]
      ;;TODO figure out order hyps should be attempted
-     (get-another-hyp workspace (my-shuffle (:needs-explainer workspace))))
+     (get-another-hyp workspace (sort-by :id (AlphanumComparator.) (:needs-explainer workspace))))
   ([workspace hyps]
      (log "Getting more hyps...")
      (loop [hs hyps]
        (when (not-empty hs)
-         (log "Trying to get an explainer for" (first hs))
+         (log "Trying to get an explainer for" (:id (first hs)))
          (let [expl ((:hypothesize-fn (:abduction @problem)) (first hs)
                      (:accepted workspace) (:rejected workspace)
                      (:hypotheses workspace))]
-           (log "Got:" expl)
+           (log "Got:" (:id expl))
            (if expl
              (do (log (:desc (first expl)) (:apriori (first expl)) (:explains (first expl)))
                  (if (second expl)
@@ -389,15 +389,17 @@
   ([workspace hyps]
      (let [noexp (sort-by :id (AlphanumComparator.) (find-no-explainers workspace))]
        (when (not-empty noexp)
-         (log "Getting learning hyps for noexp" noexp "and hyps" hyps)
+         (log "Getting learning hyps for noexp" (str/join "," (map :id noexp))
+              "and hyps" (str/join "," (map :id hyps)))
          (loop [hs hyps]
            (when (not-empty hs)
-             (log "Trying to get a learn explainer for" (first hs))
+             (log "Trying to get a learn explainer for" (:id (first hs)))
              (let [expl ((:learn-fn (:abduction @problem)) (first hs)
                          noexp (:hypotheses workspace))]
                (log "Got:" expl)
                (if expl
-                 (do (log (:desc (first expl)) (:apriori (first expl)) (:explains (first expl)))
+                 (do (log (:desc (first expl)) (:apriori (first expl))
+                          (map :id (:explains (first expl))))
                      (if (second expl)
                        [(first expl) (make-more-learn-hyp (:explains (first expl)) (second expl))]
                        [(first expl)]))
@@ -439,7 +441,7 @@
 (defn explain
   [workspace]
   (loop [ws workspace]
-    (log "Explaining again..." (:active-explainers ws))
+    (log "Explaining again...")
     (let [explainers (find-all-explainers ws)]
       (if (empty? explainers)
         (do (log "No explainers. Attempting to get more hyps...")
@@ -474,7 +476,7 @@
                         (recur (reduce add (reset-workspace ws-confs) hs))
                         (recur (remove-hyp ws-confs best))))
                   :else
-                  (do (log "Best is" best)
+                  (do (log "Best is" (:id best))
                       (recur
                        (let [ws-logged (-> ws-confs
                                            (update-in [:cycle] inc)
