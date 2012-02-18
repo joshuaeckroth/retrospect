@@ -15,7 +15,7 @@
 (defn make-sensor-hyps
   [sensor [symbol pos] time time-prev time-now]
   [(new-hyp "Sens" :sensor :symbol true nil 1.0 [] []
-            (format "Symbol: '%c' at position %d" symbol pos)
+            (str symbol) (format "Symbol: '%c' at position %d" symbol pos)
             {:pos pos :symbol symbol})])
 
 (defn conflicts
@@ -99,7 +99,7 @@
   [[training training-dict]]
   (let [models (build-markov-models training)
         features (update-features {} training-dict)]
-    [(new-hyp "KB" :kb :kb false conflicts 1.0 [] [] ""
+    [(new-hyp "KB" :kb :kb false conflicts 1.0 [] [] "" ""
               {:avg-word-length (if (empty? training-dict) 0
                                     (double (/ (reduce + (map count training-dict))
                                                (count training-dict))))
@@ -163,7 +163,8 @@
   (let [sensor-hyps (get accepted :sensor)
         other-hyps (concat (get hyps :word) (get hyps :word-seq))]
     (if (re-matches punctuation-regex (str (:symbol evidence)))
-      [(new-hyp "Punc" :punctuation :punctuation false nil 1.0 [evidence] [] ""
+      [(new-hyp "Punc" :punctuation :punctuation false nil 1.0 [evidence] []
+                (str (:symbol evidence)) (format "Punctuation: %s" (str (:symbol evidence)))
                 {:pos [(:pos evidence)] :symbol (:symbol evidence)})
        nil]
       (let [[expl & word-sensor-hyps] (find-word evidence other-hyps)]
@@ -175,7 +176,7 @@
                                            similar-words))]
             [(new-hyp "Word" :word :word true conflicts
                       (double (/ (get unigram-model [w]) similar-sum))
-                      expl []
+                      expl [] w
                       (format "Word \"%s\" (pos %d-%d)"
                               w (:pos (first expl))
                               (:pos (last expl)))
@@ -225,9 +226,9 @@
             (let [pos-seqs (map :pos word-seq)
                   pos (apply concat pos-seqs)
                   hyp (new-hyp "WordSeq" :word-seq :word-seq false conflicts
-                               0.5 word-seq []
+                               0.5 word-seq [] (str/join " " words)
                                (format "WordSeq \"%s\" (pos %d-%d)"
-                                       (apply str (interpose " " words))
+                                       (str/join " " words)
                                        (ffirst pos-seqs) (last (last pos-seqs)))
                                {:words words :pos pos :pos-seqs pos-seqs})]
               (if (not-any? (fn [h] (hyps-equal? hyp h)) (get hyps :word-seq))
@@ -295,7 +296,7 @@
                                length-diff (Math/abs (- avg-word-length (count w)))
                                apriori (min 1.0 (+ sim (Math/pow 0.25 (inc length-diff))))]
                            [(new-hyp "LearnedWord" :word :learned-word true conflicts
-                                     apriori es []
+                                     apriori es [] w
                                      (format (str "Learned word: \"%s\" (pos %d-%d) (sim: %.4f)"
                                                   "\nTo explain: %s (%s)")
                                              w (first pos) (last pos) sim
@@ -387,7 +388,7 @@
                 apriori (min 1.0 (+ sim (Math/pow 0.25 (inc length-diff))))]
             (log "Attempting to explain" evidence "with" expl word)
             [(new-hyp "LearnedWord" :word :learned-word true conflicts
-                      apriori (mapcat :explains expl) []
+                      apriori (mapcat :explains expl) [] word
                       (format (str "Learned word from existing words: \"%s\" (pos %d-%d)"
                                    "\nTo explain: %s\nEntire sequence: %s")
                               word (first (:pos (first expl)))
@@ -397,7 +398,7 @@
              nil])
           ;; hypothesize a word sequence second
           (let [hyp (new-hyp "LearnedWordSeq" :word-seq :learned-word-seq false conflicts
-                             0.0 expl []
+                             0.0 expl [] (str/join " " (map :word expl))
                              (format (str "Learned word sequence: \"%s\" (pos %d-%d)"
                                           "\nTo explain: %s\nEntire sequence: %s")
                                      (str/join " " (map :word expl))

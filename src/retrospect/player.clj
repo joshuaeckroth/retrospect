@@ -75,8 +75,22 @@
   (when-let [f (:update-diagram-fn (:player-fns @problem))]
     (f)))
 
+(defn step
+  []
+  (let [ors (run-simulation-step @truedata @or-state true)]
+    (dosync (alter or-state (constantly ors)))
+    (update-everything)))
+
+(defn next-step
+  []
+  (when (< @time-now (:Steps params))
+    (step)))
+
+(def next-button (button "Next" :enabled false :action ([_] (next-step))))
+
 (defn new-simulation
   []
+  (.setEnabled next-button true)
   (let [prepared? (and (not (nil? @prepared-selected))
                        (not= "None" @prepared-selected))
         ps (dissoc (merge-default-params (read-string @params-edit)) :simulation)
@@ -131,17 +145,6 @@
       (dosync (alter or-state assoc :est (goto-ep (:est @or-state) id)))
       (update-everything))))
 
-(defn step
-  []
-  (let [ors (run-simulation-step @truedata @or-state true)]
-    (dosync (alter or-state (constantly ors)))
-    (update-everything)))
-
-(defn next-step
-  []
-  (when (< @time-now (:Steps params))
-    (step)))
-
 (defn mainframe
   []
   (frame :title "Player"
@@ -190,7 +193,7 @@
           :gridx 1 :gridy 5 :gridwidth 2
           _ (doto (panel)
               (.add (button "New" :action ([_] (new-simulation))))
-              (.add (button "Next" :action ([_] (next-step)))))
+              (.add next-button))
 
           :gridx 1 :gridy 6
           _ (doto (panel)
@@ -216,5 +219,4 @@
   (dosync (alter params-edit (constantly (format-params params))))
 
   (let [options (apply hash-map opts)]
-    (new-simulation)
     (mainframe)))

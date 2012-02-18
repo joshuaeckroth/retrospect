@@ -9,6 +9,7 @@
   (:use [clj-swing.panel])
   (:use [clojure.contrib.seq :only [find-first]])
   (:require [clojure.set :as set])
+  (:require [clojure.string :as str])
   (:require [retrospect.reason.abduction.workspace :as ws])
   (:use [retrospect.epistemicstates :only
          [cur-ep flatten-est]])
@@ -22,7 +23,6 @@
 (def problem-log (ref ""))
 (def problem-log-textbox (ref nil))
 (def problem-log-label (label ""))
-(def hyp-choices (ref []))
 (def hyp-selected (atom nil))
 (def workspace-selected (atom nil))
 (def hyp-info (ref ""))
@@ -30,37 +30,33 @@
 (def workspace-log-textbox (ref nil))
 (def workspace-log (ref ""))
 
+(defn list-hyps
+  [hyps]
+  (apply sorted-map-by (AlphanumComparator.) (mapcat (fn [h] [(:id h) nil]) hyps)))
+
+(defn build-cycle
+  [wslog i]
+  (let [b (nth (:best wslog) i)
+        ;; seq of {:acc :rej} pairs (maps)
+        ars (get (:accrej wslog) (inc i))]
+    [(format "Cycle %d %s" (inc i) (if (:essential? b) "essential"
+                                       (format "delta %.2f" (:delta b))))
+     {"Best" {(:id (:best b)) nil}
+      "Explained" {(:id (:explained b)) nil}
+      "Accepted" (list-hyps (disj (set (map :acc ars)) (:best b)))
+      "Alternatives" (list-hyps (:alts b))
+      "Rejected" (list-hyps (mapcat :rej ars))}]))
+
 (defn build-abduction-tree-map
   [or-state]
   (let [est (:est or-state)
-        list-hyps #(apply sorted-map-by (AlphanumComparator.)
-                          (mapcat (fn [h] [(:id h) nil]) %))
         ep-states (flatten-est est)
         ws-fn (fn [ws]
                 (let [wslog (:log ws)]
                   {"Hypotheses" (list-hyps (apply concat (vals (:hypotheses ws))))
                    "Forced" (list-hyps (:forced ws))
                    "Cycles" (apply sorted-map-by (AlphanumComparator.)
-                                   (mapcat (fn [i]
-                                             (let [b (nth (:best wslog) i)
-                                                   ;; seq of {:acc :rej} pairs (maps)
-                                                   ars (get (:accrej wslog) (inc i))]
-                                               [(format "Cycle %d %s" (inc i)
-                                                        (if (:essential? b)
-                                                          "essential"
-                                                          (format "delta %.2f"
-                                                                  (:delta b))))
-                                                {"Best"
-                                                 {(:id (:best b)) nil}
-                                                 "Explained"
-                                                 {(:id (:explained b)) nil}
-                                                 "Accepted"
-                                                 (list-hyps (disj (set (map :acc ars))
-                                                                  (:best b)))
-                                                 "Alternatives"
-                                                 (list-hyps (:alts b))
-                                                 "Rejected"
-                                                 (list-hyps (mapcat :rej ars))}]))
+                                   (mapcat #(build-cycle wslog %)
                                            (range (count (:best wslog)))))
                    "Accepted" (list-hyps (apply concat (vals (:accepted ws))))
                    "Rejected" (list-hyps (apply concat (vals (:rejected ws))))
@@ -68,48 +64,33 @@
                    "Unexplained" (list-hyps (:unexplained wslog))
                    "Unaccepted" (list-hyps (:unaccepted wslog))}))]
     (apply sorted-map-by (AlphanumComparator.)
-           (mapcat (fn [ep] [(str ep) (merge (ws-fn (:workspace ep))
-                                             {"Log" nil})])
+           (mapcat (fn [ep] [(str ep) (merge (ws-fn (:workspace ep)) {"Log" nil})])
                    ep-states))))
 
-(defn commas
-  [hyps]
-  (apply str (interpose ", " (sort (AlphanumComparator.) (map :id hyps)))))
-
 (defn hyp-info
-  [workspace hyp]
-  (format (str "%s\n\nExplains: %s\n\nExplainers: %s\n\n"
-               "Conflicts: %s\n\nApriori: %s\nConfidence: %s\n\nLog:\n%s")
-          (:desc hyp)
-          (commas (sort-by :id (:explains hyp)))
-          (apply str
-                 (interpose ", "
-                            (map #(format "[%s]" %)
-                                 (map commas                                      
-                                      (vals (group-by :type
-                                                      (get (:explainers workspace) hyp)))))))
-          (commas (ws/find-conflicts workspace hyp))
-          (conf-str (:apriori hyp))
-          (conf-str (ws/hyp-conf workspace hyp))
-          (apply str (interpose "\n" (ws/hyp-log workspace hyp)))))
+  [workspace time hyp]
+  (let [explainers (vals (group-by :type (get (:explainers workspace) hyp)))]
+    (format (str "%s\n\nExplains: %s\n\nExplainers: %s\n\n"
+                 "Conflicts: %s\n\nApriori: %s\nConfidence: %s\n\n"
+                 "This hyp is: %s\n\nLog:\n%s")
+            (:desc hyp)
+            (str/join ", " (sort-by :id (AlphanumComparator.) (:explains hyp)))
+            (str/join ", " (map #(format "[%s]" %)
+                                (map #(str/join ", " (sort-by :id (AlphanumComparator.) %)) explainers)))
+            (str/join ", " (sort-by :id (AlphanumComparator.) (ws/find-conflicts workspace hyp)))
+            (conf-str (:apriori hyp))
+            (conf-str (ws/hyp-conf workspace hyp))
+            (if ((:true-hyp?-fn (:abduction @problem)) @truedata time hyp) "True" "False")
+            (str/join "\n" (ws/hyp-log workspace hyp)))))
 
 (defn final-explainers
   [workspace]
-  (letfn [(expl-id-confs [expl] (map (fn [h] (format "%s (%.2f)" (:id h)
-                                                     (ws/hyp-conf workspace h)))
-                                     expl))
-          (lines [ss] (apply str (interpose "\n" ss)))
-          (expls [explainers]
-            (lines (map (fn [{hyp :hyp expl :expl}]
-                          (format "%s: %s" (:id hyp)
-                                  (apply str (interpose ", " (expl-id-confs expl)))))
-                        explainers)))]
+  (letfn [(confs [expl] (map (fn [h] (format "%s (%.2f)" (:id h) (ws/hyp-conf workspace h)))
+                             expl))]
     (format "Final explainers:\n\n%s"
-            (expls (:last-explainers (:log workspace))))))
-
-(defn format-hyp-info
-  [workspace hyp]
-  (hyp-info workspace hyp))
+            (str/join "\n" (map (fn [{hyp :hyp expl :expl}]
+                                  (format "%s: %s" (:id hyp) (str/join ", " (confs expl))))
+                                (:last-explainers (:log workspace)))))))
 
 (comment
   starts (set/difference (ws/get-hyps workspace) (:forced workspace))
@@ -142,7 +123,7 @@
                                        (apply concat (vals (:hypotheses ws)))))]
             (swap! hyp-selected (constantly hyp))
             (if hyp
-              (dosync (alter workspace-log (constantly (format-hyp-info ws hyp))))
+              (dosync (alter workspace-log (constantly (hyp-info ws (:time ep-state) hyp))))
               (dosync (alter workspace-log (constantly (final-explainers ws))))))))
       (scroll-top @workspace-log-textbox))))
 
@@ -174,11 +155,7 @@
   (dosync
    (alter truedata-log (constantly ((:get-truedata-log (:player-fns @problem)))))
    (alter problem-log (constantly ((:get-problem-log (:player-fns @problem)))))
-   (alter hyp-choices
-          (constantly (sort (AlphanumComparator.)
-                            (map :id (apply concat (vals (:hypotheses (:workspace (cur-ep (:est @or-state))))))))))
-   (alter abduction-tree-map
-          (constantly (build-abduction-tree-map @or-state))))
+   (alter abduction-tree-map (constantly (build-abduction-tree-map @or-state))))
   (. problem-log-label setText (format "Problem log for: %s" (str (cur-ep (:est @or-state)))))
   (when (and @truedata-log-textbox @problem-log-textbox @workspace-log-textbox)
     (scroll-top @truedata-log-textbox)

@@ -17,15 +17,15 @@
 
 (defrecord Hypothesis
     [id type subtype needs-explainer?
-     conflict apriori explains depends desc]
+     conflict apriori explains depends short-str desc]
   Object
-  (toString [self] (format "%s: %s" id desc))
+  (toString [self] (format "%s(%s)" id short-str))
   Comparable
   (compareTo [self other] (compare (hash self) (hash other))))
 
 (defmethod print-method Hypothesis
   [o w]
-  (print-simple (:id o) w))
+  (print-simple (format "%s(%s)" (:id o) (:short-str o)) w))
 
 (def empty-workspace
   {:graph (digraph)
@@ -54,7 +54,7 @@
 
 (defn new-hyp
   [prefix type subtype needs-explainer?
-   conflict apriori explains depends desc data]
+   conflict apriori explains depends short-str desc data]
   (let [id (inc last-id)]
     (set-last-id id)
     ;; use var-set if running batch mode; def if using player or repl
@@ -63,7 +63,7 @@
     (merge
      (Hypothesis. (format "%s%d" prefix id)
                   type subtype needs-explainer? conflict
-                  apriori explains depends desc)
+                  apriori explains depends short-str desc)
      data)))
 
 (defn hyp-log
@@ -343,11 +343,11 @@
 
 (defn make-more-hyp
   [expl apriori]
-  (new-hyp "?" :more (:type (first expl)) false nil apriori expl [] "" {}))
+  (new-hyp "?" :more (:type (first expl)) false nil apriori expl [] "" "" {}))
 
 (defn make-more-learn-hyp
   [expl apriori]
-  (new-hyp "L?" :learn-more (:type (first expl)) false nil apriori expl [] "" {}))
+  (new-hyp "L?" :learn-more (:type (first expl)) false nil apriori expl [] "" "" {}))
 
 (defn remove-hyp
   [workspace hyp]

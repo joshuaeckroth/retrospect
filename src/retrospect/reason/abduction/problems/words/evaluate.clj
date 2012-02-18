@@ -8,8 +8,21 @@
   (:use [retrospect.state]))
 
 (defn true-hyp?
-  [truedata pdata time hyp]
-  false)
+  [truedata time-now hyp]
+  (if-not (or (= :word (:type hyp)) (= :word-seq (:type hyp))) true
+          (let [sentence (nth (:test-sentences truedata) (dec time-now))
+                start-pos (if (= :word (:type hyp)) (first (:pos hyp))
+                              (ffirst (:pos-seqs hyp)))
+                end-pos (if (= :word (:type hyp)) (last (:pos hyp))
+                            (last (last (:pos-seqs hyp))))
+                hyp-words (if (= :word (:type hyp)) [(:word hyp)] (:words hyp))
+                true-words (loop [i 0 ws [] sent sentence]
+                             (cond (empty? sent) ws
+                                   (> i end-pos) ws
+                                   (< i start-pos) (recur (+ i (count (first sent))) ws (rest sent))
+                                   :else (recur (+ i (count (first sent))) (conj ws (first sent))
+                                                (rest sent))))]
+            (= hyp-words true-words))))
 
 (defn hyps-equal?
   [hyp1 hyp2]
