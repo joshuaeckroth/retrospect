@@ -1,6 +1,7 @@
 (ns retrospect.reason.abduction.problems.words.hypotheses
   (:import (java.util.regex Pattern))
   (:require [clojure.string :as str])
+  (:use [clojure.contrib.string :only [substring?]])
   (:use [clojure.contrib.combinatorics :only [combinations]])
   (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.reason.abduction.workspace :only [new-hyp]])
@@ -121,59 +122,55 @@
   (and (= w (:word h))
        (= (first (:pos h)) pos-start)))
 
-(defn find-match
-  [evidence w nearby other-hyps]
-  (let [nearby-reduced (vec (filter #(and (> (:pos %) (- (:pos evidence) (count w)))
-                                          (< (:pos %) (+ (:pos evidence) (count w))))
-                                    nearby))
-        nearby-str (apply str (map :symbol nearby-reduced))
-        m (re-matcher (re-pattern (format ".*(%s).*" (Pattern/quote w))) nearby-str)]
-    (try
-      (loop []
-        (when (re-find m)
-          (if (not-any? #(same-hyp (:pos (nth nearby-reduced (.start m 1))) w %)
-                        other-hyps)
-            [w (subvec nearby-reduced (.start m 1) (+ (.start m 1) (count w)))]
-            (recur))))
-      (catch Exception e (println e (.start m 1) (count nearby-reduced) nearby-reduced nearby-str w)))))
+(def cache (ref nil))
+
+(defn reset
+  [] (dosync (alter cache (constantly nil))))
+
+(defn update-cache
+  [hyps]
+  (let [kb (get-kb hyps)
+        sensor-hyps (vec (sort-by :pos (get hyps :sensor)))
+        sensor-str (apply str (map :symbol sensor-hyps))
+        words (map first (keys (get (:models kb) 1)))
+        word-positions (mapcat (fn [w]
+                                 (let [matcher (re-matcher
+                                                (re-pattern (format "(%s)" (Pattern/quote w)))
+                                                sensor-str)]
+                                   (loop [matches []]
+                                     (if (re-find matcher)
+                                       (recur (conj matches
+                                                    (subvec sensor-hyps (.start matcher 1)
+                                                            (+ (.start matcher 1) (count w)))))
+                                       matches))))
+                               words)]
+    (dosync (alter cache (constantly word-positions)))))
 
 (defn find-word
-  [evidence nearby other-hyps unigram-model]
-  (let [matched (map #(find-match evidence % nearby other-hyps)
-                     (reverse (sort-by count (map first (keys unigram-model)))))]
-    (first (filter identity matched))))
+  [evidence other-hyps]
+  (let [matches-near-evidence (filter #(and (<= (:pos (first %)) (:pos evidence))
+                                            (>= (:pos (last %)) (:pos evidence)))
+                                      @cache)
+        nearby-sensor-hyps (reverse (sort-by count matches-near-evidence))]
+    (filter (fn [sensor-hyps] (not-any? #(same-hyp (:pos (first sensor-hyps))
+                                                   (apply str (map :symbol sensor-hyps)) %)
+                                        other-hyps))
+            nearby-sensor-hyps)))
 
 (defmethod hypothesize :sensor
   [evidence accepted rejected hyps]
+  (when (nil? @cache) (update-cache hyps))
   (let [sensor-hyps (get accepted :sensor)
         other-hyps (concat (get hyps :word) (get hyps :word-seq))]
     (if (re-matches punctuation-regex (str (:symbol evidence)))
       [(new-hyp "Punc" :punctuation :punctuation false nil 1.0 [evidence] [] ""
                 {:pos [(:pos evidence)] :symbol (:symbol evidence)})
        nil]
-      (let [nearest-left-punc
-            (:pos (first (filter #(and (> (:pos evidence) (:pos %))
-                                       (re-matches punctuation-regex
-                                                   (str (:symbol %))))
-                                 sensor-hyps)))
-            nearest-right-punc
-            (:pos (first (filter #(and (< (:pos evidence) (:pos %))
-                                       (re-matches punctuation-regex
-                                                   (str (:symbol %))))
-                                 sensor-hyps)))
-            nearby-test (fn [h] (and (or (nil? nearest-right-punc)
-                                         (> nearest-right-punc (:pos h)))
-                                     (or (nil? nearest-left-punc)
-                                         (< nearest-left-punc (:pos h)))))
-            nearby (vec (filter #(not (re-matches punctuation-regex
-                                                  (str (:symbol %))))
-                                (sort-by :pos (filter nearby-test sensor-hyps))))
-            unigram-model (get (:models (get-kb accepted)) 1)
-            word (find-word evidence nearby other-hyps unigram-model)]
-        (if word
-          (let [[w expl] word
-                similar-words (filter #(re-find (re-pattern (format ".*%s.*" (Pattern/quote w))) %)
-                                      (map first (keys unigram-model)))
+      (let [[expl & word-sensor-hyps] (find-word evidence other-hyps)]
+        (if expl
+          (let [w (apply str (map :symbol expl))
+                unigram-model (get (:models (get-kb hyps)) 1)
+                similar-words (filter #(substring? w %) (map first (keys unigram-model)))
                 similar-sum (reduce + (map (fn [w2] (get unigram-model [w2]))
                                            similar-words))]
             [(new-hyp "Word" :word :word true conflicts

@@ -504,4 +504,6 @@
 
 (defn init-workspace
   ([] empty-workspace)
-  ([workspace] (add-kb empty-workspace (:initial-kb workspace))))
+  ([workspace]
+     ((:reset-fn (:abduction @problem)))
+     (add-kb empty-workspace (:initial-kb workspace))))

@@ -1,5 +1,6 @@
 (ns retrospect.state)
 
+(def batch (ref false))
 (def reason (ref nil))
 (def problem (ref nil))
 (def datadir (ref nil))

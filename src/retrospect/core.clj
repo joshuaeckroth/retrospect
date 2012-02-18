@@ -89,6 +89,7 @@
                          "database connection.")
                 (System/exit -1))
               (dosync
+               (alter state/batch (constantly true))
                (alter state/problem (constantly (choose-problem problem)))               
                (alter state/db-params (constantly ps)))
               (run-with-new-record seed git recordsdir nthreads upload? repetitions))
