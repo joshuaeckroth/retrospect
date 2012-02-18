@@ -14,6 +14,7 @@
          [cur-ep flatten-est]])
   #_(:use [retrospect.reason.abduction.robustness :only [analyze-dependency]])
   (:use [retrospect.confidences])
+  (:use [retrospect.logging])
   (:use [retrospect.state]))
 
 (def truedata-log (ref ""))
@@ -134,7 +135,7 @@
                                                        (:est @or-state)))))
           ws (if ep-state (:workspace ep-state))]
       (if (= "Log" last-comp)
-        (dosync (alter workspace-log (constantly @reason-log)))
+        (dosync (alter workspace-log (constantly reason-log)))
         (do
           (swap! workspace-selected (constantly ws))
           (let [hyp (if ws (find-first #(= (:id %) last-comp)

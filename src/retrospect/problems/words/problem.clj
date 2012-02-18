@@ -36,6 +36,6 @@
     :StepsBetween [1 [1]]
     :ResetEachStep [true [true]]
     :SensorNoise [0 [0 5 10 15 20]]
-    :Dataset ["cityu" ["cityu"]]
+    :Dataset ["carroll" ["carroll"]]
     :LearnFeatureSize [3 (range 1 4)]
     :MaxModelGrams [4 (range 1 6)]}})

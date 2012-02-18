@@ -360,11 +360,11 @@
   [evidence noexp hyps]
   (when (not= :learned-word (:subtype evidence))
     (let [left-hyps (let [hs (get-left-hyps evidence noexp)]
-                      (if (not-empty hs) (take-last 1 hs)
-                          (take-last 1 (get-left-hyps evidence (get hyps :word)))))
+                      (if (not-empty hs) (take-last 0 hs)
+                          (take-last 0 (get-left-hyps evidence (get hyps :word)))))
           right-hyps (let [hs (get-right-hyps evidence noexp)]
-                       (if (not-empty hs) (take 1 hs)
-                           (take 1 (get-right-hyps evidence (get hyps :word)))))
+                       (if (not-empty hs) (take 2 hs)
+                           (take 2 (get-right-hyps evidence (get hyps :word)))))
           to-expl-hyps (concat (if (= (dec (first (:pos evidence))) (last (:pos (last left-hyps))))
                                  left-hyps [])
                                [evidence]
@@ -383,7 +383,7 @@
         (if (and (not-any? #(same-hyp (first (:pos (first expl))) word %) (get hyps :word))
                  (< length-diff avg-word-length))
           (let [centroid (:centroid kb)
-                sim (Math/log (+ 1 (* 200 (similarity word centroid))))
+                sim (Math/log (+ 1 (* 500 (similarity word centroid))))
                 apriori (min 1.0 (+ sim (Math/pow 0.25 (inc length-diff))))]
             (log "Attempting to explain" evidence "with" expl word)
             [(new-hyp "LearnedWord" :word :learned-word true conflicts

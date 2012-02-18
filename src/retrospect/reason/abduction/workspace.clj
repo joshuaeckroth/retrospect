@@ -186,7 +186,6 @@
 
 (defn add-explainers
   [workspace hyp]
-  (log "Adding explainers for" (:id hyp))
   (reduce (fn [ws h]
             (let [ws2 (update-in ws [:explainers h] conj hyp)]
               ;; don't add active-explainers to hyps that have already
@@ -225,7 +224,6 @@
 
 (defn add
   [workspace hyp]
-  (log "Adding" (:id hyp) "which explains" (map :id (:explains hyp)))
   (let [g-added (reduce (fn [g n] (-> g (add-nodes n)
                                       (add-attr n :id (:id n))
                                       (add-attr n :label (:id n))))
@@ -503,7 +501,8 @@
   (add-kb workspace ((:generate-kb-fn (:abduction @problem)) training)))
 
 (defn init-workspace
-  ([] empty-workspace)
+  ([] ((:reset-fn (:abduction @problem)))
+     empty-workspace)
   ([workspace]
      ((:reset-fn (:abduction @problem)))
      (add-kb empty-workspace (:initial-kb workspace))))
