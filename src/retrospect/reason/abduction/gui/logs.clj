@@ -169,17 +169,17 @@
           (constantly (scroll-panel
                        (doto (text-area :str-ref truedata-log
                                         :editable false :wrap true)
-                         (.setFont (Font. "WenQuanYi Micro Hei" Font/PLAIN 14))))))
+                         (.setFont (Font. "WenQuanYi Micro Hei" Font/PLAIN 12))))))
    (alter problem-log-textbox
           (constantly (scroll-panel
                        (doto (text-area :str-ref problem-log
                                         :editable false :wrap true)
-                         (.setFont (Font. "WenQuanYi Micro Hei" Font/PLAIN 14))))))
+                         (.setFont (Font. "WenQuanYi Micro Hei" Font/PLAIN 12))))))
    (alter workspace-log-textbox
           (constantly (scroll-panel
                        (doto (text-area :str-ref workspace-log
                                         :editable false :wrap true)
-                         (.setFont (Font. "WenQuanYi Micro Hei" Font/PLAIN 14)))))))
+                         (.setFont (Font. "WenQuanYi Micro Hei" Font/PLAIN 12)))))))
   (doto (split-vertical
          @truedata-log-textbox
          (doto (split-vertical
@@ -191,10 +191,11 @@
                         :gridy 1 :weighty 1.0
                         _ @problem-log-textbox])
                 (doto (split-horizontal
-                       (tree :name tr
-                             :model (mapref-tree-model
-                                     abduction-tree-map "Epistemic states")
-                             :action ([_ _] (show-log (.getSelectionPath tr))))
+                       (doto (tree :name tr
+                                   :model (mapref-tree-model
+                                           abduction-tree-map "Epistemic states")
+                                   :action ([_ _] (show-log (.getSelectionPath tr))))
+                         (.setFont (Font. "Sans" Font/PLAIN 10)))
                        (panel :layout (GridBagLayout.)
                               :constrains (java.awt.GridBagConstraints.)
                               [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0 :gridwidth 2

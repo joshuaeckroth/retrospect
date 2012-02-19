@@ -24,10 +24,25 @@
                                                 (rest sent))))]
             (= hyp-words true-words))))
 
-(defn hyps-equal?
+(defmulti hyps-equal? (fn [hyp1 hyp2] (:type hyp1)))
+
+(defmethod hyps-equal? :default [_ _] false)
+
+(defmethod hyps-equal? :sensor
   [hyp1 hyp2]
-  (if (not= (:type hyp1) (:type hyp2)) false
-      (apply = (map #(select-keys % [:words :pos]) [hyp1 hyp2]))))
+  (and (= (:type hyp1) (:type hyp2)) (= (:symbol hyp1) (:symbol hyp2))))
+
+(defmethod hyps-equal? :word
+  [hyp1 hyp2]
+  (and (= (:type hyp1) (:type hyp2))
+       (= (:pos hyp1) (:pos hyp2))
+       (= (:word hyp1) (:word hyp2))))
+
+(defmethod hyps-equal? :word-seq
+  [hyp1 hyp2]
+  (and (= (:type hyp1) (:type hyp2))
+       (= (:pos-seqs hyp1) (:pos-seqs hyp2))
+       (= (:words hyp1) (:words hyp2))))
 
 (defn get-history
   [accepted]

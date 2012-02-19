@@ -36,6 +36,9 @@
     :StepsBetween [1 [1]]
     :ResetEachStep [true [true]]
     :SensorNoise [0 [0 5 10 15 20]]
-    :Dataset ["carroll" ["carroll"]]
+    :Dataset ["carroll" ["carroll" "cityu_training" "as_training"
+                         "msr_training" "pku_training"]]
     :LearnFeatureSize [3 (range 1 4)]
+    :SimMultiplier [200 [100 200 300 400 500]]
+    :LengthPenalty [0.3 [0.1 0.3 0.5 0.7]]
     :MaxModelGrams [4 (range 1 6)]}})

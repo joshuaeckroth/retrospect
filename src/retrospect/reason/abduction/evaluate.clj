@@ -143,7 +143,7 @@
              :UnexplainedPct (get-unexp-pct (:workspace ep))
              :NoExplainersPct (get-noexp-pct (:workspace ep))
              :ExplainCycles (:cycle workspace)
-             :HypothesisCount (reduce + (map count (:hypotheses workspace)))}))))
+             :HypothesisCount (reduce + (map count (vals (:hypotheses workspace))))}))))
 
 (comment              :DeepestDep (if-not (:AnalyzeDeps params) 0
                                  (calc-deepest-dep (:depgraph ep))))
