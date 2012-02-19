@@ -389,19 +389,13 @@
        (when (not-empty noexp)
          (log "Getting learning hyps for noexp" (str/join "," (map :id noexp))
               "and hyps" (str/join "," (map :id hyps)))
-         (loop [hs hyps]
-           (when (not-empty hs)
-             (log "Trying to get a learn explainer for" (:id (first hs)))
-             (let [expl ((:learn-fn (:abduction @problem)) (first hs)
-                         noexp (:hypotheses workspace))]
-               (log "Got:" expl)
-               (if expl
-                 (do (log (:desc (first expl)) (:apriori (first expl))
-                          (map :id (:explains (first expl))))
-                     (if (second expl)
-                       [(first expl) (make-more-learn-hyp (:explains (first expl)) (second expl))]
-                       [(first expl)]))
-                 (recur (rest hs))))))))))
+         (let [lhyps (filter identity
+                             (mapcat (fn [h] (log "Trying to get a learn explainer for" (:id h))
+                                       (let [expl ((:learn-fn (:abduction @problem))
+                                                   h noexp (:hypotheses workspace))]
+                                         (log "Got:" expl) expl))
+                                     noexp))]
+           (when-not (empty? lhyps) lhyps))))))
 
 (defn need-more-hyps?
   [workspace]

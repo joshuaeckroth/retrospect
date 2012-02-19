@@ -11,9 +11,9 @@
   [truedata time-now hyp]
   (if-not (or (= :word (:type hyp)) (= :word-seq (:type hyp))) true
           (let [sentence (nth (:test-sentences truedata) (dec time-now))
-                start-pos (if (= :word (:type hyp)) (first (:pos hyp))
+                start-pos (if (= :word (:type hyp)) (first (:pos-seq hyp))
                               (ffirst (:pos-seqs hyp)))
-                end-pos (if (= :word (:type hyp)) (last (:pos hyp))
+                end-pos (if (= :word (:type hyp)) (last (:pos-seq hyp))
                             (last (last (:pos-seqs hyp))))
                 hyp-words (if (= :word (:type hyp)) [(:word hyp)] (:words hyp))
                 true-words (loop [i 0 ws [] sent sentence]
@@ -35,7 +35,7 @@
 (defmethod hyps-equal? :word
   [hyp1 hyp2]
   (and (= (:type hyp1) (:type hyp2))
-       (= (:pos hyp1) (:pos hyp2))
+       (= (:pos-seq hyp1) (:pos-seq hyp2))
        (= (:word hyp1) (:word hyp2))))
 
 (defmethod hyps-equal? :word-seq
@@ -47,7 +47,7 @@
 (defn get-history
   [accepted]
   (map (fn [h] (if (= :word (:type h)) (:word h) (str (:symbol h))))
-       (sort-by (comp first :pos)
+       (sort-by #(if (= :punctuation (:type %)) (:pos %) (first (:pos-seq %)))
                 (concat (get accepted :word)
                         (get accepted :punctuation)))))
 
