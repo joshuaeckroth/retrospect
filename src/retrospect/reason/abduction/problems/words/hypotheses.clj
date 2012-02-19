@@ -265,7 +265,7 @@
         kb (get-kb hyps)
         avg-word-length (:avg-word-length kb)
         centroid (:centroid kb)]
-    (when (and (not-any? #(same-word-hyp (:pos (first expl)) word (get hyps :word)))
+    (when (and (not-any? #(same-word-hyp (:pos (first expl)) word %) (get hyps :word))
                (< (Math/abs (- avg-word-length (count word))) avg-word-length))
       (let [pos-seq (map :pos expl)
             sim (Math/log (+ 1 (* (:SimMultiplier params)
