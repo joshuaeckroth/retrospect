@@ -383,7 +383,10 @@
 
 (defn get-learn-hyp
   ([workspace]
-     (get-learn-hyp workspace (sort-by :id (AlphanumComparator.) (find-no-explainers workspace))))
+     (concat (get-learn-hyp workspace (sort-by :id (AlphanumComparator.)
+                                               (find-no-explainers workspace)))
+             (get-learn-hyp workspace (sort-by :id (AlphanumComparator.)
+                                               (:needs-explainer workspace)))))
   ([workspace hyps]
      (let [noexp (sort-by :id (AlphanumComparator.) (find-no-explainers workspace))]
        (when (not-empty noexp)
@@ -425,10 +428,12 @@
 (defn reset-workspace
   [workspace]
   (let [added (:added workspace)
-        forced (:forced workspace)]
-    (reduce (fn [ws h] (if (forced h) (add-fact ws h) (add ws h)))
-            (assoc empty-workspace :initial-kb (:initial-kb workspace))
-            added)))
+        forced (:forced workspace)
+        learned (:learned workspace)]
+    (assoc (reduce (fn [ws h] (if (forced h) (add-fact ws h) (add ws h)))
+                   (assoc empty-workspace :initial-kb (:initial-kb workspace))
+                   added)
+      :learned learned)))
 
 (defn explain
   [workspace]
@@ -439,14 +444,20 @@
         (do (log "No explainers. Attempting to get more hyps...")
             (if-let [hs (get-another-hyp ws)]
               (recur (reduce add ws hs))
-              (do (log "No more hyps. Attempting to learn...")
-                  (if-let [hs (get-learn-hyp ws)]
-                    (recur (reduce add (reset-workspace ws) hs))
-                    (if (:reset ws)
-                      (do (log "Workspace already resetted for last time. Done.")
-                          (log-final ws []))
-                      (do (log "Attempting a reset")
-                          (recur (assoc (reset-workspace ws) :reset true))))))))
+              (if (:learned ws)
+                (if (:reset ws)
+                  (do (log "Workspace already resetted for last time. Done.")
+                      (log-final ws []))
+                  (do (log "Attempting a reset")
+                      (recur (assoc (reset-workspace ws) :reset true))))
+                (do (log "No more hyps. Attempting to learn...")
+                    (if-let [hs (get-learn-hyp ws)]
+                      (recur (assoc (reduce add (reset-workspace ws) hs) :learned true))
+                      (if (:reset ws)
+                        (do (log "Workspace already resetted for last time. Done.")
+                            (log-final ws []))
+                        (do (log "Attempting a reset")
+                            (recur (assoc (reset-workspace ws) :reset true)))))))))
         (let [ws-confs (update-confidences ws explainers)
               explainers-sorted (sort-explainers ws-confs explainers)
               {:keys [best alts essential? delta] :as b}

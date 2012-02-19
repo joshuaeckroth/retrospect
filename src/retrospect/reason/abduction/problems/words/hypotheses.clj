@@ -350,7 +350,7 @@
                         length-diff (Math/abs (- avg-word-length (count word)))
                         apriori (min 1.0 (+ sim (Math/pow (:LengthPenalty params)
                                                           (inc length-diff))))
-                        hyp (new-hyp "LWord" :word :learned-word true conflicts
+                        hyp (new-hyp "LWWord" :word :learned-word true conflicts
                                      apriori (mapcat :explains expl) [] word
                                      (format (str "Learned word from existing words: \"%s\" (pos %d-%d)"
                                                   "\nTo explain: %s\nEntire sequence: %s"
