@@ -8,7 +8,6 @@
   (:use [retrospect.reason.abduction.problems.words.evaluate :only [hyps-equal?]])
   (:use [retrospect.problems.words.learning :only
          [update-features calc-centroid similarity]])
-  (:use [retrospect.problems.words.symbols])
   (:use [retrospect.logging])
   (:use [retrospect.state]))
 
@@ -75,25 +74,13 @@
   "Build a Markov n-gram model of word transitions."
   [training]
   (reduce (fn [models sentence]
-            (let [words (filter #(not (re-matches punctuation-regex %)) sentence)
-                  words-grouped (apply concat (for [i (range 1 (inc (:MaxModelGrams params)))]
-                                                (partition i (concat (repeat (dec i) "") words))))]
+            (let [words-grouped (apply concat (for [i (range 1 (inc (:MaxModelGrams params)))]
+                                                (partition i (concat (repeat (dec i) "") sentence))))]
               (reduce (fn [ms ws] (let [m (get ms (count ws) {})
                                         prior (get m ws 0)]
                                     (assoc-in ms [(count ws) ws] (inc prior))))
                       models words-grouped)))
-          {} (loop [sentences training
-                    word-seqs []]
-               (if (empty? sentences) word-seqs
-                   (let [sentence (first sentences)
-                         word-seq (take-while #(not (re-matches punctuation-regex %))
-                                              sentence)
-                         remaining (take-last (dec (- (count sentence) (count word-seq)))
-                                              sentence)]
-                     (recur (if (empty? remaining) (rest sentences)
-                                (conj (rest sentences) remaining))
-                            (if (empty? word-seq) word-seqs
-                                (conj word-seqs word-seq))))))))
+          {} training))
 
 (defn generate-kb
   [[training training-dict]]
@@ -162,27 +149,22 @@
   (when (nil? @cache) (update-cache hyps))
   (let [sensor-hyps (get accepted :sensor)
         other-hyps (concat (get hyps :word) (get hyps :word-seq))]
-    (if (re-matches punctuation-regex (str (:symbol evidence)))
-      [(new-hyp "Punc" :punctuation :punctuation false nil 1.0 [evidence] []
-                (str (:symbol evidence)) (format "Punctuation: %s" (str (:symbol evidence)))
-                {:pos (:pos evidence) :symbol (:symbol evidence)})
-       nil]
-      (let [[expl & word-sensor-hyps] (find-word evidence other-hyps)]
-        (if expl
-          (let [w (apply str (map :symbol expl))
-                unigram-model (get (:models (get-kb hyps)) 1)
-                similar-words (filter #(substring? w %) (map first (keys unigram-model)))
-                similar-sum (reduce + (map (fn [w2] (get unigram-model [w2]))
-                                           similar-words))]
-            [(new-hyp "Word" :word :word true conflicts
-                      (double (/ (get unigram-model [w]) similar-sum))
-                      expl [] w
-                      (format "Word \"%s\" (pos %d-%d)"
-                              w (:pos (first expl))
-                              (:pos (last expl)))
-                      {:word w :pos-seq (map :pos expl)})
-             ;; what's the estimate of "more" hyps?
-             0.5]))))))
+    (let [[expl & word-sensor-hyps] (find-word evidence other-hyps)]
+      (if expl
+        (let [w (apply str (map :symbol expl))
+              unigram-model (get (:models (get-kb hyps)) 1)
+              similar-words (filter #(substring? w %) (map first (keys unigram-model)))
+              similar-sum (reduce + (map (fn [w2] (get unigram-model [w2]))
+                                         similar-words))]
+          [(new-hyp "Word" :word :word true conflicts
+                    (double (/ (get unigram-model [w]) similar-sum))
+                    expl [] w
+                    (format "Word \"%s\" (pos %d-%d)"
+                            w (:pos (first expl))
+                            (:pos (last expl)))
+                    {:word w :pos-seq (map :pos expl)})
+           ;; what's the estimate of "more" hyps?
+           0.5])))))
 
 (defmethod hypothesize :word
   [evidence accepted rejected hyps]
@@ -241,16 +223,16 @@
 (defmethod learn :default [_ _ _] nil)
 
 (defmethod learn :sensor
-  [evidence noexp hyps]
-  (let [sensor-noexp (filter #(= :sensor (:type %)) noexp)
-        noexp-left (reverse (sort-by :pos (filter #(< (:pos %) (:pos evidence)) sensor-noexp)))
-        noexp-right (sort-by :pos (filter #(> (:pos %) (:pos evidence)) sensor-noexp))
+  [evidence unexp hyps]
+  (let [sensor-unexp (filter #(= :sensor (:type %)) unexp)
+        unexp-left (reverse (sort-by :pos (filter #(< (:pos %) (:pos evidence)) sensor-unexp)))
+        unexp-right (sort-by :pos (filter #(> (:pos %) (:pos evidence)) sensor-unexp))
         left-pairs (take-while #(or (nil? (second %))
                                     (= (inc (:pos (first %))) (:pos (second %))))
-                               (partition-all 2 1 noexp-left))
+                               (partition-all 2 1 unexp-left))
         right-pairs (take-while #(or (nil? (second %))
                                      (= (inc (:pos (first %))) (:pos (second %))))
-                                (partition-all 2 1 noexp-right))
+                                (partition-all 2 1 unexp-right))
         left-hyps (reverse (concat (map first left-pairs)
                                    (if-let [h (second (last left-pairs))] [h] [])))
         right-hyps (concat (map first right-pairs)
@@ -326,13 +308,13 @@
                                   (with-meta [evidence] {:left left :right right}))))))
 
 (defmethod learn :word
-  [evidence noexp hyps]
-  (let [left (or (get-left-hyps evidence noexp)
-                 (get-left-hyps evidence (get hyps :word))
-                 [])
-        right (or (get-right-hyps evidence noexp)
-                  (get-right-hyps evidence (get hyps :word))
-                  [])
+  [evidence unexp hyps]
+  (let [left (take-last 5 (or (get-left-hyps evidence unexp)
+                              (get-left-hyps evidence (get hyps :word))
+                              []))
+        right (take 5 (or (get-right-hyps evidence unexp)
+                          (get-right-hyps evidence (get hyps :word))
+                          []))
         kb (get-kb hyps)
         centroid (:centroid kb)
         avg-word-length (:avg-word-length kb)

@@ -1,6 +1,5 @@
 (ns retrospect.problems.words.truedata
   (:require [clojure.string :as str])
-  (:use [retrospect.problems.words.symbols])
   (:use [retrospect.random])
   (:use [retrospect.state]))
 
@@ -37,10 +36,8 @@
                                                :encoding "utf-8")))
         [training test] (split-at (int (* 0.9 (count sentences)))
                                   (my-shuffle sentences))
-        [training-dict test-dict]
-        (map (fn [sents] (set (filter #(not (re-matches punctuation-regex %))
-                                      (apply concat sents))))
-             [training test])
+        [training-dict test-dict] (map (fn [sents] (set (apply concat sents)))
+                                       [training test])
         ;; TODO: handle noise
         ambiguous (map #(apply str %) test)]
     {:training [training training-dict]

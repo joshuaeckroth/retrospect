@@ -2,7 +2,6 @@
   (:use [clojure.java.shell :only [sh]])
   (:use [clojure.string :only [join]])
   (:use [retrospect.reason.abduction.evaluate :only [calc-increase]])
-  (:use [retrospect.problems.words.symbols])
   (:use [retrospect.epistemicstates :only [cur-ep flatten-est]])
   (:use [retrospect.logging])
   (:use [retrospect.state]))
@@ -46,21 +45,14 @@
 
 (defn get-history
   [accepted]
-  (map (fn [h] (if (= :word (:type h)) (:word h) (str (:symbol h))))
-       (sort-by #(if (= :punctuation (:type %)) (:pos %) (first (:pos-seq %)))
-                (concat (get accepted :word)
-                        (get accepted :punctuation)))))
+  (map :word (sort-by (comp first :pos-seq) (get accepted :word))))
 
 (defn evaluate
   [truedata ors]
   (let [eps (rest (flatten-est (:est ors)))
         time-now (:time (last eps))
-        believed (map (fn [ep] (filter #(not (re-matches punctuation-regex %))
-                                       (get-history (:accepted (:workspace ep)))))
-                      eps)
-        sentences (map (fn [i] (filter #(not (re-matches punctuation-regex %))
-                                       (nth (:test-sentences truedata) i)))
-                       (range time-now))
+        believed (map (fn [ep] (get-history (:accepted (:workspace ep)))) eps)
+        sentences (map (fn [i] (nth (:test-sentences truedata) i)) (range time-now))
         [prec recall f-score oov-rate oov-recall iv-recall]
         (try (do
                (spit "/tmp/truth.txt" (join "\n" (map #(join " " %) sentences))
