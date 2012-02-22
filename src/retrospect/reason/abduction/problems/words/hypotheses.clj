@@ -118,9 +118,9 @@
 (defmethod hypothesize :default [_ _ _ _] nil)
 
 (defn same-word-hyp
-  [pos-start w h]
+  [pos-seq w h]
   (and (= w (:word h))
-       (= (first (:pos-seq h)) pos-start)))
+       (= (:pos-seq h) pos-seq)))
 
 (def cache (ref nil))
 
@@ -152,8 +152,8 @@
                                             (>= (:pos (last %)) (:pos evidence)))
                                       @cache)
         nearby-sensor-hyps (reverse (sort-by count matches-near-evidence))]
-    (filter (fn [sensor-hyps] (not-any? #(same-word-hyp (:pos (first sensor-hyps))
-                                                   (apply str (map :symbol sensor-hyps)) %)
+    (filter (fn [sensor-hyps] (not-any? #(same-word-hyp (map :pos sensor-hyps)
+                                                        (apply str (map :symbol sensor-hyps)) %)
                                         other-hyps))
             nearby-sensor-hyps)))
 
@@ -265,7 +265,7 @@
         kb (get-kb hyps)
         avg-word-length (:avg-word-length kb)
         centroid (:centroid kb)]
-    (when (and (not-any? #(same-word-hyp (:pos (first expl)) word %) (get hyps :word))
+    (when (and (not-any? #(same-word-hyp (map :pos expl) word %) (get hyps :word))
                (< (Math/abs (- avg-word-length (count word))) avg-word-length))
       (let [pos-seq (map :pos expl)
             sim (Math/log (+ 1 (* (:SimMultiplier params)
@@ -343,8 +343,8 @@
       (if (empty? es) (when (not-empty hs) hs)
           (let [expl (first es)
                 word (apply str (map :word expl))]
-            (cond (not-any? #(same-word-hyp (first (:pos-seq (first expl))) word %)
-                            (get hyps :word))
+            (cond (not-any? #(same-word-hyp (mapcat :pos-seq expl) word %)
+                            (concat hs (get hyps :word)))
                   (let [sim (Math/log (+ 1 (* (:SimMultiplier params)
                                               (similarity word centroid))))
                         length-diff (Math/abs (- avg-word-length (count word)))
@@ -364,7 +364,7 @@
                        (not-any? (fn [h] (hyps-equal? h {:type :word-seq
                                                          :pos-seqs (map :pos-seq expl)
                                                          :words (map :word expl)}))
-                                 (get hyps :word-seq)))
+                                 (concat hs (get hyps :word-seq))))
                   (let [hyp (new-hyp "LWordSeq" :word-seq :learned-word-seq false conflicts
                                      0.0 expl [] (str/join " " (map :word expl))
                                      (format (str "Learned word sequence: \"%s\" (pos %d-%d)"

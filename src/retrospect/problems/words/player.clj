@@ -71,7 +71,7 @@
   (if (= @time-now 0) ""
       (let [sentence (nth (:test-sentences @truedata) (dec @time-now))]
         (format "%s\n\n%s\n\nOOV: %s" (get (:test @truedata) (dec @time-now))
-                (str/join " " sentence)
+                (str/join "_" sentence)
                 (str/join ", " (filter #(not ((second (:training @truedata)) %))
                                        (filter #(not (re-matches punctuation-regex %))
                                                sentence)))))))
@@ -79,7 +79,7 @@
 (defn player-get-problem-log
   []
   (let [accepted (:accepted (:workspace (cur-ep (:est @or-state))))]
-    (apply str (interpose " " (get-history accepted)))))
+    (str/join "_" (get-history accepted))))
 
 (defn player-setup-diagram
   [])

@@ -382,23 +382,24 @@
              (recur (rest hs))))))))
 
 (defn get-learn-hyp
-  ([workspace]
-     (concat (get-learn-hyp workspace (sort-by :id (AlphanumComparator.)
-                                               (find-no-explainers workspace)))
-             (get-learn-hyp workspace (sort-by :id (AlphanumComparator.)
-                                               (:needs-explainer workspace)))))
-  ([workspace hyps]
-     (let [noexp (sort-by :id (AlphanumComparator.) (find-no-explainers workspace))]
-       (when (not-empty noexp)
-         (log "Getting learning hyps for noexp" (str/join "," (map :id noexp))
-              "and hyps" (str/join "," (map :id hyps)))
-         (let [lhyps (filter identity
-                             (mapcat (fn [h] (log "Trying to get a learn explainer for" (:id h))
-                                       (let [expl ((:learn-fn (:abduction @problem))
-                                                   h noexp (:hypotheses workspace))]
-                                         (log "Got:" expl) expl))
-                                     noexp))]
-           (when-not (empty? lhyps) lhyps))))))
+  [workspace]
+  (let [unexp (sort-by :id (AlphanumComparator.) (:needs-explainer workspace))]
+    (when (not-empty unexp)
+      (log "Getting learning hyps for unexp" (str/join "," (map :id unexp)))
+      (let [hyps (loop [hs unexp
+                        h-map (:hypotheses workspace)
+                        expl []]
+                   (if (empty? hs) expl
+                       (do (log "Trying to get a learn explainer for" (:id (first hs)))
+                           (let [es ((:learn-fn (:abduction @problem))
+                                     (first hs) unexp h-map)]
+                             (log "Got:" es)
+                             (recur (rest hs)
+                                    (if es (reduce #(update-in %1 [(:type %2)] conj %2)
+                                                   h-map es)
+                                        h-map)
+                                    (concat expl (if es es [])))))))]
+        (when-not (empty? hyps) hyps)))))
 
 (defn need-more-hyps?
   [workspace]
@@ -445,19 +446,13 @@
             (if-let [hs (get-another-hyp ws)]
               (recur (reduce add ws hs))
               (if (:learned ws)
-                (if (:reset ws)
-                  (do (log "Workspace already resetted for last time. Done.")
-                      (log-final ws []))
-                  (do (log "Attempting a reset")
-                      (recur (assoc (reset-workspace ws) :reset true))))
+                (do (log "Can't get more hyps, already learned. Done.")
+                    (log-final ws []))
                 (do (log "No more hyps. Attempting to learn...")
                     (if-let [hs (get-learn-hyp ws)]
                       (recur (assoc (reduce add (reset-workspace ws) hs) :learned true))
-                      (if (:reset ws)
-                        (do (log "Workspace already resetted for last time. Done.")
-                            (log-final ws []))
-                        (do (log "Attempting a reset")
-                            (recur (assoc (reset-workspace ws) :reset true)))))))))
+                      (do (log "Nothing to learn. Done.")
+                          (log-final ws [])))))))
         (let [ws-confs (update-confidences ws explainers)
               explainers-sorted (sort-explainers ws-confs explainers)
               {:keys [best alts essential? delta] :as b}
@@ -468,23 +463,17 @@
                 (if-let [hs (get-another-hyp ws-confs)]
                   (recur (reduce add ws-confs hs))
                   (log-final ws-confs explainers-sorted)))
-            (cond (= (:type best) :more)
-                  (do (log "Best is :more hyp.")
-                      (if-let [hs (get-another-hyp ws-confs (:explains best))]
-                        (recur (remove-hyp (reduce add ws-confs hs) best))
-                        (recur (remove-hyp ws-confs best))))
-                  (= (:type best) :learn-more)
-                  (do (log "Best is :learn-more hyp.")
-                      (if-let [hs (get-learn-hyp ws-confs (:explains best))]
-                        (recur (reduce add (reset-workspace ws-confs) hs))
-                        (recur (remove-hyp ws-confs best))))
-                  :else
-                  (do (log "Best is" (:id best))
-                      (recur
-                       (let [ws-logged (-> ws-confs
-                                           (update-in [:cycle] inc)
-                                           (update-in [:log :best] conj b))]
-                         (accept ws-logged best alts)))))))))))
+            (if (= (:type best) :more)
+              (do (log "Best is :more hyp.")
+                  (if-let [hs (get-another-hyp ws-confs (:explains best))]
+                    (recur (remove-hyp (reduce add ws-confs hs) best))
+                    (recur (remove-hyp ws-confs best))))
+              (do (log "Best is" (:id best))
+                  (recur
+                   (let [ws-logged (-> ws-confs
+                                       (update-in [:cycle] inc)
+                                       (update-in [:log :best] conj b))]
+                     (accept ws-logged best alts)))))))))))
 
 (defn add-sensor-hyps
   [workspace time-prev time-now sensors]
