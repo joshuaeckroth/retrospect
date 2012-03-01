@@ -42,8 +42,12 @@
         eg-conflicts (reduce set-conflicts eg-filled conflict-links)
         eg-scores (reduce (fn [eg v]
                             (add-attr eg v :score
-                                      (if (and (:Scores params) (non-leafs v))
-                                        (my-rand) 0.0)))
+                                      (cond (and (:Scores params) (non-leafs v))
+                                            (my-rand)
+                                            (and (not (:Scores params)) (non-leafs v))
+                                            1.0
+                                            ;; leaf
+                                            :else 0.0)))
                           eg-conflicts (sort (nodes eg-conflicts)))]
     eg-scores))
 
