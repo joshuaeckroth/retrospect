@@ -52,7 +52,8 @@
         best (ffirst expl-sorted)
         alt (second (first expl-sorted))
         delta (if alt (- (score expgraph alt) (score expgraph best)))]
-    (if (or (nil? best) (and alt (>= (/ (:Threshold state/params) 100) delta)))
+    (if (or (nil? best)
+            (and alt (>= (- (/ (:Threshold state/params) 100) 0.0001) delta)))
       expgraph
       (recur (fill expgraph best)))))
 
