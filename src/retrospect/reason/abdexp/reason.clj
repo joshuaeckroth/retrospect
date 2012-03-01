@@ -34,8 +34,8 @@
                            vs))
              [vs1 vs2])]
     ;; prefer essential explainers
-    (cond (nil? c1rest) 1
-          (nil? c2rest) -1
+    (cond (nil? c1rest) -1
+          (nil? c2rest) 1
           :else
           ;; lower scores are better, so compare (- second first)
           (- (compare (- (first c1rest) c1) (- (first c2rest) c2))))))
