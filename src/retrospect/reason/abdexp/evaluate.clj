@@ -11,17 +11,20 @@
      ors [:results] conj
      (merge {:Problem (:name @problem)}
             params
-            {:ArbCardInc (- (cardinality arb) (cardinality least))
+            {:LeastScore (composite-score least)
+             :ArbScore (composite-score arb)
              :ArbComplete (complete? arb)
+             :ArbUnexplained (count (unexplained-nodes arb))
              :ArbEqualLeast (= arb least)
-             :EFLICardInc (- (cardinality efli) (cardinality least))
+             :EFLIScore (composite-score efli)
              :EFLIComplete (complete? efli)
+             :EFLIUnexplained (count (unexplained-nodes efli))
              :EFLIEqualLeast (= efli least)}))))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
-                    [:ArbCardInc :EFLICardInc])))
+                    [:LeastScore :ArbScore :EFLIScore])))
 
 (comment
   (println "Nodes only in arbitrary:" (difference (filled-nodes eg-arb)

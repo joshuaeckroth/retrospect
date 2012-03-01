@@ -1,14 +1,31 @@
 (ns retrospect.problems.abdexp.expgraph
+  (:use [loom.io])
   (:use [loom.graph])
   (:use [loom.attr]))
+
+(defn score
+  [expgraph vertex]
+  (attr expgraph vertex :score))
 
 (defn filled?
   [expgraph vertex]
   (= "filled" (attr expgraph vertex :style)))
 
+(defn explainers
+  [expgraph vertex]
+  (filter #(not= "none" (attr expgraph vertex % :dir)) (incoming expgraph vertex)))
+
+(defn unexplained?
+  [expgraph vertex]
+  (not-any? (fn [v] (filled? expgraph v)) (explainers expgraph vertex)))
+
 (defn filled-nodes
   [expgraph]
   (set (filter #(filled? expgraph %) (nodes expgraph))))
+
+(defn unexplained-nodes
+  [expgraph]
+  (set (filter #(unexplained? expgraph %) (filled-nodes expgraph))))
 
 (defn fill
   [expgraph vertex]
@@ -37,15 +54,20 @@
   [expgraph]
   (and (consistent? expgraph)
        (every? (fn [v] (some (fn [p] (filled? expgraph p))
-                             (incoming expgraph v)))
+                             (explainers expgraph v)))
                (filled-nodes expgraph))))
 
 (defn need-explanation
   [expgraph]
-  (filter (fn [v] (not-any? #(filled? expgraph %) (incoming expgraph v)))
+  (filter (fn [v] (not-any? #(filled? expgraph %) (explainers expgraph v)))
           (filled-nodes expgraph)))
 
-(defn cardinality
+(defn composite-score
   [expgraph]
-  (count (filled-nodes expgraph)))
+  (reduce + (map (fn [v] (score expgraph v)) (filled-nodes expgraph))))
 
+(defn view-expgraph
+  [expgraph]
+  (view (reduce (fn [eg v] (add-attr eg v :label
+                                     (format "%d / %.2f" v (attr eg v :score))))
+                expgraph (nodes expgraph))))
