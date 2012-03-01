@@ -1,7 +1,7 @@
 (ns retrospect.reason.abduction.problems.words.evaluate
   (:use [clojure.java.shell :only [sh]])
   (:use [clojure.string :only [join]])
-  (:use [retrospect.reason.abduction.evaluate :only [calc-increase]])
+  (:use [retrospect.evaluate :only [calc-increase]])
   (:use [retrospect.epistemicstates :only [cur-ep flatten-est]])
   (:use [retrospect.logging])
   (:use [retrospect.state]))
@@ -98,3 +98,4 @@
   (apply merge (map #(calc-increase control-results comparison-results %)
                     [:LearnedCount :LearnedCorrect
                      :Prec :Recall :FScore :OOVRecall])))
+

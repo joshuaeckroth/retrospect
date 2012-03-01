@@ -1,5 +1,5 @@
 (ns retrospect.reason.abduction.problems.tracking.evaluate
-  (:use [retrospect.reason.abduction.evaluate :only [calc-increase]])
+  (:use [retrospect.evaluate :only [calc-increase]])
   (:use [retrospect.problems.tracking.colors :only [match-color?]])
   (:use [retrospect.problems.tracking.movements :only [moves-match? dets-match?]]))
 

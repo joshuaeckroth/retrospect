@@ -4,18 +4,12 @@
   (:use [loom.graph :only [incoming nodes neighbors]])
   (:use [loom.alg-generic :only [dijkstra-span]])
   (:use [retrospect.epistemicstates :only [cur-ep]])
+  (:use [retrospect.evaluate :only [calc-increase]])
   (:use [retrospect.reason.abduction.workspace
          :only [get-unexp-pct get-noexp-pct hyp-conf]])
   #_(:use [retrospect.reason.abduction.robustness
          :only [analyze-sensitivity analyze-dependency-quick]])
   (:use [retrospect.state]))
-
-(defn calc-increase
-  [control-results comparison-results field]
-  (let [increase-field (keyword (format "Diff%s" (name field)))
-        increase-val (- (or (comparison-results field) 0.0)
-                        (or (control-results field) 0.0))]
-    {increase-field increase-val}))
 
 (comment
  (defn calc-deepest-dep

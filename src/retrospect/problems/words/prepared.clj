@@ -2,7 +2,6 @@
   (:require [clojure.string :as str])
   (:use [retrospect.problems.words.truedata :only [generate-truedata]])
   (:use [retrospect.problems.words.sensors :only [generate-sensors]])
-  (:use [retrospect.problems.words.symbols])
   (:use [retrospect.state :only [params]]))
 
 (defn simple
@@ -20,12 +19,10 @@
         ambiguous (map #(apply str %) test-sentences)]
     {:params {:Steps 2 :MaxModelGrams 3 :LearnFeatureSize 2}
      :truedata {:training [training-sentences
-                           (set (filter #(not (re-matches punctuation-regex %))
-                                        (apply concat training-sentences)))]
+                           (set (apply concat training-sentences))]
                 :test (zipmap (range (count ambiguous)) ambiguous)
                 :test-sentences test-sentences
-                :test-dict (set (filter #(not (re-matches punctuation-regex %))
-                                        (apply concat test-sentences)))}
+                :test-dict (set (apply concat test-sentences))}
      :sensors (generate-sensors)}))
 
 (def prepared-map
