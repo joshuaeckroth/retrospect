@@ -21,4 +21,5 @@
                     :NumVertices [40 [40]]
                     :MaxExplainLinks [10 [10]]
                     :MaxConflictLinks [10 [10]]
+                    :PreferAbducibles [true [true false]]
                     :Scores [true [true false]]}})

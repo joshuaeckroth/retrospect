@@ -13,7 +13,9 @@
 
 (defn explainers
   [expgraph vertex]
-  (filter #(not= "none" (attr expgraph vertex % :dir)) (incoming expgraph vertex)))
+  (filter #(and (not= "none" (attr expgraph vertex % :dir))
+                (not= "none" (attr expgraph % vertex :dir)))
+          (incoming expgraph vertex)))
 
 (defn unexplained?
   [expgraph vertex]

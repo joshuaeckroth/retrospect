@@ -21,9 +21,13 @@
   (let [[c1 c2] (map (fn [v] (count (filter #(filled? expgraph %)
                                             (neighbors expgraph v))))
                      [v1 v2])
-        [s1 s2] (map (fn [v] (score expgraph v)) [v1 v2])]
+        [s1 s2] (map (fn [v] (score expgraph v)) [v1 v2])
+        [p1 p2] (map (fn [v] (count (filter #(not= v %) (explainers expgraph v))))
+                     [v1 v2])]
     (if (= s1 s2)
-      (- (compare c1 c2))
+      (if (and (= c1 c2) (:PreferAbducibles state/params))
+        (compare p1 p2)
+        (- (compare c1 c2)))
       (compare s1 s2))))
 
 (defn compare-delta
@@ -52,8 +56,6 @@
         best (ffirst expl-sorted)
         alt (second (first expl-sorted))
         delta (if alt (- (score expgraph alt) (score expgraph best)))]
-    (println expl-sorted)
-    (println "best" best "alt" alt "delta" delta)
     (if (or (nil? best)
             (and alt (:Scores state/params)
                  (>= (- (/ (:Threshold state/params) 100) 0.0001) delta)))

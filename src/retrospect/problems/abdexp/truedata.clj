@@ -23,7 +23,7 @@
                         eg (filter #(empty? (explainers eg %)) (nodes eg)))
         eg-filled (reduce fill eg-tops (filter #(empty? (neighbors eg-tops %))
                                                (nodes eg-tops)))
-        non-leafs (set (filter #(not-empty (neighbors eg-filled %))
+        non-leaves (set (filter #(not-empty (neighbors eg-filled %))
                                 (nodes eg-filled)))
         bunch-of-edges (apply concat (repeat (/ (:NumVertices params) 2)
                                              (sort (nodes eg-filled))))
@@ -32,8 +32,8 @@
                                               (my-shuffle bunch-of-edges)))
         valid-conflict-links (filter
                               (fn [[v1 v2]]
-                                (and (< v1 v2) (non-leafs v1)
-                                     (non-leafs v2)
+                                (and (< v1 v2) (non-leaves v1)
+                                     (non-leaves v2)
                                      (not (has-edge? eg-filled v1 v2))
                                      (not (has-edge? eg-filled v2 v1))))
                               possible-conflict-links)
@@ -42,9 +42,11 @@
         eg-conflicts (reduce set-conflicts eg-filled conflict-links)
         eg-scores (reduce (fn [eg v]
                             (add-attr eg v :score
-                                      (cond (and (:Scores params) (non-leafs v))
+                                      (cond (and (:Scores params)
+                                                 (non-leaves v))
                                             (my-rand)
-                                            (and (not (:Scores params)) (non-leafs v))
+                                            (and (not (:Scores params))
+                                                 (non-leaves v))
                                             1.0
                                             ;; leaf
                                             :else 0.0)))

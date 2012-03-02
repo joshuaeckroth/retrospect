@@ -6,7 +6,8 @@
   (:use [retrospect.epistemicstates :only [cur-ep]])
   (:use [retrospect.state]))
 
-(def canvases (ref {:least nil
+(def canvases (ref {:initial nil
+                    :least nil
                     :arbitrary nil
                     :efli nil}))
 
@@ -20,6 +21,8 @@
 (defn player-update-diagram
   []
   (let [{:keys [arb efli]} (:workspace (cur-ep (:est @or-state)))]
+    (generate-graph (format-dot-expgraph (:test @truedata))
+                    (:initial @canvases) listener false)
     (generate-graph (format-dot-expgraph (:least @truedata))
                     (:least @canvases) listener false)
     (when arb
@@ -31,10 +34,12 @@
 
 (defn player-setup-diagram
   []
-  (dosync (alter canvases (constantly {:least (create-canvas)
+  (dosync (alter canvases (constantly {:initial (create-canvas)
+                                       :least (create-canvas)
                                        :arbitrary (create-canvas)
                                        :efli (create-canvas)})))
   (doto (JTabbedPane.)
+    (.addTab "Initial" (:initial @canvases))
     (.addTab "Least" (:least @canvases))
     (.addTab "Arbitrary" (:arbitrary @canvases))
     (.addTab "EFLI" (:efli @canvases))))
