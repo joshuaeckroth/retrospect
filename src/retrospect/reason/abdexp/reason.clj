@@ -52,6 +52,8 @@
         best (ffirst expl-sorted)
         alt (second (first expl-sorted))
         delta (if alt (- (score expgraph alt) (score expgraph best)))]
+    (println expl-sorted)
+    (println "best" best "alt" alt "delta" delta)
     (if (or (nil? best)
             (and alt (:Scores state/params)
                  (>= (- (/ (:Threshold state/params) 100) 0.0001) delta)))

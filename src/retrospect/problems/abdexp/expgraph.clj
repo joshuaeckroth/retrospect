@@ -66,8 +66,8 @@
   [expgraph]
   (reduce + (map (fn [v] (score expgraph v)) (filled-nodes expgraph))))
 
-(defn view-expgraph
+(defn format-dot-expgraph
   [expgraph]
-  (view (reduce (fn [eg v] (add-attr eg v :label
-                                     (format "%d / %.2f" v (attr eg v :score))))
-                expgraph (nodes expgraph))))
+  (reduce (fn [eg v]
+            (add-attr eg v :label (format "%d / %.2f" v (attr eg v :score))))
+          expgraph (nodes expgraph)))
