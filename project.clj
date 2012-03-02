@@ -18,4 +18,4 @@
   :keep-non-project-classes true
   :java-source-path "src/jvm"
   :radagast/ns-whitelist #"retrospect"
-  :jvm-opts ["-Dawt.useSystemAAFontSettings=on" "-Xmx2000m" "-Xss2m"])
+  :jvm-opts ["-Dawt.useSystemAAFontSettings=on" "-Xmx2000m"])
