@@ -68,8 +68,11 @@
   [workspace time-prev time-now sensors]
   (let [expgraph (sensed-at (first sensors) time-now)
         eg-arb (arbitrary expgraph)
-        [eg-efli ds-efli] (efli expgraph)]
-    {:arb eg-arb :efli eg-efli :delta-sum ds-efli}))
+        [eg-efli ds-efli] (efli expgraph)
+        [eg-efli-guess _] (binding [state/params (assoc state/params :Threshold 0)]
+                            (efli expgraph))]
+    {:arb eg-arb :efli eg-efli :delta-sum ds-efli
+     :guess-explained (count (filled-nodes eg-efli-guess))}))
 
 (def reason-abdexp
   {:name "AbdExp"

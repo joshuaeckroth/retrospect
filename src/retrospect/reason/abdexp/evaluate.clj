@@ -6,7 +6,7 @@
 
 (defn evaluate
   [{:keys [expgraph least]} ors]
-  (let [{:keys [arb efli delta-sum]} (:workspace (cur-ep (:est ors)))]
+  (let [{:keys [arb efli delta-sum guess-explained]} (:workspace (cur-ep (:est ors)))]
     (update-in
      ors [:results] conj
      (merge {:Problem (:name @problem)}
@@ -18,7 +18,8 @@
              :ArbEqualLeast (= arb least)
              :EFLIScore (composite-score efli)
              :EFLIComplete (complete? efli)
-             :EFLIUnexplained (count (unexplained-nodes efli))
+             :EFLIUnexplained (double (/ (count (unexplained-nodes efli))
+                                         guess-explained))
              :EFLIEqualLeast (= efli least)
              :EFLIConf (/ delta-sum (count (filled-nodes efli)))}))))
 
