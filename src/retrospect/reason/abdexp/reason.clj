@@ -46,28 +46,31 @@
 
 (defn efli
   [expgraph]
-  (let [need-expl (need-explanation expgraph)
-        explainers (map (fn [v] (filter #(not (conflicts-any? expgraph %))
-                                        (explainers expgraph v)))
-                        need-expl)
-        expl-sorted (sort (partial compare-delta expgraph)
-                          (map #(sort (partial compare-expls expgraph) %)
-                               (filter not-empty explainers)))
-        best (ffirst expl-sorted)
-        alt (second (first expl-sorted))
-        delta (if alt (- (score expgraph alt) (score expgraph best)))]
-    (if (or (nil? best)
-            (and alt (:Scores state/params)
-                 (>= (- (/ (:Threshold state/params) 100) 0.0001) delta)))
-      expgraph
-      (recur (fill expgraph best)))))
+  (loop [expgraph expgraph
+         delta-sum (+ 0.0 (count (filled-nodes expgraph)))]
+    (let [need-expl (need-explanation expgraph)
+          explainers (map (fn [v] (filter #(not (conflicts-any? expgraph %))
+                                          (explainers expgraph v)))
+                          need-expl)
+          expl-sorted (sort (partial compare-delta expgraph)
+                            (map #(sort (partial compare-expls expgraph) %)
+                                 (filter not-empty explainers)))
+          best (ffirst expl-sorted)
+          alt (second (first expl-sorted))
+          delta (if alt (- (score expgraph alt) (score expgraph best)) 1.0)]
+      (println delta best alt)
+      (if (or (nil? best)
+              (and alt (:Scores state/params)
+                   (>= (- (/ (:Threshold state/params) 100) 0.0001) delta)))
+        [expgraph delta-sum]
+        (recur (fill expgraph best) (+ delta-sum delta))))))
 
 (defn reason
   [workspace time-prev time-now sensors]
   (let [expgraph (sensed-at (first sensors) time-now)
         eg-arb (arbitrary expgraph)
-        eg-efli (efli expgraph)]
-    {:arb eg-arb :efli eg-efli}))
+        [eg-efli ds-efli] (efli expgraph)]
+    {:arb eg-arb :efli eg-efli :delta-sum ds-efli}))
 
 (def reason-abdexp
   {:name "AbdExp"

@@ -8,6 +8,53 @@
   (:use [retrospect.random])
   (:use [retrospect.state]))
 
+(defn random-expgraph-levels
+  []
+  (let [vertices (my-shuffle (range (:NumVertices params)))
+        vs-levels (loop [vs-levels []
+                         vs vertices
+                         cuts (repeatedly (:NumLevels params)
+                                          #(inc (my-rand-int (/ (:NumVertices params)
+                                                                (:NumLevels params)))))]
+                    (if (empty? cuts) vs-levels
+                        (recur (conj vs-levels (take (first cuts) vs))
+                               (drop (first cuts) vs)
+                               (rest cuts))))
+        expl-links (set (mapcat (fn [[vs1 vs2]]
+                                  (mapcat (fn [v2]
+                                            (map (fn [v1] [v1 v2])
+                                                 (take (inc (my-rand-int (:MaxExplainLinks params)))
+                                                       (my-shuffle vs1))))
+                                          vs2))
+                                (partition 2 1 vs-levels)))
+        eg (connect (apply add-edges (digraph) expl-links))
+        eg-tops (reduce (fn [eg v] (add-edges eg [v v]))
+                        eg (first vs-levels))
+        eg-filled (reduce fill eg-tops (last vs-levels))
+        non-leaves (set (filter #(not-empty (neighbors eg-filled %))
+                                (nodes eg-filled)))
+        conflict-links (take (:MaxConflictLinks params)
+                             (set (mapcat (fn [vs]
+                                            (filter (fn [[v1 v2]] (and (not= v1 v2)
+                                                                       (not (has-edge? eg v1 v2))
+                                                                       (not (has-edge? eg v2 v1))))
+                                                    (partition 2 (interleave (my-shuffle vs)
+                                                                             (my-shuffle vs)))))
+                                          (butlast vs-levels))))
+        eg-conflicts (reduce set-conflicts eg-filled conflict-links)
+        eg-scores (reduce (fn [eg v]
+                            (add-attr eg v :score
+                                      (cond (and (:Scores params)
+                                                 (non-leaves v))
+                                            (my-rand)
+                                            (and (not (:Scores params))
+                                                 (non-leaves v))
+                                            1.0
+                                            ;; leaf
+                                            :else 0.0)))
+                          eg-conflicts (sort (nodes eg-conflicts)))]
+    eg-scores))
+
 (defn random-expgraph
   []
   (let [vertices (range (:NumVertices params))
@@ -65,7 +112,7 @@
 
 (defn generate-truedata
   []
-  (loop [expgraph (random-expgraph)]
+  (loop [expgraph (random-expgraph-levels)]
     (let [least (find-least expgraph)]
       (if (or (empty? (nodes expgraph)) (nil? least))
         (recur (random-expgraph))

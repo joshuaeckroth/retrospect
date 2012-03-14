@@ -6,7 +6,7 @@
 
 (defn evaluate
   [{:keys [expgraph least]} ors]
-  (let [{:keys [arb efli]} (:workspace (cur-ep (:est ors)))]
+  (let [{:keys [arb efli delta-sum]} (:workspace (cur-ep (:est ors)))]
     (update-in
      ors [:results] conj
      (merge {:Problem (:name @problem)}
@@ -19,12 +19,13 @@
              :EFLIScore (composite-score efli)
              :EFLIComplete (complete? efli)
              :EFLIUnexplained (count (unexplained-nodes efli))
-             :EFLIEqualLeast (= efli least)}))))
+             :EFLIEqualLeast (= efli least)
+             :EFLIConf (/ delta-sum (count (filled-nodes efli)))}))))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
-                    [:LeastScore :ArbScore :EFLIScore])))
+                    [:LeastScore :ArbScore :EFLIScore :EFLIConf])))
 
 (comment
   (println "Nodes only in arbitrary:" (difference (filled-nodes eg-arb)
