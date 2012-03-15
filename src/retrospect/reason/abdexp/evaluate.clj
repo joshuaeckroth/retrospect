@@ -22,8 +22,7 @@
                                      (count (data-nodes arb))))
              :EFLIConf (conf-expgraph efli)
              :EFLIDelta (if (empty? deltas) 1.0
-                            (/ (reduce + (vals deltas))
-                               (count deltas)))
+                            (apply min (vals deltas)))
              :EFLICoverage (double (/ (count (data-explained-by-top efli))
                                       (count (data-nodes efli))))}))))
 
