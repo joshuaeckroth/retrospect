@@ -94,7 +94,4 @@
 
 (defn generate-truedata
   []
-  (loop [expgraph (random-expgraph-levels)]
-    (if (empty? (nodes expgraph))
-      (recur (random-expgraph))
-      {:test expgraph})))
+  {:test (repeatedly (:Steps params) #(random-expgraph-levels))})

@@ -19,15 +19,16 @@
 
 (defn player-update-diagram
   []
-  (let [{:keys [arb efli]} (:workspace (cur-ep (:est @or-state)))]
-    (generate-graph (format-dot-expgraph (:test @truedata))
-                    (:initial @canvases) listener false)
-    (when arb
-      (generate-graph (format-dot-expgraph arb)
-                      (:arbitrary @canvases) listener false))
-    (when efli
-      (generate-graph (format-dot-expgraph efli)
-                      (:efli @canvases) listener false))))
+  (when (< 0 @time-now)
+    (let [{:keys [arb efli]} (:workspace (cur-ep (:est @or-state)))]
+      (generate-graph (format-dot-expgraph (nth (:test @truedata) (dec @time-now)))
+                      (:initial @canvases) listener false)
+      (when arb
+        (generate-graph (format-dot-expgraph arb)
+                        (:arbitrary @canvases) listener false))
+      (when efli
+        (generate-graph (format-dot-expgraph efli)
+                        (:efli @canvases) listener false)))))
 
 (defn player-setup-diagram
   []

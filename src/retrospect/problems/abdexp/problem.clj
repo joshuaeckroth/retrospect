@@ -16,7 +16,7 @@
    :generate-sensors-fn generate-sensors
    :perturb-fn identity
    :prepared-map {}
-   :default-params {:Steps [1 [1]]
+   :default-params {:Steps [100 [100]]
                     :StepsBetween [1 [1]]
                     :NumVertices [40 [40]]
                     :MaxExplainLinks [10 [10]]
