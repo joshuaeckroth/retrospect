@@ -65,4 +65,4 @@
            (.add p p-middle)
            (.add p p-right)
            (scroll-panel p)))
-    (.setDividerLocation 500)))
+    (.setDividerLocation 300)))
