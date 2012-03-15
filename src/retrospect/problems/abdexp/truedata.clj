@@ -28,11 +28,8 @@
                                           vs2))
                                 (partition 2 1 vs-levels)))
         eg (connect (apply add-edges (digraph) expl-links))
-        eg-tops (reduce (fn [eg v] (add-edges eg [v v]))
-                        eg (first vs-levels))
-        eg-filled (reduce fill eg-tops (last vs-levels))
-        non-leaves (set (filter #(not-empty (neighbors eg-filled %))
-                                (nodes eg-filled)))
+        eg-filled (reduce fill eg (last vs-levels))
+        non-data (set (apply concat (butlast vs-levels)))
         conflict-links (take (:MaxConflictLinks params)
                              (set (mapcat (fn [vs]
                                             (filter (fn [[v1 v2]] (and (not= v1 v2)
@@ -44,14 +41,12 @@
         eg-conflicts (reduce set-conflicts eg-filled conflict-links)
         eg-scores (reduce (fn [eg v]
                             (add-attr eg v :score
-                                      (cond (and (:Scores params)
-                                                 (non-leaves v))
+                                      (cond (and (:Scores params) (non-data v))
                                             (my-rand)
-                                            (and (not (:Scores params))
-                                                 (non-leaves v))
-                                            1.0
-                                            ;; leaf
-                                            :else 0.0)))
+                                            (and (not (:Scores params)) (non-data v))
+                                            0.0
+                                            ;; data
+                                            :else 1.0)))
                           eg-conflicts (sort (nodes eg-conflicts)))]
     eg-scores))
 
@@ -66,12 +61,10 @@
         expl-links (set (take (my-rand-int (:MaxExplainLinks params))
                               (my-shuffle possible-expl-links)))
         eg (connect (apply add-edges (digraph) expl-links))
-        eg-tops (reduce (fn [eg v] (add-edges eg [v v]))
-                        eg (filter #(empty? (explainers eg %)) (nodes eg)))
-        eg-filled (reduce fill eg-tops (filter #(empty? (neighbors eg-tops %))
-                                               (nodes eg-tops)))
-        non-leaves (set (filter #(not-empty (neighbors eg-filled %))
-                                (nodes eg-filled)))
+        eg-filled (reduce fill eg (filter #(empty? (neighbors eg %))
+                                          (nodes eg)))
+        non-data (set (filter #(not-empty (neighbors eg-filled %))
+                              (nodes eg-filled)))
         bunch-of-edges (apply concat (repeat (/ (:NumVertices params) 2)
                                              (sort (nodes eg-filled))))
         possible-conflict-links (partition 2 (interleave
@@ -79,8 +72,7 @@
                                               (my-shuffle bunch-of-edges)))
         valid-conflict-links (filter
                               (fn [[v1 v2]]
-                                (and (< v1 v2) (non-leaves v1)
-                                     (non-leaves v2)
+                                (and (< v1 v2) (non-data v1) (non-data v2)
                                      (not (has-edge? eg-filled v1 v2))
                                      (not (has-edge? eg-filled v2 v1))))
                               possible-conflict-links)
@@ -90,30 +82,19 @@
         eg-scores (reduce (fn [eg v]
                             (add-attr eg v :score
                                       (cond (and (:Scores params)
-                                                 (non-leaves v))
+                                                 (non-data v))
                                             (my-rand)
                                             (and (not (:Scores params))
-                                                 (non-leaves v))
-                                            1.0
-                                            ;; leaf
-                                            :else 0.0)))
+                                                 (non-data v))
+                                            0.0
+                                            ;; data
+                                            :else 1.0)))
                           eg-conflicts (sort (nodes eg-conflicts)))]
     eg-scores))
-
-(defn find-least
-  [expgraph]
-  (let [filled (filled-nodes expgraph)
-        fillable (difference (nodes expgraph) filled)
-        configs (mapcat (fn [n] (combinations fillable n))
-                        (range (inc (count fillable))))
-        egs (map (fn [config] (reduce fill expgraph config)) configs)
-        complete (filter complete? egs)]
-    (first (sort-by composite-score complete))))
 
 (defn generate-truedata
   []
   (loop [expgraph (random-expgraph-levels)]
-    (let [least (find-least expgraph)]
-      (if (or (empty? (nodes expgraph)) (nil? least))
-        (recur (random-expgraph))
-        {:test expgraph :least least}))))
+    (if (empty? (nodes expgraph))
+      (recur (random-expgraph))
+      {:test expgraph})))

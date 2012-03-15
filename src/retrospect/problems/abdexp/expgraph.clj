@@ -1,6 +1,8 @@
 (ns retrospect.problems.abdexp.expgraph
+  (:use [clojure.set])
   (:use [loom.io])
   (:use [loom.graph])
+  (:use [loom.alg])
   (:use [loom.attr]))
 
 (defn score
@@ -19,7 +21,8 @@
 
 (defn unexplained?
   [expgraph vertex]
-  (not-any? (fn [v] (filled? expgraph v)) (explainers expgraph vertex)))
+  (and (not-empty (explainers expgraph vertex))
+       (not-any? (fn [v] (filled? expgraph v)) (explainers expgraph vertex))))
 
 (defn filled-nodes
   [expgraph]
@@ -28,6 +31,28 @@
 (defn unexplained-nodes
   [expgraph]
   (set (filter #(unexplained? expgraph %) (filled-nodes expgraph))))
+
+(defn data-nodes
+  [expgraph]
+  (set (filter #(empty? (neighbors expgraph %)) (nodes expgraph))))
+
+(defn accepted-nodes
+  [expgraph]
+  (difference (filled-nodes expgraph) (data-nodes expgraph)))
+
+(defn top-nodes
+  [expgraph]
+  (set (filter #(empty? (incoming expgraph %)) (nodes expgraph))))
+
+(defn data-explained-by-top
+  [expgraph]
+  (let [eg-filled (apply remove-nodes expgraph
+                         (difference (nodes expgraph)
+                                     (filled-nodes expgraph)))
+        explained-vs (set (mapcat #(pre-traverse eg-filled %)
+                                  ;; be sure to refer back to original expgraph
+                                  (top-nodes expgraph)))]
+    (intersection explained-vs (data-nodes expgraph))))
 
 (defn fill
   [expgraph vertex]
@@ -61,12 +86,9 @@
 
 (defn need-explanation
   [expgraph]
-  (filter (fn [v] (not-any? #(filled? expgraph %) (explainers expgraph v)))
+  (filter (fn [v] (and (not-empty (explainers expgraph v))
+                       (not-any? #(filled? expgraph %) (explainers expgraph v))))
           (filled-nodes expgraph)))
-
-(defn composite-score
-  [expgraph]
-  (reduce + (map (fn [v] (score expgraph v)) (filled-nodes expgraph))))
 
 (defn format-dot-expgraph
   [expgraph]

@@ -26,9 +26,15 @@
                      [v1 v2])]
     (if (= s1 s2)
       (if (and (= c1 c2) (:PreferAbducibles state/params))
-        (compare p1 p2)
+        ;; top-level nodes are better;
+        ;; otherwise, more explainers is better
+        (cond (= 0 p1) -1
+              (= 0 p2) 1
+              :else (compare p1 p2))
+        ;; higher explains counts are better
         (- (compare c1 c2)))
-      (compare s1 s2))))
+      ;; higher scores are better
+      (- (compare s1 s2)))))
 
 (defn compare-delta
   [expgraph vs1 vs2]
@@ -41,13 +47,13 @@
     (cond (nil? c1rest) -1
           (nil? c2rest) 1
           :else
-          ;; lower scores are better, so compare (- second first)
-          (- (compare (- (first c1rest) c1) (- (first c2rest) c2))))))
+          ;; higher deltas are better, so compare (- first second)
+          (- (compare (- c1 (first c1rest)) (- c2 (first c2rest)))))))
 
 (defn efli
   [expgraph]
   (loop [expgraph expgraph
-         delta-sum (+ 0.0 (count (filled-nodes expgraph)))]
+         deltas {}]
     (let [need-expl (need-explanation expgraph)
           explainers (map (fn [v] (filter #(not (conflicts-any? expgraph %))
                                           (explainers expgraph v)))
@@ -57,22 +63,19 @@
                                  (filter not-empty explainers)))
           best (ffirst expl-sorted)
           alt (second (first expl-sorted))
-          delta (if alt (- (score expgraph alt) (score expgraph best)) 1.0)]
+          delta (if alt (- (score expgraph best) (score expgraph alt)) 1.0)]
       (if (or (nil? best)
               (and alt (:Scores state/params)
                    (>= (- (/ (:Threshold state/params) 100) 0.0001) delta)))
-        [expgraph delta-sum]
-        (recur (fill expgraph best) (+ delta-sum delta))))))
+        [expgraph deltas]
+        (recur (fill expgraph best) (assoc deltas best delta))))))
 
 (defn reason
   [workspace time-prev time-now sensors]
   (let [expgraph (sensed-at (first sensors) time-now)
         eg-arb (arbitrary expgraph)
-        [eg-efli ds-efli] (efli expgraph)
-        [eg-efli-guess _] (binding [state/params (assoc state/params :Threshold 0)]
-                            (efli expgraph))]
-    {:arb eg-arb :efli eg-efli :delta-sum ds-efli
-     :guess-explained (count (filled-nodes eg-efli-guess))}))
+        [eg-efli deltas] (efli expgraph)]
+    {:arb eg-arb :efli eg-efli :deltas deltas}))
 
 (def reason-abdexp
   {:name "AbdExp"

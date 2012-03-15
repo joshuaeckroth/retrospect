@@ -4,29 +4,34 @@
   (:use [retrospect.problems.abdexp.expgraph])
   (:use [retrospect.state]))
 
+(defn conf-expgraph
+  [expgraph]
+  (if (empty? (accepted-nodes expgraph)) 0.0
+      (/ (reduce + (map #(score expgraph %) (accepted-nodes expgraph)))
+         (count (accepted-nodes expgraph)))))
+
 (defn evaluate
-  [{:keys [expgraph least]} ors]
-  (let [{:keys [arb efli delta-sum guess-explained]} (:workspace (cur-ep (:est ors)))]
+  [_ ors]
+  (let [{:keys [arb efli deltas]} (:workspace (cur-ep (:est ors)))]
     (update-in
      ors [:results] conj
      (merge {:Problem (:name @problem)}
             params
-            {:LeastScore (composite-score least)
-             :ArbScore (composite-score arb)
-             :ArbComplete (complete? arb)
-             :ArbUnexplained (count (unexplained-nodes arb))
-             :ArbEqualLeast (= arb least)
-             :EFLIScore (composite-score efli)
-             :EFLIComplete (complete? efli)
-             :EFLIUnexplained (double (/ (count (unexplained-nodes efli))
-                                         guess-explained))
-             :EFLIEqualLeast (= efli least)
-             :EFLIConf (/ delta-sum (count (filled-nodes efli)))}))))
+            {:ArbConf (conf-expgraph arb)
+             :ArbCoverage (double (/ (count (data-explained-by-top arb))
+                                     (count (data-nodes arb))))
+             :EFLIConf (conf-expgraph efli)
+             :EFLIDeltaConf (if (empty? deltas) 0.0
+                                (/ (reduce + (map #(* (get deltas %) (score efli %))
+                                                  (keys deltas)))
+                                   (count deltas)))
+             :EFLICoverage (double (/ (count (data-explained-by-top efli))
+                                      (count (data-nodes efli))))}))))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
-                    [:LeastScore :ArbScore :EFLIScore :EFLIConf])))
+                    [:ArbConf :ArbCoverage :EFLIConf :EFLIDeltaConf :EFLICoverage])))
 
 (comment
   (println "Nodes only in arbitrary:" (difference (filled-nodes eg-arb)
