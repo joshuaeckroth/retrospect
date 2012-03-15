@@ -48,7 +48,7 @@
                                             ;; data
                                             :else 1.0)))
                           eg-conflicts (sort (nodes eg-conflicts)))]
-    eg-scores))
+    (if (empty? (data-nodes eg-scores)) (random-expgraph-levels) eg-scores)))
 
 (defn random-expgraph
   []
