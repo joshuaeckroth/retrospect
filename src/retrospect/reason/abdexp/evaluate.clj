@@ -21,10 +21,9 @@
              :ArbCoverage (double (/ (count (data-explained-by-top arb))
                                      (count (data-nodes arb))))
              :EFLIConf (conf-expgraph efli)
-             :EFLIDeltaConf (if (empty? deltas) 0.0
-                                (/ (reduce + (map #(* (get deltas %) (score efli %))
-                                                  (keys deltas)))
-                                   (count deltas)))
+             :EFLIDelta (if (empty? deltas) 1.0
+                            (/ (reduce + (vals deltas))
+                               (count deltas)))
              :EFLICoverage (double (/ (count (data-explained-by-top efli))
                                       (count (data-nodes efli))))}))))
 
