@@ -4,11 +4,10 @@
   (:use [retrospect.problems.abdexp.expgraph])
   (:use [retrospect.state]))
 
-(defn conf-expgraph
+(defn doubt-expgraph
   [expgraph]
   (if (empty? (accepted-nodes expgraph)) 0.0
-      (/ (reduce + (map #(score expgraph %) (accepted-nodes expgraph)))
-         (count (accepted-nodes expgraph)))))
+      (reduce + (map #(- 1.0 (score expgraph %)) (accepted-nodes expgraph)))))
 
 (defn evaluate
   [_ ors]
@@ -17,10 +16,10 @@
      ors [:results] conj
      (merge {:Problem (:name @problem)}
             params
-            {:ArbConf (conf-expgraph arb)
+            {:ArbDoubt (doubt-expgraph arb)
              :ArbCoverage (double (/ (count (data-explained-by-top arb))
                                      (count (data-nodes arb))))
-             :EFLIConf (conf-expgraph efli)
+             :EFLIDoubt (doubt-expgraph efli)
              :EFLIDelta (if (empty? deltas) 1.0
                             (apply min (vals deltas)))
              :EFLICoverage (double (/ (count (data-explained-by-top efli))
