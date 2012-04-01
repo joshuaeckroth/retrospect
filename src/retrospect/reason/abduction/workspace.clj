@@ -364,22 +364,31 @@
 (defn get-another-hyp
   ([workspace]
      ;;TODO figure out order hyps should be attempted
-     (get-another-hyp workspace (sort-by :id (AlphanumComparator.) (:needs-explainer workspace))))
-  ([workspace hyps]
-     (log "Getting more hyps...")
-     (loop [hs hyps]
-       (when (not-empty hs)
-         (log "Trying to get an explainer for" (:id (first hs)))
-         (let [expl ((:hypothesize-fn (:abduction @problem)) (first hs)
-                     (:accepted workspace) (:rejected workspace)
-                     (:hypotheses workspace))]
-           (log "Got:" (:id expl))
-           (if expl
-             (do (log (:desc (first expl)) (:apriori (first expl)) (:explains (first expl)))
-                 (if (second expl)
-                   [(first expl) (make-more-hyp (:explains (first expl)) (second expl))]
-                   [(first expl)]))
-             (recur (rest hs))))))))
+     (get-another-hyp workspace (sort-by :id (AlphanumComparator.)
+                                         (:needs-explainer workspace))))
+  ([workspace unexp]
+     (when (not-empty unexp)
+       (log "Getting more hyps for" (str/join "," (map :id unexp)))
+       (let [hyps (loop [hs unexp
+                         h-map (:hypotheses workspace)
+                         expl []]
+                    (if (empty? hs) expl
+                        (do (log "Trying to get an explainer for" (:id (first hs)))
+                            (let [es ((:hypothesize-fn (:abduction @problem)) (first hs)
+                                      (:accepted workspace) (:rejected workspace)
+                                      h-map)]
+                              (log "Got:" es)
+                              (recur (rest hs)
+                                     (if (not-empty es)
+                                       (reduce #(update-in %1 [(:type %2)] conj %2)
+                                               h-map es)
+                                       h-map)
+                                     (concat expl (if (second es)
+                                                    [(first es)
+                                                     (make-more-hyp (:explains (first es))
+                                                                    (second es))]
+                                                    (if (first es) [(first es)] []))))))))]
+         (when (not-empty hyps) hyps)))))
 
 (defn get-learn-hyp
   [workspace]
@@ -395,11 +404,12 @@
                                      (first hs) unexp h-map)]
                              (log "Got:" es)
                              (recur (rest hs)
-                                    (if es (reduce #(update-in %1 [(:type %2)] conj %2)
-                                                   h-map es)
-                                        h-map)
-                                    (concat expl (if es es [])))))))]
-        (when-not (empty? hyps) hyps)))))
+                                    (if (not-empty es)
+                                      (reduce #(update-in %1 [(:type %2)] conj %2)
+                                              h-map es)
+                                      h-map)
+                                    (concat expl (or es [])))))))]
+        (when (not-empty hyps) hyps)))))
 
 (defn need-more-hyps?
   [workspace]
@@ -445,8 +455,8 @@
         (do (log "No explainers. Attempting to get more hyps...")
             (if-let [hs (get-another-hyp ws)]
               (recur (reduce add ws hs))
-              (if (:learned ws)
-                (do (log "Can't get more hyps, already learned. Done.")
+              (if (or (not (:Learn params)) (:learned ws))
+                (do (log "Can't get more hyps, already learned or learning disabled. Done.")
                     (log-final ws []))
                 (do (log "No more hyps. Attempting to learn...")
                     (if-let [hs (get-learn-hyp ws)]
