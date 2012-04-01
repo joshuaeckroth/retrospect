@@ -139,16 +139,16 @@
                                             (>= (:pos (last %)) (:pos evidence)))
                                       @cache)
         nearby-sensor-hyps (reverse (sort-by count matches-near-evidence))]
-    (filter (fn [sensor-hyps] (not-any? #(same-word-hyp (map :pos sensor-hyps)
-                                                        (apply str (map :symbol sensor-hyps)) %)
-                                        other-hyps))
+    (filter (fn [sensor-hyps]
+              (not-any? #(same-word-hyp (map :pos sensor-hyps)
+                                        (apply str (map :symbol sensor-hyps)) %)
+                        other-hyps))
             nearby-sensor-hyps)))
 
 (defmethod hypothesize :sensor
   [evidence accepted rejected hyps]
   (when (nil? @cache) (update-cache hyps))
-  (let [sensor-hyps (get accepted :sensor)
-        other-hyps (concat (get hyps :word) (get hyps :word-seq))]
+  (let [other-hyps (concat (get hyps :word) (get hyps :word-seq))]
     (let [[expl & word-sensor-hyps] (find-word evidence other-hyps)]
       (if expl
         (let [w (apply str (map :symbol expl))
