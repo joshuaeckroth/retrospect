@@ -295,15 +295,15 @@
   "Only measure unexplained \"needs-explainer\" hyps."
   [workspace]
   (if (empty? (:forced workspace)) 0.0
-      (double (/ (count (:unexplained (:log workspace)))
-                 (count (filter #(:needs-explainer? %)
+      (/ (double (count (:unexplained (:log workspace))))
+         (double (count (filter #(:needs-explainer? %)
                                 (apply concat (vals (:accepted workspace)))))))))
 
 (defn get-noexp-pct
   [workspace]
   (if (empty? (:needs-explainer workspace)) 0.0
-      (double (/ (count (:no-explainers (:log workspace)))
-                 (count (filter #(:needs-explainer? %)
+      (/ (double (count (:no-explainers (:log workspace))))
+         (double (count (filter #(:needs-explainer? %)
                                 (apply concat (vals (:accepted workspace)))))))))
 
 (defn log-final
@@ -373,21 +373,17 @@
                          h-map (:hypotheses workspace)
                          expl []]
                     (if (empty? hs) expl
-                        (do (log "Trying to get an explainer for" (:id (first hs)))
+                        (do (log "Trying to get an explainer for" (str (first hs)))
                             (let [es ((:hypothesize-fn (:abduction @problem)) (first hs)
                                       (:accepted workspace) (:rejected workspace)
                                       h-map)]
-                              (log "Got:" es)
+                              (log "Got:" (str/join "," (map str es)))
                               (recur (rest hs)
                                      (if (not-empty es)
                                        (reduce #(update-in %1 [(:type %2)] conj %2)
                                                h-map es)
                                        h-map)
-                                     (concat expl (if (second es)
-                                                    [(first es)
-                                                     (make-more-hyp (:explains (first es))
-                                                                    (second es))]
-                                                    (if (first es) [(first es)] []))))))))]
+                                     (concat expl (or es [])))))))]
          (when (not-empty hyps) hyps)))))
 
 (defn get-learn-hyp
@@ -399,10 +395,10 @@
                         h-map (:hypotheses workspace)
                         expl []]
                    (if (empty? hs) expl
-                       (do (log "Trying to get a learn explainer for" (:id (first hs)))
+                       (do (log "Trying to get a learn explainer for" (str (first hs)))
                            (let [es ((:learn-fn (:abduction @problem))
                                      (first hs) unexp h-map)]
-                             (log "Got:" es)
+                             (log "Got:" (str/join "," (map str es)))
                              (recur (rest hs)
                                     (if (not-empty es)
                                       (reduce #(update-in %1 [(:type %2)] conj %2)

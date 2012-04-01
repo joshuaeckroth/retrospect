@@ -29,7 +29,7 @@
                :evaluate-comp-fn evaluate-comp
                :true-hyp?-fn true-hyp?
                :hyps-equal?-fn hyps-equal?
-               :hyp-types [:word :noise-word :word-seq :learned-word]
+               :hyp-types [:word :word-seq :learned-word :learned-word-seq]
                :default-params {}}
    :default-params
    {:Steps [10 [10]]

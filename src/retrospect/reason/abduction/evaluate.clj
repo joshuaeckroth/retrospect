@@ -17,55 +17,56 @@
    (let [starts (filter #(empty? (incoming depgraph %)) (nodes depgraph))
          paths (mapcat #(dijkstra-span (partial neighbors depgraph)
                                        (constantly 1) %) starts)]
-     (apply max 0 (mapcat (comp vals second) paths))))
+     (apply max 0 (mapcat (comp vals second) paths)))))
 
- (defn group-hyps-by-subtype-true-false
-   [truedata workspace time true-hyp?]
-   (let [hyps (reduce (fn [m t] (if (nil? (get m t)) (assoc m t []) m))
-                      (group-by :subtype (set/difference (get-hyps workspace :static)
-                                                         (:forced workspace)))
-                      (:hyp-subtypes @problem))
-         tf (reduce (fn [m subtype]
-                      (let [grouped (group-by (fn [h] (if (true-hyp? truedata time h)
-                                                        true false))
-                                              (get hyps subtype))]
-                        (assoc m subtype
-                               (reduce (fn [g tf] (if (nil? (get g tf)) (assoc g tf []) g))
-                                       grouped [true false]))))
-                    {} (keys hyps))
-         all-true (mapcat #(get % true) (vals tf))
-         all-false (mapcat #(get % false) (vals tf))]
-     (assoc tf :all {true all-true false all-false})))
+(defn group-hyps-by-subtype-true-false
+  [truedata workspace time true-hyp?]
+  (let [hyps (reduce (fn [m t] (if (nil? (get m t)) (assoc m t []) m))
+                     (group-by :subtype (set/difference
+                                         (set (apply concat (vals (:hypotheses workspace))))
+                                         (:forced workspace)))
+                     (:hyp-types (:abduction @problem)))
+        tf (reduce (fn [m subtype]
+                     (let [grouped (group-by (fn [h] (if (true-hyp? truedata time h)
+                                                       true false))
+                                             (get hyps subtype))]
+                       (assoc m subtype
+                              (reduce (fn [g tf] (if (nil? (get g tf)) (assoc g tf []) g))
+                                      grouped [true false]))))
+                   {} (keys hyps))
+        all-true (mapcat #(get % true) (vals tf))
+        all-false (mapcat #(get % false) (vals tf))]
+    (assoc tf :all {true all-true false all-false})))
 
- (defn calc-true-false-confs
-   "Find average confidence and apriori values for true hyps, average
+(defn calc-true-false-confs
+  "Find average confidence and apriori values for true hyps, average
    confidence for false hyps."
-   [workspace true-false]
-   (let [confs (reduce (fn [m t]
-                         (assoc m t
-                                {true (map #(hyp-conf workspace %)
-                                           (get (get true-false t) true))
-                                 false (map #(hyp-conf workspace %)
-                                            (get (get true-false t) false))}))
-                       {} (keys true-false))
-         apriori (reduce (fn [m t]
-                           (assoc m t
-                                  {true (map :apriori (get (get true-false t) true))
-                                   false (map :apriori (get (get true-false t) false))}))
-                         {} (keys true-false))
-         avg (fn [vals] (if (empty? vals) 0.0 (/ (reduce + vals) (count vals))))]
-     (reduce (fn [m t]
-               (let [k (apply str (map str/capitalize (str/split (name t) #"-")))]
-                 (assoc m
-                   (keyword (format "AvgTrueConf%s" k))
-                   (avg (get (get confs t) true))
-                   (keyword (format "AvgTrueApriori%s" k))
-                   (avg (get (get apriori t) true))
-                   (keyword (format "AvgFalseConf%s" k))
-                   (avg (get (get confs t) false))
-                   (keyword (format "AvgFalseApriori%s" k))
-                   (avg (get (get apriori t) false)))))
-             {} (keys true-false)))))
+  [workspace true-false]
+  (let [confs (reduce (fn [m t]
+                        (assoc m t
+                               {true (map #(hyp-conf workspace %)
+                                          (get (get true-false t) true))
+                                false (map #(hyp-conf workspace %)
+                                           (get (get true-false t) false))}))
+                      {} (keys true-false))
+        apriori (reduce (fn [m t]
+                          (assoc m t
+                                 {true (map :apriori (get (get true-false t) true))
+                                  false (map :apriori (get (get true-false t) false))}))
+                        {} (keys true-false))
+        avg (fn [vals] (if (empty? vals) 0.0 (/ (reduce + vals) (count vals))))]
+    (reduce (fn [m t]
+              (let [k (apply str (map str/capitalize (str/split (name t) #"-")))]
+                (assoc m
+                  (keyword (format "AvgTrueConf%s" k))
+                  (avg (get (get confs t) true))
+                  (keyword (format "AvgTrueApriori%s" k))
+                  (avg (get (get apriori t) true))
+                  (keyword (format "AvgFalseConf%s" k))
+                  (avg (get (get confs t) false))
+                  (keyword (format "AvgFalseApriori%s" k))
+                  (avg (get (get apriori t) false)))))
+            {} (keys true-false))))
 
 (comment
   (defn calc-avg-true-false-deps
@@ -89,47 +90,46 @@
                                                          (str/split (name subtype) #"-")))))]
                   (assoc m k avg))) {} tf-counts))))
 
-(comment         true-false (group-hyps-by-subtype-true-false
-                    truedata workspace
-                    (:time ep) (:true-hyp?-fn @problem)))
-
 (defn evaluate
   [truedata ors]
   (let [ep (cur-ep (:est ors))
         workspace (:workspace ep)
         accepted (:accepted workspace)
         rejected (:rejected workspace)
-        ors-resources (:resources ors)]
+        ors-resources (:resources ors)
+        true-false (group-hyps-by-subtype-true-false
+                    truedata workspace
+                    (:time ep) (:true-hyp?-fn (:abduction @problem)))]
     (update-in
      ors [:results] conj
      (merge {:Problem (:name @problem)}
             params
             ((:evaluate-fn (:abduction @problem)) truedata ors)
-            #_(calc-true-false-confs workspace true-false)
+            (calc-true-false-confs workspace true-false)
             #_(if (:AnalyzeSensitivity params)
-              (analyze-sensitivity ors true-false)
-              (reduce
-               (fn [m tf]
-                 (reduce (fn [m2 k] (assoc m2 k 0))
-                         m (map #(keyword
-                                  (format "Avg%s%s" tf
-                                          (apply str
-                                                 (map str/capitalize
-                                                      (str/split (name %) #"-")))))
-                                (:hyp-subtypes (:abduction @problem)))))
-               {} ["TrueSensitivity" "FalseSensitivity"]))
+                (analyze-sensitivity ors true-false)
+                (reduce
+                 (fn [m tf]
+                   (reduce (fn [m2 k] (assoc m2 k 0))
+                           m (map #(keyword
+                                    (format "Avg%s%s" tf
+                                            (apply str
+                                                   (map str/capitalize
+                                                        (str/split (name %) #"-")))))
+                                  (:hyp-subtypes (:abduction @problem)))))
+                 {} ["TrueSensitivity" "FalseSensitivity"]))
             #_(if (:AnalyzeDeps params)
-              (calc-avg-true-false-deps or-state true-false)
-              (reduce
-               (fn [m tf]
-                 (reduce (fn [m2 k] (assoc m2 k 0))
-                         m (map #(keyword
-                                  (format "Avg%s%s" tf
-                                          (apply str
-                                                 (map str/capitalize
-                                                      (str/split (name %) #"-")))))
-                                (:hyp-subtypes @problem))))
-               {} ["TrueDeps" "FalseDeps"]))
+                (calc-avg-true-false-deps or-state true-false)
+                (reduce
+                 (fn [m tf]
+                   (reduce (fn [m2 k] (assoc m2 k 0))
+                           m (map #(keyword
+                                    (format "Avg%s%s" tf
+                                            (apply str
+                                                   (map str/capitalize
+                                                        (str/split (name %) #"-")))))
+                                  (:hyp-subtypes @problem))))
+                 {} ["TrueDeps" "FalseDeps"]))
             {:Step (:time ep)
              :MetaActivations (:meta-activations ors-resources)
              :MetaAccepted (:meta-accepted ors-resources)

@@ -92,6 +92,9 @@
                                                (count training-dict))))
                :dictionary training-dict
                :models models
+               :substrings (reduce (fn [m w]
+                                     (assoc m w (filter #(substring? w %) training-dict)))
+                                   {} training-dict)
                :features features
                :centroid (calc-centroid features (get models 1))})]))
 
@@ -149,22 +152,23 @@
   [evidence accepted rejected hyps]
   (when (nil? @cache) (update-cache hyps))
   (let [other-hyps (concat (get hyps :word) (get hyps :word-seq))]
-    (let [[expl & word-sensor-hyps] (find-word evidence other-hyps)]
-      (if expl
-        (let [w (apply str (map :symbol expl))
-              unigram-model (get (:models (get-kb hyps)) 1)
-              similar-words (filter #(substring? w %) (map first (keys unigram-model)))
-              similar-sum (reduce + (map (fn [w2] (get unigram-model [w2]))
-                                         similar-words))]
-          [(new-hyp "Word" :word :word true conflicts
-                    (double (/ (get unigram-model [w]) similar-sum))
-                    expl [] w
-                    (format "Word \"%s\" (pos %d-%d)"
-                            w (:pos (first expl))
-                            (:pos (last expl)))
-                    {:word w :pos-seq (map :pos expl)})
-           ;; what's the estimate of "more" hyps?
-           0.5])))))
+    (let [expls (find-word evidence other-hyps)]
+      (map (fn [expl]
+             (let [w (apply str (map :symbol expl))
+                   kb (get-kb hyps)
+                   unigram-model (get (:models kb) 1)
+                   substrings (:substrings kb)
+                   similar-words (get substrings w)
+                   similar-sum (reduce + (map (fn [w2] (get unigram-model [w2]))
+                                              similar-words))]
+               (new-hyp "Word" :word :word true conflicts
+                        (double (/ (get unigram-model [w]) similar-sum))
+                        expl [] w
+                        (format "Word \"%s\" (pos %d-%d)"
+                                w (:pos (first expl))
+                                (:pos (last expl)))
+                        {:word w :pos-seq (map :pos expl)})))
+           expls))))
 
 (defmethod hypothesize :word
   [evidence accepted rejected hyps]
@@ -213,7 +217,7 @@
                                        (ffirst pos-seqs) (last (last pos-seqs)))
                                {:words words :pos-seqs pos-seqs})]
               (if (not-any? (fn [h] (hyps-equal? hyp h)) (get hyps :word-seq))
-                [hyp nil]
+                [hyp]
                 (recur (rest ws))))
             (recur (rest ws))))))))
 
@@ -248,11 +252,12 @@
         avg-word-length (:avg-word-length kb)
         centroid (:centroid kb)]
     (when (and (not-any? #(same-word-hyp (map :pos expl) word %) (get hyps :word))
-               (< (Math/abs (- avg-word-length (count word))) avg-word-length))
+               (< (Math/abs (double (- avg-word-length (count word))))
+                  avg-word-length))
       (let [pos-seq (map :pos expl)
             sim (Math/log (+ 1 (* (:SimMultiplier params)
                                   (similarity word centroid))))
-            length-diff (Math/abs (- avg-word-length (count word)))
+            length-diff (Math/abs (double (- avg-word-length (count word))))
             apriori (min 1.0 (+ sim (Math/pow (:LengthPenalty params)
                                               (inc length-diff))))]
         [(new-hyp "LearnedWord" :word :learned-word true conflicts
@@ -329,7 +334,7 @@
                             (concat hs (get hyps :word)))
                   (let [sim (Math/log (+ 1 (* (:SimMultiplier params)
                                               (similarity word centroid))))
-                        length-diff (Math/abs (- avg-word-length (count word)))
+                        length-diff (Math/abs (double (- avg-word-length (count word))))
                         apriori (min 1.0 (+ sim (Math/pow (:LengthPenalty params)
                                                           (inc length-diff))))
                         hyp (new-hyp "LWWord" :word :learned-word true conflicts
