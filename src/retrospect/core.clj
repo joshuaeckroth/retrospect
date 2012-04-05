@@ -14,7 +14,7 @@
   (:use [retrospect.problems.abdexp.problem :only [abdexp-problem]])
   #_(:use [retrospect.reason.abduction.problems.causal.problem :only [causal-problem]])
   (:use [retrospect.records :only [run-with-new-record]])
-  (:use [retrospect.explore :only [explore]])
+  (:use [retrospect.explore :only [start-explore]])
   (:use [retrospect.player :only [start-player]])
   (:use [retrospect.bugreport]))
 
@@ -53,11 +53,7 @@
      [git "Git path" "git"]
      [seed "Seed" "0"]
      [database "Database identifier" "http://127.0.0.1:5984/retrospect"]
-     [upload "Upload?" "true"]
-     [metric "Explore metric to optimize" "Milliseconds"]
-     [min-max "Optimization goal (min/max)" "min"]
-     [restarts "# of explore restarts" "5"]
-     [permutations "# of explore permutations" "100"]]
+     [upload "Upload?" "true"]]
     (let [seed (Integer/parseInt seed)
           reason (choose-reason reason)
           problem (choose-problem problem)
@@ -76,9 +72,8 @@
             (SwingUtilities/invokeLater start-player)
 
             (= action "explore")
-            (let [restarts (Integer/parseInt restarts)
-                  permutations (Integer/parseInt permutations)]
-              (explore seed (keyword metric) min-max repetitions restarts permutations))
+            ;; start the explore gui on swing's "event dispatch thread"
+            (SwingUtilities/invokeLater start-explore)
             
             (= action "run")
             (let [nthreads (Integer/parseInt nthreads)

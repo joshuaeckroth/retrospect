@@ -23,13 +23,13 @@
   (dosync (alter headers-on #(assoc % h (not (h %))))))
 
 (defn get-results-viewport
-  [or-state]
+  []
   (let [hs (filter #(@headers-on %) (sort-by name (keys @headers-on)))
         results-matrix (map (fn [r] (map (fn [h] (if (= java.lang.Double (type (h r)))
                                                    (format "%.2f" (h r))
                                                    (h r)))
                                          hs))
-                            (:results or-state))]
+                            @results)]
     (doto (JViewport.)
       (.setView  (JTable. (Vector. (map #(Vector. %) results-matrix))
                           (Vector. (sort (map name hs))))))))
@@ -37,9 +37,9 @@
 (defn update-results
   []
   ;; when possible, update headers
-  (when (and (not @headers) (not-empty (:results @or-state)))
+  (when (and (not @headers) (not-empty @results))
     (dosync
-     (alter headers (constantly (sort (keys (first (:results @or-state)))))))
+     (alter headers (constantly (sort (keys (first @results))))))
     (let [cb (fn [h] (check-box :caption (name h)
                                 :selected false
                                 :action ([_] (toggle-header h) (update-results))))
@@ -50,7 +50,7 @@
         (doto p-middle (.add (cb h))))
       (doseq [h (nth groups 2)]
         (doto p-right (.add (cb h))))))
-  (. scroll (setViewport (get-results-viewport @or-state))))
+  (. scroll (setViewport (get-results-viewport))))
 
 (defn results-tab
   []

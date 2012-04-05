@@ -17,15 +17,15 @@
    :evaluate-fn evaluate
    :evaluate-comp-fn evaluate-comp
    :default-params-fn (fn []
-                        (merge {:Knowledge [80 [40 60 80 100]]
-                                :BelievedKnowledge [80 [40 60 80 100]]
+                        (merge {:Knowledge [80 [80]]
+                                :BelievedKnowledge [80 [80]]
                                 :Metareasoning ["NoMetareasoning" ["NoMetareasoning"]]
-                                :Threshold [20 [0 10 20 30]]
+                                :Threshold [0 [0]]
                                 :AnalyzeSensitivity [false [false]]
                                 :AnalyzeDeps [false [false]]
                                 :ProbPerturb [25 [25]]
-                                :UseScores [true [true false]]
-                                :Learn [true [true false]]}
+                                :UseScores [true [true]]
+                                :Learn [true [true]]}
                                (:default-params (:abduction @problem))))
    :init-workspace-fn init-workspace
    :init-kb-fn init-kb

@@ -84,19 +84,38 @@
 
 (defn generate-kb
   [[training training-dict]]
-  (let [models (build-markov-models training)
-        features (update-features {} training-dict)]
-    [(new-hyp "KB" :kb :kb false conflicts 1.0 [] [] "" ""
-              {:avg-word-length (if (empty? training-dict) 0
-                                    (double (/ (reduce + (map count training-dict))
-                                               (count training-dict))))
-               :dictionary training-dict
-               :models models
-               :substrings (reduce (fn [m w]
-                                     (assoc m w (filter #(substring? w %) training-dict)))
-                                   {} training-dict)
-               :features features
-               :centroid (calc-centroid features (get models 1))})]))
+  (let [kb (try
+             (with-open [r (java.io.PushbackReader.
+                            (clojure.java.io/reader
+                             (format "%s/words/kb-%s-%d.clj" @datadir
+                                     (:Dataset params) (:MaxModelGrams params))))]
+               (read r))
+             (catch Exception _
+               (let [models (build-markov-models training)
+                     features (update-features {} training-dict)
+                     substrings (reduce (fn [m w] (assoc m w (filter #(substring? w %) training-dict)))
+                                        {} training-dict)
+                     symbol-words (reduce (fn [m w] (reduce (fn [m2 sym]
+                                                              (if (nil? (get m2 sym))
+                                                                (assoc m2 sym #{w})
+                                                                (update-in m2 [sym] conj w)))
+                                                            m (seq w)))
+                                          {} training-dict)
+                     centroid (calc-centroid features (get models 1))
+                     kb {:avg-word-length (if (empty? training-dict) 0
+                                              (double (/ (reduce + (map count training-dict))
+                                                         (count training-dict))))
+                         :dictionary training-dict
+                         :models models
+                         :symbol-words symbol-words
+                         :substrings substrings
+                         :features features
+                         :centroid centroid}]
+                 (spit (format "%s/words/kb-%s-%d.clj" @datadir
+                               (:Dataset params) (:MaxModelGrams params))
+                       (pr-str kb))
+                 kb)))]
+    [(new-hyp "KB" :kb :kb false conflicts 1.0 [] [] "" "" kb)]))
 
 (defn get-kb
   [hyps]
@@ -122,7 +141,7 @@
   (let [kb (get-kb hyps)
         sensor-hyps (vec (sort-by :pos (get hyps :sensor)))
         sensor-str (apply str (map :symbol sensor-hyps))
-        words (map first (keys (get (:models kb) 1)))
+        words (set (mapcat (fn [sym] (get (:symbol-words kb) sym)) (seq sensor-str)))
         word-positions (mapcat (fn [w]
                                  (let [matcher (re-matcher
                                                 (re-pattern (format "(%s)" (Pattern/quote w)))

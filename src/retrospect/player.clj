@@ -69,7 +69,7 @@
    (alter ep-list (constantly (sort (list-ep-states (:est @or-state))))))
   (update-ep-tree)
   ((:update-tabs-fn (:player-fns @reason)))
-  (update-results)
+  (update-results true)
   (update-repl-tab)
   ((:update-stats-fn (:player-fns @problem)))
   (when-let [f (:update-diagram-fn (:player-fns @problem))]
@@ -79,6 +79,7 @@
   []
   (let [ors (run-simulation-step @truedata @or-state true)]
     (dosync (alter or-state (constantly ors)))
+    (dosync (alter results conj (last (:results ors))))
     (update-everything)))
 
 (defn next-step
@@ -93,19 +94,17 @@
   (.setEnabled next-button true)
   (let [prepared? (and (not (nil? @prepared-selected))
                        (not= "None" @prepared-selected))
-        ps (dissoc (merge-default-params (read-string @params-edit)) :simulation)
-        ps-noseed (dissoc ps :Seed)]
-    (alter-var-root (var params) (constantly ps-noseed))
+        ps (dissoc (merge-default-params (read-string @params-edit)) :simulation)]
+    (alter-var-root (var params) (constantly ps))
     (set-last-id 0)
     (when (not prepared?)
       (let [ps (merge-default-params (read-string @params-edit))
-            ps-noseed (dissoc ps :Seed)
             seed (if (:Seed ps) (:Seed ps) (get-seed))
             ps-seed (assoc ps :Seed seed)]
-        (alter-var-root (var params) (constantly ps-noseed))
+        (alter-var-root (var params) (constantly ps-seed))
         (.put @prefs (format "%s-%s-params" (:name @reason) (:name @problem))
               (pr-str ps-seed))
-        (dosync (alter params-edit (constantly (format-params ps-noseed))))
+        (dosync (alter params-edit (constantly (format-params (dissoc ps-seed :Seed)))))
         (alter-var-root (var rgen) (constantly (new-seed seed)))
         (set-seed-spinner seed)
         (set-last-id 0)
@@ -113,6 +112,7 @@
          (alter truedata (constantly ((:generate-truedata-fn @problem))))
          (alter sensors (constantly ((:generate-sensors-fn @problem)))))))
     (dosync
+     (alter results (constantly []))
      (alter or-state (constantly (init-ors @sensors (:training @truedata)))))
     (update-everything)))
 
@@ -123,12 +123,11 @@
     (let [prepared ((get (:prepared-map @problem) @prepared-selected))
           ps (dissoc (merge-default-params (:params prepared)) :simulation)
           seed (if (:seed ps) (:seed ps) 1)
-          ps-noseed (dissoc ps :Seed)
           ps-seed (assoc ps :Seed seed)
           td (:truedata prepared)
           sens (:sensors prepared)]
-      (dosync (alter params-edit (constantly (format-params ps-noseed))))
-      (alter-var-root (var params) (constantly ps-noseed))
+      (dosync (alter params-edit (constantly (format-params (dissoc ps-seed :seed)))))
+      (alter-var-root (var params) (constantly ps-seed))
       (.put @prefs (format "%s-%s-params" (:name @reason) (:name @problem)) (pr-str ps-seed))
       (alter-var-root (var rgen) (constantly (new-seed seed)))
       (set-last-id 0)

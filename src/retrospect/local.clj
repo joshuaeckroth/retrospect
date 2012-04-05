@@ -32,16 +32,6 @@
 ;; keep track of progress
 (def progress (ref 0))
 
-(defn check-progress
-  [remaining total start-time]
-  (when (> remaining 0)
-    (let [p @progress]
-      (when (< 0 p)
-        (print-progress (- (.getTime (Date.)) start-time) p total))
-      (. Thread (sleep 30000))
-      (send *agent* #'check-progress total start-time)
-      (- total p))))
-
 (defn format-csv-row
   [row]
   ;; add quotes around string data
@@ -59,11 +49,13 @@
         (.write writer (format-csv-row (map name (sort (keys results))))))
       (.write writer (format-csv-row row)))))
 
-(def results (ref []))
+(def local-results (ref []))
 
 (defn run-partition
-  [comparative? recdir params]
+  [comparative? recdir params start-time sim-count]
   (loop [ps params]
+    (when (< 0 @progress)
+      (print-progress (- (.getTime (Date.)) start-time) @progress sim-count))
     (if (not-empty ps)
       (if comparative?
         (let [[control-results comparison-results comparative-results]
@@ -76,22 +68,22 @@
             (write-csv (str recdir "/comparative-results.csv") rs))
           (dosync
            (alter progress inc)
-           (alter results conj {:control control-results
-                                :comparison comparison-results
-                                :comparative comparative-results}))
+           (alter local-results conj {:control control-results
+                                      :comparison comparison-results
+                                      :comparative comparative-results}))
           (recur (rest ps)))
         (let [control-results (run comparative? (first ps))]
           (doseq [rs control-results]
             (write-csv (str recdir "/control-results.csv") rs))
           (dosync (alter progress inc)
-                  (alter results conj {:control control-results}))
+                  (alter local-results conj {:control control-results}))
           (recur (rest ps)))))))
 
 (defn run-partitions
   [run-meta comparative? params recdir nthreads upload? repetitions]
-  (let [sim-count (* repetitions (count params))]
-    (send (agent sim-count) check-progress sim-count (.getTime (Date.))))
-  (let [seeds (repeatedly repetitions #(my-rand-int 10000000))
+  (let [start-time (.getTime (Date.))
+        sim-count (* repetitions (count params))
+        seeds (repeatedly repetitions #(my-rand-int 10000000))
         seeded-params (mapcat (fn [pp] (for [s seeds]
                                          (if comparative?
                                            (map (fn [p] (assoc p :Seed s)) pp)
@@ -105,8 +97,8 @@
         partitions (partition-all (math/ceil (/ (count numbered-params) nthreads))
                                   (my-shuffle numbered-params))
         workers (for [part partitions]
-                  (future (run-partition comparative? recdir part)))]
+                  (future (run-partition comparative? recdir part start-time sim-count)))]
     (doall (pmap (fn [w] @w) workers))
     (when (and upload? (not= "" @database))
       (println "Writing results to database...")
-      (db/commit-run run-meta @results))))
+      (db/commit-run run-meta @local-results))))

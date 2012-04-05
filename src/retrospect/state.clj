@@ -19,7 +19,8 @@
 ;; need params not to be shared among threads
 (def params nil)
 
-;; used by player only
+;; generally only used by the player/explore mode
+(def results (ref []))
 (def or-state (ref nil))
 (def sensors (ref nil))
 (def truedata (ref nil))

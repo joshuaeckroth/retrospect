@@ -34,8 +34,9 @@
                        (str/split-lines (slurp (format "%s/words/%s.utf8"
                                                        @datadir (:Dataset params))
                                                :encoding "utf-8")))
-        [training test] (split-at (int (* 0.05 (count sentences)))
-                                  (my-shuffle sentences))
+        ;; don't shuffle sentences; keep original order
+        ;; TODO: fix this
+        [training test] (split-at (int (* 0.9 (count sentences))) sentences)
         [training-dict test-dict] (map (fn [sents] (set (apply concat sents)))
                                        [training test])
         ;; TODO: handle noise
