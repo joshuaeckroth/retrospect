@@ -65,7 +65,7 @@
   (let [width (ceil (/ @grid-cell-width (count es)))]
     (doseq [i (range (count es))]
       (let [e (nth es i)
-            movs (entity-movements @truedata e (inc @time-prev) @time-now)
+            movs (entity-movements (:test @truedata) e (inc @time-prev) @time-now)
             left (+ (* i width) (* x @grid-cell-width))
             top (* y @grid-cell-height)]
         (doto g
@@ -92,7 +92,7 @@
     (dorun
      (for [x (range @grid-width) y (range @grid-height)]
        (let [es (sort-by str (AlphanumComparator.)
-                         (entities-at @truedata x y @time-now))]
+                         (entities-at (:test @truedata) x y @time-now))]
          (when (not-empty es)
            (fill-cell-entities g x y es)))))))
 
@@ -212,8 +212,8 @@
   ;; TODO: fix so it's not specific to abduction
   (if (<= @time-now 0) ""
       (format-movements-comparative
-       @truedata (map :mov (get (:accepted (:workspace (cur-ep (:est @or-state))))
-                                :movement))
+       (:test @truedata) (map :mov (get (:accepted (:workspace (cur-ep (:est @or-state))))
+                                        :movement))
        (max 0 @time-prev) @time-now)))
 
 (defn move-str

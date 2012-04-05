@@ -36,7 +36,7 @@
     (loop [time 1
            m movements]
       (if (> time (:Steps params))
-        (do (comment (output-walk-sizes m)) m) 
+        (do (comment (output-walk-sizes m)) {:test m}) 
         (recur (inc time) (random-walks m time))))))
 
 (defn format-movements-comparative

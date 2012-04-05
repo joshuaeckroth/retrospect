@@ -24,9 +24,11 @@
   [sensor {:keys [x y color time] :as det} t time-prev time-now]
   (let [desc (format (str "Sensor detection by %s - color: %s, x: %d, y: %d, time: %d")
                      (:id sensor) (color-str color) x y time)
-        from (new-hyp "SensFrom" :sensor :sensor-from nil 1.0 [] [] desc
+        from (new-hyp "SensFrom" :sensor :sensor-from true nil 1.0 [] []
+                      (format "%d,%d@%d" x y time) desc
                       {:sensor sensor :det det})
-        to (new-hyp "SensTo" :sensor :sensor-to nil 1.0 [] [] desc
+        to (new-hyp "SensTo" :sensor :sensor-to true nil 1.0 [] []
+                    (format "%d,%d@%d" x y time) desc
                     {:sensor sensor :det det})]
     (cond (= t time-prev) [to]
           (= t time-now) [from]
@@ -196,8 +198,8 @@
                {:walk-count walk-count})))
 
 (defn generate-kb
-  []
-  [(new-hyp "KB" :kb :kb conflicts 1.0 [] [] ""
+  [training]
+  [(new-hyp "KB" :kb :kb false conflicts 1.0 [] [] "" ""
             {:walk-dist (read-walk-dist (format "%s/tracking/walks-%d.txt"
                                                 @datadir (:MaxWalk params)))})])
 
@@ -233,8 +235,8 @@
   [to from apriori]
   (let [det (:det to)
         det2 (:det from)]
-    (new-hyp "Mov" :movement :movement conflicts
-             apriori [to from] []
+    (new-hyp "Mov" :movement :movement false conflicts
+             apriori [to from] [] (path-str [(:det to) (:det from)])
              (format "%s (dist=%.2f)"
                      (path-str [(:det to) (:det from)])
                      (dist (:x (:det to)) (:y (:det to))
@@ -275,10 +277,9 @@
   (let [pg (build-paths-graph (get accepted :movement))
         paths (get-paths pg evidence)]
     (filter-existing hyps (for [p paths]
-                            (new-hyp "Path" :path :path conflicts
-                                     (score-path p) p []
-                                     (path-str (conj (vec (map :det p)) (:det2 (last p))))
-                                     {:movs p})))))
+                            (let [pstr (path-str (conj (vec (map :det p)) (:det2 (last p))))]
+                              (new-hyp "Path" :path :path false conflicts
+                                       (score-path p) p [] pstr pstr {:movs p}))))))
 
 (comment
   (defn hypothesize2

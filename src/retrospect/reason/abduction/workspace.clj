@@ -488,7 +488,9 @@
     (reduce (fn [ws t]
               (let [hs (mapcat (fn [s] (mapcat #(msh s % t) (sensed-at s t))) sensors)]
                 (reduce add-fact ws hs)))
-            workspace (range (inc time-prev) (inc time-now)))))
+            workspace
+            (range (if (:ResensePrevTime params) time-prev (inc time-prev))
+                   (inc time-now)))))
 
 (defn add-kb
   [workspace hyps]
@@ -501,8 +503,8 @@
   (add-kb workspace ((:generate-kb-fn (:abduction @problem)) training)))
 
 (defn init-workspace
-  ([] ((:reset-fn (:abduction @problem)))
+  ([] (when-let [f (:reset-fn (:abduction @problem))] (f))
      empty-workspace)
   ([workspace]
-     ((:reset-fn (:abduction @problem)))
+     (when-let [f (:reset-fn (:abduction @problem))] (f))
      (add-kb empty-workspace (:initial-kb workspace))))

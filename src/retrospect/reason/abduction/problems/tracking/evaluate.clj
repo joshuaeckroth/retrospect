@@ -1,11 +1,12 @@
 (ns retrospect.reason.abduction.problems.tracking.evaluate
   (:use [retrospect.evaluate :only [calc-increase]])
+  (:use [retrospect.epistemicstates :only [cur-ep flatten-est]])
   (:use [retrospect.problems.tracking.colors :only [match-color?]])
   (:use [retrospect.problems.tracking.movements :only [moves-match? dets-match?]]))
 
 (defn true-hyp?
   [truedata time hyp]
-  (let [true-movs (apply concat (vals truedata))]
+  (let [true-movs (apply concat (vals (:test truedata)))]
     (cond (= :movement (:type hyp))
           (some #(moves-match? (:mov hyp) %) true-movs)
           (= :path (:type hyp))
@@ -73,9 +74,13 @@
              (count true-movs))))
 
 (defn evaluate
-  [accepted rejected time-now sensors truedata]
-  (let [true-movs (filter #(and (:ot %) (<= (:time %) time-now))
-                          (apply concat (vals truedata)))
+  [truedata ors]
+  (let [eps (rest (flatten-est (:est ors)))
+        time-now (:time (last eps))
+        true-movs (filter #(and (:ot %) (<= (:time %) time-now))
+                          (apply concat (vals (:test truedata))))
+        accepted (:accepted (:workspace (last eps)))
+        rejected (:rejected (:workspace (last eps)))
         bel-movs (map :mov (get accepted :movement))
         disbel-movs (map :mov (get rejected :movement))
         [pec pew] (percent-events-correct-wrong true-movs bel-movs)
@@ -90,7 +95,7 @@
      :TN tn
      :FP fp
      :FN fn
-     :ID (id-correct truedata [] time-now)}))
+     :ID (id-correct (:test truedata) [] time-now)}))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]

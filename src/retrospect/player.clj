@@ -69,7 +69,7 @@
    (alter ep-list (constantly (sort (list-ep-states (:est @or-state))))))
   (update-ep-tree)
   ((:update-tabs-fn (:player-fns @reason)))
-  (update-results true)
+  (update-results)
   (update-repl-tab)
   ((:update-stats-fn (:player-fns @problem)))
   (when-let [f (:update-diagram-fn (:player-fns @problem))]

@@ -32,7 +32,7 @@
 
 (defn run-simulation-step
   [truedata ors player?]
-  (let [time-prev (or (:time (cur-ep (:est ors))) 0)
+  (let [time-prev (:time (cur-ep (:est ors)))
         time-now (min (:Steps params) (+ (:StepsBetween params) time-prev))
         sensors (update-sensors-from-to time-prev time-now truedata (:sensors ors))
         ;; start the clock

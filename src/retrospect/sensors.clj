@@ -8,7 +8,7 @@
 
 (defn init-sensor
   [id sense-fn meta]
-  (with-meta (Sensor. id sense-fn {} 0) meta))
+  (with-meta (Sensor. id sense-fn {} -1) meta))
 
 (defn sensed-at
   [sensor time]
