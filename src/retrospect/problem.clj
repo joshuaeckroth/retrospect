@@ -1,24 +1,72 @@
 (ns retrospect.problem
   (:import (java.util.concurrent ExecutionException))
   (:use [clojure.string :only [split]])
-  (:use [retrospect.epistemicstates :only [cur-ep new-child-ep init-est update-est]])
+  (:use [retrospect.epistemicstates :only
+         [cur-ep new-child-ep new-branch-ep init-est
+          update-est nth-previous-ep print-est goto-ep]])
   (:use [retrospect.sensors :only [update-sensors]])
   (:use [retrospect.random :only [rgen new-seed my-rand-int]])
   (:use [retrospect.logging])
   (:use [retrospect.state]))
 
+(defn meta-apply-and-evaluate
+  [est new-est time-prev time-now sensors]
+  (let [new-ep (cur-ep new-est)
+        new-ws ((:reason-fn @reason) (:workspace new-ep) time-prev time-now sensors)
+        new-expl-est (update-est new-est (assoc new-ep :workspace new-ws))]
+    (if (> 0 ((:workspace-compare-fn @reason) new-ws (:workspace (cur-ep est))))
+      new-expl-est
+      (goto-ep new-expl-est (:id (cur-ep est))))))
+
+(defn meta-batch
+  [n est time-prev time-now sensors]
+  (let [new-est (new-branch-ep est (nth-previous-ep est n))
+        new-est-time (update-est new-est (assoc (cur-ep new-est) :time time-now))]
+    (meta-apply-and-evaluate est new-est-time time-prev time-now sensors)))
+
+(defn meta-lower-threshold
+  [est time-prev time-now sensors]
+  (if (= 0 (:Threshold params)) est
+      (let [new-est (new-branch-ep est (cur-ep est))]
+        ;; drop threshold to 0
+        (binding [params (assoc params :Threshold 0)]
+          (meta-apply-and-evaluate est new-est time-prev time-now sensors)))))
+
+(defn metareason
+  "Activate the appropriate metareasoning strategy (as given by
+   the parameter :Metareasoning)"
+  [est time-prev time-now sensors]
+  (if (not ((:metareasoning-activated?-fn @reason) est)) est
+      (let [m (:Metareasoning params)
+            f (cond (= "BatchBeginning" m)
+                    (partial meta-batch nil)
+                    (= "Batch1" m)
+                    (partial meta-batch 1)
+                    (= "Batch2" m)
+                    (partial meta-batch 2)
+                    (= "Batch3" m)
+                    (partial meta-batch 3)
+                    (= "Batch4" m)
+                    (partial meta-batch 4)
+                    (= "Batch5" m)
+                    (partial meta-batch 5)
+                    (= "LowerThreshold" m)
+                    meta-lower-threshold
+                    :else (constantly est))]
+        (f est time-prev time-now sensors))))
+
 (defn init-ors
   [sensors training]
   (let [est (init-est ((:init-kb-fn @reason) ((:init-workspace-fn @reason)) training))]
-    {:resources {:milliseconds 0}
+    {:resources {:milliseconds 0 :meta-accepted 0 :meta-activations 0}
      :results []
      :sensors sensors
      :est est}))
 
 (defn proceed-ors
-  [ors ep sensors time-now ms]
+  [ors est sensors time-now ms]
   (-> ors
-      (update-in [:est] new-child-ep ep time-now)
+      (assoc :est (new-child-ep est time-now))
       (assoc :sensors sensors)
       (update-in [:resources :milliseconds] + ms)))
 
@@ -44,9 +92,11 @@
                     (:workspace ep))
         ep-reason (assoc ep :workspace ((:reason-fn @reason) workspace
                                         time-prev time-now sensors))
+        est (update-est (:est ors) ep-reason)
+        meta-est (metareason est time-prev time-now sensors)
         ;; stop the clock
         ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
-        ors-next (proceed-ors ors ep-reason sensors time-now ms)
+        ors-next (proceed-ors ors meta-est sensors time-now ms)
         ors-results ((:evaluate-fn @reason) truedata ors-next)]
     (when (not player?)
       (.write System/out (int \.)) (.flush System/out))

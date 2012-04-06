@@ -2,7 +2,7 @@
   (:use [clojure.java.shell :only [sh]])
   (:use [clojure.string :only [join]])
   (:use [retrospect.evaluate :only [calc-increase]])
-  (:use [retrospect.epistemicstates :only [cur-ep flatten-est]])
+  (:use [retrospect.epistemicstates :only [cur-ep ep-path]])
   (:use [retrospect.logging])
   (:use [retrospect.state]))
 
@@ -49,7 +49,7 @@
 
 (defn evaluate
   [truedata ors]
-  (let [eps (rest (flatten-est (:est ors)))
+  (let [eps (ep-path (:est ors))
         time-now (:time (last eps))
         believed (map (fn [ep] (get-history (:accepted (:workspace ep)))) eps)
         sentences (map (fn [i] (nth (:test-sentences truedata) i)) (range time-now))

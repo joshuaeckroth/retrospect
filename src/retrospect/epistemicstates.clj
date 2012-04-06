@@ -82,11 +82,11 @@
     (if (root-ep? (zip/node loc)) i
         (recur (inc i) (zip/up loc)))))
 
-(defn nth-previous-ep-state
+(defn nth-previous-ep
   [ep-state-tree n]
   (loop [i n
-         loc (zip/up ep-state-tree)]
-    (if (or (= 1 i) (root-ep? (zip/node loc)))
+         loc ep-state-tree]
+    (if (or (= 1 i) (root-ep? (zip/node (zip/up loc))))
       (zip/node loc) (recur (dec i) (zip/up loc)))))
 
 (defn goto-ep
@@ -125,6 +125,13 @@
     (if (zip/end? loc) states
         (recur (zip/next loc) (conj states (zip/node loc))))))
 
+(defn ep-path
+  [est]
+  (loop [loc est
+         states []]
+    (if (root-ep? (zip/node (zip/up loc))) states
+        (recur (zip/up loc) (conj states (zip/node loc))))))
+
 (defn list-ep-states
   "List ep-states in the order that they were created (i.e., sorted by id,
    which is the same as a depth-first left-first walk)."
@@ -137,9 +144,9 @@
     ;; make a branch; the choice of "insert-right" over "insert-left" here
     ;; is what makes (list-ep-states) possible, since depth-first search
     ;; looks left before looking right
-    (zip/right (zip/insert-right est ep))))
+    (zip/right (zip/insert-right (goto-ep est (:id branch)) ep))))
 
 (defn new-child-ep
-  [est ep time-now]
-  (let [ep-child (clone-ep ep (make-ep-id est) [])]
+  [est time-now]
+  (let [ep-child (clone-ep (cur-ep est) (make-ep-id est) [])]
     (zip/down (zip/append-child est (assoc ep-child :time time-now)))))

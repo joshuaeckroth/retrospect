@@ -80,6 +80,8 @@
 (def reason-abdexp
   {:name "AbdExp"
    :reason-fn reason
+   :metareasoning-activated?-fn (constantly false)
+   :workspace-compare-fn (constantly 0)
    :evaluate-fn evaluate
    :evaluate-comp evaluate-comp
    :default-params-fn (constantly {:ResetEachStep [true [true]]
