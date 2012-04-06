@@ -30,7 +30,6 @@
 (def percent-events-wrong-label (label ""))
 (def accuracy-label (label ""))
 (def idcorrect-label (label ""))
-(def unexp-label (label ""))
 (def noexp-label (label ""))
 (def mouse-xy (label "Grid ?, ?"))
 
@@ -177,14 +176,10 @@
           :gridx 1
           _ idcorrect-label
           :gridx 0 :gridy 4
-          _ (label "Unexplained:")
-          :gridx 1
-          _ unexp-label
-          :gridx 0 :gridy 5
           _ (label "NoExplainers:")
           :gridx 1
           _ noexp-label
-          :gridx 0 :gridy 6
+          :gridx 0 :gridy 5
           _ mouse-xy]))
 
 (defn player-update-stats
@@ -197,14 +192,12 @@
       (. accuracy-label (setText (format "%.2f" (:Acc results))))
       (. idcorrect-label (setText (format "%.2f" (:IDCorrect results))))
       (. accuracy-label (setText (format "%.2f" (:Acc results))))
-      (. unexp-label (setText (format "%.2f" (:UnexplainedPct results))))
       (. noexp-label (setText (format "%.2f" (:NoExplainersPct results)))))
     (do
       (. percent-events-correct-label (setText "N/A"))
       (. percent-events-wrong-label (setText "N/A"))
       (. accuracy-label (setText "N/A"))
       (. idcorrect-label (setText "N/A"))
-      (. unexp-label (setText "N/A"))
       (. noexp-label (setText "N/A")))))
 
 (defn player-get-truedata-log

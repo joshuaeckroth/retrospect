@@ -23,6 +23,8 @@
 (def ep-list (ref '[]))
 (def ep-selected (atom nil))
 (def steplabel (label ""))
+(def coverage-label (label ""))
+(def doubt-label (label ""))
 (def prefs (atom nil))
 
 (defn get-saved-params
@@ -58,13 +60,15 @@
 
 (defn update-everything
   []
-  (let [time-n (or (:time (cur-ep (:est @or-state))) 0)
-        time-p (or (:time (prev-ep (:est @or-state))) 0)]
+  (let [time-n (:time (cur-ep (:est @or-state)))
+        time-p (or (:time (prev-ep (:est @or-state))) -1)]
     (dosync
      (alter time-now (constantly time-n))
      (alter time-prev (constantly time-p)))
-    (. steplabel (setText (format "Step: %d->%d" @time-prev
-                                  @time-now))))
+    (. steplabel (setText (format "Step: %d->%d" @time-prev @time-now))))
+  (let [ws (:workspace (cur-ep (:est @or-state)))]
+    (. coverage-label (setText (format "%.2f" (:coverage ws))))
+    (. doubt-label (setText (format "%.2f" (:doubt ws)))))
   (dosync
    (alter ep-list (constantly (sort (list-ep-states (:est @or-state))))))
   (update-ep-tree)
@@ -152,7 +156,7 @@
          :size [800 600]
          :show true
          :on-close :exit
-         [:gridx 0 :gridy 0 :gridheight 10 :weightx 1.0 :weighty 1.0
+         [:gridx 0 :gridy 0 :gridheight 13 :weightx 1.0 :weighty 1.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
           _ (let [tabs (JTabbedPane.)]
               (when-let [f (:setup-diagram-fn (:player-fns @problem))]
@@ -205,9 +209,19 @@
           _ steplabel
 
           :gridx 1 :gridy 8
+          _ (label "Coverage:")
+          :gridx 2
+          _ coverage-label
+
+          :gridx 1 :gridy 9
+          _ (label "Doubt:")
+          :gridx 2
+          _ doubt-label
+
+          :gridx 1 :gridy 10
           _ ((:get-stats-panel-fn (:player-fns @problem)))
 
-          :gridy 9 :weighty 1.0
+          :gridy 11 :weighty 1.0
           _ (panel)]))
 
 (defn start-player

@@ -37,6 +37,7 @@
          :best [] :accrej {}}
    :hyp-log {}
    :doubt nil
+   :coverage nil
    ;; a list of hyps that explain each key;
    ;; hyps that are keys need to be explained
    :active-explainers {}
@@ -282,15 +283,6 @@
       (update-in [:graph] add-attr hyp :fontcolor "gray50")
       (update-in [:graph] add-attr hyp :color "gray50")))
 
-(defn measure-doubt
-  [workspace]
-  (let [acc-not-forced (filter #(not ((:forced workspace) %))
-                               (apply concat (vals (:accepted workspace))))]
-    (if (empty? acc-not-forced)
-      (if (empty? (:unexplained (:log workspace))) 0.0 1.0)
-      (let [confs (vals (select-keys (:hyp-confidences workspace) acc-not-forced))]
-        (double (/ (reduce + 0.0 (map #(- 1.0 %) confs)) (count confs)))))))
-
 (defn get-unexp-pct
   "Only measure unexplained \"needs-explainer\" hyps."
   [workspace]
@@ -306,6 +298,23 @@
          (double (count (filter #(:needs-explainer? %)
                                 (apply concat (vals (:accepted workspace)))))))))
 
+(defn measure-doubt
+  [workspace]
+  (let [acc-not-forced (filter #(not ((:forced workspace) %))
+                               (apply concat (vals (:accepted workspace))))]
+    (if (empty? acc-not-forced)
+      (if (empty? (:unexplained (:log workspace))) 0.0 1.0)
+      (let [confs (vals (select-keys (:hyp-confidences workspace) acc-not-forced))]
+        (double (/ (reduce + 0.0 (map #(- 1.0 %) confs)) (count confs)))))))
+
+(defn measure-coverage
+  [workspace]
+  (let [accessible (set (mapcat (fn [h] (pre-traverse (:graph workspace) h))
+                                (set/difference (set (apply concat (vals (:accepted workspace))))
+                                                (:forced workspace))))]
+    (/ (double (count (set/intersection (:forced workspace) accessible)))
+       (double (count (:forced workspace))))))
+
 (defn log-final
   [workspace explainers]
   (let [ws (update-in workspace [:log] merge
@@ -316,7 +325,9 @@
                                     (set (apply concat (vals (:accepted workspace))))
                                     (set (apply concat (vals (:rejected workspace)))))
                        :last-explainers explainers})]
-    (assoc ws :doubt (measure-doubt ws))))
+    (-> ws
+        (assoc :doubt (measure-doubt ws))
+        (assoc :coverage (measure-coverage ws)))))
 
 (defn find-best
   [workspace explainers threshold]
