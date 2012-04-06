@@ -136,6 +136,8 @@
              :Milliseconds (:milliseconds ors-resources) 
              :UnexplainedPct (get-unexp-pct (:workspace ep))
              :NoExplainersPct (get-noexp-pct (:workspace ep))
+             :Doubt (:doubt (:workspace ep))
+             :Coverage (:coverage (:workspace ep))
              :ExplainCycles (:cycle workspace)
              :HypothesisCount (reduce + (map count (vals (:hypotheses workspace))))}))))
 
@@ -161,6 +163,7 @@
                    (map #(calc-increase control comparison %)
                         (concat [:MetaActivations :MetaAccepted :Milliseconds
                                  :UnexplainedPct :NoExplainersPct
+                                 :Doubt :Coverage
                                  :ExplainCycles :HypothesisCount :DeepestDep]
                                 (mapcat
                                  (fn [tf]
