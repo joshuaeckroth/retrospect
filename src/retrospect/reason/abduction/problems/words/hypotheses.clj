@@ -112,6 +112,9 @@
                (read r))
              (catch Exception _
                (let [models (build-markov-models training)
+                     model-sums (reduce (fn [m-s n]
+                                          (assoc m-s n (double (reduce + (vals (get models n))))))
+                                        {} (keys models))
                      substrings (reduce (fn [m w] (assoc m w (filter #(substring? w %) training-dict)))
                                         {} training-dict)
                      symbol-words (reduce (fn [m w] (reduce (fn [m2 sym]
@@ -126,6 +129,7 @@
                                                          (count training-dict))))
                          :dictionary training-dict
                          :models models
+                         :model-sums model-sums
                          :symbol-words symbol-words
                          :symbol-tendencies symbol-tendencies
                          :substrings substrings}]
@@ -253,14 +257,16 @@
               (let [word-seq (first ws)
                     model (get (:models kb) (count word-seq))
                     words (map :word word-seq)
-                    freq (get model words)]
+                    freq (get model words)
+                    prob (if freq (/ (double freq) (get (:model-sums kb) (count word-seq))))]
                 (if (and freq (>= (count word-seq) 2))
                   (let [pos-seqs (map :pos-seq word-seq)
                         hyp (new-hyp "WordSeq" :word-seq :word-seq false conflicts
-                                     0.5 word-seq [] (str/join " " words)
-                                     (format "WordSeq \"%s\" (pos %d-%d)"
+                                     prob word-seq [] (str/join " " words)
+                                     (format "WordSeq \"%s\" (pos %d-%d)\nFreq: %d\nProb: %f"
                                              (str/join " " words)
-                                             (ffirst pos-seqs) (last (last pos-seqs)))
+                                             (ffirst pos-seqs) (last (last pos-seqs))
+                                             freq prob)
                                      {:words words :pos-seqs pos-seqs})]
                     (if (not-any? (fn [h] (hyps-equal? hyp h)) (get hyps :word-seq))
                       [hyp]
@@ -291,11 +297,11 @@
               calc (/ (- tendency length-diff-pct) (+ tendency length-diff-pct))
               ;; in R:
               ;;   library(MASS)
-              ;;   fitdistr(dtrue$Calc, "normal")
-              mean-true 0.808621231
-              sd-true 0.162022587
-              mean-false 0.387865578
-              sd-false 0.275832604
+              ;;   fitdistr(subset(d, V0 > 0), "normal")
+              mean-true 0.238622170
+              sd-true 0.343971720
+              mean-false -0.4736185783
+              sd-false 0.4623790242
               pdf-true (* (/ 1.0 (* sd-true (Math/sqrt (* 2 Math/PI))))
                           (Math/exp (- (/ (Math/pow (- calc mean-true) 2.0)
                                           (* 2.0 sd-true sd-true)))))

@@ -25,6 +25,7 @@
                                 :BelievedKnowledge [80 [80]]
                                 :Metareasoning ["NoMetareasoning" ["NoMetareasoning"]]
                                 :Threshold [0 [0]]
+                                :DoubtThreshold [0 [0]]
                                 :AnalyzeSensitivity [false [false]]
                                 :AnalyzeDeps [false [false]]
                                 :ProbPerturb [25 [25]]

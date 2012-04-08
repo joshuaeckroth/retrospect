@@ -238,7 +238,8 @@
                           (update-in [:added] conj hyp)
                           (add-explainers hyp)
                           (assoc :graph g-edges)
-                          (assoc-in [:hyp-confidences hyp] (:apriori hyp))
+                          ;; put 1.0 in the confidences map; it will be adjusted later
+                          (assoc-in [:hyp-confidences hyp] 1.0)
                           (update-in [:hypotheses (:type hyp)] conj hyp))
         conflicts (find-conflicts-selected ws-explainers hyp
                                            (apply concat (vals (:accepted ws-explainers))))]
@@ -305,7 +306,7 @@
     (if (empty? acc-not-forced)
       (if (empty? (:unexplained (:log workspace))) 0.0 1.0)
       (let [confs (vals (select-keys (:hyp-confidences workspace) acc-not-forced))]
-        (double (/ (reduce + 0.0 (map #(- 1.0 %) confs)) (count confs)))))))
+        (reduce + 0.0 (map #(- 1.0 %) confs))))))
 
 (defn measure-coverage
   [workspace]
@@ -485,12 +486,15 @@
                   (if-let [hs (get-another-hyp ws-confs (:explains best))]
                     (recur (remove-hyp (reduce add ws-confs hs) best))
                     (recur (remove-hyp ws-confs best))))
-              (do (log "Best is" (:id best))
-                  (recur
-                   (let [ws-logged (-> ws-confs
-                                       (update-in [:cycle] inc)
-                                       (update-in [:log :best] conj b))]
-                     (accept ws-logged best alts)))))))))))
+              (do (log "Best is" (:id best) (hyp-conf ws-confs best))
+                  (let [ws-accepted (let [ws-logged (-> ws-confs
+                                                        (update-in [:cycle] inc)
+                                                        (update-in [:log :best] conj b))]
+                                      (accept ws-logged best alts))]
+                    (if (>= (double (:DoubtThreshold params)) (measure-doubt ws-accepted))
+                      (recur ws-accepted)
+                      (do (log "Doubt threshold would be surpassed by accepting best. Done.")
+                          (log-final ws-confs explainers-sorted))))))))))))
 
 (defn add-sensor-hyps
   [workspace time-prev time-now sensors]
