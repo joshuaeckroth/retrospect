@@ -346,7 +346,8 @@
               expl (sort-by :pos to-expl-hyps)
               word (apply str (map :symbol to-expl-hyps))
               kb (get-kb hyps)]
-          (when (not-any? #(same-word-hyp (map :pos expl) word %) (get hyps :word))
+          (when (and (not-any? #(same-word-hyp (map :pos expl) word %) (get hyps :word))
+                     (nil? (get (get (:models kb) 1) [word])))
             (let [pos-seq (map :pos expl)
                   [apriori learn-desc length-diff-pct tendency]
                   (score-learned-word kb word)]
@@ -410,12 +411,8 @@
 (defmethod learn :word
   [evidence unexp hyps]
   (prof :hyp-learn-word-seq
-        (let [left (take-last 5 (or (get-left-hyps evidence unexp)
-                                    (get-left-hyps evidence (get hyps :word))
-                                    []))
-              right (take 5 (or (get-right-hyps evidence unexp)
-                                (get-right-hyps evidence (get hyps :word))
-                                []))
+        (let [left (take-last 5 (or (get-left-hyps evidence unexp) []))
+              right (take 5 (or (get-right-hyps evidence unexp) []))
               kb (get-kb hyps)
               expls (expl-seqs left evidence right)]
           (loop [es expls
@@ -423,8 +420,9 @@
             (if (empty? es) (when (not-empty hs) hs)
                 (let [expl (first es)
                       word (apply str (map :word expl))]
-                  (cond (not-any? #(same-word-hyp (mapcat :pos-seq expl) word %)
-                                  (concat hs (get hyps :word)))
+                  (cond (and (not-any? #(same-word-hyp (mapcat :pos-seq expl) word %)
+                                       (concat hs (get hyps :word)))
+                             (nil? (get (get (:models kb) 1) [word])))
                         (let [[apriori learn-desc length-diff-pct tendency]
                               (score-learned-word kb word)
                               hyp (new-hyp "LWWord" :word :learned-word true conflicts
