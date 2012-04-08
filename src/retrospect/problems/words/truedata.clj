@@ -40,6 +40,13 @@
                                        [training test-shuffled])
         ;; TODO: handle noise
         ambiguous (map #(apply str %) test-shuffled)]
+    (comment
+      (println "Occurrences of OOV:")
+      (println (sort (vals (reduce (fn [m w] (if (nil? (get m w)) (assoc m w 1)
+                                                 (update-in m [w] inc)))
+                                   {}
+                                   (filter (fn [w] (not (training-dict w)))
+                                           (apply concat test-shuffled)))))))
     {:training [training training-dict]
      :test (zipmap (range (count ambiguous)) ambiguous)
      :test-sentences test-shuffled

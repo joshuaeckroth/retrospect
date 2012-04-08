@@ -62,10 +62,13 @@
   []
   (if (= @time-now 0) ""
       (let [sentence (nth (:test-sentences @truedata) (dec @time-now))]
-        (format "%s\n\n%s\n\nOOV: %s" (get (:test @truedata) (dec @time-now))
+        (format "%s\n\n%s\n\nOOV: %s\nNew symbols: %s"
+                (get (:test @truedata) (dec @time-now))
                 (str/join " _ " sentence)
                 (str/join ", " (filter #(not ((second (:training @truedata)) %))
-                                       sentence))))))
+                                       sentence))
+                (str/join ", " (filter #(not ((set (apply concat (second (:training @truedata)))) %))
+                                       (apply concat sentence)))))))
 
 (defn player-get-problem-log
   []
