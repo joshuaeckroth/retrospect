@@ -468,7 +468,7 @@
                     (log-final ws []))
                 (do (log "No more hyps. Attempting to learn...")
                     (if-let [hs (get-learn-hyp ws)]
-                      (recur (assoc (reduce add (reset-workspace ws) hs) :learned true))
+                      (recur (assoc (reduce add (reset-workspace ws) hs) :learned false))
                       (do (log "Nothing to learn. Done.")
                           (log-final ws [])))))))
         (let [ws-confs (update-confidences ws explainers)
