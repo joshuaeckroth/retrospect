@@ -23,7 +23,7 @@
   []
   (let [ep (cur-ep (:est @or-state))
         hypgraph (:graph (:workspace ep))]
-    (generate-graph hypgraph @canvas listener true)))
+    (generate-graph hypgraph @canvas listener false)))
 
 (defn hypgraph-tab
   []
