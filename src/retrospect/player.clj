@@ -48,7 +48,7 @@
     (alter-var-root (var params) (constantly ps))
     (.put @prefs (format "%s-%s-params" (:name @reason) (:name @problem))
           (pr-str ps))
-    (dosync (alter params-edit (constantly (format-params ps))))))
+    (dosync (alter params-edit (constantly (format-params (dissoc ps :Seed)))))))
 
 (defn clear-params
   []
@@ -229,7 +229,8 @@
 
   (swap! prefs (constantly (.node (Preferences/userRoot) "/cc/artifice/retrospect/player")))
   (get-saved-params)
-  (dosync (alter params-edit (constantly (format-params params))))
+  (when (:Seed params) (set-seed-spinner (:Seed params)))
+  (dosync (alter params-edit (constantly (format-params (dissoc params :Seed)))))
 
   (let [options (apply hash-map opts)]
     (mainframe)))

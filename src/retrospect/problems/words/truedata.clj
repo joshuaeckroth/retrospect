@@ -34,14 +34,13 @@
                        (str/split-lines (slurp (format "%s/words/%s.utf8"
                                                        @datadir (:Dataset params))
                                                :encoding "utf-8")))
-        ;; don't shuffle sentences; keep original order
-        ;; TODO: fix this
         [training test] (split-at (int (* 0.9 (count sentences))) sentences)
+        test-shuffled (my-shuffle test)
         [training-dict test-dict] (map (fn [sents] (set (apply concat sents)))
-                                       [training test])
+                                       [training test-shuffled])
         ;; TODO: handle noise
-        ambiguous (map #(apply str %) test)]
+        ambiguous (map #(apply str %) test-shuffled)]
     {:training [training training-dict]
      :test (zipmap (range (count ambiguous)) ambiguous)
-     :test-sentences test
+     :test-sentences test-shuffled
      :test-dict test-dict}))

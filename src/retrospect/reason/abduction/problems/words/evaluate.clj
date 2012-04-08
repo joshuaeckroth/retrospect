@@ -8,20 +8,29 @@
 
 (defn true-hyp?
   [truedata time-now hyp]
-  (if-not (or (= :word (:type hyp)) (= :word-seq (:type hyp))) true
-          (let [sentence (nth (:test-sentences truedata) (dec time-now))
-                start-pos (if (= :word (:type hyp)) (first (:pos-seq hyp))
-                              (ffirst (:pos-seqs hyp)))
-                end-pos (if (= :word (:type hyp)) (last (:pos-seq hyp))
-                            (last (last (:pos-seqs hyp))))
-                hyp-words (if (= :word (:type hyp)) [(:word hyp)] (:words hyp))
-                true-words (loop [i 0 ws [] sent sentence]
-                             (cond (empty? sent) ws
-                                   (> i end-pos) ws
-                                   (< i start-pos) (recur (+ i (count (first sent))) ws (rest sent))
-                                   :else (recur (+ i (count (first sent))) (conj ws (first sent))
-                                                (rest sent))))]
-            (= hyp-words true-words))))
+  (let [result (if-not (or (= :word (:type hyp)) (= :word-seq (:type hyp))) true
+                       (let [sentence (nth (:test-sentences truedata) (dec time-now))
+                             start-pos (if (= :word (:type hyp)) (first (:pos-seq hyp))
+                                           (ffirst (:pos-seqs hyp)))
+                             end-pos (if (= :word (:type hyp)) (last (:pos-seq hyp))
+                                         (last (last (:pos-seqs hyp))))
+                             hyp-words (if (= :word (:type hyp)) [(:word hyp)] (:words hyp))
+                             true-words (loop [i 0 ws [] sent sentence]
+                                          (cond (empty? sent) ws
+                                                (> i end-pos) ws
+                                                (< i start-pos)
+                                                (recur (+ i (count (first sent)))
+                                                       ws (rest sent))
+                                                :else
+                                                (recur (+ i (count (first sent)))
+                                                       (conj ws (first sent))
+                                                       (rest sent))))]
+                         (= hyp-words true-words)))]
+    (when (= :learned-word (:subtype hyp))
+      (with-open [r (java.io.FileWriter. "learned-words-stats.csv" true)]
+        (.write r (format "%d,%f,%f\n" (if result 1 -1)
+                          (:length-diff-pct hyp) (:tendency hyp)))))
+    result))
 
 (defmulti hyps-equal? (fn [hyp1 hyp2] (:type hyp1)))
 
@@ -51,13 +60,14 @@
   [truedata ors]
   (let [eps (ep-path (:est ors))
         time-now (:time (last eps))
-        believed (map (fn [ep] (get-history (:accepted (:workspace ep)))) eps)
+        believed (map (fn [ep] (get-history (:accepted (:workspace ep)))) (butlast eps))
         sentences (map (fn [i] (nth (:test-sentences truedata) i)) (range time-now))
         [prec recall f-score oov-rate oov-recall iv-recall]
         (try (do
                (spit "/tmp/truth.txt" (join "\n" (map #(join " " %) sentences))
                      :encoding "utf-8")
-               (spit "/tmp/believed.txt" (join "\n" (map #(join " " %) believed))
+               (spit "/tmp/believed.txt"
+                     (join "\n" (map (fn [s] (if (empty? s) "_" s)) (map #(join " " %) believed)))
                      :encoding "utf-8")
                (spit "/tmp/dictionary.txt" (join "\n" (sort (second (:training truedata))))
                      :encoding "utf-8")

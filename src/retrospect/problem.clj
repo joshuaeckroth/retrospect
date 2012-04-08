@@ -1,6 +1,7 @@
 (ns retrospect.problem
   (:import (java.util.concurrent ExecutionException))
   (:use [clojure.string :only [split]])
+  (:use [retrospect.profile :only [profile]])
   (:use [retrospect.epistemicstates :only
          [cur-ep new-child-ep new-branch-ep init-est
           update-est nth-previous-ep print-est goto-ep]])
@@ -80,27 +81,28 @@
 
 (defn run-simulation-step
   [truedata ors player?]
-  (let [time-prev (:time (cur-ep (:est ors)))
-        time-now (min (:Steps params) (+ (:StepsBetween params) time-prev))
-        sensors (update-sensors-from-to time-prev time-now truedata (:sensors ors))
-        ;; start the clock
-        start-time (. System (nanoTime))
-        ep (cur-ep (:est ors))
-        workspace (if (and (not= 0 time-prev) (:ResetEachStep params))
-                    (do (log "Resetting workspace...")
-                        ((:init-workspace-fn @reason) (:workspace ep)))
-                    (:workspace ep))
-        ep-reason (assoc ep :workspace ((:reason-fn @reason) workspace
-                                        time-prev time-now sensors))
-        est (update-est (:est ors) ep-reason)
-        meta-est (metareason est time-prev time-now sensors)
-        ;; stop the clock
-        ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
-        ors-next (proceed-ors ors meta-est sensors time-now ms)
-        ors-results ((:evaluate-fn @reason) truedata ors-next)]
-    (when (not player?)
-      (.write System/out (int \.)) (.flush System/out))
-    ors-results))
+  (profile
+   (let [time-prev (:time (cur-ep (:est ors)))
+         time-now (min (:Steps params) (+ (:StepsBetween params) time-prev))
+         sensors (update-sensors-from-to time-prev time-now truedata (:sensors ors))
+         ;; start the clock
+         start-time (. System (nanoTime))
+         ep (cur-ep (:est ors))
+         workspace (if (and (not= 0 time-prev) (:ResetEachStep params))
+                     (do (log "Resetting workspace...")
+                         ((:init-workspace-fn @reason) (:workspace ep)))
+                     (:workspace ep))
+         ep-reason (assoc ep :workspace ((:reason-fn @reason) workspace
+                                         time-prev time-now sensors))
+         est (update-est (:est ors) ep-reason)
+         meta-est (metareason est time-prev time-now sensors)
+         ;; stop the clock
+         ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
+         ors-next (proceed-ors ors meta-est sensors time-now ms)
+         ors-results ((:evaluate-fn @reason) truedata ors-next)]
+     (when (not player?)
+       (.write System/out (int \.)) (.flush System/out))
+     ors-results)))
 
 (defn run-simulation
   [truedata or-state]

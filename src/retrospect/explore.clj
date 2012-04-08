@@ -2,6 +2,7 @@
   (:import (java.awt GridBagLayout Insets))
   (:import (javax.swing JSpinner SpinnerNumberModel))
   (:import (java.util.prefs Preferences))
+  (:use [clojure.stacktrace])
   (:use [clj-swing.frame])
   (:use [clj-swing.label])
   (:use [clj-swing.panel])
@@ -18,6 +19,7 @@
 (def log-box (ref ""))
 (def min-max-selected (atom nil))
 (def prefs (atom nil))
+(def attempted (agent #{}))
 
 (defn get-saved-params
   []
@@ -52,39 +54,47 @@
 
 (defn search
   [scorer permute state min-max permutations]
-  (let [init state
-        init-score (scorer state)
-        comp (if (= "min" min-max) < >)
-        opt (if (= "min" min-max) min max)]
-    (loop [t 1
-           state init
-           score init-score
-           best init
-           best-score init-score]
-      (if (> t permutations) {:best best :best-score best-score}
-          (do
-            #_(dosync (alter log-box (str (format "\nPermutation %d of %d"
-                                                t permutations))))
-            (let [next (permute state)
-                  next-score (scorer next)
-                  better? (comp next-score score)]
-              (when better?
-                #_(dosync (alter log-box (str (format "\nNew best score: %.2f for %s"
-                                                    next-score next)))))
-              (if better?
-                (recur (inc t) next next-score
-                       (if (comp next-score best-score) next best)
-                       (opt next-score best-score))
-                (recur (inc t) state score best best-score))))))))
+  (try
+    (let [init state
+          init-score (scorer state)
+          comp (if (= "min" min-max) < >)
+          opt (if (= "min" min-max) min max)]
+      (loop [t 1
+             state init
+             score init-score
+             best init
+             best-score init-score]
+        (if (> t permutations) {:best best :best-score best-score}
+            (do
+              (println (format "\nPermutation %d of %d"
+                               t permutations))
+              #_(dosync (alter log-box (str (format "\nPermutation %d of %d"
+                                                    t permutations))))
+              (let [next (permute state)
+                    next-score (scorer next)
+                    better? (comp next-score score)]
+                (when better?
+                  (println (format "\nNew best score: %.2f for %s"
+                                   next-score next))
+                  #_(dosync (alter log-box (str (format "\nNew best score: %.2f for %s"
+                                                        next-score next)))))
+                (if better?
+                  (recur (inc t) next next-score
+                         (if (comp next-score best-score) next best)
+                         (opt next-score best-score))
+                  (recur (inc t) state score best best-score)))))))
+    (catch Exception e (print-stack-trace (root-cause e)))))
 
 (defn run
   [metric params repetitions]
+  (println (format "\nSimulation %s" (pr-str params)))
   #_(dosync (alter log-box (str (format "\nSimulation %s" (pr-str params)))))
   (let [rs (for [i (range repetitions)]
              (let [seed (my-rand-int 10000000)]
                (binding [rgen (new-seed seed)
                          last-id 0
                          retrospect.state/params (assoc params :Seed seed)]
+                 (println (format "\nSeed: %d" seed))
                  #_(dosync (alter log-box (str (format "\nSeed: %d" seed))))
                  (let [truedata ((:generate-truedata-fn @problem))
                        sensors ((:generate-sensors-fn @problem))
@@ -92,6 +102,8 @@
                        results (run-simulation truedata ors)]
                    (dosync (alter retrospect.state/results conj (last results)))
                    (update-results)
+                   (println (format "\n%s = %s" (name metric)
+                                    (get (last results) metric)))
                    #_(dosync (alter log-box (str (format "\n%s = %s" (name metric)
                                                        (get (last results) metric)))))
                    results))))
@@ -105,21 +117,25 @@
     (let [field (my-rand-nth (filter #(second (get def-ps %)) (keys def-ps)))
           val (my-rand-nth (get def-ps field))
           params (assoc last-params field val)]
-      (if (= (get last-params field) val)
+      (if (or (= (get last-params field) val) (@attempted params))
         (recur)
-        (do #_(dosync (alter log-box (str (format "\nSwapping %s with %s" field val))))
+        (do (println (format "\nSwapping %s with %s" field val))
+            #_(dosync (alter log-box (str (format "\nSwapping %s with %s" field val))))
+            (send attempted conj params)
             params)))))
 
 (defn random-params
   [params]
-  (reduce (fn [m k] (assoc m k (my-rand-nth (get params k)))) {} (keys params)))
+  (let [ps (reduce (fn [m k] (assoc m k (my-rand-nth (get params k)))) {} (keys params))]
+    (if (@attempted ps) (recur params)
+        (do (println "Restarting...") ps))))
 
 (defn explore
   [state]
   (if (> (:restarts state) 0)
     (do
       (send *agent* explore)
-      (binding [rgen (new-seed (:seed state))]
+      (binding [rgen (new-seed (my-rand-int 10000000))]
         (-> state
             (update-in [:restarts] dec)
             (update-in [:bests] conj (search #(run (:metric state) % (:repetitions state))

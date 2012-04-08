@@ -129,7 +129,7 @@
   [est]
   (loop [loc est
          states []]
-    (if (root-ep? (zip/node (zip/up loc))) states
+    (if (root-ep? (zip/node loc)) (reverse states)
         (recur (zip/up loc) (conj states (zip/node loc))))))
 
 (defn list-ep-states
