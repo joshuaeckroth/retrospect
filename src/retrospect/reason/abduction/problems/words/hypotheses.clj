@@ -272,6 +272,22 @@
                       (recur (rest ws))))
                   (recur (rest ws)))))))))
 
+(defn dnorm
+  [x mean stddev]
+  (* (/ 1.0 (* stddev (Math/sqrt (* 2 Math/PI))))
+     (Math/exp (- (/ (Math/pow (- x mean) 2.0)
+                     (* 2.0 stddev stddev))))))
+
+(defn gaussian-mixture-true
+  [x]
+  (+ (dnorm x 0.44237 0.12917)
+     (dnorm x 0.06301 0.42253)))
+
+(defn gaussian-mixture-false
+  [x]
+  (+ (dnorm x -0.2275 0.5390)
+     (dnorm x -0.8092 0.1186)))
+
 (defn score-learned-word
   [kb word]
   (prof :score-learned-word
@@ -294,19 +310,8 @@
               length-diff (Math/abs (double (- avg-word-length (count word))))
               length-diff-pct (/ length-diff avg-word-length)
               calc (/ (- tendency length-diff-pct) (+ tendency length-diff-pct))
-              ;; in R:
-              ;;   library(MASS)
-              ;;   fitdistr(subset(d, V0 > 0), "normal")
-              mean-true 0.238622170
-              sd-true 0.343971720
-              mean-false -0.4736185783
-              sd-false 0.4623790242
-              pdf-true (* (/ 1.0 (* sd-true (Math/sqrt (* 2 Math/PI))))
-                          (Math/exp (- (/ (Math/pow (- calc mean-true) 2.0)
-                                          (* 2.0 sd-true sd-true)))))
-              pdf-false (* (/ 1.0 (* sd-false (Math/sqrt (* 2 Math/PI))))
-                           (Math/exp (- (/ (Math/pow (- calc mean-false) 2.0)
-                                           (* 2.0 sd-false sd-false)))))
+              pdf-true (gaussian-mixture-true calc)
+              pdf-false (gaussian-mixture-false calc)
               apriori (/ pdf-true (+ pdf-true pdf-false))]
           [apriori (format (str "\nLength difference: %.2f"
                                 "\nLength difference %%: %.2f"
