@@ -30,11 +30,11 @@
                :true-hyp?-fn true-hyp?
                :hyps-equal?-fn hyps-equal?
                :hyp-types [:word :word-seq :learned-word :learned-word-seq]
-               :default-params {}}
+               :default-params {:LearnMultiplier [0.25 [0.25 0.5 1.0]]}}
    :default-params
    {:Steps [50 [50]]
     :StepsBetween [1 [1]]
     :ResetEachStep [true [true]]
     :SensorNoise [0 [0]]
     :Dataset ["pku_training" ["pku_training"]] ;; ["carroll" "cityu_training" "as_training" "msr_training" "pku_training"]
-    :MaxModelGrams [3 [3]]}})
+    :MaxModelGrams [2 [2]]}})

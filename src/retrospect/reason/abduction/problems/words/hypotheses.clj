@@ -195,6 +195,55 @@
                                     other-hyps))
                         matches-near-evidence)))))
 
+(defn dnorm
+  [x mean stddev]
+  (* (/ 1.0 (* stddev (Math/sqrt (* 2 Math/PI))))
+     (Math/exp (- (/ (Math/pow (- x mean) 2.0)
+                     (* 2.0 stddev stddev))))))
+
+(defn gaussian-mixture-true
+  [x]
+  (+ (* 0.6627 (dnorm x 0.4380 0.1446))
+     (* 0.3445 (dnorm x -0.1025 0.3917))))
+
+(defn gaussian-mixture-false
+  [x]
+  (+ (* 0.4615 (dnorm x -0.8127 0.1103))
+     (* 0.6064 (dnorm x -0.3075 0.5866))))
+
+(defn word-metrics
+  [kb word]
+  (let [avg-word-length (:avg-word-length kb)
+        symbol-tendencies (:symbol-tendencies kb)
+        tendency (prof :tendency
+                       (/ (reduce
+                           + (map (fn [i]
+                                    (let [sym (nth word i)
+                                          occur (double (get (:occur symbol-tendencies) sym 1.0))
+                                          get-pos (fn [pos] (get (pos symbol-tendencies) sym))]
+                                      (cond (= i 0)
+                                            (/ (double (or (get-pos :front) 0.0)) occur)
+                                            (= i (dec (count word)))
+                                            (/ (double (or (get-pos :back) 0.0)) occur)
+                                            :else
+                                            (/ (double (or (get-pos :middle) 0.0)) occur))))
+                                  (range (count word))))
+                          (double (count word))))
+        length-diff (Math/abs (double (- avg-word-length (count word))))
+        length-diff-pct (/ length-diff avg-word-length)
+        calc (/ (- tendency length-diff-pct) (+ tendency length-diff-pct))
+        pdf-true (gaussian-mixture-true calc)
+        pdf-false (gaussian-mixture-false calc)]
+    [(/ pdf-true (+ pdf-true pdf-false))
+     (format (str "\nLength difference: %.2f"
+                  "\nLength difference %%: %.2f"
+                  "\nTendency measure: %.2f"
+                  "\nCalc: %.2f"
+                  "\nPdf true: %.2f"
+                  "\nPdf false: %.2f")
+             length-diff length-diff-pct tendency calc pdf-true pdf-false)
+     length-diff-pct tendency]))
+
 (defmethod hypothesize :sensor
   [evidence accepted rejected hyps]
   (when (nil? @cache) (update-cache hyps))
@@ -204,18 +253,23 @@
             (map (fn [expl]
                    (let [w (apply str (map :symbol expl))
                          kb (get-kb hyps)
+                         [metric-prob metric-desc length-diff-pct tendency] (word-metrics kb w)
                          unigram-model (get (:models kb) 1)
                          substrings (:substrings kb)
                          similar-words (get substrings w)
                          similar-sum (reduce + (map (fn [w2] (get unigram-model [w2]))
                                                     similar-words))]
                      (new-hyp "Word" :word :word true conflicts
-                              (double (/ (get unigram-model [w]) similar-sum))
+                              (* metric-prob (double (/ (get unigram-model [w]) similar-sum)))
                               expl [] w
-                              (format "Word \"%s\" (pos %d-%d)"
+                              (format "Word \"%s\" (pos %d-%d)\nmetric-prob: %.2f\n%s"
                                       w (:pos (first expl))
-                                      (:pos (last expl)))
-                              {:word w :pos-seq (map :pos expl)})))
+                                      (:pos (last expl))
+                                      metric-prob
+                                      metric-desc)
+                              {:word w :pos-seq (map :pos expl)
+                               :length-diff-pct length-diff-pct
+                               :tendency tendency})))
                  expls)))))
 
 (defmethod hypothesize :word
@@ -272,55 +326,12 @@
                       (recur (rest ws))))
                   (recur (rest ws)))))))))
 
-(defn dnorm
-  [x mean stddev]
-  (* (/ 1.0 (* stddev (Math/sqrt (* 2 Math/PI))))
-     (Math/exp (- (/ (Math/pow (- x mean) 2.0)
-                     (* 2.0 stddev stddev))))))
-
-(defn gaussian-mixture-true
-  [x]
-  (+ (dnorm x 0.44237 0.12917)
-     (dnorm x 0.06301 0.42253)))
-
-(defn gaussian-mixture-false
-  [x]
-  (+ (dnorm x -0.2275 0.5390)
-     (dnorm x -0.8092 0.1186)))
-
 (defn score-learned-word
   [kb word]
   (prof :score-learned-word
-        (let [avg-word-length (:avg-word-length kb)
-              symbol-tendencies (:symbol-tendencies kb)
-              tendency (prof :tendency
-                             (/ (reduce
-                                 + (map (fn [i]
-                                          (let [sym (nth word i)
-                                                occur (double (get (:occur symbol-tendencies) sym 1.0))
-                                                get-pos (fn [pos] (get (pos symbol-tendencies) sym))]
-                                            (cond (= i 0)
-                                                  (/ (double (or (get-pos :front) 0.0)) occur)
-                                                  (= i (dec (count word)))
-                                                  (/ (double (or (get-pos :back) 0.0)) occur)
-                                                  :else
-                                                  (/ (double (or (get-pos :middle) 0.0)) occur))))
-                                        (range (count word))))
-                                (double (count word))))
-              length-diff (Math/abs (double (- avg-word-length (count word))))
-              length-diff-pct (/ length-diff avg-word-length)
-              calc (/ (- tendency length-diff-pct) (+ tendency length-diff-pct))
-              pdf-true (gaussian-mixture-true calc)
-              pdf-false (gaussian-mixture-false calc)
-              apriori (/ pdf-true (+ pdf-true pdf-false))]
-          [apriori (format (str "\nLength difference: %.2f"
-                                "\nLength difference %%: %.2f"
-                                "\nTendency measure: %.2f"
-                                "\nCalc: %.2f"
-                                "\nPdf true: %.2f"
-                                "\nPdf false: %.2f")
-                           length-diff length-diff-pct tendency calc pdf-true pdf-false)
-           length-diff-pct tendency])))
+        (let [[prob desc length-diff-pct tendency] (word-metrics kb word)
+              apriori (* (:LearnMultiplier params) prob)]
+          [apriori desc length-diff-pct tendency])))
 
 (defmulti learn
   (fn [evidence no-explainer-hyps hyps] (:type evidence)))
