@@ -233,20 +233,23 @@
 
 (defn new-mov-hyp
   [to from apriori]
-  (let [det (:det to)
-        det2 (:det from)]
+  (let [det (:det to) det2 (:det from)
+        det-color (if (and (= gray (:color det))
+                           (not= gray (:color det2)))
+                    (assoc det :color (:color det2)) det)
+        det2-color (if (and (= gray (:color det2))
+                            (not= gray (:color det)))
+                     (assoc det2 :color (:color det)) det2)]
     (new-hyp "Mov" :movement :movement false conflicts
-             apriori [to from] [] (path-str [(:det to) (:det from)])
+             apriori [to from] [] (path-str [det-color det2-color])
              (format "%s (dist=%.2f)"
-                     (path-str [(:det to) (:det from)])
-                     (dist (:x (:det to)) (:y (:det to))
-                           (:x (:det from)) (:y (:det from))))
-             {:det det :det2 det2
-              :mov {:x (:x det2) :y (:y det2) :time (:time det2)
-                    :ox (:x det) :oy (:y det) :ot (:time det)
-                    :color (cond (not= gray (:color det)) (:color det)
-                                 (not= gray (:color det2)) (:color det2)
-                                 :else gray)}})))
+                     (path-str [det-color det2-color])
+                     (dist (:x det-color) (:y det-color)
+                           (:x det2-color) (:y det2-color)))
+             {:det det-color :det2 det2-color
+              :mov {:x (:x det2-color) :y (:y det2-color) :time (:time det2-color)
+                    :ox (:x det-color) :oy (:y det-color) :ot (:time det-color)
+                    :color (:color det-color)}})))
 
 (defmethod hypothesize [:sensor :sensor-from]
   [evidence accepted rejected hyps]
