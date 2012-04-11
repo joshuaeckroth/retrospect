@@ -138,7 +138,9 @@
       (dosync
        (alter truedata (constantly td))
        (alter sensors (constantly sens))
+       (alter results (constantly []))
        (alter or-state (constantly (init-ors @sensors (:training @truedata)))))
+      (.setEnabled next-button true)
       (update-everything))))
 
 (defn goto-ep-state-action

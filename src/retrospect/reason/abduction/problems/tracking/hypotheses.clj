@@ -216,30 +216,44 @@
   [hyps hs]
   (filter (fn [h] (not-any? (fn [h2] (hyps-equal? h h2)) (get hyps (:type h)))) hs))
 
+(defn connecting-movs
+  [h acc-mov-hyps]
+  (letfn [(match-loc [det det2] (and (= (:x det) (:x det2))
+                                     (= (:y det) (:y det2))
+                                     (= (:time det) (:time det2))))]
+    (filter (fn [h2] (or (match-loc (:det h) (:det2 h2))
+                         (match-loc (:det2 h) (:det h2))))
+            acc-mov-hyps)))
+
 (defn filter-valid-movs
-  [mov-hyps accepted]
-  (let [acc-mov-hyps (get accepted :movement)
-        match-loc (fn [det det2] (and (= (:x det) (:x det2))
-                                      (= (:y det) (:y det2))
-                                      (= (:time det) (:time det2))))
-        nearby (fn [h] (filter (fn [h2] (or (match-loc (:det h) (:det2 h2))
-                                            (match-loc (:det2 h) (:det h2))))
-                               acc-mov-hyps))
-        valid? (fn [h] (let [nb (nearby h)]
-                         (or (empty? nb)
-                             (some #(dets-match? (:det h) (:det2 %)) nb)
-                             (some #(dets-match? (:det %) (:det2 h)) nb))))]
+  [mov-hyps acc-mov-hyps]
+  (letfn [(valid? ([h] (let [c (connecting-movs h acc-mov-hyps)]
+                         (or (empty? c)
+                             (some #(dets-match? (:det h) (:det2 %)) c)
+                             (some #(dets-match? (:det %) (:det2 h)) c)))))]
     (filter valid? mov-hyps)))
 
 (defn new-mov-hyp
-  [to from apriori]
+  [to from apriori acc-mov-hyps]
   (let [det (:det to) det2 (:det from)
-        det-color (if (and (= gray (:color det))
-                           (not= gray (:color det2)))
-                    (assoc det :color (:color det2)) det)
-        det2-color (if (and (= gray (:color det2))
-                            (not= gray (:color det)))
-                     (assoc det2 :color (:color det)) det2)]
+        colors-in (set (map (comp :color :det2)
+                            (connecting-movs {:det det :det2 det2} acc-mov-hyps)))
+        colors-out (set (map (comp :color :det)
+                             (connecting-movs {:det det :det2 det2} acc-mov-hyps)))
+        det-color (cond (and (= gray (:color det))
+                             (not= gray (:color det2)))
+                        (assoc det :color (:color det2))
+                        (and (= gray (:color det))
+                             (= 1 (count colors-in)))
+                        (assoc det :color (first colors-in))
+                        :else det)
+        det2-color (cond (and (= gray (:color det2))
+                             (not= gray (:color det)))
+                        (assoc det2 :color (:color det))
+                        (and (= gray (:color det2))
+                             (= 1 (count colors-in)))
+                        (assoc det2 :color (first colors-in))
+                        :else det2)]
     (new-hyp "Mov" :movement :movement false conflicts
              apriori [to from] [] (path-str [det-color det2-color])
              (format "%s (dist=%.2f)"
@@ -254,22 +268,24 @@
 (defmethod hypothesize [:sensor :sensor-from]
   [evidence accepted rejected hyps]
   (let [sm (fn [h] (score-movement h evidence (get-walk-dist hyps)))
+        acc-mov-hyps (get accepted :movement)
         nearby (filter second (map (fn [h] [h (sm h)])
                                    (filter #(= :sensor-to (:subtype %))
                                            (get accepted :sensor))))
         mov-hyps (filter-existing hyps (for [[h apriori] nearby]
-                                         (new-mov-hyp h evidence apriori)))]
-    (filter-valid-movs mov-hyps accepted)))
+                                         (new-mov-hyp h evidence apriori acc-mov-hyps)))]
+    (filter-valid-movs mov-hyps acc-mov-hyps)))
 
 (defmethod hypothesize [:sensor :sensor-to]
   [evidence accepted rejected hyps]
   (let [sm (fn [h] (score-movement evidence h (get-walk-dist accepted)))
+        acc-mov-hyps (get accepted :movement)
         nearby (filter second (map (fn [h] [h (sm h)])
                                    (filter #(= :sensor-from (:subtype %))
                                            (get accepted :sensor))))
         mov-hyps (filter-existing hyps (for [[h apriori] nearby]
-                                         (new-mov-hyp evidence h apriori)))]
-    (filter-valid-movs mov-hyps accepted)))
+                                         (new-mov-hyp evidence h apriori acc-mov-hyps)))]
+    (filter-valid-movs mov-hyps acc-mov-hyps)))
 
 (defn score-path
   [mov-hyps]

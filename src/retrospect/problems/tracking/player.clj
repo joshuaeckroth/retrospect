@@ -216,21 +216,6 @@
 
 (defn player-get-problem-log
   []
-  (let [pdata (:problem-data (:ep-state @or-state))
-        entities (:entities pdata)
-        entity-biases (:entity-biases pdata)
+  (let [movs (get (:accepted (:workspace (cur-ep (:est @or-state)))) :movement)
         lines (fn [ss] (apply str (interpose "\n" ss)))]
-    (format "Entity locations:\n%s"
-            (lines (map (fn [e] (let [loc (last (get entities e))]
-                                  (format "%s (%s, %s): %d,%d@%d (%s)"
-                                          e (color-str (:color loc))
-                                          (if-let [b (get entity-biases e)]
-                                            (if-let [h (:bias-hyp b)]
-                                              (format "%s/%s" (name (:bias b)) (:id h))
-                                              (format "%s/given" (name (:bias b))))
-                                            "?")
-                                          (:x loc) (:y loc) (:time loc)
-                                          (if (:loc-hyp loc) (:id (:loc-hyp loc))
-                                              "given"))))
-                        (sort-by str (AlphanumComparator.)
-                                 (keys entities)))))))
+    (format "Believed movements:\n%s" (lines (map str movs)))))
