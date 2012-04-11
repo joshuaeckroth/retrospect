@@ -58,9 +58,9 @@
 
 (defn evaluate
   [truedata ors]
-  (let [eps (ep-path (:est ors))
+  (let [eps (rest (ep-path (:est ors)))
         time-now (:time (last eps))
-        believed (map (fn [ep] (get-history (:accepted (:workspace ep)))) (butlast eps))
+        believed (map (fn [ep] (get-history (:accepted (:workspace ep)))) eps)
         sentences (map (fn [i] (nth (:test-sentences truedata) i)) (range time-now))
         [prec recall f-score oov-rate oov-recall iv-recall]
         (try (do

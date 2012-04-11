@@ -4,7 +4,8 @@
   (:use [retrospect.profile :only [profile]])
   (:use [retrospect.epistemicstates :only
          [cur-ep new-child-ep new-branch-ep init-est
-          update-est nth-previous-ep print-est goto-ep]])
+          update-est nth-previous-ep print-est goto-ep
+          get-init-workspace]])
   (:use [retrospect.sensors :only [update-sensors]])
   (:use [retrospect.random :only [rgen new-seed my-rand-int]])
   (:use [retrospect.logging])
@@ -20,10 +21,13 @@
       (goto-ep new-expl-est (:id (cur-ep est))))))
 
 (defn meta-batch
-  [n est time-prev time-now sensors]
-  (let [new-est (new-branch-ep est (nth-previous-ep est n))
-        new-est-time (update-est new-est (assoc (cur-ep new-est) :time time-now))]
-    (meta-apply-and-evaluate est new-est-time time-prev time-now sensors)))
+  [n est _ time-now sensors]
+  (let [branch-ep (nth-previous-ep est n)
+        new-est (new-branch-ep est branch-ep)
+        new-est-time (update-est new-est (assoc (cur-ep new-est) :time time-now
+                                                :workspace (if n (:workspace (cur-ep new-est))
+                                                               (get-init-workspace est))))]
+    (meta-apply-and-evaluate est new-est-time (:time branch-ep) time-now sensors)))
 
 (defn meta-lower-threshold
   [est time-prev time-now sensors]
@@ -64,13 +68,6 @@
      :sensors sensors
      :est est}))
 
-(defn proceed-ors
-  [ors est sensors time-now ms]
-  (-> ors
-      (assoc :est (new-child-ep est time-now))
-      (assoc :sensors sensors)
-      (update-in [:resources :milliseconds] + ms)))
-
 (defn update-sensors-from-to
   [time-prev time-now truedata sensors]
   (loop [t time-prev
@@ -87,19 +84,21 @@
          sensors (update-sensors-from-to time-prev time-now truedata (:sensors ors))
          ;; start the clock
          start-time (. System (nanoTime))
-         ep (cur-ep (:est ors))
+         ors-new (update-in ors [:est] new-child-ep time-now)
+         ep (cur-ep (:est ors-new))
          workspace (if (and (not= 0 time-prev) (:ResetEachStep params))
                      (do (log "Resetting workspace...")
                          ((:init-workspace-fn @reason) (:workspace ep)))
                      (:workspace ep))
          ep-reason (assoc ep :workspace ((:reason-fn @reason) workspace
                                          time-prev time-now sensors))
-         est (update-est (:est ors) ep-reason)
+         est (update-est (:est ors-new) ep-reason)
          meta-est (metareason est time-prev time-now sensors)
          ;; stop the clock
          ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
-         ors-next (proceed-ors ors meta-est sensors time-now ms)
-         ors-results ((:evaluate-fn @reason) truedata ors-next)]
+         ors-est (assoc ors-new :est meta-est :sensors sensors)
+         ors-results ((:evaluate-fn @reason) truedata
+                      (update-in ors-est [:resources :milliseconds] + ms))]
      (when (not player?)
        (.write System/out (int \.)) (.flush System/out))
      ors-results)))

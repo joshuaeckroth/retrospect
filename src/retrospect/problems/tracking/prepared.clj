@@ -12,8 +12,8 @@
 (def basic-params
   {:GridHeight 10, :GridWidth 10, :MaxWalk 10, :Knowledge 100, :Seed 100,
    :SensorNoise 0, :SensorSeesColor 100, :SensorCoverage 100,
-   :BeliefNoise 0, :StepsBetween 1, :Steps 50, :KnowBiases true,
-   :ProbNewEntities 0, :NumberEntities 1, :MetaReasoning "NoMetareasoning",
+   :StepsBetween 1, :Steps 50, :KnowBiases true,
+   :ProbNewEntities 0, :NumberEntities 1, :Metareasoning "NoMetareasoning",
    :TransitiveExplanation false, :Threshold 0, :PathBranches 2})
 
 (defn entity-paths
@@ -70,20 +70,19 @@
 (defn intersection-ambiguity
   []
   (let [params (merge basic-params {:Steps 3 :SensorSeesColor 80
-                                    :MetaReasoning "BatchBeginning" :MaxWalk 3
-                                    :KnowBiases true})]
+                                    :Metareasoning "BatchBeginning" :MaxWalk 3})]
     {:params params
      :sensors [(new-sensor (keyword "left") 0 2 0 9 true)
                (new-sensor (keyword "middle") 3 4 0 9 false)
                (new-sensor (keyword "right") 5 9 0 9 true)]
      :truedata {:test (entity-paths params
-                                    ["1" :straight red  0 5,7 4,4 3,3 2,2]
-                                    ["2" :straight blue 0 5,4 4,7 3,8 2,9])}}))
+                                    ["1" :straight red  0 5,7 4,3 3,3 2,2]
+                                    ["2" :straight blue 0 5,4 4,8 3,8 2,9])}}))
 
 (defn intersection-continued-ambiguity
   []
   (let [params (merge basic-params {:Steps 5 :SensorSeesColor 20
-                                    :MetaReasoning "NoMetareasoning" :MaxWalk 3})]
+                                    :Metareasoning "NoMetareasoning" :MaxWalk 3})]
     {:params params
      :sensors [(new-sensor :top 0 9 0 2 true)
                (new-sensor :bottom 0 9 3 9 false)]

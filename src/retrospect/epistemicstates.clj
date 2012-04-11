@@ -22,7 +22,7 @@
   (toString [_]
     (format "%s %d %s" id time (conf-str (:conf workspace)))))
 
-(defrecord RootNode [children])
+(defrecord RootNode [children workspace])
 
 (defn clone-ep
   [ep id children]
@@ -39,8 +39,8 @@
   (make-node [ep children] (assoc ep :children children)))
 
 (defn zip-est
-  [ep-states]
-  (zip/zipper branch? node-children make-node (RootNode. ep-states)))
+  [ep-states workspace]
+  (zip/zipper branch? node-children make-node (RootNode. ep-states workspace)))
 
 (defn make-ep-id
   ([]
@@ -48,7 +48,8 @@
   ([ep-state-tree]
      (let [count
            (loop [count 0
-                  loc (zip/down (zip-est (:children (zip/root ep-state-tree))))]
+                  loc (zip/down (zip-est (:children (zip/root ep-state-tree))
+                                         (:workspace (zip/root ep-state-tree))))]
              (if (zip/end? loc) count
                  (recur (inc count) (zip/next loc))))]
        (loop [i count
@@ -60,7 +61,11 @@
 
 (defn init-est
   [workspace]
-  (zip/down (zip-est [(EpistemicState. (make-ep-id) [] 0 workspace)])))
+  (zip/down (zip-est [(EpistemicState. (make-ep-id) [] 0 workspace)] workspace)))
+
+(defn get-init-workspace
+  [est]
+  (:workspace (zip/root est)))
 
 (defn root-ep?
   [ep-state]
@@ -76,22 +81,23 @@
     (when-not (root-ep? (zip/node up)) (zip/node up))))
 
 (defn ep-state-depth
-  [ep-state-tree]
+  [est]
   (loop [i 0
-         loc ep-state-tree]
+         loc est]
     (if (root-ep? (zip/node loc)) i
         (recur (inc i) (zip/up loc)))))
 
 (defn nth-previous-ep
-  [ep-state-tree n]
-  (loop [i n
-         loc ep-state-tree]
+  [est n]
+  (loop [i (or n (ep-state-depth est))
+         loc est]
     (if (or (= 1 i) (root-ep? (zip/node (zip/up loc))))
       (zip/node loc) (recur (dec i) (zip/up loc)))))
 
 (defn goto-ep
   [est id]
-  (loop [loc (zip/down (zip-est (:children (zip/root est))))]
+  (loop [loc (zip/down (zip-est (:children (zip/root est))
+                                (:workspace (zip/root est))))]
     (cond (zip/end? loc) nil
           (= id (:id (zip/node loc))) loc
           :else (recur (zip/next loc)))))
@@ -120,7 +126,8 @@
 
 (defn flatten-est
   [est]
-  (loop [loc (zip/down (zip-est (:children (zip/root est))))
+  (loop [loc (zip/down (zip-est (:children (zip/root est))
+                                (:workspace (zip/root est))))
          states []]
     (if (zip/end? loc) states
         (recur (zip/next loc) (conj states (zip/node loc))))))
