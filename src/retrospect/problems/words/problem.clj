@@ -30,7 +30,7 @@
                :true-hyp?-fn true-hyp?
                :hyps-equal?-fn hyps-equal?
                :hyp-types [:word :word-seq :learned-word :learned-word-seq]
-               :default-params {:LearnMultiplier [0.25 [0.25 0.5 1.0]]}}
+               :default-params {}}
    :default-params
    {:Steps [50 [50]]
     :StepsBetween [1 [1]]

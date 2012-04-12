@@ -26,10 +26,10 @@
                                                        (conj ws (first sent))
                                                        (rest sent))))]
                          (= hyp-words true-words)))]
-    (comment (when (= :learned-word (:subtype hyp))
-               (with-open [r (java.io.FileWriter. "learned-words-stats.csv" true)]
-                 (.write r (format "%d,%f,%f\n" (if result 1 -1)
-                                   (:length-diff-pct hyp) (:tendency hyp))))))
+    (when (= :learned-word (:subtype hyp))
+      (with-open [r (java.io.FileWriter. (format "%s/words/learned-words-stats.csv" @datadir) true)]
+        (.write r (format "%d,%f,%f\n" (if result 1 -1)
+                          (:length-diff-pct hyp) (:tendency hyp)))))
     result))
 
 (defmulti hyps-equal? (fn [hyp1 hyp2] (:type hyp1)))
@@ -96,6 +96,8 @@
                                     (catch Exception _ 0.0))]
                  [prec recall f-score oov-rate oov-recall iv-recall]))
              (catch Exception e (do (log e) [-1.0 -1.0 -1.0 -1.0 -1.0 -1.0 -1.0])))]
+    (println "OOVRecall:" oov-recall)
+    (println "FScore:" f-score)
     {:Prec prec
      :Recall recall
      :FScore f-score

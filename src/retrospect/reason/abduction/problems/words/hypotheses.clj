@@ -3,7 +3,6 @@
   (:require [clojure.string :as str])
   (:use [clojure.contrib.string :only [substring?]])
   (:use [retrospect.profile :only [prof]])
-  (:use [clojure.contrib.combinatorics :only [combinations]])
   (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.reason.abduction.workspace :only [new-hyp]])
   (:use [retrospect.reason.abduction.problems.words.evaluate :only [hyps-equal?]])
@@ -44,30 +43,6 @@
      (not (or (< end1 start2) (< end2 start1))))
    
    :else false))
-
-(comment
-  (defn count-changes
-    [word letters]
-    (reduce (fn [c i] (if (not= (nth word i) (nth letters i)) (inc c) c))
-            0 (range (count word)))))
-
-(comment
-  (defn make-word-hyp
-    [word pos-seq letters noise? left-off sensor-hyps models]
-    (let [explains (map #(nth sensor-hyps %) pos-seq)
-          adjusted-pos-seq (vec (map #(+ 1 left-off %) pos-seq))
-          unimodel (get models 1)
-          changes (count-changes word letters)
-          ;; heuristic
-          changes-factor (/ (- (count word) changes) (count word))
-          apriori (max 0.001 (* prob (Math/pow changes-factor 3.0)))]
-      (new-hyp (if noise? "WordNoisy" "Word") :word
-               (if noise? :noise-word :word) conflicts?
-               apriori :and explains []
-               (format "Word: \"%s\" at positions %s (%s) (%d changes)"
-                       word (str adjusted-pos-seq) (apply str letters) changes)
-               {:start (first adjusted-pos-seq) :end (last adjusted-pos-seq)
-                :words [word] :pos-seqs [adjusted-pos-seq] :changes changes}))))
 
 (defn build-markov-models
   "Build a Markov n-gram model of word transitions."
@@ -178,9 +153,6 @@
                                      words)]
           (dosync (alter cache (constantly word-positions))))))
 
-              (comment nearby-sensor-hyps (prof :nearby-sensor-hyps
-                                                (reverse (sort-by count matches-near-evidence))))
-
 (defn find-word
   [evidence other-hyps]
   (prof :find-word
@@ -195,54 +167,20 @@
                                     other-hyps))
                         matches-near-evidence)))))
 
-(defn dnorm
-  [x mean stddev]
-  (* (/ 1.0 (* stddev (Math/sqrt (* 2 Math/PI))))
-     (Math/exp (- (/ (Math/pow (- x mean) 2.0)
-                     (* 2.0 stddev stddev))))))
-
-(defn gaussian-mixture-true
-  [x]
-  (+ (* 0.6627 (dnorm x 0.4380 0.1446))
-     (* 0.3445 (dnorm x -0.1025 0.3917))))
-
-(defn gaussian-mixture-false
-  [x]
-  (+ (* 0.4615 (dnorm x -0.8127 0.1103))
-     (* 0.6064 (dnorm x -0.3075 0.5866))))
-
 (defn word-metrics
   [kb word]
-  (let [avg-word-length (:avg-word-length kb)
-        symbol-tendencies (:symbol-tendencies kb)
-        tendency (prof :tendency
-                       (/ (reduce
-                           + (map (fn [i]
-                                    (let [sym (nth word i)
-                                          occur (double (get (:occur symbol-tendencies) sym 1.0))
-                                          get-pos (fn [pos] (get (pos symbol-tendencies) sym))]
-                                      (cond (= i 0)
-                                            (/ (double (or (get-pos :front) 0.0)) occur)
-                                            (= i (dec (count word)))
-                                            (/ (double (or (get-pos :back) 0.0)) occur)
-                                            :else
-                                            (/ (double (or (get-pos :middle) 0.0)) occur))))
-                                  (range (count word))))
-                          (double (count word))))
-        length-diff (Math/abs (double (- avg-word-length (count word))))
-        length-diff-pct (/ length-diff avg-word-length)
-        calc (/ (- tendency length-diff-pct) (+ tendency length-diff-pct))
-        pdf-true (gaussian-mixture-true calc)
-        pdf-false (gaussian-mixture-false calc)]
-    [(/ pdf-true (+ pdf-true pdf-false))
-     (format (str "\nLength difference: %.2f"
-                  "\nLength difference %%: %.2f"
-                  "\nTendency measure: %.2f"
-                  "\nCalc: %.2f"
-                  "\nPdf true: %.2f"
-                  "\nPdf false: %.2f")
-             length-diff length-diff-pct tendency calc pdf-true pdf-false)
-     length-diff-pct tendency]))
+  (let [symbol-tendencies (:symbol-tendencies kb)]
+    (reduce * (map (fn [i]
+                     (let [sym (nth word i)
+                           occur (double (get (:occur symbol-tendencies) sym 1.0))
+                           get-pos (fn [pos] (get (pos symbol-tendencies) sym))]
+                       (cond (= i 0)
+                             (/ (double (or (get-pos :front) 1.0)) occur)
+                             (= i (dec (count word)))
+                             (/ (double (or (get-pos :back) 1.0)) occur)
+                             :else
+                             (/ (double (or (get-pos :middle) 1.0)) occur))))
+                   (range (count word))))))
 
 (defmethod hypothesize :sensor
   [evidence accepted rejected hyps]
@@ -253,23 +191,20 @@
             (map (fn [expl]
                    (let [w (apply str (map :symbol expl))
                          kb (get-kb hyps)
-                         [metric-prob metric-desc length-diff-pct tendency] (word-metrics kb w)
+                         tendency (word-metrics kb w)
                          unigram-model (get (:models kb) 1)
                          substrings (:substrings kb)
                          similar-words (get substrings w)
                          similar-sum (reduce + (map (fn [w2] (get unigram-model [w2]))
                                                     similar-words))]
                      (new-hyp "Word" :word :word true conflicts
-                              (* metric-prob (double (/ (get unigram-model [w]) similar-sum)))
+                              (/ (double (get unigram-model [w])) (double similar-sum))
                               expl [] w
-                              (format "Word \"%s\" (pos %d-%d)\nmetric-prob: %.2f\n%s"
+                              (format "Word \"%s\" (pos %d-%d)\nTendency: %.2f"
                                       w (:pos (first expl))
                                       (:pos (last expl))
-                                      metric-prob
-                                      metric-desc)
-                              {:word w :pos-seq (map :pos expl)
-                               :length-diff-pct length-diff-pct
-                               :tendency tendency})))
+                                      tendency)
+                              {:word w :pos-seq (map :pos expl) :tendency tendency})))
                  expls)))))
 
 (defmethod hypothesize :word
@@ -326,13 +261,6 @@
                       (recur (rest ws))))
                   (recur (rest ws)))))))))
 
-(defn score-learned-word
-  [kb word]
-  (prof :score-learned-word
-        (let [[prob desc length-diff-pct tendency] (word-metrics kb word)
-              apriori (* (:LearnMultiplier params) prob)]
-          [apriori desc length-diff-pct tendency])))
-
 (defmulti learn
   (fn [evidence no-explainer-hyps hyps] (:type evidence)))
 
@@ -365,31 +293,29 @@
           (when (and (not-any? #(same-word-hyp (map :pos expl) word %) (get hyps :word))
                      (nil? (get (get (:models kb) 1) [word])))
             (let [pos-seq (map :pos expl)
-                  [apriori learn-desc length-diff-pct tendency]
-                  (score-learned-word kb word)]
+                  tendency (word-metrics kb word)]
               [(new-hyp "LearnedWord" :word :learned-word true conflicts
-                        apriori expl [] word
-                        (format (str "Learned word: \"%s\" (pos %d-%d)"
-                                     "\nTo explain: %s"
-                                     "\n%s")
-                                word (first pos-seq) (last pos-seq)
-                                (str (:symbol evidence)) learn-desc)
-                        {:word word :pos-seq pos-seq
-                         :length-diff-pct length-diff-pct
-                         :tendency tendency})])))))
+                        tendency expl [] word
+                        (format (str "Learned word: \"%s\" (pos %d-%d)\nTendency %.2f\n"
+                                     "\nTo explain: %s")
+                                word (first pos-seq) (last pos-seq) tendency
+                                (str (:symbol evidence)))
+                        {:word word :pos-seq pos-seq :tendency tendency})])))))
 
 (defn get-left-hyps
   [evidence hyps]
   (prof :get-left-hyps
         (let [word-hyps (filter #(= :word (:type %)) hyps)
               left-hyps-all (reverse (sort-by (comp first :pos-seq)
-                                              (filter #(< (last (:pos-seq %)) (first (:pos-seq evidence)))
+                                              (filter #(< (last (:pos-seq %))
+                                                          (first (:pos-seq evidence)))
                                                       word-hyps)))
               left-pairs (take-while #(or (nil? (second %))
-                                          (= (dec (first (:pos-seq (first %)))) (last (:pos-seq (second %)))))
-                                     (partition-all 2 1 left-hyps-all))
-              left-hyps (reverse (concat (map first left-pairs)
-                                         (if-let [h (second (last left-pairs))] [h] [])))]
+                                          (= (dec (first (:pos-seq (first %))))
+                                             (last (:pos-seq (second %)))))
+                                     (partition-all 2 1 (concat [evidence] left-hyps-all)))
+              left-hyps (reverse (rest (concat (map first left-pairs)
+                                               (if-let [h (second (last left-pairs))] [h] []))))]
           (when (= (dec (first (:pos-seq evidence))) (last (:pos-seq (last left-hyps))))
             left-hyps))))
 
@@ -401,10 +327,11 @@
                                       (filter #(> (first (:pos-seq %)) (last (:pos-seq evidence)))
                                               word-hyps))
               right-pairs (take-while #(or (nil? (second %))
-                                           (= (inc (last (:pos-seq (first %)))) (first (:pos-seq (second %)))))
-                                      (partition-all 2 1 right-hyps-all))
-              right-hyps (concat (map first right-pairs)
-                                 (if-let [h (second (last right-pairs))] [h] []))]
+                                           (= (inc (last (:pos-seq (first %))))
+                                              (first (:pos-seq (second %)))))
+                                      (partition-all 2 1 (concat [evidence] right-hyps-all)))
+              right-hyps (rest (concat (map first right-pairs)
+                                       (if-let [h (second (last right-pairs))] [h] [])))]
           (when (= (inc (last (:pos-seq evidence))) (first (:pos-seq (first right-hyps))))
             right-hyps))))
 
@@ -439,18 +366,16 @@
                   (cond (and (not-any? #(same-word-hyp (mapcat :pos-seq expl) word %)
                                        (concat hs (get hyps :word)))
                              (nil? (get (get (:models kb) 1) [word])))
-                        (let [[apriori learn-desc length-diff-pct tendency]
-                              (score-learned-word kb word)
+                        (let [tendency (word-metrics kb word)
                               hyp (new-hyp "LWWord" :word :learned-word true conflicts
-                                           apriori (mapcat :explains expl) [] word
+                                           tendency (mapcat :explains expl) [] word
                                            (format (str "Learned word from existing words: \"%s\" (pos %d-%d)"
-                                                        "\nTo explain: %s\nEntire sequence: %s"
-                                                        "\n%s")
+                                                        "\nTendency: %.2f\n"
+                                                        "\nTo explain: %s\nEntire sequence: %s")
                                                    word (first (:pos-seq (first expl)))
                                                    (last (:pos-seq (last expl)))
-                                                   evidence (str/join ", " expl) learn-desc)
+                                                   tendency evidence (str/join ", " expl))
                                            {:word word :pos-seq (mapcat :pos-seq expl)
-                                            :length-diff-pct length-diff-pct
                                             :tendency tendency})]
                           (recur (rest es) (conj hs hyp)))
                         (and (nil? (get (get (:models kb) (count expl)) (map :word expl)))

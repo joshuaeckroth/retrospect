@@ -99,13 +99,16 @@
         ors-resources (:resources ors)
         true-false (group-hyps-by-subtype-true-false
                     truedata workspace
-                    (:time ep) (:true-hyp?-fn (:abduction @problem)))]
+                    (:time ep) (:true-hyp?-fn (:abduction @problem)))
+        true-false-confs (calc-true-false-confs workspace true-false)]
+    (println "Conf-diff:" (- (:AvgTrueConfLearnedWord true-false-confs)
+                             (:AvgFalseConfLearnedWord true-false-confs)))
     (update-in
      ors [:results] conj
      (merge {:Problem (:name @problem)}
             params
             ((:evaluate-fn (:abduction @problem)) truedata ors)
-            (calc-true-false-confs workspace true-false)
+            true-false-confs
             #_(if (:AnalyzeSensitivity params)
                 (analyze-sensitivity ors true-false)
                 (reduce
