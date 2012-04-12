@@ -101,8 +101,8 @@
                     truedata workspace
                     (:time ep) (:true-hyp?-fn (:abduction @problem)))
         true-false-confs (calc-true-false-confs workspace true-false)]
-    (println "Conf-diff:" (- (:AvgTrueConfLearnedWord true-false-confs)
-                             (:AvgFalseConfLearnedWord true-false-confs)))
+    (println (format "Conf-diff: %.2f" (- (:AvgTrueConfLearnedWord true-false-confs)
+                                          (:AvgFalseConfLearnedWord true-false-confs))))
     (update-in
      ors [:results] conj
      (merge {:Problem (:name @problem)}
