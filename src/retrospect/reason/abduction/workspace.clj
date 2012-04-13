@@ -138,12 +138,19 @@
 (defn normalize-confidences
   "Normalize the apriori confidences of a collection of hyps.
    Returns a map with hyps as keys and new conf's as values."
-  [hyps]
-  (let [sum (reduce + 0.0 (map #(:apriori %) hyps))]
+  [hyp-map]
+  (let [sum (reduce + 0.0 (vals hyp-map))]
     (cond
-     (= 1 (count hyps)) {(first hyps) 1.0}
-     (= 0.0 sum) {}
-     :else (reduce #(assoc %1 %2 (/ (:apriori %2) sum)) {} hyps))))
+     (= 1 (count hyp-map)) {(first (keys hyp-map)) 1.0}
+     (> 0.0001 sum) (reduce #(assoc %1 %2 (/ 1.0 (count hyp-map))) hyp-map (keys hyp-map))
+     :else (reduce #(update-in %1 [%2] / sum) hyp-map (keys hyp-map)))))
+
+(defn normalize-confidences-groups
+  [hyps]
+  (let [gs (map (fn [hs] (reduce (fn [m h] (assoc m h (:apriori h))) {} hs))
+                (vals (group-by :subtype hyps)))
+        normalized-gs (if-not (:NormalizeSubtype params) gs (map #(normalize-confidences %) gs))]
+    (normalize-confidences (apply merge normalized-gs))))
 
 (defn update-confidences
   "Update confidences of hyps based on their normalized apriori
@@ -154,12 +161,19 @@
   [workspace explainers]
   ;; for each seq of explainers
   (reduce (fn [ws {hyp :hyp alts :expl}]
-            (let [norm-alts (normalize-confidences alts)]
+            (let [norm-alts (normalize-confidences-groups alts)]
               ;; for each normalized confidence hyp
               (reduce (fn [ws2 hyp]
                         ;; take the min normalized conf with existing conf
                         (assoc-in ws2 [:hyp-confidences hyp]
-                                  (min (hyp-conf ws2 hyp) (get norm-alts hyp))))
+                                  (cond (= "max" (:ConfAdjustment params))
+                                        (max (hyp-conf ws2 hyp) (get norm-alts hyp))
+                                        (= "min" (:ConfAdjustment params))
+                                        (min (hyp-conf ws2 hyp) (get norm-alts hyp))
+                                        (= "avg" (:ConfAdjustment params))
+                                        (/ (+ (hyp-conf ws2 hyp) (get norm-alts hyp)) 2.0)
+                                        :else
+                                        (min (hyp-conf ws2 hyp) (get norm-alts hyp)))))
                       ws (sort-by :id (keys norm-alts)))))
           workspace explainers))
 
@@ -238,8 +252,14 @@
                           (update-in [:added] conj hyp)
                           (add-explainers hyp)
                           (assoc :graph g-edges)
-                          ;; put 1.0 in the confidences map; it will be adjusted later
-                          (assoc-in [:hyp-confidences hyp] 1.0)
+                          (assoc-in [:hyp-confidences hyp]
+                                    (cond (= "min" (:ConfAdjustment params))
+                                          1.0
+                                          (= "max" (:ConfAdjustment params))
+                                          0.0
+                                          (= "avg" (:ConfAdjustment params))
+                                          (:apriori hyp)
+                                          :else 0.0))
                           (update-in [:hypotheses (:type hyp)] conj hyp))
         conflicts (find-conflicts-selected ws-explainers hyp
                                            (apply concat (vals (:accepted ws-explainers))))]

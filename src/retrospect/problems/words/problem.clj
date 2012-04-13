@@ -36,5 +36,8 @@
     :StepsBetween [1 [1]]
     :ResetEachStep [true [true]]
     :SensorNoise [0 [0]]
+    :TendencyReduction ["mult" ["mult" "avg" "min" "max" "opp"]]
+    :WordApriori ["max" ["tendency" "prob" "mult" "max" "avg"]]
+    :LearnWordLength [3 [1 2 3 4 5 6]]
     :Dataset ["pku_training" ["pku_training"]] ;; ["carroll" "cityu_training" "as_training" "msr_training" "pku_training"]
     :MaxModelGrams [2 [2]]}})

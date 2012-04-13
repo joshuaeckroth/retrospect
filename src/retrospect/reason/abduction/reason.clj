@@ -30,7 +30,9 @@
                                 :AnalyzeDeps [false [false]]
                                 :ProbPerturb [25 [25]]
                                 :UseScores [true [true]]
-                                :Learn [true [true]]}
+                                :Learn [true [true]]
+                                :ConfAdjustment ["min" ["min" "max" "avg"]]
+                                :NormalizeSubtype [true [true false]]}
                                (:default-params (:abduction @problem))))
    :init-workspace-fn init-workspace
    :init-kb-fn init-kb
