@@ -35,7 +35,8 @@ multiplication       274         0     53000     10000   2747000
 Times are measured in nanoseconds, to the maximum precision available
 under the JVM.  See the function documentation for more details.
 "}
-  retrospect.profile)
+  retrospect.profile
+  (:require [clojure.string :as str]))
 
 (def *profile-data* nil)
 
@@ -78,26 +79,27 @@ profiling code."}  *enable-profiling* false)
      {:mean ..., :min ..., :max ..., :count ..., :sum ...}
 
   :mean, :min, and :max are how long the profiled section took to run,
-  in nanoseconds.  :count is the total number of times the profiled
+  in milliseconds.  :count is the total number of times the profiled
   section was executed.  :sum is the total amount of time spent in the
   profiled section, in nanoseconds."
   [profile-data]
   (reduce (fn [m [k v]]
             (let [cnt (count v)
                   sum (reduce + v)]
-              (assoc m k {:mean (int (/ sum cnt))
-                          :min (apply min v)
-                          :max (apply max v)
+              (assoc m k {:mean (/ (double (/ sum cnt)) 1.0e6)
+                          :min (/ (double (apply min v)) 1.0e6)
+                          :max (/ (double (apply max v)) 1.0e6)
                           :count cnt
-                          :sum sum})))
+                          :sum (/ (double sum) 1.0e6)})))
           {} profile-data))
 
 (defn print-summary
   "Prints a table of the results returned by summarize."
   [profile-summary]
   (let [name-width (apply max 1 (map (comp count name) (keys profile-summary)))
-        fmt-string (str "%" name-width "s  %12d  %12d  %12d  %12d  %12d")]
-    (println (format (.replace fmt-string \d \s)
+        fmt-string (str "%" name-width "s  %12.3f  %12.3f  %12.3f  %12d  %12.3f")]
+    (println (format (-> fmt-string (str/replace "12.3f" "12s")
+                         (str/replace "12d" "12s"))
                      "Name" "mean" "min" "max" "count" "sum"))
     (doseq [k (sort (keys profile-summary))]
       (let [v (get profile-summary k)]

@@ -126,11 +126,12 @@
 
 (defn flatten-est
   [est]
-  (loop [loc (zip/down (zip-est (:children (zip/root est))
-                                (:workspace (zip/root est))))
-         states []]
-    (if (zip/end? loc) states
-        (recur (zip/next loc) (conj states (zip/node loc))))))
+  (if (nil? est) []
+      (loop [loc (zip/down (zip-est (:children (zip/root est))
+                                    (:workspace (zip/root est))))
+             states []]
+        (if (zip/end? loc) states
+            (recur (zip/next loc) (conj states (zip/node loc)))))))
 
 (defn ep-path
   [est]

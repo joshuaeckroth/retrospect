@@ -18,7 +18,7 @@
 (defn conflicts
   "Two words-domain hypotheses conflict if: (1) they are both composite
    hypotheses and it is not the case that the tail of one is the prefix of the
-v   other; or (2) they overlap in their start-end range."
+   other; or (2) they overlap in their start-end range."
   [hyp1 hyp2]
   (cond
    (or (= :sensor (:type hyp1)) (= :sensor (:type hyp2))) false
@@ -58,9 +58,7 @@ v   other; or (2) they overlap in their start-end range."
 
 (defn build-symbol-tendencies
   [training]
-  (letfn [(inc-sym [m sym pos] (if (nil? (get (pos m) sym))
-                                 (assoc-in m [pos sym] 1)
-                                 (update-in m [pos sym] inc)))]
+  (letfn [(inc-sym [m sym pos] (assoc-in m [pos sym] (inc (get (pos m) sym 0))))]
     (reduce (fn [m sentence]
               (reduce (fn [m2 w]
                         (reduce (fn [m3 i]
@@ -169,30 +167,31 @@ v   other; or (2) they overlap in their start-end range."
 
 (defn word-metrics
   [kb word]
-  (let [symbol-tendencies (:symbol-tendencies kb)
-        tendencies (map (fn [i]
-                          (let [sym (nth word i)
-                                occur (double (get (:occur symbol-tendencies) sym 1.0))
-                                get-pos (fn [pos] (get (pos symbol-tendencies) sym))]
-                            (cond (= i 0)
-                                  (/ (double (or (get-pos :front) 1.0)) occur)
-                                  (= i (dec (count word)))
-                                  (/ (double (or (get-pos :back) 1.0)) occur)
-                                  :else
-                                  (/ (double (or (get-pos :middle) 1.0)) occur))))
-                        (range (count word)))]
-    (cond (= "mult" (:TendencyReduction params))
-          (reduce * tendencies)
-          (= "opp" (:TendencyReduction params))
-          (- 1.0 (reduce * (map #(- 1.0 %) tendencies)))
-          (= "avg" (:TendencyReduction params))
-          (/ (reduce + tendencies) (double (count tendencies)))
-          (= "min" (:TendencyReduction params))
-          (apply min tendencies)
-          (= "max" (:TendencyReduction params))
-          (apply max tendencies)
-          :else
-          (reduce * tendencies))))
+  (prof :word-metrics
+        (let [symbol-tendencies (:symbol-tendencies kb)
+              tendencies (map (fn [i]
+                                (let [sym (nth word i)
+                                      occur (double (get (:occur symbol-tendencies) sym 1.0))
+                                      get-pos (fn [pos] (get (pos symbol-tendencies) sym))]
+                                  (cond (= i 0)
+                                        (/ (double (or (get-pos :front) 1.0)) occur)
+                                        (= i (dec (count word)))
+                                        (/ (double (or (get-pos :back) 1.0)) occur)
+                                        :else
+                                        (/ (double (or (get-pos :middle) 1.0)) occur))))
+                              (range (count word)))]
+          (cond (= "mult" (:TendencyReduction params))
+                (reduce * tendencies)
+                (= "opp" (:TendencyReduction params))
+                (- 1.0 (reduce * (map #(- 1.0 %) tendencies)))
+                (= "avg" (:TendencyReduction params))
+                (/ (reduce + tendencies) (double (count tendencies)))
+                (= "min" (:TendencyReduction params))
+                (apply min tendencies)
+                (= "max" (:TendencyReduction params))
+                (apply max tendencies)
+                :else
+                (reduce * tendencies)))))
 
 (defmethod hypothesize :sensor
   [evidence accepted rejected hyps]
@@ -209,12 +208,16 @@ v   other; or (2) they overlap in their start-end range."
                          tendency (word-metrics kb w)
                          unigram-model (get (:models kb) 1)
                          substrings (:substrings kb)
-                         similar-words (filter #(substring? % (apply str (concat (take-last (dec (count %))
-                                                                                            left-syms)
-                                                                                 [(:symbol evidence)]
-                                                                                 (take (dec (count %))
-                                                                                       right-syms))))
-                                               (get substrings w))
+                         substring-filter (cond (= (:WordContext params) "data")
+                                                #(let [syms (concat (take-last (dec (count %)) left-syms)
+                                                                    [(:symbol evidence)]
+                                                                    (take (dec (count %)) right-syms))]
+                                                   (substring? % (apply str syms)))
+                                                (= (:WordContext params) "global")
+                                                (constantly true)
+                                                :else
+                                                (constantly true))
+                         similar-words (filter substring-filter (get substrings w))
                          similar-sum (reduce + (map (fn [w2] (get unigram-model [w2]))
                                                     similar-words))
                          prob (/ (double (get unigram-model [w])) (double similar-sum))]
@@ -300,17 +303,17 @@ v   other; or (2) they overlap in their start-end range."
 (defmethod learn :default [_ _ _] nil)
 
 (defmethod learn :sensor
-  [evidence unexp hyps]
+  [evidence noexp hyps]
   (prof :hyp-learn-word
-        (let [sensor-unexp (filter #(= :sensor (:type %)) unexp)
-              unexp-left (reverse (sort-by :pos (filter #(< (:pos %) (:pos evidence)) sensor-unexp)))
-              unexp-right (sort-by :pos (filter #(> (:pos %) (:pos evidence)) sensor-unexp))
+        (let [sensor-noexp (filter #(= :sensor (:type %)) noexp)
+              noexp-left (reverse (sort-by :pos (filter #(< (:pos %) (:pos evidence)) sensor-noexp)))
+              noexp-right (sort-by :pos (filter #(> (:pos %) (:pos evidence)) sensor-noexp))
               left-pairs (take-while #(or (nil? (second %))
                                           (= (inc (:pos (first %))) (:pos (second %))))
-                                     (partition-all 2 1 unexp-left))
+                                     (partition-all 2 1 noexp-left))
               right-pairs (take-while #(or (nil? (second %))
                                            (= (inc (:pos (first %))) (:pos (second %))))
-                                      (partition-all 2 1 unexp-right))
+                                      (partition-all 2 1 noexp-right))
               left-hyps (reverse (concat (map first left-pairs)
                                          (if-let [h (second (last left-pairs))] [h] [])))
               right-hyps (concat (map first right-pairs)
@@ -327,7 +330,7 @@ v   other; or (2) they overlap in their start-end range."
                      (nil? (get (get (:models kb) 1) [word])))
             (let [pos-seq (map :pos expl)
                   tendency (word-metrics kb word)]
-              [(new-hyp "LearnedWord" :word :learned-word true conflicts
+              [(new-hyp "LearnedWord" :word :learned-word false conflicts
                         tendency expl [] word
                         (format (str "Learned word: \"%s\" (pos %d-%d)\nTendency %.2f\n"
                                      "\nTo explain: %s")
@@ -381,50 +384,53 @@ v   other; or (2) they overlap in their start-end range."
                                            (when (not-empty right)
                                              (with-meta (conj expl (first right))
                                                {:left left :right (rest right)}))]))))]
-          (sort-by count (set (tree-seq branch? children
-                                        (with-meta [evidence] {:left left :right right})))))))
+          (set (tree-seq branch? children
+                         (with-meta [evidence] {:left left :right right}))))))
 
 (defmethod learn :word
-  [evidence unexp hyps]
+  [evidence noexp hyps]
   (prof :hyp-learn-word-seq
-        (let [left (take-last (:LearnWordLength params) (or (get-left-hyps evidence unexp) []))
-              right (take (:LearnWordLength params) (or (get-right-hyps evidence unexp) []))
+        (let [left (take-last (:LearnWordLength params) (or (get-left-hyps evidence noexp) []))
+              right (take (:LearnWordLength params) (or (get-right-hyps evidence noexp) []))
               kb (get-kb hyps)
               expls (expl-seqs left evidence right)]
-          (loop [es expls
-                 hs []]
-            (if (empty? es) (when (not-empty hs) hs)
-                (let [expl (first es)
-                      word (apply str (map :word expl))]
-                  (cond (and (not-any? #(same-word-hyp (mapcat :pos-seq expl) word %)
-                                       (concat hs (get hyps :word)))
-                             (nil? (get (get (:models kb) 1) [word])))
-                        (let [tendency (word-metrics kb word)
-                              hyp (new-hyp "LWWord" :word :learned-word true conflicts
-                                           tendency
-                                           (mapcat :explains expl) [] word
-                                           (format (str "Learned word from existing words: \"%s\" (pos %d-%d)"
-                                                        "\nTendency: %.2f\n"
-                                                        "\nTo explain: %s\nEntire sequence: %s")
-                                                   word (first (:pos-seq (first expl)))
-                                                   (last (:pos-seq (last expl)))
-                                                   tendency evidence (str/join ", " expl))
-                                           {:word word :pos-seq (mapcat :pos-seq expl)
-                                            :tendency tendency})]
-                          (recur (rest es) (conj hs hyp)))
-                        (and (nil? (get (get (:models kb) (count expl)) (map :word expl)))
-                             (not-any? (fn [h] (hyps-equal? h {:type :word-seq
-                                                               :pos-seqs (map :pos-seq expl)
-                                                               :words (map :word expl)}))
-                                       (concat hs (get hyps :word-seq))))
-                        (let [hyp (new-hyp "LWordSeq" :word-seq :learned-word-seq false conflicts
-                                           0.0 expl [] (str/join " " (map :word expl))
-                                           (format (str "Learned word sequence: \"%s\" (pos %d-%d)"
-                                                        "\nTo explain: %s\nEntire sequence: %s")
-                                                   (str/join " " (map :word expl))
-                                                   (first (:pos-seq (first expl)))
-                                                   (last (:pos-seq (last expl)))
-                                                   evidence (str/join "; " expl))
-                                           {:words (map :word expl) :pos-seqs (map :pos-seq expl)})]
-                          (recur (rest es) (conj hs hyp)))
-                        :else (recur (rest es) hs))))))))
+          (prof :hlwseq-loop
+                (loop [es expls
+                       hs []]
+                  (if (empty? es) (when (not-empty hs) hs)
+                      (let [expl (first es)
+                            word (apply str (map :word expl))]
+                        (cond (prof :hlwseq-cond1
+                                    (and (not-any? #(same-word-hyp (mapcat :pos-seq expl) word %)
+                                                   (concat hs (get hyps :word)))
+                                         (nil? (get (get (:models kb) 1) [word]))))
+                              (let [tendency (word-metrics kb word)
+                                    hyp (new-hyp "LWWord" :word :learned-word true conflicts
+                                                 tendency
+                                                 (mapcat :explains expl) [] word
+                                                 (format (str "Learned word from existing words: \"%s\" (pos %d-%d)"
+                                                              "\nTendency: %.2f\n"
+                                                              "\nTo explain: %s\nEntire sequence: %s")
+                                                         word (first (:pos-seq (first expl)))
+                                                         (last (:pos-seq (last expl)))
+                                                         tendency evidence (str/join ", " expl))
+                                                 {:word word :pos-seq (mapcat :pos-seq expl)
+                                                  :tendency tendency})]
+                                (recur (rest es) (conj hs hyp)))
+                              (prof :hlwseq-cond2
+                                    (and (nil? (get (get (:models kb) (count expl)) (map :word expl)))
+                                         (not-any? (fn [h] (hyps-equal? h {:type :word-seq
+                                                                           :pos-seqs (map :pos-seq expl)
+                                                                           :words (map :word expl)}))
+                                                   (concat hs (get hyps :word-seq)))))
+                              (let [hyp (new-hyp "LWordSeq" :word-seq :learned-word-seq false conflicts
+                                                 0.0 expl [] (str/join " " (map :word expl))
+                                                 (format (str "Learned word sequence: \"%s\" (pos %d-%d)"
+                                                              "\nTo explain: %s\nEntire sequence: %s")
+                                                         (str/join " " (map :word expl))
+                                                         (first (:pos-seq (first expl)))
+                                                         (last (:pos-seq (last expl)))
+                                                         evidence (str/join "; " expl))
+                                                 {:words (map :word expl) :pos-seqs (map :pos-seq expl)})]
+                                (recur (rest es) (conj hs hyp)))
+                              :else (recur (rest es) hs)))))))))

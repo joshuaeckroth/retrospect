@@ -30,9 +30,11 @@
 (def workspace-log-textbox (ref nil))
 (def workspace-log (ref ""))
 
+(def anc (AlphanumComparator.))
+
 (defn list-hyps
   [hyps]
-  (apply sorted-map-by (AlphanumComparator.) (mapcat (fn [h] [(:id h) nil]) hyps)))
+  (apply sorted-map-by anc (mapcat (fn [h] [(:id h) nil]) hyps)))
 
 (defn build-cycle
   [wslog i]
@@ -55,7 +57,7 @@
                 (let [wslog (:log ws)]
                   {"Hypotheses" (list-hyps (apply concat (vals (:hypotheses ws))))
                    "Forced" (list-hyps (:forced ws))
-                   "Cycles" (apply sorted-map-by (AlphanumComparator.)
+                   "Cycles" (apply sorted-map-by anc
                                    (mapcat #(build-cycle wslog %)
                                            (range (count (:best wslog)))))
                    "Accepted" (list-hyps (apply concat (vals (:accepted ws))))
@@ -63,8 +65,8 @@
                    "No explainers" (list-hyps (:no-explainers wslog))
                    "Unexplained" (list-hyps (:unexplained wslog))
                    "Unaccepted" (list-hyps (:unaccepted wslog))}))]
-    (apply sorted-map-by (AlphanumComparator.)
-           (mapcat (fn [ep] [(str ep) (merge (ws-fn (:workspace ep)) {"Log" nil})])
+    (apply sorted-map-by anc
+           (mapcat (fn [ep] [(str ep) (assoc (ws-fn (:workspace ep)) "Log" nil)])
                    ep-states))))
 
 (defn hyp-info
@@ -155,7 +157,7 @@
   (dosync
    (alter truedata-log (constantly ((:get-truedata-log (:player-fns @problem)))))
    (alter problem-log (constantly ((:get-problem-log (:player-fns @problem)))))
-   (alter abduction-tree-map (constantly (build-abduction-tree-map @or-state))))
+   (alter workspace-log (constantly "")))
   (. problem-log-label setText (format "Problem log for: %s" (str (cur-ep (:est @or-state)))))
   (when (and @truedata-log-textbox @problem-log-textbox @workspace-log-textbox)
     (scroll-top @truedata-log-textbox)
@@ -191,11 +193,21 @@
                         :gridy 1 :weighty 1.0
                         _ @problem-log-textbox])
                 (doto (split-horizontal
-                       (doto (tree :name tr
-                                   :model (mapref-tree-model
-                                           abduction-tree-map "Epistemic states")
-                                   :action ([_ _] (show-log (.getSelectionPath tr))))
-                         (.setFont (Font. "Sans" Font/PLAIN 10)))
+                       (panel :layout (GridBagLayout.)
+                              :constrains (java.awt.GridBagConstraints.)
+                              [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0
+                               :fill :BOTH :insets (Insets. 0 0 0 0)
+                               _ (doto (tree :name tr
+                                             :model (mapref-tree-model
+                                                     abduction-tree-map "Epistemic states")
+                                             :action ([_ _] (show-log (.getSelectionPath tr))))
+                                   (.setFont (Font. "Sans" Font/PLAIN 10)))
+                               :gridy 1 :weighty 0.0
+                               _ (button "Update tree"
+                                         :action
+                                         ([_] (dosync (alter abduction-tree-map
+                                                             (constantly (build-abduction-tree-map
+                                                                          @or-state))))))])
                        (panel :layout (GridBagLayout.)
                               :constrains (java.awt.GridBagConstraints.)
                               [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0 :gridwidth 2

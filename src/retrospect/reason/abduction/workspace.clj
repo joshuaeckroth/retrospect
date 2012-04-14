@@ -119,14 +119,19 @@
 
 (defn sort-explainers
   [workspace explainers]
-  (let [internal-sorted (map (fn [expl]
-                               (assoc expl :expl
-                                      (sort (partial compare-by-conf-expl workspace)
-                                            (:expl expl))))
-                             explainers)]
-    (sort (fn [expl1 expl2]
-            (compare-by-delta workspace (:expl expl1) (:expl expl2)))
-          internal-sorted)))
+  (let [hyp-sorter (cond (= (:HypPreference params) "abd")
+                         #(sort (partial compare-by-conf-expl workspace) %)
+                         (= (:HypPreference params) "arbitrary")
+                         #(my-shuffle %)
+                         :else
+                         #(sort (partial compare-by-conf-expl workspace) %))
+        expl-sorter (cond (= (:ContrastPreference params) "delta")
+                          (fn [hs] (sort #(compare-by-delta workspace (:expl %1) (:expl %2)) hs))
+                          (= (:ContrastPreference params) "arbitrary")
+                          #(my-shuffle %)
+                          :else
+                          (fn [hs] (sort #(compare-by-delta workspace (:expl %1) (:expl %2)) hs)))]
+    (expl-sorter (map #(update-in % [:expl] hyp-sorter) explainers))))
 
 (defn find-all-explainers
   [workspace]
@@ -172,8 +177,10 @@
                                         (min (hyp-conf ws2 hyp) (get norm-alts hyp))
                                         (= "avg" (:ConfAdjustment params))
                                         (/ (+ (hyp-conf ws2 hyp) (get norm-alts hyp)) 2.0)
+                                        (= "none" (:ConfAdjustment params))
+                                        (hyp-conf ws2 hyp)
                                         :else
-                                        (min (hyp-conf ws2 hyp) (get norm-alts hyp)))))
+                                        (max (hyp-conf ws2 hyp) (get norm-alts hyp)))))
                       ws (sort-by :id (keys norm-alts)))))
           workspace explainers))
 
@@ -257,7 +264,8 @@
                                           1.0
                                           (= "max" (:ConfAdjustment params))
                                           0.0
-                                          (= "avg" (:ConfAdjustment params))
+                                          (or (= "avg" (:ConfAdjustment params))
+                                              (= "none" (:ConfAdjustment params)))
                                           (:apriori hyp)
                                           :else 0.0))
                           (update-in [:hypotheses (:type hyp)] conj hyp))
@@ -418,26 +426,20 @@
                                      (concat expl (or es [])))))))]
          (when (not-empty hyps) hyps)))))
 
-(defn get-learn-hyp
+(comment (:needs-explainer workspace))
+
+(defn get-learn-hyps
   [workspace]
-  (let [unexp (sort-by :id (AlphanumComparator.) (:needs-explainer workspace))]
-    (when (not-empty unexp)
-      (log "Getting learning hyps for unexp" (str/join "," (map :id unexp)))
-      (let [hyps (loop [hs unexp
-                        h-map (:hypotheses workspace)
-                        expl []]
-                   (if (empty? hs) expl
-                       (do (log "Trying to get a learn explainer for" (str (first hs)))
-                           (let [es ((:learn-fn (:abduction @problem))
-                                     (first hs) unexp h-map)]
-                             (log "Got:" (str/join "," (map str es)))
-                             (recur (rest hs)
-                                    (if (not-empty es)
-                                      (reduce #(update-in %1 [(:type %2)] conj %2)
-                                              h-map es)
-                                      h-map)
-                                    (concat expl (or es [])))))))]
-        (when (not-empty hyps) hyps)))))
+  (let [hs (sort-by :id (AlphanumComparator.) (find-no-explainers workspace))]
+    (log "Getting learning hyps for noexp" (str/join "," (map :id hs)))
+    (if (empty? hs) workspace
+        (do (log "Trying to get a learn explainer for" (str (first hs)))
+            (let [es ((:learn-fn (:abduction @problem))
+                      (first hs) hs (:hypotheses workspace))]
+              (log "Got:" (str/join "," (map str es)))
+              (if (not-empty es)
+                (recur (reduce add workspace es))
+                workspace))))))
 
 (defn need-more-hyps?
   [workspace]
@@ -467,12 +469,10 @@
 (defn reset-workspace
   [workspace]
   (let [added (:added workspace)
-        forced (:forced workspace)
-        learned (:learned workspace)]
-    (assoc (reduce (fn [ws h] (if (forced h) (add-fact ws h) (add ws h)))
-                   (assoc empty-workspace :initial-kb (:initial-kb workspace))
-                   added)
-      :learned learned)))
+        forced (:forced workspace)]
+    (reduce (fn [ws h] (if (forced h) (add-fact ws h) (add ws h)))
+            (assoc empty-workspace :initial-kb (:initial-kb workspace))
+            added)))
 
 (defn explain
   [workspace]
@@ -483,14 +483,16 @@
         (do (log "No explainers. Attempting to get more hyps...")
             (if-let [hs (get-another-hyp ws)]
               (recur (reduce add ws hs))
-              (if (or (not (:Learn params)) (:learned ws))
-                (do (log "Can't get more hyps, already learned or learning disabled. Done.")
+              (if-not (:Learn params)
+                (do (log "Can't get more hyps or learning disabled. Done.")
                     (log-final ws []))
                 (do (log "No more hyps. Attempting to learn...")
-                    (if-let [hs (get-learn-hyp ws)]
-                      (recur (assoc (reduce add (reset-workspace ws) hs) :learned false))
-                      (do (log "Nothing to learn. Done.")
-                          (log-final ws [])))))))
+                    (let [ws-learn (get-learn-hyps ws)]
+                      (if (not= (reduce + (map count (vals (:hypotheses ws-learn))))
+                                (reduce + (map count (vals (:hypotheses ws)))))
+                        (recur (reset-workspace ws-learn))
+                        (do (log "Nothing to learn. Done.")
+                            (log-final ws []))))))))
         (let [ws-confs (update-confidences ws explainers)
               explainers-sorted (sort-explainers ws-confs explainers)
               {:keys [best alts essential? delta] :as b}

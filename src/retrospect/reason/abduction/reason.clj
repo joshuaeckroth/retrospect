@@ -31,7 +31,9 @@
                                 :ProbPerturb [25 [25]]
                                 :UseScores [true [true]]
                                 :Learn [true [true]]
-                                :ConfAdjustment ["max" ["min" "max" "avg"]]
+                                :ContrastPreference ["delta" ["delta" "arbitrary"]]
+                                :HypPreference ["abd" ["abd" "arbitrary"]]
+                                :ConfAdjustment ["max" ["min" "max" "avg" "none"]]
                                 :NormalizeSubtype [true [true false]]}
                                (:default-params (:abduction @problem))))
    :init-workspace-fn init-workspace
