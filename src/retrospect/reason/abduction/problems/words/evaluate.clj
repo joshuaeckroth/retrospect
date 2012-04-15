@@ -38,7 +38,9 @@
 
 (defmethod hyps-equal? :sensor
   [hyp1 hyp2]
-  (and (= (:type hyp1) (:type hyp2)) (= (:symbol hyp1) (:symbol hyp2))))
+  (and (= (:type hyp1) (:type hyp2))
+       (= (:pos hyp1) (:pos hyp2))
+       (= (:symbol hyp1) (:symbol hyp2))))
 
 (defmethod hyps-equal? :word
   [hyp1 hyp2]

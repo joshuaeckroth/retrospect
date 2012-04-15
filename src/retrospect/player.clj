@@ -8,7 +8,7 @@
   (:use [clj-swing.button])
   (:use [clj-swing.combo-box])
   (:use [clj-swing.text-field])
-  (:use [retrospect.problem
+  (:use [retrospect.simulate
          :only [run-simulation-step merge-default-params get-default-params init-ors]])
   (:use [retrospect.state])
   (:use [retrospect.gui.eptree :only [ep-tree-tab update-ep-tree]])

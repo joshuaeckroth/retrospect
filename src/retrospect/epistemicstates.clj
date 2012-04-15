@@ -1,5 +1,4 @@
 (ns retrospect.epistemicstates
-  (:use [retrospect.confidences])
   (:require [clojure.zip :as zip])
   (:require [clojure.set :as set])
   (:require [vijual :as vijual])
@@ -20,7 +19,7 @@
     [id children time workspace]
   Object
   (toString [_]
-    (format "%s %d %s" id time (conf-str (:conf workspace)))))
+    (format "%s %d %.2f/%.2f" id time (:doubt workspace) (:coverage workspace))))
 
 (defrecord RootNode [children workspace])
 

@@ -1,6 +1,5 @@
 (ns retrospect.reason.abduction.workspace
   (:import (misc AlphanumComparator))
-  (:use [retrospect.confidences])
   (:require [clojure.set :as set])
   (:require [clojure.string :as str])
   (:use [loom.io :only [dot-str]])
@@ -246,33 +245,36 @@
 
 (defn add
   [workspace hyp]
-  (let [g-added (reduce (fn [g n] (-> g (add-nodes n)
-                                      (add-attr n :id (:id n))
-                                      (add-attr n :label (:id n))))
-                        (:graph workspace)
-                        (conj (:explains hyp) hyp))
-        g-edges (reduce (fn [g e] (add-edges g [hyp e]))
-                        g-added (:explains hyp))
-        ws-needs-explainer (if-not (:needs-explainer? hyp) workspace
-                                   (assoc-in workspace [:active-explainers hyp] #{}))
-        ws-explainers (-> ws-needs-explainer
-                          (update-in [:added] conj hyp)
-                          (add-explainers hyp)
-                          (assoc :graph g-edges)
-                          (assoc-in [:hyp-confidences hyp]
-                                    (cond (= "min" (:ConfAdjustment params))
-                                          1.0
-                                          (= "max" (:ConfAdjustment params))
-                                          0.0
-                                          (or (= "avg" (:ConfAdjustment params))
-                                              (= "none" (:ConfAdjustment params)))
-                                          (:apriori hyp)
-                                          :else 0.0))
-                          (update-in [:hypotheses (:type hyp)] conj hyp))
-        conflicts (find-conflicts-selected ws-explainers hyp
-                                           (apply concat (vals (:accepted ws-explainers))))]
-    (if (empty? conflicts) ws-explainers
-        (reject-many ws-explainers [hyp]))))
+  (if (some (partial (:hyps-equal?-fn (:abduction @problem)) hyp)
+            (get (:hypotheses workspace) (:type hyp)))
+    workspace
+    (let [g-added (reduce (fn [g n] (-> g (add-nodes n)
+                                        (add-attr n :id (:id n))
+                                        (add-attr n :label (:id n))))
+                          (:graph workspace)
+                          (conj (:explains hyp) hyp))
+          g-edges (reduce (fn [g e] (add-edges g [hyp e]))
+                          g-added (:explains hyp))
+          ws-needs-explainer (if-not (:needs-explainer? hyp) workspace
+                                     (assoc-in workspace [:active-explainers hyp] #{}))
+          ws-explainers (-> ws-needs-explainer
+                            (update-in [:added] conj hyp)
+                            (add-explainers hyp)
+                            (assoc :graph g-edges)
+                            (assoc-in [:hyp-confidences hyp]
+                                      (cond (= "min" (:ConfAdjustment params))
+                                            1.0
+                                            (= "max" (:ConfAdjustment params))
+                                            0.0
+                                            (or (= "avg" (:ConfAdjustment params))
+                                                (= "none" (:ConfAdjustment params)))
+                                            (:apriori hyp)
+                                            :else 0.0))
+                            (update-in [:hypotheses (:type hyp)] conj hyp))
+          conflicts (find-conflicts-selected ws-explainers hyp
+                                             (apply concat (vals (:accepted ws-explainers))))]
+      (if (empty? conflicts) ws-explainers
+          (reject-many ws-explainers [hyp])))))
 
 (defn accept
   [workspace hyp alts]
@@ -305,12 +307,15 @@
 
 (defn add-fact
   [workspace hyp]
-  (-> (add workspace hyp)
-      (update-in [:forced] conj hyp)
-      (update-in [:accepted (:type hyp)] conj hyp)
-      (update-in [:needs-explainer] conj hyp)
-      (update-in [:graph] add-attr hyp :fontcolor "gray50")
-      (update-in [:graph] add-attr hyp :color "gray50")))
+  (if (some (partial (:hyps-equal?-fn (:abduction @problem)) hyp)
+            (get (:hypotheses workspace) (:type hyp)))
+    workspace
+    (-> (add workspace hyp)
+        (update-in [:forced] conj hyp)
+        (update-in [:accepted (:type hyp)] conj hyp)
+        (update-in [:needs-explainer] conj hyp)
+        (update-in [:graph] add-attr hyp :fontcolor "gray50")
+        (update-in [:graph] add-attr hyp :color "gray50"))))
 
 (defn get-unexp-pct
   "Only measure unexplained \"needs-explainer\" hyps."
@@ -426,20 +431,29 @@
                                      (concat expl (or es [])))))))]
          (when (not-empty hyps) hyps)))))
 
-(comment (:needs-explainer workspace))
+(defn get-learn-hyps-input
+  [workspace]
+  (sort-by :id (AlphanumComparator.)
+           (cond (= "noexp" (:LearnVia params))
+                 (find-no-explainers workspace)
+                 (= "unexp" (:LearnVia params))
+                 (:needs-explainer workspace)
+                 :else
+                 (:needs-explainer workspace))))
 
 (defn get-learn-hyps
   [workspace]
-  (let [hs (sort-by :id (AlphanumComparator.) (find-no-explainers workspace))]
-    (log "Getting learning hyps for noexp" (str/join "," (map :id hs)))
-    (if (empty? hs) workspace
+  (loop [ws workspace
+         hs (get-learn-hyps-input ws)]
+    (log "Getting learning hyps for " (str/join "," (map :id hs)))
+    (if (empty? hs) ws
         (do (log "Trying to get a learn explainer for" (str (first hs)))
             (let [es ((:learn-fn (:abduction @problem))
-                      (first hs) hs (:hypotheses workspace))]
+                      (first hs) hs (:hypotheses ws))]
               (log "Got:" (str/join "," (map str es)))
               (if (not-empty es)
-                (recur (reduce add workspace es))
-                workspace))))))
+                (recur (reduce add ws es) (get-learn-hyps-input ws))
+                (recur ws (rest hs))))))))
 
 (defn need-more-hyps?
   [workspace]

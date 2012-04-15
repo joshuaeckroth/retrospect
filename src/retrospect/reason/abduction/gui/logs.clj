@@ -14,7 +14,6 @@
   (:use [retrospect.epistemicstates :only
          [cur-ep flatten-est]])
   #_(:use [retrospect.reason.abduction.robustness :only [analyze-dependency]])
-  (:use [retrospect.confidences])
   (:use [retrospect.logging])
   (:use [retrospect.state]))
 
@@ -80,8 +79,8 @@
             (str/join ", " (map #(format "[%s]" %)
                                 (map #(str/join ", " (sort-by :id (AlphanumComparator.) %)) explainers)))
             (str/join ", " (sort-by :id (AlphanumComparator.) (ws/find-conflicts workspace hyp)))
-            (conf-str (:apriori hyp))
-            (conf-str (ws/hyp-conf workspace hyp))
+            (format "%.2f" (:apriori hyp))
+            (format "%.2f" (ws/hyp-conf workspace hyp))
             (if ((:true-hyp?-fn (:abduction @problem)) @truedata time hyp) "True" "False")
             (str/join "\n" (ws/hyp-log workspace hyp)))))
 

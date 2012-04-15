@@ -10,7 +10,7 @@
   (:use [clj-swing.combo-box])
   (:use [clj-swing.text-field])
   (:use [retrospect.random :only [rgen new-seed my-rand-nth my-rand-int my-rand]])
-  (:use [retrospect.problem :only [get-default-params-ranges run-simulation init-ors]])
+  (:use [retrospect.simulate :only [get-default-params-ranges run-simulation init-ors]])
   (:use [retrospect.gui.results :only [update-results results-tab]])
   (:use [retrospect.state]))
 

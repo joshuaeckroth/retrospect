@@ -4,7 +4,7 @@
   (:use [clojure.stacktrace :only [print-cause-trace]])
   (:require [clojure.string :as str])
   (:require [clojure.contrib.math :as math])
-  (:use [retrospect.problem :only [run]])
+  (:use [retrospect.simulate :only [run]])
   (:use [retrospect.random])
   (:require [retrospect.database :as db])
   (:use [retrospect.state]))

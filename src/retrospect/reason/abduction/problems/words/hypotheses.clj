@@ -171,27 +171,52 @@
         (let [symbol-tendencies (:symbol-tendencies kb)
               tendencies (map (fn [i]
                                 (let [sym (nth word i)
-                                      occur (double (get (:occur symbol-tendencies) sym 1.0))
-                                      get-pos (fn [pos] (get (pos symbol-tendencies) sym))]
-                                  (cond (= i 0)
-                                        (/ (double (or (get-pos :front) 1.0)) occur)
-                                        (= i (dec (count word)))
-                                        (/ (double (or (get-pos :back) 1.0)) occur)
-                                        :else
-                                        (/ (double (or (get-pos :middle) 1.0)) occur))))
-                              (range (count word)))]
+                                      get-pos (fn [pos] (double (get (pos symbol-tendencies) sym 0.0)))]
+                                  (if-let [occur (get (:occur symbol-tendencies) sym)]
+                                    (cond (= i 0)
+                                          (/ (get-pos :front) (double occur))
+                                          (= i (dec (count word)))
+                                          (/ (get-pos :back) (double occur))
+                                          :else
+                                          (/ (get-pos :middle) (double occur))))))
+                              (range (count word)))
+              tendencies-no-nil (filter identity tendencies)]
           (cond (= "mult" (:TendencyReduction params))
-                (reduce * tendencies)
+                (reduce * tendencies-no-nil)
                 (= "opp" (:TendencyReduction params))
-                (- 1.0 (reduce * (map #(- 1.0 %) tendencies)))
+                (- 1.0 (reduce * (map #(- 1.0 %) tendencies-no-nil)))
                 (= "avg" (:TendencyReduction params))
-                (/ (reduce + tendencies) (double (count tendencies)))
+                (/ (reduce + tendencies-no-nil) (double (count tendencies-no-nil)))
                 (= "min" (:TendencyReduction params))
-                (apply min tendencies)
+                (apply min tendencies-no-nil)
                 (= "max" (:TendencyReduction params))
-                (apply max tendencies)
+                (apply max tendencies-no-nil)
                 :else
-                (reduce * tendencies)))))
+                (reduce * tendencies-no-nil)))))
+
+(defn score-learned-word
+  [kb word]
+  (prof :score-learned-word
+        (let [avg-word-length (:avg-word-length kb)
+              symbol-tendencies (:symbol-tendencies kb)
+              tendency (word-metrics kb word)
+              length-diff (Math/abs (double (- avg-word-length (count word))))
+              length-diff-pct (/ length-diff avg-word-length)
+              calc (/ (- tendency length-diff-pct) (+ tendency length-diff-pct))
+              ;; in R:
+              ;;   library(MASS)
+              ;;   fitdistr(subset(d, V0 > 0), "normal")
+              mean-true 0.238622170
+              sd-true 0.343971720
+              mean-false -0.4736185783
+              sd-false 0.4623790242
+              pdf-true (* (/ 1.0 (* sd-true (Math/sqrt (* 2 Math/PI))))
+                          (Math/exp (- (/ (Math/pow (- calc mean-true) 2.0)
+                                          (* 2.0 sd-true sd-true)))))
+              pdf-false (* (/ 1.0 (* sd-false (Math/sqrt (* 2 Math/PI))))
+                           (Math/exp (- (/ (Math/pow (- calc mean-false) 2.0)
+                                           (* 2.0 sd-false sd-false)))))]
+          (/ pdf-true (+ pdf-true pdf-false)))))
 
 (defmethod hypothesize :sensor
   [evidence accepted rejected hyps]
@@ -331,7 +356,13 @@
             (let [pos-seq (map :pos expl)
                   tendency (word-metrics kb word)]
               [(new-hyp "LearnedWord" :word :learned-word false conflicts
-                        tendency expl [] word
+                        (cond (= (:LearnApriori params) "tendency")
+                              tendency
+                              (= (:LearnApriori params) "gauss")
+                              (score-learned-word kb word)
+                              :else
+                              tendency)
+                        expl [] word
                         (format (str "Learned word: \"%s\" (pos %d-%d)\nTendency %.2f\n"
                                      "\nTo explain: %s")
                                 word (first pos-seq) (last pos-seq) tendency
@@ -384,8 +415,8 @@
                                            (when (not-empty right)
                                              (with-meta (conj expl (first right))
                                                {:left left :right (rest right)}))]))))]
-          (set (tree-seq branch? children
-                         (with-meta [evidence] {:left left :right right}))))))
+          (sort-by count (set (tree-seq branch? children
+                                        (with-meta [evidence] {:left left :right right})))))))
 
 (defmethod learn :word
   [evidence noexp hyps]
@@ -405,8 +436,13 @@
                                                    (concat hs (get hyps :word)))
                                          (nil? (get (get (:models kb) 1) [word]))))
                               (let [tendency (word-metrics kb word)
-                                    hyp (new-hyp "LWWord" :word :learned-word true conflicts
-                                                 tendency
+                                    hyp (new-hyp "LWWord" :word :learned-word false conflicts
+                                                 (cond (= (:LearnApriori params) "tendency")
+                                                       tendency
+                                                       (= (:LearnApriori params) "gauss")
+                                                       (score-learned-word kb word)
+                                                       :else
+                                                       tendency)
                                                  (mapcat :explains expl) [] word
                                                  (format (str "Learned word from existing words: \"%s\" (pos %d-%d)"
                                                               "\nTendency: %.2f\n"
@@ -416,21 +452,5 @@
                                                          tendency evidence (str/join ", " expl))
                                                  {:word word :pos-seq (mapcat :pos-seq expl)
                                                   :tendency tendency})]
-                                (recur (rest es) (conj hs hyp)))
-                              (prof :hlwseq-cond2
-                                    (and (nil? (get (get (:models kb) (count expl)) (map :word expl)))
-                                         (not-any? (fn [h] (hyps-equal? h {:type :word-seq
-                                                                           :pos-seqs (map :pos-seq expl)
-                                                                           :words (map :word expl)}))
-                                                   (concat hs (get hyps :word-seq)))))
-                              (let [hyp (new-hyp "LWordSeq" :word-seq :learned-word-seq false conflicts
-                                                 0.0 expl [] (str/join " " (map :word expl))
-                                                 (format (str "Learned word sequence: \"%s\" (pos %d-%d)"
-                                                              "\nTo explain: %s\nEntire sequence: %s")
-                                                         (str/join " " (map :word expl))
-                                                         (first (:pos-seq (first expl)))
-                                                         (last (:pos-seq (last expl)))
-                                                         evidence (str/join "; " expl))
-                                                 {:words (map :word expl) :pos-seqs (map :pos-seq expl)})]
                                 (recur (rest es) (conj hs hyp)))
                               :else (recur (rest es) hs)))))))))

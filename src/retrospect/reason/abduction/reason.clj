@@ -23,18 +23,17 @@
    :default-params-fn (fn []
                         (merge {:Knowledge [80 [80]]
                                 :BelievedKnowledge [80 [80]]
-                                :Metareasoning ["NoMetareasoning" ["NoMetareasoning"]]
                                 :Threshold [0 [0]]
                                 :DoubtThreshold [1000 [1000]]
                                 :AnalyzeSensitivity [false [false]]
                                 :AnalyzeDeps [false [false]]
                                 :ProbPerturb [25 [25]]
                                 :UseScores [true [true]]
-                                :Learn [true [true]]
+                                :LearnVia ["unexp" ["unexp" "noexp"]]
                                 :ContrastPreference ["delta" ["delta" "arbitrary"]]
                                 :HypPreference ["abd" ["abd" "arbitrary"]]
                                 :ConfAdjustment ["max" ["min" "max" "avg" "none"]]
-                                :NormalizeSubtype [true [true false]]}
+                                :NormalizeSubtype [false [true false]]}
                                (:default-params (:abduction @problem))))
    :init-workspace-fn init-workspace
    :init-kb-fn init-kb

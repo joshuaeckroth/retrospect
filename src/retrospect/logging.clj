@@ -6,5 +6,5 @@
 (defn log
   [& objs]
   #_(apply println objs)
-  #_(when (not @batch)
-      (def reason-log (str reason-log "\n" (apply str (interpose " " (map str objs)))))))
+  (when (not @batch)
+    (def reason-log (str reason-log "\n" (apply str (interpose " " (map str objs)))))))
