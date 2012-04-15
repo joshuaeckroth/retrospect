@@ -208,6 +208,7 @@
 
 (defn player-get-problem-log
   []
-  (let [movs (get (:accepted (:workspace (cur-ep (:est @or-state)))) :movement)
+  (let [movs (sort-by :id (AlphanumComparator.)
+                      (get (:accepted (:workspace (cur-ep (:est @or-state)))) :movement))
         lines (fn [ss] (apply str (interpose "\n" ss)))]
     (format "Believed movements:\n%s" (lines (map str movs)))))

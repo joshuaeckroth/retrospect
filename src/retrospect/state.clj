@@ -12,7 +12,8 @@
 (defn set-last-id
   [n]
   (if (or (= "AWT-EventQueue-0" (. (Thread/currentThread) getName))
-          (= "Thread-1" (. (Thread/currentThread) getName))) 
+          (= "Thread-1" (. (Thread/currentThread) getName))
+          (= "Swank REPL Thread" (. (Thread/currentThread) getName)))
     (def last-id n)
     (var-set (var last-id) n)))
 
