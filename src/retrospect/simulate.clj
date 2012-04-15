@@ -56,21 +56,21 @@
   [truedata est time-prev time-now sensors]
   (if (not ((:metareasoning-activated?-fn @reason) est)) est
       (let [m (:Metareasoning params)
-            f (cond (= "BatchBeginning" m)
+            f (cond (= "batchbeg" m)
                     (partial meta-batch nil)
-                    (= "Batch1" m)
+                    (= "batch1" m)
                     (partial meta-batch 1)
-                    (= "Batch2" m)
+                    (= "batch2" m)
                     (partial meta-batch 2)
-                    (= "Batch3" m)
+                    (= "batch3" m)
                     (partial meta-batch 3)
-                    (= "Batch4" m)
+                    (= "batch4" m)
                     (partial meta-batch 4)
-                    (= "Batch5" m)
+                    (= "batch5" m)
                     (partial meta-batch 5)
-                    (= "LowerThreshold" m)
+                    (= "lowerthresh" m)
                     meta-lower-threshold
-                    (= "Learn" m)
+                    (= "learn" m)
                     meta-learn
                     :else (constantly est))]
         (f truedata est time-prev time-now sensors))))
