@@ -48,10 +48,14 @@
 
 (defn conflicts [h1 h2]
   (and (= :movement (:type h1) (:type h2))
-       (or (= (:x (:det h1)) (:x (:det2 h2)))
-           (= (:x (:det2 h1)) (:x (:det h2))))
-       (or (= (:y (:det h1)) (:y (:det2 h2)))
-           (= (:y (:det2 h1)) (:y (:det h2))))
+       (or (and (= (:x (:det h1)) (:x (:det2 h2)))
+                (= (:time (:det h1)) (:time (:det2 h2))))
+           (and (= (:x (:det2 h1)) (:x (:det h2)))
+                (= (:time (:det2 h1)) (:time (:det h2)))))
+       (or (and (= (:y (:det h1)) (:y (:det2 h2)))
+                (= (:time (:det h1)) (:time (:det2 h2))))
+           (and (= (:y (:det2 h1)) (:y (:det h2)))
+                (= (:time (:det2 h1)) (:time (:det h2)))))
        (or (not= (:color (:det2 h1)) (:color (:det h2)))
            (not= (:color (:det h1)) (:color (:det2 h2))))))
 
