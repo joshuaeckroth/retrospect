@@ -28,6 +28,7 @@
         test-shuffled (my-shuffle test)
         [training-dict test-dict] (map (fn [sents] (set (apply concat sents)))
                                        [training test-shuffled])
+        training-symbols (set (apply concat training-dict))
         ;; TODO: handle noise
         ambiguous (map #(apply str %) test-shuffled)]
     (comment
@@ -37,7 +38,7 @@
                                    {}
                                    (filter (fn [w] (not (training-dict w)))
                                            (apply concat test-shuffled)))))))
-    {:training [training training-dict]
+    {:training [training training-dict training-symbols]
      :test (zipmap (range (count ambiguous)) ambiguous)
      :test-sentences test-shuffled
      :test-dict test-dict}))

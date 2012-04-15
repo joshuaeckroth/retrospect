@@ -81,7 +81,7 @@
                             (clojure.java.io/reader
                              (format "%s/words/kb-%s-%d.clj" @datadir
                                      (:Dataset params) (:MaxModelGrams params))))]
-               (read r))
+               (assoc (read r) :max-word-length (apply max (map count training-dict))))
              (catch Exception _
                (let [models (build-markov-models training)
                      model-sums (reduce (fn [m-s n]
@@ -96,9 +96,11 @@
                                                             m (seq w)))
                                           {} training-dict)
                      symbol-tendencies (build-symbol-tendencies training)
+                     dict-counts (map count training-dict)
                      kb {:avg-word-length (if (empty? training-dict) 0
-                                              (double (/ (reduce + (map count training-dict))
+                                              (double (/ (reduce + dict-counts)
                                                          (count training-dict))))
+                         :max-word-length (apply max dict-counts)
                          :dictionary training-dict
                          :models models
                          :model-sums model-sums
@@ -126,44 +128,8 @@
         (and (= w (:word h))
              (= (:pos-seq h) pos-seq))))
 
-(def cache (ref nil))
-
 (defn reset
-  [] (dosync (alter cache (constantly nil))))
-
-(defn update-cache
-  [hyps]
-  (prof :update-cache
-        (let [kb (get-kb hyps)
-              sensor-hyps (vec (sort-by :pos (get hyps :sensor)))
-              sensor-str (apply str (map :symbol sensor-hyps))
-              words (set (mapcat (fn [sym] (get (:symbol-words kb) sym)) (seq sensor-str)))
-              word-positions (mapcat (fn [w]
-                                       (let [matcher (re-matcher
-                                                      (re-pattern (format "(%s)" (Pattern/quote w)))
-                                                      sensor-str)]
-                                         (loop [matches []]
-                                           (if (re-find matcher)
-                                             (recur (conj matches
-                                                          (subvec sensor-hyps (.start matcher 1)
-                                                                  (+ (.start matcher 1) (count w)))))
-                                             matches))))
-                                     words)]
-          (dosync (alter cache (constantly word-positions))))))
-
-(defn find-word
-  [evidence other-hyps]
-  (prof :find-word
-        (let [matches-near-evidence (prof :matches-near-evidence
-                                          (filter #(and (<= (:pos (first %)) (:pos evidence))
-                                                        (>= (:pos (last %)) (:pos evidence)))
-                                                  @cache))]
-          (prof :find-word-filter
-                (filter (fn [sensor-hyps]
-                          (not-any? #(same-word-hyp (map :pos sensor-hyps)
-                                                    (apply str (map :symbol sensor-hyps)) %)
-                                    other-hyps))
-                        matches-near-evidence)))))
+  [])
 
 (defn word-metrics
   [kb word]
@@ -219,18 +185,33 @@
                                            (* 2.0 sd-false sd-false)))))]
           (/ pdf-true (+ pdf-true pdf-false)))))
 
+(defn find-word
+  [evidence left-sens right-sens kb]
+  (prof :find-word
+        (let [max-word-length (:max-word-length kb)
+              unigram-model (get (:models kb) 1)
+              sens-groups (mapcat (fn [left-n]
+                                    (map (fn [right-n]
+                                           (concat (take-last left-n left-sens)
+                                                   [evidence]
+                                                   (take right-n right-sens)))
+                                         (range (- max-word-length left-n))))
+                                  (range (dec max-word-length)))]
+          (prof :find-word-filter
+                (filter #(get unigram-model [(apply str (map :symbol %))]) sens-groups)))))
+
 (defmethod hypothesize :sensor
   [evidence accepted rejected hyps]
-  (when (nil? @cache) (update-cache hyps))
   (prof :hyp-word
-        (let [other-hyps (concat (get hyps :word) (get hyps :word-seq))
+        (let [kb (get-kb hyps)
               sensor-hyps (sort-by :pos (get hyps :sensor))
-              left-syms (apply str (map :symbol (filter #(< (:pos %) (:pos evidence)) sensor-hyps)))
-              right-syms (apply str (map :symbol (filter #(> (:pos %) (:pos evidence)) sensor-hyps)))]
-          (let [expls (find-word evidence other-hyps)]
+              left-sens (filter #(< (:pos %) (:pos evidence)) sensor-hyps)
+              right-sens (filter #(> (:pos %) (:pos evidence)) sensor-hyps)
+              left-syms (apply str (map :symbol left-sens))
+              right-syms (apply str (map :symbol right-sens))]
+          (let [expls (find-word evidence left-sens right-sens kb)]
             (map (fn [expl]
                    (let [w (apply str (map :symbol expl))
-                         kb (get-kb hyps)
                          tendency (word-metrics kb w)
                          unigram-model (get (:models kb) 1)
                          substrings (:substrings kb)

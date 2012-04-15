@@ -67,7 +67,7 @@
                 (str/join " _ " sentence)
                 (str/join ", " (filter #(not ((second (:training @truedata)) %))
                                        sentence))
-                (str/join ", " (filter #(not ((set (apply concat (second (:training @truedata)))) %))
+                (str/join ", " (filter #(not ((nth (:training @truedata) 2) %))
                                        (apply concat sentence)))))))
 
 (defn player-get-problem-log
