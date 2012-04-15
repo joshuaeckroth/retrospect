@@ -74,8 +74,8 @@
              (count true-movs))))
 
 (defn evaluate
-  [truedata ors]
-  (let [eps (rest (flatten-est (:est ors)))
+  [truedata est]
+  (let [eps (rest (flatten-est est))
         time-now (:time (last eps))
         true-movs (filter #(and (:ot %) (<= (:time %) time-now))
                           (apply concat (vals (:test truedata))))

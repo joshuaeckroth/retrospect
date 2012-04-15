@@ -70,7 +70,8 @@
     (. coverage-label (setText (format "%.2f" (:coverage ws))))
     (. doubt-label (setText (format "%.2f" (:doubt ws)))))
   (dosync
-   (alter ep-list (constantly (sort (list-ep-states (:est @or-state))))))
+   (alter ep-list (constantly (sort (list-ep-states (:est @or-state)))))
+   (alter results (constantly (:results (cur-ep (:est @or-state))))))
   (update-ep-tree)
   ((:update-tabs-fn (:player-fns @reason)))
   (update-results)
@@ -83,7 +84,6 @@
   []
   (let [ors (run-simulation-step @truedata @or-state true)]
     (dosync (alter or-state (constantly ors)))
-    (dosync (alter results conj (last (:results ors))))
     (update-everything)))
 
 (defn next-step

@@ -7,17 +7,7 @@
   (:use [retrospect.evaluate :only [calc-increase]])
   (:use [retrospect.reason.abduction.workspace
          :only [get-unexp-pct get-noexp-pct hyp-conf]])
-  #_(:use [retrospect.reason.abduction.robustness
-         :only [analyze-sensitivity analyze-dependency-quick]])
   (:use [retrospect.state]))
-
-(comment
- (defn calc-deepest-dep
-   [depgraph]
-   (let [starts (filter #(empty? (incoming depgraph %)) (nodes depgraph))
-         paths (mapcat #(dijkstra-span (partial neighbors depgraph)
-                                       (constantly 1) %) starts)]
-     (apply max 0 (mapcat (comp vals second) paths)))))
 
 (defn group-hyps-by-subtype-true-false
   [truedata workspace time true-hyp?]
@@ -68,82 +58,27 @@
                   (avg (get (get apriori t) false)))))
             {} (keys true-false))))
 
-(comment
-  (defn calc-avg-true-false-deps
-    [or-state true-false]
-    (let [depgraph (:depgraph (:ep-state or-state))
-          starts (apply concat (mapcat vals (vals true-false)))
-          tf-counts (map (fn [[subtype tf]]
-                           (let [hyps (get (get true-false subtype) tf)
-                                 deps (set (map first
-                                                (mapcat #(analyze-dependency-quick
-                                                          or-state % starts)
-                                                        hyps)))]
-                             [subtype tf (if (empty? hyps) 0.0
-                                             (double (/ (count deps) (count hyps))))]))
-                         (mapcat (fn [subtype] (map (fn [tf] [subtype tf])
-                                                    (keys (get true-false subtype))))
-                                 (keys true-false)))]
-      (reduce (fn [m [subtype tf avg]]
-                (let [k (keyword (format "Avg%sDeps%s" (str/capitalize (str tf))
-                                         (apply str (map str/capitalize
-                                                         (str/split (name subtype) #"-")))))]
-                  (assoc m k avg))) {} tf-counts))))
-
 (defn evaluate
-  [truedata ors]
-  (let [ep (cur-ep (:est ors))
+  [truedata est]
+  (let [ep (cur-ep est)
         workspace (:workspace ep)
         accepted (:accepted workspace)
         rejected (:rejected workspace)
-        ors-resources (:resources ors)
         true-false (group-hyps-by-subtype-true-false
                     truedata workspace
                     (:time ep) (:true-hyp?-fn (:abduction @problem)))
         true-false-confs (calc-true-false-confs workspace true-false)]
-    (update-in
-     ors [:results] conj
-     (merge {:Problem (:name @problem)}
-            params
-            ((:evaluate-fn (:abduction @problem)) truedata ors)
-            true-false-confs
-            #_(if (:AnalyzeSensitivity params)
-                (analyze-sensitivity ors true-false)
-                (reduce
-                 (fn [m tf]
-                   (reduce (fn [m2 k] (assoc m2 k 0))
-                           m (map #(keyword
-                                    (format "Avg%s%s" tf
-                                            (apply str
-                                                   (map str/capitalize
-                                                        (str/split (name %) #"-")))))
-                                  (:hyp-subtypes (:abduction @problem)))))
-                 {} ["TrueSensitivity" "FalseSensitivity"]))
-            #_(if (:AnalyzeDeps params)
-                (calc-avg-true-false-deps or-state true-false)
-                (reduce
-                 (fn [m tf]
-                   (reduce (fn [m2 k] (assoc m2 k 0))
-                           m (map #(keyword
-                                    (format "Avg%s%s" tf
-                                            (apply str
-                                                   (map str/capitalize
-                                                        (str/split (name %) #"-")))))
-                                  (:hyp-subtypes @problem))))
-                 {} ["TrueDeps" "FalseDeps"]))
-            {:Step (:time ep)
-             :MetaActivations (:meta-activations ors-resources)
-             :MetaAccepted (:meta-accepted ors-resources)
-             :Milliseconds (:milliseconds ors-resources) 
-             :UnexplainedPct (get-unexp-pct (:workspace ep))
-             :NoExplainersPct (get-noexp-pct (:workspace ep))
-             :Doubt (:doubt (:workspace ep))
-             :Coverage (:coverage (:workspace ep))
-             :ExplainCycles (:cycle workspace)
-             :HypothesisCount (reduce + (map count (vals (:hypotheses workspace))))}))))
-
-(comment              :DeepestDep (if-not (:AnalyzeDeps params) 0
-                                 (calc-deepest-dep (:depgraph ep))))
+    (merge {:Problem (:name @problem)}
+           params
+           ((:evaluate-fn (:abduction @problem)) truedata est)
+           true-false-confs
+           {:Step (:time ep)
+            :UnexplainedPct (get-unexp-pct (:workspace ep))
+            :NoExplainersPct (get-noexp-pct (:workspace ep))
+            :Doubt (:doubt (:workspace ep))
+            :Coverage (:coverage (:workspace ep))
+            :ExplainCycles (:cycle workspace)
+            :HypothesisCount (reduce + (map count (vals (:hypotheses workspace))))})))
 
 (defn prefix-params
   [prefix params]
@@ -162,10 +97,8 @@
                    ((:evaluate-comp-fn (:abduction @problem)) control comparison
                     control-params comparison-params)
                    (map #(calc-increase control comparison %)
-                        (concat [:MetaActivations :MetaAccepted :Milliseconds
-                                 :UnexplainedPct :NoExplainersPct
-                                 :Doubt :Coverage
-                                 :ExplainCycles :HypothesisCount :DeepestDep]
+                        (concat [:UnexplainedPct :NoExplainersPct
+                                 :Doubt :Coverage :ExplainCycles :HypothesisCount]
                                 (mapcat
                                  (fn [tf]
                                    (map #(keyword
@@ -175,9 +108,7 @@
                                                               (str/split (name %) #"-")))))
                                         (:hyp-subtypes @problem)))
                                  ["TrueConf" "TrueApriori"
-                                  "FalseConf" "FalseApriori"
-                                  "TrueDeps" "FalseDeps"
-                                  "TrueSensitivity" "FalseSensitivity"])))))]
+                                  "FalseConf" "FalseApriori"])))))]
     ;; if control/comparison have different number of results
     ;; (different steps between or steps), then just use the last
     ;; result set

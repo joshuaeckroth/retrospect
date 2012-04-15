@@ -59,8 +59,8 @@
   (map :word (sort-by (comp first :pos-seq) (get accepted :word))))
 
 (defn evaluate
-  [truedata ors]
-  (let [eps (rest (ep-path (:est ors)))
+  [truedata est]
+  (let [eps (rest (ep-path est))
         time-now (:time (last eps))
         believed (map (fn [ep] (get-history (:accepted (:workspace ep)))) eps)
         sentences (map (fn [i] (nth (:test-sentences truedata) i)) (range time-now))

@@ -33,9 +33,9 @@
 
 (defn player-update-stats
   []
-  (if (> @time-now 0)
-    (let [t (int (/ (dec @time-now) (:StepsBetween params)))
-          results (get (:results @or-state) t)]
+  
+  (if-let [results (last (:results (cur-ep (:est @or-state))))]
+    (do
       (. fscore-label (setText (format "%.2f" (:FScore results))))
       (. oovrecall-label (setText (format "%.2f" (:OOVRecall results))))
       (. noexp-label (setText (format "%.2f" (:NoExplainersPct results)))))
