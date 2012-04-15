@@ -18,4 +18,4 @@
 
 (defn workspace-compare
   [ws1 ws2]
-  1)
+  -1)
