@@ -12,8 +12,10 @@
           (> 0.90 (:coverage workspace))
           (< 0.10 (:doubt workspace)))))
 
+(comment (let [comp-cov (- (compare (:coverage ws1) (:coverage ws2)))]
+           (if (not= 0 comp-cov) comp-cov
+               (compare (:doubt ws1) (:doubt ws2)))))
+
 (defn workspace-compare
   [ws1 ws2]
-  (let [comp-cov (- (compare (:coverage ws1) (:coverage ws2)))]
-    (if (not= 0 comp-cov) comp-cov
-        (compare (:doubt ws1) (:doubt ws2)))))
+  1)
