@@ -66,13 +66,6 @@
              (double (/ (+ true-pos true-neg)
                         (+ true-neg true-pos false-neg false-pos))))])))
 
-(defn id-correct
-  [true-movs entities maxtime]
-  (double (/ (count (filter (fn [e] (dets-match? (last (get entities e))
-                                                 (nth (get true-movs e) maxtime)))
-                            (keys true-movs)))
-             (count true-movs))))
-
 (defn evaluate
   [truedata est]
   (let [eps (rest (flatten-est est))
@@ -94,8 +87,7 @@
      :TP tp
      :TN tn
      :FP fp
-     :FN fn
-     :ID (id-correct (:test truedata) [] time-now)}))
+     :FN fn}))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]

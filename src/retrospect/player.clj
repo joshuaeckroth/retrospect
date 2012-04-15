@@ -67,8 +67,10 @@
      (alter time-prev (constantly time-p)))
     (. steplabel (setText (format "Step: %d->%d" @time-prev @time-now))))
   (let [ws (:workspace (cur-ep (:est @or-state)))]
-    (. coverage-label (setText (format "%.2f" (:coverage ws))))
-    (. doubt-label (setText (format "%.2f" (:doubt ws)))))
+    (if (:coverage ws) (. coverage-label (setText (format "%.2f" (:coverage ws))))
+        (. coverage-label (setText "N/A")))
+    (if (:doubt ws) (. doubt-label (setText (format "%.2f" (:doubt ws))))
+        (. doubt-label (setText "N/A"))))
   (dosync
    (alter ep-list (constantly (sort (list-ep-states (:est @or-state)))))
    (alter results (constantly (:results (cur-ep (:est @or-state))))))
@@ -220,7 +222,7 @@
           :gridx 2
           _ doubt-label
 
-          :gridx 1 :gridy 10
+          :gridx 1 :gridy 10 :insets (Insets. 0 0 0 0)
           _ ((:get-stats-panel-fn (:player-fns @problem)))
 
           :gridy 11 :weighty 1.0

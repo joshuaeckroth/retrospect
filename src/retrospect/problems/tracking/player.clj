@@ -29,7 +29,6 @@
 (def percent-events-correct-label (label ""))
 (def percent-events-wrong-label (label ""))
 (def accuracy-label (label ""))
-(def idcorrect-label (label ""))
 (def noexp-label (label ""))
 (def mouse-xy (label "Grid ?, ?"))
 
@@ -159,7 +158,7 @@
   (panel :layout (GridBagLayout.)
          :constrains (java.awt.GridBagConstraints.)
          [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0
-          :fill :BOTH :insets (Insets. 5 0 5 0)
+          :fill :BOTH :insets (Insets. 5 5 5 5)
           _ (label "PEC:")
           :gridx 1
           _ percent-events-correct-label
@@ -172,32 +171,25 @@
           :gridx 1
           _ accuracy-label
           :gridx 0 :gridy 3
-          _ (label "IDCorrect:")
-          :gridx 1
-          _ idcorrect-label
-          :gridx 0 :gridy 4
           _ (label "NoExplainers:")
           :gridx 1
           _ noexp-label
-          :gridx 0 :gridy 5
+          :gridx 0 :gridy 4
           _ mouse-xy]))
 
 (defn player-update-stats
   []
-  (if (> @time-now 0)
-    (let [t (int (/ @time-now (:StepsBetween params)))
-          results (get (:results @or-state) (dec t))]
+  (if-let [results (last (:results (cur-ep (:est @or-state))))]
+    (do
       (. percent-events-correct-label (setText (format "%.2f" (:PEC results))))
       (. percent-events-wrong-label (setText (format "%.2f" (:PEW results))))
       (. accuracy-label (setText (format "%.2f" (:Acc results))))
-      (. idcorrect-label (setText (format "%.2f" (:IDCorrect results))))
       (. accuracy-label (setText (format "%.2f" (:Acc results))))
       (. noexp-label (setText (format "%.2f" (:NoExplainersPct results)))))
     (do
       (. percent-events-correct-label (setText "N/A"))
       (. percent-events-wrong-label (setText "N/A"))
       (. accuracy-label (setText "N/A"))
-      (. idcorrect-label (setText "N/A"))
       (. noexp-label (setText "N/A")))))
 
 (defn player-get-truedata-log
