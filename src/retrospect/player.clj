@@ -157,7 +157,7 @@
   (frame :title "Player"
          :layout (GridBagLayout.)
          :constrains (java.awt.GridBagConstraints.)
-         :size [800 600]
+         :size [1000 700]
          :show true
          :on-close :exit
          [:gridx 0 :gridy 0 :gridheight 13 :weightx 1.0 :weighty 1.0
@@ -174,7 +174,7 @@
                 (.setSelectedIndex 0))
               tabs)
 
-          :gridx 1 :gridy 0 :gridheight 1 :gridwidth 2 :weightx 0.0 :weighty 0.0
+          :gridx 1 :gridy 0 :gridheight 1 :gridwidth 2 :weightx 0.05 :weighty 0.0
           _ (combo-box
              [] :model (seq-ref-combobox-model
                         (ref (concat ["None"] (keys (:prepared-map @problem))))
@@ -182,7 +182,7 @@
           :gridx 1 :gridy 1
           _ (button "Set prepared" :action ([_] (set-prepared-action)))
 
-          :gridx 1 :gridy 2 :weighty 1.75
+          :gridx 1 :gridy 2 :weighty 3.0
           _ (scroll-panel (text-area :str-ref params-edit :editable true
                                      :wrap false :rows 30))
 
