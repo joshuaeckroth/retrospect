@@ -19,7 +19,8 @@
 (defn meta-apply-and-evaluate
   [truedata est new-est time-prev time-now sensors]
   (let [new-ep (cur-ep new-est)
-        new-ws ((:reason-fn @reason) (:workspace new-ep) time-prev time-now sensors)
+        new-ws ((:reason-fn @reason) (when (:Oracle params) truedata)
+                (:workspace new-ep) time-prev time-now sensors)
         new-expl-est (evaluate truedata (update-est new-est (assoc new-ep :workspace new-ws)))]
     (if (> 0 ((:workspace-compare-fn @reason) new-ws (:workspace (cur-ep est))))
       new-expl-est
@@ -103,8 +104,8 @@
                      (do (log "Resetting workspace...")
                          ((:init-workspace-fn @reason) (:workspace ep)))
                      (:workspace ep))
-         ep-reason (assoc ep :workspace ((:reason-fn @reason) workspace
-                                         time-prev time-now sensors))
+         ep-reason (assoc ep :workspace ((:reason-fn @reason) (when (:Oracle params) truedata)
+                                         workspace time-prev time-now sensors))
          est (evaluate truedata (update-est (:est ors-new) ep-reason))
          meta-est (metareason truedata est time-prev time-now sensors)
          ;; stop the clock
@@ -124,7 +125,8 @@
       (recur (run-simulation-step truedata ors false)))))
 
 (def global-default-params
-  {:Metareasoning ["NoMetareasoning" ["NoMetareasoning" "Learn"]]})
+  {:Metareasoning ["NoMetareasoning" ["NoMetareasoning" "Learn"]]
+   :Oracle [false [false]]})
 
 (defn get-default-params-ranges
   []

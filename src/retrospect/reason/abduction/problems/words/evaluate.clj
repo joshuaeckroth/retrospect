@@ -26,10 +26,10 @@
                                                        (conj ws (first sent))
                                                        (rest sent))))]
                          (= hyp-words true-words)))]
-    (when (= :learned-word (:subtype hyp))
-      (with-open [r (java.io.FileWriter. (format "%s/words/learned-words-stats.csv" @datadir) true)]
-        (.write r (format "%d,%f,%f\n" (if result 1 -1)
-                          (:length-diff-pct hyp) (:tendency hyp)))))
+    (comment (when (= :learned-word (:subtype hyp))
+               (with-open [r (java.io.FileWriter. (format "%s/words/learned-words-stats.csv" @datadir) true)]
+                 (.write r (format "%d,%f,%f\n" (if result 1 -1)
+                                   (:length-diff-pct hyp) (:tendency hyp))))))
     result))
 
 (defmulti hyps-equal? (fn [hyp1 hyp2] (:type hyp1)))

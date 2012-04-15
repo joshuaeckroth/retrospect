@@ -28,6 +28,7 @@
 
 (def empty-workspace
   {:graph (digraph)
+   :oracle nil
    :cycle 0
    ;; remember the order hyps were added
    :added []
@@ -72,7 +73,9 @@
 
 (defn hyp-conf
   [workspace hyp]
-  (if-not (:UseScores params) 0.0 (get (:hyp-confidences workspace) hyp)))
+  (if (:UseScores params)
+    (get (:hyp-confidences workspace) hyp)
+    1.0))
 
 (defn find-no-explainers
   [workspace]
@@ -262,7 +265,9 @@
                             (add-explainers hyp)
                             (assoc :graph g-edges)
                             (assoc-in [:hyp-confidences hyp]
-                                      (cond (= "min" (:ConfAdjustment params))
+                                      (cond (and (:Oracle params) (not= :kb (:type hyp)))
+                                            (if ((:oracle workspace) hyp) 1.0 0.0)
+                                            (= "min" (:ConfAdjustment params))
                                             1.0
                                             (= "max" (:ConfAdjustment params))
                                             0.0
@@ -485,7 +490,8 @@
   (let [added (:added workspace)
         forced (:forced workspace)]
     (reduce (fn [ws h] (if (forced h) (add-fact ws h) (add ws h)))
-            (assoc empty-workspace :initial-kb (:initial-kb workspace))
+            (assoc empty-workspace :initial-kb (:initial-kb workspace)
+                   :oracle (:oracle workspace))
             added)))
 
 (defn explain

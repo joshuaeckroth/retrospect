@@ -13,7 +13,12 @@
 
 (def reason-abduction
   {:name "Abduction"
-   :reason-fn (comp explain add-sensor-hyps)
+   :reason-fn (fn [truedata workspace time-prev time-now sensors]
+                (let [ws (if (not (:Oracle params)) workspace
+                             (assoc workspace :oracle
+                                    (partial (:true-hyp?-fn (:abduction @problem))
+                                             truedata time-now)))]
+                  (explain (add-sensor-hyps ws time-prev time-now sensors))))
    :metareasoning-activated?-fn metareasoning-activated?
    :workspace-compare-fn workspace-compare
    :evaluate-fn evaluate

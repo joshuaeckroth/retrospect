@@ -17,16 +17,6 @@
     (apply str (map #(if (< (my-rand) (/ sensor-noise 2)) (rand-char) %) (seq word)))
     word))
 
-(defn get-trueword-starts
-  [prefix words]
-  (loop [ws []
-         ws-count (count prefix)
-         td words]
-    (if (empty? td) ws
-        (let [c (+ ws-count (count (first td)))]
-          (if (< (:Steps params) c) ws 
-              (recur (conj ws [(first td) ws-count]) c (rest td)))))))
-
 (defn generate-truedata
   []
   (let [sensor-noise (double (/ (:SensorNoise params) 100.0))

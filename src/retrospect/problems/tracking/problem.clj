@@ -37,9 +37,7 @@
                :hyps-equal?-fn hyps-equal?
                :hyp-typs [:movement :path :location :bias]
                :default-params
-               {:PathBranches [6 [2 4 6 8]]
-                :MaxEntityPaths [3 [1 2 3 4 5 6]]
-                :ResensePrevTime [true [true]]}}
+               {:ResensePrevTime [true [true]]}}
    :default-params
    {:Steps [20 [20]]
     :StepsBetween [3 [1 2 3]]

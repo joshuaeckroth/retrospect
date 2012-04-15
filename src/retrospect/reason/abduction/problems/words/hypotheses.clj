@@ -180,7 +180,8 @@
                                           :else
                                           (/ (get-pos :middle) (double occur))))))
                               (range (count word)))
-              tendencies-no-nil (filter identity tendencies)]
+              tendencies-no-nil (let [ts (filter identity tendencies)]
+                                  (if (empty? ts) [0.0] ts))]
           (cond (= "mult" (:TendencyReduction params))
                 (reduce * tendencies-no-nil)
                 (= "opp" (:TendencyReduction params))
