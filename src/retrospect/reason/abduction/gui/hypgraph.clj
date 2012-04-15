@@ -8,16 +8,14 @@
   (:use [clj-swing.button])
   (:use [retrospect.gui.graphs])
   (:use [retrospect.state])
-  (:use [retrospect.epistemicstates :only [cur-ep]])
-  (:use [retrospect.reason.abduction.gui.logs :only [hyp-info]]))
+  (:use [retrospect.epistemicstates :only [cur-ep]]))
 
 (def canvas (ref nil))
 
 (defn listener
   [node]
   (let [workspace (:workspace (cur-ep (:est @or-state)))
-        hyp (find-first #(= (:id %) node) (apply concat (vals (:hypotheses workspace))))]
-    (println (hyp-info workspace hyp))))
+        hyp (find-first #(= (:id %) node) (apply concat (vals (:hypotheses workspace))))]))
 
 (defn generate-hypgraph
   []

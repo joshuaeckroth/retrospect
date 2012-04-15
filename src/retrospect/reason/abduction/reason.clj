@@ -33,7 +33,7 @@
                                 :ContrastPreference ["delta" ["delta" "arbitrary"]]
                                 :HypPreference ["abd" ["abd" "arbitrary"]]
                                 :ConfAdjustment ["max" ["min" "max" "avg" "none"]]
-                                :NormalizeSubtype [false [true false]]}
+                                :NormalizeSubtype [true [true false]]}
                                (:default-params (:abduction @problem))))
    :init-workspace-fn init-workspace
    :init-kb-fn init-kb

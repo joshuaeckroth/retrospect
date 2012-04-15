@@ -18,16 +18,20 @@
   (:use [retrospect.state]))
 
 (def truedata-log (ref ""))
-(def truedata-log-textbox (ref nil))
 (def problem-log (ref ""))
-(def problem-log-textbox (ref nil))
 (def problem-log-label (label ""))
 (def hyp-selected (atom nil))
 (def workspace-selected (atom nil))
-(def hyp-info (ref ""))
+(def hyp-id (ref ""))
+(def hyp-apriori-label (label "Apriori:"))
+(def hyp-confidence-label (label "Conf:"))
+(def hyp-truefalse-label (label "T/F:"))
+(def hyp-accepted-label (label "Acc:"))
+(def hyp-explains (ref ""))
+(def hyp-explainers (ref ""))
+(def hyp-conflicts (ref ""))
+(def hyp-log (ref ""))
 (def abduction-tree-map (ref {}))
-(def workspace-log-textbox (ref nil))
-(def workspace-log (ref ""))
 
 (def anc (AlphanumComparator.))
 
@@ -68,21 +72,29 @@
            (mapcat (fn [ep] [(str ep) (assoc (ws-fn (:workspace ep)) "Log" nil)])
                    ep-states))))
 
-(defn hyp-info
+(defn update-hyp-info
   [workspace time hyp]
-  (let [explainers (vals (group-by :type (get (:explainers workspace) hyp)))]
-    (format (str "%s\n\nExplains: %s\n\nExplainers: %s\n\n"
-                 "Conflicts: %s\n\nApriori: %s\nConfidence: %s\n\n"
-                 "This hyp is: %s\n\nLog:\n%s")
-            (:desc hyp)
-            (str/join ", " (sort-by :id (AlphanumComparator.) (:explains hyp)))
-            (str/join ", " (map #(format "[%s]" %)
-                                (map #(str/join ", " (sort-by :id (AlphanumComparator.) %)) explainers)))
-            (str/join ", " (sort-by :id (AlphanumComparator.) (ws/find-conflicts workspace hyp)))
-            (format "%.2f" (:apriori hyp))
-            (format "%.2f" (ws/hyp-conf workspace hyp))
-            (if ((:true-hyp?-fn (:abduction @problem)) @truedata time hyp) "True" "False")
-            (str/join "\n" (ws/hyp-log workspace hyp)))))
+  (let [alphanum (AlphanumComparator.)
+        explains (str/join ", " (map str (sort-by :id alphanum (:explains hyp))))
+        explainers (str/join ", " (map #(format "[%s]" %)
+                                       (map #(str/join ", " (sort-by :id alphanum %))
+                                            (vals (group-by :type
+                                                            (get (:explainers workspace)
+                                                                 hyp))))))
+        conflicts (str/join ", " (map str (sort-by :id alphanum
+                                                   (ws/find-conflicts workspace hyp))))]
+    (. hyp-apriori-label setText (format "Apriori: %.2f" (:apriori hyp)))
+    (. hyp-confidence-label setText (format "Conf: %.2f" (ws/hyp-conf workspace hyp)))
+    (. hyp-truefalse-label setText
+       (if ((:true-hyp?-fn (:abduction @problem)) @truedata time hyp) "TF: True" "TF: False"))
+    (. hyp-accepted-label setText
+       (if ((set (get (:accepted workspace) (:type hyp))) hyp) "Acc: True" "Acc: False"))
+    (dosync
+     (alter hyp-id (constantly (:desc hyp)))
+     (alter hyp-explains (constantly (str "Explains: " explains)))
+     (alter hyp-explainers (constantly (str "Explainers: " explainers)))
+     (alter hyp-conflicts (constantly (str "Conflicts: " conflicts)))
+     (alter hyp-log (constantly (str/join "\n" (ws/hyp-log workspace hyp)))))))
 
 (defn final-explainers
   [workspace]
@@ -92,18 +104,6 @@
             (str/join "\n" (map (fn [{hyp :hyp expl :expl}]
                                   (format "%s: %s" (:id hyp) (str/join ", " (confs expl))))
                                 (:last-explainers (:log workspace)))))))
-
-(comment
-  starts (set/difference (ws/get-hyps workspace) (:forced workspace))
-  dep-analysis (apply str (map (fn [[s hyps]]
-                                 (format "%s: %s\n" (:id s)
-                                         (apply str (interpose ", " (map :id (sort-by :id hyps)))))) (filter (comp not-empty second) (analyze-dependency @or-state hyp starts)))))
-
-(defn scroll-top
-  [scroll]
-  (javax.swing.SwingUtilities/invokeLater
-   (proxy [Runnable] []
-     (run [] (.. scroll (getVerticalScrollBar) (setValue 0))))))
 
 (defn show-log
   [path]
@@ -116,73 +116,31 @@
                        (find-first #(= (:id %) ep-id) (flatten-est
                                                        (:est @or-state)))))
           ws (if ep-state (:workspace ep-state))]
-      (if (= "Log" last-comp)
-        (dosync (alter workspace-log (constantly reason-log)))
-        (do
-          (swap! workspace-selected (constantly ws))
-          (let [hyp (if ws (find-first #(= (:id %) last-comp)
-                                       (apply concat (vals (:hypotheses ws)))))]
-            (swap! hyp-selected (constantly hyp))
-            (if hyp
-              (dosync (alter workspace-log (constantly (hyp-info ws (:time ep-state) hyp))))
-              (dosync (alter workspace-log (constantly (final-explainers ws))))))))
-      (scroll-top @workspace-log-textbox))))
-
-(defn show-analysis [])
-
-(comment
-  (defn show-analysis
-    []
-    (when (and @workspace-selected @hyp-selected)
-      (let [ws @workspace-selected
-            hyp @hyp-selected
-            accepted? ((:accepted ws) hyp)
-            [acc unacc rej] (ws/analyze ws hyp pdata)
-            group-str (fn [type hyps]
-                        (format "Hyp groups, when rejected, cause this hyp to be %s: %s"
-                                type (apply str (interpose ", " (map #(format "[%s]" %)
-                                                                     (map commas hyps))))))
-            analysis (format "%s\n\n%s" (if accepted? (group-str "rejected" rej)
-                                            (group-str "accepted" acc))
-                             (group-str "unaccepted" unacc))]
-        (dosync
-         (alter workspace-log
-                (fn [log] (format "%s\n\nAnalysis:\n\n%s"
-                                  log analysis))))
-        (scroll-top @workspace-log-textbox)))))
+      (when (not= "Log" last-comp)
+        (swap! workspace-selected (constantly ws))
+        (let [hyp (if ws (find-first #(= (:id %) last-comp)
+                                     (apply concat (vals (:hypotheses ws)))))]
+          (swap! hyp-selected (constantly hyp))
+          (when hyp (update-hyp-info ws (:time ep-state) hyp)))))))
 
 (defn update-logs
   []
   (dosync
    (alter truedata-log (constantly ((:get-truedata-log (:player-fns @problem)))))
    (alter problem-log (constantly ((:get-problem-log (:player-fns @problem)))))
-   (alter workspace-log (constantly "")))
-  (. problem-log-label setText (format "Problem log for: %s" (str (cur-ep (:est @or-state)))))
-  (when (and @truedata-log-textbox @problem-log-textbox @workspace-log-textbox)
-    (scroll-top @truedata-log-textbox)
-    (scroll-top @problem-log-textbox)
-    (scroll-top @workspace-log-textbox)))
+   (alter abduction-tree-map (constantly (build-abduction-tree-map @or-state))))
+  (. problem-log-label setText (format "Problem log for: %s" (str (cur-ep (:est @or-state))))))
+
+(defn log-box
+  [str-ref]
+  (scroll-panel
+   (doto (text-area :str-ref str-ref :editable false :wrap true)
+     (.setFont (Font. "WenQuanYi Micro Hei" Font/PLAIN 12)))))
 
 (defn logs-tab
   []
-  (dosync
-   (alter truedata-log-textbox
-          (constantly (scroll-panel
-                       (doto (text-area :str-ref truedata-log
-                                        :editable false :wrap true)
-                         (.setFont (Font. "WenQuanYi Micro Hei" Font/PLAIN 12))))))
-   (alter problem-log-textbox
-          (constantly (scroll-panel
-                       (doto (text-area :str-ref problem-log
-                                        :editable false :wrap true)
-                         (.setFont (Font. "WenQuanYi Micro Hei" Font/PLAIN 12))))))
-   (alter workspace-log-textbox
-          (constantly (scroll-panel
-                       (doto (text-area :str-ref workspace-log
-                                        :editable false :wrap true)
-                         (.setFont (Font. "WenQuanYi Micro Hei" Font/PLAIN 12)))))))
   (doto (split-vertical
-         @truedata-log-textbox
+         (log-box truedata-log)
          (doto (split-vertical
                 (panel :layout (GridBagLayout.)
                        :constrains (java.awt.GridBagConstraints.)
@@ -190,32 +148,39 @@
                         :fill :BOTH :insets (Insets. 5 0 5 0)
                         _ problem-log-label
                         :gridy 1 :weighty 1.0
-                        _ @problem-log-textbox])
+                        _ (log-box problem-log)])
                 (doto (split-horizontal
+                       (doto (tree :name tr
+                                   :model (mapref-tree-model
+                                           abduction-tree-map "Epistemic states")
+                                   :action ([_ _] (show-log (.getSelectionPath tr))))
+                         (.setFont (Font. "Sans" Font/PLAIN 10)))
                        (panel :layout (GridBagLayout.)
                               :constrains (java.awt.GridBagConstraints.)
-                              [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0
-                               :fill :BOTH :insets (Insets. 0 0 0 0)
-                               _ (doto (tree :name tr
-                                             :model (mapref-tree-model
-                                                     abduction-tree-map "Epistemic states")
-                                             :action ([_ _] (show-log (.getSelectionPath tr))))
-                                   (.setFont (Font. "Sans" Font/PLAIN 10)))
-                               :gridy 1 :weighty 0.0
-                               _ (button "Update tree"
-                                         :action
-                                         ([_] (dosync (alter abduction-tree-map
-                                                             (constantly (build-abduction-tree-map
-                                                                          @or-state))))))])
-                       (panel :layout (GridBagLayout.)
-                              :constrains (java.awt.GridBagConstraints.)
-                              [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0 :gridwidth 2
-                               :fill :BOTH :insets (Insets. 0 0 0 0)
-                               _ @workspace-log-textbox
-                               :gridx 0 :gridy 1 :weightx 1.0 :weighty 0.0 :gridwidth 1
-                               _ (panel)
-                               :gridx 1 :weightx 0.0
-                               _ (button "Analyze" :action ([_] (show-analysis)))]))
+                              [:gridx 0 :gridy 0 :gridwidth 4 :weightx 1.0 :weighty 1.0
+                               :fill :BOTH :insets (Insets. 5 5 5 5)
+                               _ (log-box hyp-id)
+
+                               :gridy 1 :gridwidth 1 :weighty 0.0
+                               _ hyp-apriori-label
+                               :gridx 1
+                               _ hyp-confidence-label
+                               :gridx 2
+                               _ hyp-truefalse-label
+                               :gridx 3
+                               _ hyp-accepted-label
+
+                               :gridy 2 :gridx 0 :gridwidth 4 :weighty 1.0
+                               _ (log-box hyp-explains)
+
+                               :gridy 3
+                               _ (log-box hyp-explainers)
+
+                               :gridy 4
+                               _ (log-box hyp-conflicts)
+
+                               :gridy 5
+                               _ (log-box hyp-log)]))
                   (.setDividerLocation 200)))
            (.setDividerLocation 100)))
     (.setDividerLocation 100)))

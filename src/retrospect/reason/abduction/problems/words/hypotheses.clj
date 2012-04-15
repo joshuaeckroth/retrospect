@@ -243,10 +243,8 @@
                                     (/ (+ tendency prob) 2.0)
                                     :else prob)
                               expl [] w
-                              (format "Word \"%s\" (pos %d-%d)\nTendency: %.2f\nSimilar words: %s"
-                                      w (:pos (first expl))
-                                      (:pos (last expl))
-                                      tendency (str/join ", " similar-words))
+                              (format "Word \"%s\" (pos %d-%d)\nTendency: %.2f"
+                                      w (:pos (first expl)) (:pos (last expl)) tendency)
                               {:word w :pos-seq (map :pos expl) :tendency tendency})))
                  expls)))))
 
@@ -345,7 +343,7 @@
                               :else
                               tendency)
                         expl [] word
-                        (format (str "Learned word: \"%s\" (pos %d-%d)\nTendency %.2f\n"
+                        (format (str "Learned word: \"%s\" (pos %d-%d)\nTendency %.2f"
                                      "\nTo explain: %s")
                                 word (first pos-seq) (last pos-seq) tendency
                                 (str (:symbol evidence)))
@@ -427,8 +425,8 @@
                                                        tendency)
                                                  (mapcat :explains expl) [] word
                                                  (format (str "Learned word from existing words: \"%s\" (pos %d-%d)"
-                                                              "\nTendency: %.2f\n"
-                                                              "\nTo explain: %s\nEntire sequence: %s")
+                                                              "\nTendency: %.2f"
+                                                              "\nTo explain: %s / Sequence: %s")
                                                          word (first (:pos-seq (first expl)))
                                                          (last (:pos-seq (last expl)))
                                                          tendency evidence (str/join ", " expl))

@@ -125,7 +125,7 @@
       (recur (run-simulation-step truedata ors false)))))
 
 (def global-default-params
-  {:Metareasoning ["NoMetareasoning" ["NoMetareasoning" "Learn"]]
+  {:Metareasoning ["none" ["none" "learn"]]
    :Oracle [false [false]]})
 
 (defn get-default-params-ranges
