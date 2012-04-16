@@ -4,7 +4,7 @@
   (:use [retrospect.problems.words.truedata :only [generate-truedata]])
   (:use [retrospect.problems.words.sensors :only [generate-sensors perturb]])
   (:use [retrospect.reason.abduction.problems.words.hypotheses :only
-         [hypothesize learn make-sensor-hyps generate-kb reset]])
+         [hypothesize learn make-sensor-hyps generate-kb]])
   (:use [retrospect.problems.words.player :only
          [player-get-stats-panel player-update-stats player-get-truedata-log
           player-get-problem-log player-setup-diagram player-update-diagram]])
@@ -24,7 +24,7 @@
                :make-sensor-hyps-fn make-sensor-hyps
                :hypothesize-fn hypothesize
                :learn-fn learn
-               :reset-fn reset
+               :reset-fn (constantly nil)
                :evaluate-fn evaluate
                :evaluate-comp-fn evaluate-comp
                :true-hyp?-fn true-hyp?
@@ -39,7 +39,7 @@
     :TendencyReduction ["mult" ["mult" "avg" "min" "max" "opp"]]
     :WordApriori ["prob" ["tendency" "prob" "mult" "max" "avg"]]
     :LearnApriori ["gauss" ["tendency" "gauss"]]
-    :LearnWordLength [1 [1 2 3 4 5 6]]
+    :LearnWordLength [4 [3 4 5 6]]
     :WordContext ["data" ["data" "global"]]
     ;; ["carroll" "cityu_training" "as_training" "msr_training" "pku_training"]
     :Dataset ["pku_training" ["pku_training"]] 

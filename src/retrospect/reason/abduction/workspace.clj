@@ -437,28 +437,35 @@
          (when (not-empty hyps) hyps)))))
 
 (defn get-learn-hyps-input
-  [workspace]
+  [workspace explained]
   (sort-by :id (AlphanumComparator.)
-           (cond (= "noexp" (:LearnVia params))
-                 (find-no-explainers workspace)
-                 (= "unexp" (:LearnVia params))
-                 (:needs-explainer workspace)
-                 :else
-                 (:needs-explainer workspace))))
+           (set/difference
+            (set (cond (= "noexp" (:LearnVia params))
+                       (find-no-explainers workspace)
+                       (= "unexp" (:LearnVia params))
+                       (:needs-explainer workspace)
+                       :else
+                       (:needs-explainer workspace)))
+            explained)))
 
 (defn get-learn-hyps
   [workspace]
   (loop [ws workspace
-         hs (get-learn-hyps-input ws)]
+         hs (get-learn-hyps-input ws #{})
+         explained #{}]
     (log "Getting learning hyps for " (str/join "," (map :id hs)))
     (if (empty? hs) ws
         (do (log "Trying to get a learn explainer for" (str (first hs)))
-            (let [es ((:learn-fn (:abduction @problem))
-                      (first hs) hs (:hypotheses ws))]
+            (let [es (set ((:learn-fn (:abduction @problem))
+                           (first hs) (apply concat (vals (:hypotheses ws)))
+                           (:hypotheses ws)))
+                  explained-new (conj explained (first hs))]
               (log "Got:" (str/join "," (map str es)))
               (if (not-empty es)
-                (recur (reduce add ws es) (get-learn-hyps-input ws))
-                (recur ws (rest hs))))))))
+                (recur (reduce add ws es)
+                       (get-learn-hyps-input ws explained-new)
+                       explained-new)
+                (recur ws (rest hs) explained-new)))))))
 
 (defn need-more-hyps?
   [workspace]
