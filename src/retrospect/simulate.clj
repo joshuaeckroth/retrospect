@@ -121,7 +121,7 @@
   (loop [ors or-state]
     (dosync (alter retrospect.state/or-state (constantly ors)))
     (if (>= (:time (cur-ep (:est ors))) (:Steps params))
-      (do (println "") (:results ors))
+      (do (println "") (:results (cur-ep (:est ors))))
       (recur (run-simulation-step truedata ors false)))))
 
 (def global-default-params
