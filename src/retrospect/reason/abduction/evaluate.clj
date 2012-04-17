@@ -67,7 +67,7 @@
         true-false (group-hyps-by-subtype-true-false
                     truedata workspace
                     (:time ep) (:true-hyp?-fn (:abduction @problem)))
-        true-false-confs {} #_(calc-true-false-confs workspace true-false)]
+        true-false-confs (calc-true-false-confs workspace true-false)]
     (merge {:Problem (:name @problem)}
            params
            ((:evaluate-fn (:abduction @problem)) truedata est)

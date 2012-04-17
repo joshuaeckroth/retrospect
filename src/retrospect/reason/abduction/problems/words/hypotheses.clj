@@ -140,24 +140,21 @@
                         (range (count word)))
         tendencies-no-nil (let [ts (filter identity tendencies)]
                             (if (empty? ts) [0.0] ts))]
-    (cond (= "mult" (:TendencyReduction params))
-          (reduce * tendencies-no-nil)
-          (= "opp" (:TendencyReduction params))
-          (- 1.0 (reduce * (map #(- 1.0 %) tendencies-no-nil)))
-          (= "avg" (:TendencyReduction params))
-          (/ (reduce + tendencies-no-nil) (double (count tendencies-no-nil)))
-          (= "min" (:TendencyReduction params))
-          (apply min tendencies-no-nil)
-          (= "max" (:TendencyReduction params))
-          (apply max tendencies-no-nil)
-          :else
-          (reduce * tendencies-no-nil))))
+    {:mult (reduce * tendencies-no-nil)
+     :opp (- 1.0 (reduce * (map #(- 1.0 %) tendencies-no-nil)))
+     :avg (/ (reduce + tendencies-no-nil) (double (count tendencies-no-nil)))
+     :min (apply min tendencies-no-nil)
+     :max (apply max tendencies-no-nil)}))
+
+(defn select-tendency
+  [wm]
+  (get wm (keyword (:TendencyReduction params)) (:mult wm)))
 
 (defn score-learned-word
   [kb word]
   (let [avg-word-length (:avg-word-length kb)
         symbol-tendencies (:symbol-tendencies kb)
-        tendency (word-metrics kb word)
+        tendency (:mult (word-metrics kb word))
         length-diff (Math/abs (double (- avg-word-length (count word))))
         length-diff-pct (/ length-diff avg-word-length)
         calc (/ (- tendency length-diff-pct) (+ tendency length-diff-pct))
@@ -232,7 +229,7 @@
     (let [expls seqs-words]
       (map (fn [expl]
              (let [w (apply str (map :symbol expl))
-                   tendency (word-metrics kb w)
+                   tendency (select-tendency (word-metrics kb w))
                    unigram-model (get (:models kb) 1)
                    substrings (:substrings kb)
                    substring-filter (cond (= (:WordContext params) "data")
@@ -314,22 +311,23 @@
         expls (filter (partial valid-learn-hyp kb hyps) expl-seqs)]
     (map (fn [expl]
            (let [word (apply str (map :symbol expl))
-                 tendency (word-metrics kb word)
+                 tendencies-map (word-metrics kb word)
                  gauss (score-learned-word kb word)]
              (new-hyp "LearnedWord"
                       :word :learned-word false conflicts
                       (cond (= (:LearnApriori params) "tendency")
-                            tendency
+                            (select-tendency tendencies-map)
                             (= (:LearnApriori params) "gauss")
                             gauss
                             :else
-                            tendency)
+                            (select-tendency tendencies-map))
                       expl [] word
                       (format (str "Learned word: \"%s\" (pos %d-%d)\nTendency: %.2f\nGauss: %.2f"
                                    "\nTo explain: %s / Sequence: %s")
                               word (first (:pos-seq (first expl)))
-                              (last (:pos-seq (last expl))) tendency gauss
+                              (last (:pos-seq (last expl)))
+                              (select-tendency tendencies-map) gauss
                               evidence (str/join ", " expl))
                       {:word word :pos-seq (mapcat :pos-seq expl)
-                       :tendency tendency :gauss gauss})))
+                       :tendencies-map tendencies-map :gauss gauss})))
          expls)))
