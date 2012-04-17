@@ -16,7 +16,7 @@
   (make-node [ep children] "Makes new node from existing node and new children."))
 
 (defrecord EpistemicState
-    [id children time workspace]
+    [id children time results workspace]
   Object
   (toString [_]
     (format "%s %d %.2f/%.2f" id time (:doubt workspace) (:coverage workspace))))
@@ -25,7 +25,7 @@
 
 (defn clone-ep
   [ep id children]
-  (EpistemicState. id children (:time ep) (:workspace ep)))
+  (EpistemicState. id children (:time ep) (:results ep) (:workspace ep)))
 
 (extend-protocol EpistemicStateTree
   EpistemicState
@@ -60,7 +60,7 @@
 
 (defn init-est
   [workspace]
-  (zip/down (zip-est [(EpistemicState. (make-ep-id) [] 0 workspace)] workspace)))
+  (zip/down (zip-est [(EpistemicState. (make-ep-id) [] 0 [] workspace)] workspace)))
 
 (defn get-init-workspace
   [est]

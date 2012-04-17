@@ -265,7 +265,8 @@
                             (add-explainers hyp)
                             (assoc :graph g-edges)
                             (assoc-in [:hyp-confidences hyp]
-                                      (cond (and (:Oracle params) (not= :kb (:type hyp)))
+                                      (cond (= :kb (:type hyp)) 1.0
+                                            (:Oracle params)
                                             (if ((:oracle workspace) hyp) 1.0 0.0)
                                             (= "min" (:ConfAdjustment params))
                                             1.0

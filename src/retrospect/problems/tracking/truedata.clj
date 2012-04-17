@@ -12,7 +12,7 @@
 (defn random-walks
   [movements time]
   (let [maxwalk (:MaxWalk params)]
-    (reduce #(walk %1 %2 time maxwalk) movements (entities movements))))
+    (reduce #(walk %1 %2 time maxwalk) movements (my-shuffle (entities movements)))))
 
 (defn output-walk-sizes
   [movements]

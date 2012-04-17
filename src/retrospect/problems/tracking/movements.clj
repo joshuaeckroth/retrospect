@@ -31,6 +31,14 @@
         e (symbol (str (count (keys movements))))]
     (assoc movements e [{:x x :y y :time time :color c}])))
 
+
+(defn entities-at
+  [movements x y time]
+  (filter (fn [e] (and (< time (count (get movements e)))
+                       (let [mov (nth (get movements e) time)]
+                         (and (= x (:x mov)) (= y (:y mov))))))
+          (keys movements)))
+
 (defn dets-match?
   [det det2]
   (and (= (:x det) (:x det2))
@@ -51,7 +59,8 @@
                 [(inc x) (inc y)]]))
 
 (defn walk
-  "Move an entity maxwalk steps in random directions, respecting angle constraints."
+  "Move an entity maxwalk steps in random directions, respecting angle
+   constraints. Also avoid landing in an occupied space."
   [movements entity time maxwalk]
   (let [width (:width (meta movements))
         height (:height (meta movements))
@@ -68,6 +77,9 @@
                       (cond
                        ;; we're done
                        (= i 0) loc
+                       ;; if we land in an occupied space, don't update pos
+                       (not-empty (entities-at movements nx ny time))
+                       (recur (dec i) [x y])
                        ;; if we go out of bounds, don't update pos
                        (or (> nx width) (> ny height) (< nx 0) (< ny 0))
                        (recur (dec i) [x y])
@@ -83,12 +95,6 @@
   [movements entity mintime maxtime]
   (filter #(and (>= (:time %) mintime) (<= (:time %) maxtime))
           (get movements entity)))
-
-(defn entities-at
-  [movements x y time]
-  (filter (fn [e] (let [mov (nth (get movements e) time)]
-                    (and (= x (:x mov)) (= y (:y mov)))))
-          (keys movements)))
 
 (defn entities
   [movements]
