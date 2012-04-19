@@ -86,7 +86,7 @@
     (. hyp-apriori-label setText (format "Apriori: %.2f" (:apriori hyp)))
     (. hyp-confidence-label setText (format "Conf: %.2f" (ws/hyp-conf workspace hyp)))
     (. hyp-truefalse-label setText
-       (if ((:true-hyp?-fn (:abduction @problem)) @truedata workspace time hyp) "TF: True" "TF: False"))
+       (if ((:true-hyp?-fn (:abduction @problem)) @truedata time hyp) "TF: True" "TF: False"))
     (. hyp-accepted-label setText
        (if ((set (get (:accepted workspace) (:type hyp))) hyp) "Acc: True" "Acc: False"))
     (dosync

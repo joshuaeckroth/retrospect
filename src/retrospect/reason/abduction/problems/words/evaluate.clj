@@ -66,7 +66,7 @@
          (spit "/tmp/believed.txt"
                (join "\n" (map (fn [s] (if (empty? s) "_" s)) (map #(join " " %) believed)))
                :encoding "utf-8")
-         (spit "/tmp/dictionary.txt" (join "\n" (sort (second (:training truedata))))
+         (spit "/tmp/dictionary.txt" (join "\n" (sort (:dictionary (:training truedata))))
                :encoding "utf-8")
          (let [results (sh (format "%s/words/score" @datadir)
                            "/tmp/dictionary.txt" "/tmp/truth.txt" "/tmp/believed.txt")
@@ -119,7 +119,7 @@
 (defn find-oov
   [truedata time-now]
   (let [sentence (nth (:test-sentences truedata) (dec time-now))
-        oov (set (filter #(not ((second (:training truedata)) %)) sentence))]
+        oov (set (filter #(not ((:dictionary (:training truedata)) %)) sentence))]
     (reduce (fn [m w] (assoc m w (map (fn [i] (reduce + (map count (take i sentence))))
                                       (filter #(= w (nth sentence %)) (range (count sentence))))))
             {} oov)))
@@ -127,7 +127,7 @@
 (defn find-new-symbols
   [truedata time-now]
   (let [syms (apply concat (nth (:test-sentences truedata) (dec time-now)))
-        new-syms (set (filter #(not ((nth (:training truedata) 2) %)) syms))]
+        new-syms (set (filter #(not ((:symbols (:training truedata)) %)) syms))]
     (reduce (fn [m sym] (assoc m sym (filter #(= sym (nth syms %)) (range (count syms)))))
             {} new-syms)))
 
