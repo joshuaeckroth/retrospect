@@ -1,6 +1,7 @@
 (ns retrospect.reason.abduction.problems.words.hypotheses
   (:import (java.util.regex Pattern))
   (:require [clojure.string :as str])
+  (:use [loom.graph :only [has-edge?]])
   (:use [clojure.contrib.string :only [substring?]])
   (:use [retrospect.profile :only [prof]])
   (:use [retrospect.sensors :only [sensed-at]])
@@ -16,9 +17,6 @@
             {:pos pos :symbol symbol})])
 
 (defn conflicts
-  "Two words-domain hypotheses conflict if: (1) they are both composite
-   hypotheses and it is not the case that the tail of one is the prefix of the
-   other; or (2) they overlap in their start-end range."
   [hyp1 hyp2]
   (cond
    (or (= :sensor (:type hyp1)) (= :sensor (:type hyp2))) false
@@ -39,6 +37,23 @@
          start2 (first (:pos-seq hyp2))
          end2 (last (:pos-seq hyp2))]
      (not (or (< end1 start2) (< end2 start1))))
+   
+   (and (= :word (:type hyp1)) (= :word-transition (:type hyp2)))
+   (and (< (first (:pos-seq hyp1)) (second (:pos-seq hyp2)))
+        (> (last (:pos-seq hyp1)) (first (:pos-seq hyp2))))
+   
+   (and (= :word-transition (:type hyp1)) (= :word (:type hyp2)))
+   (and (< (first (:pos-seq hyp2)) (second (:pos-seq hyp1)))
+        (> (last (:pos-seq hyp2)) (first (:pos-seq hyp1))))
+   
+   (and (= :word (:type hyp1)) (= :char-transition (:type hyp2)))
+   (or (= (second (:pos-seq hyp2)) (first (:pos-seq hyp1)))
+       (= (first (:pos-seq hyp2)) (last (:pos-seq hyp1))))
+   
+   (and (= :char-transition (:type hyp1)) (= :word (:type hyp2)))
+   (or (= (second (:pos-seq hyp1)) (first (:pos-seq hyp2)))
+       (= (first (:pos-seq hyp1)) (last (:pos-seq hyp2))))
+
    :else false))
 
 (defn build-markov-models
@@ -53,8 +68,7 @@
                       models words-grouped)))
           {} training))
 
-(defn generate-kb
-  [{:keys [training dictionary]}]
+(comment
   (let [kb (try
              (with-open [r (java.io.PushbackReader.
                             (clojure.java.io/reader
@@ -62,7 +76,9 @@
                                      (:Dataset params) (:MaxModelGrams params))))]
                (read r))
              (catch Exception _
-               (let [models (build-markov-models training)
+               (let [dtc 
+
+                     models (build-markov-models training)
                      model-sums (reduce (fn [m-s n]
                                           (assoc m-s n (double (reduce + (vals (get models n))))))
                                         {} (keys models))
@@ -75,7 +91,9 @@
                                                             m (seq w)))
                                           {} dictionary)
                      dict-counts (map count dictionary)
-                     kb {:avg-word-length (if (empty? dictionary) 0
+                     kb {:dtc 
+
+                         :avg-word-length (if (empty? dictionary) 0
                                               (double (/ (reduce + dict-counts)
                                                          (count dictionary))))
                          :max-word-length (apply max dict-counts)
@@ -87,8 +105,11 @@
                  (spit (format "%s/words/kb-%s-%d.clj" @datadir
                                (:Dataset params) (:MaxModelGrams params))
                        (pr-str kb))
-                 kb)))]
-    [(new-hyp "KB" :kb :kb false conflicts 1.0 [] [] "" "" kb)]))
+                 kb)))]))
+
+(defn generate-kb
+  [kb]
+  [(new-hyp "KB" :kb :kb false conflicts 1.0 [] [] "" "" kb)])
 
 (defn get-kb
   [hyps]
@@ -111,9 +132,29 @@
                                                         (+ (.start m g) (count w))))
                                         (range 1 (inc (.groupCount m)))))))
                        (:dictionary kb)))]
-    (map (fn [s-hyps] (new-hyp "Word" :word :word false (constantly false)
-                               0.50 s-hyps [] "" ""
-                               {:pos-seq (map :pos s-hyps)
-                                :word (apply str (map :symbol s-hyps))}))
-         words)))
+    (concat
+     ;; word hyps
+     (map (fn [s-hyps]
+            (let [word (apply str (map :symbol s-hyps))]
+              (new-hyp "Word" :word :word false conflicts
+                       0.50 s-hyps [] word ""
+                       {:pos-seq (map :pos s-hyps)
+                        :word word})))
+          words)
+     ;; word-transition pair hyps
+     (filter identity
+             (map (fn [[sh1 sh2]]
+                    (when ((:wtc kb) [(:symbol sh1) (:symbol sh2)])
+                      (new-hyp "TransW" :word-transition :word-transition false conflicts
+                               0.50 [sh1 sh2] [] "" ""
+                               {:pos-seq [(:pos sh1) (:pos sh2)]})))
+                  (butlast (rest pairs))))
+     ;; in-word-transition pair hyps
+     (filter identity
+             (map (fn [[sh1 sh2]]
+                    (when (has-edge? (:dtg kb) (:symbol sh1) (:symbol sh2))
+                      (new-hyp "TransC" :char-transition :char-transition false conflicts
+                               0.50 [sh1 sh2] [] "" ""
+                               {:pos-seq [(:pos sh1) (:pos sh2)]})))
+                  (butlast (rest pairs)))))))
 

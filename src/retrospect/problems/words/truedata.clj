@@ -1,5 +1,6 @@
 (ns retrospect.problems.words.truedata
   (:require [clojure.string :as str])
+  (:use [loom.graph :only [weighted-digraph weight add-edges]])
   (:use [retrospect.random])
   (:use [retrospect.state]))
 
@@ -15,15 +16,20 @@
                                        [training test-shuffled])
         training-symbols (set (apply concat training-dict))
         ;; TODO: handle noise
-        ambiguous (map #(apply str %) test-shuffled)]
-    (comment
-      (println "Occurrences of OOV:")
-      (println (sort (vals (reduce (fn [m w] (if (nil? (get m w)) (assoc m w 1)
-                                                 (update-in m [w] inc)))
-                                   {}
-                                   (filter (fn [w] (not (training-dict w)))
-                                           (apply concat test-shuffled)))))))
-    {:training {:sentences training :dictionary training-dict :symbols training-symbols}
+        ambiguous (map #(apply str %) test-shuffled)
+        dtg (reduce (fn [g word] (reduce (fn [g2 e]
+                                           (let [w (or (apply weight g e) 0)]
+                                             (add-edges g2 (conj e (inc w)))))
+                                         g (conj (map vec (partition 2 1 word))
+                                                 ["start" (first word)]
+                                                 [(last word) "end"])))
+                    (weighted-digraph)
+                    training-dict)
+        wtc (set (mapcat (fn [sent] (map (fn [[w1 w2]] [(last w1) (first w2)])
+                                         (partition 2 1 sent)))
+                         training))]
+    {:training {:sentences training :dictionary training-dict :symbols training-symbols
+                :dtg dtg :wtc wtc}
      :test (zipmap (range (count ambiguous)) ambiguous)
      :test-sentences test-shuffled
      :test-dict test-dict}))

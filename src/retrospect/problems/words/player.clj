@@ -6,7 +6,7 @@
   (:require [clojure.string :as str])
   (:use [retrospect.epistemicstates :only [cur-ep]])
   (:use [retrospect.reason.abduction.problems.words.evaluate :only
-         [get-history find-oov find-new-symbols]])
+         [get-words find-oov find-new-symbols]])
   (:use [retrospect.state]))
 
 (def fscore-label (label ""))
@@ -60,7 +60,7 @@
 (defn player-get-problem-log
   []
   (let [accepted (:accepted (:workspace (cur-ep (:est @or-state))))]
-    (str/join " __ " (get-history accepted))))
+    (str/join " __ " (get-words @truedata @time-now accepted))))
 
 (defn player-setup-diagram
   [])
