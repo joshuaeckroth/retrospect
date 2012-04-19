@@ -78,7 +78,7 @@
                             (clojure.java.io/reader
                              (format "%s/words/kb-%s-%d.clj" @datadir
                                      (:Dataset params) (:MaxModelGrams params))))]
-               (assoc (read r) :max-word-length (apply max (map count training-dict))))
+               (read r))
              (catch Exception _
                (let [models (build-markov-models training)
                      model-sums (reduce (fn [m-s n]
@@ -118,11 +118,6 @@
   (fn [evidence accepted rejected hyps] (:type evidence)))
 
 (defmethod hypothesize :default [_ _ _ _] nil)
-
-(defn same-word-hyp
-  [pos-seq w h]
-  (prof :same-word-hyp
-))
 
 (defn word-metrics
   [kb word]
@@ -219,6 +214,7 @@
   [evidence accepted rejected hyps]
   (let [kb (get-kb hyps)
         unigram-model (get (:models kb) 1)
+        bigram-model (get (:models kb) 2)
         sensor-hyps (sort-by :pos (get hyps :sensor))
         left-sens (filter #(< (:pos %) (:pos evidence)) sensor-hyps)
         right-sens (filter #(> (:pos %) (:pos evidence)) sensor-hyps)
@@ -228,8 +224,10 @@
         seqs-words (filter #(get unigram-model [(apply str (map :symbol %))]) seqs)]
     (let [expls seqs-words]
       (map (fn [expl]
-             (let [w (apply str (map :symbol expl))
-                   tendency (select-tendency (word-metrics kb w))
+             (let [word (apply str (map :symbol expl))
+                   tendencies-map (word-metrics kb word)
+                   tendency (select-tendency tendencies-map)
+                   gauss (score-learned-word kb word)
                    unigram-model (get (:models kb) 1)
                    substrings (:substrings kb)
                    substring-filter (cond (= (:WordContext params) "data")
@@ -241,10 +239,10 @@
                                           (constantly true)
                                           :else
                                           (constantly true))
-                   similar-words (filter substring-filter (get substrings w))
-                   similar-sum (reduce + (map (fn [w2] (get unigram-model [w2]))
+                   similar-words (filter substring-filter (get substrings word))
+                   similar-sum (reduce + (map (fn [w] (get unigram-model [w]))
                                               similar-words))
-                   prob (/ (double (get unigram-model [w])) (double similar-sum))]
+                   prob (/ (double (get unigram-model [word])) (double similar-sum))]
                (new-hyp "Word" :word :word true conflicts
                         (cond (= "tendency" (:WordApriori params))
                               tendency
@@ -259,10 +257,21 @@
                               (= "avg" (:WordApriori params))
                               (/ (+ tendency prob) 2.0)
                               :else prob)
-                        expl [] w
+                        expl [] word
                         (format "Word \"%s\" (pos %d-%d)\nTendency: %.2f"
-                                w (:pos (first expl)) (:pos (last expl)) tendency)
-                        {:word w :pos-seq (map :pos expl) :tendency tendency})))
+                                word (:pos (first expl)) (:pos (last expl)) tendency)
+                        {:word word :pos-seq (map :pos expl)
+                         :unigram-freq (get unigram-model [word])
+                         :bigram-freq 0 #_(reduce + (map (fn [k] (get bigram-model k))
+                                                         (filter (fn [[w1 w2]] (or (= w1 word)
+                                                                                   (= w2 word)))
+                                                                 (keys bigram-model))))
+                         :similar-sum similar-sum
+                         :probData prob
+                         :probGlobal (/ (double (get unigram-model [word]))
+                                        (reduce + (map (fn [w] (get unigram-model [w]))
+                                                       (get substrings word))))
+                         :tendencies-map tendencies-map :gauss gauss})))
            expls))))
 
 (defmethod hypothesize :word

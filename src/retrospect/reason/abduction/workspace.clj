@@ -458,7 +458,17 @@
     (if (empty? hs) ws
         (do (log "Trying to get a learn explainer for" (str (first hs)))
             (let [es (set ((:learn-fn (:abduction @problem))
-                           (first hs) (apply concat (vals (:hypotheses ws)))
+                           (first hs)
+                           (cond (= "noexp" (:LearnSupp params))
+                                 (find-no-explainers ws)
+                                 (= "noexp-exp" (:LearnSupp params))
+                                 (set (mapcat :explains (find-no-explainers ws)))
+                                 (= "unexp" (:LearnSupp params))
+                                 (:needs-explainer ws)
+                                 (= "all" (:LearnSupp params))
+                                 (apply concat (vals (:hypotheses ws)))
+                                 :else
+                                 (apply concat (vals (:hypotheses ws))))
                            (:hypotheses ws)))
                   explained-new (conj explained (first hs))]
               (log "Got:" (str/join "," (map str es)))

@@ -1,40 +1,36 @@
 (ns retrospect.reason.abduction.problems.words.evaluate
   (:use [clojure.java.shell :only [sh]])
   (:use [clojure.string :only [join]])
+  (:use [clojure.contrib.io :only [file]])
+  (:use [clojure.contrib.seq-utils :only [find-first]])
+  (:require [clojure.set :as set])
   (:use [retrospect.evaluate :only [calc-increase]])
   (:use [retrospect.epistemicstates :only [cur-ep ep-path]])
+  (:use [retrospect.reason.abduction.workspace :only
+         [find-conflicts find-conflicts-selected hyp-conf]])
   (:use [retrospect.logging])
   (:use [retrospect.state]))
 
 (defn true-hyp?
   [truedata time-now hyp]
-  (let [result (if-not (or (= :word (:type hyp)) (= :word-seq (:type hyp))) true
-                       (let [sentence (nth (:test-sentences truedata) (dec time-now))
-                             start-pos (if (= :word (:type hyp)) (first (:pos-seq hyp))
-                                           (ffirst (:pos-seqs hyp)))
-                             end-pos (if (= :word (:type hyp)) (last (:pos-seq hyp))
-                                         (last (last (:pos-seqs hyp))))
-                             hyp-words (if (= :word (:type hyp)) [(:word hyp)] (:words hyp))
-                             true-words (loop [i 0 ws [] sent sentence]
-                                          (cond (empty? sent) ws
-                                                (> i end-pos) ws
-                                                (< i start-pos)
-                                                (recur (+ i (count (first sent)))
-                                                       ws (rest sent))
-                                                :else
-                                                (recur (+ i (count (first sent)))
-                                                       (conj ws (first sent))
-                                                       (rest sent))))]
-                         (= hyp-words true-words)))]
-    (when (= :learned-word (:subtype hyp))
-      (with-open [r (java.io.FileWriter. (format "%s/words/learned-words-stats.csv" @datadir) true)]
-        (.write r (format "%d,%f,%f,%f,%f,%f,%f\n" (if result 1 -1)
-                          (:gauss hyp) (:mult (:tendencies-map hyp))
-                          (:opp (:tendencies-map hyp))
-                          (:avg (:tendencies-map hyp))
-                          (:min (:tendencies-map hyp))
-                          (:max (:tendencies-map hyp))))))
-    result))
+  (if-not (or (= :word (:type hyp)) (= :word-seq (:type hyp))) true
+          (let [sentence (nth (:test-sentences truedata) (dec time-now))
+                start-pos (if (= :word (:type hyp)) (first (:pos-seq hyp))
+                              (ffirst (:pos-seqs hyp)))
+                end-pos (if (= :word (:type hyp)) (last (:pos-seq hyp))
+                            (last (last (:pos-seqs hyp))))
+                hyp-words (if (= :word (:type hyp)) [(:word hyp)] (:words hyp))
+                true-words (loop [i 0 ws [] sent sentence]
+                             (cond (empty? sent) ws
+                                   (> i end-pos) ws
+                                   (< i start-pos)
+                                   (recur (+ i (count (first sent)))
+                                          ws (rest sent))
+                                   :else
+                                   (recur (+ i (count (first sent)))
+                                          (conj ws (first sent))
+                                          (rest sent))))]
+            (= hyp-words true-words))))
 
 (defmulti hyps-equal? (fn [hyp1 hyp2] (:type hyp1)))
 
@@ -62,46 +58,49 @@
   [accepted]
   (map :word (sort-by (comp first :pos-seq) (get accepted :word))))
 
+(defn run-scorer
+  [sentences believed truedata]
+  (try (do
+         (spit "/tmp/truth.txt" (join "\n" (map #(join " " %) sentences))
+               :encoding "utf-8")
+         (spit "/tmp/believed.txt"
+               (join "\n" (map (fn [s] (if (empty? s) "_" s)) (map #(join " " %) believed)))
+               :encoding "utf-8")
+         (spit "/tmp/dictionary.txt" (join "\n" (sort (second (:training truedata))))
+               :encoding "utf-8")
+         (let [results (sh (format "%s/words/score" @datadir)
+                           "/tmp/dictionary.txt" "/tmp/truth.txt" "/tmp/believed.txt")
+               prec (Double/parseDouble
+                     (second (re-find #"=== TOTAL TEST WORDS PRECISION:\s+(\d\.\d\d\d)"
+                                      (:out results))))
+               recall (Double/parseDouble
+                       (second (re-find #"=== TOTAL TRUE WORDS RECALL:\s+(\d\.\d\d\d)"
+                                        (:out results))))
+               f-score (Double/parseDouble
+                        (second (re-find #"=== F MEASURE:\s+(\d\.\d\d\d)"
+                                         (:out results))))
+               oov-rate (try (Double/parseDouble
+                              (second (re-find #"=== OOV Rate:\s+(\d\.\d\d\d)"
+                                               (:out results))))
+                             (catch Exception _ 0.0))
+               oov-recall (try (Double/parseDouble
+                                (second (re-find #"=== OOV Recall Rate:\s+(\d\.\d\d\d)"
+                                                 (:out results))))
+                               (catch Exception _ 0.0))
+               iv-recall (try (Double/parseDouble
+                               (second (re-find #"=== IV Recall Rate:\s+(\d\.\d\d\d)"
+                                                (:out results))))
+                              (catch Exception _ 0.0))]
+           [prec recall f-score oov-rate oov-recall iv-recall]))
+       (catch Exception e (do (log e) [-1.0 -1.0 -1.0 -1.0 -1.0 -1.0 -1.0]))))
+
 (defn evaluate
   [truedata est]
   (let [eps (rest (ep-path est))
         time-now (:time (last eps))
         believed (map (fn [ep] (get-history (:accepted (:workspace ep)))) eps)
         sentences (map (fn [i] (nth (:test-sentences truedata) i)) (range time-now))
-        [prec recall f-score oov-rate oov-recall iv-recall]
-        (try (do
-               (spit "/tmp/truth.txt" (join "\n" (map #(join " " %) sentences))
-                     :encoding "utf-8")
-               (spit "/tmp/believed.txt"
-                     (join "\n" (map (fn [s] (if (empty? s) "_" s)) (map #(join " " %) believed)))
-                     :encoding "utf-8")
-               (spit "/tmp/dictionary.txt" (join "\n" (sort (second (:training truedata))))
-                     :encoding "utf-8")
-               (let [results (sh (format "%s/words/score" @datadir)
-                                 "/tmp/dictionary.txt" "/tmp/truth.txt" "/tmp/believed.txt")
-                     prec (Double/parseDouble
-                           (second (re-find #"=== TOTAL TEST WORDS PRECISION:\s+(\d\.\d\d\d)"
-                                            (:out results))))
-                     recall (Double/parseDouble
-                             (second (re-find #"=== TOTAL TRUE WORDS RECALL:\s+(\d\.\d\d\d)"
-                                              (:out results))))
-                     f-score (Double/parseDouble
-                              (second (re-find #"=== F MEASURE:\s+(\d\.\d\d\d)"
-                                               (:out results))))
-                     oov-rate (try (Double/parseDouble
-                                    (second (re-find #"=== OOV Rate:\s+(\d\.\d\d\d)"
-                                                     (:out results))))
-                                   (catch Exception _ 0.0))
-                     oov-recall (try (Double/parseDouble
-                                      (second (re-find #"=== OOV Recall Rate:\s+(\d\.\d\d\d)"
-                                                       (:out results))))
-                                     (catch Exception _ 0.0))
-                     iv-recall (try (Double/parseDouble
-                                     (second (re-find #"=== IV Recall Rate:\s+(\d\.\d\d\d)"
-                                                      (:out results))))
-                                    (catch Exception _ 0.0))]
-                 [prec recall f-score oov-rate oov-recall iv-recall]))
-             (catch Exception e (do (log e) [-1.0 -1.0 -1.0 -1.0 -1.0 -1.0 -1.0])))]
+        [prec recall f-score oov-rate oov-recall iv-recall] (run-scorer sentences believed truedata)]
     (println "OOVRecall:" oov-recall)
     (println "FScore:" f-score)
     {:Prec prec
@@ -117,3 +116,159 @@
                     [:LearnedCount :LearnedCorrect
                      :Prec :Recall :FScore :OOVRecall])))
 
+(defn find-oov
+  [truedata time-now]
+  (let [sentence (nth (:test-sentences truedata) (dec time-now))
+        oov (set (filter #(not ((second (:training truedata)) %)) sentence))]
+    (reduce (fn [m w] (assoc m w (map (fn [i] (reduce + (map count (take i sentence))))
+                                      (filter #(= w (nth sentence %)) (range (count sentence))))))
+            {} oov)))
+
+(defn find-new-symbols
+  [truedata time-now]
+  (let [syms (apply concat (nth (:test-sentences truedata) (dec time-now)))
+        new-syms (set (filter #(not ((nth (:training truedata) 2) %)) syms))]
+    (reduce (fn [m sym] (assoc m sym (filter #(= sym (nth syms %)) (range (count syms)))))
+            {} new-syms)))
+
+(defn stats
+  [truedata ors time-now]
+  (let [ws (:workspace (cur-ep (:est ors)))
+        kb (first (get (:hypotheses ws) :kb))
+        sentence (nth (:test-sentences truedata) (dec time-now))
+        oov (find-oov truedata time-now)
+        newsyms (find-new-symbols truedata time-now)
+        words-stats-file (file (format "%s/words/words-stats.csv" @datadir))
+        word-seqs-stats-file (file (format "%s/words/word-seqs-stats.csv" @datadir))
+        sensors-stats-file (file (format "%s/words/sensors-stats.csv" @datadir))
+        oov-stats-file (file (format "%s/words/oov-stats.csv" @datadir))
+        sentence-stats-file (file (format "%s/words/sentence-stats.csv" @datadir))
+        learn-stats-file (file (format "%s/words/learn-stats.csv" @datadir))
+        [prec recall f-score oov-rate oov-recall iv-recall]
+        (run-scorer [sentence] [(get-history (:accepted ws))] truedata)]
+    (when (not (. sentence-stats-file exists))
+      (with-open [r (java.io.FileWriter. sentence-stats-file)]
+        (.write r "wc,oov,newsym,doubt,coverage,noexp,unexp,wordhyps,prec,recall,fscore,oovrate,oovrecall,ivrecall\n")))
+    (with-open [r (java.io.FileWriter. sentence-stats-file true)]
+      (.write r (format "%d,%d,%d,%f,%f,%d,%d,%d,%f,%f,%f,%f,%f,%f\n"
+                        (count sentence) (count oov) (count newsyms)
+                        (:doubt ws) (:coverage ws)
+                        (count (:no-explainers (:log ws)))
+                        (count (:unexplained (:log ws)))
+                        (count (:word (:hypotheses ws)))
+                        prec recall f-score oov-rate oov-recall iv-recall)))
+    (when (not (. sensors-stats-file exists))
+      (with-open [r (java.io.FileWriter. sensors-stats-file)]
+        (.write r "explainers,oov,unexp\n")))
+    (with-open [r (java.io.FileWriter. sensors-stats-file true)]
+      (doseq [sensor-hyp (:sensor (:hypotheses ws))]
+        (let [explainers (count (get (:explainers ws) sensor-hyp))
+              unexp? ((:needs-explainer ws) sensor-hyp)]
+          (.write r (format "%d,%s,%s\n"
+                            explainers
+                            ;; find out if the sensor hyp has an oov word overlapping it
+                            (if (some (fn [[w positions]]
+                                        (some #(= % (:pos sensor-hyp))
+                                              (mapcat (fn [pos] (range pos (+ pos (count w))))
+                                                      positions)))
+                                      (seq oov))
+                              "\"T\"" "\"F\"")
+                            (if unexp? "\"T\"" "\"F\""))))))
+    (when (not (. oov-stats-file exists))
+      (with-open [r (java.io.FileWriter. oov-stats-file)]
+        (.write r "length,noexpSyms,firstNoexpPos,explainers,avgExpApriori,avgExpConf,occur,occurSent\n")))
+    (with-open [r (java.io.FileWriter. oov-stats-file true)]
+      (doseq [w (keys oov)]
+        (let [sensor-hyps (sort-by :pos (set (mapcat
+                                              (fn [pos]
+                                                (map (fn [i] (find-first #(= i (:pos %))
+                                                                         (:sensor (:hypotheses ws))))
+                                                     (range pos (+ pos (count w)))))
+                                              (get oov w))))
+              explainers (set (mapcat (fn [sh] (get (:explainers ws) sh)) sensor-hyps))
+              noexps (filter (fn [sh] (empty? (get (:explainers ws) sh))) sensor-hyps)
+              first-unexp-pos (if (empty? noexps) -1 (- (:pos (first noexps)) (:pos (first sensor-hyps))))
+              aprioris (map :apriori explainers)
+              confs (map #(hyp-conf ws %) explainers)]
+          (.write r (format "%d,%d,%d,%d,%f,%f,%d,%d\n"
+                            (count w)
+                            (count noexps)
+                            first-unexp-pos
+                            (count explainers)
+                            (if (empty? explainers) 0.0 (/ (reduce + aprioris) (double (count aprioris))))
+                            (if (empty? explainers) 0.0 (/ (reduce + confs) (double (count confs))))
+                            (get (:test-word-freq truedata) w)
+                            (get (frequencies (nth (:test-sentences truedata) (dec time-now))) w))))))
+    (when (not (. words-stats-file exists))
+      (with-open [r (java.io.FileWriter. words-stats-file)]
+        (.write r "tf,delta,explainers,oov,apriori,conf,conflicts\n")))
+    (with-open [r (java.io.FileWriter. words-stats-file true)]
+      (doseq [word-hyp (filter #(= :word (:subtype %)) (:word (:hypotheses ws)))]
+        (let [b (find-first #(= word-hyp (:best %)) (:best (:log ws)))]
+          (.write r (format "%s,%f,%d,%s,%f,%f,%d\n"
+                            (if (true-hyp? truedata time-now word-hyp) "\"T\"" "\"F\"")
+                            (cond (nil? b) -1.0 (:delta b) (:delta b) :else 1.0)
+                            (count (get (:explainers ws) word-hyp))
+                            ;; find out if the word hyp has an oov word overlapping it
+                            ;; (this should indicate the word hyp is false, btw)
+                            (if (some (fn [[w positions]]
+                                        (some #(not-empty (set/intersection % (set (:pos-seq word-hyp))))
+                                              (map (fn [pos] (set (range pos (+ pos (count w)))))
+                                                   positions)))
+                                      (seq oov))
+                              "\"T\"" "\"F\"")
+                            (:apriori word-hyp)
+                            (hyp-conf ws word-hyp)
+                            (count (find-conflicts ws word-hyp)))))))
+    (when (not (. word-seqs-stats-file exists))
+      (with-open [r (java.io.FileWriter. word-seqs-stats-file)]
+        (.write r "tf,delta,explains,oov,apriori,conf,conflicts\n")))
+    (with-open [r (java.io.FileWriter. word-seqs-stats-file true)]
+      (doseq [word-seq-hyp (:word-seq (:hypotheses ws))]
+        (let [b (find-first #(= word-seq-hyp (:best %)) (:best (:log ws)))]
+          (.write r (format "%s,%f,%d,%s,%f,%f,%d\n"
+                            (if (true-hyp? truedata time-now word-seq-hyp) "\"T\"" "\"F\"")
+                            (cond (nil? b) -1.0 (:delta b) (:delta b) :else 1.0)
+                            (count (:explains word-seq-hyp))
+                            ;; find out if the word-seq hyp has an oov word overlapping it
+                            ;; (this should indicate the word-seq hyp is false, btw)
+                            (if (some (fn [[w positions]]
+                                        (some #(not-empty
+                                                (set/intersection 
+                                                 % (set (apply concat (:pos-seqs word-seq-hyp)))))
+                                              (map (fn [pos] (set (range pos (+ pos (count w)))))
+                                                   positions)))
+                                      (seq oov))
+                              "\"T\"" "\"F\"")
+                            (:apriori word-seq-hyp)
+                            (hyp-conf ws word-seq-hyp)
+                            (count (find-conflicts ws word-seq-hyp)))))))
+    (when (not (. learn-stats-file exists))
+      (with-open [r (java.io.FileWriter. learn-stats-file)]
+        (.write r "tf,delta,explains,oov,apriori,conf,conflicts,gauss,mult,opp,avg,min,max\n")))
+    (with-open [r (java.io.FileWriter. learn-stats-file true)]
+      (doseq [learn-hyp (filter #(= :learned-word (:subtype %)) (:word (:hypotheses ws)))]
+        (let [b (find-first #(= learn-hyp (:best %)) (:best (:log ws)))]
+          (.write r (format "%s,%f,%d,%s,%f,%f,%d,%f,%f,%f,%f,%f,%f\n"
+                            (if (true-hyp? truedata time-now learn-hyp) "\"T\"" "\"F\"")
+                            (cond (nil? b) -1.0 (:delta b) (:delta b) :else 1.0)
+                            (count (:explains learn-hyp))
+                            ;; find out if the word-seq hyp has an oov word overlapping it
+                            ;; (this should indicate the word-seq hyp is false, btw)
+                            (if (some (fn [[w positions]]
+                                        (some #(not-empty
+                                                (set/intersection 
+                                                 % (set (:pos-seq learn-hyp))))
+                                              (map (fn [pos] (set (range pos (+ pos (count w)))))
+                                                   positions)))
+                                      (seq oov))
+                              "\"T\"" "\"F\"")
+                            (:apriori learn-hyp)
+                            (hyp-conf ws learn-hyp)
+                            (count (find-conflicts ws learn-hyp))
+                            (:gauss learn-hyp)
+                            (:mult (:tendencies-map learn-hyp))
+                            (:opp (:tendencies-map learn-hyp))
+                            (:avg (:tendencies-map learn-hyp))
+                            (:min (:tendencies-map learn-hyp))
+                            (:max (:tendencies-map learn-hyp)))))))))

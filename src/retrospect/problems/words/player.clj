@@ -5,7 +5,8 @@
   (:use [clj-swing.panel])
   (:require [clojure.string :as str])
   (:use [retrospect.epistemicstates :only [cur-ep]])
-  (:use [retrospect.reason.abduction.problems.words.evaluate :only [get-history]])
+  (:use [retrospect.reason.abduction.problems.words.evaluate :only
+         [get-history find-oov find-new-symbols]])
   (:use [retrospect.state]))
 
 (def fscore-label (label ""))
@@ -33,7 +34,6 @@
 
 (defn player-update-stats
   []
-  
   (if-let [results (last (:results (cur-ep (:est @or-state))))]
     (do
       (. fscore-label (setText (format "%.2f" (:FScore results))))
@@ -43,37 +43,24 @@
         (. oovrecall-label (setText "N/A"))
         (. noexp-label (setText "N/A")))))
 
-(defn format-truedata-log
-  [log sb pre]
-  (loop [out (vec (format "(%s) " (apply str pre))) 
-         s (seq log)
-         ;; (+ 0 ...) to prevent error with boxing & recur
-         i (+ 0 (count pre))] 
-    (cond (empty? s) (apply str out)
-          ;; skip spaces (add to output, but don't "count")
-          (= \ (first s)) (recur (conj out \ ) (rest s) i)
-          ;; count maxed out, add | symbol, and add letter from log;
-          ;; recur with reset counter
-          (= i (dec sb)) (recur (conj out (first s) \|) (rest s) 0)
-          ;; count still not maxed out, add letter from log, increment count
-          :else (recur (conj out (first s)) (rest s) (inc i)))))
-
 (defn player-get-truedata-log
   []
   (if (= @time-now 0) ""
       (let [sentence (nth (:test-sentences @truedata) (dec @time-now))]
         (format "%s\n\n%s\n\nOOV: %s\nNew symbols: %s"
                 (get (:test @truedata) (dec @time-now))
-                (str/join " _ " sentence)
-                (str/join ", " (filter #(not ((second (:training @truedata)) %))
-                                       sentence))
-                (str/join ", " (filter #(not ((nth (:training @truedata) 2) %))
-                                       (apply concat sentence)))))))
+                (str/join " __ " sentence)
+                (str/join ", " (map (fn [[w positions]]
+                                      (format "%s (%s)" w (str/join ", " (map str positions))))
+                                    (seq (find-oov @truedata @time-now))))
+                (str/join ", " (map (fn [[sym positions]]
+                                      (format "%s (%s)" sym (str/join ", " (map str positions))))
+                                    (seq (find-new-symbols @truedata @time-now))))))))
 
 (defn player-get-problem-log
   []
   (let [accepted (:accepted (:workspace (cur-ep (:est @or-state))))]
-    (str/join " _ " (get-history accepted))))
+    (str/join " __ " (get-history accepted))))
 
 (defn player-setup-diagram
   [])

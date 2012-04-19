@@ -19,6 +19,7 @@
                                     (partial (:true-hyp?-fn (:abduction @problem))
                                              truedata time-now)))]
                   (explain (add-sensor-hyps ws time-prev time-now sensors))))
+   :stats-fn (fn [truedata ors time-now] ((:stats-fn (:abduction @problem)) truedata ors time-now))
    :metareasoning-activated?-fn metareasoning-activated?
    :workspace-compare-fn workspace-compare
    :evaluate-fn evaluate
@@ -30,6 +31,7 @@
                                 :DoubtThreshold [1000 [1000]]
                                 :UseScores [true [true]]
                                 :LearnVia ["unexp" ["unexp" "noexp"]]
+                                :LearnSupp ["all" ["unexp" "noexp" "noexp-exp" "all"]]
                                 :ContrastPreference ["delta" ["delta" "arbitrary"]]
                                 :HypPreference ["abd" ["abd" "arbitrary"]]
                                 :ConfAdjustment ["max" ["min" "max" "avg" "none"]]

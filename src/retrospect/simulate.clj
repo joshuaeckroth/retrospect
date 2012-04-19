@@ -112,6 +112,8 @@
          ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
          ors-est (assoc ors-new :est meta-est :sensors sensors)
          ors-results (update-in ors-est [:resources :milliseconds] + ms)]
+     (when (:Stats params)
+       ((:stats-fn @reason) truedata ors-results time-now))
      (when (not player?)
        (.write System/out (int \.)) (.flush System/out))
      ors-results)))
@@ -126,7 +128,8 @@
 
 (def global-default-params
   {:Metareasoning ["none" ["none" "learn"]]
-   :Oracle [false [false]]})
+   :Oracle [false [false]]
+   :Stats [false [false]]})
 
 (defn get-default-params-ranges
   []

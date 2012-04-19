@@ -1,6 +1,6 @@
 (ns retrospect.problems.words.problem
   (:use [retrospect.reason.abduction.problems.words.evaluate :only
-         [evaluate evaluate-comp true-hyp? hyps-equal?]])
+         [evaluate evaluate-comp true-hyp? hyps-equal? stats]])
   (:use [retrospect.problems.words.truedata :only [generate-truedata]])
   (:use [retrospect.problems.words.sensors :only [generate-sensors perturb]])
   (:use [retrospect.reason.abduction.problems.words.hypotheses :only
@@ -27,6 +27,7 @@
                :reset-fn (constantly nil)
                :evaluate-fn evaluate
                :evaluate-comp-fn evaluate-comp
+               :stats-fn stats
                :true-hyp?-fn true-hyp?
                :hyps-equal?-fn hyps-equal?
                :hyp-types [:word :word-seq :learned-word :learned-word-seq]

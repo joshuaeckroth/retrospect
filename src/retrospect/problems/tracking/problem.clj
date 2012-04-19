@@ -32,6 +32,7 @@
                :hypothesize-fn hypothesize
                :evaluate-fn evaluate
                :evaluate-comp-fn evaluate-comp
+               :stats-fn (constantly nil)
                :true-hyp?-fn true-hyp?
                :learn-fn (constantly [])
                :hyps-equal?-fn hyps-equal?

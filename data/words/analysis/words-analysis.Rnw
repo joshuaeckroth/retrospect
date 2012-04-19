@@ -1,0 +1,152 @@
+\documentclass{article}
+
+\begin{document}
+
+<<>>=
+library(ggplot2)
+@ 
+
+\section{Word hyps}
+
+<<>>=
+dw <- read.csv("../words-stats.csv")
+dw$noexp <- (dw$explainers > 0)
+dw$accepted <- (dw$delta > -1.0)
+@ 
+
+<<fig=TRUE>>=
+ggplot(subset(dw, accepted == T)) +
+  geom_histogram(aes(x=delta, fill=factor(tf)), position="dodge") +
+  facet_grid(oov ~ noexp, labeller=function(var, value){return(paste(var, value))})
+@ 
+
+Histograms of delta of accepted word hyps, colored by true/false
+status.
+
+\section{Word sequence hyps}
+
+<<>>=
+dwseq <- read.csv("../word-seqs-stats.csv")
+dwseq$accepted <- (dwseq$delta > -1.0)
+@ 
+
+<<fig=TRUE>>=
+ggplot(subset(dwseq, accepted == T)) +
+  geom_histogram(aes(x=delta, fill=factor(tf)), position="dodge") +
+  facet_grid(oov ~ ., labeller=function(var, value){return(paste(var, value))})
+@ 
+
+
+\section{OOV}
+
+<<>>=
+doov <- read.csv("../oov-stats.csv")
+@ 
+
+<<fig=TRUE>>=
+ggplot(doov) + geom_histogram(aes(x=length))
+@ 
+
+Histogram of OOV lengths
+
+<<fig=TRUE>>=
+ggplot(doov) + geom_histogram(aes(x=occur))
+@ 
+
+Histogram of OOV occurrences (in the whole testing set)
+
+Most OOV words occur only once ever.
+
+<<fig=TRUE>>=
+ggplot(doov) + geom_histogram(aes(x=occurSent))
+@ 
+
+Histogram of OOV occurrences (in the current sentence)
+
+Most OOV words occur only once in the sentence.
+
+<<fig=TRUE>>=
+ggplot(doov) + geom_histogram(aes(x=explainers))
+@ 
+
+Histogram of OOV explainers
+
+Most OOV words have some explainers (typically 2)
+
+<<fig=TRUE>>=
+ggplot(doov) + geom_histogram(aes(x=noexpSyms))
+@ 
+
+<<fig=TRUE>>=
+ggplot(doov) + geom_histogram(aes(x=firstNoexpPos))
+@ 
+
+<<fig=TRUE>>=
+ggplot(doov) + geom_histogram(aes(x=avgExpApriori))
+@ 
+
+Histogram of average explainers apriori score
+
+Most OOV words have perfect-scoring explainers that explain at least
+part of the word.
+
+<<fig=TRUE>>=
+ggplot(doov) + geom_histogram(aes(x=avgExpConf))
+@ 
+
+Histogram of average explainers confidence score
+
+The apriori scores are adjusted to produce many perfect-confidence
+(essential) explainers and far fewer mid-level confidence
+explainers.
+
+\section{Sentence statistics}
+
+<<>>=
+dsent <- read.csv("../sentence-stats.csv")
+@ 
+
+<<fig=TRUE>>=
+ggplot(dsent) + geom_histogram(aes(x=wc))
+@ 
+
+Word counts
+
+<<fig=TRUE>>=
+ggplot(dsent) + geom_histogram(aes(x=oov))
+@ 
+
+OOV counts
+
+<<fig=TRUE>>=
+ggplot(dsent) + geom_histogram(aes(x=newsym))
+@ 
+
+New symbol counts
+
+<<fig=TRUE>>=
+ggplot(dsent) + geom_point(aes(x=doubt, y=wc))
+@ 
+
+Doubt vs. word count
+
+<<fig=TRUE>>=
+ggplot(subset(dsent, fscore > -1)) + geom_point(aes(x=fscore, y=oovrate))
+@ 
+
+F-score vs. oov-rate
+
+\section{Questions}
+
+What evidence is there that a symbol is part of an OOV word?
+
+<<>>=
+nrow(subset(dw,accepted==T & noexp==F & oov==T & delta < 0.1))
+nrow(subset(dw,accepted==T & noexp==F & oov==F & delta < 0.1))
+@ 
+
+What evidence is there that a sequence of symbols should be learned as
+a new word?
+
+
+\end{document}

@@ -41,4 +41,5 @@
     {:training [training training-dict training-symbols]
      :test (zipmap (range (count ambiguous)) ambiguous)
      :test-sentences test-shuffled
-     :test-dict test-dict}))
+     :test-dict test-dict
+     :test-word-freq (frequencies (apply concat test-shuffled))}))
