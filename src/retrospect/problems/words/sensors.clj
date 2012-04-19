@@ -4,9 +4,10 @@
 
 (defn sense
   [sensor test time]
-  (let [sentence-symbols (partition 2 (interleave (get test (dec time))
-                                                  (range (count (get test (dec time))))))]
-    (add-sensed sensor time sentence-symbols)))
+  (let [symbol-pairs (partition 2 1 (get test (dec time)))
+        indexes (partition 2 1 (range (count (get test (dec time)))))
+        indexed-symbol-pairs (partition 2 (interleave symbol-pairs indexes))]
+    (add-sensed sensor time indexed-symbol-pairs)))
 
 (defn generate-sensors
   []

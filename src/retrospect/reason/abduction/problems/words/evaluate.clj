@@ -39,8 +39,10 @@
 (defmethod hyps-equal? :sensor
   [hyp1 hyp2]
   (and (= (:type hyp1) (:type hyp2))
-       (= (:pos hyp1) (:pos hyp2))
-       (= (:symbol hyp1) (:symbol hyp2))))
+       (= (:pos1 hyp1) (:pos1 hyp2))
+       (= (:pos2 hyp1) (:pos2 hyp2))
+       (= (:symbol1 hyp1) (:symbol1 hyp2))
+       (= (:symbol2 hyp1) (:symbol2 hyp2))))
 
 (defmethod hyps-equal? :word
   [hyp1 hyp2]
@@ -93,9 +95,9 @@
 (defn get-words
   [truedata i accepted]
   (let [ambiguous (get (:test truedata) (dec i))
-        cuts (rest (sort (set (concat (map (comp first :pos-seq) (get accepted :word))
-                                      (map (comp inc last :pos-seq) (get accepted :word))
-                                      (map (comp second :pos-seq) (get accepted :word-transition))))))]
+        cuts (sort (set (concat (map (comp first :pos-seq) (get accepted :word))
+                                (map (comp inc last :pos-seq) (get accepted :word))
+                                (map (comp second :pos-seq) (get accepted :word-transition)))))]
     (loop [amb (vec ambiguous)
            cs cuts
            i 0

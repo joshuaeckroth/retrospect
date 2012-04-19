@@ -1,8 +1,7 @@
 (ns retrospect.reason.abduction.problems.words.hypotheses
   (:import (java.util.regex Pattern))
   (:require [clojure.string :as str])
-  (:use [loom.graph :only [has-edge?]])
-  (:use [clojure.contrib.string :only [substring?]])
+  (:use [loom.graph :only [has-edge? weight edges]])
   (:use [retrospect.profile :only [prof]])
   (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.reason.abduction.workspace :only [new-hyp]])
@@ -11,10 +10,11 @@
   (:use [retrospect.state]))
 
 (defn make-sensor-hyps
-  [sensor [symbol pos] time time-prev time-now]
+  [sensor [[s1 s2] [pos1 pos2]] time time-prev time-now]
   [(new-hyp "Sens" :sensor :symbol true nil 1.0 [] []
-            (str symbol) (format "Symbol: '%c' at position %d" symbol pos)
-            {:pos pos :symbol symbol})])
+            (str s1 s2) (format "Symbols: '%c%c' at positions %d,%d"
+                                 s1 s2 pos1 pos2)
+            {:symbol1 s1 :symbol2 s2 :pos1 pos1 :pos2 pos2})])
 
 (defn conflicts
   [hyp1 hyp2]
@@ -54,58 +54,11 @@
    (or (= (second (:pos-seq hyp1)) (first (:pos-seq hyp2)))
        (= (first (:pos-seq hyp1)) (last (:pos-seq hyp2))))
 
+   (or (and (= :char-transition (:type hyp1)) (= :word-transition (:type hyp2)))
+       (and (= :word-transition (:type hyp1)) (= :char-transition (:type hyp2))))
+   (= (:explains hyp1) (:explains hyp2))
+
    :else false))
-
-(defn build-markov-models
-  "Build a Markov n-gram model of word transitions."
-  [training]
-  (reduce (fn [models sentence]
-            (let [words-grouped (apply concat (for [i (range 1 (inc (:MaxModelGrams params)))]
-                                                (partition i (concat (repeat (dec i) "") sentence))))]
-              (reduce (fn [ms ws] (let [m (get ms (count ws) {})
-                                        prior (get m ws 0)]
-                                    (assoc-in ms [(count ws) ws] (inc prior))))
-                      models words-grouped)))
-          {} training))
-
-(comment
-  (let [kb (try
-             (with-open [r (java.io.PushbackReader.
-                            (clojure.java.io/reader
-                             (format "%s/words/kb-%s-%d.clj" @datadir
-                                     (:Dataset params) (:MaxModelGrams params))))]
-               (read r))
-             (catch Exception _
-               (let [dtc 
-
-                     models (build-markov-models training)
-                     model-sums (reduce (fn [m-s n]
-                                          (assoc m-s n (double (reduce + (vals (get models n))))))
-                                        {} (keys models))
-                     substrings (reduce (fn [m w] (assoc m w (filter #(substring? w %) dictionary)))
-                                        {} dictionary)
-                     symbol-words (reduce (fn [m w] (reduce (fn [m2 sym]
-                                                              (if (nil? (get m2 sym))
-                                                                (assoc m2 sym #{w})
-                                                                (update-in m2 [sym] conj w)))
-                                                            m (seq w)))
-                                          {} dictionary)
-                     dict-counts (map count dictionary)
-                     kb {:dtc 
-
-                         :avg-word-length (if (empty? dictionary) 0
-                                              (double (/ (reduce + dict-counts)
-                                                         (count dictionary))))
-                         :max-word-length (apply max dict-counts)
-                         :dictionary dictionary
-                         :models models
-                         :model-sums model-sums
-                         :symbol-words symbol-words
-                         :substrings substrings}]
-                 (spit (format "%s/words/kb-%s-%d.clj" @datadir
-                               (:Dataset params) (:MaxModelGrams params))
-                       (pr-str kb))
-                 kb)))]))
 
 (defn generate-kb
   [kb]
@@ -118,43 +71,89 @@
 (defn hypothesize
   [sensor-hyps hyps]
   (let [kb (get-kb hyps)
-        sensor-hyps-sorted (vec (sort-by :pos sensor-hyps))
-        sym-string (apply str (map :symbol sensor-hyps-sorted))
-        pairs (concat [["start" (first sensor-hyps-sorted)]]
-                      (partition 2 1 sensor-hyps-sorted)
-                      [[(last sensor-hyps-sorted) "end"]])
+        sensor-hyps-sorted (vec (sort-by :pos1 sensor-hyps))
+        sym-string (apply str (map :symbol2 (butlast sensor-hyps-sorted)))
+        choose-best (fn [hs h]
+                      (when (= h (last (sort-by :apriori (filter #(= (:explains h) (:explains %)) hs))))
+                        h))
         words (filter identity
                       (mapcat
                        (fn [w] (let [m (re-matcher (re-pattern (format "(%s)" (Pattern/quote w)))
                                                    sym-string)]
-                                 (when (re-find m)
-                                   (map (fn [g] (subvec sensor-hyps-sorted (.start m g)
-                                                        (+ (.start m g) (count w))))
-                                        (range 1 (inc (.groupCount m)))))))
-                       (:dictionary kb)))]
-    (concat
-     ;; word hyps
-     (map (fn [s-hyps]
-            (let [word (apply str (map :symbol s-hyps))]
-              (new-hyp "Word" :word :word false conflicts
-                       0.50 s-hyps [] word ""
-                       {:pos-seq (map :pos s-hyps)
-                        :word word})))
-          words)
-     ;; word-transition pair hyps
-     (filter identity
-             (map (fn [[sh1 sh2]]
-                    (when ((:wtc kb) [(:symbol sh1) (:symbol sh2)])
-                      (new-hyp "TransW" :word-transition :word-transition false conflicts
-                               0.50 [sh1 sh2] [] "" ""
-                               {:pos-seq [(:pos sh1) (:pos sh2)]})))
-                  (butlast (rest pairs))))
-     ;; in-word-transition pair hyps
-     (filter identity
-             (map (fn [[sh1 sh2]]
-                    (when (has-edge? (:dtg kb) (:symbol sh1) (:symbol sh2))
-                      (new-hyp "TransC" :char-transition :char-transition false conflicts
-                               0.50 [sh1 sh2] [] "" ""
-                               {:pos-seq [(:pos sh1) (:pos sh2)]})))
-                  (butlast (rest pairs)))))))
+                                 (loop [ws []]
+                                   (if (false? (.find m)) ws
+                                       (recur (conj ws (subvec sensor-hyps-sorted (.start m 1)
+                                                               (inc (+ (.start m 1) (count w))))))))))
+                       (:dictionary kb)))
+        word-hyps
+        (map (fn [s-hyps]
+               (let [word (apply str (map :symbol2 (butlast s-hyps)))
+                     similar-words (let [pat (re-pattern (format "%s" (Pattern/quote word)))]
+                                     (filter #(re-find pat %) (:dictionary kb)))
+                     similar-sum (reduce + (map (fn [w] (get (:unigram-model kb) [w]))
+                                                similar-words))
+                     pos-seq (map :pos2 (butlast s-hyps))]
+                 (new-hyp "Word" :word :word false conflicts
+                          (/ (double (get (:unigram-model kb) [word]))
+                             (double similar-sum))
+                          s-hyps [] word (format "Word: %s, pos-seq: %s" word
+                                                 (str/join ", " (map str pos-seq)))
+                          {:pos-seq pos-seq :word word})))
+             words)
+        in-word-trans-hyps
+        (filter identity
+                (map (fn [hyp]
+                       (when (has-edge? (:dtg kb) (:symbol1 hyp) (:symbol2 hyp))
+                         (let [sym-counts (reduce + (map #(weight (:dtg kb) (:symbol1 hyp) (second %))
+                                                         (filter #(= (:symbol1 hyp) (first %))
+                                                                 (edges (:dtg kb)))))]
+                           (new-hyp "TransC" :char-transition :char-transition false conflicts
+                                    (/ (double (weight (:dtg kb) (:symbol1 hyp) (:symbol2 hyp)))
+                                       (double sym-counts))
+                                    [hyp] [] (str (:symbol1 hyp) (:symbol2 hyp)) ""
+                                    {:pos-seq [(:pos1 hyp) (:pos2 hyp)]}))))
+                     sensor-hyps-sorted))
+        word-trans-hyps
+        (filter identity
+                (map (fn [hyp]
+                       (when (get (:wtc kb) [(:symbol1 hyp) (:symbol2 hyp)])
+                         (let [sym-counts (reduce + (map #(weight (:dtg kb) (:symbol1 hyp) (second %))
+                                                         (filter #(= (:symbol1 hyp) (first %))
+                                                                 (edges (:dtg kb)))))]
+                           (new-hyp "TransW" :word-transition :word-transition false conflicts
+                                    (if (not (has-edge? (:dtg kb) (:symbol1 hyp) (:symbol2 hyp))) 0.5
+                                        (/ (double (get (:wtc kb) [(:symbol1 hyp) (:symbol2 hyp)]))
+                                           (double sym-counts)))
+                                    [hyp] [] (str (:symbol1 hyp) (:symbol2 hyp)) ""
+                                    {:pos-seq [(:pos1 hyp) (:pos2 hyp)]}))))
+                     sensor-hyps-sorted))
+        start-of-word-hyps
+        (filter identity
+                (map (fn [hyp]
+                       (when (has-edge? (:dtg kb) "start" (:symbol2 hyp))
+                         (let [sym-counts (reduce + (map #(weight (:dtg kb) (first %) (:symbol2 hyp))
+                                                         (filter #(= (:symbol2 hyp) (second %))
+                                                                 (edges (:dtg kb)))))]                    
+                           (new-hyp "TransWS" :word-transition :word-transition false conflicts
+                                    (/ (double (weight (:dtg kb) "start" (:symbol2 hyp)))
+                                       (double sym-counts))
+                                    [hyp] [] (str (:symbol1 hyp) (:symbol2 hyp)) ""
+                                    {:pos-seq [(:pos1 hyp) (:pos2 hyp)]}))))
+                     sensor-hyps-sorted))
+        end-of-word-hyps
+        (filter identity
+                (map (fn [hyp]
+                       (when (has-edge? (:dtg kb) (:symbol1 hyp) "end")
+                         (let [sym-counts (reduce + (map #(weight (:dtg kb) (:symbol1 hyp) (second %))
+                                                         (filter #(= (:symbol1 hyp) (first %))
+                                                                 (edges (:dtg kb)))))]
+                           (new-hyp "TransWE" :word-transition :word-transition false conflicts
+                                    (/ (double (weight (:dtg kb) (:symbol1 hyp) "end"))
+                                       (double sym-counts))
+                                    [hyp] [] (str (:symbol1 hyp) (:symbol2 hyp)) ""
+                                    {:pos-seq [(:pos1 hyp) (:pos2 hyp)]}))))
+                     sensor-hyps-sorted))
+        all-word-trans-hyps (concat word-trans-hyps start-of-word-hyps end-of-word-hyps)]
+    (concat word-hyps in-word-trans-hyps
+            (filter identity (map (partial choose-best all-word-trans-hyps) all-word-trans-hyps)))))
 
