@@ -80,8 +80,9 @@
 (defn find-dict-words
   [sym-string dict-regex]
   (reduce (fn [ws w] (let [m (re-matcher (get dict-regex w) sym-string)]
-                       (if (false? (.find m)) ws
-                           (conj ws [w (.start m 1)]))))
+                       (loop [ws2 ws]
+                         (if (false? (.find m)) ws2
+                             (recur (conj ws2 [w (.start m 1)]))))))
           [] (keys dict-regex)))
 
 (defn hypothesize
