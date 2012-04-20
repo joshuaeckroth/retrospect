@@ -163,7 +163,7 @@
                     params control-params]
             (let [control-truedata ((:generate-truedata-fn @problem))
                   control-sensors ((:generate-sensors-fn @problem))
-                  control-ors (init-ors control-sensors (:training truedata))]
+                  control-ors (init-ors control-sensors (:training control-truedata))]
               (println "Control:" (pr-str control-params))
               (map (fn [rs] (assoc rs :control-params (pr-str control-params)
                                    :comparison-params (pr-str comparison-params)))
@@ -174,7 +174,7 @@
                     params comparison-params]
             (let [comparison-truedata ((:generate-truedata-fn @problem))
                   comparison-sensors ((:generate-sensors-fn @problem))
-                  comparison-ors (init-ors comparison-sensors (:training truedata))]
+                  comparison-ors (init-ors comparison-sensors (:training comparison-truedata))]
               (println "Comparison:" (pr-str comparison-params))
               (map (fn [rs] (assoc rs
                               :control-params (pr-str control-params)
