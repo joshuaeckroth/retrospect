@@ -68,6 +68,22 @@
   [hyps]
   (first (get hyps :kb)))
 
+(defn find-substrings
+  "Finds strings that s is a substring of; returns the strings plus
+   the offset within each string where we found s."
+  [s dict-str]
+  (let [m (re-matcher (re-pattern (format " ([^ ]*(%s)[^ ]*)" (Pattern/quote s))) dict-str)]
+    (loop [ws []]
+      (if (false? (.find m)) ws
+          (recur (conj ws [(second (re-groups m)) (- (.start m 2) (.start m 1))]))))))
+
+(defn find-dict-words
+  [sym-string dict-regex]
+  (reduce (fn [ws w] (let [m (re-matcher (get dict-regex w) sym-string)]
+                       (if (false? (.find m)) ws
+                           (conj ws [w (.start m 1)]))))
+          [] (keys dict-regex)))
+
 (defn hypothesize
   [sensor-hyps hyps]
   (let [kb (get-kb hyps)
@@ -76,20 +92,12 @@
         choose-best (fn [hs h]
                       (when (= h (last (sort-by :apriori (filter #(= (:explains h) (:explains %)) hs))))
                         h))
-        words (filter identity
-                      (mapcat
-                       (fn [w] (let [m (re-matcher (re-pattern (format "(%s)" (Pattern/quote w)))
-                                                   sym-string)]
-                                 (loop [ws []]
-                                   (if (false? (.find m)) ws
-                                       (recur (conj ws (subvec sensor-hyps-sorted (.start m 1)
-                                                               (inc (+ (.start m 1) (count w))))))))))
-                       (:dictionary kb)))
+        words (map (fn [[w i]] (subvec sensor-hyps-sorted i (inc (+ i (count w)))))
+                   (find-dict-words sym-string (:dictionary-regex kb)))
         word-hyps
         (map (fn [s-hyps]
                (let [word (apply str (map :symbol2 (butlast s-hyps)))
-                     similar-words (let [pat (re-pattern (format "%s" (Pattern/quote word)))]
-                                     (filter #(re-find pat %) (:dictionary kb)))
+                     similar-words (map first (find-substrings word (:dictionary-string kb)))
                      similar-sum (reduce + (map (fn [w] (get (:unigram-model kb) [w]))
                                                 similar-words))
                      pos-seq (map :pos2 (butlast s-hyps))]
@@ -154,6 +162,6 @@
                                     {:pos-seq [(:pos1 hyp) (:pos2 hyp)]}))))
                      sensor-hyps-sorted))
         all-word-trans-hyps (concat word-trans-hyps start-of-word-hyps end-of-word-hyps)]
-    (concat word-hyps in-word-trans-hyps
+    (concat word-hyps
             (filter identity (map (partial choose-best all-word-trans-hyps) all-word-trans-hyps)))))
 

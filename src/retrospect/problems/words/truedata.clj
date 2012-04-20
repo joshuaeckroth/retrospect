@@ -45,6 +45,9 @@
                                  training))]
     {:training {:sentences training :dictionary training-dict :symbols training-symbols
                 :dtg dtg :wtc wtc
+                :dictionary-string (str/join " " (concat [" "] training-dict))
+                :dictionary-regex (reduce (fn [m w] (assoc m w (re-pattern (format "(%s)" (Pattern/quote w)))))
+                                          {} training-dict)
                 :unigram-model (get (build-markov-models training) 1)}
      :test (zipmap (range (count ambiguous)) ambiguous)
      :test-sentences test
