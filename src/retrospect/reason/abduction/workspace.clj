@@ -251,19 +251,11 @@
   (if (some (partial (:hyps-equal?-fn (:abduction @problem)) hyp)
             (get (:hypotheses workspace) (:type hyp)))
     workspace
-    (let [g-added (reduce (fn [g n] (-> g (add-nodes n)
-                                        (add-attr n :id (:id n))
-                                        (add-attr n :label (:id n))))
-                          (:graph workspace)
-                          (conj (:explains hyp) hyp))
-          g-edges (reduce (fn [g e] (add-edges g [hyp e]))
-                          g-added (:explains hyp))
-          ws-needs-explainer (if-not (:needs-explainer? hyp) workspace
+    (let [ws-needs-explainer (if-not (:needs-explainer? hyp) workspace
                                      (assoc-in workspace [:active-explainers hyp] #{}))
           ws-explainers (-> ws-needs-explainer
                             (update-in [:added] conj hyp)
                             (add-explainers hyp)
-                            (assoc :graph g-edges)
                             (assoc-in [:hyp-confidences hyp]
                                       (cond (= :kb (:type hyp)) 1.0
                                             (:Oracle params)
@@ -278,9 +270,22 @@
                                             :else 0.0))
                             (update-in [:hypotheses (:type hyp)] conj hyp))
           conflicts (find-conflicts-selected ws-explainers hyp
-                                             (apply concat (vals (:accepted ws-explainers))))]
-      (if (empty? conflicts) ws-explainers
-          (reject-many ws-explainers [hyp])))))
+                                             (apply concat (vals (:accepted ws-explainers))))
+          g-added (reduce (fn [g n] (-> g (add-nodes n)
+                                        (add-attr n :id (:id n))
+                                        (add-attr n :label (:id n))))
+                          (:graph ws-explainers)
+                          (conj (:explains hyp) hyp))
+          g-expl (reduce (fn [g e] (add-edges g [hyp e]))
+                         g-added (:explains hyp))
+          g-conf (reduce (fn [g c] (-> g (add-edges [hyp c])
+                                       (add-attr hyp c :dir "none")
+                                       (add-attr hyp c :style "dotted")
+                                       (add-attr hyp c :constraint false)))
+                         g-expl conflicts)
+          ws-graph (assoc ws-explainers :graph g-conf)]
+      (if (empty? conflicts) ws-graph
+          (reject-many ws-graph [hyp])))))
 
 (defn accept
   [workspace hyp alts]
