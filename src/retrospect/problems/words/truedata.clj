@@ -22,7 +22,7 @@
   []
   ;; attached a space at the front and end of each sentence to
   ;; facilitate sensor hyps that have pairs of symbols
-  (let [sentences (map (fn [sent] (concat [" "] (filter not-empty (str/split sent #"\s+")) [" "]))
+  (let [sentences (map (fn [sent] (concat [" "] (filter not-empty (str/split sent #"[\s　]+")) [" "]))
                        (str/split-lines (slurp (format "%s/words/%s.utf8"
                                                        @datadir (:Dataset params))
                                                :encoding "utf-8")))
@@ -45,10 +45,13 @@
                                  training))]
     {:training {:sentences training :dictionary training-dict :symbols training-symbols
                 :dtg dtg :wtc wtc
-                :dictionary-string (str/join " " (concat [" "] training-dict))
-                :dictionary-regex (reduce (fn [m w] (assoc m w (re-pattern (format "(%s)" (Pattern/quote w)))))
-                                          {} training-dict)
-                :unigram-model (get (build-markov-models training) 1)}
+                :dictionary-string (if-not (:StatsOnly params)
+                                     (str/join " " (concat [" "] training-dict)))
+                :dictionary-regex (if-not (:StatsOnly params)
+                                    (reduce (fn [m w] (assoc m w (re-pattern (format "(%s)" (Pattern/quote w)))))
+                                            {} training-dict))
+                :unigram-model (if-not (:StatsOnly params)
+                                 (get (build-markov-models training) 1))}
      :test (zipmap (range (count ambiguous)) ambiguous)
      :test-sentences test
      :test-dict test-dict}))
