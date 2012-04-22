@@ -27,7 +27,6 @@
                                (recur (+ i (count (first sent)))
                                       (conj ws (first sent))
                                       (rest sent))))]
-        (println hyp true-words)
         (cond (= :word (:type hyp)) (= [(:word hyp)] true-words)
               (= :char-transition (:type hyp)) (empty? true-words)
               (= :word-transition (:type hyp)) (not-empty true-words)))))

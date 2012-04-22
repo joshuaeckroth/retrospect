@@ -39,12 +39,12 @@
      (not (or (< end1 start2) (< end2 start1))))
    
    (and (= :word (:type hyp1)) (= :word-transition (:type hyp2)))
-   (and (<= (first (:pos-seq hyp1)) (first (:pos-seq hyp2)))
-        (>= (last (:pos-seq hyp1)) (first (:pos-seq hyp2))))
+   (and (< (first (:pos-seq hyp1)) (first (:pos-seq hyp2)))
+        (> (last (:pos-seq hyp1)) (first (:pos-seq hyp2))))
    
    (and (= :word-transition (:type hyp1)) (= :word (:type hyp2)))
-   (and (<= (first (:pos-seq hyp2)) (first (:pos-seq hyp1)))
-        (>= (last (:pos-seq hyp2)) (first (:pos-seq hyp1))))
+   (and (< (first (:pos-seq hyp2)) (first (:pos-seq hyp1)))
+        (> (last (:pos-seq hyp2)) (first (:pos-seq hyp1))))
    
    (and (= :word (:type hyp1)) (= :char-transition (:type hyp2)))
    (or (= (first (:pos-seq hyp2)) (first (:pos-seq hyp1)))
