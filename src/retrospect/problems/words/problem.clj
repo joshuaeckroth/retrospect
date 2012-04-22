@@ -30,8 +30,11 @@
                :stats-fn stats
                :true-hyp?-fn true-hyp?
                :hyps-equal?-fn hyps-equal?
-               :hyp-types [:word :char-transition :word-transition]
-               :default-params {}}
+               :hyp-types [:word :in-word-transition :word-transition]
+               :default-params {:HypTypes ["words,inwordtrans,wordtrans"
+                                           ["words" "words,inwordtrans"
+                                            "words,wordtrans" "words,inwordtrans,wordtrans"
+                                            "inwordtrans,wordtrans" "wordtrans"]]}}
    :default-params
    {:Steps [50 [50]]
     :StepsBetween [1 [1]]

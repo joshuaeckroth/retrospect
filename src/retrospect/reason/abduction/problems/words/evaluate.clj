@@ -13,7 +13,7 @@
 
 (defn true-hyp?
   [truedata time-now hyp]
-  (if (= :kb (:type hyp)) true
+  (if (or (= :sensor (:type hyp)) (= :kb (:type hyp))) true
       (let [sentence (nth (:test-sentences truedata) (dec time-now))
             start-pos (first (:pos-seq hyp))
             end-pos (last (:pos-seq hyp))
@@ -28,7 +28,7 @@
                                       (conj ws (first sent))
                                       (rest sent))))]
         (cond (= :word (:type hyp)) (= [(:word hyp)] true-words)
-              (= :char-transition (:type hyp)) (empty? true-words)
+              (= :in-word-transition (:type hyp)) (empty? true-words)
               (= :word-transition (:type hyp)) (not-empty true-words)))))
 
 (defmulti hyps-equal? (fn [hyp1 hyp2] (:type hyp1)))
@@ -94,9 +94,14 @@
 (defn get-words
   [truedata i accepted]
   (let [ambiguous (get (:test truedata) (dec i))
-        cuts (sort (set (concat (map (comp first :pos-seq) (get accepted :word))
-                                (map (comp inc last :pos-seq) (get accepted :word))
-                                (map (comp first :pos-seq) (get accepted :word-transition)))))]
+        cuts (let [cs (set (concat (map (comp first :pos-seq) (get accepted :word))
+                                   (map (comp inc last :pos-seq) (get accepted :word))
+                                   (map (comp first :pos-seq) (get accepted :word-transition))))]               
+               ;; may not have word or word-transition hyps (check :HypTypes param))
+               (if (not-empty cs) (sort cs)
+                   (sort (set/difference (set (range (count ambiguous)))
+                                         (set (map (comp first :pos-seq)
+                                                   (get accepted :in-word-transition)))))))]
     (loop [amb (vec ambiguous)
            cs cuts
            i 0

@@ -46,16 +46,16 @@
    (and (< (first (:pos-seq hyp2)) (first (:pos-seq hyp1)))
         (> (last (:pos-seq hyp2)) (first (:pos-seq hyp1))))
    
-   (and (= :word (:type hyp1)) (= :char-transition (:type hyp2)))
+   (and (= :word (:type hyp1)) (= :in-word-transition (:type hyp2)))
    (or (= (first (:pos-seq hyp2)) (first (:pos-seq hyp1)))
        (= (dec (first (:pos-seq hyp2))) (last (:pos-seq hyp1))))
    
-   (and (= :char-transition (:type hyp1)) (= :word (:type hyp2)))
+   (and (= :in-word-transition (:type hyp1)) (= :word (:type hyp2)))
    (or (= (first (:pos-seq hyp1)) (first (:pos-seq hyp2)))
        (= (dec (first (:pos-seq hyp1))) (last (:pos-seq hyp2))))
 
-   (or (and (= :char-transition (:type hyp1)) (= :word-transition (:type hyp2)))
-       (and (= :word-transition (:type hyp1)) (= :char-transition (:type hyp2))))
+   (or (and (= :in-word-transition (:type hyp1)) (= :word-transition (:type hyp2)))
+       (and (= :word-transition (:type hyp1)) (= :in-word-transition (:type hyp2))))
    (= (:explains hyp1) (:explains hyp2))
 
    :else false))
@@ -115,7 +115,7 @@
         (filter identity
                 (map (fn [hyp]
                        (when (has-edge? (:dtg kb) (:symbol1 hyp) (:symbol2 hyp))
-                         (new-hyp "TransC" :char-transition :char-transition false conflicts
+                         (new-hyp "TransC" :in-word-transition :in-word-transition false conflicts
                                   ;; if this symbol pair is also a word transition, figure out how
                                   ;; often it is vs. how often it is an in-word transition;
                                   ;; otherwise, its score is 1.0
@@ -170,7 +170,10 @@
                                   [hyp] [] (str (:symbol1 hyp) (:symbol2 hyp)) ""
                                   {:pos-seq [(:pos2 hyp)]})))
                      sensor-hyps-sorted))
-        all-word-trans-hyps (concat word-trans-hyps start-of-word-hyps end-of-word-hyps)]
-    (concat word-hyps in-word-trans-hyps
-            (filter identity (map (partial choose-best all-word-trans-hyps) all-word-trans-hyps)))))
-
+        all-word-trans-hyps (concat word-trans-hyps start-of-word-hyps end-of-word-hyps)
+        best-word-trans-hyps (filter identity (map (partial choose-best all-word-trans-hyps)
+                                                   all-word-trans-hyps))
+        hyp-types (set (str/split (:HypTypes params) #","))]
+    (concat (if (hyp-types "words") word-hyps [])
+            (if (hyp-types "inwordtrans") in-word-trans-hyps [])
+            (if (hyp-types "wordtrans") best-word-trans-hyps []))))
