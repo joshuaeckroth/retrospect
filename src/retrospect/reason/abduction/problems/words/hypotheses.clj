@@ -39,20 +39,20 @@
      (not (or (< end1 start2) (< end2 start1))))
    
    (and (= :word (:type hyp1)) (= :word-transition (:type hyp2)))
-   (and (< (first (:pos-seq hyp1)) (second (:pos-seq hyp2)))
-        (> (last (:pos-seq hyp1)) (first (:pos-seq hyp2))))
+   (and (<= (first (:pos-seq hyp1)) (first (:pos-seq hyp2)))
+        (>= (last (:pos-seq hyp1)) (first (:pos-seq hyp2))))
    
    (and (= :word-transition (:type hyp1)) (= :word (:type hyp2)))
-   (and (< (first (:pos-seq hyp2)) (second (:pos-seq hyp1)))
-        (> (last (:pos-seq hyp2)) (first (:pos-seq hyp1))))
+   (and (<= (first (:pos-seq hyp2)) (first (:pos-seq hyp1)))
+        (>= (last (:pos-seq hyp2)) (first (:pos-seq hyp1))))
    
    (and (= :word (:type hyp1)) (= :char-transition (:type hyp2)))
-   (or (= (second (:pos-seq hyp2)) (first (:pos-seq hyp1)))
-       (= (first (:pos-seq hyp2)) (last (:pos-seq hyp1))))
+   (or (= (first (:pos-seq hyp2)) (first (:pos-seq hyp1)))
+       (= (dec (first (:pos-seq hyp2))) (last (:pos-seq hyp1))))
    
    (and (= :char-transition (:type hyp1)) (= :word (:type hyp2)))
-   (or (= (second (:pos-seq hyp1)) (first (:pos-seq hyp2)))
-       (= (first (:pos-seq hyp1)) (last (:pos-seq hyp2))))
+   (or (= (first (:pos-seq hyp1)) (first (:pos-seq hyp2)))
+       (= (dec (first (:pos-seq hyp1))) (last (:pos-seq hyp2))))
 
    (or (and (= :char-transition (:type hyp1)) (= :word-transition (:type hyp2)))
        (and (= :word-transition (:type hyp1)) (= :char-transition (:type hyp2))))
@@ -90,11 +90,13 @@
   (let [kb (get-kb hyps)
         sensor-hyps-sorted (vec (sort-by :pos1 sensor-hyps))
         sym-string (apply str (map :symbol2 (butlast sensor-hyps-sorted)))
-        choose-best (fn [hs h]
-                      (when (= h (last (sort-by :apriori (filter #(= (:explains h) (:explains %)) hs))))
-                        h))
+        choose-best (fn [hs h] (let [same-explains (filter #(= (:explains h) (:explains %)) hs)
+                                     best? (= h (last (sort-by :apriori same-explains)))]
+                                 (when best? h)))
+        ;; get sequences of sensor hyps that match known words
         words (map (fn [[w i]] (subvec sensor-hyps-sorted i (inc (+ i (count w)))))
                    (find-dict-words sym-string (:dictionary-regex kb)))
+        ;; word hyps for known words
         word-hyps
         (map (fn [s-hyps]
                (let [word (apply str (map :symbol2 (butlast s-hyps)))
@@ -113,56 +115,62 @@
         (filter identity
                 (map (fn [hyp]
                        (when (has-edge? (:dtg kb) (:symbol1 hyp) (:symbol2 hyp))
-                         (let [sym-counts (reduce + (map #(weight (:dtg kb) (:symbol1 hyp) (second %))
-                                                         (filter #(= (:symbol1 hyp) (first %))
-                                                                 (edges (:dtg kb)))))]
-                           (new-hyp "TransC" :char-transition :char-transition false conflicts
-                                    (/ (double (weight (:dtg kb) (:symbol1 hyp) (:symbol2 hyp)))
-                                       (double sym-counts))
-                                    [hyp] [] (str (:symbol1 hyp) (:symbol2 hyp)) ""
-                                    {:pos-seq [(:pos1 hyp) (:pos2 hyp)]}))))
+                         (new-hyp "TransC" :char-transition :char-transition false conflicts
+                                  ;; if this symbol pair is also a word transition, figure out how
+                                  ;; often it is vs. how often it is an in-word transition;
+                                  ;; otherwise, its score is 1.0
+                                  (let [w (weight (:dtg kb) (:symbol1 hyp) (:symbol2 hyp))
+                                        c (get (:wtc kb) [(:symbol1 hyp) (:symbol2 hyp)] 0)]
+                                    (/ (double w) (double (+ w c))))
+                                  
+                                  [hyp] [] (str (:symbol1 hyp) (:symbol2 hyp)) ""
+                                  {:pos-seq [(:pos2 hyp)]})))
                      sensor-hyps-sorted))
         word-trans-hyps
         (filter identity
                 (map (fn [hyp]
                        (when (get (:wtc kb) [(:symbol1 hyp) (:symbol2 hyp)])
-                         (let [sym-counts (reduce + (map #(weight (:dtg kb) (:symbol1 hyp) (second %))
-                                                         (filter #(= (:symbol1 hyp) (first %))
-                                                                 (edges (:dtg kb)))))]
-                           (new-hyp "TransW" :word-transition :word-transition false conflicts
-                                    (if (not (has-edge? (:dtg kb) (:symbol1 hyp) (:symbol2 hyp))) 0.5
-                                        (/ (double (get (:wtc kb) [(:symbol1 hyp) (:symbol2 hyp)]))
-                                           (double sym-counts)))
-                                    [hyp] [] (str (:symbol1 hyp) (:symbol2 hyp)) ""
-                                    {:pos-seq [(:pos1 hyp) (:pos2 hyp)]}))))
+                         (new-hyp "TransW" :word-transition :word-transition false conflicts
+                                  ;; if this symbol pair is also an in-word transition,
+                                  ;; divide by how often that is the case; otherwise,
+                                  ;; its score is 1.0
+                                  (let [w (get (:wtc kb) [(:symbol1 hyp) (:symbol2 hyp)])
+                                        c (or (weight (:dtg kb) (:symbol1 hyp) (:symbol2 hyp)) 0)]
+                                    (/ (double w) (double (+ w c))))
+                                  [hyp] [] (str (:symbol1 hyp) (:symbol2 hyp)) ""
+                                  {:pos-seq [(:pos2 hyp)]})))
                      sensor-hyps-sorted))
         start-of-word-hyps
         (filter identity
                 (map (fn [hyp]
                        (when (has-edge? (:dtg kb) "start" (:symbol2 hyp))
-                         (let [sym-counts (reduce + (map #(weight (:dtg kb) (first %) (:symbol2 hyp))
-                                                         (filter #(= (:symbol2 hyp) (second %))
-                                                                 (edges (:dtg kb)))))]                    
-                           (new-hyp "TransWS" :word-transition :word-transition false conflicts
-                                    (/ (double (weight (:dtg kb) "start" (:symbol2 hyp)))
-                                       (double sym-counts))
-                                    [hyp] [] (str (:symbol1 hyp) (:symbol2 hyp)) ""
-                                    {:pos-seq [(:pos1 hyp) (:pos2 hyp)]}))))
+                         ;; score is how often latter symbol is start of a word vs.
+                         ;; how often this symbol pair is an in-word transition;
+                         ;; if the pair is never anything but a start->symbol2 transition,
+                         ;; its score is 1.0
+                         (new-hyp "TransWS" :word-transition :word-transition false conflicts
+                                  (let [w (weight (:dtg kb) "start" (:symbol2 hyp))
+                                        c (or (weight (:dtg kb) (:symbol1 hyp) (:symbol2 hyp)) 0)]
+                                    (/ (double w) (double (+ w c))))
+                                  [hyp] [] (str (:symbol1 hyp) (:symbol2 hyp)) ""
+                                  {:pos-seq [(:pos2 hyp)]})))
                      sensor-hyps-sorted))
         end-of-word-hyps
         (filter identity
                 (map (fn [hyp]
                        (when (has-edge? (:dtg kb) (:symbol1 hyp) "end")
-                         (let [sym-counts (reduce + (map #(weight (:dtg kb) (:symbol1 hyp) (second %))
-                                                         (filter #(= (:symbol1 hyp) (first %))
-                                                                 (edges (:dtg kb)))))]
-                           (new-hyp "TransWE" :word-transition :word-transition false conflicts
-                                    (/ (double (weight (:dtg kb) (:symbol1 hyp) "end"))
-                                       (double sym-counts))
-                                    [hyp] [] (str (:symbol1 hyp) (:symbol2 hyp)) ""
-                                    {:pos-seq [(:pos1 hyp) (:pos2 hyp)]}))))
+                         ;; score is how often former symbol is end of a word vs.
+                         ;; how often this symbol pair is an in-word transition;
+                         ;; if the pair is never anything but a symbol1->end transition,
+                         ;; its score is 1.0
+                         (new-hyp "TransWE" :word-transition :word-transition false conflicts
+                                  (let [w (weight (:dtg kb) (:symbol1 hyp) "end")
+                                        c (or (weight (:dtg kb) (:symbol1 hyp) (:symbol2 hyp)) 0)]
+                                    (/ (double w) (double (+ w c))))
+                                  [hyp] [] (str (:symbol1 hyp) (:symbol2 hyp)) ""
+                                  {:pos-seq [(:pos2 hyp)]})))
                      sensor-hyps-sorted))
         all-word-trans-hyps (concat word-trans-hyps start-of-word-hyps end-of-word-hyps)]
-    (concat word-hyps
+    (concat word-hyps in-word-trans-hyps
             (filter identity (map (partial choose-best all-word-trans-hyps) all-word-trans-hyps)))))
 

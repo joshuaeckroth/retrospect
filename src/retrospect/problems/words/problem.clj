@@ -30,18 +30,13 @@
                :stats-fn stats
                :true-hyp?-fn true-hyp?
                :hyps-equal?-fn hyps-equal?
-               :hyp-types [:word :word-seq :learned-word :learned-word-seq]
+               :hyp-types [:word :char-transition :word-transition]
                :default-params {}}
    :default-params
    {:Steps [50 [50]]
     :StepsBetween [1 [1]]
     :ResetEachStep [true [true]]
     :SensorNoise [0 [0]]
-    :TendencyReduction ["mult" ["mult" "avg" "min" "max" "opp"]]
-    :WordApriori ["prob" ["tendency" "prob" "mult" "max" "avg"]]
-    :LearnApriori ["gauss" ["tendency" "gauss"]]
-    :LearnWordLength [4 [3 4 5 6]]
-    :WordContext ["data" ["data" "global"]]
     ;; ["carroll" "cityu_training" "as_training" "msr_training" "pku_training"]
     :Dataset ["pku_training" ["pku_training"]] 
-    :MaxModelGrams [2 [2]]}})
+    :MaxModelGrams [1 [1]]}})
