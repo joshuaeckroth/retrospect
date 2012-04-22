@@ -58,15 +58,19 @@
 (defn run-scorer
   [sentences believed train-dict]
   (try (do
-         (spit "/tmp/truth.txt" (join "\n" (map #(join " " %) sentences))
+         (spit (format "/tmp/truth-%d.txt" (:simulation params))
+               (join "\n" (map #(join " " %) sentences))
                :encoding "utf-8")
-         (spit "/tmp/believed.txt"
+         (spit (format "/tmp/believed-%d.txt" (:simulation params))
                (join "\n" (map (fn [s] (if (empty? s) "_" s)) (map #(join " " %) believed)))
                :encoding "utf-8")
-         (spit "/tmp/dictionary.txt" (join "\n" (sort train-dict))
+         (spit (format "/tmp/dictionary-%d.txt" (:simulation params))
+               (join "\n" (sort train-dict))
                :encoding "utf-8")
          (let [results (sh (format "%s/words/score" @datadir)
-                           "/tmp/dictionary.txt" "/tmp/truth.txt" "/tmp/believed.txt")
+                           (format "/tmp/dictionary-%d.txt" (:simulation params))
+                           (format "/tmp/truth-%d.txt" (:simulation params))
+                           (format "/tmp/believed-%d.txt" (:simulation params)))
                prec (Double/parseDouble
                      (second (re-find #"=== TOTAL TEST WORDS PRECISION:\s+(\d\.\d\d\d)"
                                       (:out results))))
