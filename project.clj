@@ -20,4 +20,4 @@
   :java-source-path "src/jvm"
   :radagast/ns-whitelist #"retrospect"
   :warn-on-reflection true ;; Emit warnings on all reflection calls.
-  :jvm-opts ["-Dawt.useSystemAAFontSettings=on" "-Xmx2000m"])
+  :jvm-opts ["-Dawt.useSystemAAFontSettings=on" "-Xmx3000m"])
