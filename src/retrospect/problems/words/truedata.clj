@@ -18,6 +18,18 @@
                       models words-grouped)))
           {} training))
 
+(defn find-inner-words
+  [word dictionary]
+  (if (empty? word) []
+      (let [ws (filter dictionary (map (fn [i] (apply str (take i word)))
+                                       (range 1 (inc (count word)))))]
+        (concat
+         (if (dictionary word) [[word]] [])
+         (mapcat (fn [w] (let [rest-word (apply str (drop (count w) word))
+                               rest-inner-words (find-inner-words rest-word dictionary)]
+                           (map #(concat [w] %) rest-inner-words)))
+                 ws)))))
+
 (defn generate-truedata
   []
   ;; attached a space at the front and end of each sentence to
@@ -42,7 +54,23 @@
                     training-dict)
         wtc (frequencies (mapcat (fn [sent] (map (fn [[w1 w2]] [(last w1) (first w2)])
                                                  (partition 2 1 sent)))
-                                 training))]
+                                 training))
+        dict-composites (mapcat #(find-inner-words % training-dict)
+                                training-dict)
+        word-freqs (frequencies (apply concat training))
+        prefixes (map first (filter second dict-composites))
+        suffixes (map last (filter second dict-composites))
+        prefix-suffix-freqs (frequencies (apply concat dict-composites))
+        prefixes-freq (frequencies prefixes)
+        suffixes-freq (frequencies suffixes)
+        prefixes-prob (reduce (fn [m w] (assoc m w (/ (double (get prefixes-freq w))
+                                                      (double (+ (get prefix-suffix-freqs w)
+                                                                 (get word-freqs w 0))))))
+                              {} (keys prefixes-freq))
+        suffixes-prob (reduce (fn [m w] (assoc m w (/ (double (get suffixes-freq w))
+                                                      (double (+ (get prefix-suffix-freqs w)
+                                                                 (get word-freqs w 0))))))
+                              {} (keys suffixes-freq))]
     {:training {:sentences training :dictionary training-dict :symbols training-symbols
                 :dtg dtg :wtc wtc
                 :dictionary-string (if-not (:StatsOnly params)
@@ -51,7 +79,9 @@
                                     (reduce (fn [m w] (assoc m w (re-pattern (format "(%s)" (Pattern/quote w)))))
                                             {} training-dict))
                 :unigram-model (if-not (:StatsOnly params)
-                                 (get (build-markov-models training) 1))}
+                                 (get (build-markov-models training) 1))
+                :prefixes-prob prefixes-prob
+                :suffixes-prob suffixes-prob}
      :test (zipmap (range (count ambiguous)) ambiguous)
      :test-sentences test
      :test-dict test-dict}))

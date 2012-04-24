@@ -97,7 +97,8 @@
 
 (defn get-words
   [truedata i accepted]
-  (let [ambiguous (get (:test truedata) (dec i))
+  (let [kb (first (get accepted :kb))
+        ambiguous (get (:test truedata) (dec i))
         cuts (let [cs (set (concat (map (comp first :pos-seq) (get accepted :word))
                                    (map (comp inc last :pos-seq) (get accepted :word))
                                    (map (comp first :pos-seq) (get accepted :word-transition))))]               
@@ -105,19 +106,30 @@
                (if (not-empty cs) (sort cs)
                    (sort (set/difference (set (range (count ambiguous)))
                                          (set (map (comp first :pos-seq)
-                                                   (get accepted :in-word-transition)))))))]
-    (loop [amb (vec ambiguous)
-           cs cuts
-           i 0
-           words []]
-      (cond (empty? amb) words
-            (empty? cs) (conj words (apply str amb))
+                                                   (get accepted :in-word-transition)))))))
+        parse (loop [amb (vec ambiguous)
+                     cs cuts
+                     i 0
+                     words []]
+                (cond (empty? amb) words
+                      (empty? cs) (conj words (apply str amb))
+                      :else
+                      (let [c (first cs)]
+                        (recur (vec (drop (- c i) amb))
+                               (rest cs)
+                               c
+                               (conj words (apply str (subvec amb 0 (- c i))))))))]
+    (loop [ws parse
+           sent []]
+      (cond (empty? ws) sent
+            (nil? (second ws)) (conj sent (first ws))
             :else
-            (let [c (first cs)]
-              (recur (vec (drop (- c i) amb))
-                     (rest cs)
-                     c
-                     (conj words (apply str (subvec amb 0 (- c i))))))))))
+            (let [w1 (first ws)
+                  w2 (second ws)]
+              (if (and (> (get (:prefixes-prob kb) w1 0.0) (:PrefixSuffixThreshold params))
+                       (> (get (:suffixes-prob kb) w2 0.0) (:PrefixSuffixThreshold params)))
+                (recur (rest (rest ws)) (conj sent (str w1 w2)))
+                (recur (rest ws) (conj sent w1))))))))
 
 (defn evaluate
   [truedata est]
