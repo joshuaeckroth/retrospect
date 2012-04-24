@@ -27,7 +27,7 @@
       (goto-ep new-expl-est (:id (cur-ep est))))))
 
 (defn meta-batch
-  [truedata n est _ time-now sensors]
+  [n truedata est _ time-now sensors]
   (let [branch-ep (nth-previous-ep est n)
         new-est (new-branch-ep est branch-ep)
         new-est-time (update-est new-est (assoc (cur-ep new-est) :time time-now
