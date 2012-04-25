@@ -1,6 +1,8 @@
 (ns retrospect.records
   (:import [java.io File])
+  (:use [clojure.java.io :as io :only (writer copy file)])
   (:import [java.util Date])
+  (:require [clojure.string :as str])
   (:use [clojure.contrib.prxml :only [prxml]])
   (:use [clojure.xml :as xml :only [parse tag attrs]])
   (:use [clojure.zip :as zip :only [xml-zip node children]])
@@ -76,3 +78,20 @@
       (System/exit 0))
     (catch java.util.concurrent.ExecutionException e
       (println "Quitting early."))))
+
+(defn read-csv
+  [lines]
+  (let [headers (map keyword (str/split (first lines) "[^\\],"))]
+    (for [line lines]
+      (let [data (str/split line #"[^\\],")]
+        (hash-map headers data)))))
+
+(defn read-archived-results
+  [recordsdir recdir]
+  (let [run-meta (read-string (slurp (format "%s/%s/meta.clj" recordsdir recdir)))
+        control-file (format "%s/%s/control-results.csv" recordsdir recdir)
+        comparison-file (format "%s/%s/comparison-results.csv" recordsdir recdir)
+        comparative-file (format "%s/%s/comparative-results.csv" recordsdir recdir)]
+    {:control (read-csv (str/split (slurp control-file) #"\n"))
+     :comparison nil
+     :comparative nil}))
