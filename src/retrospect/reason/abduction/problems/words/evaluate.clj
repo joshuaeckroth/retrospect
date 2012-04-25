@@ -1,6 +1,6 @@
 (ns retrospect.reason.abduction.problems.words.evaluate
   (:use [clojure.java.shell :only [sh]])
-  (:use [clojure.string :only [join]])
+  (:require [clojure.string :as str])
   (:use [clojure.contrib.io :only [file]])
   (:use [clojure.contrib.seq-utils :only [find-first]])
   (:require [clojure.set :as set])
@@ -59,13 +59,13 @@
   [sentences believed train-dict]
   (try (do
          (spit (format "/tmp/truth-%d.txt" (:simulation params))
-               (join "\n" (map #(join " " %) sentences))
+               (str/join "\n" (map #(str/join " " %) sentences))
                :encoding "utf-8")
          (spit (format "/tmp/believed-%d.txt" (:simulation params))
-               (join "\n" (map (fn [s] (if (empty? s) "_" s)) (map #(join " " %) believed)))
+               (str/join "\n" (map (fn [s] (if (empty? s) "_" s)) (map #(str/join " " %) believed)))
                :encoding "utf-8")
          (spit (format "/tmp/dictionary-%d.txt" (:simulation params))
-               (join "\n" (sort train-dict))
+               (str/join "\n" (sort train-dict))
                :encoding "utf-8")
          (let [results (sh (format "%s/words/score" @datadir)
                            (format "/tmp/dictionary-%d.txt" (:simulation params))
@@ -101,7 +101,7 @@
         ambiguous (get (:test truedata) (dec i))
         cuts (let [cs (set (concat (map (comp first :pos-seq) (get accepted :word))
                                    (map (comp inc last :pos-seq) (get accepted :word))
-                                   (map (comp first :pos-seq) (get accepted :word-transition))))]               
+                                   (map (comp first :pos-seq) (get accepted :word-transition))))]
                ;; may not have word or word-transition hyps (check :HypTypes param))
                (if (not-empty cs) (sort cs)
                    (sort (set/difference (set (range (count ambiguous)))
@@ -118,18 +118,29 @@
                         (recur (vec (drop (- c i) amb))
                                (rest cs)
                                c
-                               (conj words (apply str (subvec amb 0 (- c i))))))))]
-    (loop [ws parse
-           sent []]
-      (cond (empty? ws) sent
-            (nil? (second ws)) (conj sent (first ws))
-            :else
-            (let [w1 (first ws)
-                  w2 (second ws)]
-              (if (and (> (get (:prefixes-prob kb) w1 0.0) (:PrefixSuffixThreshold params))
-                       (> (get (:suffixes-prob kb) w2 0.0) (:PrefixSuffixThreshold params)))
-                (recur (rest (rest ws)) (conj sent (str w1 w2)))
-                (recur (rest ws) (conj sent w1))))))))
+                               (conj words (apply str (subvec amb 0 (- c i))))))))
+        joined (loop [i 0
+                      sent []]
+                 (if (= i (count parse)) sent
+                     (let [w1 (nth parse i)
+                           word-prior? (= " " (last sent))
+                           w1-prefix? (> (get (:prefixes-prob kb) w1 0.0)
+                                         (:PrefixSuffixThreshold params))
+                           w1-suffix? (> (get (:suffixes-prob kb) w1 0.0)
+                                         (:PrefixSuffixThreshold params))
+                           w1-middle? (> (get (:middles-prob kb) w1 0.0)
+                                         (:PrefixSuffixThreshold params))]
+                       (cond (or (= i 0) word-prior?)
+                             (recur (inc i) (conj sent w1))
+                             w1-prefix?
+                             (recur (inc i) (conj sent " " w1))
+                             w1-suffix?
+                             (recur (inc i) (conj sent w1 " "))
+                             w1-middle?
+                             (recur (inc i) (conj sent w1))
+                             :else
+                             (recur (inc i) (conj sent " " w1 " "))))))]
+    (str/split (apply str joined) #" ")))
 
 (defn evaluate
   [truedata est]
