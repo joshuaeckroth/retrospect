@@ -3,7 +3,7 @@
   (:use [clojure.string :only [split]])
   (:use [retrospect.profile :only [profile]])
   (:use [retrospect.epistemicstates :only
-         [cur-ep new-child-ep new-branch-ep init-est
+         [cur-ep new-child-ep new-branch-ep init-est ep-state-depth
           update-est nth-previous-ep print-est goto-ep
           get-init-workspace]])
   (:use [retrospect.sensors :only [update-sensors]])
@@ -28,12 +28,16 @@
 
 (defn meta-batch
   [n truedata est _ time-now sensors]
-  (let [branch-ep (nth-previous-ep est n)
+  (let [branch-root? (or (nil? n) (>= (ep-state-depth est) n))
+        branch-ep (nth-previous-ep est n)
         new-est (new-branch-ep est branch-ep)
         new-est-time (update-est new-est (assoc (cur-ep new-est) :time time-now
-                                                :workspace (if n (:workspace (cur-ep new-est))
-                                                               (get-init-workspace est))))]
-    (meta-apply-and-evaluate truedata est new-est-time (if n (:time branch-ep) 0) time-now sensors)))
+                                                :workspace (if branch-root?
+                                                             (get-init-workspace est)
+                                                             (:workspace (cur-ep new-est)))))]
+    (meta-apply-and-evaluate truedata est new-est-time
+                             (if branch-root? 0 (:time branch-ep))
+                             time-now sensors)))
 
 (defn meta-lower-threshold
   [truedata est time-prev time-now sensors]

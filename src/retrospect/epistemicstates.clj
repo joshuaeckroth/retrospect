@@ -81,7 +81,7 @@
 
 (defn ep-state-depth
   [est]
-  (loop [i 0
+  (loop [i 1
          loc est]
     (if (root-ep? (zip/node loc)) i
         (recur (inc i) (zip/up loc)))))
@@ -90,7 +90,7 @@
   [est n]
   (loop [i (or n (ep-state-depth est))
          loc est]
-    (if (or (= 1 i) (root-ep? (zip/node (zip/up loc))))
+    (if (or (= 0 i) (root-ep? (zip/node (zip/up loc))))
       (zip/node loc) (recur (dec i) (zip/up loc)))))
 
 (defn goto-ep
