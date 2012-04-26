@@ -8,6 +8,7 @@
   (:use [retrospect.epistemicstates :only [cur-ep ep-path]])
   (:use [retrospect.reason.abduction.workspace :only
          [find-conflicts find-conflicts-selected hyp-conf]])
+  (:use [loom.graph :only [weight]])
   (:use [retrospect.logging])
   (:use [retrospect.state]))
 
@@ -118,29 +119,17 @@
                         (recur (vec (drop (- c i) amb))
                                (rest cs)
                                c
-                               (conj words (apply str (subvec amb 0 (- c i))))))))
-        joined (loop [i 0
-                      sent []]
-                 (if (= i (count parse)) sent
-                     (let [w1 (nth parse i)
-                           word-prior? (= " " (last sent))
-                           w1-prefix? (> (get (:prefixes-prob kb) w1 0.0)
-                                         (:PrefixSuffixThreshold params))
-                           w1-suffix? (> (get (:suffixes-prob kb) w1 0.0)
-                                         (:PrefixSuffixThreshold params))
-                           w1-middle? (> (get (:middles-prob kb) w1 0.0)
-                                         (:PrefixSuffixThreshold params))]
-                       (cond (or (= i 0) word-prior?)
-                             (recur (inc i) (conj sent w1))
-                             w1-prefix?
-                             (recur (inc i) (conj sent " " w1))
-                             w1-suffix?
-                             (recur (inc i) (conj sent w1 " "))
-                             w1-middle?
-                             (recur (inc i) (conj sent w1))
-                             :else
-                             (recur (inc i) (conj sent " " w1 " "))))))]
-    (str/split (apply str joined) #" ")))
+                               (conj words (apply str (subvec amb 0 (- c i))))))))]
+    (loop [i 1
+           sent [(first parse)]]
+      (if (>= i (dec (count parse))) sent
+          (let [w1 (last sent)
+                w2 (nth parse i)
+                freq-ct (or (weight (:dtg kb) (last w1) (first w2)) 0)
+                freq-wt (get (:wtc kb) [(last w1) (first w2)] 0)]
+            (if (> freq-ct freq-wt)
+              (recur (inc i) (conj (vec (butlast sent)) (str w1 w2)))
+              (recur (inc i) (conj sent w2))))))))
 
 (defn evaluate
   [truedata est]
