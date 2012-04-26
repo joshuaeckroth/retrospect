@@ -27,13 +27,13 @@
       (goto-ep new-expl-est (:id (cur-ep est))))))
 
 (defn meta-batch
-  [truedata n est _ time-now sensors]
+  [n truedata est _ time-now sensors]
   (let [branch-ep (nth-previous-ep est n)
         new-est (new-branch-ep est branch-ep)
         new-est-time (update-est new-est (assoc (cur-ep new-est) :time time-now
                                                 :workspace (if n (:workspace (cur-ep new-est))
                                                                (get-init-workspace est))))]
-    (meta-apply-and-evaluate truedata est new-est-time (:time branch-ep) time-now sensors)))
+    (meta-apply-and-evaluate truedata est new-est-time (if n (:time branch-ep) 0) time-now sensors)))
 
 (defn meta-lower-threshold
   [truedata est time-prev time-now sensors]

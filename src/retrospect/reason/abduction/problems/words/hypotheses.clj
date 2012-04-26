@@ -86,7 +86,7 @@
           [] (keys dict-regex)))
 
 (defn hypothesize
-  [sensor-hyps hyps]
+  [sensor-hyps accepted hyps]
   (let [kb (get-kb hyps)
         sensor-hyps-sorted (vec (sort-by :pos1 sensor-hyps))
         sym-string (apply str (map :symbol2 (butlast sensor-hyps-sorted)))

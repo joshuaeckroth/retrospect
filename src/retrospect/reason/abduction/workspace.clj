@@ -420,7 +420,8 @@
 
 (defn explain
   [workspace]
-  (let [hyps ((:hypothesize-fn (:abduction @problem)) (:forced workspace) (:hypotheses workspace))]
+  (let [hyps ((:hypothesize-fn (:abduction @problem))
+              (:forced workspace) (:accepted workspace) (:hypotheses workspace))]
     (loop [ws (reduce add workspace hyps)]
       (log "Explaining again...")
       (let [explainers (find-all-explainers ws)]
