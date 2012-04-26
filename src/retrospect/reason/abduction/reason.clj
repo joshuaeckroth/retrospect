@@ -30,8 +30,6 @@
                                 :Threshold [0 [0]]
                                 :DoubtThreshold [1000 [1000]]
                                 :UseScores [true [true]]
-                                :LearnVia ["unexp" ["unexp" "noexp"]]
-                                :LearnSupp ["all" ["unexp" "noexp" "noexp-exp" "all"]]
                                 :ContrastPreference ["delta" ["delta" "arbitrary"]]
                                 :HypPreference ["abd" ["abd" "arbitrary"]]
                                 :ConfAdjustment ["max" ["min" "max" "avg" "none"]]

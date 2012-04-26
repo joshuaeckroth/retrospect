@@ -33,7 +33,7 @@
         new-est-time (update-est new-est (assoc (cur-ep new-est) :time time-now
                                                 :workspace (if n (:workspace (cur-ep new-est))
                                                                (get-init-workspace est))))]
-    (meta-apply-and-evaluate truedata est new-est-time (:time branch-ep) time-now sensors)))
+    (meta-apply-and-evaluate truedata est new-est-time (if n (:time branch-ep) 0) time-now sensors)))
 
 (defn meta-lower-threshold
   [truedata est time-prev time-now sensors]

@@ -4,7 +4,7 @@
   (:use [retrospect.problems.words.truedata :only [generate-truedata]])
   (:use [retrospect.problems.words.sensors :only [generate-sensors perturb]])
   (:use [retrospect.reason.abduction.problems.words.hypotheses :only
-         [hypothesize learn make-sensor-hyps generate-kb]])
+         [hypothesize make-sensor-hyps generate-kb]])
   (:use [retrospect.problems.words.player :only
          [player-get-stats-panel player-update-stats player-get-truedata-log
           player-get-problem-log player-setup-diagram player-update-diagram]])
@@ -23,25 +23,23 @@
    :abduction {:generate-kb-fn generate-kb
                :make-sensor-hyps-fn make-sensor-hyps
                :hypothesize-fn hypothesize
-               :learn-fn learn
+               :learn-fn (constantly nil)
                :reset-fn (constantly nil)
                :evaluate-fn evaluate
                :evaluate-comp-fn evaluate-comp
                :stats-fn stats
                :true-hyp?-fn true-hyp?
                :hyps-equal?-fn hyps-equal?
-               :hyp-types [:word :word-seq :learned-word :learned-word-seq]
-               :default-params {}}
+               :hyp-types [:word :in-word-transition :word-transition]
+               :default-params {:HypTypes ["words,inwordtrans,wordtrans"
+                                           ["words" "words,inwordtrans"
+                                            "words,wordtrans" "words,inwordtrans,wordtrans"
+                                            "inwordtrans,wordtrans" "wordtrans"]]}}
    :default-params
    {:Steps [50 [50]]
     :StepsBetween [1 [1]]
     :ResetEachStep [true [true]]
     :SensorNoise [0 [0]]
-    :TendencyReduction ["mult" ["mult" "avg" "min" "max" "opp"]]
-    :WordApriori ["prob" ["tendency" "prob" "mult" "max" "avg"]]
-    :LearnApriori ["gauss" ["tendency" "gauss"]]
-    :LearnWordLength [4 [3 4 5 6]]
-    :WordContext ["data" ["data" "global"]]
     ;; ["carroll" "cityu_training" "as_training" "msr_training" "pku_training"]
     :Dataset ["pku_training" ["pku_training"]] 
-    :MaxModelGrams [2 [2]]}})
+    :MaxModelGrams [1 [1]]}})

@@ -78,15 +78,6 @@
   [accepted]
   (:walk-dist (first (get accepted :kb))))
 
-(defmulti hypothesize
-  (fn [evidence accepted rejected hyps] [(:type evidence) (:subtype evidence)]))
-
-(defmethod hypothesize :default [_ _ _ _] [])
-
-(defn filter-existing
-  [hyps hs]
-  (filter (fn [h] (not-any? (fn [h2] (hyps-equal? h h2)) (get hyps (:type h)))) hs))
-
 (defn connecting-movs
   [h acc-mov-hyps]
   (letfn [(match-loc [det det2] (and (= (:x det) (:x det2))
@@ -145,41 +136,18 @@
            [red green blue])
       [(new-mov-hyp to from apriori det-color det2-color)])))
 
-(defmethod hypothesize [:sensor :sensor-from]
-  [evidence accepted rejected hyps]
-  (let [sm (fn [h] (score-movement h evidence (get-walk-dist hyps)))
-        acc-mov-hyps (get accepted :movement)
-        nearby (filter second (map (fn [h] [h (sm h)])
-                                   (filter #(= :sensor-to (:subtype %))
-                                           (get accepted :sensor))))
-        mov-hyps (filter-existing
-                  hyps (mapcat (fn [[h apriori]]
-                                 (new-mov-hyps h evidence apriori acc-mov-hyps))
-                               nearby))]
-    (filter-valid-movs mov-hyps acc-mov-hyps)))
-
-(defmethod hypothesize [:sensor :sensor-to]
-  [evidence accepted rejected hyps]
-  (let [sm (fn [h] (score-movement evidence h (get-walk-dist accepted)))
-        acc-mov-hyps (get accepted :movement)
-        nearby (filter second (map (fn [h] [h (sm h)])
-                                   (filter #(= :sensor-from (:subtype %))
-                                           (get accepted :sensor))))
-        mov-hyps (filter-existing
-                  hyps (mapcat (fn [[h apriori]]
-                                 (new-mov-hyps evidence h apriori acc-mov-hyps))
-                               nearby))]
-    (filter-valid-movs mov-hyps acc-mov-hyps)))
-
-(defn score-path
-  [mov-hyps]
-  (avg (map :apriori mov-hyps)))
-
-(defmethod hypothesize [:movement :movement]
-  [evidence accepted rejected hyps]
-  (let [pg (build-paths-graph (get accepted :movement))
-        paths (get-paths pg evidence)]
-    (filter-existing hyps (for [p paths]
-                            (let [pstr (path-str (conj (vec (map :det p)) (:det2 (last p))))]
-                              (new-hyp "Path" :path :path false conflicts
-                                       (score-path p) p [] pstr pstr {:movs p}))))))
+(defn hypothesize
+  [sensor-hyps accepted hyps]
+  (let [from-hyps (filter #(= :sensor-from (:subtype %)) sensor-hyps)
+        to-hyps (filter #(= :sensor-to (:subtype %)) sensor-hyps)]
+    (apply concat
+           (for [evidence from-hyps]
+             (let [sm (fn [h] (score-movement h evidence (get-walk-dist hyps)))
+                   acc-mov-hyps (get accepted :movement)
+                   nearby (filter second (map (fn [h] [h (sm h)])
+                                              (filter #(= :sensor-to (:subtype %))
+                                                      (get accepted :sensor))))
+                   mov-hyps (mapcat (fn [[h apriori]]
+                                      (new-mov-hyps h evidence apriori acc-mov-hyps))
+                                    nearby)]
+               (filter-valid-movs mov-hyps acc-mov-hyps))))))
