@@ -34,18 +34,6 @@
                                        (partition 2 1 sent)))
                        sentences)))
 
-(defn find-inner-words
-  [word dictionary]
-  (if (empty? word) []
-      (let [ws (filter dictionary (map (fn [i] (apply str (take i word)))
-                                       (range 1 (inc (count word)))))]
-        (concat
-         (if (dictionary word) [[word]] [])
-         (mapcat (fn [w] (let [rest-word (apply str (drop (count w) word))
-                               rest-inner-words (find-inner-words rest-word dictionary)]
-                           (map #(concat [w] %) rest-inner-words)))
-                 ws)))))
-
 (defn word-trans-test
   [sentences wtc-set]
   (map (fn [sent]
@@ -132,16 +120,10 @@
                                          :simulation (rand-int 100000)}
                 retrospect.state/datadir (ref "data")]
         (let [truedata (retrospect.problems.words.truedata/generate-truedata)
-              sents-with-word-marked (fn [w] (map (fn [sent] (map (fn [w2] (if (= w w2) (str "<head>" w2 "</head>") w2)) sent))
-                                                  (filter #(some #{w} (seq %))
-                                                          (:sentences (:training truedata)))))
-              word-freqs (frequencies (apply concat (:sentences (:training truedata))))]
-          (let [w (first (last (drop-last 20 (sort-by second (seq word-freqs)))))
-                sents (sents-with-word-marked w)]
-            (println w (count sents))
-            (println (clojure.string/join " " (first sents)))
-            (println (clojure.string/join "\n" (map #(clojure.string/join " " %) (take 1 sents))))
-            (spit "test.txt" (clojure.string/join "\n" (map #(clojure.string/join " " %) sents)))))))))
+              word-composites (map (fn [word] (retrospect.problems.words.truedata/find-inner-words
+                                               word (:dictionary-no-composites (:training truedata))))
+                                   (filter #(not= " " %) (apply concat (:sentences (:training truedata)))))]
+          (spit "test.txt" (clojure.string/join "\n" (map (fn [comps] (clojure.string/join "\n" (map #(clojure.string/join " " %) comps))) word-composites))))))))
 
 (defn markov-test
   []
@@ -224,7 +206,7 @@
                                  (apply concat (:test-sentences truedata))))
 
                 word-freqs (frequencies (apply concat (:sentences (:training truedata))))
-                dict-composites (mapcat #(find-inner-words % (:dictionary (:training truedata)))
+                dict-composites (mapcat #(retrospect.problems.words.truedata/find-inner-words % (:dictionary (:training truedata)))
                                         (:dictionary (:training truedata)))
                 prefixes (map first (filter second dict-composites))
                 suffixes (map last (filter second dict-composites))
@@ -273,7 +255,7 @@
                                                                 (get wtc cp 0))))))
                                          {} char-pairs)
 
-                oov-inner-words (mapcat #(find-inner-words % (:dictionary (:training truedata))) oov)
+                oov-inner-words (mapcat #(retrospect.problems.words.truedata/find-inner-words % (:dictionary (:training truedata))) oov)
                 oov-prefixes (map first (filter second oov-inner-words))
                 oov-suffixes (map last (filter second oov-inner-words))
                 oov-middles (mapcat #(butlast (rest %)) (filter #(< 2 (count %)) oov-inner-words))
@@ -314,7 +296,7 @@
               (.write r "oov,prefixProb,suffixProb\n")
               (comment (.write r "oov,wordTrans,Wweight,WSweight,WEweight,CTweight\n")))
             (doseq [w (apply concat (:test-sentences truedata))]
-              (let [composites (find-inner-words w (:dictionary (:training truedata)))]
+              (let [composites (retrospect.problems.words.truedata/find-inner-words w (:dictionary (:training truedata)))]
                 (doseq [cs (filter second composites)]
                   (.write r (format "%s,%f,%f\n"
                                     (if (oov w) "T" "F")

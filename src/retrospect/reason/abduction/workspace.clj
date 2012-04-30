@@ -448,14 +448,10 @@
 
 (defn add-sensor-hyps
   [workspace time-prev time-now sensors]
-  (let [msh (fn [s h t] ((:make-sensor-hyps-fn (:abduction @problem))
-                         s h t time-prev time-now))]
-    (reduce (fn [ws t]
-              (let [hs (mapcat (fn [s] (mapcat #(msh s % t) (sensed-at s t))) sensors)]
-                (reduce add-fact ws hs)))
-            workspace
-            (range (if (:ResensePrevTime params) time-prev (inc time-prev))
-                   (inc time-now)))))
+  (let [hs (mapcat (fn [s] ((:make-sensor-hyps-fn (:abduction @problem))
+                            s time-prev time-now (:hypotheses workspace)))
+                   sensors)]
+    (reduce add-fact workspace hs)))
 
 (defn add-kb
   [workspace hyps]

@@ -9,17 +9,63 @@
   (:use [retrospect.logging])
   (:use [retrospect.state]))
 
+(defn generate-kb
+  [kb]
+  [(new-hyp "KB" :kb :kb false nil 1.0 [] [] "" "" kb)])
+
+(defn get-kb
+  [hyps]
+  (first (get hyps :kb)))
+
 (defn make-sensor-hyps
-  [sensor [[s1 s2] [pos1 pos2]] time time-prev time-now]
-  [(new-hyp "Sens" :sensor :symbol true nil 1.0 [] []
-            (str s1 s2) (format "Symbols: '%c%c' at positions %d,%d"
-                                 s1 s2 pos1 pos2)
-            {:symbol1 s1 :symbol2 s2 :pos1 pos1 :pos2 pos2})])
+  [sensor time-prev time-now hyps]
+  (let [kb (get-kb hyps)
+        sensor-hyps (map (fn [[sym pos]]
+                           (new-hyp "Sens" :sensor :symbol true nil 1.0 [] []
+                                    sym (format "Symbol: %c at position %d"
+                                                sym pos)
+                                    {:sym sym :pos pos}))
+                         (sensed-at sensor (inc time-prev)))
+        ;; get sequences of sensor hyps that match known subwords;
+        ;; this algorithm is simple (greedy left-to-right) because we
+        ;; don't have to worry about overlap
+        subwords (loop [s-hyps sensor-hyps
+                        subwords []]
+                   (if (empty? s-hyps) subwords
+                       (let [i (first (filter #((:dictionary-no-composites kb)
+                                                (apply str (map :sym (take % s-hyps))))
+                                              (range 1 (inc (count s-hyps)))))]
+                         (if i (recur (drop i s-hyps) (conj subwords (take i s-hyps)))
+                             ;; must be a new symbol
+                             (recur (rest s-hyps) (conj subwords (take 1 s-hyps)))))))
+        subword-hyps
+        (map (fn [s-hyps]
+               (let [subword (apply str (map :sym s-hyps))
+                     pos-seq (map :pos s-hyps)]
+                 (new-hyp "Subword" :subword :subword true nil
+                          1.0 s-hyps [] subword
+                          (format "Subword: %s, pos-seq: %s" subword
+                                  (str/join ", " (map str pos-seq)))
+                          {:pos-seq pos-seq :subword subword})))
+             subwords)
+        transition-hyps
+        (map (fn [[h1 h2]]
+               (new-hyp "Trans" :transition :transition true nil
+                        1.0 (concat (:explains h1) (:explains h2)) []
+                        (format "%s/%s" (:subword h1) (:subword h2))
+                        (format "Transition: %s/%s, pos-seq: %d-%d"
+                                (:subword h1) (:subword h2)
+                                (first (:pos-seq h1)) (last (:pos-seq h2)))
+                        {:pos-seq (concat (:pos-seq h1) (:pos-seq h2))
+                         :subword1 (:subword h1) :subword2 (:subword h2)}))
+             (partition 2 1 subword-hyps))]
+    (concat sensor-hyps subword-hyps transition-hyps)))
 
 (defn conflicts
   [hyp1 hyp2]
   (cond
    (or (= :sensor (:type hyp1)) (= :sensor (:type hyp2))) false
+   (or (= :subword (:type hyp1)) (= :subword (:type hyp2))) false
    (and (= :word-seq (:type hyp1)) (= :word-seq (:type hyp2)))
    (some (fn [n] (or (= (take n (:pos-seqs hyp1))
                         (:pos-seqs hyp2))
@@ -60,14 +106,6 @@
 
    :else false))
 
-(defn generate-kb
-  [kb]
-  [(new-hyp "KB" :kb :kb false conflicts 1.0 [] [] "" "" kb)])
-
-(defn get-kb
-  [hyps]
-  (first (get hyps :kb)))
-
 (defn find-substrings
   "Finds strings that s is a substring of; returns the strings plus
    the offset within each string where we found s."
@@ -85,40 +123,32 @@
                              (recur (conj ws2 [w (.start m 1)]))))))
           [] (keys dict-regex)))
 
+(comment
+  similar-words (map first (find-substrings word (:dictionary-string kb)))
+  similar-sum (reduce + (map (fn [w] (get (:unigram-model kb) [w]))
+                             similar-words))
+  )
+
 (defn hypothesize
-  [sensor-hyps accepted hyps]
+  [forced-hyps accepted hyps]
   (let [kb (get-kb hyps)
-        sensor-hyps-sorted (vec (sort-by :pos1 sensor-hyps))
-        sym-string (apply str (map :symbol2 (butlast sensor-hyps-sorted)))
-        choose-best (fn [hs h] (let [same-explains (filter #(= (:explains h) (:explains %)) hs)
+        sensor-hyps-sorted []
+        choose-best (fn [hs h] (let [same-explains (filter #(= (:explains h) (:explains %))
+                                                           hs)
                                      best? (= h (last (sort-by :apriori same-explains)))]
                                  (when best? h)))
-        ;; get sequences of sensor hyps that match known words
-        words (map (fn [[w i]] (subvec sensor-hyps-sorted i (inc (+ i (count w)))))
-                   (find-dict-words sym-string (:dictionary-regex kb)))
-        ;; word hyps for known words
-        word-hyps
-        (map (fn [s-hyps]
-               (let [word (apply str (map :symbol2 (butlast s-hyps)))
-                     similar-words (map first (find-substrings word (:dictionary-string kb)))
-                     similar-sum (reduce + (map (fn [w] (get (:unigram-model kb) [w]))
-                                                similar-words))
-                     pos-seq (map :pos2 (butlast s-hyps))]
-                 (new-hyp "Word" :word :word false conflicts
-                          (/ (double (get (:unigram-model kb) [word]))
-                             (double similar-sum))
-                          s-hyps [] word (format "Word: %s, pos-seq: %s" word
-                                                 (str/join ", " (map str pos-seq)))
-                          {:pos-seq pos-seq :word word})))
-             words)
+        word-hyps []
         in-word-trans-hyps
         (filter identity
                 (map (fn [hyp]
                        (when (has-edge? (:dtg kb) (:symbol1 hyp) (:symbol2 hyp))
-                         (new-hyp "TransC" :in-word-transition :in-word-transition false conflicts
-                                  ;; if this symbol pair is also a word transition, figure out how
-                                  ;; often it is vs. how often it is an in-word transition;
-                                  ;; otherwise, its score is 1.0
+                         (new-hyp "TransC" :in-word-transition :in-word-transition
+                                  false conflicts
+                                  ;; if this symbol pair is also a
+                                  ;; word transition, figure out how
+                                  ;; often it is vs. how often it is
+                                  ;; an in-word transition; otherwise,
+                                  ;; its score is 1.0
                                   (let [w (weight (:dtg kb) (:symbol1 hyp) (:symbol2 hyp))
                                         c (get (:wtc kb) [(:symbol1 hyp) (:symbol2 hyp)] 0)]
                                     (/ (double w) (double (+ w c))))
@@ -130,12 +160,15 @@
         (filter identity
                 (map (fn [hyp]
                        (when (get (:wtc kb) [(:symbol1 hyp) (:symbol2 hyp)])
-                         (new-hyp "TransW" :word-transition :word-transition false conflicts
-                                  ;; if this symbol pair is also an in-word transition,
-                                  ;; divide by how often that is the case; otherwise,
-                                  ;; its score is 1.0
+                         (new-hyp "TransW" :word-transition :word-transition
+                                  false conflicts
+                                  ;; if this symbol pair is also an
+                                  ;; in-word transition, divide by how
+                                  ;; often that is the case;
+                                  ;; otherwise, its score is 1.0
                                   (let [w (get (:wtc kb) [(:symbol1 hyp) (:symbol2 hyp)])
-                                        c (or (weight (:dtg kb) (:symbol1 hyp) (:symbol2 hyp)) 0)]
+                                        c (or (weight (:dtg kb)
+                                                      (:symbol1 hyp) (:symbol2 hyp)) 0)]
                                     (/ (double w) (double (+ w c))))
                                   [hyp] [] (str (:symbol1 hyp) (:symbol2 hyp)) ""
                                   {:pos-seq [(:pos2 hyp)]})))
@@ -144,13 +177,16 @@
         (filter identity
                 (map (fn [hyp]
                        (when (has-edge? (:dtg kb) "start" (:symbol2 hyp))
-                         ;; score is how often latter symbol is start of a word vs.
-                         ;; how often this symbol pair is an in-word transition;
-                         ;; if the pair is never anything but a start->symbol2 transition,
-                         ;; its score is 1.0
-                         (new-hyp "TransWS" :word-transition :word-transition false conflicts
+                         ;; score is how often latter symbol is start
+                         ;; of a word vs.  how often this symbol pair
+                         ;; is an in-word transition; if the pair is
+                         ;; never anything but a start->symbol2
+                         ;; transition, its score is 1.0
+                         (new-hyp "TransWS" :word-transition :word-transition
+                                  false conflicts
                                   (let [w (weight (:dtg kb) "start" (:symbol2 hyp))
-                                        c (or (weight (:dtg kb) (:symbol1 hyp) (:symbol2 hyp)) 0)]
+                                        c (or (weight (:dtg kb)
+                                                      (:symbol1 hyp) (:symbol2 hyp)) 0)]
                                     (/ (double w) (double (+ w c))))
                                   [hyp] [] (str (:symbol1 hyp) (:symbol2 hyp)) ""
                                   {:pos-seq [(:pos2 hyp)]})))
@@ -159,13 +195,16 @@
         (filter identity
                 (map (fn [hyp]
                        (when (has-edge? (:dtg kb) (:symbol1 hyp) "end")
-                         ;; score is how often former symbol is end of a word vs.
-                         ;; how often this symbol pair is an in-word transition;
-                         ;; if the pair is never anything but a symbol1->end transition,
-                         ;; its score is 1.0
-                         (new-hyp "TransWE" :word-transition :word-transition false conflicts
+                         ;; score is how often former symbol is end of
+                         ;; a word vs.  how often this symbol pair is
+                         ;; an in-word transition; if the pair is
+                         ;; never anything but a symbol1->end
+                         ;; transition, its score is 1.0
+                         (new-hyp "TransWE" :word-transition :word-transition
+                                  false conflicts
                                   (let [w (weight (:dtg kb) (:symbol1 hyp) "end")
-                                        c (or (weight (:dtg kb) (:symbol1 hyp) (:symbol2 hyp)) 0)]
+                                        c (or (weight (:dtg kb)
+                                                      (:symbol1 hyp) (:symbol2 hyp)) 0)]
                                     (/ (double w) (double (+ w c))))
                                   [hyp] [] (str (:symbol1 hyp) (:symbol2 hyp)) ""
                                   {:pos-seq [(:pos2 hyp)]})))
@@ -174,6 +213,7 @@
         best-word-trans-hyps (filter identity (map (partial choose-best all-word-trans-hyps)
                                                    all-word-trans-hyps))
         hyp-types (set (str/split (:HypTypes params) #","))]
-    (concat (if (hyp-types "words") word-hyps [])
+    (concat
+            (if (hyp-types "words") word-hyps [])
             (if (hyp-types "inwordtrans") in-word-trans-hyps [])
             (if (hyp-types "wordtrans") best-word-trans-hyps []))))

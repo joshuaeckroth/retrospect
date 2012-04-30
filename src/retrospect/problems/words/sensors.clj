@@ -4,10 +4,10 @@
 
 (defn sense
   [sensor test time]
-  (let [symbol-pairs (partition 2 1 (get test (dec time)))
-        indexes (partition 2 1 (range (count (get test (dec time)))))
-        indexed-symbol-pairs (partition 2 (interleave symbol-pairs indexes))]
-    (add-sensed sensor time indexed-symbol-pairs)))
+  (let [symbols (get test (dec time))
+        indexes (range (count (get test (dec time))))
+        indexed-symbols (partition 2 (interleave symbols indexes))]
+    (add-sensed sensor time indexed-symbols)))
 
 (defn generate-sensors
   []

@@ -14,23 +14,25 @@
 
 (defn true-hyp?
   [truedata time-now hyp]
-  (if (or (= :sensor (:type hyp)) (= :kb (:type hyp))) true
-      (let [sentence (nth (:test-sentences truedata) (dec time-now))
-            start-pos (first (:pos-seq hyp))
-            end-pos (last (:pos-seq hyp))
-            true-words (loop [i 0 ws [] sent sentence]
-                         (cond (empty? sent) ws
-                               (> i end-pos) ws
-                               (or (< i start-pos) (> i start-pos))
-                               (recur (+ i (count (first sent)))
-                                      ws (rest sent))
-                               :else
-                               (recur (+ i (count (first sent)))
-                                      (conj ws (first sent))
-                                      (rest sent))))]
-        (cond (= :word (:type hyp)) (= [(:word hyp)] true-words)
-              (= :in-word-transition (:type hyp)) (empty? true-words)
-              (= :word-transition (:type hyp)) (not-empty true-words)))))
+  (if (or (= :sensor (:type hyp)) (= :kb (:type hyp))
+          (= :subword (:type hyp)) (= :transition (:type hyp)))
+    true
+    (let [sentence (nth (:test-sentences truedata) (dec time-now))
+          start-pos (first (:pos-seq hyp))
+          end-pos (last (:pos-seq hyp))
+          true-words (loop [i 0 ws [] sent sentence]
+                       (cond (empty? sent) ws
+                             (> i end-pos) ws
+                             (or (< i start-pos) (> i start-pos))
+                             (recur (+ i (count (first sent)))
+                                    ws (rest sent))
+                             :else
+                             (recur (+ i (count (first sent)))
+                                    (conj ws (first sent))
+                                    (rest sent))))]
+      (cond (= :word (:type hyp)) (= [(:word hyp)] true-words)
+            (= :in-word-transition (:type hyp)) (empty? true-words)
+            (= :word-transition (:type hyp)) (not-empty true-words)))))
 
 (defmulti hyps-equal? (fn [hyp1 hyp2] (:type hyp1)))
 
@@ -39,10 +41,21 @@
 (defmethod hyps-equal? :sensor
   [hyp1 hyp2]
   (and (= (:type hyp1) (:type hyp2))
-       (= (:pos1 hyp1) (:pos1 hyp2))
-       (= (:pos2 hyp1) (:pos2 hyp2))
-       (= (:symbol1 hyp1) (:symbol1 hyp2))
-       (= (:symbol2 hyp1) (:symbol2 hyp2))))
+       (= (:pos hyp1) (:pos hyp2))
+       (= (:sym hyp1) (:sym hyp2))))
+
+(defmethod hyps-equal? :subword
+  [hyp1 hyp2]
+  (and (= (:type hyp1) (:type hyp2))
+       (= (:pos-seq hyp1) (:pos-seq hyp2))
+       (= (:subword hyp1) (:subword hyp2))))
+
+(defmethod hyps-equal? :transition
+  [hyp1 hyp2]
+  (and (= (:type hyp1) (:type hyp2))
+       (= (:pos-seq hyp1) (:pos-seq hyp2))
+       (= (:subword1 hyp1) (:subword1 hyp2))
+       (= (:subword2 hyp1) (:subword2 hyp2))))
 
 (defmethod hyps-equal? :word
   [hyp1 hyp2]
@@ -63,7 +76,8 @@
                (str/join "\n" (map #(str/join " " %) sentences))
                :encoding "utf-8")
          (spit (format "/tmp/believed-%d.txt" (:simulation params))
-               (str/join "\n" (map (fn [s] (if (empty? s) "_" s)) (map #(str/join " " %) believed)))
+               (str/join "\n" (map (fn [s] (if (empty? s) "_" s))
+                                   (map #(str/join " " %) believed)))
                :encoding "utf-8")
          (spit (format "/tmp/dictionary-%d.txt" (:simulation params))
                (str/join "\n" (sort train-dict))
