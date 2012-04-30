@@ -21,7 +21,7 @@
   (let [new-ep (cur-ep new-est)
         new-ws ((:reason-fn @reason) (when (:Oracle params) truedata)
                 (:workspace new-ep) time-prev time-now sensors)
-        new-expl-est (evaluate truedata (update-est new-est (assoc new-ep :workspace new-ws)))]
+        new-expl-est (update-est new-est (assoc new-ep :workspace new-ws))]
     (if (> 0 ((:workspace-compare-fn @reason) new-ws (:workspace (cur-ep est))))
       new-expl-est
       (goto-ep new-expl-est (:id (cur-ep est))))))
@@ -45,7 +45,8 @@
       (let [new-est (new-branch-ep est (cur-ep est))]
         ;; drop threshold to 0
         (binding [params (assoc params :Threshold 0)]
-          (meta-apply-and-evaluate truedata est new-est time-prev time-now sensors)))))
+          ;; give sensors value as nil to prevent resensing
+          (meta-apply-and-evaluate truedata est new-est time-prev time-now nil)))))
 
 (defn meta-learn
   [truedata est time-prev time-now sensors]
@@ -110,11 +111,12 @@
                      (:workspace ep))
          ep-reason (assoc ep :workspace ((:reason-fn @reason) (when (:Oracle params) truedata)
                                          workspace time-prev time-now sensors))
-         est (evaluate truedata (update-est (:est ors-new) ep-reason))
-         meta-est (metareason truedata est time-prev time-now sensors)
+         meta-est (metareason truedata (update-est (:est ors-new) ep-reason)
+                              time-prev time-now sensors)
          ;; stop the clock
          ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
-         ors-est (assoc ors-new :est meta-est :sensors sensors)
+         meta-est-eval (evaluate truedata meta-est)
+         ors-est (assoc ors-new :est meta-est-eval :sensors sensors)
          ors-results (update-in ors-est [:resources :milliseconds] + ms)]
      (when (:Stats params)
        ((:stats-fn @reason) truedata ors-results time-now))

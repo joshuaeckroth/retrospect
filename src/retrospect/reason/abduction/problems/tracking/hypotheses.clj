@@ -12,19 +12,37 @@
          :only [get-paths build-paths-graph path-str]])
   (:use [retrospect.state]))
 
+(defn read-walk-dist
+  [file]
+  (let [lines (str/split-lines (slurp file))
+        walk-count (Integer/parseInt (first lines))]
+    (with-meta (reduce #(assoc %1 (Double/parseDouble (first %2))
+                               (Integer/parseInt (second %2)))
+                       {} (map #(str/split % #",") (rest lines)))
+               {:walk-count walk-count})))
+
+(defn generate-kb
+  [training]
+  [(new-hyp "KB" :kb :kb false nil 1.0 [] [] "" ""
+            {:walk-dist (read-walk-dist (format "%s/tracking/walks-%d.txt"
+                                                @datadir (:MaxWalk params)))})])
+
 (defn make-sensor-hyps
-  [sensor {:keys [x y color time] :as det} t time-prev time-now]
-  (let [desc (format (str "Sensor detection by %s - color: %s, x: %d, y: %d, time: %d")
-                     (:id sensor) (color-str color) x y time)
-        from (new-hyp "SensFrom" :sensor :sensor-from true nil 1.0 [] []
-                      (format "%d,%d@%d" x y time) desc
-                      {:sensor sensor :det det})
-        to (new-hyp "SensTo" :sensor :sensor-to true nil 1.0 [] []
-                    (format "%d,%d@%d" x y time) desc
-                    {:sensor sensor :det det})]
-    (cond (= t time-prev) [to]
-          (= t time-now) [from]
-          :else [from to])))
+  [sensor time-prev time-now hyps]
+  (mapcat (fn [{:keys [x y color time] :as det}]
+            (let [desc (format (str "Sensor detection by %s - color: %s, "
+                                    "x: %d, y: %d, time: %d")
+                               (:id sensor) (color-str color) x y time)
+                  from (new-hyp "SensFrom" :sensor :sensor-from true nil 1.0 [] []
+                                (format "%d,%d@%d" x y time) desc
+                                {:sensor sensor :det det})
+                  to (new-hyp "SensTo" :sensor :sensor-to true nil 1.0 [] []
+                              (format "%d,%d@%d" x y time) desc
+                              {:sensor sensor :det det})]
+              (cond (= time time-prev) [to]
+                    (= time time-now) [from]
+                    :else [from to])))
+          (mapcat #(sensed-at sensor %) (range time-prev (inc time-now)))))
 
 (defn score-movement
   "Returns nil if not matched or not in range."
@@ -58,21 +76,6 @@
                 (= (:time (:det2 h1)) (:time (:det h2)))))
        (or (not= (:color (:det2 h1)) (:color (:det h2)))
            (not= (:color (:det h1)) (:color (:det2 h2))))))
-
-(defn read-walk-dist
-  [file]
-  (let [lines (str/split-lines (slurp file))
-        walk-count (Integer/parseInt (first lines))]
-    (with-meta (reduce #(assoc %1 (Double/parseDouble (first %2))
-                               (Integer/parseInt (second %2)))
-                       {} (map #(str/split % #",") (rest lines)))
-               {:walk-count walk-count})))
-
-(defn generate-kb
-  [training]
-  [(new-hyp "KB" :kb :kb false conflicts 1.0 [] [] "" ""
-            {:walk-dist (read-walk-dist (format "%s/tracking/walks-%d.txt"
-                                                @datadir (:MaxWalk params)))})])
 
 (defn get-walk-dist
   [accepted]

@@ -18,8 +18,11 @@
                              (assoc workspace :oracle
                                     (partial (:true-hyp?-fn (:abduction @problem))
                                              truedata time-now)))]
-                  (explain (add-sensor-hyps ws time-prev time-now sensors))))
-   :stats-fn (fn [truedata ors time-now] ((:stats-fn (:abduction @problem)) truedata ors time-now))
+                  (if sensors
+                    (explain (add-sensor-hyps ws time-prev time-now sensors))
+                    (explain ws))))
+   :stats-fn (fn [truedata ors time-now] ((:stats-fn (:abduction @problem))
+                                          truedata ors time-now))
    :metareasoning-activated?-fn metareasoning-activated?
    :workspace-compare-fn workspace-compare
    :evaluate-fn evaluate
