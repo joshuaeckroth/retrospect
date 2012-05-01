@@ -13,7 +13,7 @@
   (:use [retrospect.problems.words.problem :only [words-problem]])
   (:use [retrospect.problems.abdexp.problem :only [abdexp-problem]])
   #_(:use [retrospect.reason.abduction.problems.causal.problem :only [causal-problem]])
-  (:use [retrospect.records :only [run-with-new-record]])
+  (:use [retrospect.records :only [run-with-new-record resubmit-archived-results]])
   (:use [retrospect.explore :only [start-explore]])
   (:use [retrospect.player :only [start-player]])
   (:use [retrospect.bugreport]))
@@ -42,7 +42,7 @@
   (set-exception-handler)
   (with-command-line args
     "retrospect"
-    [[action "Action (run/player/explore)" "player"]
+    [[action "Action (run/player/explore/resubmit)" "player"]
      [reason "Reasoning algorithm" "abduction"]
      [problem "Problem" "tracking"]
      [params "Parameters identifier (e.g. 'Words/foobar')" ""]
@@ -53,7 +53,8 @@
      [git "Git path" "git"]
      [seed "Seed" "0"]
      [database "Database identifier" "http://127.0.0.1:5984/retrospect"]
-     [upload "Upload?" "true"]]
+     [upload "Upload?" "true"]
+     [recdir "Record number" "0"]]
     (let [seed (Integer/parseInt seed)
           reason (choose-reason reason)
           problem (choose-problem problem)
@@ -64,7 +65,7 @@
        (alter state/database (constantly database))
        (alter state/reason (constantly reason))
        (alter state/problem (constantly problem)))
-      (cond (and (not= action "explore") (not= action "player") (= "" params))
+      (cond (and (= action "run") (= "" params))
             (println "--params identifier required.")
             
             (= action "player")
@@ -74,6 +75,9 @@
             (= action "explore")
             ;; start the explore gui on swing's "event dispatch thread"
             (SwingUtilities/invokeLater start-explore)
+
+            (= action "resubmit")
+            (resubmit-archived-results recordsdir recdir)
             
             (= action "run")
             (let [nthreads (Integer/parseInt nthreads)

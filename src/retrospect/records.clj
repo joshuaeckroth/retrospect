@@ -12,6 +12,7 @@
   (:use [clojure.java.io :as io :only [writer reader copy]])
   (:use [clojure.string :only [split-lines trim]])
   (:use [retrospect.local :only [run-partitions]])
+  (:require [retrospect.database :as db])
   (:use [retrospect.state]))
 
 (defn vectorize-params
@@ -81,17 +82,28 @@
 
 (defn read-csv
   [lines]
-  (let [headers (map keyword (str/split (first lines) "[^\\],"))]
+  (let [headers (map keyword (str/split (first lines) #"[^\\],"))]
     (for [line lines]
       (let [data (str/split line #"[^\\],")]
         (hash-map headers data)))))
 
+;; TODO: fix for CSV filenames that have seeds in them
 (defn read-archived-results
   [recordsdir recdir]
-  (let [run-meta (read-string (slurp (format "%s/%s/meta.clj" recordsdir recdir)))
-        control-file (format "%s/%s/control-results.csv" recordsdir recdir)
+  (let [control-file (format "%s/%s/control-results.csv" recordsdir recdir)
         comparison-file (format "%s/%s/comparison-results.csv" recordsdir recdir)
-        comparative-file (format "%s/%s/comparative-results.csv" recordsdir recdir)]
-    {:control (read-csv (str/split (slurp control-file) #"\n"))
-     :comparison nil
-     :comparative nil}))
+        comparative-file (format "%s/%s/comparative-results.csv" recordsdir recdir)
+        results-unseqed
+        {:control (read-csv (str/split (slurp control-file) #"\n"))
+         :comparison (when (. (file comparison-file) exists)
+                       (read-csv (str/split (slurp comparison-file) #"\n")))
+         :comparative (when (. (file comparative-file) exists)
+                        (read-csv (str/split (slurp comparative-file) #"\n")))}]))
+
+(defn resubmit-archived-results
+  [recordsdir recdir]
+  (let [run-meta (read-string (slurp (format "%s/%s/meta.clj" recordsdir recdir)))
+        results (read-archived-results recordsdir recdir)]
+    (println "Writing results to database...")
+    (db/commit-run run-meta results)
+    (println "Done.")))
