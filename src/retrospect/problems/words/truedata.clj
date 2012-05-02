@@ -53,6 +53,8 @@
                                                  [(last word) "end"])))
                     (weighted-digraph)
                     training-dict)
+        sym-pair-freqs (frequencies (mapcat (fn [sent] (partition 2 1 (apply str sent)))
+                                            training))
         wtc (frequencies (mapcat (fn [sent] (map (fn [[w1 w2]] [(last w1) (first w2)])
                                                  (partition 2 1 sent)))
                                  training))
@@ -65,8 +67,8 @@
         dict-comps (mapcat #(find-inner-words % dict-no-comps)
                            training-dict)
         dict-regex (reduce (fn [m w]
-                               (assoc m w (re-pattern (format "(%s)" (Pattern/quote w)))))
-                             {} training-dict)
+                             (assoc m w (re-pattern (format "(%s)" (Pattern/quote w)))))
+                           {} training-dict)
         dict-string (str/join " " (concat [" "] dict-no-comps))
         markov-models (build-markov-models training)
         word-freqs (frequencies (apply concat training))
@@ -84,6 +86,8 @@
                                                                  (get word-freqs w 0))))))
                               {} (keys suffixes-freq))]
     {:training {:sentences training :dictionary training-dict :symbols training-symbols
+                :word-count (reduce + (map count (apply concat training)))
+                :sym-pair-freqs sym-pair-freqs
                 :dtg dtg :wtc wtc
                 :dictionary-no-composites dict-no-comps
                 :dictionary-string dict-string

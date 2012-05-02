@@ -118,6 +118,20 @@
                              (recur (conj ws2 [w (.start m 1)]))))))
           [] (keys dict-regex)))
 
+(comment
+  (or (weight (:dtg kb) "start" (first (:subword2 t-hyp))) 0)
+  (or (weight (:dtg kb) (last (:subword1 t-hyp)) "end") 0))
+
+(defn score-split-merge
+  [t-hyp kb split?]
+  (if split?
+    (/ (double (get (:wtc kb) [(last (:subword1 t-hyp)) (first (:subword2 t-hyp))] 0))
+       (double (get (:sym-pair-freqs kb)
+                    [(last (:subword1 t-hyp)) (first (:subword2 t-hyp))] 1)))
+    (/ (double (or (weight (:dtg kb) (last (:subword1 t-hyp)) (first (:subword2 t-hyp))) 0))
+       (double (get (:sym-pair-freqs kb)
+                    [(last (:subword1 t-hyp)) (first (:subword2 t-hyp))] 1)))))
+
 (defn hypothesize
   [forced-hyps accepted hyps]
   (let [kb (get-kb hyps)
@@ -135,25 +149,29 @@
                (let [word (apply str (map :subword sw-hyps))
                      pos-seq (mapcat :pos-seq sw-hyps)]
                  (new-hyp "Word" :word :word false conflicts
-                          1.0 sw-hyps [] word
+                          (/ (double (get (:unigram-model kb) [word]))
+                             (double (:word-count kb)))
+                          sw-hyps [] word
                           (format "Word: %s, pos-seq: %s" word
                                   (str/join ", " (map str pos-seq)))
                           {:pos-seq pos-seq :word word})))
              words)
-        merge-hyps (map (fn [t-hyp]
-                          (new-hyp "Merge" :merge :merge false conflicts
-                                   1.0 [t-hyp] [] (format "%s+%s" (:subword1 t-hyp)
-                                                        (:subword2 t-hyp))
-                                   (format "Merge of %s+%s"
+        split-hyps (map (fn [t-hyp]
+                          (new-hyp "Split" :split :transition false conflicts
+                                   (score-split-merge t-hyp kb true)
+                                   [t-hyp] [] (format "%s-%s" (:subword1 t-hyp)
+                                                      (:subword2 t-hyp))
+                                   (format "Split of %s-%s"
                                            (:subword1 t-hyp)
                                            (:subword2 t-hyp))
                                    {:trans-pos (:trans-pos t-hyp)}))
                         transition-hyps)
-        split-hyps (map (fn [t-hyp]
-                          (new-hyp "Split" :split :split false conflicts
-                                   1.0 [t-hyp] [] (format "%s-%s" (:subword1 t-hyp)
-                                                        (:subword2 t-hyp))
-                                   (format "Split of %s-%s"
+        merge-hyps (map (fn [t-hyp]
+                          (new-hyp "Merge" :merge :transition false conflicts
+                                   (score-split-merge t-hyp kb false)
+                                   [t-hyp] [] (format "%s+%s" (:subword1 t-hyp)
+                                                      (:subword2 t-hyp))
+                                   (format "Merge of %s+%s"
                                            (:subword1 t-hyp)
                                            (:subword2 t-hyp))
                                    {:trans-pos (:trans-pos t-hyp)}))

@@ -117,8 +117,7 @@
   [truedata i accepted]
   (let [kb (first (get accepted :kb))
         ambiguous (get (:test truedata) (dec i))
-        cuts (map :trans-pos (get accepted :split))]
-    (println cuts)
+        cuts (sort (map :trans-pos (get accepted :split)))]
     (loop [amb (vec ambiguous)
            cs cuts
            i 0
