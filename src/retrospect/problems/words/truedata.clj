@@ -45,19 +45,8 @@
         training-symbols (set (apply concat training-dict))
         ;; TODO: handle noise
         ambiguous (map #(apply str %) test)
-        dtg (reduce (fn [g word] (reduce (fn [g2 e]
-                                           (let [w (or (apply weight g e) 0)]
-                                             (add-edges g2 (conj e (inc w)))))
-                                         g (conj (map vec (partition 2 1 word))
-                                                 ["start" (first word)]
-                                                 [(last word) "end"])))
-                    (weighted-digraph)
-                    training-dict)
         sym-pair-freqs (frequencies (mapcat (fn [sent] (partition 2 1 (apply str sent)))
                                             training))
-        wtc (frequencies (mapcat (fn [sent] (map (fn [[w1 w2]] [(last w1) (first w2)])
-                                                 (partition 2 1 sent)))
-                                 training))
         dict-no-comps (loop [dict training-dict]
                         (let [composites (filter second (map #(find-inner-words % dict)
                                                              dict))]
@@ -66,6 +55,29 @@
                                                            composites))))))
         dict-comps (mapcat #(find-inner-words % dict-no-comps)
                            training-dict)
+        dtg (reduce (fn [g word]
+                      (let [composites (find-inner-words word dict-no-comps)]
+                        (reduce (fn [g2 c]
+                                  (reduce (fn [g3 e]
+                                            (let [w (or (apply weight g3 e) 0)]
+                                              (add-edges g3 (conj e (inc w)))))
+                                          g2 (conj (map vec (partition 2 1 c))
+                                                   ["start" (first c)]
+                                                   [(last c) "end"])))
+                                g composites)))
+                    (weighted-digraph)
+                    (apply concat training))
+        wtc (frequencies (mapcat
+                          (fn [sent]
+                            (mapcat
+                             (fn [[w1 w2]]
+                               (let [c1 (map last (find-inner-words w1 dict-no-comps))
+                                     c2 (map first (find-inner-words w2 dict-no-comps))]
+                                 (mapcat (fn [sw1]
+                                           (map (fn [sw2] [sw1 sw2]) c2))
+                                         c1)))
+                             (partition 2 1 sent)))
+                          training))
         dict-regex (reduce (fn [m w]
                              (assoc m w (re-pattern (format "(%s)" (Pattern/quote w)))))
                            {} training-dict)

@@ -114,10 +114,13 @@
        (catch Exception e (do (log e) [-1.0 -1.0 -1.0 -1.0 -1.0 -1.0 -1.0]))))
 
 (defn get-words
-  [truedata i accepted]
+  [truedata i accepted unexplained]
   (let [kb (first (get accepted :kb))
         ambiguous (get (:test truedata) (dec i))
-        cuts (sort (map :trans-pos (get accepted :split)))]
+        cuts (sort (concat (map :trans-pos (get accepted :split))
+                           (if (= "merge" (:DefaultMergeSplit params)) []
+                               (map :trans-pos (filter #(= :transition (:type %))
+                                                       unexplained)))))]
     (loop [amb (vec ambiguous)
            cs cuts
            i 0
@@ -135,7 +138,10 @@
   [truedata est]
   (let [eps (rest (ep-path est))
         time-now (:time (last eps))
-        believed (map (fn [ep] (get-words truedata (:time ep) (:accepted (:workspace ep)))) eps)
+        believed (map (fn [ep] (get-words truedata (:time ep)
+                                          (:accepted (:workspace ep))
+                                          (:unexplained (:log (:workspace ep)))))
+                      eps)
         sentences (map (fn [i] (nth (:test-sentences truedata) i)) (range time-now))
         [prec recall f-score oov-rate oov-recall iv-recall]
         (run-scorer sentences believed (:dictionary (:training truedata)))]

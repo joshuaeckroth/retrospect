@@ -119,15 +119,15 @@
           [] (keys dict-regex)))
 
 (comment
-  (or (weight (:dtg kb) "start" (first (:subword2 t-hyp))) 0)
-  (or (weight (:dtg kb) (last (:subword1 t-hyp)) "end") 0))
+  (or (weight (:dtg kb) "start" (:subword2 t-hyp)) 0)
+  (or (weight (:dtg kb) (:subword1 t-hyp) "end") 0))
 
 (defn score-split-merge
   [t-hyp kb split?]
-  (let [merge-freq (or (weight (:dtg kb) (last (:subword1 t-hyp))
-                               (first (:subword2 t-hyp))) 0)
-        split-freq (get (:wtc kb) [(last (:subword1 t-hyp))
-                                   (first (:subword2 t-hyp))] 0)]
+  (let [merge-freq (or (weight (:dtg kb) (:subword1 t-hyp)
+                               (:subword2 t-hyp)) 0)
+        split-freq (get (:wtc kb) [(:subword1 t-hyp)
+                                   (:subword2 t-hyp)] 0)]
     (if (= 0 (+ split-freq merge-freq)) 0.0
         (if split? (double (/ split-freq (+ split-freq merge-freq)))
             (double (/ merge-freq (+ split-freq merge-freq)))))))
@@ -136,7 +136,7 @@
   [forced-hyps accepted hyps]
   (let [kb (get-kb hyps)
         sensor-hyps (vec (sort-by :pos (filter #(= :sensor (:type %)) forced-hyps)))
-        transition-hyps (filter #(= :transition (:type %)) forced-hyps)
+        transition-hyps (sort-by :trans-pos (filter #(= :transition (:type %)) forced-hyps))
         split-hyps (map (fn [t-hyp]
                           (new-hyp "Split" :split :split false conflicts
                                    (score-split-merge t-hyp kb true)
@@ -187,85 +187,3 @@
         hyp-types (set (str/split (:HypTypes params) #","))]
     (concat merge-hyps split-hyps
             (if (hyp-types "words") word-hyps []))))
-
-(comment
-  similar-words (map first (find-substrings word (:dictionary-string kb)))
-  similar-sum (reduce + (map (fn [w] (get (:unigram-model kb) [w]))
-                             similar-words))
-
-  in-word-trans-hyps
-  (filter identity
-          (map (fn [hyp]
-                 (when (has-edge? (:dtg kb) (:symbol1 hyp) (:symbol2 hyp))
-                   (new-hyp "TransC" :in-word-transition :in-word-transition
-                            false conflicts
-                            ;; if this symbol pair is also a
-                            ;; word transition, figure out how
-                            ;; often it is vs. how often it is
-                            ;; an in-word transition; otherwise,
-                            ;; its score is 1.0
-                            (let [w (weight (:dtg kb) (:symbol1 hyp) (:symbol2 hyp))
-                                  c (get (:wtc kb) [(:symbol1 hyp) (:symbol2 hyp)] 0)]
-                              (/ (double w) (double (+ w c))))
-                                  
-                            [hyp] [] (str (:symbol1 hyp) (:symbol2 hyp)) ""
-                            {:pos-seq [(:pos2 hyp)]})))
-               sensor-hyps-sorted))
-  word-trans-hyps
-  (filter identity
-          (map (fn [hyp]
-                 (when (get (:wtc kb) [(:symbol1 hyp) (:symbol2 hyp)])
-                   (new-hyp "TransW" :word-transition :word-transition
-                            false conflicts
-                            ;; if this symbol pair is also an
-                            ;; in-word transition, divide by how
-                            ;; often that is the case;
-                            ;; otherwise, its score is 1.0
-                            (let [w (get (:wtc kb) [(:symbol1 hyp) (:symbol2 hyp)])
-                                  c (or (weight (:dtg kb)
-                                                (:symbol1 hyp) (:symbol2 hyp)) 0)]
-                              (/ (double w) (double (+ w c))))
-                            [hyp] [] (str (:symbol1 hyp) (:symbol2 hyp)) ""
-                            {:pos-seq [(:pos2 hyp)]})))
-               sensor-hyps-sorted))
-  start-of-word-hyps
-  (filter identity
-          (map (fn [hyp]
-                 (when (has-edge? (:dtg kb) "start" (:symbol2 hyp))
-                   ;; score is how often latter symbol is start
-                   ;; of a word vs.  how often this symbol pair
-                   ;; is an in-word transition; if the pair is
-                   ;; never anything but a start->symbol2
-                   ;; transition, its score is 1.0
-                   (new-hyp "TransWS" :word-transition :word-transition
-                            false conflicts
-                            (let [w (weight (:dtg kb) "start" (:symbol2 hyp))
-                                  c (or (weight (:dtg kb)
-                                                (:symbol1 hyp) (:symbol2 hyp)) 0)]
-                              (/ (double w) (double (+ w c))))
-                            [hyp] [] (str (:symbol1 hyp) (:symbol2 hyp)) ""
-                            {:pos-seq [(:pos2 hyp)]})))
-               sensor-hyps-sorted))
-  end-of-word-hyps
-  (filter identity
-          (map (fn [hyp]
-                 (when (has-edge? (:dtg kb) (:symbol1 hyp) "end")
-                   ;; score is how often former symbol is end of
-                   ;; a word vs.  how often this symbol pair is
-                   ;; an in-word transition; if the pair is
-                   ;; never anything but a symbol1->end
-                   ;; transition, its score is 1.0
-                   (new-hyp "TransWE" :word-transition :word-transition
-                            false conflicts
-                            (let [w (weight (:dtg kb) (:symbol1 hyp) "end")
-                                  c (or (weight (:dtg kb)
-                                                (:symbol1 hyp) (:symbol2 hyp)) 0)]
-                              (/ (double w) (double (+ w c))))
-                            [hyp] [] (str (:symbol1 hyp) (:symbol2 hyp)) ""
-                            {:pos-seq [(:pos2 hyp)]})))
-               sensor-hyps-sorted))
-  all-word-trans-hyps (concat word-trans-hyps start-of-word-hyps end-of-word-hyps)
-  best-word-trans-hyps (filter identity (map (partial choose-best all-word-trans-hyps)
-                                             all-word-trans-hyps))
-
-  )

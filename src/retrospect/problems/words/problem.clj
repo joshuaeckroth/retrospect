@@ -44,5 +44,6 @@
     :ResetEachStep [true [true]]
     :SensorNoise [0 [0]]
     ;; ["carroll" "cityu_training" "as_training" "msr_training" "pku_training"]
-    :Dataset ["pku_training" ["pku_training"]] 
+    :Dataset ["pku_training" ["pku_training"]]
+    :DefaultMergeSplit ["merge" ["merge" "split"]]
     :MaxModelGrams [1 [1]]}})

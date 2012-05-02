@@ -59,8 +59,10 @@
 
 (defn player-get-problem-log
   []
-  (let [accepted (:accepted (:workspace (cur-ep (:est @or-state))))]
-    (str/join " __ " (get-words @truedata @time-now accepted))))
+  (let [ws (:workspace (cur-ep (:est @or-state)))
+        accepted (:accepted ws)
+        unexplained (:unexplained (:log ws))]
+    (str/join " __ " (get-words @truedata @time-now accepted unexplained))))
 
 (defn player-setup-diagram
   [])
