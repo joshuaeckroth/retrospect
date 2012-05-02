@@ -30,7 +30,7 @@
                :stats-fn stats
                :true-hyp?-fn true-hyp?
                :hyps-equal?-fn hyps-equal?
-               :hyp-types [:word :in-word-transition :word-transition]
+               :hyp-types [:word :split :merge]
                :default-params {:HypTypes ["words,inwordtrans,wordtrans"
                                            ["words"
                                             "words,inwordtrans"

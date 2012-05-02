@@ -57,6 +57,7 @@
                                 (:subword h1) (:subword h2)
                                 (first (:pos-seq h1)) (last (:pos-seq h2)))
                         {:pos-seq (concat (:pos-seq h1) (:pos-seq h2))
+                         :trans-pos (last (:pos-seq h1))
                          :subword1 (:subword h1) :subword2 (:subword h2)}))
              (partition 2 1 subword-hyps))]
     (concat sensor-hyps subword-hyps transition-hyps)))
@@ -66,6 +67,7 @@
   (cond
    (or (= :sensor (:type hyp1)) (= :sensor (:type hyp2))) false
    (or (= :subword (:type hyp1)) (= :subword (:type hyp2))) false
+   
    (and (= :word-seq (:type hyp1)) (= :word-seq (:type hyp2)))
    (some (fn [n] (or (= (take n (:pos-seqs hyp1))
                         (:pos-seqs hyp2))
@@ -77,6 +79,7 @@
                         (:pos-seqs hyp1))))
          (range 1 (inc (min (count (:pos-seqs hyp1))
                             (count (:pos-seqs hyp2))))))
+   
    (and (= :word (:type hyp1)) (= :word (:type hyp2)))
    (let [start1 (first (:pos-seq hyp1))
          end1 (last (:pos-seq hyp1))
@@ -84,26 +87,18 @@
          end2 (last (:pos-seq hyp2))]
      (not (or (< end1 start2) (< end2 start1))))
    
-   (and (= :word (:type hyp1)) (= :word-transition (:type hyp2)))
-   (and (< (first (:pos-seq hyp1)) (first (:pos-seq hyp2)))
-        (> (last (:pos-seq hyp1)) (first (:pos-seq hyp2))))
+   (and (= :word (:type hyp1)) (= :split (:type hyp2)))
+   (and (> (:trans-pos hyp2) (first (:pos-seq hyp1)))
+        (< (:trans-pos hyp2) (last (:pos-seq hyp1))))
    
-   (and (= :word-transition (:type hyp1)) (= :word (:type hyp2)))
-   (and (< (first (:pos-seq hyp2)) (first (:pos-seq hyp1)))
-        (> (last (:pos-seq hyp2)) (first (:pos-seq hyp1))))
+   (and (= :word (:type hyp2)) (= :split (:type hyp1)))
+   (and (> (:trans-pos hyp1) (first (:pos-seq hyp2)))
+        (< (:trans-pos hyp1) (last (:pos-seq hyp2))))
    
-   (and (= :word (:type hyp1)) (= :in-word-transition (:type hyp2)))
-   (or (= (first (:pos-seq hyp2)) (first (:pos-seq hyp1)))
-       (= (dec (first (:pos-seq hyp2))) (last (:pos-seq hyp1))))
+   (or (and (= :split (:type hyp1)) (= :merge (:type hyp2)))
+       (and (= :merge (:type hyp1)) (= :split (:type hyp2))))
+   (= (:trans-pos hyp1) (:trans-pos hyp2))
    
-   (and (= :in-word-transition (:type hyp1)) (= :word (:type hyp2)))
-   (or (= (first (:pos-seq hyp1)) (first (:pos-seq hyp2)))
-       (= (dec (first (:pos-seq hyp1))) (last (:pos-seq hyp2))))
-
-   (or (and (= :in-word-transition (:type hyp1)) (= :word-transition (:type hyp2)))
-       (and (= :word-transition (:type hyp1)) (= :in-word-transition (:type hyp2))))
-   (= (:explains hyp1) (:explains hyp2))
-
    :else false))
 
 (defn find-substrings
@@ -127,9 +122,9 @@
   [forced-hyps accepted hyps]
   (let [kb (get-kb hyps)
         sensor-hyps (vec (sort-by :pos (filter #(= :sensor (:type %)) forced-hyps)))
+        transition-hyps (filter #(= :transition (:type %)) forced-hyps)
         sym-string (apply str (map :sym sensor-hyps))
         words (map (fn [[w i]]
-                     (println w i)
                      (let [s-hyps (set (subvec sensor-hyps i (+ i (count w))))]
                        (sort-by (comp first :pos-seq)
                                 (filter (fn [sw-hyp] (some s-hyps (:explains sw-hyp)))
@@ -145,9 +140,27 @@
                                   (str/join ", " (map str pos-seq)))
                           {:pos-seq pos-seq :word word})))
              words)
+        merge-hyps (map (fn [t-hyp]
+                          (new-hyp "Merge" :merge :merge false conflicts
+                                   1.0 [t-hyp] [] (format "%s+%s" (:subword1 t-hyp)
+                                                        (:subword2 t-hyp))
+                                   (format "Merge of %s+%s"
+                                           (:subword1 t-hyp)
+                                           (:subword2 t-hyp))
+                                   {:trans-pos (:trans-pos t-hyp)}))
+                        transition-hyps)
+        split-hyps (map (fn [t-hyp]
+                          (new-hyp "Split" :split :split false conflicts
+                                   1.0 [t-hyp] [] (format "%s-%s" (:subword1 t-hyp)
+                                                        (:subword2 t-hyp))
+                                   (format "Split of %s-%s"
+                                           (:subword1 t-hyp)
+                                           (:subword2 t-hyp))
+                                   {:trans-pos (:trans-pos t-hyp)}))
+                        transition-hyps)
         hyp-types (set (str/split (:HypTypes params) #","))]
-    (concat
-     (if (hyp-types "words") word-hyps []))))
+    (concat merge-hyps split-hyps
+            (if (hyp-types "words") word-hyps []))))
 
 (comment
   similar-words (map first (find-substrings word (:dictionary-string kb)))
