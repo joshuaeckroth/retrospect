@@ -18,8 +18,8 @@
       (= :kb (:type hyp))
       (= :subword (:type hyp))
       (let [sentence (nth (:test-sentences truedata) (dec time-now))
-            start-pos (or (first (:pos-seq hyp)) (:trans-pos hyp))
-            end-pos (or (last (:pos-seq hyp)) (:trans-pos hyp))
+            start-pos (or (first (:pos-seq hyp)) (inc (:trans-pos hyp)))
+            end-pos (or (last (:pos-seq hyp)) (inc (:trans-pos hyp)))
             true-words (loop [i 0 ws [] sent sentence]
                          (cond (empty? sent) ws
                                (> i end-pos) ws
@@ -50,12 +50,12 @@
        (= (:pos-seq hyp1) (:pos-seq hyp2))
        (= (:subword hyp1) (:subword hyp2))))
 
-(defmethod hyps-equal? :merge
+(defmethod hyps-equal? :split
   [hyp1 hyp2]
   (and (= (:type hyp1) (:type hyp2))
        (= (:trans-pos hyp1) (:trans-pos hyp2))))
 
-(defmethod hyps-equal? :split
+(defmethod hyps-equal? :merge
   [hyp1 hyp2]
   (and (= (:type hyp1) (:type hyp2))
        (= (:trans-pos hyp1) (:trans-pos hyp2))))
@@ -125,7 +125,7 @@
       (cond (empty? amb) words
             (empty? cs) (conj words (apply str amb))
             :else
-            (let [c (first cs)]
+            (let [c (inc (first cs))]
               (recur (vec (drop (- c i) amb))
                      (rest cs)
                      c
