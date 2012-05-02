@@ -121,29 +121,19 @@
                (if (not-empty cs) (sort cs)
                    (sort (set/difference (set (range (count ambiguous)))
                                          (set (map (comp first :pos-seq)
-                                                   (get accepted :in-word-transition)))))))
-        parse (loop [amb (vec ambiguous)
-                     cs cuts
-                     i 0
-                     words []]
-                (cond (empty? amb) words
-                      (empty? cs) (conj words (apply str amb))
-                      :else
-                      (let [c (first cs)]
-                        (recur (vec (drop (- c i) amb))
-                               (rest cs)
-                               c
-                               (conj words (apply str (subvec amb 0 (- c i))))))))]
-    (loop [i 1
-           sent [(first parse)]]
-      (if (>= i (dec (count parse))) sent
-          (let [w1 (last sent)
-                w2 (nth parse i)
-                freq-ct (or (weight (:dtg kb) (last w1) (first w2)) 0)
-                freq-wt (get (:wtc kb) [(last w1) (first w2)] 0)]
-            (if (> freq-ct freq-wt)
-              (recur (inc i) (conj (vec (butlast sent)) (str w1 w2)))
-              (recur (inc i) (conj sent w2))))))))
+                                                   (get accepted :in-word-transition)))))))]
+    (loop [amb (vec ambiguous)
+           cs cuts
+           i 0
+           words []]
+      (cond (empty? amb) words
+            (empty? cs) (conj words (apply str amb))
+            :else
+            (let [c (first cs)]
+              (recur (vec (drop (- c i) amb))
+                     (rest cs)
+                     c
+                     (conj words (apply str (subvec amb 0 (- c i))))))))))
 
 (defn evaluate
   [truedata est]

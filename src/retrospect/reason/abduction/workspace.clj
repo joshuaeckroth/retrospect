@@ -324,7 +324,10 @@
     (-> (add workspace hyp)
         (update-in [:forced] conj hyp)
         (update-in [:accepted (:type hyp)] conj hyp)
-        (update-in [:needs-explainer] conj hyp)
+        (update-in [:needs-explainer] (fn [ne] (if-not (:needs-explainer? hyp) ne
+                                                       (conj ne hyp))))
+        ;; since this is a forced hyp, whatever it explains no longer needs explanation
+        (update-in [:needs-explainer] (fn [ne] (apply disj ne (:explains hyp))))
         (update-in [:graph] add-attr hyp :fontcolor "gray50")
         (update-in [:graph] add-attr hyp :color "gray50"))))
 

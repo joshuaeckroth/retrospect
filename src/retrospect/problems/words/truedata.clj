@@ -64,12 +64,10 @@
                                                            composites))))))
         dict-comps (mapcat #(find-inner-words % dict-no-comps)
                            training-dict)
-        dict-regex (if-not (:StatsOnly params)
-                     (reduce (fn [m w]
+        dict-regex (reduce (fn [m w]
                                (assoc m w (re-pattern (format "(%s)" (Pattern/quote w)))))
-                             {} training-dict))
-        dict-string (if-not (:StatsOnly params)
-                      (str/join " " (concat [" "] dict-no-comps)))
+                             {} training-dict)
+        dict-string (str/join " " (concat [" "] dict-no-comps))
         markov-models (build-markov-models training)
         word-freqs (frequencies (apply concat training))
         prefixes (map first (filter second dict-comps))
@@ -90,10 +88,8 @@
                 :dictionary-no-composites dict-no-comps
                 :dictionary-string dict-string
                 :dictionary-regex dict-regex
-                :unigram-model (if-not (:StatsOnly params)
-                                 (get markov-models 1))
-                :bigram-model (if-not (:StatsOnly params)
-                                (get markov-models 2))
+                :unigram-model (get markov-models 1)
+                :bigram-model (get markov-models 2)
                 :prefixes-prob prefixes-prob
                 :suffixes-prob suffixes-prob}
      :test (zipmap (range (count ambiguous)) ambiguous)
