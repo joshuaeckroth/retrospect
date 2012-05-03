@@ -155,7 +155,8 @@
         words (map (fn [[w i]]
                      (let [s-hyps (subvec sensor-hyps i (+ i (count w)))]
                        (sort-by (comp first :pos-seq)
-                                (filter (fn [sw-hyp] (and (>= i (first (:pos-seq sw-hyp)))
+                                (filter (fn [sw-hyp] (and (>= (dec (+ i (count w)))
+                                                              (first (:pos-seq sw-hyp)))
                                                           (<= i (last (:pos-seq sw-hyp)))))
                                         (get hyps :subword)))))
                    (find-dict-words sym-string (:dictionary-regex kb)))
