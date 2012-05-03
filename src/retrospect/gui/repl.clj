@@ -1,6 +1,6 @@
 (ns retrospect.gui.repl
   (:import (java.io PipedReader PipedWriter CharArrayWriter PrintWriter))
-  (:import (java.awt GridBagLayout Insets Dimension))
+  (:import (java.awt GridBagLayout Insets Dimension Font))
   (:use [clj-swing.panel])
   (:use [clj-swing.text-field])
   (:use [clj-swing.button])
@@ -87,7 +87,8 @@
   (let [{:keys [repl-fn result-fn]} (create-clojure-repl)]
     (dosync (alter repl-output (constantly (result-fn))))
     (doto (split-vertical
-           (scroll-panel (text-area :str-ref repl-output :editable false :wrap true))
+           (scroll-panel (doto (text-area :str-ref repl-output :editable false :wrap true)
+                           (.setFont (Font. "WenQuanYi Micro Hei" Font/PLAIN 12))))
            (panel :layout (GridBagLayout.)
                   :constrains (java.awt.GridBagConstraints.)
                   [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0 :gridwidth 2
