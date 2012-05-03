@@ -44,10 +44,19 @@
                                  {true (map :apriori (get (get true-false t) true))
                                   false (map :apriori (get (get true-false t) false))}))
                         {} (keys true-false))
-        avg (fn [vals] (if (empty? vals) 0.0 (/ (reduce + vals) (count vals))))]
+        avg (fn [vals] (if (empty? vals) 0.0 (/ (reduce + vals) (count vals))))
+        accepted? (fn [hyp] ((set (get (:accepted workspace) (:type hyp))) hyp))]
     (reduce (fn [m t]
               (let [k (apply str (map str/capitalize (str/split (name t) #"-")))]
                 (assoc m
+                  (keyword (format "TrueCount%s" k))
+                  (count (get (get true-false t) true))
+                  (keyword (format "FalseCount%s" k))
+                  (count (get (get true-false t) false))
+                  (keyword (format "TrueAcc%s" k))
+                  (count (filter accepted? (get (get true-false t) true)))
+                  (keyword (format "FalseAcc%s" k))
+                  (count (filter accepted? (get (get true-false t) false)))
                   (keyword (format "AvgTrueConf%s" k))
                   (avg (get (get confs t) true))
                   (keyword (format "AvgTrueApriori%s" k))
@@ -102,13 +111,14 @@
                                 (mapcat
                                  (fn [tf]
                                    (map #(keyword
-                                          (format "Avg%s%s" tf
+                                          (format "%s%s" tf
                                                   (apply str
                                                          (map str/capitalize
                                                               (str/split (name %) #"-")))))
                                         (:hyp-subtypes @problem)))
-                                 ["TrueConf" "TrueApriori"
-                                  "FalseConf" "FalseApriori"])))))]
+                                 ["AvgTrueConf" "AvgTrueApriori"
+                                  "AvgFalseConf" "AvgFalseApriori"
+                                  "TrueCount" "FalseCount" "TrueAcc" "FalseAcc"])))))]
     ;; if control/comparison have different number of results
     ;; (different steps between or steps), then just use the last
     ;; result set

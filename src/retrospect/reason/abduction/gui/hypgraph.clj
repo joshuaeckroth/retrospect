@@ -2,20 +2,58 @@
   (:import (java.awt GridBagLayout Insets Graphics Dimension Color))
   (:import (java.awt.image BufferedImage))
   (:import (javax.swing JLabel ImageIcon JViewport))
+  (:import (misc AlphanumComparator))
   (:use [clojure.contrib.seq-utils :only [find-first]])
   (:use [clj-swing.core :only [add-action-listener]])
   (:use [clj-swing.panel])
   (:use [clj-swing.button])
+  (:use [clj-swing.label])
+  (:require [clojure.string :as str])
   (:use [retrospect.gui.graphs])
   (:use [retrospect.state])
-  (:use [retrospect.epistemicstates :only [cur-ep]]))
+  (:use [retrospect.epistemicstates :only [cur-ep]])
+  (:require [retrospect.reason.abduction.workspace :as ws])
+  (:use [retrospect.reason.abduction.gui.logs :only [log-box]]))
 
 (def canvas (ref nil))
+(def hyp-id (ref ""))
+(def hyp-id-label (label ""))
+(def hyp-apriori-label (label "Apriori:"))
+(def hyp-confidence-label (label "Conf:"))
+(def hyp-truefalse-label (label "T/F:"))
+(def hyp-accepted-label (label "Acc:"))
+(def hyp-explains (ref ""))
+(def hyp-explainers (ref ""))
+(def hyp-conflicts (ref ""))
+(def hyp-log (ref ""))
 
 (defn listener
   [node]
   (let [workspace (:workspace (cur-ep (:est @or-state)))
-        hyp (find-first #(= (:id %) node) (apply concat (vals (:hypotheses workspace))))]))
+        hyp (find-first #(= (:id %) node) (apply concat (vals (:hypotheses workspace))))]
+    (when hyp
+      (let [alphanum (AlphanumComparator.)
+            explains (str/join ", " (map str (sort-by :id alphanum (:explains hyp))))
+            explainers (str/join ", " (map #(format "[%s]" %)
+                                           (map #(str/join ", " (sort-by :id alphanum %))
+                                                (vals (group-by :type
+                                                                (get (:explainers workspace)
+                                                                     hyp))))))
+            conflicts (str/join ", " (map str (sort-by :id alphanum
+                                                       (ws/find-conflicts workspace hyp))))]
+        (. hyp-id-label setText (format "%s %s" (:id hyp) (:short-str hyp)))
+        (. hyp-apriori-label setText (format "Apriori: %.2f" (:apriori hyp)))
+        (. hyp-confidence-label setText (format "Conf: %.2f" (ws/hyp-conf workspace hyp)))
+        (. hyp-truefalse-label setText
+           (if ((:true-hyp?-fn (:abduction @problem))
+                @truedata (:time (cur-ep (:est @or-state))) hyp)
+             "TF: True" "TF: False"))
+        (dosync
+         (alter hyp-id (constantly (:desc hyp)))
+         (alter hyp-explains (constantly (str "Explains: " explains)))
+         (alter hyp-explainers (constantly (str "Explainers: " explainers)))
+         (alter hyp-conflicts (constantly (str "Conflicts: " conflicts)))
+         (alter hyp-log (constantly (str/join "\n" (ws/hyp-log workspace hyp)))))))))
 
 (defn generate-hypgraph
   []
@@ -28,12 +66,28 @@
   (dosync (alter canvas (constantly (create-canvas))))
   (panel :layout (GridBagLayout.)
          :constrains (java.awt.GridBagConstraints.)
-         [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0 :gridwidth 2 :fill :BOTH
+         [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0 :gridwidth 4 :fill :BOTH
           :insets (Insets. 5 5 5 5)
           _ @canvas
-          :gridy 1 :gridwidth 1 :gridx 0 :weightx 1.0 :weighty 0.0
+          :gridy 1 :gridwidth 1 :gridx 0 :weightx 0.25 :weighty 0.0
+          _ hyp-id-label
+          :gridx 1
+          _ hyp-apriori-label
+          :gridx 2
+          _ hyp-confidence-label
+          :gridx 3
+          _ hyp-truefalse-label
+          :gridy 2 :gridx 0 :weighty 0.1
+          _ (log-box hyp-id)
+          :gridx 1
+          _ (log-box hyp-explains)
+          :gridx 2
+          _ (log-box hyp-explainers)
+          :gridx 3
+          _ (log-box hyp-conflicts)
+          :gridy 3 :gridwidth 3 :gridx 0 :weighty 0.0
           _ (panel)
-          :gridx 1 :weightx 0.0
+          :gridx 3 :gridwidth 1
           _ (doto (button "Generate")
               (add-action-listener ([_] (generate-hypgraph))))]))
 
