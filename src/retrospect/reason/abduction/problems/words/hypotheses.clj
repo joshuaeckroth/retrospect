@@ -128,10 +128,11 @@
                                                       % (:subword2 t-hyp))
                                              (incoming (:dtg kb)
                                                        (:subword2 t-hyp))))]
-                        (if (= w 0) 1 w)))]
+                        (if (= w 0) 1 w)))
+        end-start-prob (if (> (Math/abs (- 0.5 end-prob)) (Math/abs (- 0.5 start-prob)))
+                         end-prob start-prob)]
     (if (= 0 (+ split-freq merge-freq))
-      (if split? (min start-prob end-prob)
-          (- 1.0 (min start-prob end-prob)))
+      (if split? end-start-prob (- 1.0 end-start-prob))
       (if split? (double (/ split-freq (+ split-freq merge-freq)))
           (double (/ merge-freq (+ split-freq merge-freq)))))))
 
