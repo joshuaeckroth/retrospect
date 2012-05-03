@@ -16,7 +16,6 @@
   [truedata time-now hyp]
   (or (= :sensor (:type hyp))
       (= :kb (:type hyp))
-      (= :subword (:type hyp))
       (= :transition (:type hyp))
       (let [sentence (nth (:test-sentences truedata) (dec time-now))
             start-pos (or (first (:pos-seq hyp)) (inc (:trans-pos hyp)))
@@ -46,12 +45,6 @@
   (and (= (:type hyp1) (:type hyp2))
        (= (:pos hyp1) (:pos hyp2))
        (= (:sym hyp1) (:sym hyp2))))
-
-(defmethod hyps-equal? :subword
-  [hyp1 hyp2]
-  (and (= (:type hyp1) (:type hyp2))
-       (= (:pos-seq hyp1) (:pos-seq hyp2))
-       (= (:subword hyp1) (:subword hyp2))))
 
 (defmethod hyps-equal? :split
   [hyp1 hyp2]

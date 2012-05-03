@@ -21,52 +21,28 @@
   [sensor time-prev time-now hyps]
   (let [kb (get-kb hyps)
         sensor-hyps (map (fn [[sym pos]]
-                           (new-hyp "Sens" :sensor :symbol false nil 1.0 [] []
+                           (new-hyp "Sens" :sensor :symbol true nil 1.0 [] []
                                     sym (format "Symbol: %c at position %d"
                                                 sym pos)
                                     {:sym sym :pos pos}))
                          (sensed-at sensor (inc time-prev)))
-        ;; get sequences of sensor hyps that match known subwords;
-        ;; this algorithm is simple (greedy left-to-right) because we
-        ;; don't have to worry about overlap
-        subwords (loop [s-hyps sensor-hyps
-                        subwords []]
-                   (if (empty? s-hyps) subwords
-                       (let [i (first (filter #((:dictionary-no-composites kb)
-                                                (apply str (map :sym (take % s-hyps))))
-                                              (range 1 (inc (count s-hyps)))))]
-                         (if i (recur (drop i s-hyps) (conj subwords (take i s-hyps)))
-                             ;; must be a new symbol
-                             (recur (rest s-hyps) (conj subwords (take 1 s-hyps)))))))
-        subword-hyps
-        (map (fn [s-hyps]
-               (let [subword (apply str (map :sym s-hyps))
-                     pos-seq (map :pos s-hyps)]
-                 (new-hyp "Subword" :subword :subword true nil
-                          1.0 s-hyps [] subword
-                          (format "Subword: %s, pos-seq: %s" subword
-                                  (str/join ", " (map str pos-seq)))
-                          {:pos-seq pos-seq :subword subword})))
-             subwords)
         transition-hyps
         (map (fn [[h1 h2]]
-               (new-hyp "Trans" :transition :transition true nil
-                        1.0 (concat (:explains h1) (:explains h2)) []
-                        (format "%s/%s" (:subword h1) (:subword h2))
+               (new-hyp "Trans" :transition :transition true nil 1.0 [h1 h2] []
+                        (format "%s/%s" (:sym h1) (:sym h2))
                         (format "Transition: %s/%s, pos-seq: %d-%d"
-                                (:subword h1) (:subword h2)
-                                (first (:pos-seq h1)) (last (:pos-seq h2)))
-                        {:pos-seq (concat (:pos-seq h1) (:pos-seq h2))
-                         :trans-pos (last (:pos-seq h1))
-                         :subword1 (:subword h1) :subword2 (:subword h2)}))
-             (partition 2 1 subword-hyps))]
-    (concat sensor-hyps subword-hyps transition-hyps)))
+                                (:sym h1) (:sym h2)
+                                (:pos h1) (:pos h2))
+                        {:pos-seq [(:pos h1) (:pos h2)]
+                         :trans-pos (:pos h1)
+                         :sym1 (:sym h1) :sym2 (:sym h2)}))
+             (partition 2 1 sensor-hyps))]
+    (concat sensor-hyps transition-hyps)))
 
 (defn conflicts
   [hyp1 hyp2]
   (cond
    (or (= :sensor (:type hyp1)) (= :sensor (:type hyp2))) false
-   (or (= :subword (:type hyp1)) (= :subword (:type hyp2))) false
    (or (= :transition (:type hyp1)) (= :transition (:type hyp2))) false
    
    (and (= :word (:type hyp1)) (= :word (:type hyp2)))
@@ -74,9 +50,7 @@
          end1 (last (:pos-seq hyp1))
          start2 (first (:pos-seq hyp2))
          end2 (last (:pos-seq hyp2))]
-     (and (not (or (< end1 start2) (< end2 start1)))
-          (not ((set (:explains hyp1)) hyp2))
-          (not ((set (:explains hyp2)) hyp1))))
+     (not (or (< end1 start2) (< end2 start1))))
    
    (and (= :word (:type hyp1)) (= :split (:type hyp2)))
    (and (> (:trans-pos hyp2) (first (:pos-seq hyp1)))
@@ -113,21 +87,15 @@
 
 (defn score-split-merge
   [t-hyp kb split?]
-  (let [merge-freq (or (weight (:dtg kb) (:subword1 t-hyp)
-                               (:subword2 t-hyp)) 0)
-        split-freq (get (:wtc kb) [(:subword1 t-hyp)
-                                   (:subword2 t-hyp)] 0)
-        end-prob (/ (double (or (weight (:dtg kb) (:subword1 t-hyp) "end") 0))
-                    (double (let [w (reduce + (map #(weight (:dtg kb)
-                                                            (:subword1 t-hyp) %)
-                                                   (neighbors (:dtg kb)
-                                                              (:subword1 t-hyp))))]
+  (let [merge-freq (or (weight (:dtg kb) (:sym1 t-hyp) (:sym2 t-hyp)) 0)
+        split-freq (get (:wtc kb) [(:sym1 t-hyp) (:sym2 t-hyp)] 0)
+        end-prob (/ (double (or (weight (:dtg kb) (:sym1 t-hyp) "end") 0))
+                    (double (let [w (reduce + (map #(weight (:dtg kb) (:sym1 t-hyp) %)
+                                                   (neighbors (:dtg kb) (:sym1 t-hyp))))]
                               (if (= w 0) 1 w))))
-        start-prob (/ (double (or (weight (:dtg kb) "start" (:subword2 t-hyp)) 0))
-                      (let [w (reduce + (map #(weight (:dtg kb)
-                                                      % (:subword2 t-hyp))
-                                             (incoming (:dtg kb)
-                                                       (:subword2 t-hyp))))]
+        start-prob (/ (double (or (weight (:dtg kb) "start" (:sym2 t-hyp)) 0))
+                      (let [w (reduce + (map #(weight (:dtg kb) % (:sym2 t-hyp))
+                                             (incoming (:dtg kb) (:sym2 t-hyp))))]
                         (if (= w 0) 1 w)))
         end-start-prob (if (> (Math/abs (- 0.5 end-prob)) (Math/abs (- 0.5 start-prob)))
                          end-prob start-prob)]
@@ -143,55 +111,37 @@
         sensor-hyps (vec (sort-by :pos (filter #(= :sensor (:type %)) forced-hyps)))
         transition-hyps (sort-by :trans-pos (filter #(= :transition (:type %)) forced-hyps))
         split-hyps (map (fn [t-hyp]
-                          (new-hyp "Split" :split :split
-                                   (if (hyp-types "biwords") true false)
-                                   conflicts
+                          (new-hyp "Split" :split :split true conflicts
                                    (score-split-merge t-hyp kb true)
-                                   [t-hyp] [] (format "%s-%s" (:subword1 t-hyp)
-                                                      (:subword2 t-hyp))
+                                   [t-hyp] [] (format "%s-%s" (:sym1 t-hyp)
+                                                      (:sym2 t-hyp))
                                    (format "Split of %s-%s at %d"
-                                           (:subword1 t-hyp)
-                                           (:subword2 t-hyp)
+                                           (:sym1 t-hyp)
+                                           (:sym2 t-hyp)
                                            (:trans-pos t-hyp))
                                    {:trans-pos (:trans-pos t-hyp)}))
                         transition-hyps)
         merge-hyps (map (fn [t-hyp]
                           (new-hyp "Merge" :merge :merge true conflicts
                                    (score-split-merge t-hyp kb false)
-                                   [t-hyp] [] (format "%s+%s" (:subword1 t-hyp)
-                                                      (:subword2 t-hyp))
+                                   [t-hyp] [] (format "%s+%s" (:sym1 t-hyp) (:sym2 t-hyp))
                                    (format "Merge of %s+%s at %d"
-                                           (:subword1 t-hyp)
-                                           (:subword2 t-hyp)
+                                           (:sym1 t-hyp)
+                                           (:sym2 t-hyp)
                                            (:trans-pos t-hyp))
                                    {:trans-pos (:trans-pos t-hyp)}))
                         transition-hyps)
         sym-string (apply str (map :sym sensor-hyps))
-        words
-        (filter identity
-                (map (fn [[w i]]
-                       (let [s-hyps (subvec sensor-hyps i (+ i (count w)))
-                             sw-hyps (sort-by
-                                      (comp first :pos-seq)
-                                      (filter (fn [sw-hyp]
-                                                (and (> (+ i (count w))
-                                                        (last (:pos-seq sw-hyp)))
-                                                     (<= i (first (:pos-seq sw-hyp)))))
-                                              (get hyps :subword)))]
-                         (when (= (set (range i (+ i (count w))))
-                                  (set (mapcat :pos-seq sw-hyps)))
-                           sw-hyps)))
-                     (find-dict-words sym-string (:dictionary-regex kb))))
+        words (map (fn [[w i]] (subvec sensor-hyps i (+ i (count w))))
+                   (find-dict-words sym-string (:dictionary-regex kb)))
         word-hyps
-        (map (fn [sw-hyps]
-               (let [word (apply str (map :subword sw-hyps))
-                     pos-seq (mapcat :pos-seq sw-hyps)]
-                 (new-hyp "Word" :word :word
-                          (if (hyp-types "biwords") true false)
-                          conflicts
+        (map (fn [s-hyps]
+               (let [word (apply str (map :sym s-hyps))
+                     pos-seq (map :pos s-hyps)]
+                 (new-hyp "Word" :word :word false conflicts
                           (/ (double (get (:unigram-model kb) [word]))
                              (double (:word-count kb)))
-                          (concat sw-hyps
+                          (concat s-hyps
                                   (let [m-hyps (filter #(and (<= (:trans-pos %)
                                                                  (last pos-seq))
                                                              (>= (:trans-pos %)
@@ -210,12 +160,14 @@
                (let [pos-seq (concat (:pos-seq wh1) (:pos-seq wh2))]
                  (new-hyp "BiWord" :word :biword false conflicts
                           (/ (double (get (:bigram-model kb) [(:word wh1) (:word wh2)]))
-                             (double (* (:word-count kb) (:word-count kb))))
-                          (conj [wh1 wh2] (first (filter #(= (last (:pos-seq wh1))
-                                                             (:trans-pos %))
-                                                         split-hyps)))
-                          [] (format "%s %s" (:word wh1) (:word wh2))
-                          (format "Bigram word: %s %s, pos-seq: %s"
+                             (double (:word-count kb)))
+                          (concat (:explains wh1)
+                                  (:explains wh2)
+                                  (filter #(= (last (:pos-seq wh1))
+                                              (:trans-pos %))
+                                          split-hyps))
+                          [] (format "%s __ %s" (:word wh1) (:word wh2))
+                          (format "Bigram word: %s __ %s, pos-seq: %s"
                                   (:word wh1) (:word wh2)
                                   (str/join ", " (map str pos-seq)))
                           {:pos-seq pos-seq :words [(:word wh1) (:word wh2)]})))
