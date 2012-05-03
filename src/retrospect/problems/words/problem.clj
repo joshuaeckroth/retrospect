@@ -31,13 +31,8 @@
                :true-hyp?-fn true-hyp?
                :hyps-equal?-fn hyps-equal?
                :hyp-types [:word :split :merge]
-               :default-params {:HypTypes ["words,inwordtrans,wordtrans"
-                                           ["words"
-                                            "words,inwordtrans"
-                                            "words,wordtrans"
-                                            "words,inwordtrans,wordtrans"
-                                            "inwordtrans,wordtrans"
-                                            "wordtrans"]]}}
+               :default-params {:HypTypes ["words,biwords"
+                                           ["words", "words,biwords"]]}}
    :default-params
    {:Steps [50 [50]]
     :StepsBetween [1 [1]]
@@ -45,5 +40,4 @@
     :SensorNoise [0 [0]]
     ;; ["carroll" "cityu_training" "as_training" "msr_training" "pku_training"]
     :Dataset ["pku_training" ["pku_training"]]
-    :DefaultMergeSplit ["merge" ["merge" "split"]]
-    :MaxModelGrams [1 [1]]}})
+    :DefaultMergeSplit ["merge" ["merge" "split"]]}})

@@ -11,7 +11,7 @@
   [training]
   (reduce (fn [models sentence]
             (let [words-grouped
-                  (apply concat (for [i (range 1 (inc (:MaxModelGrams params)))]
+                  (apply concat (for [i [1 2]] ;; unigrams and bigrams
                                   (partition i (concat (repeat (dec i) "") sentence))))]
               (reduce (fn [ms ws] (let [m (get ms (count ws) {})
                                         prior (get m ws 0)]
@@ -82,21 +82,7 @@
                              (assoc m w (re-pattern (format "(%s)" (Pattern/quote w)))))
                            {} training-dict)
         dict-string (str/join " " (concat [" "] dict-no-comps))
-        markov-models (build-markov-models training)
-        word-freqs (frequencies (apply concat training))
-        prefixes (map first (filter second dict-comps))
-        suffixes (map last (filter second dict-comps))
-        prefix-suffix-freqs (frequencies (apply concat dict-comps))
-        prefixes-freq (frequencies prefixes)
-        suffixes-freq (frequencies suffixes)
-        prefixes-prob (reduce (fn [m w] (assoc m w (/ (double (get prefixes-freq w))
-                                                      (double (+ (get prefix-suffix-freqs w)
-                                                                 (get word-freqs w 0))))))
-                              {} (keys prefixes-freq))
-        suffixes-prob (reduce (fn [m w] (assoc m w (/ (double (get suffixes-freq w))
-                                                      (double (+ (get prefix-suffix-freqs w)
-                                                                 (get word-freqs w 0))))))
-                              {} (keys suffixes-freq))]
+        markov-models (build-markov-models training)]
     {:training {:sentences training :dictionary training-dict :symbols training-symbols
                 :word-count (reduce + (map count (apply concat training)))
                 :sym-pair-freqs sym-pair-freqs
@@ -105,9 +91,7 @@
                 :dictionary-string dict-string
                 :dictionary-regex dict-regex
                 :unigram-model (get markov-models 1)
-                :bigram-model (get markov-models 2)
-                :prefixes-prob prefixes-prob
-                :suffixes-prob suffixes-prob}
+                :bigram-model (get markov-models 2)}
      :test (zipmap (range (count ambiguous)) ambiguous)
      :test-sentences test
      :test-dict test-dict}))

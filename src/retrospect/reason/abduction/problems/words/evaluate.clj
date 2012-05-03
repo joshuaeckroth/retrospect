@@ -17,20 +17,20 @@
   (or (= :sensor (:type hyp))
       (= :kb (:type hyp))
       (= :subword (:type hyp))
+      (= :transition (:type hyp))
       (let [sentence (nth (:test-sentences truedata) (dec time-now))
             start-pos (or (first (:pos-seq hyp)) (inc (:trans-pos hyp)))
             end-pos (or (last (:pos-seq hyp)) (inc (:trans-pos hyp)))
             true-words (loop [i 0 ws [] sent sentence]
                          (cond (empty? sent) ws
                                (> i end-pos) ws
-                               (or (< i start-pos) (> i start-pos))
-                               (recur (+ i (count (first sent)))
-                                      ws (rest sent))
                                :else
                                (recur (+ i (count (first sent)))
                                       (conj ws (first sent))
                                       (rest sent))))]
-        (cond (= :word (:type hyp)) (= [(:word hyp)] true-words)
+        (cond (= :word (:type hyp))
+              (or (= [(:word hyp)] true-words)
+                  (= (:words hyp) true-words))
               (= :merge (:type hyp)) (empty? true-words)
               (= :split (:type hyp)) (not-empty true-words)))))
 
@@ -64,12 +64,7 @@
   [hyp1 hyp2]
   (and (= (:type hyp1) (:type hyp2))
        (= (:pos-seq hyp1) (:pos-seq hyp2))
-       (= (:word hyp1) (:word hyp2))))
-
-(defmethod hyps-equal? :word-seq
-  [hyp1 hyp2]
-  (and (= (:type hyp1) (:type hyp2))
-       (= (:pos-seqs hyp1) (:pos-seqs hyp2))
+       (= (:word hyp1) (:word hyp2))
        (= (:words hyp1) (:words hyp2))))
 
 (defn run-scorer
