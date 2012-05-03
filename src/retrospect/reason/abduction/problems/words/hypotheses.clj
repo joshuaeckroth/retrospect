@@ -111,10 +111,6 @@
                              (recur (conj ws2 [w (.start m 1)]))))))
           [] (keys dict-regex)))
 
-(comment
-  (or (weight (:dtg kb) "start" (:subword2 t-hyp)) 0)
-  (or (weight (:dtg kb) (:subword1 t-hyp) "end") 0))
-
 (defn score-split-merge
   [t-hyp kb split?]
   (let [merge-freq (or (weight (:dtg kb) (:subword1 t-hyp)
@@ -157,9 +153,10 @@
                         transition-hyps)
         sym-string (apply str (map :sym sensor-hyps))
         words (map (fn [[w i]]
-                     (let [s-hyps (set (subvec sensor-hyps i (+ i (count w))))]
+                     (let [s-hyps (subvec sensor-hyps i (+ i (count w)))]
                        (sort-by (comp first :pos-seq)
-                                (filter (fn [sw-hyp] (some s-hyps (:explains sw-hyp)))
+                                (filter (fn [sw-hyp] (and (>= i (first (:pos-seq sw-hyp)))
+                                                          (<= i (last (:pos-seq sw-hyp)))))
                                         (get hyps :subword)))))
                    (find-dict-words sym-string (:dictionary-regex kb)))
         word-hyps
@@ -189,8 +186,8 @@
                           (/ (double (get (:bigram-model kb) [(:word wh1) (:word wh2)]))
                              (double (* (:word-count kb) (:word-count kb))))
                           (conj [wh1 wh2] (first (filter #(= (last (:pos-seq wh1))
-                                                           (:trans-pos %))
-                                                       split-hyps)))
+                                                             (:trans-pos %))
+                                                         split-hyps)))
                           [] (format "%s %s" (:word wh1) (:word wh2))
                           (format "Bigram word: %s %s, pos-seq: %s"
                                   (:word wh1) (:word wh2)

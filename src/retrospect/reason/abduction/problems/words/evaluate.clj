@@ -24,6 +24,9 @@
             true-words (loop [i 0 ws [] sent sentence]
                          (cond (empty? sent) ws
                                (> i end-pos) ws
+                               (< i start-pos)
+                               (recur (+ i (count (first sent)))
+                                      ws (rest sent))
                                :else
                                (recur (+ i (count (first sent)))
                                       (conj ws (first sent))
