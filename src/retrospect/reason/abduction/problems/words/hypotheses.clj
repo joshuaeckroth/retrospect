@@ -1,7 +1,7 @@
 (ns retrospect.reason.abduction.problems.words.hypotheses
   (:import (java.util.regex Pattern))
   (:require [clojure.string :as str])
-  (:use [loom.graph :only [has-edge? weight edges]])
+  (:use [loom.graph :only [has-edge? weight edges neighbors incoming]])
   (:use [retrospect.profile :only [prof]])
   (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.reason.abduction.workspace :only [new-hyp]])
@@ -116,10 +116,24 @@
   (let [merge-freq (or (weight (:dtg kb) (:subword1 t-hyp)
                                (:subword2 t-hyp)) 0)
         split-freq (get (:wtc kb) [(:subword1 t-hyp)
-                                   (:subword2 t-hyp)] 0)]
-    (if (= 0 (+ split-freq merge-freq)) 0.0
-        (if split? (double (/ split-freq (+ split-freq merge-freq)))
-            (double (/ merge-freq (+ split-freq merge-freq)))))))
+                                   (:subword2 t-hyp)] 0)
+        end-prob (/ (double (or (weight (:dtg kb) (:subword1 t-hyp) "end") 0))
+                    (double (let [w (reduce + (map #(weight (:dtg kb)
+                                                            (:subword1 t-hyp) %)
+                                                   (neighbors (:dtg kb)
+                                                              (:subword1 t-hyp))))]
+                              (if (= w 0) 1 w))))
+        start-prob (/ (double (or (weight (:dtg kb) "start" (:subword2 t-hyp)) 0))
+                      (let [w (reduce + (map #(weight (:dtg kb)
+                                                      % (:subword2 t-hyp))
+                                             (incoming (:dtg kb)
+                                                       (:subword2 t-hyp))))]
+                        (if (= w 0) 1 w)))]
+    (if (= 0 (+ split-freq merge-freq))
+      (if split? (min start-prob end-prob)
+          (- 1.0 (min start-prob end-prob)))
+      (if split? (double (/ split-freq (+ split-freq merge-freq)))
+          (double (/ merge-freq (+ split-freq merge-freq)))))))
 
 (defn hypothesize
   [forced-hyps accepted hyps]
@@ -177,11 +191,14 @@
                           (/ (double (get (:unigram-model kb) [word]))
                              (double (:word-count kb)))
                           (concat sw-hyps
-                                  (butlast (filter #(and (<= (:trans-pos %)
-                                                             (last pos-seq))
-                                                         (>= (:trans-pos %)
-                                                             (first pos-seq)))
-                                                   (sort-by :trans-pos merge-hyps))))
+                                  (let [m-hyps (filter #(and (<= (:trans-pos %)
+                                                                 (last pos-seq))
+                                                             (>= (:trans-pos %)
+                                                                 (first pos-seq)))
+                                                       (sort-by :trans-pos merge-hyps))]
+                                    (if (= (dec (count sym-string))
+                                           (last pos-seq))
+                                      m-hyps (butlast m-hyps))))
                           [] word
                           (format "Word: %s, pos-seq: %s" word
                                   (str/join ", " (map str pos-seq)))
