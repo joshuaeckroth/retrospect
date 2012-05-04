@@ -62,15 +62,15 @@
               (run comparative? (first ps))]
           (doseq [rs control-results]
             (write-csv (format "%s/control-results-%d.csv"
-                               recdir (:Seed (ffirst ps)))
+                               recdir (:simulation (ffirst ps)))
                        rs))
           (doseq [rs comparison-results]
             (write-csv (format "%s/comparison-results-%d.csv"
-                               recdir (:Seed (ffirst ps)))
+                               recdir (:simulation (ffirst ps)))
                        rs))
           (doseq [rs comparative-results]
             (write-csv (format "%s/comparative-results-%d.csv"
-                               recdir (:Seed (ffirst ps)))
+                               recdir (:simulation (ffirst ps)))
                        rs))
           (dosync
            (alter progress inc)
@@ -80,7 +80,8 @@
           (recur (rest ps)))
         (let [control-results (run comparative? (first ps))]
           (doseq [rs control-results]
-            (write-csv (format "%s/control-results-%d.csv" recdir (:Seed (first ps))) rs))
+            (write-csv (format "%s/control-results-%d.csv"
+                               recdir (:simulation (first ps))) rs))
           (dosync (alter progress inc)
                   (alter local-results conj {:control control-results}))
           (recur (rest ps)))))))
