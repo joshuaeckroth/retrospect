@@ -34,9 +34,9 @@
                                 :DoubtThreshold [1000 [1000]]
                                 :UseScores [true [true]]
                                 :ContrastPreference ["delta" ["delta" "arbitrary"]]
+                                :ApplyBoosting [true [true false]]
                                 :HypPreference ["abd" ["abd" "arbitrary"]]
-                                :ConfAdjustment ["max" ["min" "max" "avg" "none"]]
-                                :NormalizeSubtype [false [true false]]}
+                                :ConfAdjustment ["max" ["min" "max" "avg" "none" "norm"]]}
                                (:default-params (:abduction @problem))))
    :init-workspace-fn init-workspace
    :init-kb-fn init-kb

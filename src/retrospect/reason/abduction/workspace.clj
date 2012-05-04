@@ -16,7 +16,7 @@
 
 (defrecord Hypothesis
     [id type subtype needs-explainer?
-     conflict apriori explains depends short-str desc]
+     conflict apriori explains boosts short-str desc]
   Object
   (toString [self] (format "%s(%s)" id short-str))
   Comparable
@@ -55,7 +55,7 @@
 
 (defn new-hyp
   [prefix type subtype needs-explainer?
-   conflict apriori explains depends short-str desc data]
+   conflict apriori explains boosts short-str desc data]
   (let [id (inc last-id)]
     (set-last-id id)
     ;; use var-set if running batch mode; def if using player or repl
@@ -64,7 +64,7 @@
     (merge
      (Hypothesis. (format "%s%d" prefix id)
                   type subtype needs-explainer? conflict
-                  apriori explains depends short-str desc)
+                  apriori explains boosts short-str desc)
      data)))
 
 (defn hyp-log
@@ -153,22 +153,20 @@
      :else (reduce #(update-in %1 [%2] / sum) hyp-map (keys hyp-map)))))
 
 (defn normalize-confidences-groups
-  [hyps]
-  (let [gs (map (fn [hs] (reduce (fn [m h] (assoc m h (:apriori h))) {} hs))
-                (vals (group-by :subtype hyps)))
-        normalized-gs (if-not (:NormalizeSubtype params) gs (map #(normalize-confidences %) gs))]
-    (normalize-confidences (apply merge normalized-gs))))
+  [hyps workspace]
+  (let [gs (reduce (fn [m h] (assoc m h (hyp-conf workspace h))) {} hyps)]
+    (normalize-confidences gs)))
 
 (defn update-confidences
   "Update confidences of hyps based on their normalized apriori
-   confidences; if a normalized apriori confidence is better than the
-   recorded confidence, update the recorded confidence. This function
-   should only be called on a non-transitive (i.e. immediate)
-   explanation seq."
+   confidences; if a normalized confidence is better than the recorded
+   confidence, update the recorded confidence. This function should
+   only be called on a non-transitive (i.e. immediate) explanation
+   seq."
   [workspace explainers]
   ;; for each seq of explainers
   (reduce (fn [ws {hyp :hyp alts :expl}]
-            (let [norm-alts (normalize-confidences-groups alts)]
+            (let [norm-alts (normalize-confidences-groups alts ws)]
               ;; for each normalized confidence hyp
               (reduce (fn [ws2 hyp]
                         ;; take the min normalized conf with existing conf
@@ -181,10 +179,24 @@
                                         (/ (+ (hyp-conf ws2 hyp) (get norm-alts hyp)) 2.0)
                                         (= "none" (:ConfAdjustment params))
                                         (hyp-conf ws2 hyp)
+                                        (= "norm" (:ConfAdjustment params))
+                                        (get norm-alts hyp)
                                         :else
                                         (max (hyp-conf ws2 hyp) (get norm-alts hyp)))))
                       ws (sort-by :id (keys norm-alts)))))
           workspace explainers))
+
+(defn boost
+  [workspace hyp]
+  (if (or (not (:ApplyBoosting params))
+          (nil? (get (:active-explainers workspace) hyp)))
+    workspace
+    (let [new-conf (min 1.0 (+ 0.25 (hyp-conf workspace hyp)))]
+      (-> workspace
+          (assoc-in [:hyp-confidences hyp] new-conf)
+          (update-in [:hyp-log hyp] conj
+                     (format "Confidence boosted in cycle %d from %.2f to %.2f"
+                             (:cycle workspace) (hyp-conf workspace hyp) new-conf))))))
 
 (defn find-conflicts-selected
   "If a hypothesis's :conflict value is a function (a predicate), that function
@@ -260,14 +272,8 @@
                                       (cond (= :kb (:type hyp)) 1.0
                                             (:Oracle params)
                                             (if ((:oracle workspace) hyp) 1.0 0.0)
-                                            (= "min" (:ConfAdjustment params))
-                                            1.0
-                                            (= "max" (:ConfAdjustment params))
-                                            0.0
-                                            (or (= "avg" (:ConfAdjustment params))
-                                                (= "none" (:ConfAdjustment params)))
-                                            (:apriori hyp)
-                                            :else 0.0))
+                                            :else
+                                            (:apriori hyp)))
                             (update-in [:hypotheses (:type hyp)] conj hyp))
           conflicts (find-conflicts-selected ws-explainers hyp
                                              (apply concat (vals (:accepted ws-explainers))))
@@ -291,15 +297,13 @@
   [workspace hyp alts]
   (if (some #(= (:id hyp) (:id %)) (get (:accepted workspace) (:type hyp))) workspace
       (do (log "Accepting" (:id hyp))
-          (let [commas (fn [ss] (apply str (interpose ", " (sort ss))))
-                ;; recursively accept explained hyps
-                ws workspace #_(reduce (fn [ws2 h] (accept ws2 h [])) workspace (:explains hyp))
-                ws-needs-exp (if-not (:needs-explainer? hyp) ws
-                                     (update-in ws [:needs-explainer] conj hyp))
+          (let [ws-needs-exp (if-not (:needs-explainer? hyp) workspace
+                                     (update-in workspace [:needs-explainer] conj hyp))
                 ws-acc (-> ws-needs-exp
                            (update-in [:hyp-log hyp] conj
                                       (format "Accepted in cycle %d (alts: %s)"
-                                              (:cycle workspace) (commas (map :id alts))))
+                                              (:cycle workspace)
+                                              (str/join ", " (sort (map :id alts)))))
                            (update-in [:accepted (:type hyp)] conj hyp)
                            (update-in [:graph] add-attr hyp :fontcolor "green")
                            (update-in [:graph] add-attr hyp :color "green"))
@@ -312,8 +316,9 @@
                                                                  (:cycle ws2))))
                                 ws-expl alts)
                 conflicts (find-conflicts ws-alts hyp)
-                ws-conflicts (reject-many ws-alts conflicts)]
-            (update-in ws-conflicts [:log :accrej (:cycle ws-conflicts)] conj
+                ws-conflicts (reject-many ws-alts conflicts)
+                ws-boosts (reduce boost ws-conflicts (:boosts hyp))]
+            (update-in ws-boosts [:log :accrej (:cycle ws-boosts)] conj
                        {:acc hyp :rej conflicts})))))
 
 (defn add-fact

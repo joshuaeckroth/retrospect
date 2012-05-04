@@ -9,15 +9,17 @@
 (defn build-markov-models
   "Build a Markov n-gram model of word transitions."
   [training]
-  (reduce (fn [models sentence]
-            (let [words-grouped
-                  (apply concat (for [i [1 2]] ;; unigrams and bigrams
-                                  (partition i (concat (repeat (dec i) "") sentence))))]
-              (reduce (fn [ms ws] (let [m (get ms (count ws) {})
-                                        prior (get m ws 0)]
-                                    (assoc-in ms [(count ws) ws] (inc prior))))
-                      models words-grouped)))
-          {} training))
+  (let [hyp-types (set (str/split (:HypTypes params) #","))]
+    (reduce (fn [models sentence]
+              (let [words-grouped
+                    (apply concat (for [i (if (hyp-types "biwords")
+                                            [1 2] [1])]
+                                    (partition i (concat (repeat (dec i) "") sentence))))]
+                (reduce (fn [ms ws] (let [m (get ms (count ws) {})
+                                          prior (get m ws 0)]
+                                      (assoc-in ms [(count ws) ws] (inc prior))))
+                        models words-grouped)))
+            {} training)))
 
 (defn find-inner-words
   [word dictionary]
