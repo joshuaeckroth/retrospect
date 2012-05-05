@@ -40,8 +40,8 @@
                  (sort (keys results)))]
     (with-open [writer (io/writer filename :append true)]
       (when new-file?
-        (.write writer (write-csv (map name (sort (keys results))))))
-      (.write writer (write-csv (map str row))))))
+        (.write writer (write-csv [(map name (sort (keys results)))])))
+      (.write writer (write-csv [(map str row)])))))
 
 (def local-results (ref []))
 
