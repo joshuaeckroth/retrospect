@@ -55,10 +55,27 @@
 (defn build-abduction-tree-map
   [or-state]
   (let [est (:est or-state)
-        ep-states (flatten-est est)
-        ws-fn (fn [ws]
-                (let [wslog (:log ws)]
-                  {"Hypotheses" (list-hyps (apply concat (vals (:hypotheses ws))))
+        ep-states (flatten-est est)        
+        ws-fn (fn [ws time]
+                (let [wslog (:log ws)
+                      tf-fn (fn [hyp] ((:true-hyp?-fn (:abduction @problem))
+                                       @truedata time hyp))]
+                  {"Hypotheses"
+                   (apply merge
+                          (for [t (keys (:hypotheses ws))]
+                            (let [acc-hyps (set (get (:accepted ws) t))
+                                  not-acc-hyps (set/difference
+                                                acc-hyps (set (get (:hypotheses ws) t)))
+                                  acc-tf-hyps (group-by tf-fn acc-hyps)
+                                  not-acc-tf-hyps (group-by tf-fn not-acc-hyps)]
+                              {(name t)
+                               {"All" (list-hyps (get (:hypotheses ws) t))
+                                "Accepted"
+                                {"True" (list-hyps (get acc-tf-hyps true))
+                                 "False" (list-hyps (get acc-tf-hyps false))}
+                                "Not accepted"
+                                {"True" (list-hyps (get not-acc-tf-hyps true))
+                                 "False" (list-hyps (get not-acc-tf-hyps false))}}})))
                    "Forced" (list-hyps (:forced ws))
                    "Cycles" (apply sorted-map-by anc
                                    (mapcat #(build-cycle wslog %)
@@ -69,7 +86,7 @@
                    "Unexplained" (list-hyps (:unexplained wslog))
                    "Unaccepted" (list-hyps (:unaccepted wslog))}))]
     (apply sorted-map-by anc
-           (mapcat (fn [ep] [(str ep) (assoc (ws-fn (:workspace ep)) "Log" nil)])
+           (mapcat (fn [ep] [(str ep) (assoc (ws-fn (:workspace ep) (:time ep)) "Log" nil)])
                    ep-states))))
 
 (defn update-hyp-info

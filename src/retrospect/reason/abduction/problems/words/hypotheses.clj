@@ -62,8 +62,10 @@
         (< (:trans-pos hyp1) (last (:pos-seq hyp2)))
         (not ((set (:explains hyp2)) hyp1)))
    
-   (or (and (= :split (:type hyp1)) (= :merge (:type hyp2)))
-       (and (= :merge (:type hyp1)) (= :split (:type hyp2))))
+   (or (and (= :split (:type hyp1)) (or (= :merge (:type hyp2))
+                                        (= :merge-noexp (:type hyp2))))
+       (and (or (= :merge (:type hyp1))
+                (= :merge-noexp (:type hyp2))) (= :split (:type hyp2))))
    (= (:trans-pos hyp1) (:trans-pos hyp2))
    
    :else false))
@@ -85,23 +87,23 @@
                              (recur (conj ws2 [w (.start m 1)]))))))
           [] (keys dict-regex)))
 
-(defn score-split-merge
-  [t-hyp kb split?]
+(defn score-split
+  [t-hyp kb]
   (let [merge-freq (or (weight (:dtg kb) (:sym1 t-hyp) (:sym2 t-hyp)) 0)
         split-freq (get (:wtc kb) [(:sym1 t-hyp) (:sym2 t-hyp)] 0)
         seen-split-prob (if (= 0 (+ split-freq merge-freq)) 0.5
                             (double (/ split-freq (+ split-freq merge-freq))))
-        end-prob (/ (double (or (weight (:dtg kb) (:sym1 t-hyp) "end") 0))
-                    (double (let [w (reduce + (map #(weight (:dtg kb) (:sym1 t-hyp) %)
-                                                   (neighbors (:dtg kb) (:sym1 t-hyp))))]
-                              (if (= w 0) 1 w))))
-        start-prob (/ (double (or (weight (:dtg kb) "start" (:sym2 t-hyp)) 0))
-                      (let [w (reduce + (map #(weight (:dtg kb) % (:sym2 t-hyp))
-                                             (incoming (:dtg kb) (:sym2 t-hyp))))]
-                        (if (= w 0) 1 w)))
-        best-split-prob (last (sort-by #(Math/abs (- 0.5 %))
-                                       [seen-split-prob end-prob start-prob]))]
-    (if split? best-split-prob (- 1.0 best-split-prob))))
+        end-prob (let [w (reduce + (map #(weight (:dtg kb) (:sym1 t-hyp) %)
+                                        (neighbors (:dtg kb) (:sym1 t-hyp))))]
+                   (if (= w 0) 0.5
+                       (/ (double (or (weight (:dtg kb) (:sym1 t-hyp) "end") 0))
+                          (double w))))
+        start-prob (let [w (reduce + (map #(weight (:dtg kb) % (:sym2 t-hyp))
+                                          (incoming (:dtg kb) (:sym2 t-hyp))))]
+                     (if (= w 0) 0.5
+                         (/ (double (or (weight (:dtg kb) "start" (:sym2 t-hyp)) 0))
+                            (double w))))]
+    [seen-split-prob end-prob start-prob]))
 
 (defn hypothesize
   [forced-hyps accepted hyps]
@@ -109,37 +111,40 @@
         hyp-types (set (str/split (:HypTypes params) #","))
         sensor-hyps (vec (sort-by :pos (filter #(= :sensor (:type %)) forced-hyps)))
         transition-hyps (sort-by :trans-pos (filter #(= :transition (:type %)) forced-hyps))
-        split-hyps (map (fn [t-hyp]
-                          (new-hyp "Split" :split :split true conflicts
-                                   (score-split-merge t-hyp kb true)
-                                   [t-hyp] [] (format "%s-%s" (:sym1 t-hyp)
-                                                      (:sym2 t-hyp))
-                                   (format "Split of %s-%s at %d"
-                                           (:sym1 t-hyp)
-                                           (:sym2 t-hyp)
-                                           (:trans-pos t-hyp))
-                                   {:trans-pos (:trans-pos t-hyp)}))
-                        transition-hyps)
-        merge-hyps (map (fn [t-hyp]
-                          (new-hyp "Merge" :merge :merge true conflicts
-                                   (score-split-merge t-hyp kb false)
-                                   [t-hyp] [] (format "%s+%s" (:sym1 t-hyp) (:sym2 t-hyp))
-                                   (format "Merge of %s+%s at %d"
-                                           (:sym1 t-hyp)
-                                           (:sym2 t-hyp)
-                                           (:trans-pos t-hyp))
-                                   {:trans-pos (:trans-pos t-hyp)}))
-                        transition-hyps)
+        merge-hyps (map
+                    (fn [t-hyp]
+                      (let [scores (score-split t-hyp kb)
+                            best-split-prob (last (sort-by #(Math/abs (- 0.5 %)) scores))]
+                        (new-hyp "Merge" :merge :merge true conflicts
+                                 (- 1.0 (nth scores 0))
+                                 [t-hyp] [] (format "%s+%s" (:sym1 t-hyp) (:sym2 t-hyp))
+                                 (format (str "Merge of %s+%s at %d\n"
+                                              "seen-split-prob: %.2f\n"
+                                              "end-prob: %.2f\n"
+                                              "start-prob: %.2f")
+                                         (:sym1 t-hyp)
+                                         (:sym2 t-hyp)
+                                         (:trans-pos t-hyp)
+                                         (nth scores 0) (nth scores 1) (nth scores 2))
+                                 {:trans-pos (:trans-pos t-hyp)
+                                  :seen-split-prob (nth scores 0)
+                                  :end-prob (nth scores 1)
+                                  :start-prob (nth scores 2)})))
+                    transition-hyps)
         sym-string (apply str (map :sym sensor-hyps))
         words (map (fn [[w i]] (subvec sensor-hyps i (+ i (count w))))
                    (find-dict-words sym-string (:dictionary-regex kb)))
         word-hyps
         (map (fn [s-hyps]
                (let [word (apply str (map :sym s-hyps))
-                     pos-seq (map :pos s-hyps)]
+                     pos-seq (map :pos s-hyps)
+                     similar-words (map first (find-substrings
+                                               word (:dictionary-string kb)))
+                     similar-sum (reduce + (map (fn [w] (get (:unigram-model kb) [w]))
+                                                similar-words))]
                  (new-hyp "Word" :word :word false conflicts
                           (/ (double (get (:unigram-model kb) [word]))
-                             (double (:word-count kb)))
+                             (double similar-sum))
                           (concat s-hyps
                                   (let [m-hyps (filter #(and (<= (:trans-pos %)
                                                                  (last pos-seq))
@@ -149,32 +154,61 @@
                                     (if (= (dec (count sym-string))
                                            (last pos-seq))
                                       m-hyps (butlast m-hyps))))
-                          (filter #(or (= (:trans-pos %) (dec (first pos-seq)))
-                                       (= (:trans-pos %) (last pos-seq)))
-                                  split-hyps)
+                          [] ;; no boosting
                           word (format "Word: %s, pos-seq: %s" word
                                        (str/join ", " (map str pos-seq)))
                           {:pos-seq pos-seq :word word})))
-             words)
-        bigram-word-hyps
-        (when (hyp-types "biwords")
-          (map (fn [[wh1 wh2]]
-                 (let [pos-seq (concat (:pos-seq wh1) (:pos-seq wh2))]
-                   (new-hyp "BiWord" :word :biword false conflicts
-                            (/ (double (get (:bigram-model kb) [(:word wh1) (:word wh2)]))
-                               (double (:word-count kb)))
-                            (concat (:explains wh1)
-                                    (:explains wh2)
-                                    (filter #(= (last (:pos-seq wh1))
-                                                (:trans-pos %))
-                                            split-hyps))
-                            [] (format "%s __ %s" (:word wh1) (:word wh2))
-                            (format "Bigram word: %s __ %s, pos-seq: %s"
-                                    (:word wh1) (:word wh2)
-                                    (str/join ", " (map str pos-seq)))
-                            {:pos-seq pos-seq :words [(:word wh1) (:word wh2)]})))
-               (filter #(get (:bigram-model kb) [(:word (first %)) (:word (second %))])
-                       (partition 2 1 (sort-by (comp first :pos-seq) word-hyps)))))]
-    (concat merge-hyps split-hyps
+             (sort-by (comp :pos first) words))
+        bigram-word-hyps []
+        word-exp-merges (set (filter #(= :merge (:type %))
+                                     (mapcat :explains
+                                             (concat word-hyps
+                                                     (if (hyp-types "biwords")
+                                                       bigram-word-hyps [])))))
+        merge-noexp-hyps (map (fn [h]
+                                (let [best-split-prob
+                                      (if (> (Math/abs (- 0.5 (:end-prob h)))
+                                             (Math/abs (- 0.5 (:start-prob h))))
+                                        (:end-prob h)
+                                        (:start-prob h))]
+                                  (assoc h :type :merge-noexp :subtype :merge-noexp
+                                         :apriori (- 1.0 best-split-prob))))
+                              (filter (fn [h] (not (word-exp-merges h))) merge-hyps))
+        merge-noexp-ids (set (map :id merge-noexp-hyps))
+        merge-exp-hyps (filter (fn [h] (not (merge-noexp-ids (:id h)))) merge-hyps)
+        split-hyps (map
+                    (fn [m-hyp]
+                      (let [t-hyp (first (:explains m-hyp))]
+                        (new-hyp "Split" :split :split true conflicts
+                                 (- 1.0 (:apriori m-hyp))
+                                 [t-hyp] [] (format "%s-%s" (:sym1 t-hyp)
+                                                    (:sym2 t-hyp))
+                                 (format "Split of %s-%s at %d"
+                                         (:sym1 t-hyp)
+                                         (:sym2 t-hyp)
+                                         (:trans-pos t-hyp))
+                                 {:trans-pos (:trans-pos t-hyp)})))
+                    (concat merge-exp-hyps merge-noexp-hyps))]
+    (concat merge-exp-hyps merge-noexp-hyps split-hyps
             (if (hyp-types "words") word-hyps [])
             (if (hyp-types "biwords") bigram-word-hyps []))))
+
+(comment
+  (when (hyp-types "biwords")
+    (map (fn [[wh1 wh2]]
+           (let [pos-seq (concat (:pos-seq wh1) (:pos-seq wh2))]
+             (new-hyp "BiWord" :word :biword false conflicts
+                      (/ (double (get (:bigram-model kb) [(:word wh1) (:word wh2)]))
+                         (double (:word-count kb)))
+                      (concat (:explains wh1)
+                              (:explains wh2)
+                              (filter #(= (last (:pos-seq wh1))
+                                          (:trans-pos %))
+                                      split-hyps))
+                      [] (format "%s __ %s" (:word wh1) (:word wh2))
+                      (format "Bigram word: %s __ %s, pos-seq: %s"
+                              (:word wh1) (:word wh2)
+                              (str/join ", " (map str pos-seq)))
+                      {:pos-seq pos-seq :words [(:word wh1) (:word wh2)]})))
+         (filter #(get (:bigram-model kb) [(:word (first %)) (:word (second %))])
+                 (partition 2 1 (sort-by (comp first :pos-seq) word-hyps))))))

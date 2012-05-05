@@ -268,12 +268,14 @@
           ws-explainers (-> ws-needs-explainer
                             (update-in [:added] conj hyp)
                             (add-explainers hyp)
-                            (assoc-in [:hyp-confidences hyp]
-                                      (cond (= :kb (:type hyp)) 1.0
-                                            (:Oracle params)
-                                            (if ((:oracle workspace) hyp) 1.0 0.0)
-                                            :else
-                                            (:apriori hyp)))
+                            (assoc-in
+                             [:hyp-confidences hyp]
+                             (cond (= :kb (:type hyp)) 1.0
+                                   (some #(= (:type hyp) %)
+                                         (map keyword (str/split (:Oracle params) #",")))
+                                   (if ((:oracle workspace) hyp) 1.0 0.0)
+                                   :else
+                                   (:apriori hyp)))
                             (update-in [:hypotheses (:type hyp)] conj hyp))
           conflicts (find-conflicts-selected ws-explainers hyp
                                              (apply concat (vals (:accepted ws-explainers))))
@@ -294,16 +296,17 @@
           (reject-many ws-graph [hyp])))))
 
 (defn accept
-  [workspace hyp alts]
+  [workspace hyp alts explained delta essential?]
   (if (some #(= (:id hyp) (:id %)) (get (:accepted workspace) (:type hyp))) workspace
       (do (log "Accepting" (:id hyp))
           (let [ws-needs-exp (if-not (:needs-explainer? hyp) workspace
                                      (update-in workspace [:needs-explainer] conj hyp))
                 ws-acc (-> ws-needs-exp
                            (update-in [:hyp-log hyp] conj
-                                      (format "Accepted in cycle %d (alts: %s)"
+                                      (format "Accepted in cycle %d (alts: %s) to explain %s with delta %.2f (essential? %s)"
                                               (:cycle workspace)
-                                              (str/join ", " (sort (map :id alts)))))
+                                              (str/join ", " (sort (map :id alts)))
+                                              explained delta essential?))
                            (update-in [:accepted (:type hyp)] conj hyp)
                            (update-in [:graph] add-attr hyp :fontcolor "green")
                            (update-in [:graph] add-attr hyp :color "green"))
@@ -438,7 +441,7 @@
               (log-final ws []))
           (let [ws-confs (update-confidences ws explainers)
                 explainers-sorted (sort-explainers ws-confs explainers)
-                {:keys [best alts essential? delta] :as b}
+                {:keys [best alts essential? explained delta] :as b}
                 (find-best ws-confs explainers-sorted
                            (/ (:Threshold params) 100.0))]
             (if-not best
@@ -448,7 +451,8 @@
                   (let [ws-accepted (let [ws-logged (-> ws-confs
                                                         (update-in [:cycle] inc)
                                                         (update-in [:log :best] conj b))]
-                                      (accept ws-logged best alts))]
+                                      (accept ws-logged best alts
+                                              explained delta essential?))]
                     (if (>= (double (:DoubtThreshold params)) (measure-doubt ws-accepted))
                       (recur ws-accepted)
                       (do (log "Doubt threshold would be surpassed by accepting best. Done.")

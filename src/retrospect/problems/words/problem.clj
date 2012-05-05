@@ -30,7 +30,7 @@
                :stats-fn stats
                :true-hyp?-fn true-hyp?
                :hyps-equal?-fn hyps-equal?
-               :hyp-types [:word :split :merge]
+               :hyp-types [:word :split :merge :merge-noexp]
                :default-params {:HypTypes ["words,biwords"
                                            ["words", "words,biwords"]]}}
    :default-params

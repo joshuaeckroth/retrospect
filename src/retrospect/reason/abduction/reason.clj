@@ -14,7 +14,7 @@
 (def reason-abduction
   {:name "Abduction"
    :reason-fn (fn [truedata workspace time-prev time-now sensors]
-                (let [ws (if (not (:Oracle params)) workspace
+                (let [ws (if (= "none" (:Oracle params)) workspace
                              (assoc workspace :oracle
                                     (partial (:true-hyp?-fn (:abduction @problem))
                                              truedata time-now)))]

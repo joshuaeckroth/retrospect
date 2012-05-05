@@ -33,8 +33,8 @@
         (cond (= :word (:type hyp))
               (or (= [(:word hyp)] true-words)
                   (= (:words hyp) true-words))
-              (= :merge (:type hyp)) (empty? true-words)
-              (= :split (:type hyp)) (not-empty true-words)))))
+              (or (= :merge (:type hyp)) (= :merge-noexp (:type hyp))) (empty? true-words)
+              (= :split (:type hyp)) (if (not-empty true-words) true false)))))
 
 (defmulti hyps-equal? (fn [hyp1 hyp2] (:type hyp1)))
 
@@ -52,6 +52,11 @@
        (= (:trans-pos hyp1) (:trans-pos hyp2))))
 
 (defmethod hyps-equal? :merge
+  [hyp1 hyp2]
+  (and (= (:type hyp1) (:type hyp2))
+       (= (:trans-pos hyp1) (:trans-pos hyp2))))
+
+(defmethod hyps-equal? :merge-noexp
   [hyp1 hyp2]
   (and (= (:type hyp1) (:type hyp2))
        (= (:trans-pos hyp1) (:trans-pos hyp2))))

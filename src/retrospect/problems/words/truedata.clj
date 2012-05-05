@@ -47,8 +47,6 @@
         training-symbols (set (apply concat training-dict))
         ;; TODO: handle noise
         ambiguous (map #(apply str %) test)
-        sym-pair-freqs (frequencies (mapcat (fn [sent] (partition 2 1 (apply str sent)))
-                                            training))
         dtg (reduce (fn [g word]
                       (reduce (fn [g2 pair]
                                 (let [w (or (apply weight g2 pair) 0)]
@@ -70,7 +68,6 @@
         markov-models (build-markov-models training)]
     {:training {:sentences training :dictionary training-dict :symbols training-symbols
                 :word-count (reduce + (map count (apply concat training)))
-                :sym-pair-freqs sym-pair-freqs
                 :dtg dtg :wtc wtc
                 :dictionary-string dict-string
                 :dictionary-regex dict-regex
