@@ -84,13 +84,13 @@
 (defn read-csv
   [lines]
   (let [headers (map keyword (str/split (first lines) #","))]
-    (vec (for [line (parse-csv (str/join "\n" (rest lines)))]
-           (let [data (map #(cond (re-find #"\"" %) %
-                                  (re-find #"(true|false)" %) (Boolean/parseBoolean %)
-                                  (re-find #"\." %) (Double/parseDouble %)
-                                  :else (Integer/parseInt %))
-                           line)]
-             (hash-map headers data))))))
+    (for [line (parse-csv (str/join "\n" (rest lines)))]
+      (let [data (map #(cond (re-matches #"^(true|false)$" %) (Boolean/parseBoolean %)
+                             (re-matches #"^\d+\.\d+$" %) (Double/parseDouble %)
+                             (re-matches #"^\d+$" %) (Integer/parseInt %)
+                             :else %)
+                      line)]
+        (apply hash-map (interleave headers data))))))
 
 (defn read-archived-results
   [recordsdir recdir]
@@ -119,7 +119,6 @@
   (let [run-meta (read-string (slurp (format "%s/%s/meta.clj" recordsdir recdir)))
         results (read-archived-results recordsdir recdir)]
     (println "Writing results to database...")
-    (comment (db/commit-run run-meta results))
-    (println (take 1 results))
+    (db/commit-run run-meta results)
     (println "Done.")))
 
