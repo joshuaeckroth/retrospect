@@ -13,6 +13,7 @@
   (:use [clojure.string :only [split-lines trim]])
   (:use [retrospect.local :only [run-partitions]])
   (:require [retrospect.database :as db])
+  (:use [clojure-csv.core :only [parse-csv]])
   (:use [retrospect.state]))
 
 (defn vectorize-params
@@ -82,28 +83,43 @@
 
 (defn read-csv
   [lines]
-  (let [headers (map keyword (str/split (first lines) #"[^\\],"))]
-    (for [line lines]
-      (let [data (str/split line #"[^\\],")]
-        (hash-map headers data)))))
+  (let [headers (map keyword (str/split (first lines) #","))]
+    (vec (for [line (parse-csv (str/join "\n" (rest lines)))]
+           (let [data (map #(cond (re-find #"\"" %) %
+                                  (re-find #"(true|false)" %) (Boolean/parseBoolean %)
+                                  (re-find #"\." %) (Double/parseDouble %)
+                                  :else (Integer/parseInt %))
+                           line)]
+             (hash-map headers data))))))
 
-;; TODO: fix for CSV filenames that have seeds in them
 (defn read-archived-results
   [recordsdir recdir]
-  (let [control-file (format "%s/%s/control-results.csv" recordsdir recdir)
-        comparison-file (format "%s/%s/comparison-results.csv" recordsdir recdir)
-        comparative-file (format "%s/%s/comparative-results.csv" recordsdir recdir)
-        results-unseqed
+  (let [simulations (sort (set (map #(Integer/parseInt
+                                      (second (re-matches #".*\-(\d+)\.csv$"
+                                                          (.getName %))))
+                                    (filter #(re-find #"\.csv$" (.getName %))
+                                            (file-seq
+                                             (clojure.java.io/file
+                                              (format "%s/%s" recordsdir recdir)))))))]
+    (for [sim simulations]
+      (let [control-file
+            (format "%s/%s/control-results-%d.csv" recordsdir recdir sim)
+            comparison-file
+            (format "%s/%s/comparison-results-%d.csv" recordsdir recdir sim)
+            comparative-file
+            (format "%s/%s/comparative-results-%d.csv" recordsdir recdir sim)]
         {:control (read-csv (str/split (slurp control-file) #"\n"))
          :comparison (when (. (file comparison-file) exists)
                        (read-csv (str/split (slurp comparison-file) #"\n")))
          :comparative (when (. (file comparative-file) exists)
-                        (read-csv (str/split (slurp comparative-file) #"\n")))}]))
+                        (read-csv (str/split (slurp comparative-file) #"\n")))}))))
 
 (defn resubmit-archived-results
   [recordsdir recdir]
   (let [run-meta (read-string (slurp (format "%s/%s/meta.clj" recordsdir recdir)))
         results (read-archived-results recordsdir recdir)]
     (println "Writing results to database...")
-    (db/commit-run run-meta results)
+    (comment (db/commit-run run-meta results))
+    (println (take 1 results))
     (println "Done.")))
+

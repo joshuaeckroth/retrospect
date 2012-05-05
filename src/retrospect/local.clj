@@ -7,6 +7,7 @@
   (:use [retrospect.simulate :only [run]])
   (:use [retrospect.random])
   (:require [retrospect.database :as db])
+  (:use [clojure-csv.core :only [write-csv]])
   (:use [retrospect.state]))
 
 (defn format-time
@@ -32,22 +33,15 @@
 ;; keep track of progress
 (def progress (ref 0))
 
-(defn format-csv-row
-  [row]
-  ;; add quotes around string data
-  (let [fmt (fn [s] (format "\"%s\"" (str/replace s "\"" "\\\"")))]
-    (apply str (concat (interpose "," (map #(if (= String (type %)) (fmt %) %) row))
-                       [\newline]))))
-
-(defn write-csv
+(defn write-results-csv
   [filename results]
   (let [new-file? (not (. (io/file filename) exists))
         row (map (fn [field] (get results field))
                  (sort (keys results)))]
     (with-open [writer (io/writer filename :append true)]
       (when new-file?
-        (.write writer (format-csv-row (map name (sort (keys results))))))
-      (.write writer (format-csv-row row)))))
+        (.write writer (write-csv (map name (sort (keys results))))))
+      (.write writer (write-csv (map str row))))))
 
 (def local-results (ref []))
 
@@ -61,17 +55,17 @@
         (let [[control-results comparison-results comparative-results]
               (run comparative? (first ps))]
           (doseq [rs control-results]
-            (write-csv (format "%s/control-results-%d.csv"
-                               recdir (:simulation (ffirst ps)))
-                       rs))
+            (write-results-csv (format "%s/control-results-%d.csv"
+                                       recdir (:simulation (ffirst ps)))
+                               rs))
           (doseq [rs comparison-results]
-            (write-csv (format "%s/comparison-results-%d.csv"
-                               recdir (:simulation (ffirst ps)))
-                       rs))
+            (write-results-csv (format "%s/comparison-results-%d.csv"
+                                       recdir (:simulation (ffirst ps)))
+                               rs))
           (doseq [rs comparative-results]
-            (write-csv (format "%s/comparative-results-%d.csv"
-                               recdir (:simulation (ffirst ps)))
-                       rs))
+            (write-results-csv (format "%s/comparative-results-%d.csv"
+                                       recdir (:simulation (ffirst ps)))
+                               rs))
           (dosync
            (alter progress inc)
            (alter local-results conj {:control control-results
@@ -80,8 +74,8 @@
           (recur (rest ps)))
         (let [control-results (run comparative? (first ps))]
           (doseq [rs control-results]
-            (write-csv (format "%s/control-results-%d.csv"
-                               recdir (:simulation (first ps))) rs))
+            (write-results-csv (format "%s/control-results-%d.csv"
+                                       recdir (:simulation (first ps))) rs))
           (dosync (alter progress inc)
                   (alter local-results conj {:control control-results}))
           (recur (rest ps)))))))

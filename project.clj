@@ -13,7 +13,8 @@
                  [org.apache.httpcomponents/httpcore "4.1.4"]
                  [org.apache.httpcomponents/httpclient "4.1.2"]
                  [log4j/log4j "1.2.16"]
-                 [com.intellij/annotations "5.1"]]
+                 [com.intellij/annotations "5.1"]
+                 [clojure-csv/clojure-csv "2.0.0-alpha1"]]
   :dev-dependencies [[lein-marginalia "0.7.0"]]
   :main retrospect.core
   :keep-non-project-classes true
