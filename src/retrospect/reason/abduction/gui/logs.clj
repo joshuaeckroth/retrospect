@@ -65,7 +65,8 @@
                           (for [t (keys (:hypotheses ws))]
                             (let [acc-hyps (set (get (:accepted ws) t))
                                   not-acc-hyps (set/difference
-                                                acc-hyps (set (get (:hypotheses ws) t)))
+                                                (set (get (:hypotheses ws) t))
+                                                acc-hyps )
                                   acc-tf-hyps (group-by tf-fn acc-hyps)
                                   not-acc-tf-hyps (group-by tf-fn not-acc-hyps)]
                               {(name t)

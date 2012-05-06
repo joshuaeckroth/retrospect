@@ -134,7 +134,7 @@
 
 (def global-default-params
   {:Metareasoning ["none" ["none" "learn"]]
-   :Oracle [false [false]]
+   :Oracle ["none" ["none"]]
    :Stats [false [false]]})
 
 (defn get-default-params-ranges

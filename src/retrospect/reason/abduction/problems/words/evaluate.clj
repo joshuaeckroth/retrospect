@@ -4,7 +4,7 @@
   (:use [clojure.contrib.io :only [file]])
   (:use [clojure.contrib.seq-utils :only [find-first]])
   (:require [clojure.set :as set])
-  (:use [retrospect.evaluate :only [calc-increase]])
+  (:use [retrospect.evaluate :only [calc-increase avg]])
   (:use [retrospect.epistemicstates :only [cur-ep ep-path]])
   (:use [retrospect.reason.abduction.workspace :only
          [find-conflicts find-conflicts-selected hyp-conf]])
@@ -140,7 +140,15 @@
                       eps)
         sentences (map (fn [i] (nth (:test-sentences truedata) i)) (range time-now))
         [prec recall f-score oov-rate oov-recall iv-recall]
-        (run-scorer sentences believed (:dictionary (:training truedata)))]
+        (run-scorer sentences believed (:dictionary (:training truedata)))
+        merge-noexp (get (:hypotheses (:workspace (last eps))) :merge-noexp)
+        tf-merge-noexp (group-by #(true-hyp? truedata (:time (last eps)) %) merge-noexp)
+        true-seen-split-probs (map :seen-split-prob (get tf-merge-noexp true))
+        false-seen-split-probs (map :seen-split-prob (get tf-merge-noexp false))
+        true-start-probs (map :start-prob (get tf-merge-noexp true))
+        false-start-probs (map :start-prob (get tf-merge-noexp false))
+        true-end-probs (map :end-prob (get tf-merge-noexp true))
+        false-end-probs (map :end-prob (get tf-merge-noexp false))]
     (println "OOVRecall:" oov-recall)
     (println "FScore:" f-score)
     {:Prec prec
@@ -148,7 +156,21 @@
      :FScore f-score
      :OOVRate oov-rate
      :OOVRecall oov-recall
-     :IVRecall iv-recall}))
+     :IVRecall iv-recall
+     :AvgTrueMergeNoExpSeenSplitProb (avg true-seen-split-probs)
+     :AvgFalseMergeNoExpSeenSplitProb (avg false-seen-split-probs)
+     :AvgTrueMergeNoExpStartProb (avg true-start-probs)
+     :AvgFalseMergeNoExpStartProb (avg false-start-probs)
+     :AvgTrueMergeNoExpEndProb (avg true-end-probs)
+     :AvgFalseMergeNoExpEndProb (avg false-end-probs)
+     :PctTrueMergeNoExpStartProbUnder (/ (double (count (filter #(< % 0.5) true-start-probs)))
+                                         (double (count true-start-probs)))
+     :PctFalseMergeNoExpStartProbUnder (/ (double (count (filter #(< % 0.5) false-start-probs)))
+                                          (double (count false-start-probs)))
+     :PctTrueMergeNoExpEndProbUnder (/ (double (count (filter #(< % 0.5) true-end-probs)))
+                                       (double (count true-end-probs)))
+     :PctFalseMergeNoExpEndProbUnder (/ (double (count (filter #(< % 0.5) false-end-probs)))
+                                        (double (count false-end-probs)))}))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
@@ -171,7 +193,7 @@
     (reduce (fn [m sym] (assoc m sym (filter #(= sym (nth syms %)) (range (count syms)))))
             {} new-syms)))
 
-(defn stats
+ (defn stats
   [truedata ors time-now]
   (comment (let [ws (:workspace (cur-ep (:est ors)))
                  kb (first (get (:hypotheses ws) :kb))

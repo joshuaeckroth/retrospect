@@ -114,9 +114,13 @@
         merge-hyps (map
                     (fn [t-hyp]
                       (let [scores (score-split t-hyp kb)
-                            best-split-prob (last (sort-by #(Math/abs (- 0.5 %)) scores))]
+                            best-split-prob (last (sort-by #(Math/abs (- 0.5 %))
+                                                           [(nth scores 0)
+                                                            (/ (+ (nth scores 1)
+                                                                  (nth scores 2))
+                                                               2.0)]))]
                         (new-hyp "Merge" :merge :merge true conflicts
-                                 (- 1.0 (nth scores 0))
+                                 (- 1.0 best-split-prob)
                                  [t-hyp] [] (format "%s+%s" (:sym1 t-hyp) (:sym2 t-hyp))
                                  (format (str "Merge of %s+%s at %d\n"
                                               "seen-split-prob: %.2f\n"
@@ -125,7 +129,8 @@
                                          (:sym1 t-hyp)
                                          (:sym2 t-hyp)
                                          (:trans-pos t-hyp)
-                                         (nth scores 0) (nth scores 1) (nth scores 2))
+                                         (nth scores 0) (nth scores 1)
+                                         (nth scores 2))
                                  {:trans-pos (:trans-pos t-hyp)
                                   :seen-split-prob (nth scores 0)
                                   :end-prob (nth scores 1)
@@ -157,22 +162,18 @@
                           [] ;; no boosting
                           word (format "Word: %s, pos-seq: %s" word
                                        (str/join ", " (map str pos-seq)))
-                          {:pos-seq pos-seq :word word})))
+                          {:pos-seq pos-seq :word word
+                           :similar-words similar-words :similar-sum similar-sum})))
              (sort-by (comp :pos first) words))
-        bigram-word-hyps []
         word-exp-merges (set (filter #(= :merge (:type %))
-                                     (mapcat :explains
-                                             (concat word-hyps
-                                                     (if (hyp-types "biwords")
-                                                       bigram-word-hyps [])))))
+                                     (mapcat :explains word-hyps)))
         merge-noexp-hyps (map (fn [h]
                                 (let [best-split-prob
                                       (if (> (Math/abs (- 0.5 (:end-prob h)))
                                              (Math/abs (- 0.5 (:start-prob h))))
                                         (:end-prob h)
                                         (:start-prob h))]
-                                  (assoc h :type :merge-noexp :subtype :merge-noexp
-                                         :apriori (- 1.0 best-split-prob))))
+                                  (assoc h :type :merge-noexp :subtype :merge-noexp)))
                               (filter (fn [h] (not (word-exp-merges h))) merge-hyps))
         merge-noexp-ids (set (map :id merge-noexp-hyps))
         merge-exp-hyps (filter (fn [h] (not (merge-noexp-ids (:id h)))) merge-hyps)
@@ -183,32 +184,40 @@
                                  (- 1.0 (:apriori m-hyp))
                                  [t-hyp] [] (format "%s-%s" (:sym1 t-hyp)
                                                     (:sym2 t-hyp))
-                                 (format "Split of %s-%s at %d"
+                                 (format (str "Split of %s-%s at %d\n"
+                                              "seen-split-prob: %.2f\n"
+                                              "end-prob: %.2f\n"
+                                              "start-prob: %.2f")
                                          (:sym1 t-hyp)
                                          (:sym2 t-hyp)
-                                         (:trans-pos t-hyp))
-                                 {:trans-pos (:trans-pos t-hyp)})))
-                    (concat merge-exp-hyps merge-noexp-hyps))]
+                                         (:trans-pos t-hyp)
+                                         (:seen-split-prob m-hyp)
+                                         (:end-prob m-hyp)
+                                         (:start-prob m-hyp))
+                                 {:trans-pos (:trans-pos t-hyp)
+                                  :seen-split-prob (:seen-split-prob m-hyp)
+                                  :end-prob (:end-prob m-hyp)
+                                  :start-prob (:start-prob m-hyp)})))
+                    (concat merge-exp-hyps merge-noexp-hyps))
+        bigram-word-hyps
+        (when (hyp-types "biwords")
+          (map (fn [[wh1 wh2]]
+                 (let [pos-seq (concat (:pos-seq wh1) (:pos-seq wh2))]
+                   (new-hyp "BiWord" :word :biword false conflicts
+                            (/ (double (get (:bigram-model kb) [(:word wh1) (:word wh2)]))
+                               (double (:word-count kb)))
+                            (concat (:explains wh1)
+                                    (:explains wh2)
+                                    (filter #(= (last (:pos-seq wh1))
+                                                (:trans-pos %))
+                                            split-hyps))
+                            [] (format "%s __ %s" (:word wh1) (:word wh2))
+                            (format "Bigram word: %s __ %s, pos-seq: %s"
+                                    (:word wh1) (:word wh2)
+                                    (str/join ", " (map str pos-seq)))
+                            {:pos-seq pos-seq :words [(:word wh1) (:word wh2)]})))
+               (filter #(get (:bigram-model kb) [(:word (first %)) (:word (second %))])
+                       (partition 2 1 (sort-by (comp first :pos-seq) word-hyps)))))]
     (concat merge-exp-hyps merge-noexp-hyps split-hyps
             (if (hyp-types "words") word-hyps [])
             (if (hyp-types "biwords") bigram-word-hyps []))))
-
-(comment
-  (when (hyp-types "biwords")
-    (map (fn [[wh1 wh2]]
-           (let [pos-seq (concat (:pos-seq wh1) (:pos-seq wh2))]
-             (new-hyp "BiWord" :word :biword false conflicts
-                      (/ (double (get (:bigram-model kb) [(:word wh1) (:word wh2)]))
-                         (double (:word-count kb)))
-                      (concat (:explains wh1)
-                              (:explains wh2)
-                              (filter #(= (last (:pos-seq wh1))
-                                          (:trans-pos %))
-                                      split-hyps))
-                      [] (format "%s __ %s" (:word wh1) (:word wh2))
-                      (format "Bigram word: %s __ %s, pos-seq: %s"
-                              (:word wh1) (:word wh2)
-                              (str/join ", " (map str pos-seq)))
-                      {:pos-seq pos-seq :words [(:word wh1) (:word wh2)]})))
-         (filter #(get (:bigram-model kb) [(:word (first %)) (:word (second %))])
-                 (partition 2 1 (sort-by (comp first :pos-seq) word-hyps))))))
