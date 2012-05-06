@@ -40,4 +40,5 @@
     :SensorNoise [0 [0]]
     ;; ["carroll" "cityu_training" "as_training" "msr_training" "pku_training"]
     :Dataset ["pku_training" ["pku_training"]]
+    :MinMergeSplit [10 [0 10 20 30]]
     :DefaultMergeSplit ["merge" ["merge" "split"]]}})

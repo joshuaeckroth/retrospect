@@ -91,16 +91,16 @@
   [t-hyp kb]
   (let [merge-freq (or (weight (:dtg kb) (:sym1 t-hyp) (:sym2 t-hyp)) 0)
         split-freq (get (:wtc kb) [(:sym1 t-hyp) (:sym2 t-hyp)] 0)
-        seen-split-prob (if (< (+ split-freq merge-freq) 10) 0.5
+        seen-split-prob (if (< (+ split-freq merge-freq) (:MinMergeSplit params)) 0.5
                             (double (/ split-freq (+ split-freq merge-freq))))
         end-prob (let [w (reduce + (map #(weight (:dtg kb) (:sym1 t-hyp) %)
                                         (neighbors (:dtg kb) (:sym1 t-hyp))))]
-                   (if (< w 10) 0.5
+                   (if (< w (:MinMergeSplit params)) 0.5
                        (/ (double (or (weight (:dtg kb) (:sym1 t-hyp) "end") 0))
                           (double w))))
         start-prob (let [w (reduce + (map #(weight (:dtg kb) % (:sym2 t-hyp))
                                           (incoming (:dtg kb) (:sym2 t-hyp))))]
-                     (if (< w 10) 0.5
+                     (if (< w (:MinMergeSplit params)) 0.5
                          (/ (double (or (weight (:dtg kb) "start" (:sym2 t-hyp)) 0))
                             (double w))))]
     [seen-split-prob end-prob start-prob]))
