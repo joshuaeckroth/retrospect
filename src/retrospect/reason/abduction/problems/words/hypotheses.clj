@@ -91,16 +91,16 @@
   [t-hyp kb]
   (let [merge-freq (or (weight (:dtg kb) (:sym1 t-hyp) (:sym2 t-hyp)) 0)
         split-freq (get (:wtc kb) [(:sym1 t-hyp) (:sym2 t-hyp)] 0)
-        seen-split-prob (if (= 0 (+ split-freq merge-freq)) 0.5
+        seen-split-prob (if (< (+ split-freq merge-freq) 10) 0.5
                             (double (/ split-freq (+ split-freq merge-freq))))
         end-prob (let [w (reduce + (map #(weight (:dtg kb) (:sym1 t-hyp) %)
                                         (neighbors (:dtg kb) (:sym1 t-hyp))))]
-                   (if (= w 0) 0.5
+                   (if (< w 10) 0.5
                        (/ (double (or (weight (:dtg kb) (:sym1 t-hyp) "end") 0))
                           (double w))))
         start-prob (let [w (reduce + (map #(weight (:dtg kb) % (:sym2 t-hyp))
                                           (incoming (:dtg kb) (:sym2 t-hyp))))]
-                     (if (= w 0) 0.5
+                     (if (< w 10) 0.5
                          (/ (double (or (weight (:dtg kb) "start" (:sym2 t-hyp)) 0))
                             (double w))))]
     [seen-split-prob end-prob start-prob]))
@@ -114,11 +114,7 @@
         merge-hyps (map
                     (fn [t-hyp]
                       (let [scores (score-split t-hyp kb)
-                            best-split-prob (last (sort-by #(Math/abs (- 0.5 %))
-                                                           [(nth scores 0)
-                                                            (/ (+ (nth scores 1)
-                                                                  (nth scores 2))
-                                                               2.0)]))]
+                            best-split-prob (last (sort-by #(Math/abs (- 0.5 %)) scores))]
                         (new-hyp "Merge" :merge :merge true conflicts
                                  (- 1.0 best-split-prob)
                                  [t-hyp] [] (format "%s+%s" (:sym1 t-hyp) (:sym2 t-hyp))
@@ -167,13 +163,7 @@
              (sort-by (comp :pos first) words))
         word-exp-merges (set (filter #(= :merge (:type %))
                                      (mapcat :explains word-hyps)))
-        merge-noexp-hyps (map (fn [h]
-                                (let [best-split-prob
-                                      (if (> (Math/abs (- 0.5 (:end-prob h)))
-                                             (Math/abs (- 0.5 (:start-prob h))))
-                                        (:end-prob h)
-                                        (:start-prob h))]
-                                  (assoc h :type :merge-noexp :subtype :merge-noexp)))
+        merge-noexp-hyps (map (fn [h] (assoc h :type :merge-noexp :subtype :merge-noexp))
                               (filter (fn [h] (not (word-exp-merges h))) merge-hyps))
         merge-noexp-ids (set (map :id merge-noexp-hyps))
         merge-exp-hyps (filter (fn [h] (not (merge-noexp-ids (:id h)))) merge-hyps)
