@@ -135,7 +135,7 @@
         sym-string (apply str (map :sym sensor-hyps))
         words (map (fn [[w i]] (subvec sensor-hyps i (+ i (count w))))
                    (find-dict-words sym-string (:dictionary-regex kb)))
-        word-hyps
+        word-hyps-no-boosting
         (map (fn [s-hyps]
                (let [word (apply str (map :sym s-hyps))
                      pos-seq (map :pos s-hyps)
@@ -155,14 +155,14 @@
                                     (if (= (dec (count sym-string))
                                            (last pos-seq))
                                       m-hyps (butlast m-hyps))))
-                          [] ;; no boosting
+                          [] ;; no boosting here
                           word (format "Word: %s, pos-seq: %s" word
                                        (str/join ", " (map str pos-seq)))
                           {:pos-seq pos-seq :word word
                            :similar-words similar-words :similar-sum similar-sum})))
              (sort-by (comp :pos first) words))
         word-exp-merges (set (filter #(= :merge (:type %))
-                                     (mapcat :explains word-hyps)))
+                                     (mapcat :explains word-hyps-no-boosting)))
         merge-noexp-hyps (map (fn [h] (assoc h :type :merge-noexp :subtype :merge-noexp))
                               (filter (fn [h] (not (word-exp-merges h))) merge-hyps))
         merge-noexp-ids (set (map :id merge-noexp-hyps))
@@ -189,6 +189,11 @@
                                   :end-prob (:end-prob m-hyp)
                                   :start-prob (:start-prob m-hyp)})))
                     (concat merge-exp-hyps merge-noexp-hyps))
+        word-hyps (map (fn [hyp] (assoc hyp :boosts
+                                        (filter #(or (= (:trans-pos %) (dec (first (:pos-seq hyp))))
+                                                     (= (:trans-pos %) (last (:pos-seq hyp))))
+                                                split-hyps)))
+                       word-hyps-no-boosting)
         bigram-word-hyps
         (when (hyp-types "biwords")
           (map (fn [[wh1 wh2]]

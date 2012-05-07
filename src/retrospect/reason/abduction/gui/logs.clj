@@ -29,6 +29,7 @@
 (def hyp-accepted-label (label "Acc:"))
 (def hyp-explains (ref ""))
 (def hyp-explainers (ref ""))
+(def hyp-boosts (ref ""))
 (def hyp-conflicts (ref ""))
 (def hyp-log (ref ""))
 (def abduction-tree-map (ref {}))
@@ -93,12 +94,13 @@
 (defn update-hyp-info
   [workspace time hyp]
   (let [alphanum (AlphanumComparator.)
-        explains (str/join ", " (map str (sort-by :id alphanum (:explains hyp))))
+        explains (str/join ", " (map str (sort-by :id alphanum (ws/explainers hyp))))
         explainers (str/join ", " (map #(format "[%s]" %)
                                        (map #(str/join ", " (sort-by :id alphanum %))
                                             (vals (group-by :type
                                                             (get (:explainers workspace)
                                                                  hyp))))))
+        boosts (str/join ", " (map str (sort-by :id alphanum (:boosts hyp))))
         conflicts (str/join ", " (map str (sort-by :id alphanum
                                                    (ws/find-conflicts workspace hyp))))]
     (. hyp-apriori-label setText (format "Apriori: %.2f" (:apriori hyp)))
@@ -111,6 +113,7 @@
      (alter hyp-id (constantly (:desc hyp)))
      (alter hyp-explains (constantly (str "Explains: " explains)))
      (alter hyp-explainers (constantly (str "Explainers: " explainers)))
+     (alter hyp-boosts (constantly (str "Boosts: " boosts)))
      (alter hyp-conflicts (constantly (str "Conflicts: " conflicts)))
      (alter hyp-log (constantly (str/join "\n" (ws/hyp-log workspace hyp)))))))
 
@@ -195,9 +198,12 @@
                                _ (log-box hyp-explainers)
 
                                :gridy 4
-                               _ (log-box hyp-conflicts)
+                               _ (log-box hyp-boosts)
 
                                :gridy 5
+                               _ (log-box hyp-conflicts)
+
+                               :gridy 6
                                _ (log-box hyp-log)]))
                   (.setDividerLocation 200)))
            (.setDividerLocation 100)))
