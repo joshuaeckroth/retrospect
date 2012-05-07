@@ -31,8 +31,8 @@
                :true-hyp?-fn true-hyp?
                :hyps-equal?-fn hyps-equal?
                :hyp-types [:word :split :merge :merge-noexp]
-               :default-params {:HypTypes ["words,biwords"
-                                           ["words", "words,biwords"]]}}
+               :default-params {:HypTypes ["merge-noexp,words,biwords"
+                                           ["merge-noexp,words", "merge-noexp,words,biwords"]]}}
    :default-params
    {:Steps [50 [50]]
     :StepsBetween [1 [1]]
@@ -40,5 +40,6 @@
     :SensorNoise [0 [0]]
     ;; ["carroll" "cityu_training" "as_training" "msr_training" "pku_training"]
     :Dataset ["pku_training" ["pku_training"]]
+    :ShortFirst [false [true false]]
     :MinMergeSplit [10 [1 10 20 30]]
     :DefaultMergeSplit ["merge" ["merge" "split"]]}})

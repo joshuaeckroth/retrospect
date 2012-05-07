@@ -41,7 +41,8 @@
                        (str/split-lines (slurp (format "%s/words/%s.utf8"
                                                        @datadir (:Dataset params))
                                                :encoding "utf-8")))
-        [training test] (split-at (int (* 0.9 (count sentences))) (my-shuffle sentences))
+        [training test2] (split-at (int (* 0.9 (count sentences))) (my-shuffle sentences))
+        test (if (:ShortFirst params) (sort-by count test2) test2)
         [training-dict test-dict] (map (fn [sents] (set (apply concat sents)))
                                        [training test])
         training-symbols (set (apply concat training-dict))

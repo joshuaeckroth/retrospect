@@ -28,7 +28,7 @@
                          (sensed-at sensor (inc time-prev)))
         transition-hyps
         (map (fn [[h1 h2]]
-               (new-hyp "Trans" :transition :transition true nil 1.0 [h1 h2] []
+               (new-hyp "Trans" :transition :transition true nil 1.0 [] []
                         (format "%s/%s" (:sym h1) (:sym h2))
                         (format "Transition: %s/%s, pos-seq: %d-%d"
                                 (:sym h1) (:sym h2)
@@ -208,6 +208,7 @@
                             {:pos-seq pos-seq :words [(:word wh1) (:word wh2)]})))
                (filter #(get (:bigram-model kb) [(:word (first %)) (:word (second %))])
                        (partition 2 1 (sort-by (comp first :pos-seq) word-hyps)))))]
-    (concat merge-exp-hyps merge-noexp-hyps split-hyps
+    (concat merge-exp-hyps split-hyps
+            (if (hyp-types "merge-noexp") merge-noexp-hyps [])
             (if (hyp-types "words") word-hyps [])
             (if (hyp-types "biwords") bigram-word-hyps []))))
