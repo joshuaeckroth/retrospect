@@ -22,6 +22,12 @@
   Comparable
   (compareTo [self other] (compare (hash self) (hash other))))
 
+(defn explainers
+  [hyp]
+  (if (:TransitiveExplanation params)
+    (filter #(not= hyp %) (tree-seq #(not-empty (:explains %)) :explains hyp))
+    (:explains hyp)))
+
 (defmethod print-method Hypothesis
   [o w]
   (print-simple (format "%s(%s)" (:id o) (:short-str o)) w))
@@ -85,7 +91,7 @@
 
 (defn find-active-explains
   [workspace hyp]
-  (filter (:active-explainers workspace) (:explains hyp)))
+  (filter (:active-explainers workspace) (explainers hyp)))
 
 (defn compare-by-conf-expl
   "Since we are using probabilities, smaller value = less
@@ -228,15 +234,15 @@
               ;; been fully explained (indicated by not present in
               ;; :active-explainers)
               (if-not (get (:active-explainers ws2) h) ws2
-                (update-in ws2 [:active-explainers h] conj hyp))))
-          workspace (:explains hyp)))
+                      (update-in ws2 [:active-explainers h] conj hyp))))
+          workspace (explainers hyp)))
 
 (defn remove-explainers
   [workspace hyp]
   (log "Removing explainers for" (:id hyp))
   (reduce (fn [ws h] (if (nil? (get (:active-explainers ws) h)) ws
                          (update-in ws [:active-explainers h] disj hyp)))
-          workspace (:explains hyp)))
+          workspace (explainers hyp)))
 
 (defn reject-many
   [workspace hyps]
@@ -283,9 +289,9 @@
                                         (add-attr n :id (:id n))
                                         (add-attr n :label (:id n))))
                           (:graph ws-explainers)
-                          (conj (:explains hyp) hyp))
+                          (conj (explainers hyp) hyp))
           g-expl (reduce (fn [g e] (add-edges g [hyp e]))
-                         g-added (:explains hyp))
+                         g-added (explainers hyp))
           g-conf (reduce (fn [g c] (-> g (add-edges [hyp c])
                                        (add-attr hyp c :dir "none")
                                        (add-attr hyp c :style "dotted")
@@ -313,7 +319,7 @@
                 ws-expl (reduce (fn [ws2 h]
                                   (-> ws2 (update-in [:needs-explainer] disj h)
                                       (update-in [:active-explainers] dissoc h)))
-                                ws-acc (:explains hyp))
+                                ws-acc (explainers hyp))
                 ws-alts (reduce (fn [ws2 alt] (update-in ws2 [:hyp-log alt] conj
                                                          (format "Alternate in cycle %d"
                                                                  (:cycle ws2))))
@@ -335,7 +341,7 @@
         (update-in [:needs-explainer] (fn [ne] (if-not (:needs-explainer? hyp) ne
                                                        (conj ne hyp))))
         ;; since this is a forced hyp, whatever it explains no longer needs explanation
-        (update-in [:needs-explainer] (fn [ne] (apply disj ne (:explains hyp))))
+        (update-in [:needs-explainer] (fn [ne] (apply disj ne (explainers hyp))))
         (update-in [:graph] add-attr hyp :fontcolor "gray50")
         (update-in [:graph] add-attr hyp :color "gray50"))))
 

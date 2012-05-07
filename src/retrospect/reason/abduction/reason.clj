@@ -36,6 +36,7 @@
                                 :ContrastPreference ["delta" ["delta" "arbitrary"]]
                                 :ApplyBoosting [true [true false]]
                                 :HypPreference ["abd" ["abd" "arbitrary"]]
+                                :TransitiveExplanation [false [true false]]
                                 :ConfAdjustment ["max" ["min" "max" "avg" "none" "norm"]]}
                                (:default-params (:abduction @problem))))
    :init-workspace-fn init-workspace
