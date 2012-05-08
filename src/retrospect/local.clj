@@ -101,7 +101,7 @@
                   (future (run-partition comparative? recdir part start-time sim-count)))]
     (doall (pmap (fn [w] @w) workers))
     (let [run-meta-stopped (assoc run-meta :endtime (. System (currentTimeMillis)))]
-      (spit (format "%s/meta.clj" recdir) (pr-str run-meta))
+      (spit (format "%s/meta.clj" recdir) (pr-str run-meta-stopped))
       (when (and upload? (not= "" @database))
         (println "Writing results to database...")
-        (db/commit-run run-meta @local-results)))))
+        (db/commit-run run-meta-stopped @local-results)))))
