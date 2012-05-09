@@ -132,45 +132,28 @@
 
 (defn evaluate
   [truedata est]
-  (let [eps (rest (ep-path est))
-        time-now (:time (last eps))
-        believed (map (fn [ep] (get-words truedata (:time ep)
-                                          (:accepted (:workspace ep))
-                                          (:unexplained (:log (:workspace ep)))))
-                      eps)
-        sentences (map (fn [i] (nth (:test-sentences truedata) i)) (range time-now))
-        [prec recall f-score oov-rate oov-recall iv-recall]
-        (run-scorer sentences believed (:dictionary (:training truedata)))
-        merge-noexp (get (:hypotheses (:workspace (last eps))) :merge-noexp)
-        tf-merge-noexp (group-by #(true-hyp? truedata (:time (last eps)) %) merge-noexp)
-        true-seen-split-probs (map :seen-split-prob (get tf-merge-noexp true))
-        false-seen-split-probs (map :seen-split-prob (get tf-merge-noexp false))
-        true-start-probs (map :start-prob (get tf-merge-noexp true))
-        false-start-probs (map :start-prob (get tf-merge-noexp false))
-        true-end-probs (map :end-prob (get tf-merge-noexp true))
-        false-end-probs (map :end-prob (get tf-merge-noexp false))]
-    (println "OOVRecall:" oov-recall)
-    (println "FScore:" f-score)
-    {:Prec prec
-     :Recall recall
-     :FScore f-score
-     :OOVRate oov-rate
-     :OOVRecall oov-recall
-     :IVRecall iv-recall
-     :AvgTrueMergeNoExpSeenSplitProb (avg true-seen-split-probs)
-     :AvgFalseMergeNoExpSeenSplitProb (avg false-seen-split-probs)
-     :AvgTrueMergeNoExpStartProb (avg true-start-probs)
-     :AvgFalseMergeNoExpStartProb (avg false-start-probs)
-     :AvgTrueMergeNoExpEndProb (avg true-end-probs)
-     :AvgFalseMergeNoExpEndProb (avg false-end-probs)
-     :PctTrueMergeNoExpStartProbUnder (/ (double (count (filter #(< % 0.5) true-start-probs)))
-                                         (double (count true-start-probs)))
-     :PctFalseMergeNoExpStartProbUnder (/ (double (count (filter #(< % 0.5) false-start-probs)))
-                                          (double (count false-start-probs)))
-     :PctTrueMergeNoExpEndProbUnder (/ (double (count (filter #(< % 0.5) true-end-probs)))
-                                       (double (count true-end-probs)))
-     :PctFalseMergeNoExpEndProbUnder (/ (double (count (filter #(< % 0.5) false-end-probs)))
-                                        (double (count false-end-probs)))}))
+  (if (or (not @batch) (= (:Steps params) (:time (cur-ep est))))
+    (let [eps (rest (ep-path est))
+          time-now (:time (last eps))
+          believed (map (fn [ep] (get-words truedata (:time ep)
+                                            (:accepted (:workspace ep))
+                                            (:unexplained (:log (:workspace ep)))))
+                        eps)
+          sentences (map (fn [i] (nth (:test-sentences truedata) i)) (range time-now))
+          [prec recall f-score oov-rate oov-recall iv-recall]
+          (run-scorer sentences believed (:dictionary (:training truedata)))]
+      {:Prec prec
+       :Recall recall
+       :FScore f-score
+       :OOVRate oov-rate
+       :OOVRecall oov-recall
+       :IVRecall iv-recall})
+    {:Prec -1.0
+     :Recall -1.0
+     :FSCore -1.0
+     :OOVRate -1.0
+     :OOVRecall -1.0
+     :IVRecall -1.0}))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
