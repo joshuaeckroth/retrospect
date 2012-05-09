@@ -1,7 +1,9 @@
 (ns retrospect.simulate
   (:import (java.util.concurrent ExecutionException))
   (:use [clojure.string :only [split]])
+  (:require [clojure.set :as set])
   (:use [retrospect.profile :only [profile]])
+  (:use [retrospect.reason.abduction.workspace :only [add accept find-conflicts]])
   (:use [retrospect.epistemicstates :only
          [cur-ep new-child-ep new-branch-ep init-est ep-state-depth
           update-est nth-previous-ep print-est goto-ep
@@ -19,10 +21,25 @@
 (defn meta-apply-and-evaluate
   [truedata est new-est time-prev time-now sensors]
   (let [new-ep (cur-ep new-est)
-        new-ws ((:reason-fn @reason) (when (:Oracle params) truedata)
-                (:workspace new-ep) time-prev time-now sensors)
+        new-ws2 ((:reason-fn @reason) (when (:Oracle params) truedata)
+                 ((:reset-workspace-fn @reason) (:workspace new-ep)) time-prev time-now sensors)
+        new-ws (reduce (fn [ws hyp]
+                         (let [conflicts (find-conflicts ws hyp)]
+                           (-> (reduce (fn [w h] (assoc-in w [:accepted (:type h)]
+                                                           (filter #(not= h %)
+                                                                   (get-in w [:accepted (:type h)]))))
+                                       ws conflicts)
+                               (add hyp)
+                               (accept hyp [] [] nil false))))
+                       (:workspace (cur-ep est))
+                       (set/difference (set (apply concat (vals (:accepted new-ws2))))
+                                       (set (apply concat (vals (:accepted (:workspace (cur-ep est))))))))
         new-expl-est (update-est new-est (assoc new-ep :workspace new-ws))]
-    (if (> 0 ((:workspace-compare-fn @reason) new-ws (:workspace (cur-ep est))))
+    (println (set/difference (set (apply concat (vals (:accepted new-ws2))))
+                             (set (apply concat (vals (:accepted (:workspace (cur-ep est))))))))
+    (println "after learning")
+    ((:evaluate-fn @reason) truedata (update-est new-est (assoc new-ep :workspace new-ws2)))
+    (if (> 0 ((:workspace-compare-fn @reason) new-ws2 (:workspace (cur-ep est))))
       new-expl-est
       (goto-ep new-expl-est (:id (cur-ep est))))))
 
@@ -50,10 +67,12 @@
 
 (defn meta-learn
   [truedata est time-prev time-now sensors]
+  (println "\n\nbefore learning")
+  ((:evaluate-fn @reason) truedata est)
   (let [new-est (new-branch-ep est (cur-ep est))]
     ;; activate learning
-    (binding [params (assoc params :Learn true)]
-      (meta-apply-and-evaluate truedata est new-est time-prev time-now sensors))))
+    (binding [params (assoc params :HypTypes "merge-noexp,words" :Threshold 30)]
+      (meta-apply-and-evaluate truedata est new-est time-prev time-now nil))))
 
 (defn metareason
   "Activate the appropriate metareasoning strategy (as given by

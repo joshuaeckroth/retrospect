@@ -1,6 +1,6 @@
 (ns retrospect.reason.abduction.reason
   (:use [retrospect.reason.abduction.workspace
-         :only [explain add-sensor-hyps init-workspace init-kb]])
+         :only [explain add-sensor-hyps init-workspace init-kb reset-workspace]])
   (:use [retrospect.reason.abduction.meta
          :only [metareasoning-activated? workspace-compare]])
   (:use [retrospect.reason.abduction.evaluate
@@ -40,6 +40,7 @@
                                 :ConfAdjustment ["max" ["min" "max" "avg" "none" "norm"]]}
                                (:default-params (:abduction @problem))))
    :init-workspace-fn init-workspace
+   :reset-workspace-fn reset-workspace
    :init-kb-fn init-kb
    :player-fns
    {:get-tabs-fn (fn [] [["Logs" (logs-tab)]
