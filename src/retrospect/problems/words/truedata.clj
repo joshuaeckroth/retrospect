@@ -48,15 +48,19 @@
         training-symbols (set (apply concat training-dict))
         ;; TODO: handle noise
         ambiguous (map #(apply str %) test)
-        dtg (reduce (fn [g word]
-                      (reduce (fn [g2 pair]
-                                (let [w (or (apply weight g2 pair) 0)]
-                                  (add-edges g2 (conj pair (inc w)))))
-                              g (conj (map vec (partition 2 1 (seq word)))
-                                      ["start" (first word)]
-                                      [(last word) "end"])))
-                    (weighted-digraph)
-                    (apply concat training))
+        in-word-bigrams (reduce (fn [m word]
+                                  (reduce (fn [m2 [c1 c2]]
+                                            (let [w (get m2 [c1 c2] 0)
+                                                  w-in (get m2 [:in c2] 0)
+                                                  w-out (get m2 [c1 :out] 0)]
+                                              (-> m2
+                                                  (assoc [c1 c2] (inc w))
+                                                  (assoc [:in c2] (inc w-in))
+                                                  (assoc [c1 :out] (inc w-out)))))
+                                          m (conj (partition 2 1 (seq word))
+                                                  ["start" (first word)]
+                                                  [(last word) "end"])))
+                                {} (apply concat training))
         wtc (frequencies (mapcat
                           (fn [sent]
                             (mapcat (fn [[w1 w2]] [(last w1) (first w2)])
@@ -69,7 +73,7 @@
         markov-models (build-markov-models training)]
     {:training {:sentences training :dictionary training-dict :symbols training-symbols
                 :word-count (reduce + (map count (apply concat training)))
-                :dtg dtg :wtc wtc
+                :in-word-bigrams in-word-bigrams :wtc wtc
                 :dictionary-string dict-string
                 :dictionary-regex dict-regex
                 :unigram-model (get markov-models 1)

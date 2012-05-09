@@ -65,7 +65,7 @@
    (or (and (= :split (:type hyp1)) (or (= :merge (:type hyp2))
                                         (= :merge-noexp (:type hyp2))))
        (and (or (= :merge (:type hyp1))
-                (= :merge-noexp (:type hyp2))) (= :split (:type hyp2))))
+                (= :merge-noexp (:type hyp1))) (= :split (:type hyp2))))
    (= (:trans-pos hyp1) (:trans-pos hyp2))
    
    :else false))
@@ -89,19 +89,17 @@
 
 (defn score-split
   [t-hyp kb]
-  (let [merge-freq (or (weight (:dtg kb) (:sym1 t-hyp) (:sym2 t-hyp)) 0)
+  (let [merge-freq (get (:in-word-bigrams kb) [(:sym1 t-hyp) (:sym2 t-hyp)] 0)
         split-freq (get (:wtc kb) [(:sym1 t-hyp) (:sym2 t-hyp)] 0)
         seen-split-prob (if (< (+ split-freq merge-freq) (:MinMergeSplit params)) 0.5
                             (double (/ split-freq (+ split-freq merge-freq))))
-        end-prob (let [w (reduce + (map #(weight (:dtg kb) (:sym1 t-hyp) %)
-                                        (neighbors (:dtg kb) (:sym1 t-hyp))))]
+        end-prob (let [w (get (:in-word-bigrams kb) [(:sym1 t-hyp) :out] 0)]
                    (if (< w (:MinMergeSplit params)) 0.5
-                       (/ (double (or (weight (:dtg kb) (:sym1 t-hyp) "end") 0))
+                       (/ (double (get (:in-word-bigrams kb) [(:sym1 t-hyp) "end"] 0))
                           (double w))))
-        start-prob (let [w (reduce + (map #(weight (:dtg kb) % (:sym2 t-hyp))
-                                          (incoming (:dtg kb) (:sym2 t-hyp))))]
+        start-prob (let [w (get (:in-word-bigrams kb) [:in (:sym2 t-hyp)] 0)]
                      (if (< w (:MinMergeSplit params)) 0.5
-                         (/ (double (or (weight (:dtg kb) "start" (:sym2 t-hyp)) 0))
+                         (/ (double (get (:in-word-bigrams kb) ["start" (:sym2 t-hyp)] 0))
                             (double w))))]
     [seen-split-prob end-prob start-prob]))
 
@@ -163,7 +161,8 @@
              (sort-by (comp :pos first) words))
         word-exp-merges (set (filter #(= :merge (:type %))
                                      (mapcat :explains word-hyps-no-boosting)))
-        merge-noexp-hyps (map (fn [h] (assoc h :type :merge-noexp :subtype :merge-noexp))
+        merge-noexp-hyps (map (fn [h] (assoc h :type :merge-noexp :subtype :merge-noexp
+                                             :needs-explainer? false))
                               (filter (fn [h] (not (word-exp-merges h))) merge-hyps))
         merge-noexp-ids (set (map :id merge-noexp-hyps))
         merge-exp-hyps (filter (fn [h] (not (merge-noexp-ids (:id h)))) merge-hyps)
