@@ -71,7 +71,7 @@
   ((:evaluate-fn @reason) truedata est)
   (let [new-est (new-branch-ep est (cur-ep est))]
     ;; activate learning
-    (binding [params (assoc params :HypTypes "merge-noexp,words" :Threshold 30)]
+    (binding [params (assoc params :HypTypes "merge-noexp,words" :Threshold (:LearnThreshold params))]
       (meta-apply-and-evaluate truedata est new-est time-prev time-now nil))))
 
 (defn metareason
