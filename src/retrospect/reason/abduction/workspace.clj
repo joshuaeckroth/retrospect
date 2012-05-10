@@ -23,7 +23,7 @@
   Comparable
   (compareTo [self other] (compare (hash self) (hash other))))
 
-(defn explainers
+(defn explains
   [hyp]
   (if (:TransitiveExplanation params)
     (filter #(not= hyp %) (tree-seq #(not-empty (:explains %)) :explains hyp))
@@ -53,7 +53,6 @@
    ;; a map of type => seq
    :hypotheses {}
    :hyp-confidences {}    
-   :needs-explainer #{}
    :forced #{}
    ;; a map of type => seq
    :accepted {}
@@ -88,11 +87,12 @@
   [workspace]
   (set (filter (fn [h] (empty? (filter #(not= :more (:type %))
                                        (get (:explainers workspace) h))))
-               (:needs-explainer workspace))))
+               (keys (:active-explainers workspace)))))
 
-(defn find-active-explains
+(defn available?
   [workspace hyp]
-  (filter (:active-explainers workspace) (explainers hyp)))
+  (and (empty? (filter #{hyp} (get-in workspace [:accepted (:type hyp)])))
+       (empty? (filter #{hyp} (get-in workspace [:rejected (:type hyp)])))))
 
 (defn compare-by-conf
   "Since we are using probabilities, smaller value = less
@@ -145,7 +145,7 @@
         (sort-by (comp :id first)
                  (filter (comp first :expl)
                          (map (fn [h] {:hyp h :expl (get (:active-explainers workspace) h)})
-                              (:needs-explainer workspace))))))
+                              (keys (:active-explainers workspace)))))))
 
 (defn normalize-confidences
   "Normalize the apriori confidences of a collection of hyps.
@@ -196,7 +196,7 @@
 (defn boost
   [workspace hyp]
   (if (or (not (:ApplyBoosting params))
-          (nil? (get (:active-explainers workspace) hyp)))
+          (not (available? workspace hyp)))
     workspace
     (let [new-conf (min 1.0 (+ 0.25 (hyp-conf workspace hyp)))]
       (-> workspace
@@ -238,7 +238,7 @@
                     ;; :active-explainers)
                     (if-not (get (:active-explainers ws2) h) ws2
                             (update-in ws2 [:active-explainers h] conj hyp))))
-                workspace (explainers hyp))))
+                workspace (explains hyp))))
 
 (defn remove-explainers
   [workspace hyp]
@@ -246,7 +246,7 @@
         (log "Removing explainers for" (:id hyp)))
   (reduce (fn [ws h] (if (nil? (get (:active-explainers ws) h)) ws
                          (update-in ws [:active-explainers h] disj hyp)))
-          workspace (explainers hyp)))
+          workspace (explains hyp)))
 
 (defn reject-many
   [workspace hyps]
@@ -260,7 +260,6 @@
                         (-> ws
                             (remove-explainers hyp)
                             (update-in [:active-explainers] dissoc hyp)
-                            (update-in [:needs-explainer] disj hyp)
                             (update-in [:rejected (:type hyp)] conj hyp)
                             (update-in [:hyp-log hyp] conj
                                        (format "Rejected in cycle %d" (:cycle workspace)))))
@@ -275,7 +274,7 @@
         (if (some (partial (:hyps-equal?-fn (:abduction @problem)) hyp)
                   (get (:hypotheses workspace) (:type hyp)))
           workspace
-          (let [ws-needs-explainer (if-not (:needs-explainer? hyp) workspace
+          (let [ws-needs-explainer (if-not ((:active-explainers workspace) hyp) workspace
                                            (assoc-in workspace [:active-explainers hyp] #{}))
                 ws-explainers (-> ws-needs-explainer
                                   (update-in [:added] conj hyp)
@@ -295,9 +294,9 @@
                                               (add-attr n :id (:id n))
                                               (add-attr n :label (:id n))))
                                 (:graph ws-explainers)
-                                (conj (explainers hyp) hyp))
+                                (conj (explains hyp) hyp))
                 g-expl (reduce (fn [g e] (add-edges g [hyp e]))
-                               g-added (explainers hyp))
+                               g-added (explains hyp))
                 g-conf (reduce (fn [g c] (-> g (add-edges [hyp c])
                                              (add-attr hyp c :dir "none")
                                              (add-attr hyp c :style "dotted")
@@ -312,8 +311,9 @@
   (prof :accept
         (if (some #(= (:id hyp) (:id %)) (get (:accepted workspace) (:type hyp))) workspace
             (do (log "Accepting" (:id hyp))
-                (let [ws-needs-exp (if-not (:needs-explainer? hyp) workspace
-                                           (update-in workspace [:needs-explainer] conj hyp))
+                (let [ws-needs-exp (if-not ((:explainers workspace) hyp) workspace
+                                           (assoc-in workspace [:active-explainers hyp]
+                                                     ((:explainers workspace) hyp)))
                       ws-acc (-> ws-needs-exp
                                  (update-in [:hyp-log hyp] conj
                                             (format "Accepted in cycle %d (alts: %s) to explain %s with delta %.2f (essential? %s)"
@@ -324,9 +324,8 @@
                                  (update-in [:graph] add-attr hyp :fontcolor "green")
                                  (update-in [:graph] add-attr hyp :color "green"))
                       ws-expl (reduce (fn [ws2 h]
-                                        (-> ws2 (update-in [:needs-explainer] disj h)
-                                            (update-in [:active-explainers] dissoc h)))
-                                      ws-acc (explainers hyp))
+                                        (update-in ws2 [:active-explainers] dissoc h))
+                                      ws-acc (explains hyp))
                       ws-alts (reduce (fn [ws2 alt] (update-in ws2 [:hyp-log alt] conj
                                                                (format "Alternate in cycle %d"
                                                                        (:cycle ws2))))
@@ -346,10 +345,7 @@
           (-> (add workspace hyp)
               (update-in [:forced] conj hyp)
               (update-in [:accepted (:type hyp)] conj hyp)
-              (update-in [:needs-explainer] (fn [ne] (if-not (:needs-explainer? hyp) ne
-                                                             (conj ne hyp))))
-              ;; since this is a forced hyp, whatever it explains no longer needs explanation
-              (update-in [:needs-explainer] (fn [ne] (apply disj ne (explainers hyp))))
+              (assoc-in [:active-explainers hyp] #{})
               (update-in [:graph] add-attr hyp :fontcolor "gray50")
               (update-in [:graph] add-attr hyp :color "gray50")))))
 
@@ -358,14 +354,14 @@
   [workspace]
   (if (empty? (:forced workspace)) 0.0
       (/ (double (count (:unexplained (:log workspace))))
-         (double (count (filter #(:needs-explainer? %)
+         (double (count (filter (:active-explainers workspace)
                                 (apply concat (vals (:accepted workspace)))))))))
 
 (defn get-noexp-pct
   [workspace]
-  (if (empty? (:needs-explainer workspace)) 0.0
+  (if (empty? (:active-explainers workspace)) 0.0
       (/ (double (count (:no-explainers (:log workspace))))
-         (double (count (filter #(:needs-explainer? %)
+         (double (count (filter (:active-explainers workspace)
                                 (apply concat (vals (:accepted workspace)))))))))
 
 (defn measure-doubt
@@ -389,7 +385,7 @@
   [workspace explainers]
   (prof :log-final
         (let [ws (update-in workspace [:log] merge
-                            {:unexplained (:needs-explainer workspace)
+                            {:unexplained (keys (:active-explainers workspace))
                              :no-explainers (find-no-explainers workspace)
                              :unaccepted (set/difference
                                           (set (apply concat (vals (:hypotheses workspace))))
@@ -417,7 +413,6 @@
                 (let [expl (first explainers)
                       alts (:expl expl)
                       best (first alts)
-                      _ (when (nil? (second alts)) (println explainers))
                       delta (- (hyp-conf workspace (first alts))
                                (hyp-conf workspace (second alts)))]            
                   (when (>= delta threshold)
@@ -434,7 +429,6 @@
       (update-in [:hyp-confidences] dissoc hyp)
       (update-in [:hypotheses (:type hyp)] (fn [hs] (filter #(not= % hyp) hs)))
       (update-in [:active-explainers] dissoc hyp)
-      (update-in [:needs-explainer] disj hyp)
       (update-in [:explainers] dissoc hyp)))
 
 (defn reset-workspace
@@ -458,10 +452,9 @@
                                (filter (comp first :expl)
                                        (map (fn [es]
                                               (assoc es :expl
-                                                     (filter
-                                                      #(get (:active-explainers ws) %)
-                                                      (:expl es))))
-                                            (filter #((:needs-explainer ws) (:hyp %))
+                                                     (filter #(available? ws %)
+                                                             (:expl es))))
+                                            (filter #((:active-explainers ws) (:hyp %))
                                                     (:prior-explainers ws))))
                                (find-all-explainers ws))]
               (if (empty? explainers)

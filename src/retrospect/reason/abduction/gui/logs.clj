@@ -94,7 +94,7 @@
 (defn update-hyp-info
   [workspace time hyp]
   (let [alphanum (AlphanumComparator.)
-        explains (str/join ", " (map str (sort-by :id alphanum (ws/explainers hyp))))
+        explains (str/join ", " (map str (sort-by :id alphanum (ws/explains hyp))))
         explainers (str/join ", " (map #(format "[%s]" %)
                                        (map #(str/join ", " (sort-by :id alphanum %))
                                             (vals (group-by :type
