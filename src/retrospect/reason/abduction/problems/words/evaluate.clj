@@ -150,7 +150,7 @@
        :IVRecall iv-recall})
     {:Prec -1.0
      :Recall -1.0
-     :FSCore -1.0
+     :FScore -1.0
      :OOVRate -1.0
      :OOVRecall -1.0
      :IVRecall -1.0}))
