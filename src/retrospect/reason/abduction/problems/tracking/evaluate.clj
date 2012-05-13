@@ -2,7 +2,8 @@
   (:use [retrospect.evaluate :only [calc-increase]])
   (:use [retrospect.epistemicstates :only [cur-ep flatten-est]])
   (:use [retrospect.problems.tracking.colors :only [match-color?]])
-  (:use [retrospect.problems.tracking.movements :only [moves-match? dets-match?]]))
+  (:use [retrospect.problems.tracking.movements :only [moves-match? dets-match?]])
+  (:use [retrospect.profile :only [prof]]))
 
 (defn true-hyp?
   [truedata time hyp]
@@ -68,26 +69,27 @@
 
 (defn evaluate
   [truedata est]
-  (let [eps (rest (flatten-est est))
-        time-now (:time (last eps))
-        true-movs (filter #(and (:ot %) (<= (:time %) time-now))
-                          (apply concat (vals (:test truedata))))
-        accepted (:accepted (:workspace (last eps)))
-        rejected (:rejected (:workspace (last eps)))
-        bel-movs (map :mov (get accepted :movement))
-        disbel-movs (map :mov (get rejected :movement))
-        [pec pew] (percent-events-correct-wrong true-movs bel-movs)
-        [tp tn fp fn p r s a] (precision-recall true-movs bel-movs disbel-movs)]
-    {:PEC pec
-     :PEW pew
-     :Prec p
-     :Recall r
-     :Spec s
-     :Acc a
-     :TP tp
-     :TN tn
-     :FP fp
-     :FN fn}))
+  (prof :evaluate
+        (let [eps (rest (flatten-est est))
+              time-now (:time (last eps))
+              true-movs (filter #(and (:ot %) (<= (:time %) time-now))
+                                (apply concat (vals (:test truedata))))
+              accepted (:accepted (:workspace (last eps)))
+              rejected (:rejected (:workspace (last eps)))
+              bel-movs (map :mov (get accepted :movement))
+              disbel-movs (map :mov (get rejected :movement))
+              [pec pew] (percent-events-correct-wrong true-movs bel-movs)
+              [tp tn fp fn p r s a] (precision-recall true-movs bel-movs disbel-movs)]
+          {:PEC pec
+           :PEW pew
+           :Prec p
+           :Recall r
+           :Spec s
+           :Acc a
+           :TP tp
+           :TN tn
+           :FP fp
+           :FN fn})))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]

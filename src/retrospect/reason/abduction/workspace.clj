@@ -52,7 +52,9 @@
    :explainers {}
    ;; a map of type => seq
    :hypotheses {}
-   :hyp-confidences {}    
+   ;; hypotheses that are neither accepted nor rejected
+   :available #{}
+   :hyp-confidences {}
    :forced #{}
    ;; a map of type => seq
    :accepted {}
@@ -88,11 +90,6 @@
   (set (filter (fn [h] (empty? (filter #(not= :more (:type %))
                                        (get (:explainers workspace) h))))
                (keys (:active-explainers workspace)))))
-
-(defn available?
-  [workspace hyp]
-  (and (empty? (filter #{hyp} (get-in workspace [:accepted (:type hyp)])))
-       (empty? (filter #{hyp} (get-in workspace [:rejected (:type hyp)])))))
 
 (defn compare-by-conf
   "Since we are using probabilities, smaller value = less
@@ -196,7 +193,7 @@
 (defn boost
   [workspace hyp]
   (if (or (not (:ApplyBoosting params))
-          (not (available? workspace hyp)))
+          (not ((:available workspace) hyp)))
     workspace
     (let [new-conf (min 1.0 (+ 0.25 (hyp-conf workspace hyp)))]
       (-> workspace
@@ -261,6 +258,7 @@
                             (remove-explainers hyp)
                             (update-in [:active-explainers] dissoc hyp)
                             (update-in [:rejected (:type hyp)] conj hyp)
+                            (update-in [:available] disj hyp)
                             (update-in [:hyp-log hyp] conj
                                        (format "Rejected in cycle %d" (:cycle workspace)))))
                       workspace rejectable)
@@ -278,6 +276,7 @@
                                            (assoc-in workspace [:active-explainers hyp] #{}))
                 ws-explainers (-> ws-needs-explainer
                                   (update-in [:added] conj hyp)
+                                  (update-in [:available] conj hyp)
                                   (add-explainers hyp)
                                   (assoc-in
                                    [:hyp-confidences hyp]
@@ -290,24 +289,26 @@
                                   (update-in [:hypotheses (:type hyp)] conj hyp))
                 conflicts (find-conflicts-selected ws-explainers hyp
                                                    (apply concat (vals (:accepted ws-explainers))))
-                g-added (reduce (fn [g n] (-> g (add-nodes n)
-                                              (add-attr n :id (:id n))
-                                              (add-attr n :label (:id n))))
-                                (:graph ws-explainers)
-                                (conj (explains hyp) hyp))
-                g-expl (reduce (fn [g e] (add-edges g [hyp e]))
-                               g-added (explains hyp))
-                g-conf (reduce (fn [g c] (-> g (add-edges [hyp c])
-                                             (add-attr hyp c :dir "none")
-                                             (add-attr hyp c :style "dotted")
-                                             (add-attr hyp c :constraint false)))
-                               g-expl conflicts)
-                ws-graph (assoc ws-explainers :graph g-conf)]
-            (if (empty? conflicts) ws-graph
-                (reject-many ws-graph [hyp]))))))
+                ws-final
+                (if (not @batch) ws-explainers
+                  (let [g-added (reduce (fn [g n] (-> g (add-nodes n)
+                                                      (add-attr n :id (:id n))
+                                                      (add-attr n :label (:id n))))
+                                        (:graph ws-explainers)
+                                        (conj (explains hyp) hyp))
+                        g-expl (reduce (fn [g e] (add-edges g [hyp e]))
+                                       g-added (explains hyp))
+                        g-conf (reduce (fn [g c] (-> g (add-edges [hyp c])
+                                                     (add-attr hyp c :dir "none")
+                                                     (add-attr hyp c :style "dotted")
+                                                     (add-attr hyp c :constraint false)))
+                                       g-expl conflicts)]
+                    (assoc ws-explainers :graph g-conf)))]
+            (if (empty? conflicts) ws-final
+                (reject-many ws-final [hyp]))))))
 
 (defn accept
-  [workspace hyp alts explained delta essential?]
+  [workspace hyp explained delta essential?]
   (prof :accept
         (if (some #(= (:id hyp) (:id %)) (get (:accepted workspace) (:type hyp))) workspace
             (do (log "Accepting" (:id hyp))
@@ -316,22 +317,18 @@
                                                      ((:explainers workspace) hyp)))
                       ws-acc (-> ws-needs-exp
                                  (update-in [:hyp-log hyp] conj
-                                            (format "Accepted in cycle %d (alts: %s) to explain %s with delta %.2f (essential? %s)"
+                                            (format "Accepted in cycle %d to explain %s with delta %.2f (essential? %s)"
                                                     (:cycle workspace)
-                                                    (str/join ", " (sort (map :id alts)))
                                                     explained delta essential?))
                                  (update-in [:accepted (:type hyp)] conj hyp)
+                                 (update-in [:availabe] disj hyp)
                                  (update-in [:graph] add-attr hyp :fontcolor "green")
                                  (update-in [:graph] add-attr hyp :color "green"))
                       ws-expl (reduce (fn [ws2 h]
                                         (update-in ws2 [:active-explainers] dissoc h))
                                       ws-acc (explains hyp))
-                      ws-alts (reduce (fn [ws2 alt] (update-in ws2 [:hyp-log alt] conj
-                                                               (format "Alternate in cycle %d"
-                                                                       (:cycle ws2))))
-                                      ws-expl alts)
-                      conflicts (find-conflicts ws-alts hyp)
-                      ws-conflicts (reject-many ws-alts conflicts)
+                      conflicts (find-conflicts ws-expl hyp)
+                      ws-conflicts (reject-many ws-expl conflicts)
                       ws-boosts (reduce boost ws-conflicts (:boosts hyp))]
                   (update-in ws-boosts [:log :accrej (:cycle ws-boosts)] conj
                              {:acc hyp :rej conflicts}))))))
@@ -393,6 +390,7 @@
                                           (set (apply concat (vals (:rejected workspace)))))
                              :last-explainers explainers})]
           (-> ws
+              (dissoc :prior-explainers)
               (assoc :doubt (measure-doubt ws))
               (assoc :coverage (measure-coverage ws))))))
 
@@ -400,25 +398,21 @@
   [workspace explainers threshold]
   (prof :find-best
         (if (empty? explainers) {}
-            (let [essentials (filter #(= 1 (count (:expl %))) explainers)]
-              (if (not-empty essentials)
-                ;; choose most confident/most-explaining essential
-                (let [expl (first essentials)
-                      best (first (:expl expl))]
+            (let [essential (first (filter #(nil? (second (:expl %))) explainers))]
+              (if essential
+                (let [best (first (:expl essential))]
                   (log "Choosing best (essential)" (:id best))
-                  {:best best
-                   :alts (disj (set (mapcat :expl (rest essentials))) best)
-                   :essential? true :delta nil :explained (:hyp expl)})
+                  {:best best :essential? true :delta nil :explained (:hyp essential)})
                 ;; otherwise, choose highest-delta non-essential
                 (let [expl (first explainers)
-                      alts (:expl expl)
-                      best (first alts)
-                      delta (- (hyp-conf workspace (first alts))
-                               (hyp-conf workspace (second alts)))]            
+                      best (first (:expl expl))
+                      next-best (second (:expl expl))
+                      delta (- (hyp-conf workspace best)
+                               (hyp-conf workspace next-best))]            
                   (when (>= delta threshold)
                     (log "Choosing best" (:id best) "delta" delta)
-                    {:best best :alts (rest alts)
-                     :essential? false :delta delta :explained (:hyp expl)})))))))
+                    {:best best :essential? false :delta delta
+                     :explained (:hyp expl)})))))))
 
 (defn remove-hyp
   [workspace hyp]
@@ -429,6 +423,7 @@
       (update-in [:hyp-confidences] dissoc hyp)
       (update-in [:hypotheses (:type hyp)] (fn [hs] (filter #(not= % hyp) hs)))
       (update-in [:active-explainers] dissoc hyp)
+      (update-in [:available] disj hyp)
       (update-in [:explainers] dissoc hyp)))
 
 (defn reset-workspace
@@ -452,7 +447,7 @@
                                (filter (comp first :expl)
                                        (map (fn [es]
                                               (assoc es :expl
-                                                     (filter #(available? ws %)
+                                                     (filter #((:available ws) %)
                                                              (:expl es))))
                                             (filter #((:active-explainers ws) (:hyp %))
                                                     (:prior-explainers ws))))
@@ -466,18 +461,18 @@
                                                  (:prior-explainers ws-confs))
                                           explainers
                                           (sort-explainers ws-confs explainers))
-                      {:keys [best alts essential? explained delta] :as b}
+                      {:keys [best essential? explained delta] :as b}
                       (find-best ws-confs explainers-sorted
                                  (/ (:Threshold params) 100.0))]
                   (if-not best
                     (do (log "No best. Done.")
                         (log-final ws-confs explainers-sorted))
                     (do (log "Best is" (:id best) (hyp-conf ws-confs best))
-                        (let [ws-accepted (let [ws-logged (-> ws-confs
-                                                              (update-in [:cycle] inc)
-                                                              (update-in [:log :best] conj b))]
-                                            (accept ws-logged best alts
-                                                    explained delta essential?))]
+                        (let [ws-accepted
+                              (let [ws-logged (-> ws-confs
+                                                  (update-in [:cycle] inc)
+                                                  (update-in [:log :best] conj b))]
+                                (accept ws-logged best explained delta essential?))]
                           (if (>= (double (:DoubtThreshold params)) (measure-doubt ws-accepted))
                             (recur (assoc ws-accepted :prior-explainers explainers-sorted))
                             (do (log "Doubt threshold would be surpassed by accepting best. Done.")

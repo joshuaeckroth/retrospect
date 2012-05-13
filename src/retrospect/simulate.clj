@@ -23,22 +23,24 @@
   (let [new-ep (cur-ep new-est)
         new-ws2 ((:reason-fn @reason) (when (:Oracle params) truedata)
                  ((:reset-workspace-fn @reason) (:workspace new-ep)) time-prev time-now sensors)
-        new-ws (reduce (fn [ws hyp]
-                         (let [conflicts (find-conflicts ws hyp)]
-                           (-> (reduce (fn [w h] (assoc-in w [:accepted (:type h)]
-                                                           (filter #(not= h %)
-                                                                   (get-in w [:accepted (:type h)]))))
-                                       ws conflicts)
-                               (add hyp)
-                               (accept hyp [] [] nil false))))
-                       (:workspace (cur-ep est))
-                       (set/difference (set (apply concat (vals (:accepted new-ws2))))
-                                       (set (apply concat (vals (:accepted (:workspace (cur-ep est))))))))
+        new-ws (if (not= "Words" (:name @problem)) new-ws2
+                   (reduce (fn [ws hyp]
+                             (let [conflicts (find-conflicts ws hyp)]
+                               (-> (reduce (fn [w h] (assoc-in w [:accepted (:type h)]
+                                                               (filter #(not= h %)
+                                                                       (get-in w [:accepted (:type h)]))))
+                                           ws conflicts)
+                                   (add hyp)
+                                   (accept hyp [] [] nil false))))
+                           (:workspace (cur-ep est))
+                           (set/difference (set (apply concat (vals (:accepted new-ws2))))
+                                           (set (apply concat (vals (:accepted (:workspace (cur-ep est)))))))))
         new-expl-est (update-est new-est (assoc new-ep :workspace new-ws))]
-    (println (set/difference (set (apply concat (vals (:accepted new-ws2))))
-                             (set (apply concat (vals (:accepted (:workspace (cur-ep est))))))))
-    (println "after learning")
-    ((:evaluate-fn @reason) truedata (update-est new-est (assoc new-ep :workspace new-ws2)))
+    (when (= "Words" (:name @problem))
+      (println (set/difference (set (apply concat (vals (:accepted new-ws2))))
+                               (set (apply concat (vals (:accepted (:workspace (cur-ep est))))))))
+      (println "after learning")
+      ((:evaluate-fn @reason) truedata (update-est new-est (assoc new-ep :workspace new-ws2))))
     (if (> 0 ((:workspace-compare-fn @reason) new-ws2 (:workspace (cur-ep est))))
       new-expl-est
       (goto-ep new-expl-est (:id (cur-ep est))))))
