@@ -43,8 +43,6 @@
         (.write writer (write-csv [(map name (sort (keys results)))])))
       (.write writer (write-csv [(map str row)])))))
 
-(def local-results (ref []))
-
 (defn run-partition
   [comparative? recdir params start-time sim-count]
   (loop [ps params]
@@ -67,17 +65,13 @@
                                        recdir (:simulation (ffirst ps)))
                                rs))
           (dosync
-           (alter progress inc)
-           (alter local-results conj {:control control-results
-                                      :comparison comparison-results
-                                      :comparative comparative-results}))
+           (alter progress inc))
           (recur (rest ps)))
         (let [control-results (run comparative? (first ps))]
           (doseq [rs control-results]
             (write-results-csv (format "%s/control-results-%d.csv"
                                        recdir (:simulation (first ps))) rs))
-          (dosync (alter progress inc)
-                  (alter local-results conj {:control control-results}))
+          (dosync (alter progress inc))
           (recur (rest ps)))))))
 
 (defn run-partitions
@@ -101,7 +95,4 @@
                   (future (run-partition comparative? recdir part start-time sim-count)))]
     (doall (pmap (fn [w] @w) workers))
     (let [run-meta-stopped (assoc run-meta :endtime (. System (currentTimeMillis)))]
-      (spit (format "%s/meta.clj" recdir) (pr-str run-meta-stopped))
-      (when (and upload? (not= "" @database))
-        (println "Writing results to database...")
-        (db/commit-run run-meta-stopped @local-results)))))
+      (spit (format "%s/meta.clj" recdir) (pr-str run-meta-stopped)))))

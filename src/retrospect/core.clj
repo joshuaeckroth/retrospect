@@ -13,7 +13,7 @@
   (:use [retrospect.problems.words.problem :only [words-problem]])
   (:use [retrospect.problems.abdexp.problem :only [abdexp-problem]])
   #_(:use [retrospect.reason.abduction.problems.causal.problem :only [causal-problem]])
-  (:use [retrospect.records :only [run-with-new-record resubmit-archived-results]])
+  (:use [retrospect.records :only [run-with-new-record submit-archived-results]])
   (:use [retrospect.explore :only [start-explore]])
   (:use [retrospect.player :only [start-player]])
   (:use [retrospect.bugreport]))
@@ -77,7 +77,7 @@
             (SwingUtilities/invokeLater start-explore)
 
             (= action "resubmit")
-            (resubmit-archived-results recordsdir recdir)
+            (submit-archived-results recordsdir recdir)
             
             (= action "run")
             (let [nthreads (Integer/parseInt nthreads)
