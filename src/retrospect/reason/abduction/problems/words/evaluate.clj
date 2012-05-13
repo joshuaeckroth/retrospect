@@ -113,10 +113,12 @@
   [truedata i accepted unexplained]
   (let [kb (first (get accepted :kb))
         ambiguous (get (:test truedata) (dec i))
-        cuts (sort (concat (map :trans-pos (get accepted :split))
-                           (if (= "merge" (:DefaultMergeSplit params)) []
-                               (map :trans-pos (filter #(= :transition (:type %))
-                                                       unexplained)))))]
+        cuts (sort (set (concat (map :trans-pos (get accepted :split))
+                                (map (comp dec first :pos-seq) (get accepted :word))
+                                (map (comp last :pos-seq) (get accepted :word))
+                                (if (= "merge" (:DefaultMergeSplit params)) []
+                                    (map :trans-pos (filter #(= :transition (:type %))
+                                                            unexplained))))))]
     (loop [amb (vec ambiguous)
            cs cuts
            i 0

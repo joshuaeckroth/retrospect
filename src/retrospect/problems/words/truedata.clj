@@ -40,7 +40,8 @@
   (profile
    ;; attached a space at the front and end of each sentence to
    ;; facilitate sensor hyps that have pairs of symbols
-   (let [sentences (map (fn [sent] (filter not-empty (str/split sent #"[\s　]+")))
+   (let [sentences (map (fn [sent] (concat (filter not-empty (str/split sent #"[\s　]+"))
+                                           [" "]))
                         (str/split-lines (slurp (format "%s/words/%s.utf8"
                                                         @datadir (:Dataset params))
                                                 :encoding "utf-8")))
