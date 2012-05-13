@@ -120,7 +120,7 @@
                                     (map :trans-pos (filter #(= :transition (:type %))
                                                             unexplained))))))]
     (loop [amb (vec ambiguous)
-           cs (filter #(> % 0) cuts)
+           cs (filter #(>= % 0) cuts)
            i 0
            words []]
       (cond (empty? amb) words
