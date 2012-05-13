@@ -1,4 +1,5 @@
 (ns retrospect.reason.abduction.problems.tracking.evaluate
+  (:require [clojure.set :as set])
   (:use [retrospect.evaluate :only [calc-increase]])
   (:use [retrospect.epistemicstates :only [cur-ep flatten-est]])
   (:use [retrospect.problems.tracking.colors :only [match-color?]])
@@ -36,64 +37,40 @@
   [true-movs movs]
   (count (filter (fn [m] (some #(moves-match? m %) true-movs)) movs)))
 
-(defn percent-events-correct-wrong
-  [true-movs bel-movs]
-  (if (empty? true-movs) [1.0 0.0] 
-      (let [correct (count-matches true-movs bel-movs)]
-        [(double (/ correct (count true-movs)))
-         (double (/ (- (count bel-movs) correct)
-                    (count true-movs)))])))
-
-(defn precision-recall
-  [true-movs bel-movs disbel-movs]
+(defn tp-tn-fp-fn
+  [true-movs acc-movs not-acc-movs]
   (if (empty? true-movs) [1.0 1.0 1.0 1.0]
-      (let [true-pos (count-matches true-movs bel-movs)
-            false-pos (- (count bel-movs) true-pos)
-            false-neg (count-matches true-movs disbel-movs)
-            true-neg (- (count disbel-movs) false-neg)]
-        
-        [true-pos true-neg false-pos false-neg
-         ;; precision
-         (if (= 0 (+ true-pos false-pos)) 1.0
-             (double (/ true-pos (+ true-pos false-pos)))) 
-         ;; recall
-         (if (= 0 (+ true-pos false-neg)) 1.0
-             (double (/ true-pos (+ true-pos false-neg)))) 
-         ;; specificity
-         (if (= 0 (+ true-neg false-pos)) 1.0
-             (double (/ true-neg (+ true-neg false-pos)))) 
-         ;; accuracy
-         (if (= 0 (+ true-neg true-pos false-neg false-pos)) 1.0
-             (double (/ (+ true-pos true-neg)
-                        (+ true-neg true-pos false-neg false-pos))))])))
+      (let [true-pos (count-matches true-movs acc-movs)
+            false-pos (- (count acc-movs) true-pos)
+            false-neg (count-matches true-movs not-acc-movs)
+            true-neg (- (count not-acc-movs) false-neg)]
+        [true-pos true-neg false-pos false-neg])))
+
+(defn get-true-movements
+  [truedata time-now]
+  (filter #(and (:ot %) (<= (:time %) time-now))
+          (apply concat (vals (:test truedata)))))
 
 (defn evaluate
   [truedata est]
   (prof :evaluate
         (let [eps (rest (flatten-est est))
+              ws (:workspace (last eps))
               time-now (:time (last eps))
-              true-movs (filter #(and (:ot %) (<= (:time %) time-now))
-                                (apply concat (vals (:test truedata))))
-              accepted (:accepted (:workspace (last eps)))
-              rejected (:rejected (:workspace (last eps)))
-              bel-movs (map :mov (get accepted :movement))
-              disbel-movs (map :mov (get rejected :movement))
-              [pec pew] (percent-events-correct-wrong true-movs bel-movs)
-              [tp tn fp fn p r s a] (precision-recall true-movs bel-movs disbel-movs)]
-          {:PEC pec
-           :PEW pew
-           :Prec p
-           :Recall r
-           :Spec s
-           :Acc a
-           :TP tp
-           :TN tn
-           :FP fp
-           :FN fn})))
+              true-movs (get-true-movements truedata time-now)
+              accepted (:movement (:accepted ws))
+              not-accepted (set/difference (set (:movement (:hypotheses ws)))
+                                           (set accepted))
+              acc-movs (map :mov accepted)
+              not-acc-movs (map :mov not-accepted)
+              [tp tn fp fn] (tp-tn-fp-fn true-movs acc-movs not-acc-movs)]
+          ;; http://en.wikipedia.org/wiki/Receiver_operating_characteristic
+          {:TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
+           :FPR (if (= 0 (+ fp tn)) 1.0 (/ (double fp) (double (+ fp tn))))
+           :F1 (if (= 0 (+ tp fp fn)) 1.0 (/ (double (* 2.0 tp))
+                                             (double (+ (* 2.0 tp) fp fn))))})))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
-                    [:PEC :PEW :Prec :Recall :Spec :Acc
-                     :TP :TN :FP :FN
-                     :ID])))
+                    [:TPR :FPR :F1])))

@@ -12,12 +12,15 @@
          [entities-at entity-movements]])
   (:use [retrospect.problems.tracking.truedata :only
          [format-movements-comparative]])
+  (:use [retrospect.reason.abduction.problems.tracking.evaluate :only
+         [get-true-movements]])
   (:use [retrospect.problems.tracking.colors])
   (:use [retrospect.epistemicstates :only [cur-ep]])
   (:use [retrospect.state]))
 
 (def resized (atom true)) ;; start at true so that, when loading, widths are calculated
-(def diagram (ref nil))
+(def diagram-true (ref nil))
+(def diagram-believed (ref nil))
 
 (def diagram-width (ref nil))
 (def diagram-height (ref nil))
@@ -26,9 +29,9 @@
 (def grid-cell-width (ref nil))
 (def grid-cell-height (ref nil))
 
-(def percent-events-correct-label (label ""))
-(def percent-events-wrong-label (label ""))
-(def accuracy-label (label ""))
+(def tpr-label (label ""))
+(def fpr-label (label ""))
+(def f1-label (label ""))
 (def noexp-label (label ""))
 (def mouse-xy (label "Grid ?, ?"))
 
@@ -45,7 +48,8 @@
 
 (defn draw-movements
   [#^Graphics2D g movs]
-  (doseq [{:keys [x y ox oy time color]} movs]
+  (doseq [{:keys [x y ox oy time color]}
+          (filter #(and (<= @time-prev (:ot %)) (>= @time-now (:time %))) movs)]
     (let [degree (- @time-now time)
           width (double (+ 2 degree))]
       (draw-move g ox oy x y (var-color color degree) width))))
@@ -58,27 +62,8 @@
                (* y @grid-cell-height)
                @grid-cell-width @grid-cell-height)))
 
-(defn fill-cell-entities
-  [#^Graphics2D g x y es]
-  (let [width (ceil (/ @grid-cell-width (count es)))]
-    (doseq [i (range (count es))]
-      (let [e (nth es i)
-            movs (entity-movements (:test @truedata) e (inc @time-prev) @time-now)
-            left (+ (* i width) (* x @grid-cell-width))
-            top (* y @grid-cell-height)]
-        (doto g
-          ;; draw block
-          (.setColor (:color (first movs)))
-          (.fillRect left top width @grid-cell-height)
-          ;; draw id
-          (.setColor white)
-          (.setFont (.. g getFont (deriveFont Font/BOLD (float 12.0))))
-          (.drawString (str e) (+ 3 left) (+ 15 top))
-          ;; draw movement
-          (draw-movements (filter :ot movs)))))))
-
 (defn draw-grid
-  [g]
+  [g movs]
   (dorun
    (for [x (range @grid-width) y (range @grid-height)]
      (doseq [sensor @sensors]
@@ -87,15 +72,10 @@
            (fill-cell g x y yellow-alpha)
            (fill-cell g x y gray-alpha))))))
   (when (and @truedata (> @time-now 0))    
-    (dorun
-     (for [x (range @grid-width) y (range @grid-height)]
-       (let [es (sort-by str (AlphanumComparator.)
-                         (entities-at (:test @truedata) x y @time-now))]
-         (when (not-empty es)
-           (fill-cell-entities g x y es)))))))
+    (draw-movements g movs)))
 
 (defn render
-  [g]
+  [g movs]
   (when @resized
     (dosync
      (alter diagram-width (constantly (.. g (getClipBounds) width)))
@@ -113,13 +93,14 @@
                          (. RenderingHints VALUE_ANTIALIAS_ON))
       (.setColor white)
       (.fillRect 0 0 @diagram-width @diagram-height))
-    (draw-grid bg)
+    (draw-grid bg movs)
     (. g (drawImage img 0 0 nil))
     (. bg (dispose))))
 
-(defn player-diagram []
+(defn make-diagram
+  [movs-fn]
   (doto (proxy [JPanel] []
-          (paint [g] (render g)))
+          (paint [g] (render g (movs-fn))))
     (.addMouseListener
      (proxy [java.awt.event.MouseListener] []
        (mouseClicked [e])
@@ -145,13 +126,27 @@
 
 (defn player-update-diagram
   []
-  (when @diagram
-    (.repaint @diagram)))
+  (when @diagram-true
+    (.repaint @diagram-true))
+  (when @diagram-believed
+    (.repaint @diagram-believed)))
 
 (defn player-setup-diagram
   []
-  (dosync (alter diagram (constantly (player-diagram))))
-  @diagram)
+  (dosync (alter diagram-true
+                 (constantly (make-diagram #(get-true-movements @truedata @time-now))))
+          (alter diagram-believed
+                 (constantly (make-diagram
+                              #(when (> @time-now 0)
+                                 (let [ws (:workspace (cur-ep (:est @or-state)))]
+                                   (map :mov (:movement (:accepted ws)))))))))
+  (panel :layout (GridBagLayout.)
+         :constrains (java.awt.GridBagConstraints.)
+         [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0
+          :fill :BOTH :insets (Insets. 5 5 5 5)
+          _ @diagram-true          
+          :gridy 1 
+          _ @diagram-believed]))
 
 (defn player-get-stats-panel
   []
@@ -159,17 +154,17 @@
          :constrains (java.awt.GridBagConstraints.)
          [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
-          _ (label "PEC:")
+          _ (label "TPR:")
           :gridx 1
-          _ percent-events-correct-label
+          _ tpr-label
           :gridx 0 :gridy 1
-          _ (label "PEW:")
+          _ (label "FPR:")
           :gridx 1
-          _ percent-events-wrong-label
+          _ fpr-label
           :gridx 0 :gridy 2
-          _ (label "Accuracy:")
+          _ (label "F1:")
           :gridx 1
-          _ accuracy-label
+          _ f1-label
           :gridx 0 :gridy 3
           _ (label "NoExplainers:")
           :gridx 1
@@ -181,15 +176,14 @@
   []
   (if-let [results (last (:results (cur-ep (:est @or-state))))]
     (do
-      (. percent-events-correct-label (setText (format "%.2f" (:PEC results))))
-      (. percent-events-wrong-label (setText (format "%.2f" (:PEW results))))
-      (. accuracy-label (setText (format "%.2f" (:Acc results))))
-      (. accuracy-label (setText (format "%.2f" (:Acc results))))
+      (. tpr-label (setText (format "%.2f" (:TPR results))))
+      (. fpr-label (setText (format "%.2f" (:FPR results))))
+      (. f1-label (setText (format "%.2f" (:F1 results))))
       (. noexp-label (setText (format "%.2f" (:NoExplainersPct results)))))
     (do
-      (. percent-events-correct-label (setText "N/A"))
-      (. percent-events-wrong-label (setText "N/A"))
-      (. accuracy-label (setText "N/A"))
+      (. tpr-label (setText "N/A"))
+      (. fpr-label (setText "N/A"))
+      (. f1-label (setText "N/A"))
       (. noexp-label (setText "N/A")))))
 
 (defn player-get-truedata-log
