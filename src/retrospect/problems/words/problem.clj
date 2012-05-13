@@ -41,5 +41,4 @@
     ;; ["carroll" "cityu_training" "as_training" "msr_training" "pku_training"]
     :Dataset ["pku_training" ["pku_training"]]
     :ShortFirst [false [true false]]
-    :MinMergeSplit [10 [1 10 20 30]]
     :DefaultMergeSplit ["merge" ["merge" "split"]]}})
