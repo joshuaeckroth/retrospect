@@ -141,8 +141,11 @@
   (prof :find-all-explainers
         (sort-by (comp :id first)
                  (filter (comp first :expl)
-                         (map (fn [h] {:hyp h :expl (get (:active-explainers workspace) h)})
-                              (keys (:active-explainers workspace)))))))
+                         (map
+                          (fn [h] {:hyp h
+                                   :expl (filter #((:available workspace) %)
+                                                 (get (:active-explainers workspace) h))})
+                          (keys (:active-explainers workspace)))))))
 
 (defn normalize-confidences
   "Normalize the apriori confidences of a collection of hyps.
@@ -290,7 +293,7 @@
                 conflicts (find-conflicts-selected ws-explainers hyp
                                                    (apply concat (vals (:accepted ws-explainers))))
                 ws-final
-                (if (not @batch) ws-explainers
+                (if @batch ws-explainers
                   (let [g-added (reduce (fn [g n] (-> g (add-nodes n)
                                                       (add-attr n :id (:id n))
                                                       (add-attr n :label (:id n))))
@@ -314,14 +317,14 @@
             (do (log "Accepting" (:id hyp))
                 (let [ws-needs-exp (if-not ((:explainers workspace) hyp) workspace
                                            (assoc-in workspace [:active-explainers hyp]
-                                                     ((:explainers workspace) hyp)))
+                                                     (set ((:explainers workspace) hyp))))
                       ws-acc (-> ws-needs-exp
                                  (update-in [:hyp-log hyp] conj
                                             (format "Accepted in cycle %d to explain %s with delta %.2f (essential? %s)"
                                                     (:cycle workspace)
                                                     explained delta essential?))
                                  (update-in [:accepted (:type hyp)] conj hyp)
-                                 (update-in [:availabe] disj hyp)
+                                 (update-in [:available] disj hyp)
                                  (update-in [:graph] add-attr hyp :fontcolor "green")
                                  (update-in [:graph] add-attr hyp :color "green"))
                       ws-expl (reduce (fn [ws2 h]
