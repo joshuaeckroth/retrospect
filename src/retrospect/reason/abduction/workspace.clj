@@ -5,7 +5,7 @@
   (:use [loom.io :only [dot-str]])
   (:use [loom.graph :only
          [digraph nodes incoming neighbors weight
-          add-nodes add-edges remove-nodes edges transpose]])
+          add-nodes add-edges remove-nodes edges transpose has-edge?]])
   (:use [loom.alg :only [pre-traverse]])
   (:use [loom.attr :only [add-attr remove-attr]])
   (:use [clojure.contrib.combinatorics :only [combinations]])
@@ -93,14 +93,17 @@
 
 (defn compare-by-conf
   "Since we are using probabilities, smaller value = less
-   confidence. We want most confident first. Otherwise, comparison is
-   done by the :id's (to keep it deterministic)."
+   confidence. We want most confident first. With equal confidences,
+   we look for higher explanatory power (explains more). If all that
+   fails, comparison is done by the :id's (to keep it deterministic)."
   [workspace hyp1 hyp2]
   (prof :compar-by-conf-expl
         (let [conf (- (compare (hyp-conf workspace hyp1)
                                (hyp-conf workspace hyp2)))
+              expl (- (compare (count (explains hyp1))
+                               (count (explains hyp2))))
               id (compare (:id hyp1) (:id hyp2))]
-          (if (= 0 conf) id conf))))
+          (if (= 0 conf) (if (= 0 expl) id expl) conf))))
 
 (defn compare-by-delta
   [workspace hyps1 hyps2]
@@ -277,38 +280,50 @@
           workspace
           (let [ws-needs-explainer (if-not ((:active-explainers workspace) hyp) workspace
                                            (assoc-in workspace [:active-explainers hyp] #{}))
-                ws-explainers (-> ws-needs-explainer
-                                  (update-in [:added] conj hyp)
-                                  (update-in [:available] conj hyp)
-                                  (add-explainers hyp)
-                                  (assoc-in
-                                   [:hyp-confidences hyp]
-                                   (cond (= :kb (:type hyp)) 1.0
-                                         (some #(= (:type hyp) %)
-                                               (map keyword (str/split (:Oracle params) #",")))
-                                         (if ((:oracle workspace) hyp) 1.0 0.0)
-                                         :else
-                                         (:apriori hyp)))
-                                  (update-in [:hypotheses (:type hyp)] conj hyp))
-                conflicts (find-conflicts-selected ws-explainers hyp
-                                                   (apply concat (vals (:accepted ws-explainers))))
+                ws-explainers
+                (-> ws-needs-explainer
+                    (update-in [:added] conj hyp)
+                    (update-in [:available] conj hyp)
+                    (add-explainers hyp)
+                    (assoc-in
+                     [:hyp-confidences hyp]
+                     (cond (= :kb (:type hyp)) 1.0
+                           (some #(= (:type hyp) %)
+                                 (map keyword (str/split (:Oracle params) #",")))
+                           (if ((:oracle workspace) hyp) 1.0 0.0)
+                           :else
+                           (:apriori hyp)))
+                    (update-in [:hypotheses (:type hyp)] conj hyp))
+                conflicts (find-conflicts-selected
+                           ws-explainers hyp
+                           (apply concat (vals (:accepted ws-explainers))))
                 ws-final
                 (if @batch ws-explainers
-                  (let [g-added (reduce (fn [g n] (-> g (add-nodes n)
-                                                      (add-attr n :id (:id n))
-                                                      (add-attr n :label (:id n))))
-                                        (:graph ws-explainers)
-                                        (conj (explains hyp) hyp))
-                        g-expl (reduce (fn [g e] (add-edges g [hyp e]))
-                                       g-added (explains hyp))
-                        g-conf (reduce (fn [g c] (-> g (add-edges [hyp c])
-                                                     (add-attr hyp c :dir "none")
-                                                     (add-attr hyp c :style "dotted")
-                                                     (add-attr hyp c :constraint false)))
-                                       g-expl conflicts)]
-                    (assoc ws-explainers :graph g-conf)))]
+                    (let [g-added (reduce (fn [g n] (-> g (add-nodes n)
+                                                        (add-attr n :id (:id n))
+                                                        (add-attr n :label (:id n))))
+                                          (:graph ws-explainers)
+                                          (conj (explains hyp) hyp))
+                          g-expl (reduce (fn [g e] (add-edges g [hyp e]))
+                                         g-added (explains hyp))]
+                      (assoc ws-explainers :graph g-expl)))]
             (if (empty? conflicts) ws-final
                 (reject-many ws-final [hyp]))))))
+
+(defn update-graph
+  [workspace]
+  (if @batch workspace
+      (assoc workspace :graph
+             (reduce (fn [g h]
+                       (let [conflicts (find-conflicts workspace h)]
+                         (reduce (fn [g2 c]
+                                   (if (or (has-edge? g2 h c) (has-edge? g2 c h)) g2
+                                       (-> g2 (add-edges [h c])
+                                           (add-attr h c :dir "none")
+                                           (add-attr h c :style "dotted")
+                                           (add-attr h c :constraint false))))
+                                 g conflicts)))
+                     (:graph workspace) (apply concat (vals (:hypotheses workspace)))))))
 
 (defn accept
   [workspace hyp explained delta essential?]
@@ -443,7 +458,7 @@
   (prof :explain
         (let [hyps ((:hypothesize-fn (:abduction @problem))
                     (:forced workspace) (:accepted workspace) (:hypotheses workspace))]
-          (loop [ws (reduce add workspace hyps)]
+          (loop [ws (update-graph (reduce add workspace hyps))]
             (log "Explaining again...")
             (let [explainers (if (and (= "none" (:ConfAdjustment params))
                                       (:prior-explainers ws))

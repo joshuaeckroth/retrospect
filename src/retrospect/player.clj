@@ -154,7 +154,7 @@
 
 (defn mainframe
   []
-  (frame :title "Player"
+  (frame :title "retrospect player"
          :layout (GridBagLayout.)
          :constrains (java.awt.GridBagConstraints.)
          :size [1000 700]

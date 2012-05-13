@@ -50,7 +50,6 @@
      {"Best" {(:id (:best b)) nil}
       "Explained" {(:id (:explained b)) nil}
       "Accepted" (list-hyps (disj (set (map :acc ars)) (:best b)))
-      "Alternatives" (list-hyps (:alts b))
       "Rejected" (list-hyps (mapcat :rej ars))}]))
 
 (defn build-abduction-tree-map

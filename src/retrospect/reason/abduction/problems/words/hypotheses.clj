@@ -41,16 +41,18 @@
          end2 (last (:pos-seq hyp2))]
      (not (or (< end1 start2) (< end2 start1))))
    
-   (and (= :word (:type hyp1)) (= :split (:type hyp2)))
-   (and (> (:trans-pos hyp2) (first (:pos-seq hyp1)))
-        (< (:trans-pos hyp2) (last (:pos-seq hyp1)))
+   (and (= :word (:type hyp1)) (or (= :split (:type hyp2))
+                                   (= :merge (:type hyp2))))
+   (and (>= (:trans-pos hyp2) (dec (first (:pos-seq hyp1))))
+        (<= (:trans-pos hyp2) (last (:pos-seq hyp1)))
         (not ((set (:explains hyp1)) hyp2)))
    
-   (and (= :word (:type hyp2)) (= :split (:type hyp1)))
-   (and (> (:trans-pos hyp1) (first (:pos-seq hyp2)))
-        (< (:trans-pos hyp1) (last (:pos-seq hyp2)))
+   (and (= :word (:type hyp2)) (or (= :split (:type hyp1))
+                                   (= :merge (:type hyp1))))
+   (and (>= (:trans-pos hyp1) (dec (first (:pos-seq hyp2))))
+        (<= (:trans-pos hyp1) (last (:pos-seq hyp2)))
         (not ((set (:explains hyp2)) hyp1)))
-   
+
    (or (and (= :split (:type hyp1)) (= :merge (:type hyp2)))
        (and (= :merge (:type hyp1)) (= :split (:type hyp2))))
    (= (:trans-pos hyp1) (:trans-pos hyp2))
