@@ -53,21 +53,19 @@
         (apply hash-map (interleave headers data))))))
 
 (defn read-archived-results
-  [recordsdir recdir]
+  [recdir]
   (let [simulations (sort (set (map #(Integer/parseInt
                                       (second (re-matches #".*\-(\d+)\.csv$"
                                                           (.getName %))))
                                     (filter #(re-find #"\.csv$" (.getName %))
-                                            (file-seq
-                                             (clojure.java.io/file
-                                              (format "%s/%s" recordsdir recdir)))))))]
+                                            (file-seq (clojure.java.io/file recdir))))))]
     (for [sim simulations]
       (let [control-file
-            (format "%s/%s/control-results-%d.csv" recordsdir recdir sim)
+            (format "%s/control-results-%d.csv" recdir sim)
             comparison-file
-            (format "%s/%s/comparison-results-%d.csv" recordsdir recdir sim)
+            (format "%s/comparison-results-%d.csv" recdir sim)
             comparative-file
-            (format "%s/%s/comparative-results-%d.csv" recordsdir recdir sim)]
+            (format "%s/comparative-results-%d.csv" recdir sim)]
         {:control (read-csv (str/split (slurp control-file) #"\n"))
          :comparison (when (. (file comparison-file) exists)
                        (read-csv (str/split (slurp comparison-file) #"\n")))
@@ -75,9 +73,9 @@
                         (read-csv (str/split (slurp comparative-file) #"\n")))}))))
 
 (defn submit-archived-results
-  [recordsdir recdir]
-  (let [run-meta (read-string (slurp (format "%s/%s/meta.clj" recordsdir recdir)))
-        results (read-archived-results recordsdir recdir)]
+  [recdir]
+  (let [run-meta (read-string (slurp (format "%s/meta.clj" recdir)))
+        results (read-archived-results recdir)]
     (println "Writing results to database...")
     (db/commit-run run-meta results)
     (println "Done.")))
@@ -115,10 +113,10 @@
       (println (format "Running %d parameters, %d repetitions = %d simulations..."
                        (count control-params) repetitions
                        (* (count control-params) repetitions)))
-      (run-partitions run comparative? (if comparative? paired-params control-params)
-                      recdir nthreads upload? repetitions)
+      (doall (run-partitions run comparative? (if comparative? paired-params control-params)
+                             recdir nthreads upload? repetitions))
       (when (and upload? (not= "" @database))
-        (submit-archived-results recordsdir recdir))
+        (submit-archived-results recdir))
       (System/exit 0))
     (catch java.util.concurrent.ExecutionException e
       (println "Quitting early."))))

@@ -54,7 +54,7 @@
      [seed "Seed" "0"]
      [database "Database identifier" "http://127.0.0.1:5984/retrospect"]
      [upload "Upload?" "true"]
-     [recdir "Record number" "0"]]
+     [recdir "Record directory" ""]]
     (let [seed (Integer/parseInt seed)
           reason (choose-reason reason)
           problem (choose-problem problem)
@@ -77,7 +77,7 @@
             (SwingUtilities/invokeLater start-explore)
 
             (= action "resubmit")
-            (submit-archived-results recordsdir recdir)
+            (submit-archived-results recdir)
             
             (= action "run")
             (let [nthreads (Integer/parseInt nthreads)
