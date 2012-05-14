@@ -89,7 +89,7 @@
   [workspace]
   (set (filter (fn [h] (empty? (filter #(not= :more (:type %))
                                        (get (:explainers workspace) h))))
-               (keys (:active-explainers workspace)))))
+               (filter :needs-explainer? (apply concat (vals (:accepted workspace)))))))
 
 (defn compare-by-conf
   "Since we are using probabilities, smaller value = less
@@ -367,16 +367,16 @@
 (defn get-unexp-pct
   "Only measure unexplained \"needs-explainer\" hyps."
   [workspace]
-  (if (empty? (:forced workspace)) 0.0
+  (if (empty? (filter :needs-explainer? (apply concat (vals (:accepted workspace))))) 0.0
       (/ (double (count (:unexplained (:log workspace))))
-         (double (count (filter (:active-explainers workspace)
+         (double (count (filter :needs-explainer?
                                 (apply concat (vals (:accepted workspace)))))))))
 
 (defn get-noexp-pct
   [workspace]
-  (if (empty? (:active-explainers workspace)) 0.0
+  (if (empty? (filter :needs-explainer? (apply concat (vals (:accepted workspace))))) 0.0
       (/ (double (count (:no-explainers (:log workspace))))
-         (double (count (filter (:active-explainers workspace)
+         (double (count (filter :needs-explainer?
                                 (apply concat (vals (:accepted workspace)))))))))
 
 (defn measure-doubt
