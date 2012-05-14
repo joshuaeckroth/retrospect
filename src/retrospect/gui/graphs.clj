@@ -39,8 +39,7 @@
       (doto canvas
         (.setDocumentState JSVGCanvas/ALWAYS_DYNAMIC)
         (.setDocument doc))
-      (let [svgdoc (.getSVGDocument canvas)
-            nodes (.getElementsByTagName svgdoc "g")]
+      (let [nodes (.getElementsByTagName doc "g")]
         (doseq [i (range (.getLength nodes))]
           (.addEventListener (.item nodes i) "click" (node-listener listener) false))))))
 

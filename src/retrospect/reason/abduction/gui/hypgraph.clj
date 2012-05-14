@@ -1,5 +1,5 @@
 (ns retrospect.reason.abduction.gui.hypgraph
-  (:import (java.awt GridBagLayout Insets Graphics Dimension Color))
+  (:import (java.awt GridBagLayout Insets Graphics Dimension Color Font))
   (:import (java.awt.image BufferedImage))
   (:import (javax.swing JLabel ImageIcon JViewport))
   (:import (misc AlphanumComparator))
@@ -17,7 +17,8 @@
 
 (def canvas (ref nil))
 (def hyp-id (ref ""))
-(def hyp-id-label (label ""))
+(def hyp-id-label (doto (label "")
+                    (.setFont (Font. "WenQuanYi Micro Hei" Font/PLAIN 12))))
 (def hyp-apriori-label (label "Apriori:"))
 (def hyp-confidence-label (label "Conf:"))
 (def hyp-truefalse-label (label "T/F:"))
@@ -85,7 +86,9 @@
           _ (log-box hyp-explainers)
           :gridx 3
           _ (log-box hyp-conflicts)
-          :gridy 3 :gridwidth 3 :gridx 0 :weighty 0.0
+          :gridy 3 :gridx 0 :gridwidth 4 :weightx 1.0
+          _ (log-box hyp-log)
+          :gridy 4 :gridwidth 3 :gridx 0 :weighty 0.0
           _ (panel)
           :gridx 3 :gridwidth 1
           _ (doto (button "Generate")
