@@ -31,8 +31,10 @@
                :true-hyp?-fn true-hyp?
                :hyps-equal?-fn hyps-equal?
                :hyp-types [:word :split :merge :merge-noexp]
-               :default-params {:HypTypes ["merge-noexp,words,biwords"
-                                           ["merge-noexp,words", "merge-noexp,words,biwords"]]}}
+               :default-params {:HypTypes ["words,biwords"
+                                           ["words", "words,biwords"]]
+                                :SplitScore ["bestAbs" ["bestAbs" "max" "min" "avg"]]
+                                :SplitScorePoss [true [true false]]}}
    :default-params
    {:Steps [50 [50]]
     :StepsBetween [1 [1]]

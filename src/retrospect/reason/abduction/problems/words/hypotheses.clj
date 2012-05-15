@@ -71,17 +71,28 @@
 (defn score-split
   [t-hyp kb]
   (prof :score-split
-        (let [merge-freq (inc (get (:in-word-bigrams kb) [(:sym1 t-hyp) (:sym2 t-hyp)] 0))
-              split-freq (inc (get (:wtc kb) [(:sym1 t-hyp) (:sym2 t-hyp)] 0))
-              seen-split-prob (double (/ split-freq (+ split-freq merge-freq)))
-              end-prob (/ (double (inc (get (:in-word-bigrams kb)
-                                            [(:sym1 t-hyp) "end"] 0)))
-                          (double (+ 2 (get (:in-word-bigrams kb)
-                                            [(:sym1 t-hyp) :out] 0))))
-              start-prob (/ (double (inc (get (:in-word-bigrams kb)
-                                              ["start" (:sym2 t-hyp)] 0)))
-                            (double (+ 2 (get (:in-word-bigrams kb)
-                                              [:in (:sym2 t-hyp)] 0))))]
+        (let [merge-freq (let [s (get (:in-word-bigrams kb)
+                                      [(:sym1 t-hyp) (:sym2 t-hyp)] 0)]
+                           (if (:SplitScorePoss params) (inc s) s))
+              split-freq (let [s (get (:wtc kb) [(:sym1 t-hyp) (:sym2 t-hyp)] 0)]
+                           (if (:SplitScorePoss params) (inc s) s))
+              seen-split-prob (double (/ split-freq
+                                         (if (= 0 (+ split-freq merge-freq)) 1
+                                             (+ split-freq merge-freq))))
+              end-prob (/ (double (let [s (get (:in-word-bigrams kb)
+                                               [(:sym1 t-hyp) "end"] 0)]
+                                    (if (:SplitScorePoss params) (inc s) s)))
+                          (double (let [s (get (:in-word-bigrams kb)
+                                               [(:sym1 t-hyp) :out] 0)]
+                                    (if (:SplitScorePoss params) (+ 2 s)
+                                        (if (= 0 s) 1 s)))))
+              start-prob (/ (double (let [s (get (:in-word-bigrams kb)
+                                                 ["start" (:sym2 t-hyp)] 0)]
+                                      (if (:SplitScorePoss params) (inc s) s)))
+                            (double (let [s (get (:in-word-bigrams kb)
+                                                 [:in (:sym2 t-hyp)] 0)]
+                                      (if (:SplitScorePoss params) (+ 2 s)
+                                          (if (= 0 s) 1 s)))))]
           [seen-split-prob end-prob start-prob])))
 
 (defn hypothesize
@@ -94,7 +105,16 @@
               (map
                (fn [t-hyp]
                  (let [scores (score-split t-hyp kb)
-                       best-split-prob (last (sort-by #(Math/abs (- 0.5 %)) scores))]
+                       best-split-prob (cond (= "bestAbs" (:SplitScore params))
+                                             (last (sort-by #(Math/abs (- 0.5 %)) scores))
+                                             (= "max" (:SplitScore params))
+                                             (apply max scores)
+                                             (= "min" (:SplitScore params))
+                                             (apply min scores)
+                                             (= "avg" (:SplitScore params))
+                                             (/ (reduce + scores) (count scores))
+                                             :else
+                                             (last (sort-by #(Math/abs (- 0.5 %)) scores)))]
                    (new-hyp "Merge" :merge :merge true conflicts
                             (- 1.0 best-split-prob)
                             [t-hyp] [] (format "%s+%s" (:sym1 t-hyp) (:sym2 t-hyp))
