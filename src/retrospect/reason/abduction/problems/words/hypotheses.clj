@@ -182,19 +182,16 @@
           (map (fn [[wh1 wh2]]
                  (let [pos-seq (concat (:pos-seq wh1) (:pos-seq wh2))]
                    (new-hyp "BiWord" :word :biword false conflicts
-                            (/ (double (get (:bigram-model kb) [(:word wh1) (:word wh2)]))
-                               (double (:word-count kb)))
-                            (concat (:explains wh1)
-                                    (:explains wh2)
-                                    (filter #(= (last (:pos-seq wh1))
-                                                (:trans-pos %))
-                                            split-hyps))
+                            1.0
+                            (set (concat (:explains wh1) (:explains wh2)))
                             [] (format "%s __ %s" (:word wh1) (:word wh2))
                             (format "Bigram word: %s __ %s, pos-seq: %s"
                                     (:word wh1) (:word wh2)
                                     (str/join ", " (map str pos-seq)))
                             {:pos-seq pos-seq :words [(:word wh1) (:word wh2)]})))
-               (filter #(get (:bigram-model kb) [(:word (first %)) (:word (second %))])
+               (filter #(and (get (:bigram-model kb) [(:word (first %)) (:word (second %))])
+                             (= (inc (last (:pos-seq (first %))))
+                                (first (:pos-seq (second %)))))
                        (partition 2 1 (sort-by (comp first :pos-seq) word-hyps)))))]
     (concat merge-hyps split-hyps
             (if (hyp-types "words") word-hyps [])

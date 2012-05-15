@@ -52,9 +52,9 @@
          training-symbols (set (apply concat training-dict))
          ;; TODO: handle noise
          ambiguous (map #(apply str %) test)
-         [in-word-bigrams wtc unigram-model]
+         [in-word-bigrams wtc unigram-model bigram-model]
          (prof :iwb-wtc-ugm
-               (reduce (fn [[iwb wtc ugm] sent]
+               (reduce (fn [[iwb wtc ugm bgm] sent]
                          (let [iwb2
                                (reduce
                                 (fn [m w]
@@ -79,16 +79,22 @@
                                (reduce (fn [m w]
                                          (let [p (get m w 0)]
                                            (assoc m w (inc p))))
-                                       ugm sent)]
-                           [iwb2 wtc2 ugm2]))
-                       [{} {} {}] training))
+                                       ugm sent)
+                               bgm2
+                               (reduce (fn [m [w1 w2]]
+                                         (let [p (get m [w1 w2] 0)]
+                                           (assoc m [w1 w2] (inc p))))
+                                       bgm (partition 2 1 sent))]
+                           [iwb2 wtc2 ugm2 bgm2]))
+                       [{} {} {} {}] training))
          dict-regex (reduce (fn [m w]
                               (assoc m w (re-pattern (format "(%s)" (Pattern/quote w)))))
                             {} training-dict)]
      {:training {:sentences training :dictionary training-dict :symbols training-symbols
                  :in-word-bigrams in-word-bigrams :wtc wtc
                  :dictionary-regex dict-regex
-                 :unigram-model unigram-model}
+                 :unigram-model unigram-model
+                 :bigram-model bigram-model}
       :test (zipmap (range (count ambiguous)) ambiguous)
       :test-sentences test
       :test-dict test-dict})))
