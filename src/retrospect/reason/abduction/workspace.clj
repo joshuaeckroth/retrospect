@@ -141,14 +141,21 @@
 
 (defn find-all-explainers
   [workspace]
-  (prof :find-all-explainers
-        (sort-by (comp :id first)
-                 (filter (comp first :expl)
-                         (map
-                          (fn [h] {:hyp h
-                                   :expl (filter #((:available workspace) %)
-                                                 (get (:active-explainers workspace) h))})
-                          (keys (:active-explainers workspace)))))))
+  (let [expl-filter (if (:RequireExplainedAccepted params)
+                      (fn [e]
+                        (and ((:available workspace) e)
+                             (every?
+                              (fn [h] (some #{h} (get-in workspace [:accepted (:type h)])))
+                              (explains e))))
+                      (fn [e] ((:available workspace) e)))]
+    (prof :find-all-explainers
+          (sort-by (comp :id first)
+                   (filter (comp first :expl)
+                           (map
+                            (fn [h] {:hyp h
+                                     :expl (filter expl-filter
+                                                   (get (:active-explainers workspace) h))})
+                            (keys (:active-explainers workspace))))))))
 
 (defn normalize-confidences
   "Normalize the apriori confidences of a collection of hyps.
