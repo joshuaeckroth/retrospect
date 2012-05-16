@@ -41,18 +41,6 @@
          end2 (last (:pos-seq hyp2))]
      (not (or (< end1 start2) (< end2 start1))))
    
-   (and (= :word (:type hyp1)) (or (= :split (:type hyp2))
-                                   (= :merge (:type hyp2))))
-   (and (>= (:trans-pos hyp2) (dec (first (:pos-seq hyp1))))
-        (<= (:trans-pos hyp2) (last (:pos-seq hyp1)))
-        (not ((set (:explains hyp1)) hyp2)))
-   
-   (and (= :word (:type hyp2)) (or (= :split (:type hyp1))
-                                   (= :merge (:type hyp1))))
-   (and (>= (:trans-pos hyp1) (dec (first (:pos-seq hyp2))))
-        (<= (:trans-pos hyp1) (last (:pos-seq hyp2)))
-        (not ((set (:explains hyp2)) hyp1)))
-
    (or (and (= :split (:type hyp1)) (= :merge (:type hyp2)))
        (and (= :merge (:type hyp1)) (= :split (:type hyp2))))
    (= (:trans-pos hyp1) (:trans-pos hyp2))
@@ -115,7 +103,7 @@
                                              (/ (reduce + scores) (count scores))
                                              :else
                                              (last (sort-by #(Math/abs (- 0.5 %)) scores)))]
-                   (new-hyp "Merge" :merge :merge true conflicts
+                   (new-hyp "Merge" :merge :merge false conflicts
                             (- 1.0 best-split-prob)
                             [t-hyp] [] (format "%s+%s" (:sym1 t-hyp) (:sym2 t-hyp))
                             (format (str "Merge of %s+%s at %d\n"
@@ -137,7 +125,7 @@
               (map
                (fn [m-hyp]
                  (let [t-hyp (first (:explains m-hyp))]
-                   (new-hyp "Split" :split :split true conflicts
+                   (new-hyp "Split" :split :split false conflicts
                             (- 1.0 (:apriori m-hyp))
                             [t-hyp] [] (format "%s-%s" (:sym1 t-hyp)
                                                (:sym2 t-hyp))
@@ -161,42 +149,37 @@
                    (find-dict-words sym-string (:dictionary-regex kb)))
         word-hyps
         (prof :word-hyps
-              (map (fn [t-hyps]
-                     (let [word (apply str (map :sym1 t-hyps))
-                           pos-seq (map :trans-pos t-hyps)
-                           similar-words (map #(apply str (map :sym1 %))
-                                              (filter #(and (>= (:trans-pos (first t-hyps))
-                                                                (:trans-pos (first %)))
-                                                            (<= (:trans-pos (last t-hyps))
-                                                                (:trans-pos (last %))))
-                                                      words))
-                           similar-sum (reduce + (map (fn [w] (get (:unigram-model kb) w))
-                                                      similar-words))]
-                       (new-hyp "Word" :word :word false conflicts
-                                (/ (double (get (:unigram-model kb) word))
-                                   (double similar-sum))
-                                ;; a word explains the internal merge hyps
-                                ;; and the left/right split hyps (there may
-                                ;; be no left or right split hyp if this word
-                                ;; is at the start/end of the sentence)
-                                (let [m-hyps (filter #(and (< (:trans-pos %)
-                                                              (last pos-seq))
-                                                           (>= (:trans-pos %)
-                                                               (first pos-seq)))
-                                                     (sort-by :trans-pos merge-hyps))]
-                                  (concat m-hyps
-                                          (filter #(or (= (dec (first pos-seq))
-                                                          (:trans-pos %))
-                                                       (= (last pos-seq)
-                                                          (:trans-pos %)))
-                                                  split-hyps)))
-                                [] ;; no boosting
-                                word (format "Word: %s, pos-seq: %s\nsimilar: %s" word
-                                             (str/join ", " (map str pos-seq))
-                                             (str/join ", " similar-words))
-                                {:pos-seq pos-seq :word word
-                                 :similar-words similar-words :similar-sum similar-sum})))
-                   (sort-by (comp :pos first) words)))
+              (filter
+               #(not-empty (:explains %))
+               (map (fn [t-hyps]
+                      (let [word (apply str (map :sym1 t-hyps))
+                            pos-seq (map :trans-pos t-hyps)
+                            similar-words (map #(apply str (map :sym1 %))
+                                               (filter #(and (>= (:trans-pos (first t-hyps))
+                                                                 (:trans-pos (first %)))
+                                                             (<= (:trans-pos (last t-hyps))
+                                                                 (:trans-pos (last %))))
+                                                       words))
+                            similar-sum (reduce + (map (fn [w] (get (:unigram-model kb) w))
+                                                       similar-words))
+                            m-hyps (filter #(and (< (:trans-pos %) (last pos-seq))
+                                                 (> (:trans-pos %) (first pos-seq)))
+                                           merge-hyps)
+                            s-hyps (filter #(or (= (dec (first pos-seq)) (:trans-pos %))
+                                                (= (last pos-seq) (:trans-pos %)))
+                                           split-hyps)]
+                        (comment )
+                        (new-hyp "Word" :word :word false conflicts
+                                 (apply min (/ (double (get (:unigram-model kb) word))
+                                               (double similar-sum))
+                                        (map :apriori (concat m-hyps s-hyps)))
+                                 (rest (butlast t-hyps)) [] ;; no boosting
+                                 word (format "Word: %s, pos-seq: %s\nsimilar: %s" word
+                                              (str/join ", " (map str pos-seq))
+                                              (str/join ", " similar-words))
+                                 {:pos-seq pos-seq :word word
+                                  :similar-words similar-words :similar-sum similar-sum})))
+                    (sort-by (comp :pos first) words))))
         bigram-word-hyps
         (when (hyp-types "biwords")
           (map (fn [[wh1 wh2]]
@@ -213,6 +196,9 @@
                              (= (inc (last (:pos-seq (first %))))
                                 (first (:pos-seq (second %)))))
                        (partition 2 1 (sort-by (comp first :pos-seq) word-hyps)))))]
-    (concat merge-hyps split-hyps
+    (concat (if (hyp-types "words")
+              (filter (fn [h] (not-any? (set (:explains h)) (mapcat :explains word-hyps)))
+                      (concat merge-hyps split-hyps))
+              (concat merge-hyps split-hyps))
             (if (hyp-types "words") word-hyps [])
             (if (hyp-types "biwords") bigram-word-hyps []))))
