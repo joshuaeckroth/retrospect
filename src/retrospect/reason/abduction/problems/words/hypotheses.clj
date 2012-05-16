@@ -170,7 +170,7 @@
                                            split-hyps)]
                         (comment )
                         (new-hyp "Word" :word :word false conflicts
-                                 (apply min (/ (double (get (:unigram-model kb) word))
+                                 (apply max (/ (double (get (:unigram-model kb) word))
                                                (double similar-sum))
                                         (map :apriori (concat m-hyps s-hyps)))
                                  (rest (butlast t-hyps)) [] ;; no boosting
