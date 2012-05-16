@@ -175,11 +175,21 @@
                        (new-hyp "Word" :word :word false conflicts
                                 (/ (double (get (:unigram-model kb) word))
                                    (double similar-sum))
-                                (filter #(or (= (dec (first pos-seq))
-                                                (:trans-pos %))
-                                             (= (last pos-seq)
-                                                (:trans-pos %)))
-                                        split-hyps)
+                                ;; a word explains the internal merge hyps
+                                ;; and the left/right split hyps (there may
+                                ;; be no left or right split hyp if this word
+                                ;; is at the start/end of the sentence)
+                                (let [m-hyps (filter #(and (< (:trans-pos %)
+                                                              (last pos-seq))
+                                                           (>= (:trans-pos %)
+                                                               (first pos-seq)))
+                                                     (sort-by :trans-pos merge-hyps))]
+                                  (concat m-hyps
+                                          (filter #(or (= (dec (first pos-seq))
+                                                          (:trans-pos %))
+                                                       (= (last pos-seq)
+                                                          (:trans-pos %)))
+                                                  split-hyps)))
                                 [] ;; no boosting
                                 word (format "Word: %s, pos-seq: %s\nsimilar: %s" word
                                              (str/join ", " (map str pos-seq))

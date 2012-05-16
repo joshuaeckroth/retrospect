@@ -98,12 +98,18 @@
    fails, comparison is done by the :id's (to keep it deterministic)."
   [workspace hyp1 hyp2]
   (prof :compar-by-conf-expl
-        (let [conf (- (compare (hyp-conf workspace hyp1)
-                               (hyp-conf workspace hyp2)))
+        (let [conf-diff (- (hyp-conf workspace hyp1)
+                           (hyp-conf workspace hyp2))
               expl (- (compare (count (explains hyp1))
                                (count (explains hyp2))))
+              explainers (- (compare (count (get-in workspace [:active-explainers hyp1] []))
+                                     (count (get-in workspace [:active-explainers hyp2] []))))
               id (compare (:id hyp1) (:id hyp2))]
-          (if (= 0 conf) (if (= 0 expl) id expl) conf))))
+          (if (< (Math/abs conf-diff) (/ (:ConfThreshold params) 100))
+            (if (= 0 expl)
+              (if (= 0 explainers) id explainers)
+              expl)
+            (- (compare conf-diff 0))))))
 
 (defn compare-by-delta
   [workspace hyps1 hyps2]

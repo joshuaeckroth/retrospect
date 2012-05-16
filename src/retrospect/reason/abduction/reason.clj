@@ -31,6 +31,7 @@
                         (merge {:Knowledge [80 [80]]
                                 :BelievedKnowledge [80 [80]]
                                 :Threshold [0 [0]]
+                                :ConfThreshold [0 [0]]
                                 :DoubtThreshold [1000 [1000]]
                                 :UseScores [true [true]]
                                 :ContrastPreference ["delta" ["delta" "arbitrary"]]
