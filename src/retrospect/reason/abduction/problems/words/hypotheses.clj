@@ -167,12 +167,12 @@
                                            merge-hyps)
                             s-hyps (filter #(or (= (dec (first pos-seq)) (:trans-pos %))
                                                 (= (last pos-seq) (:trans-pos %)))
-                                           split-hyps)]
-                        (comment )
+                                           split-hyps)
+                            scores (conj (map :apriori (concat m-hyps s-hyps))
+                                         (/ (double (get (:unigram-model kb) word))
+                                            (double similar-sum)))]
                         (new-hyp "Word" :word :word false conflicts
-                                 (apply max (/ (double (get (:unigram-model kb) word))
-                                               (double similar-sum))
-                                        (map :apriori (concat m-hyps s-hyps)))
+                                 (/ (reduce + scores) (count scores))
                                  (rest (butlast t-hyps)) [] ;; no boosting
                                  word (format "Word: %s, pos-seq: %s\nsimilar: %s" word
                                               (str/join ", " (map str pos-seq))
