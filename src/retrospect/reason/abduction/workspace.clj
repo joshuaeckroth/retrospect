@@ -102,10 +102,10 @@
                            (hyp-conf workspace hyp2))
               expl (- (compare (count (explains hyp1))
                                (count (explains hyp2))))
-              explainers (- (compare (count (get-in workspace [:active-explainers hyp1] []))
-                                     (count (get-in workspace [:active-explainers hyp2] []))))
+              explainers (- (compare (count (get-in workspace [:explainers hyp1] []))
+                                     (count (get-in workspace [:explainers hyp2] []))))
               id (compare (:id hyp1) (:id hyp2))]
-          (if (< (Math/abs conf-diff) (/ (:ConfThreshold params) 100))
+          (if (<= (Math/abs conf-diff) (/ (:ConfThreshold params) 100))
             (if (= 0 expl)
               (if (= 0 explainers) id explainers)
               expl)
