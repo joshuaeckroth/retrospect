@@ -172,8 +172,8 @@
                                          (/ (double (get (:unigram-model kb) word))
                                             (double similar-sum)))]
                         (new-hyp "Word" :word :word false conflicts
-                                 (/ (reduce + scores) (count scores))
-                                 (rest (butlast t-hyps)) [] ;; no boosting
+                                 (double (get (:unigram-model kb) word))
+                                 t-hyps [] ;; no boosting
                                  word (format "Word: %s, pos-seq: %s\nsimilar: %s" word
                                               (str/join ", " (map str pos-seq))
                                               (str/join ", " similar-words))
