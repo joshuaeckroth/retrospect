@@ -196,9 +196,9 @@
                              (= (inc (last (:pos-seq (first %))))
                                 (first (:pos-seq (second %)))))
                        (partition 2 1 (sort-by (comp first :pos-seq) word-hyps)))))]
-    (concat (if (hyp-types "words")
-              (filter (fn [h] (not-any? (set (:explains h)) (mapcat :explains word-hyps)))
-                      (concat merge-hyps split-hyps))
-              (concat merge-hyps split-hyps))
+    (comment (filter (fn [h] (not-any? (set (:explains h)) (mapcat :explains word-hyps)))
+                     (concat merge-hyps split-hyps)))
+    (concat (if (hyp-types "words") []
+                (concat merge-hyps split-hyps))
             (if (hyp-types "words") word-hyps [])
             (if (hyp-types "biwords") bigram-word-hyps []))))
