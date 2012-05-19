@@ -41,6 +41,22 @@
          end2 (last (:pos-seq hyp2))]
      (not (or (< end1 start2) (< end2 start1))))
    
+   (and (= :word (:type hyp1)) (= :split (:type hyp2)))
+   (and (>= (:trans-pos hyp2) (first (:pos-seq hyp1)))
+        (<= (:trans-pos hyp2) (dec (last (:pos-seq hyp1)))))
+
+   (and (= :word (:type hyp2)) (= :split (:type hyp1)))
+   (and (>= (:trans-pos hyp1) (first (:pos-seq hyp2)))
+        (<= (:trans-pos hyp1) (dec (last (:pos-seq hyp2)))))
+   
+   (and (= :word (:type hyp2)) (= :merge (:type hyp1)))
+   (or (= (:trans-pos hyp1) (dec (first (:pos-seq hyp2))))
+       (= (:trans-pos hyp1) (last (:pos-seq hyp2))))
+
+   (and (= :word (:type hyp1)) (= :merge (:type hyp2)))
+   (or (= (:trans-pos hyp2) (dec (first (:pos-seq hyp1))))
+       (= (:trans-pos hyp2) (last (:pos-seq hyp1))))
+
    (or (and (= :split (:type hyp1)) (= :merge (:type hyp2)))
        (and (= :merge (:type hyp1)) (= :split (:type hyp2))))
    (= (:trans-pos hyp1) (:trans-pos hyp2))
@@ -161,25 +177,18 @@
                                                                  (:trans-pos (last %))))
                                                        words))
                             similar-sum (reduce + (map (fn [w] (get (:unigram-model kb) w))
-                                                       similar-words))
-                            m-hyps (filter #(and (< (:trans-pos %) (last pos-seq))
-                                                 (> (:trans-pos %) (first pos-seq)))
-                                           merge-hyps)
-                            s-hyps (filter #(or (= (dec (first pos-seq)) (:trans-pos %))
-                                                (= (last pos-seq) (:trans-pos %)))
-                                           split-hyps)
-                            scores (conj (map :apriori (concat m-hyps s-hyps))
-                                         (/ (double (get (:unigram-model kb) word))
-                                            (double similar-sum)))]
+                                                       similar-words))]
                         (new-hyp "Word" :word :word false conflicts
-                                 (- 1.0 (/ 1.0 (double (get (:unigram-model kb) word))))
+                                 (/ (double (get (:unigram-model kb) word))
+                                    (double similar-sum))
                                  t-hyps [] ;; no boosting
                                  word (format "Word: %s, pos-seq: %s\nsimilar: %s" word
                                               (str/join ", " (map str pos-seq))
                                               (str/join ", " similar-words))
                                  {:pos-seq pos-seq :word word
-                                  :similar-words similar-words :similar-sum similar-sum})))
-                    (sort-by (comp :pos first) words))))
+                                  :similar-words similar-words
+                                  :similar-sum similar-sum})))
+                    (sort-by (comp :trans-pos first) words))))
         bigram-word-hyps
         (when (hyp-types "biwords")
           (map (fn [[wh1 wh2]]

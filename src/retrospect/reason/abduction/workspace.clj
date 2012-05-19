@@ -98,8 +98,8 @@
    fails, comparison is done by the :id's (to keep it deterministic)."
   [workspace hyp1 hyp2]
   (prof :compar-by-conf-expl
-        (let [conf-diff (- (hyp-conf workspace hyp1)
-                           (hyp-conf workspace hyp2))
+        (let [conf-diff (double (- (hyp-conf workspace hyp1)
+                                   (hyp-conf workspace hyp2)))
               expl (- (compare (count (explains hyp1))
                                (count (explains hyp2))))
               explainers (- (compare (count (get-in workspace [:explainers hyp1] []))
@@ -459,12 +459,10 @@
 
 (defn reset-workspace
   [workspace]
-  (let [added (:added workspace)
-        forced (:forced workspace)]
-    (reduce (fn [ws h] (if (forced h) (add-fact ws h) (add ws h)))
-            (assoc empty-workspace :initial-kb (:initial-kb workspace)
-                   :oracle (:oracle workspace))
-            added)))
+  (reduce (fn [ws h] (if ((:forced workspace) h) (add-fact ws h) (add ws h)))
+          (assoc empty-workspace :initial-kb (:initial-kb workspace)
+                 :oracle (:oracle workspace))
+          (concat (:forced workspace) (get (:hypotheses workspace) :kb))))
 
 (defn explain
   [workspace]

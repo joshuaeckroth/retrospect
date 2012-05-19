@@ -9,9 +9,10 @@
   [est]
   (let [workspace (:workspace (cur-ep est))]
     ;; TODO: implement other conditions
-    (or (not-empty (:no-explainers (:log workspace)))
-        (> 0.90 (:coverage workspace))
-        (< 0.10 (:doubt workspace)))))
+    (comment (or (not-empty (:no-explainers (:log workspace)))
+                 (> 0.90 (:coverage workspace))
+                 (< 0.10 (:doubt workspace))))
+    true))
 
 (comment (let [comp-cov (- (compare (:coverage ws1) (:coverage ws2)))]
            (if (not= 0 comp-cov) comp-cov

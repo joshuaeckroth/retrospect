@@ -3,7 +3,7 @@
   (:use [clojure.string :only [split]])
   (:require [clojure.set :as set])
   (:use [retrospect.profile :only [profile]])
-  (:use [retrospect.reason.abduction.workspace :only [add accept find-conflicts]])
+  (:use [retrospect.reason.abduction.workspace :only [add accept find-conflicts hyp-conf]])
   (:use [retrospect.epistemicstates :only
          [cur-ep new-child-ep new-branch-ep init-est ep-state-depth
           update-est nth-previous-ep print-est goto-ep
@@ -25,22 +25,27 @@
                  ((:reset-workspace-fn @reason) (:workspace new-ep)) time-prev time-now sensors)
         new-ws (if (not= "Words" (:name @problem)) new-ws2
                    (reduce (fn [ws hyp]
-                             (let [conflicts (find-conflicts ws hyp)]
-                               (-> (reduce (fn [w h] (assoc-in w [:accepted (:type h)]
-                                                               (filter #(not= h %)
-                                                                       (get-in w [:accepted (:type h)]))))
-                                           ws conflicts)
-                                   (add hyp)
-                                   (accept hyp [] [] nil false))))
+                             (let [conflicts (filter (fn [h] (some #(= % h)
+                                                                   (get-in ws [:accepted (:type h)]))) (find-conflicts ws hyp))]
+                               (if (empty? conflicts) ws
+                                   (do
+                                     (comment (println hyp (:trans-pos hyp) (hyp-conf new-ws2 hyp) ((:true-hyp?-fn (:abduction @problem)) truedata time-now hyp) (interleave conflicts (map :pos-seq conflicts) (map #(hyp-conf ws %) conflicts) (map #((:true-hyp?-fn (:abduction @problem)) truedata time-now %) conflicts))))
+                                     (-> (reduce (fn [w h] (assoc-in w [:accepted (:type h)]
+                                                                     (filter #(not= h %)
+                                                                             (get-in w [:accepted (:type h)]))))
+                                                 ws conflicts)
+                                         (add hyp)
+                                         (accept hyp [] nil false))))))
                            (:workspace (cur-ep est))
-                           (set/difference (set (apply concat (vals (:accepted new-ws2))))
-                                           (set (apply concat (vals (:accepted (:workspace (cur-ep est)))))))))
+                           (filter #(and (= :merge (:type %)) (> (hyp-conf new-ws2 %) 0.95))
+                                   (set/difference (set (apply concat (vals (:accepted new-ws2))))
+                                                   (set (apply concat (vals (:accepted (:workspace (cur-ep est))))))))))
         new-expl-est (update-est new-est (assoc new-ep :workspace new-ws))]
-    (when (= "Words" (:name @problem))
-      (println (set/difference (set (apply concat (vals (:accepted new-ws2))))
-                               (set (apply concat (vals (:accepted (:workspace (cur-ep est))))))))
+    (comment
+      (println (select-keys ((:evaluate-fn @reason) truedata est) [:FScore :OOVRecall]))
       (println "after learning")
-      ((:evaluate-fn @reason) truedata (update-est new-est (assoc new-ep :workspace new-ws2))))
+      (println (select-keys ((:evaluate-fn @reason) truedata new-expl-est) [:FScore :OOVRecall]))
+      (println "done"))
     (if (> 0 ((:workspace-compare-fn @reason) new-ws2 (:workspace (cur-ep est))))
       new-expl-est
       (goto-ep new-expl-est (:id (cur-ep est))))))
@@ -69,11 +74,9 @@
 
 (defn meta-learn
   [truedata est time-prev time-now sensors]
-  (println "\n\nbefore learning")
-  ((:evaluate-fn @reason) truedata est)
   (let [new-est (new-branch-ep est (cur-ep est))]
     ;; activate learning
-    (binding [params (assoc params :HypTypes "merge-noexp,words" :Threshold (:LearnThreshold params))]
+    (binding [params (assoc params :HypTypes "")]
       (meta-apply-and-evaluate truedata est new-est time-prev time-now nil))))
 
 (defn metareason
