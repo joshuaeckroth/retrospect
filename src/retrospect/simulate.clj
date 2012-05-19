@@ -37,9 +37,16 @@
                                          (add hyp)
                                          (accept hyp [] nil false))))))
                            (:workspace (cur-ep est))
-                           (filter #(and (= :merge (:type %)) (> (hyp-conf new-ws2 %) 0.95))
-                                   (set/difference (set (apply concat (vals (:accepted new-ws2))))
-                                                   (set (apply concat (vals (:accepted (:workspace (cur-ep est))))))))))
+                           (filter #(and (cond (= "split" (:MetaHyps params))
+                                               (= :split (:type %))
+                                               (= "merge" (:MetaHyps params))
+                                               (= :merge (:type %))
+                                               :else true)
+                                         (>= (hyp-conf new-ws2 %)
+                                             (/ (double (:MetaThreshold params)) 100.0)))
+                                   (set/difference
+                                    (set (apply concat (vals (:accepted new-ws2))))
+                                    (set (apply concat (vals (:accepted (:workspace (cur-ep est))))))))))
         new-expl-est (update-est new-est (assoc new-ep :workspace new-ws))]
     (comment
       (println (select-keys ((:evaluate-fn @reason) truedata est) [:FScore :OOVRecall]))
