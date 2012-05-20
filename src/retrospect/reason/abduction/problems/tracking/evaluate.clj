@@ -65,7 +65,8 @@
               not-acc-movs (map :mov not-accepted)
               [tp tn fp fn] (tp-tn-fp-fn true-movs acc-movs not-acc-movs)]
           ;; http://en.wikipedia.org/wiki/Receiver_operating_characteristic
-          {:TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
+          {:TP tp :TN tn :FP fp :FN fn
+           :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
            :FPR (if (= 0 (+ fp tn)) 1.0 (/ (double fp) (double (+ fp tn))))
            :F1 (if (= 0 (+ tp fp fn)) 1.0 (/ (double (* 2.0 tp))
                                              (double (+ (* 2.0 tp) fp fn))))})))
@@ -73,4 +74,4 @@
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
-                    [:TPR :FPR :F1])))
+                    [:TP :TN :FP :FN :TPR :FPR :F1])))
