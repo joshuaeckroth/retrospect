@@ -102,7 +102,10 @@
          dict-regex (reduce (fn [m w]
                               (assoc m w (re-pattern (format "(%s)" (Pattern/quote w)))))
                             {} training-dict)]
-     {:training {:sentences training :dictionary training-dict :symbols training-symbols
+     {:training {:sentences training
+                 :dictionary training-dict
+                 :orig-dictionary training-dict
+                 :symbols training-symbols
                  :in-word-bigrams in-word-bigrams :wtc wtc
                  :dictionary-regex dict-regex
                  :unigram-model unigram-model
