@@ -210,4 +210,5 @@
     (concat (if (hyp-types "words") []
                 (concat merge-hyps split-hyps))
             (if (hyp-types "words") word-hyps [])
+            (if (hyp-types "goodwords") (filter #(>= (:apriori %) 0.95) word-hyps) [])
             (if (hyp-types "biwords") bigram-word-hyps []))))
