@@ -35,6 +35,43 @@
                            (map #(concat [w] %) rest-inner-words)))
                  ws)))))
 
+(defn add-to-in-word-bigram
+  [iwb sent]
+  (reduce
+   (fn [m w]
+     (reduce (fn [m2 [c1 c2]]
+               (let [p (get m2 [c1 c2] 0)
+                     p-in (get m2 [:in c2] 0)
+                     p-out (get m2 [c1 :out] 0)]
+                 (-> m2
+                     (assoc [c1 c2] (inc p))
+                     (assoc [:in c2] (inc p-in))
+                     (assoc [c1 :out] (inc p-out)))))
+             m (conj (partition 2 1 (seq w))
+                     ["start" (first w)]
+                     [(last w) "end"])))
+   iwb sent))
+
+(defn add-to-wtc
+  [wtc sent]
+  (reduce (fn [m [w1 w2]]
+            (let [p (get m [(last w1) (first w2)] 0)]
+              (assoc m [(last w1) (first w2)] (inc p))))
+          wtc (partition 2 1 sent)))
+
+(defn add-to-unigram-model
+  [ugm sent]
+  (reduce (fn [m w] (let [p (get m w 0)]
+                      (assoc m w (inc p))))
+          ugm sent))
+
+(defn add-to-bigram-model
+  [bgm sent]
+  (reduce (fn [m [w1 w2]]
+            (let [p (get m [w1 w2] 0)]
+              (assoc m [w1 w2] (inc p))))
+          bgm (partition 2 1 sent)))
+
 (defn generate-truedata
   []
   (profile
@@ -57,37 +94,10 @@
          [in-word-bigrams wtc unigram-model bigram-model]
          (prof :iwb-wtc-ugm
                (reduce (fn [[iwb wtc ugm bgm] sent]
-                         (let [iwb2
-                               (reduce
-                                (fn [m w]
-                                  (reduce (fn [m2 [c1 c2]]
-                                            (let [p (get m2 [c1 c2] 0)
-                                                  p-in (get m2 [:in c2] 0)
-                                                  p-out (get m2 [c1 :out] 0)]
-                                              (-> m2
-                                                  (assoc [c1 c2] (inc p))
-                                                  (assoc [:in c2] (inc p-in))
-                                                  (assoc [c1 :out] (inc p-out)))))
-                                          m (conj (partition 2 1 (seq w))
-                                                  ["start" (first w)]
-                                                  [(last w) "end"])))
-                                iwb sent)
-                               wtc2
-                               (reduce (fn [m [w1 w2]]
-                                         (let [p (get m [(last w1) (first w2)] 0)]
-                                           (assoc m [(last w1) (first w2)] (inc p))))
-                                       wtc (partition 2 1 sent))
-                               ugm2
-                               (reduce (fn [m w]
-                                         (let [p (get m w 0)]
-                                           (assoc m w (inc p))))
-                                       ugm sent)
-                               bgm2
-                               (reduce (fn [m [w1 w2]]
-                                         (let [p (get m [w1 w2] 0)]
-                                           (assoc m [w1 w2] (inc p))))
-                                       bgm (partition 2 1 sent))]
-                           [iwb2 wtc2 ugm2 bgm2]))
+                         [(add-to-in-word-bigram iwb sent)
+                          (add-to-wtc wtc sent)
+                          (add-to-unigram-model ugm sent)
+                          (add-to-bigram-model bgm sent)])
                        [{} {} {} {}] training))
          dict-regex (reduce (fn [m w]
                               (assoc m w (re-pattern (format "(%s)" (Pattern/quote w)))))

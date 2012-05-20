@@ -4,7 +4,7 @@
   (:use [retrospect.problems.words.truedata :only [generate-truedata]])
   (:use [retrospect.problems.words.sensors :only [generate-sensors perturb]])
   (:use [retrospect.reason.abduction.problems.words.hypotheses :only
-         [hypothesize make-sensor-hyps generate-kb]])
+         [hypothesize make-sensor-hyps generate-kb update-kb]])
   (:use [retrospect.problems.words.player :only
          [player-get-stats-panel player-update-stats player-get-truedata-log
           player-get-problem-log player-setup-diagram player-update-diagram]])
@@ -27,6 +27,7 @@
                :reset-fn (constantly nil)
                :evaluate-fn evaluate
                :evaluate-comp-fn evaluate-comp
+               :update-kb-fn update-kb
                :stats-fn stats
                :true-hyp?-fn true-hyp?
                :hyps-equal?-fn hyps-equal?

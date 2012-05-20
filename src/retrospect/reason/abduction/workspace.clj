@@ -464,6 +464,18 @@
                  :oracle (:oracle workspace))
           (concat (:forced workspace) (get (:hypotheses workspace) :kb))))
 
+(defn update-kb
+  [workspace]
+  (if-not (:UpdateKB params) workspace
+          (let [old-kb-hyps (get (:hypotheses workspace) :kb)
+                new-kb-hyps ((:update-kb-fn (:abduction @problem))
+                             (:accepted workspace)
+                             (:unexplained (:log workspace))
+                             (:hypotheses workspace))]
+            ;; here is the "belief revision" in all its glory
+            (-> workspace (assoc :initial-kb new-kb-hyps)
+                (assoc-in [:accepted :kb] new-kb-hyps)))))
+
 (defn explain
   [workspace]
   (prof :explain
@@ -483,7 +495,7 @@
                                (find-all-explainers ws))]
               (if (empty? explainers)
                 (do (log "No explainers. Done.")
-                    (log-final ws []))
+                    (update-kb (log-final ws [])))
                 (let [ws-confs (if (= "none" (:ConfAdjustment params)) ws
                                    (update-confidences ws explainers))
                       explainers-sorted (if (and (= "none" (:ConfAdjustment params))
@@ -495,7 +507,7 @@
                                  (/ (:Threshold params) 100.0))]
                   (if-not best
                     (do (log "No best. Done.")
-                        (log-final ws-confs explainers-sorted))
+                        (update-kb (log-final ws-confs explainers-sorted)))
                     (do (log "Best is" (:id best) (hyp-conf ws-confs best))
                         (let [ws-accepted
                               (let [ws-logged (-> ws-confs
@@ -505,7 +517,7 @@
                           (if (>= (double (:DoubtThreshold params)) (measure-doubt ws-accepted))
                             (recur (assoc ws-accepted :prior-explainers explainers-sorted))
                             (do (log "Doubt threshold would be surpassed by accepting best. Done.")
-                                (log-final ws-confs explainers-sorted)))))))))))))
+                                (update-kb (log-final ws-confs explainers-sorted))))))))))))))
 
 (defn add-sensor-hyps
   [workspace time-prev time-now sensors]

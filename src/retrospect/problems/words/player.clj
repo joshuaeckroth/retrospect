@@ -62,7 +62,8 @@
   (let [ws (:workspace (cur-ep (:est @or-state)))
         accepted (:accepted ws)
         unexplained (:unexplained (:log ws))]
-    (str/join " __ " (get-words @truedata @time-now accepted unexplained))))
+    (str/join " __ " (get-words (get (:test @truedata) (dec @time-now))
+                                accepted unexplained))))
 
 (defn player-setup-diagram
   [])

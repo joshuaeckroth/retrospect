@@ -7,7 +7,7 @@
   (:use [retrospect.problems.tracking.sensors :only
          [generate-sensors perturb]])
   (:use [retrospect.reason.abduction.problems.tracking.hypotheses :only
-         [generate-kb make-sensor-hyps hypothesize]])
+         [generate-kb make-sensor-hyps hypothesize update-kb]])
   (:use [retrospect.problems.tracking.player :only
          [player-get-stats-panel player-update-stats player-get-truedata-log
           player-get-problem-log player-setup-diagram player-update-diagram]])
@@ -32,6 +32,7 @@
                :hypothesize-fn hypothesize
                :evaluate-fn evaluate
                :evaluate-comp-fn evaluate-comp
+               :update-kb-fn update-kb
                :stats-fn (constantly nil)
                :true-hyp?-fn true-hyp?
                :learn-fn (constantly [])

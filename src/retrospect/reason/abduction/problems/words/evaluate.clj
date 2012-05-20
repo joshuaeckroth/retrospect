@@ -110,9 +110,8 @@
        (catch Exception e (do (log e) [-1.0 -1.0 -1.0 -1.0 -1.0 -1.0 -1.0]))))
 
 (defn get-words
-  [truedata i accepted unexplained]
+  [ambiguous accepted unexplained]
   (let [kb (first (get accepted :kb))
-        ambiguous (get (:test truedata) (dec i))
         cuts (sort (set (concat (map :trans-pos (get accepted :split))
                                 (map (comp dec first :pos-seq) (get accepted :word))
                                 (map (comp last :pos-seq) (get accepted :word))
@@ -137,7 +136,7 @@
   (if (or (not @batch) (= (:Steps params) (:time (cur-ep est))))
     (let [eps (rest (ep-path est))
           time-now (:time (last eps))
-          believed (map (fn [ep] (get-words truedata (:time ep)
+          believed (map (fn [ep] (get-words (get (:test truedata) (dec (:time ep)))
                                             (:accepted (:workspace ep))
                                             (:unexplained (:log (:workspace ep)))))
                         eps)

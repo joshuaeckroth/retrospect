@@ -160,3 +160,7 @@
                                             (new-mov-hyps h evidence apriori acc-mov-hyps))
                                           nearby)]
                      (filter-valid-movs mov-hyps acc-mov-hyps)))))))
+
+(defn update-kb
+  [accepted unexplained hypotheses]
+  (get accepted :kb))

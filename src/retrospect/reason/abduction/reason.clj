@@ -29,7 +29,7 @@
    :evaluate-comp-fn evaluate-comp
    :default-params-fn (fn []
                         (merge {:Knowledge [80 [80]]
-                                :BelievedKnowledge [80 [80]]
+                                :UpdateKB [true [true false]]
                                 :Threshold [0 [0]]
                                 :ConfThreshold [0 [0]]
                                 :DoubtThreshold [1000 [1000]]

@@ -1,11 +1,16 @@
 (ns retrospect.reason.abduction.problems.words.hypotheses
   (:import (java.util.regex Pattern))
   (:require [clojure.string :as str])
+  (:require [clojure.set :as set])
   (:use [loom.graph :only [has-edge? weight edges neighbors incoming]])
   (:use [retrospect.profile :only [prof]])
   (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.reason.abduction.workspace :only [new-hyp]])
-  (:use [retrospect.reason.abduction.problems.words.evaluate :only [hyps-equal?]])
+  (:use [retrospect.reason.abduction.problems.words.evaluate :only
+         [hyps-equal? get-words]])
+  (:use [retrospect.problems.words.truedata :only
+         [add-to-in-word-bigram add-to-wtc
+          add-to-unigram-model add-to-bigram-model]])
   (:use [retrospect.logging])
   (:use [retrospect.state]))
 
@@ -212,3 +217,18 @@
             (if (hyp-types "words") word-hyps [])
             (if (hyp-types "goodwords") (filter #(>= (:apriori %) 0.95) word-hyps) [])
             (if (hyp-types "biwords") bigram-word-hyps []))))
+
+(defn update-kb
+  [accepted unexplained hypotheses]
+  (let [transition-hyps (sort-by :trans-pos (get accepted :transition))
+        sent (get-words (apply str (map :sym1 transition-hyps))
+                        accepted unexplained)
+        old-kb (get-kb hypotheses)]
+    [(-> old-kb
+         (update-in [:sentences] conj sent)
+         (update-in [:dictionary] set/union (set sent))
+         (update-in [:symbols] set/union (set (mapcat seq sent)))
+         (update-in [:in-word-bigrams] add-to-in-word-bigram sent)
+         (update-in [:wtc] add-to-wtc sent)
+         (update-in [:unigram-model] add-to-unigram-model sent)
+         (update-in [:bigram-model] add-to-bigram-model sent))]))
