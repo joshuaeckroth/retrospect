@@ -63,7 +63,7 @@
                   {"Hypotheses"
                    (apply merge
                           (for [t (keys (:hypotheses ws))]
-                            (let [acc-hyps (set (get (:accepted ws) t))
+                            (let [acc-hyps (get (:accepted ws) t)
                                   not-acc-hyps (set/difference
                                                 (set (get (:hypotheses ws) t))
                                                 acc-hyps )
@@ -83,9 +83,9 @@
                                            (range (count (:best wslog)))))
                    "Accepted" (list-hyps (apply concat (vals (:accepted ws))))
                    "Rejected" (list-hyps (apply concat (vals (:rejected ws))))
-                   "No explainers" (list-hyps (:no-explainers wslog))
+                   "No explainers" (list-hyps (ws/find-no-explainers ws))
                    "Unexplained" (list-hyps (:unexplained wslog))
-                   "Unaccepted" (list-hyps (:unaccepted wslog))}))]
+                   "Unaccepted" (list-hyps (ws/find-unaccepted ws))}))]
     (apply sorted-map-by anc
            (mapcat (fn [ep] [(str ep) (assoc (ws-fn (:workspace ep) (:time ep)) "Log" nil)])
                    ep-states))))
@@ -107,7 +107,7 @@
     (. hyp-truefalse-label setText
        (if ((:true-hyp?-fn (:abduction @problem)) @truedata time hyp) "TF: True" "TF: False"))
     (. hyp-accepted-label setText
-       (if ((set (get (:accepted workspace) (:type hyp))) hyp) "Acc: True" "Acc: False"))
+       (if (ws/accepted? workspace hyp) "Acc: True" "Acc: False"))
     (dosync
      (alter hyp-id (constantly (:desc hyp)))
      (alter hyp-explains (constantly (str "Explains: " explains)))

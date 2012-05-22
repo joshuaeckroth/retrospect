@@ -60,7 +60,7 @@
               true-movs (get-true-movements truedata time-now)
               accepted (:movement (:accepted ws))
               not-accepted (set/difference (set (:movement (:hypotheses ws)))
-                                           (set accepted))
+                                           accepted)
               acc-movs (map :mov accepted)
               not-acc-movs (map :mov not-accepted)
               [tp tn fp fn] (tp-tn-fp-fn true-movs acc-movs not-acc-movs)]

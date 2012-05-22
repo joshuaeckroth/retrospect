@@ -11,6 +11,7 @@
   (:use [retrospect.simulate
          :only [run-simulation-step merge-default-params get-default-params init-ors]])
   (:use [retrospect.state])
+  (:use [retrospect.profile :only [profile]])
   (:use [retrospect.gui.eptree :only [ep-tree-tab update-ep-tree]])
   (:use [retrospect.gui.results :only [update-results results-tab]])
   (:use [retrospect.gui.repl :only [update-repl-tab repl-tab]])
@@ -67,10 +68,8 @@
      (alter time-prev (constantly time-p)))
     (. steplabel (setText (format "Step: %d->%d" @time-prev @time-now))))
   (let [ws (:workspace (cur-ep (:est @or-state)))]
-    (if (:coverage ws) (. coverage-label (setText (format "%.2f" (:coverage ws))))
-        (. coverage-label (setText "N/A")))
-    (if (:doubt ws) (. doubt-label (setText (format "%.2f" (:doubt ws))))
-        (. doubt-label (setText "N/A"))))
+    (. coverage-label (setText (format "%.2f" ((:calc-coverage-fn @reason) ws))))
+    (. doubt-label (setText (format "%.2f" ((:calc-doubt-fn @reason) ws)))))
   (dosync
    (alter ep-list (constantly (sort (list-ep-states (:est @or-state)))))
    (alter results (constantly (:results (cur-ep (:est @or-state))))))
@@ -115,11 +114,12 @@
         (set-seed-spinner seed)
         (set-last-id 0)
         (dosync
-         (alter truedata (constantly ((:generate-truedata-fn @problem))))
+         (alter truedata (constantly (profile ((:generate-truedata-fn @problem)))))
          (alter sensors (constantly ((:generate-sensors-fn @problem)))))))
     (dosync
      (alter results (constantly []))
-     (alter or-state (constantly (init-ors @sensors (:training @truedata)))))
+     (alter or-state (constantly (profile (init-ors @sensors (:training @truedata)
+                                                    (:meta @truedata))))))
     (update-everything)))
 
 (defn set-prepared-action
@@ -141,7 +141,7 @@
        (alter truedata (constantly td))
        (alter sensors (constantly sens))
        (alter results (constantly []))
-       (alter or-state (constantly (init-ors @sensors (:training @truedata)))))
+       (alter or-state (constantly (profile (init-ors @sensors (:training @truedata))))))
       (.setEnabled next-button true)
       (update-everything))))
 

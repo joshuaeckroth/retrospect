@@ -59,7 +59,7 @@
 (defn generate-hypgraph
   []
   (let [ep (cur-ep (:est @or-state))
-        hypgraph (:graph (:workspace ep))]
+        hypgraph (:graph (ws/update-graph (:workspace ep)))]
     (generate-graph hypgraph @canvas listener false)))
 
 (defn hypgraph-tab

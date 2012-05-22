@@ -1,8 +1,10 @@
 (ns retrospect.reason.abduction.reason
   (:use [retrospect.reason.abduction.workspace
-         :only [explain add-sensor-hyps init-workspace init-kb reset-workspace]])
+         :only [explain revise add-sensor-hyps init-workspace
+                update-hypotheses init-kb reset-workspace
+                calc-doubt calc-coverage]])
   (:use [retrospect.reason.abduction.meta
-         :only [metareasoning-activated? workspace-compare]])
+         :only [metareasoning-activated? workspace-compare meta-resolve]])
   (:use [retrospect.reason.abduction.evaluate
          :only [evaluate evaluate-comp]])
   (:use [retrospect.reason.abduction.gui.hypgraph
@@ -19,20 +21,22 @@
                                     (partial (:true-hyp?-fn (:abduction @problem))
                                              truedata time-now)))]
                   (if sensors
-                    (explain (add-sensor-hyps ws time-prev time-now sensors))
-                    (explain ws))))
+                    (explain (update-hypotheses
+                              (add-sensor-hyps ws time-prev time-now sensors)))
+                    (explain (update-hypotheses ws)))))
+   :revise-fn revise
    :stats-fn (fn [truedata ors time-now] ((:stats-fn (:abduction @problem))
                                           truedata ors time-now))
    :metareasoning-activated?-fn metareasoning-activated?
+   :meta-resolve-fn meta-resolve
    :workspace-compare-fn workspace-compare
    :evaluate-fn evaluate
    :evaluate-comp-fn evaluate-comp
+   :calc-doubt-fn calc-doubt
+   :calc-coverage-fn calc-coverage
    :default-params-fn (fn []
-                        (merge {:Knowledge [80 [80]]
-                                :UpdateKB [true [true false]]
-                                :Threshold [0 [0]]
+                        (merge {:Threshold [0 [0]]
                                 :ConfThreshold [0 [0]]
-                                :DoubtThreshold [1000 [1000]]
                                 :UseScores [true [true]]
                                 :ContrastPreference ["delta" ["delta" "arbitrary"]]
                                 :ApplyBoosting [true [true false]]

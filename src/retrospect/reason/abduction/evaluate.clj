@@ -6,7 +6,8 @@
   (:use [retrospect.epistemicstates :only [cur-ep]])
   (:use [retrospect.evaluate :only [calc-increase]])
   (:use [retrospect.reason.abduction.workspace
-         :only [get-unexp-pct get-noexp-pct hyp-conf]])
+         :only [get-unexp-pct get-noexp-pct hyp-conf calc-doubt calc-coverage
+                accepted?]])
   (:use [retrospect.state]))
 
 (defn group-hyps-by-subtype-true-false
@@ -44,8 +45,7 @@
                                  {true (map :apriori (get (get true-false t) true))
                                   false (map :apriori (get (get true-false t) false))}))
                         {} (keys true-false))
-        avg (fn [vals] (if (empty? vals) 0.0 (/ (reduce + vals) (count vals))))
-        accepted? (fn [hyp] ((set (get (:accepted workspace) (:type hyp))) hyp))]
+        avg (fn [vals] (if (empty? vals) 0.0 (/ (reduce + vals) (count vals))))]
     (reduce (fn [m t]
               (let [k (apply str (map str/capitalize (str/split (name t) #"-")))]
                 (assoc m
@@ -54,9 +54,9 @@
                   (keyword (format "FalseCount%s" k))
                   (count (get (get true-false t) false))
                   (keyword (format "TrueAcc%s" k))
-                  (count (filter accepted? (get (get true-false t) true)))
+                  (count (filter #(accepted? workspace %) (get (get true-false t) true)))
                   (keyword (format "FalseAcc%s" k))
-                  (count (filter accepted? (get (get true-false t) false)))
+                  (count (filter #(accepted? workspace %) (get (get true-false t) false)))
                   (keyword (format "AvgTrueConf%s" k))
                   (avg (get (get confs t) true))
                   (keyword (format "AvgTrueApriori%s" k))
@@ -84,8 +84,8 @@
            {:Step (:time ep)
             :UnexplainedPct (get-unexp-pct (:workspace ep))
             :NoExplainersPct (get-noexp-pct (:workspace ep))
-            :Doubt (:doubt (:workspace ep))
-            :Coverage (:coverage (:workspace ep))
+            :Doubt (calc-doubt (:workspace ep))
+            :Coverage (calc-coverage (:workspace ep))
             :ExplainCycles (:cycle workspace)
             :HypothesisCount (reduce + (map count (vals (:hypotheses workspace))))})))
 

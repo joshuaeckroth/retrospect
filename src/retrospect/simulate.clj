@@ -13,84 +13,67 @@
   (:use [retrospect.logging])
   (:use [retrospect.state]))
 
+(def in-meta-training? false)
+
 (defn evaluate
   [truedata est]
   (update-est est (update-in (cur-ep est) [:results] conj
                              ((:evaluate-fn @reason) truedata est))))
 
 (defn meta-apply-and-evaluate
-  [truedata est new-est time-prev time-now sensors]
+  [truedata est new-est meta-counts time-prev time-now sensors]
   (let [new-ep (cur-ep new-est)
-        new-ws2 ((:reason-fn @reason) (when (:Oracle params) truedata)
-                 ((:reset-workspace-fn @reason) (:workspace new-ep)) time-prev time-now sensors)
-        new-ws (if (not= "Words" (:name @problem)) new-ws2
-                   (reduce (fn [ws hyp]
-                             (let [conflicts (filter (fn [h] (some #(= % h)
-                                                                   (get-in ws [:accepted (:type h)]))) (find-conflicts ws hyp))]
-                               (if (empty? conflicts) ws
-                                   (do
-                                     (comment (println hyp (:trans-pos hyp) (hyp-conf new-ws2 hyp) ((:true-hyp?-fn (:abduction @problem)) truedata time-now hyp) (interleave conflicts (map :pos-seq conflicts) (map #(hyp-conf ws %) conflicts) (map #((:true-hyp?-fn (:abduction @problem)) truedata time-now %) conflicts))))
-                                     (-> (reduce (fn [w h] (assoc-in w [:accepted (:type h)]
-                                                                     (filter #(not= h %)
-                                                                             (get-in w [:accepted (:type h)]))))
-                                                 ws conflicts)
-                                         (add hyp)
-                                         (accept hyp [] nil false))))))
-                           (:workspace (cur-ep est))
-                           (filter #(and (cond (= "split" (:MetaHyps params))
-                                               (= :split (:type %))
-                                               (= "merge" (:MetaHyps params))
-                                               (= :merge (:type %))
-                                               :else true)
-                                         (>= (hyp-conf new-ws2 %)
-                                             (/ (double (:MetaThreshold params)) 100.0)))
-                                   (set/difference
-                                    (set (apply concat (vals (:accepted new-ws2))))
-                                    (set (apply concat (vals (:accepted (:workspace (cur-ep est))))))))))
-        new-expl-est (update-est new-est (assoc new-ep :workspace new-ws))]
-    (comment
-      (println (select-keys ((:evaluate-fn @reason) truedata est) [:FScore :OOVRecall]))
-      (println "after learning")
-      (println (select-keys ((:evaluate-fn @reason) truedata new-expl-est) [:FScore :OOVRecall]))
-      (println "done"))
-    (if (> 0 ((:workspace-compare-fn @reason) new-ws2 (:workspace (cur-ep est))))
-      new-expl-est
-      (goto-ep new-expl-est (:id (cur-ep est))))))
+        ws-old (:workspace new-ep)
+        ws-new ((:reason-fn @reason)
+                (when (:Oracle params) truedata)
+                ((:reset-workspace-fn @reason) ws-old) time-prev time-now sensors)
+        [meta-counts-updated ws-resolved]
+        ((:meta-resolve-fn @reason) ws-new ws-old
+         meta-counts truedata time-now in-meta-training?)
+        new-expl-est (update-est new-est (assoc new-ep :workspace ws-resolved))]
+    ;; return [meta-counts-updated est-final]
+    [meta-counts-updated
+     (if (> 0 ((:workspace-compare-fn @reason) ws-resolved ws-old))
+       new-expl-est
+       (goto-ep new-expl-est (:id (cur-ep est))))]))
 
 (defn meta-batch
-  [n truedata est _ time-now sensors]
+  [n truedata est _ meta-counts time-now sensors]
   (let [branch-root? (or (nil? n) (>= (ep-state-depth est) n))
         branch-ep (nth-previous-ep est n)
         new-est (new-branch-ep est branch-ep)
-        new-est-time (update-est new-est (assoc (cur-ep new-est) :time time-now
-                                                :workspace (if branch-root?
-                                                             (get-init-workspace est)
-                                                             (:workspace (cur-ep new-est)))))]
-    (meta-apply-and-evaluate truedata est new-est-time
+        new-est-time (update-est new-est
+                                 (assoc (cur-ep new-est) :time time-now
+                                        :workspace (if branch-root?
+                                                     (get-init-workspace est)
+                                                     (:workspace (cur-ep new-est)))))]
+    (meta-apply-and-evaluate truedata est new-est-time meta-counts
                              (if branch-root? 0 (:time branch-ep))
                              time-now sensors)))
 
 (defn meta-lower-threshold
-  [truedata est time-prev time-now sensors]
-  (if (= 0 (:Threshold params)) est
+  [truedata est meta-counts time-prev time-now sensors]
+  (if (= 0 (:Threshold params)) [meta-counts est]
       (let [new-est (new-branch-ep est (cur-ep est))]
         ;; drop threshold to 0
         (binding [params (assoc params :Threshold 0)]
           ;; give sensors value as nil to prevent resensing
-          (meta-apply-and-evaluate truedata est new-est time-prev time-now nil)))))
+          (meta-apply-and-evaluate truedata est new-est meta-counts
+                                   time-prev time-now nil)))))
 
-(defn meta-learn
-  [truedata est time-prev time-now sensors]
+(defn meta-params
+  [truedata est meta-counts time-prev time-now sensors]
   (let [new-est (new-branch-ep est (cur-ep est))]
     ;; activate learning
-    (binding [params (assoc params :HypTypes "")]
-      (meta-apply-and-evaluate truedata est new-est time-prev time-now nil))))
+    (binding [params (merge params (:MetaParams params))]
+      (meta-apply-and-evaluate truedata est new-est meta-counts
+                               time-prev time-now nil))))
 
 (defn metareason
   "Activate the appropriate metareasoning strategy (as given by
    the parameter :Metareasoning)"
-  [truedata est time-prev time-now sensors]
-  (if (not ((:metareasoning-activated?-fn @reason) est)) est
+  [truedata est meta-counts time-prev time-now sensors]
+  (if (not ((:metareasoning-activated?-fn @reason) est)) [meta-counts est]
       (let [m (:Metareasoning params)
             f (cond (= "batchbeg" m)
                     (partial meta-batch nil)
@@ -106,17 +89,10 @@
                     (partial meta-batch 5)
                     (= "lowerthresh" m)
                     meta-lower-threshold
-                    (= "learn" m)
-                    meta-learn
-                    :else (constantly est))]
-        (f truedata est time-prev time-now sensors))))
-
-(defn init-ors
-  [sensors training]
-  (let [est (init-est ((:init-kb-fn @reason) ((:init-workspace-fn @reason)) training))]
-    {:resources {:milliseconds 0 :meta-accepted 0 :meta-activations 0}
-     :sensors sensors
-     :est est}))
+                    (= "params" m)
+                    meta-params
+                    :else (constantly [meta-counts est]))]
+        (f truedata est meta-counts time-prev time-now sensors))))
 
 (defn update-sensors-from-to
   [time-prev time-now truedata sensors]
@@ -128,44 +104,78 @@
 
 (defn run-simulation-step
   [truedata ors player?]
-  (profile
-   (let [time-prev (:time (cur-ep (:est ors)))
-         time-now (min (:Steps params) (+ (:StepsBetween params) time-prev))
-         sensors (update-sensors-from-to time-prev time-now truedata (:sensors ors))
-         ;; start the clock
-         start-time (. System (nanoTime))
-         ors-new (update-in ors [:est] new-child-ep time-now)
-         ep (cur-ep (:est ors-new))
-         workspace (if (and (not= 0 time-prev) (:ResetEachStep params))
-                     (do (log "Resetting workspace...")
-                         ((:init-workspace-fn @reason) (:workspace ep)))
-                     (:workspace ep))
-         ep-reason (assoc ep :workspace ((:reason-fn @reason) (when (:Oracle params) truedata)
-                                         workspace time-prev time-now sensors))
-         meta-est (metareason truedata (update-est (:est ors-new) ep-reason)
-                              time-prev time-now sensors)
-         ;; stop the clock
-         ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
-         meta-est-eval (evaluate truedata meta-est)
-         ors-est (assoc ors-new :est meta-est-eval :sensors sensors)
-         ors-results (update-in ors-est [:resources :milliseconds] + ms)]
-     (when (:Stats params)
-       ((:stats-fn @reason) truedata ors-results time-now))
-     (when (not player?)
-       (.write System/out (int \.)) (.flush System/out))
-     ors-results)))
+  (let [time-prev (:time (cur-ep (:est ors)))
+        time-now (min (:Steps params) (+ (:StepsBetween params) time-prev))
+        sensors (update-sensors-from-to time-prev time-now truedata (:sensors ors))
+        ;; start the clock
+        start-time (. System (nanoTime))
+        ors-new (update-in ors [:est] new-child-ep time-now)
+        ep (cur-ep (:est ors-new))
+        workspace (if (and (not= 0 time-prev) (:ResetEachStep params))
+                    (do (log "Resetting workspace...")
+                        ((:init-workspace-fn @reason) (:workspace ep)))
+                    (:workspace ep))
+        ep-reason (assoc ep :workspace ((:reason-fn @reason)
+                                        (when (:Oracle params) truedata)
+                                        workspace time-prev time-now sensors))
+        [meta-counts meta-est] (metareason truedata (update-est (:est ors-new) ep-reason)
+                                           (:meta-counts ors-new) time-prev
+                                           time-now sensors)
+        ;; stop the clock
+        ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
+        meta-est-eval (evaluate truedata meta-est)
+        ors-est (assoc ors-new :est meta-est-eval
+                       :meta-counts meta-counts :sensors sensors)
+        ors-results (update-in ors-est [:resources :milliseconds] + ms)]
+    (when (:Stats params)
+      ((:stats-fn @reason) truedata ors-results time-now))
+    (when (not player?)
+      (.write System/out (int \.)) (.flush System/out))
+    ors-results))
 
 (defn run-simulation
   [truedata or-state]
-  (loop [ors or-state]
-    (dosync (alter retrospect.state/or-state (constantly ors)))
-    (if (>= (:time (cur-ep (:est ors))) (:Steps params))
-      (do (println "") (:results (cur-ep (:est ors))))
-      (recur (run-simulation-step truedata ors false)))))
+  (profile
+   (loop [ors or-state]
+     (dosync (alter retrospect.state/or-state (constantly ors)))
+     (if (>= (:time (cur-ep (:est ors))) (:Steps params))
+       (do (println "") ors)
+       (recur (run-simulation-step truedata ors false))))))
+
+(defn init-ors
+  [sensors training meta-truedata]
+  (profile
+   (let [meta-counts
+         (if-not (:MetaTraining params) {}
+                 (let [est (init-est
+                            ((:init-kb-fn @reason)
+                             ((:init-workspace-fn @reason)) (:training meta-truedata)))
+                       ors {:resources {:milliseconds 0
+                                        :meta-accepted 0
+                                        :meta-activations 0}
+                            :sensors sensors
+                            :est est
+                            :meta-counts {}}]
+                   (binding [in-meta-training? true
+                             params (assoc params :Steps (:MetaTrainingSteps params))]
+                     (:meta-counts (run-simulation meta-truedata ors)))))]
+     (let [est (init-est ((:init-kb-fn @reason)
+                          ((:init-workspace-fn @reason)) training))]
+       {:resources {:milliseconds 0 :meta-accepted 0 :meta-activations 0}
+        :sensors sensors
+        :est est
+        :meta-counts meta-counts}))))
 
 (def global-default-params
   {:Metareasoning ["none" ["none" "learn"]]
+   :MetaTraining [false [true false]]
+   :MetaTrainingSteps [50 [50]]
+   :MetaKnowledge [50 [50]]
+   :MetaParams [{} [{}]]
+   :Knowledge [80 [80]]
+   :UpdateKB [true [true false]]
    :Oracle ["none" ["none"]]
+   :Steps [10 [10]]
    :Stats [false [false]]})
 
 (defn get-default-params-ranges
@@ -198,25 +208,31 @@
           (binding [rgen (new-seed (:Seed control-params))
                     last-id 0
                     params control-params]
-            (let [control-truedata ((:generate-truedata-fn @problem))
+            (let [control-truedata (profile ((:generate-truedata-fn @problem)))
                   control-sensors ((:generate-sensors-fn @problem))
-                  control-ors (init-ors control-sensors (:training control-truedata))]
+                  control-ors (profile (init-ors control-sensors
+                                                 (:training control-truedata)
+                                                 (:meta control-truedata)))]
               (println "Control:" (pr-str control-params))
               (map (fn [rs] (assoc rs :control-params (pr-str control-params)
                                    :comparison-params (pr-str comparison-params)))
-                   (run-simulation control-truedata control-ors))))
+                   (let [ors-final (run-simulation control-truedata control-ors)]
+                     (:results (cur-ep (:est ors-final)))))))
           comparison-results
           (binding [rgen (new-seed (:Seed comparison-params))
                     last-id 0
                     params comparison-params]
-            (let [comparison-truedata ((:generate-truedata-fn @problem))
+            (let [comparison-truedata (profile ((:generate-truedata-fn @problem)))
                   comparison-sensors ((:generate-sensors-fn @problem))
-                  comparison-ors (init-ors comparison-sensors (:training comparison-truedata))]
+                  comparison-ors (profile (init-ors comparison-sensors
+                                                    (:training comparison-truedata)
+                                                    (:meta comparison-truedata)))]
               (println "Comparison:" (pr-str comparison-params))
               (map (fn [rs] (assoc rs
                               :control-params (pr-str control-params)
                               :comparison-params (pr-str comparison-params)))
-                   (run-simulation comparison-truedata comparison-ors))))]
+                   (let [ors-final (run-simulation comparison-truedata comparison-ors)]
+                     (:results (cur-ep (:est ors-final)))))))]
       [control-results comparison-results
        (map (fn [rs] (assoc rs
                        :control-params (pr-str (first params))
@@ -228,10 +244,11 @@
       (binding [rgen (new-seed (:Seed params))
                 last-id 0
                 params params]
-        (let [truedata ((:generate-truedata-fn @problem))
+        (let [truedata (profile ((:generate-truedata-fn @problem)))
               sensors ((:generate-sensors-fn @problem))
-              ors (init-ors sensors (:training truedata))]
+              ors (profile (init-ors sensors (:training truedata) (:meta truedata)))]
           (println "Params:" (pr-str params))
           (map (fn [rs] (assoc rs :params (pr-str params)))
-               (run-simulation truedata ors)))))))
+               (let [ors-final (run-simulation truedata ors)]
+                 (:results (cur-ep (:est ors-final))))))))))
 

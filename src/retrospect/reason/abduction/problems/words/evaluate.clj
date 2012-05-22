@@ -33,7 +33,8 @@
         (cond (= :word (:type hyp))
               (or (= [(:word hyp)] true-words)
                   (= (:words hyp) true-words))
-              (or (= :merge (:type hyp)) (= :merge-noexp (:type hyp))) (empty? true-words)
+              (= :merge (:type hyp)) (empty? true-words)
+              ;; leave if and true/false because not-empty returns the first item
               (= :split (:type hyp)) (if (not-empty true-words) true false)))))
 
 (defmulti hyps-equal? (fn [hyp1 hyp2] (:type hyp1)))
@@ -106,6 +107,8 @@
                                (second (re-find #"=== IV Recall Rate:\s+(\d\.\d\d\d)"
                                                 (:out results))))
                               (catch Exception _ 0.0))]
+           (println (format "prec: %.2f, recall: %.2f, f-score: %.2f, oov-recall: %.2f, oov-rate: %.2f"
+                            prec recall f-score oov-recall oov-rate))
            [prec recall f-score oov-rate oov-recall iv-recall]))
        (catch Exception e (do (log e) [-1.0 -1.0 -1.0 -1.0 -1.0 -1.0 -1.0]))))
 
@@ -133,7 +136,7 @@
 
 (defn evaluate
   [truedata est]
-  (if (or (not @batch) (= (:Steps params) (:time (cur-ep est))))
+  (if (or true (not @batch) (= (:Steps params) (:time (cur-ep est))))
     (let [eps (rest (ep-path est))
           time-now (:time (last eps))
           believed (map (fn [ep] (get-words (get (:test truedata) (dec (:time ep)))

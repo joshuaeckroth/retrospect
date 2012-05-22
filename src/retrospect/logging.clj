@@ -1,12 +1,13 @@
 (ns retrospect.logging
+  (:use [clojure.string :only [join]])
   (:use [retrospect.state :only [batch]])
   (:use [retrospect.profile :only [prof]]))
 
-(def reason-log "")
+(def reason-log [])
 
 (defn log
   [& objs]
   (prof :log
         #_(apply println objs)
         (when (not @batch)
-          (def reason-log (str reason-log "\n" (apply str (interpose " " (map str objs))))))))
+          (def reason-log (conj reason-log (join " " (map str objs)))))))

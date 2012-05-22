@@ -19,7 +19,9 @@
     [id children time results workspace]
   Object
   (toString [_]
-    (format "%s %d %.2f/%.2f" id time (:doubt workspace) (:coverage workspace))))
+    (format "%s %d %.2f/%.2f" id time
+            ((:calc-doubt-fn @reason) workspace)
+            ((:calc-coverage-fn @reason) workspace))))
 
 (defrecord RootNode [children workspace])
 
