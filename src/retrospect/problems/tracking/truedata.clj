@@ -36,7 +36,8 @@
     (loop [time 1
            m movements]
       (if (> time (:Steps params))
-        (do (comment (output-walk-sizes m)) {:test m}) 
+        ;; todo: fix (don't train on same stuff as test)
+        (do (comment (output-walk-sizes m)) {:test m :training {:test m}})
         (recur (inc time) (random-walks m time))))))
 
 (defn format-movements-comparative
