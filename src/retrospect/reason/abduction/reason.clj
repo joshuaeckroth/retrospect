@@ -4,7 +4,7 @@
                 update-hypotheses init-kb reset-workspace
                 calc-doubt calc-coverage]])
   (:use [retrospect.reason.abduction.meta
-         :only [metareasoning-activated? workspace-compare meta-resolve]])
+         :only [metareasoning-activated? workspace-compare]])
   (:use [retrospect.reason.abduction.evaluate
          :only [evaluate evaluate-comp]])
   (:use [retrospect.reason.abduction.gui.hypgraph
@@ -28,7 +28,6 @@
    :stats-fn (fn [truedata ors time-now] ((:stats-fn (:abduction @problem))
                                           truedata ors time-now))
    :metareasoning-activated?-fn metareasoning-activated?
-   :meta-resolve-fn meta-resolve
    :workspace-compare-fn workspace-compare
    :evaluate-fn evaluate
    :evaluate-comp-fn evaluate-comp

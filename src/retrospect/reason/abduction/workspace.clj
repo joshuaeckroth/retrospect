@@ -497,13 +497,6 @@
       (update-in [:available] disj hyp)
       (update-in [:explainers] dissoc hyp)))
 
-(defn reset-workspace
-  [workspace]
-  (reduce (fn [ws h] (if ((:forced workspace) h) (add-fact ws h) (add ws h)))
-          (assoc empty-workspace :initial-kb (:initial-kb workspace)
-                 :oracle (:oracle workspace))
-          (concat (:forced workspace) (get (:hypotheses workspace) :kb))))
-
 (defn update-kb
   [workspace]
   (if-not (:UpdateKB params) workspace
@@ -567,7 +560,7 @@
       ;; here is "belief revision" in all its glory
       (let [conflicts (find-conflicts-selected
                        workspace hyp (apply concat (vals (:accepted workspace))))]
-        (println "revising with" hyp "conflicts" conflicts)
+        #_(println "revising with" hyp "conflicts" conflicts)
         (-> (reduce (fn [ws h] (update-in ws [:accepted (:type h)] disj h))
                     workspace conflicts)
             (add hyp)
@@ -594,6 +587,13 @@
 (defn init-kb
   [workspace training]
   (add-kb workspace ((:generate-kb-fn (:abduction @problem)) training)))
+
+(defn reset-workspace
+  [workspace]
+  (reduce (fn [ws h] (if ((:forced workspace) h) (add-fact ws h) (add ws h)))
+          (add-kb (assoc empty-workspace :oracle (:oracle workspace))
+                  (:initial-kb workspace))
+          (:forced workspace)))
 
 (defn init-workspace
   ([] (when-let [f (:reset-fn (:abduction @problem))] (f))

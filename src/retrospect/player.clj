@@ -118,8 +118,7 @@
          (alter sensors (constantly ((:generate-sensors-fn @problem)))))))
     (dosync
      (alter results (constantly []))
-     (alter or-state (constantly (profile (init-ors @sensors (:training @truedata)
-                                                    (:meta @truedata))))))
+     (alter or-state (constantly (profile (init-ors @sensors (:training @truedata))))))
     (update-everything)))
 
 (defn set-prepared-action

@@ -57,26 +57,12 @@
          [training test2] (split-at (int (* (/ (:Knowledge params) 100)
                                             (count sentences)))
                                     (my-shuffle sentences))
-         [meta-training meta-test] (split-at (int (* (/ (:MetaKnowledge params) 100)
-                                                     (count training)))
-                                             training)
          test (if (:ShortFirst params) (sort-by count test2) test2)
-         [training-dict meta-training-dict meta-test-dict test-dict]
-         (map (fn [sents] (set (apply concat sents)))
-              [training meta-training meta-test test])
+         [training-dict test-dict] (map (fn [sents] (set (apply concat sents)))
+                                        [training test])
          training-symbols (set (apply concat training-dict))
-         meta-training-symbols (set (apply concat meta-training-dict))
          ;; TODO: handle noise
          ambiguous (map #(apply str %) test)
-         meta-ambiguous (map #(apply str %) meta-test)
-         [meta-iwb meta-wtc meta-ugm meta-bgm]
-         (prof :meta-iwb-wtc-ugm
-               (reduce (fn [[iwb wtc ugm bgm] sent]
-                         [(add-to-in-word-bigram iwb sent)
-                          (add-to-wtc wtc sent)
-                          (add-to-unigram-model ugm sent)
-                          (add-to-bigram-model bgm sent)])
-                       [{} {} {} {}] meta-training))
          [iwb wtc ugm bgm]
          (prof :iwb-wtc-ugm
                (reduce (fn [[iwb wtc ugm bgm] sent]
@@ -84,15 +70,11 @@
                           (add-to-wtc wtc sent)
                           (add-to-unigram-model ugm sent)
                           (add-to-bigram-model bgm sent)])
-                       [meta-iwb meta-wtc meta-ugm meta-bgm] meta-test))
+                       [{} {} {} {}] training))
          dict-regex
          (reduce (fn [m w]
                    (assoc m w (re-pattern (format "(%s)" (Pattern/quote w)))))
-                 {} training-dict)
-         meta-dict-regex
-         (reduce (fn [m w]
-                   (assoc m w (re-pattern (format "(%s)" (Pattern/quote w)))))
-                 {} meta-training-dict)]
+                 {} training-dict)]
      {:training {:sentences training
                  :dictionary training-dict
                  :orig-dictionary training-dict
@@ -102,14 +84,4 @@
                  :dictionary-regex dict-regex}
       :test (zipmap (range (count ambiguous)) ambiguous)
       :test-sentences test
-      :test-dict test-dict
-      :meta {:training {:sentences meta-training
-                        :dictionary meta-training-dict
-                        :orig-dictionary meta-training-dict
-                        :symbols meta-training-symbols
-                        :in-word-bigrams meta-iwb :wtc meta-wtc
-                        :unigram-model meta-ugm :bigram-model meta-bgm
-                        :dictionary-regex meta-dict-regex}
-             :test (zipmap (range (count meta-ambiguous)) meta-ambiguous)
-             :test-sentences meta-test
-             :test-dict meta-test-dict}})))
+      :test-dict test-dict})))
