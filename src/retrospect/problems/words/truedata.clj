@@ -1,6 +1,5 @@
 (ns retrospect.problems.words.truedata
   (:import (java.util.regex Pattern))
-  (:import (org.arabidopsis.ahocorasick AhoCorasick))
   (:require [clojure.string :as str])
   (:use [clojure.contrib.string :only [substring?]])
   (:use [loom.graph :only [weighted-digraph weight add-edges edges]])
@@ -56,6 +55,9 @@
                 [{} {} {} {}] training))
   )
 
+(comment [training test2] (split-at (int (* (/ (:Knowledge params) 100)
+                                                     (count sentences)))
+                                             (my-shuffle sentences)))
 (defn generate-truedata
   []
   (profile
@@ -66,29 +68,15 @@
                         (str/split-lines (slurp (format "%s/words/%s.utf8"
                                                         @datadir (:Dataset params))
                                                 :encoding "utf-8")))
-         [training test2] (split-at (int (* (/ (:Knowledge params) 100)
-                                            (count sentences)))
-                                    (my-shuffle sentences))
+         [training test2] [(take 1000 sentences) (take 1000 sentences)]
          test (if (:ShortFirst params) (sort-by count test2) test2)
-         [training-dict test-dict] (map (fn [sents] (set (apply concat sents)))
-                                        [training test])
-         training-symbols (set (apply concat training-dict))
-         ;; TODO: handle noise
+         test-dict (set (apply concat test))
+         training-dict (set (apply concat training))
          ambiguous (map #(apply str %) test)
-         ambiguous-training (map #(apply str %) training)
-         dict-tree (let [tree (AhoCorasick.)]
-                     (doseq [w training-dict]
-                       (.add tree (.getBytes w) w))
-                     (.prepare tree)
-                     tree)]
+         ambiguous-training (map #(apply str %) training)]
      {:training {:test (zipmap (range (count ambiguous-training)) ambiguous-training)
                  :test-sentences training
-                 :test-dict training-dict
-                 :sentences training
-                 :dictionary training-dict
-                 :orig-dictionary training-dict
-                 :symbols training-symbols
-                 :dictionary-tree dict-tree}
+                 :test-dict training-dict}
       :test (zipmap (range (count ambiguous)) ambiguous)
       :test-sentences test
       :test-dict test-dict})))

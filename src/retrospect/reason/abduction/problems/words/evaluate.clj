@@ -119,7 +119,7 @@
                         eps)
           sentences (map (fn [i] (nth (:test-sentences truedata) i)) (range time-now))
           [prec recall f-score oov-rate oov-recall iv-recall]
-          (run-scorer sentences believed (:orig-dictionary (:training truedata)))]
+          (run-scorer sentences believed (:test-dict (:training truedata)))]
       {:Prec prec
        :Recall recall
        :FScore f-score
@@ -142,19 +142,12 @@
 (defn find-oov
   [truedata time-now]
   (let [sentence (nth (:test-sentences truedata) (dec time-now))
-        oov (set (filter #(not ((:dictionary (:training truedata)) %)) sentence))]
+        oov (set (filter #(not ((:test-dict (:training truedata)) %)) sentence))]
     (reduce (fn [m w] (assoc m w (map (fn [i] (reduce + (map count (take i sentence))))
                                       (filter #(= w (nth sentence %)) (range (count sentence))))))
             {} oov)))
 
-(defn find-new-symbols
-  [truedata time-now]
-  (let [syms (apply concat (nth (:test-sentences truedata) (dec time-now)))
-        new-syms (set (filter #(not ((:symbols (:training truedata)) %)) syms))]
-    (reduce (fn [m sym] (assoc m sym (filter #(= sym (nth syms %)) (range (count syms)))))
-            {} new-syms)))
-
- (defn stats
+(defn stats
   [truedata ors time-now]
   (comment (let [ws (:workspace (cur-ep (:est ors)))
                  kb (first (get (:hypotheses ws) :kb))

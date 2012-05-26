@@ -21,7 +21,7 @@
                {:walk-count walk-count})))
 
 (defn generate-kb
-  [training]
+  []
   [(new-hyp "KB" :kb :kb false [] [] "" ""
             {:walk-dist (read-walk-dist (format "%s/tracking/walks-%d.txt"
                                                 @datadir (:MaxWalk params)))})])
@@ -161,5 +161,5 @@
           (map (fn [h] (assoc h :conflicts (map :id (filter #(conflicts? h %) hyps)))) hyps))))
 
 (defn update-kb
-  [lookup-hyp accepted unexplained hypotheses]
+  [accepted unexplained hypotheses lookup-hyp]
   (lookup-hyp (first (get accepted :kb))))

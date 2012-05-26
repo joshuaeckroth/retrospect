@@ -463,10 +463,10 @@
   [workspace]
   (if-not (:UpdateKB params) workspace
           (let [new-kb-hyps ((:update-kb-fn (:abduction @problem))
-                             (partial lookup-hyp workspace)
                              (:accepted workspace)
                              (:unexplained (:log workspace))
-                             (:hypotheses workspace))]
+                             (:hypotheses workspace)
+                             (partial lookup-hyp workspace))]
             (-> workspace (assoc :initial-kb new-kb-hyps)
                 (assoc-in [:accepted :kb] new-kb-hyps)))))
 
@@ -550,8 +550,8 @@
           workspace hyps))
 
 (defn init-kb
-  [workspace training]
-  (add-kb workspace ((:generate-kb-fn (:abduction @problem)) training)))
+  [workspace]
+  (add-kb workspace ((:generate-kb-fn (:abduction @problem)))))
 
 (defn reset-workspace
   [workspace]

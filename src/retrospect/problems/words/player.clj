@@ -6,7 +6,7 @@
   (:require [clojure.string :as str])
   (:use [retrospect.epistemicstates :only [cur-ep]])
   (:use [retrospect.reason.abduction.problems.words.evaluate :only
-         [get-words find-oov find-new-symbols]])
+         [get-words find-oov]])
   (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
   (:use [retrospect.state]))
 
@@ -48,15 +48,12 @@
   []
   (if (= @time-now 0) ""
       (let [sentence (nth (:test-sentences @truedata) (dec @time-now))]
-        (format "%s\n\n%s\n\nOOV: %s\nNew symbols: %s"
+        (format "%s\n\n%s\n\nOOV: %s"
                 (get (:test @truedata) (dec @time-now))
                 (str/join " __ " sentence)
                 (str/join ", " (map (fn [[w positions]]
                                       (format "%s (%s)" w (str/join ", " (map str positions))))
-                                    (seq (find-oov @truedata @time-now))))
-                (str/join ", " (map (fn [[sym positions]]
-                                      (format "%s (%s)" sym (str/join ", " (map str positions))))
-                                    (seq (find-new-symbols @truedata @time-now))))))))
+                                    (seq (find-oov @truedata @time-now))))))))
 
 (defn player-get-problem-log
   []

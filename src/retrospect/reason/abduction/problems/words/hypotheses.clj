@@ -1,5 +1,6 @@
 (ns retrospect.reason.abduction.problems.words.hypotheses
   (:import (java.util.regex Pattern))
+  (:import (org.arabidopsis.ahocorasick AhoCorasick))
   (:require [clojure.string :as str])
   (:require [clojure.set :as set])
   (:use [loom.graph :only [has-edge? weight edges neighbors incoming]])
@@ -15,8 +16,9 @@
   (:use [retrospect.state]))
 
 (defn generate-kb
-  [kb]
-  [(new-hyp "KB" :kb :kb false [] [] "" "" kb)])
+  []
+  [(new-hyp "KB" :kb :kb false [] [] "" ""
+            {:dict-tree (doto (AhoCorasick.) (.prepare))})])
 
 (defn make-sensor-hyps
   [sensor time-prev time-now hyps]
@@ -66,23 +68,26 @@
    
    :else false))
 
-(comment
-  (let [transition-hyps (sort-by :trans-pos (get accepted :transition))
-        sent (get-words (apply str (map :sym1 transition-hyps))
-                        accepted unexplained)
-        old-kb (get-kb hypotheses)]
-    [(-> old-kb
-         (update-in [:sentences] conj sent)
-         (update-in [:dictionary] set/union (set sent))
-         (update-in [:symbols] set/union (set (mapcat seq sent)))
-         (update-in [:in-word-bigrams] add-to-in-word-bigram sent)
-         (update-in [:wtc] add-to-wtc sent)
-         (update-in [:unigram-model] add-to-unigram-model sent)
-         (update-in [:bigram-model] add-to-bigram-model sent))]))
+(defn get-kb
+  [accepted lookup-hyp]
+  (lookup-hyp (first (get accepted :kb))))
+
+(defn update-dict-tree
+  [dict-tree words]
+  (doseq [w words]
+    (.add dict-tree (.getBytes w) w))
+  (.prepare dict-tree)
+  dict-tree)
 
 (defn update-kb
-  [lookup-hyp accepted unexplained hypotheses]
-  (lookup-hyp (first (get accepted :kb))))
+  [accepted unexplained hypotheses lookup-hyp]
+  (let [kb (get-kb accepted lookup-hyp)
+        dict-tree (:dict-tree kb)
+        transition-hyps (sort-by :trans-pos (map lookup-hyp (get accepted :transition)))
+        words (get-words lookup-hyp (apply str (map :sym1 transition-hyps))
+                         accepted unexplained)]
+    (update-dict-tree dict-tree words)
+    kb))
 
 (defn find-dict-words
   [sym-string dict-tree]
@@ -128,7 +133,7 @@
 
 (defn hypothesize
   [forced-hyps accepted lookup-hyp]
-  (let [kb (lookup-hyp (first (get accepted :kb)))
+  (let [kb (get-kb accepted lookup-hyp)
         hyp-types (set (str/split (:HypTypes params) #","))
         transition-hyps (vec (sort-by :trans-pos forced-hyps))
         merge-hyps
@@ -190,7 +195,7 @@
                merge-hyps))
         sym-string (apply str (map :sym1 transition-hyps))
         words (map (fn [[w i]] (subvec transition-hyps i (+ i (count w))))
-                   (find-dict-words sym-string (:dictionary-tree kb)))
+                   (find-dict-words sym-string (:dict-tree kb)))
         word-hyps
         (prof :word-hyps
               (filter
