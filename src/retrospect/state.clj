@@ -17,8 +17,9 @@
     (def last-id n)
     (var-set (var last-id) n)))
 
-;; need params not to be shared among threads
+;; params, training? need not to be shared among threads
 (def params nil)
+(def training? false)
 
 ;; generally only used by the player/explore mode
 (def results (ref []))

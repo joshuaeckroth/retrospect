@@ -1,6 +1,6 @@
 (ns retrospect.problems.words.problem
   (:use [retrospect.reason.abduction.problems.words.evaluate :only
-         [evaluate evaluate-comp true-hyp? hyps-equal? stats]])
+         [evaluate evaluate-comp true-hyp? stats]])
   (:use [retrospect.problems.words.truedata :only [generate-truedata]])
   (:use [retrospect.problems.words.sensors :only [generate-sensors perturb]])
   (:use [retrospect.reason.abduction.problems.words.hypotheses :only
@@ -30,8 +30,6 @@
                :update-kb-fn update-kb
                :stats-fn stats
                :true-hyp?-fn true-hyp?
-               :hyps-equal?-fn hyps-equal?
-               :hyp-types [:word :split :merge]
                :default-params {:HypTypes ["words,biwords"
                                            ["words", "words,biwords"]]
                                 :SplitScore ["bestAbs" ["bestAbs" "max" "min" "avg"]]

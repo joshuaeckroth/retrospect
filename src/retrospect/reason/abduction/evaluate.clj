@@ -7,24 +7,20 @@
   (:use [retrospect.evaluate :only [calc-increase]])
   (:use [retrospect.reason.abduction.workspace
          :only [get-unexp-pct get-noexp-pct hyp-conf calc-doubt calc-coverage
-                accepted?]])
+                accepted? lookup-score]])
   (:use [retrospect.state]))
 
-(defn group-hyps-by-subtype-true-false
-  [truedata workspace time true-hyp?]
-  (let [hyps (reduce (fn [m t] (if (nil? (get m t)) (assoc m t []) m))
-                     (group-by :subtype (set/difference
-                                         (set (apply concat (vals (:hypotheses workspace))))
-                                         (:forced workspace)))
-                     (:hyp-types (:abduction @problem)))
+(defn group-hyps-by-true-false
+  [hyps type-key truedata workspace time true-hyp?]
+  (let [hs (group-by type-key (set/difference (set hyps) (:forced workspace)))
         tf (reduce (fn [m subtype]
                      (let [grouped (group-by (fn [h] (if (true-hyp? truedata time h)
                                                        true false))
-                                             (get hyps subtype))]
+                                             (get hs subtype))]
                        (assoc m subtype
                               (reduce (fn [g tf] (if (nil? (get g tf)) (assoc g tf []) g))
                                       grouped [true false]))))
-                   {} (keys hyps))
+                   {} (keys hs))
         all-true (mapcat #(get % true) (vals tf))
         all-false (mapcat #(get % false) (vals tf))]
     (assoc tf :all {true all-true false all-false})))
@@ -42,8 +38,10 @@
                       {} (keys true-false))
         apriori (reduce (fn [m t]
                           (assoc m t
-                                 {true (map :apriori (get (get true-false t) true))
-                                  false (map :apriori (get (get true-false t) false))}))
+                                 {true (map #(lookup-score workspace %)
+                                            (get (get true-false t) true))
+                                  false (map #(lookup-score workspace %)
+                                             (get (get true-false t) false))}))
                         {} (keys true-false))
         avg (fn [vals] (if (empty? vals) 0.0 (/ (reduce + vals) (count vals))))]
     (reduce (fn [m t]
@@ -73,7 +71,8 @@
         workspace (:workspace ep)
         accepted (:accepted workspace)
         rejected (:rejected workspace)
-        true-false (group-hyps-by-subtype-true-false
+        true-false (group-hyps-by-true-false
+                    (apply concat (vals (:hypotheses workspace))) :type
                     truedata workspace
                     (:time ep) (:true-hyp?-fn (:abduction @problem)))
         true-false-confs (calc-true-false-confs workspace true-false)]
@@ -88,6 +87,33 @@
             :Coverage (calc-coverage (:workspace ep))
             :ExplainCycles (:cycle workspace)
             :HypothesisCount (reduce + (map count (vals (:hypotheses workspace))))})))
+
+(defn update-training
+  [workspace truedata time-now]
+  (let [true-false-types (map (fn [t]
+                                (group-hyps-by-true-false
+                                 (get (:hypotheses workspace) t) :subtype
+                                 truedata workspace
+                                 time-now (:true-hyp?-fn (:abduction @problem))))
+                              (keys (:hypotheses workspace)))]
+    (reduce
+     (fn [ws tfs] ;; true-false groups (keyed by subtype)
+       (reduce
+        (fn [ws2 st] ;; subtype key
+          (reduce
+           (fn [ws3 tf] ;; true/false key
+             (reduce
+              (fn [ws4 hyp] ;; hyps in that true/false, subtype, type
+                (let [prior (get-in ws4 [:scores (:type hyp) (:subtype hyp)] 0.5)]
+                  (if tf
+                    (assoc-in ws4 [:scores (:type hyp) (:subtype hyp)]
+                              (min 1.0 (+ prior 0.05)))
+                    (assoc-in ws4 [:scores (:type hyp) (:subtype hyp)]
+                              (max 0.0 (- prior 0.05))))))
+              ws3 (get-in tfs [st tf])))
+           ws2 (keys (get tfs st))))
+        ws (keys tfs)))
+     workspace true-false-types)))
 
 (defn prefix-params
   [prefix params]

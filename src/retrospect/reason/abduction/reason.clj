@@ -2,11 +2,11 @@
   (:use [retrospect.reason.abduction.workspace
          :only [explain revise add-sensor-hyps init-workspace
                 update-hypotheses init-kb reset-workspace
-                calc-doubt calc-coverage]])
+                calc-doubt calc-coverage extract-training]])
   (:use [retrospect.reason.abduction.meta
          :only [metareasoning-activated? workspace-compare]])
   (:use [retrospect.reason.abduction.evaluate
-         :only [evaluate evaluate-comp]])
+         :only [evaluate evaluate-comp update-training]])
   (:use [retrospect.reason.abduction.gui.hypgraph
          :only [hypgraph-tab update-hypgraph]])
   (:use [retrospect.reason.abduction.gui.logs
@@ -29,6 +29,8 @@
                                           truedata ors time-now))
    :metareasoning-activated?-fn metareasoning-activated?
    :workspace-compare-fn workspace-compare
+   :update-training-fn update-training
+   :extract-training-fn extract-training
    :evaluate-fn evaluate
    :evaluate-comp-fn evaluate-comp
    :calc-doubt-fn calc-doubt

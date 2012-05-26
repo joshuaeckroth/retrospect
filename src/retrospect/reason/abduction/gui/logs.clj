@@ -82,7 +82,6 @@
                                    (mapcat #(build-cycle wslog %)
                                            (range (count (:best wslog)))))
                    "Accepted" (list-hyps (apply concat (vals (:accepted ws))))
-                   "Rejected" (list-hyps (apply concat (vals (:rejected ws))))
                    "No explainers" (list-hyps (ws/find-no-explainers ws))
                    "Unexplained" (list-hyps (:unexplained wslog))
                    "Unaccepted" (list-hyps (ws/find-unaccepted ws))}))]

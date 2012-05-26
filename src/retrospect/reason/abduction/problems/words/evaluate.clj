@@ -37,38 +37,6 @@
               ;; leave if and true/false because not-empty returns the first item
               (= :split (:type hyp)) (if (not-empty true-words) true false)))))
 
-(defmulti hyps-equal? (fn [hyp1 hyp2] (:type hyp1)))
-
-(defmethod hyps-equal? :default [_ _] false)
-
-(defmethod hyps-equal? :sensor
-  [hyp1 hyp2]
-  (and (= (:type hyp1) (:type hyp2))
-       (= (:pos hyp1) (:pos hyp2))
-       (= (:sym hyp1) (:sym hyp2))))
-
-(defmethod hyps-equal? :split
-  [hyp1 hyp2]
-  (and (= (:type hyp1) (:type hyp2))
-       (= (:trans-pos hyp1) (:trans-pos hyp2))))
-
-(defmethod hyps-equal? :merge
-  [hyp1 hyp2]
-  (and (= (:type hyp1) (:type hyp2))
-       (= (:trans-pos hyp1) (:trans-pos hyp2))))
-
-(defmethod hyps-equal? :merge-noexp
-  [hyp1 hyp2]
-  (and (= (:type hyp1) (:type hyp2))
-       (= (:trans-pos hyp1) (:trans-pos hyp2))))
-
-(defmethod hyps-equal? :word
-  [hyp1 hyp2]
-  (and (= (:type hyp1) (:type hyp2))
-       (= (:pos-seq hyp1) (:pos-seq hyp2))
-       (= (:word hyp1) (:word hyp2))
-       (= (:words hyp1) (:words hyp2))))
-
 (defn run-scorer
   [sentences believed train-dict]
   (try (do
@@ -107,7 +75,7 @@
                                (second (re-find #"=== IV Recall Rate:\s+(\d\.\d\d\d)"
                                                 (:out results))))
                               (catch Exception _ 0.0))]
-           (println (format "prec: %.2f, recall: %.2f, f-score: %.2f, oov-recall: %.2f, oov-rate: %.2f"
+           #_(println (format "prec: %.2f, recall: %.2f, f-score: %.2f, oov-recall: %.2f, oov-rate: %.2f"
                             prec recall f-score oov-recall oov-rate))
            [prec recall f-score oov-rate oov-recall iv-recall]))
        (catch Exception e (do (log e) [-1.0 -1.0 -1.0 -1.0 -1.0 -1.0 -1.0]))))

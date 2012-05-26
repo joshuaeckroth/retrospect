@@ -4,8 +4,6 @@
   (:use [retrospect.reason.abduction.workspace :only [new-hyp]])
   (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.problems.tracking.colors])
-  (:use [retrospect.reason.abduction.problems.tracking.evaluate
-         :only [hyps-equal?]])
   (:use [retrospect.problems.tracking.movements
          :only [dist dets-match?]])
   (:use [retrospect.reason.abduction.problems.tracking.pathsgraph
@@ -24,7 +22,7 @@
 
 (defn generate-kb
   [training]
-  [(new-hyp "KB" :kb :kb false nil 1.0 [] [] "" ""
+  [(new-hyp "KB" :kb :kb false nil [] [] "" ""
             {:walk-dist (read-walk-dist (format "%s/tracking/walks-%d.txt"
                                                 @datadir (:MaxWalk params)))})])
 
@@ -35,10 +33,10 @@
                   (let [desc (format (str "Sensor detection by %s - color: %s, "
                                           "x: %d, y: %d, time: %d")
                                      (:id sensor) (color-str color) x y time)
-                        from (new-hyp "SensFrom" :sensor :sensor-from true nil 1.0 [] []
+                        from (new-hyp "SensFrom" :sensor :sensor-from true nil [] []
                                       (format "%d,%d@%d" x y time) desc
                                       {:sensor sensor :det det})
-                        to (new-hyp "SensTo" :sensor :sensor-to true nil 1.0 [] []
+                        to (new-hyp "SensTo" :sensor :sensor-to true nil [] []
                                     (format "%d,%d@%d" x y time) desc
                                     {:sensor sensor :det det})]
                     (cond (= time time-prev) [to]
@@ -103,9 +101,9 @@
           (filter valid? mov-hyps))))
 
 (defn new-mov-hyp
-  [to from apriori det-color det2-color]
+  [to from det-color det2-color]
   (new-hyp "Mov" :movement :movement false conflicts
-           apriori [to from] [] (path-str [det-color det2-color])
+           [to from] [] (path-str [det-color det2-color])
            (format "%s (dist=%.2f)"
                    (path-str [det-color det2-color])
                    (dist (:x det-color) (:y det-color)
@@ -116,7 +114,7 @@
                   :color (:color det-color)}}))
 
 (defn new-mov-hyps
-  [to from apriori acc-mov-hyps]
+  [to from acc-mov-hyps]
   (prof :new-mov-hyps
         (let [det (:det to) det2 (:det from)
               colors-in (set (map (comp :color :det2)
@@ -138,11 +136,11 @@
                                (assoc det2 :color (first colors-in))
                                :else det2)]
           (if (= gray (:color det-color) (:color det2-color))
-            (map #(new-mov-hyp to from apriori
+            (map #(new-mov-hyp to from
                                (assoc det-color :color %)
                                (assoc det2-color :color %))
                  [red green blue])
-            [(new-mov-hyp to from apriori det-color det2-color)]))))
+            [(new-mov-hyp to from det-color det2-color)]))))
 
 (defn hypothesize
   [sensor-hyps accepted hyps]
@@ -151,13 +149,13 @@
               to-hyps (filter #(= :sensor-to (:subtype %)) sensor-hyps)]
           (apply concat
                  (for [evidence from-hyps]
-                   (let [sm (fn [h] (score-movement h evidence (get-walk-dist hyps)))
+                   (let [;; remove this
+                         sm (fn [h] (score-movement h evidence (get-walk-dist hyps)))
                          acc-mov-hyps (get accepted :movement)
-                         nearby (filter second (map (fn [h] [h (sm h)])
-                                                    (filter #(= :sensor-to (:subtype %))
-                                                            (get accepted :sensor))))
-                         mov-hyps (mapcat (fn [[h apriori]]
-                                            (new-mov-hyps h evidence apriori acc-mov-hyps))
+                         nearby (map (fn [h] h) (filter #(= :sensor-to (:subtype %))
+                                                        (get accepted :sensor)))
+                         mov-hyps (mapcat (fn [h]
+                                            (new-mov-hyps h evidence acc-mov-hyps))
                                           nearby)]
                      (filter-valid-movs mov-hyps acc-mov-hyps)))))))
 

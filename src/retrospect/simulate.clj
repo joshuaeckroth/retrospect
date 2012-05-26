@@ -94,11 +94,15 @@
         ep (cur-ep (:est ors-new))
         workspace (if (and (not= 0 time-prev) (:ResetEachStep params))
                     (do (log "Resetting workspace...")
-                        ((:init-workspace-fn @reason) (:workspace ep)))
+                        ((:reset-workspace-fn @reason) (:workspace ep)))
                     (:workspace ep))
-        ep-reason (assoc ep :workspace ((:reason-fn @reason)
-                                        (when (:Oracle params) truedata)
-                                        workspace time-prev time-now sensors))
+        workspace-reasoned ((:reason-fn @reason)
+                            (when (:Oracle params) truedata)
+                            workspace time-prev time-now sensors)
+        workspace-trained (if-not training? workspace-reasoned
+                                  ((:update-training-fn @reason) workspace-reasoned
+                                   truedata time-now))
+        ep-reason (assoc ep :workspace workspace-trained)
         meta-est (metareason truedata (update-est (:est ors-new) ep-reason)
                              time-prev time-now sensors)
         ;; stop the clock
@@ -114,19 +118,29 @@
 
 (defn run-simulation
   [truedata or-state]
+  (loop [ors or-state]
+    (dosync (alter retrospect.state/or-state (constantly ors)))
+    (if (>= (:time (cur-ep (:est ors))) (:Steps params))
+      (do (println "") ors)
+      (recur (run-simulation-step truedata ors false)))))
+
+(defn train
+  [training or-state]
   (profile
-   (loop [ors or-state]
-     (dosync (alter retrospect.state/or-state (constantly ors)))
-     (if (>= (:time (cur-ep (:est ors))) (:Steps params))
-       (do (println "") ors)
-       (recur (run-simulation-step truedata ors false))))))
+   (binding [training? true
+             params (assoc params :Steps 30)]
+     (let [ors (run-simulation training or-state)]
+       (update-in or-state [:workspace]
+                  (:extract-training-fn @reason) (:workspace (cur-ep (:est ors))))))))
 
 (defn init-ors
   [sensors training]
   (profile
-   (let [est (init-est ((:init-kb-fn @reason) ((:init-workspace-fn @reason)) training))]
-     {:resources {:milliseconds 0 :meta-accepted 0 :meta-activations 0}
-      :sensors sensors :est est})))
+   (train training
+          (let [est (init-est ((:init-kb-fn @reason)
+                               ((:init-workspace-fn @reason)) training))]
+            {:resources {:milliseconds 0 :meta-accepted 0 :meta-activations 0}
+             :sensors sensors :est est}))))
 
 (def global-default-params
   {:Metareasoning ["none" ["none" "learn"]]
