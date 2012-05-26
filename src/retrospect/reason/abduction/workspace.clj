@@ -16,7 +16,7 @@
   (:use [retrospect.state]))
 
 (defrecord Hypothesis
-    [id type subtype needs-explainer? conflict explains boosts short-str desc data]
+    [id type subtype needs-explainer? explains boosts short-str desc data]
   Object
   (toString [self] (format "%s(%s)" id short-str))
   Comparable
@@ -46,30 +46,36 @@
    ;; a list of hyps that explain each key;
    ;; hyps that are keys need to be explained
    :active-explainers {}
-   ;; all explainers; serves as a cache
+   ;; all explainers, keyed by hyp-id, with vals as sets of hyp-ids; serves as a cache
    :explainers {}
+   ;; a map of hyp-id => hyp
+   :hyp-ids {}
    ;; a map of type => seq
    :hypotheses {}
    ;; a map keyed by hypothesis :data + :type maps (for dup searching)
    :hyp-contents {}
-   ;; hypotheses that are neither accepted nor rejected
+   ;; hyp-ids that are neither accepted nor rejected
    :available #{}
+   ;; keyed by hyp-id
    :hyp-confidences {}
    :forced #{}
    ;; a map of type => set
    :accepted {}})
 
 (defn new-hyp
-  [prefix type subtype needs-explainer?
-   conflict explains boosts short-str desc data]
+  [prefix type subtype needs-explainer? explains boosts short-str desc data]
   (let [id (inc last-id)]
     (set-last-id id)
     (assoc
-        (merge (Hypothesis. (format "%s%d" prefix id)
-                            type subtype needs-explainer? conflict
-                            explains boosts short-str desc data)
+        (merge (Hypothesis.
+                (format "%s%d" prefix id)
+                type subtype needs-explainer? explains boosts short-str desc data)
                data)
       :contents (assoc data :type type))))
+
+(defn lookup-hyp
+  [workspace id]
+  (get-in workspace [:hyp-ids id]))
 
 (defn accepted?
   [workspace hyp]
@@ -82,13 +88,12 @@
 (defn hyp-conf
   [workspace hyp]
   (if (:UseScores params)
-    (get (:hyp-confidences workspace) hyp)
+    (get (:hyp-confidences workspace) (:id hyp))
     1.0))
 
 (defn find-no-explainers
   [workspace]
-  (set (filter (fn [h] (empty? (filter #(not= :more (:type %))
-                                       (get (:explainers workspace) h))))
+  (set (filter (fn [h] (empty? (get (:explainers workspace) (:id h))))
                (filter :needs-explainer? (apply concat (vals (:accepted workspace)))))))
 
 (defn compare-by-conf
@@ -102,8 +107,8 @@
                                    (hyp-conf workspace hyp2)))
               expl (- (compare (count (explains hyp1))
                                (count (explains hyp2))))
-              explainers (- (compare (count (get-in workspace [:explainers hyp1] []))
-                                     (count (get-in workspace [:explainers hyp2] []))))
+              explainers (- (compare (count (get-in workspace [:explainers (:id hyp1)] []))
+                                     (count (get-in workspace [:explainers (:id hyp2)] []))))
               id (compare (:id hyp1) (:id hyp2))]
           (if (<= (Math/abs conf-diff) (/ (:ConfThreshold params) 100))
             (if (= 0 expl)
@@ -151,17 +156,18 @@
   [workspace]
   (let [expl-filter (if (:RequireExplainedAccepted params)
                       (fn [e]
-                        (and ((:available workspace) e)
+                        (and ((:available workspace) (:id e))
                              (every? #(accepted? workspace %) (explains e))))
-                      (fn [e] ((:available workspace) e)))]
+                      (fn [e] ((:available workspace) (:id e))))]
     (prof :find-all-explainers
           (sort-by (comp :id first)
                    (filter (comp first :expl)
                            (map
                             (fn [h] {:hyp h
                                      :expl (filter expl-filter
-                                                   (get (:active-explainers workspace) h))})
-                            (keys (:active-explainers workspace))))))))
+                                                   (get (:active-explainers workspace) (:id h)))})
+                            (map #(lookup-hyp workspace %)
+                                 (keys (:active-explainers workspace)))))))))
 
 (defn normalize-confidences
   "Normalize the apriori confidences of a collection of hyps.
@@ -194,7 +200,7 @@
                     ;; for each normalized confidence hyp
                     (reduce (fn [ws2 hyp]
                               ;; take the min normalized conf with existing conf
-                              (assoc-in ws2 [:hyp-confidences hyp]
+                              (assoc-in ws2 [:hyp-confidences (:id hyp)]
                                         (cond (= "max" (:ConfAdjustment params))
                                               (max (hyp-conf ws2 hyp) (get norm-alts hyp))
                                               (= "min" (:ConfAdjustment params))
@@ -213,49 +219,34 @@
 (defn boost
   [workspace hyp]
   (if (or (not (:ApplyBoosting params))
-          (not ((:available workspace) hyp)))
+          (not ((:available workspace) (:id hyp))))
     workspace
     (let [new-conf (min 1.0 (+ 0.25 (hyp-conf workspace hyp)))]
       (-> workspace
-          (assoc-in [:hyp-confidences hyp] new-conf)
+          (assoc-in [:hyp-confidences (:id hyp)] new-conf)
           (update-in [:hyp-log hyp] conj
                      (format "Confidence boosted in cycle %d from %.2f to %.2f"
                              (:cycle workspace) (hyp-conf workspace hyp) new-conf))))))
 
-(defn find-conflicts-selected
-  "If a hypothesis's :conflict value is a function (a predicate), that function
-   is called with the hyp and each other hyp. If the :conflict value is
-   a keyword, the conflicts of a hyp are those other hyps that share the
-   :conflict keyword"
-  [workspace hyp hyps]
-  (prof :find-conflicts-selected
-        (doall
-         (let [c (:conflict hyp)]
-           (cond
-            ;; no conflict id; so it conflicts with nothing
-            (nil? c) []
-
-            ;; we have a function (predicate), so call the function on other hyps
-            (fn? c) (filter #(and (not= % hyp) (c hyp %)) hyps)
-
-            ;; otherwise, hyps conflict if their conflict ids are identical
-            :else
-            (filter #(and (not= % hyp) (= c (:conflict %))) hyps))))))
+(defn find-conflicts-all
+  [workspace hyp]
+  (map #(lookup-hyp workspace %) (:conflicts hyp)))
 
 (defn find-conflicts
   [workspace hyp]
-  (find-conflicts-selected workspace hyp (:available workspace)))
+  (map #(lookup-hyp workspace %)
+       (filter (:available workspace) (map :id (find-conflicts-all workspace hyp)))))
 
 (defn add-explainers
   [workspace hyp]
   (prof :add-explainers
         (reduce (fn [ws h]
-                  (let [ws2 (update-in ws [:explainers h] conj hyp)]
+                  (let [ws2 (update-in ws [:explainers (:id h)] conj (:id hyp))]
                     ;; don't add active-explainers to hyps that have already
                     ;; been fully explained (indicated by not present in
                     ;; :active-explainers)
-                    (if-not (get (:active-explainers ws2) h) ws2
-                            (update-in ws2 [:active-explainers h] conj hyp))))
+                    (if-not (get (:active-explainers ws2) (:id h)) ws2
+                            (update-in ws2 [:active-explainers (:id h)] conj (:id hyp)))))
                 workspace (explains hyp))))
 
 (defn remove-explainers
@@ -263,8 +254,8 @@
   (prof :remove-explainers
         (do
           (log "Removing explainers for" hyp)
-          (reduce (fn [ws h] (if (nil? (get (:active-explainers ws) h)) ws
-                                 (update-in ws [:active-explainers h] disj hyp)))
+          (reduce (fn [ws h] (if (nil? (get (:active-explainers ws) (:id h))) ws
+                                 (update-in ws [:active-explainers (:id h)] disj (:id hyp))))
                   workspace (explains hyp)))))
 
 (defn reject-many
@@ -276,8 +267,8 @@
                           (fn [ws hyp]
                             (-> ws
                                 (remove-explainers hyp)
-                                (update-in [:active-explainers] dissoc hyp)
-                                (update-in [:available] disj hyp)
+                                (update-in [:active-explainers] dissoc (:id hyp))
+                                (update-in [:available] disj (:id hyp))
                                 (update-in [:hyp-log hyp] conj
                                            (format "Rejected in cycle %d"
                                                    (:cycle workspace)))))
@@ -285,8 +276,8 @@
             (if @batch ws
                 (prof :reject-many-graph
                       (assoc ws :graph
-                             (reduce (fn [g r] (-> g (add-attr r :fontcolor "red")
-                                                   (add-attr r :color "red")))
+                             (reduce (fn [g r] (-> g (add-attr (:id r) :fontcolor "red")
+                                                   (add-attr (:id r) :color "red")))
                                      (:graph ws) hyps))))))))
 
 (defn lookup-score
@@ -301,33 +292,56 @@
           workspace
           (let [ws-needs-explainer
                 (prof :add-needs-explainer
-                      (if-not ((:active-explainers workspace) hyp) workspace
-                              (assoc-in workspace [:active-explainers hyp] #{})))
+                      (if-not (prof :active-explainers
+                                    (get (:active-explainers workspace) (:id hyp))) workspace
+                                    (assoc-in workspace [:active-explainers (:id hyp)] #{})))
                 ws-explainers
                 (prof :add-ws-update
-                      (-> ws-needs-explainer
-                          (update-in [:hyp-contents] assoc (:contents hyp) true)
-                          (update-in [:added] conj hyp)
-                          (update-in [:available] conj hyp)
-                          (add-explainers hyp)
-                          (assoc-in
-                           [:hyp-confidences hyp]
-                           (cond (= :kb (:type hyp)) 1.0
-                                 (some #(= (:type hyp) %)
-                                       (map keyword (str/split (:Oracle params) #",")))
-                                 (if ((:oracle workspace) hyp) 1.0 0.0)
-                                 :else
-                                 (lookup-score workspace hyp)))
-                          (update-in [:hypotheses (:type hyp)] conj hyp)))]
+                      (let [new-hyp-ids (prof :new-hyp-ids
+                                              (assoc (:hyp-ids ws-needs-explainer) (:id hyp) hyp))
+                            new-hyp-contents (prof :new-hyp-contents
+                                                   (assoc (:hyp-contents ws-needs-explainer)
+                                                     (:contents hyp) true))
+                            new-added (prof :new-added
+                                            (conj (:added ws-needs-explainer) hyp))
+                            new-available (prof :new-available
+                                                (conj (:available ws-needs-explainer) (:id hyp)))
+                            new-hyp-confidences (prof :new-hyp-confidences
+                                                      (assoc-in ws-needs-explainer
+                                                                [:hyp-confidences (:id hyp)]
+                                                                (cond (= :kb (:type hyp)) 1.0
+                                                                      (some #(= (:type hyp) %)
+                                                                            (map keyword (str/split (:Oracle params) #",")))
+                                                                      (if ((:oracle workspace) hyp) 1.0 0.0)
+                                                                      :else
+                                                                      (lookup-score workspace hyp))))
+                            new-hypotheses (prof :new-hypotheses
+                                                 (update-in ws-needs-explainer [:hypotheses (:type hyp)]
+                                                            conj hyp))]
+                        (-> ws-needs-explainer
+                            (update-in [:hyp-ids] assoc (:id hyp) hyp)
+                            (update-in [:hyp-contents] assoc (:contents hyp) true)
+                            (update-in [:added] conj hyp)
+                            (update-in [:available] conj (:id hyp))
+                            (add-explainers hyp)
+                            (assoc-in
+                             [:hyp-confidences (:id hyp)]
+                             (cond (= :kb (:type hyp)) 1.0
+                                   (some #(= (:type hyp) %)
+                                         (map keyword (str/split (:Oracle params) #",")))
+                                   (if ((:oracle workspace) hyp) 1.0 0.0)
+                                   :else
+                                   (lookup-score workspace hyp)))
+                            (update-in [:hypotheses (:type hyp)] conj hyp))))]
             (if @batch ws-explainers
                 (prof :add-graph-update
                       (let [g-added (reduce (fn [g n] (-> g (add-nodes n)
-                                                          (add-attr n :id (:id n))
-                                                          (add-attr n :label (:id n))))
+                                                          (add-attr n :id n)
+                                                          (add-attr n :label n)))
                                             (:graph ws-explainers)
-                                            (conj (explains hyp) hyp))
-                            g-expl (reduce (fn [g e] (add-edges g [hyp e]))
-                                           g-added (explains hyp))]
+                                            (map :id (conj (explains hyp) hyp)))
+                            g-expl (reduce (fn [g e] (add-edges g [(:id hyp) e]))
+                                           g-added (map :id (explains hyp)))]
                         (assoc ws-explainers :graph g-expl))))))))
 
 (defn update-graph
@@ -337,25 +351,24 @@
             (assoc workspace :graph
                    (reduce
                     (fn [g h]
-                      (let [conflicts (find-conflicts-selected
-                                       workspace h (apply concat (vals (:hypotheses workspace))))]
+                      (let [conflicts (find-conflicts-all workspace h)]
                         (reduce (fn [g2 c]
                                   (if (or (has-edge? g2 h c) (has-edge? g2 c h)) g2
                                       (-> g2 (add-edges [h c])
                                           (add-attr h c :dir "none")
                                           (add-attr h c :style "dotted")
                                           (add-attr h c :constraint false))))
-                                g conflicts)))
-                    (:graph workspace) (apply concat (vals (:hypotheses workspace))))))))
+                                g (map :id conflicts))))
+                    (:graph workspace) (map :id (apply concat (vals (:hypotheses workspace)))))))))
 
 (defn accept
   [workspace hyp explained delta essential?]
   (prof :accept
         (let [ws-needs-exp
               (prof :accept-needs-exp
-                    (if-not ((:explainers workspace) hyp) workspace
-                            (assoc-in workspace [:active-explainers hyp]
-                                      (set ((:explainers workspace) hyp)))))
+                    (if-not ((:explainers workspace) (:id hyp)) workspace
+                            (assoc-in workspace [:active-explainers (:id hyp)]
+                                      (set ((:explainers workspace) (:id hyp))))))
               acc-prior (get-in workspace [:accepted (:type hyp)] #{})
               ws-acc
               (prof :accept-update
@@ -367,11 +380,11 @@
                                            (:cycle workspace)
                                            explained delta essential?))
                         (assoc-in [:accepted (:type hyp)] (conj acc-prior hyp))
-                        (update-in [:available] disj hyp)
-                        (update-in [:graph] add-attr hyp :fontcolor "green")
-                        (update-in [:graph] add-attr hyp :color "green")))
+                        (update-in [:available] disj (:id hyp))
+                        (update-in [:graph] add-attr (:id hyp) :fontcolor "green")
+                        (update-in [:graph] add-attr (:id hyp) :color "green")))
               ws-expl (reduce (fn [ws2 h]
-                                (update-in ws2 [:active-explainers] dissoc h))
+                                (update-in ws2 [:active-explainers] dissoc (:id h)))
                               ws-acc (explains hyp))
               conflicts (find-conflicts ws-expl hyp)
               ws-conflicts (reject-many ws-expl conflicts)
@@ -388,9 +401,9 @@
             (-> (add workspace hyp)
                 (update-in [:forced] conj hyp)
                 (assoc-in [:accepted (:type hyp)] (conj acc-prior hyp))
-                (assoc-in [:active-explainers hyp] #{})
-                (update-in [:graph] add-attr hyp :fontcolor "gray50")
-                (update-in [:graph] add-attr hyp :color "gray50"))))))
+                (assoc-in [:active-explainers (:id hyp)] #{})
+                (update-in [:graph] add-attr (:id hyp) :fontcolor "gray50")
+                (update-in [:graph] add-attr (:id hyp) :color "gray50"))))))
 
 (defn get-unexp-pct
   "Only measure unexplained \"needs-explainer\" hyps."
@@ -413,13 +426,14 @@
                                (apply concat (vals (:accepted workspace))))]
     (if (empty? acc-not-forced)
       (if (empty? (:unexplained (:log workspace))) 0.0 1.0)
-      (let [confs (vals (select-keys (:hyp-confidences workspace) acc-not-forced))]
+      (let [confs (vals (select-keys (:hyp-confidences workspace) (map :id acc-not-forced)))]
         (reduce + 0.0 (map #(- 1.0 %) confs))))))
 
 (defn calc-coverage
   [workspace]
   (let [accessible (set
-                    (mapcat (fn [h] (pre-traverse (:graph workspace) h))
+                    (mapcat (fn [h] (map #(lookup-hyp workspace %)
+                                         (pre-traverse (:graph workspace) (:id h))))
                             (set/difference
                              (set (apply concat (vals (:accepted workspace))))
                              (:forced workspace))))]
@@ -437,7 +451,8 @@
   (prof :log-final
         (-> workspace
             (update-in [:log] merge
-                       {:unexplained (keys (:active-explainers workspace))
+                       {:unexplained (map #(lookup-hyp workspace %)
+                                          (keys (:active-explainers workspace)))
                         :last-explainers explainers})
             (dissoc :prior-explainers))))
 
@@ -458,17 +473,6 @@
                   (when (>= delta threshold)
                     {:best best :essential? false :delta delta
                      :explained (:hyp expl)})))))))
-
-(defn remove-hyp
-  [workspace hyp]
-  (-> workspace
-      (remove-explainers hyp)
-      (update-in [:graph] remove-nodes hyp)
-      (update-in [:hyp-confidences] dissoc hyp)
-      (update-in [:hypotheses (:type hyp)] (fn [hs] (filter #(not= % hyp) hs)))
-      (update-in [:active-explainers] dissoc hyp)
-      (update-in [:available] disj hyp)
-      (update-in [:explainers] dissoc hyp)))
 
 (defn update-kb
   [workspace]
@@ -499,9 +503,9 @@
                                     (filter (comp first :expl)
                                             (map (fn [es]
                                                    (assoc es :expl
-                                                          (filter #((:available ws) %)
+                                                          (filter #((:available ws) (:id %))
                                                                   (:expl es))))
-                                                 (filter #((:active-explainers ws) (:hyp %))
+                                                 (filter #((:active-explainers ws) (:id (:hyp %)))
                                                          (:prior-explainers ws))))))
                              (find-all-explainers ws))]
             (if (empty? explainers)
@@ -532,8 +536,8 @@
   ;; don't 'revise' if already accepted this hyp
   (if (some #{hyp} (get-in workspace [:accepted (:type hyp)])) workspace
       ;; here is "belief revision" in all its glory
-      (let [conflicts (find-conflicts-selected
-                       workspace hyp (apply concat (vals (:accepted workspace))))]
+      (let [conflicts (filter (set (apply concat (vals (:accepted workspace))))
+                              (map #(lookup-hyp workspace %) (:conflicts hyp)))]
         #_(println "revising with" hyp "conflicts" conflicts)
         (-> (reduce (fn [ws h] (update-in ws [:accepted (:type h)] disj h))
                     workspace conflicts)

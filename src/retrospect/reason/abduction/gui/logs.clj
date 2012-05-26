@@ -96,11 +96,12 @@
         explainers (str/join ", " (map #(format "[%s]" %)
                                        (map #(str/join ", " (sort-by :id alphanum %))
                                             (vals (group-by :type
-                                                            (get (:explainers workspace)
-                                                                 hyp))))))
+                                                            (map #(ws/lookup-hyp workspace %)
+                                                                 (get (:explainers workspace)
+                                                                      (:id hyp))))))))
         boosts (str/join ", " (map str (sort-by :id alphanum (:boosts hyp))))
         conflicts (str/join ", " (map str (sort-by :id alphanum
-                                                   (ws/find-conflicts workspace hyp))))]
+                                                   (ws/find-conflicts-all workspace hyp))))]
     (. hyp-apriori-label setText (format "Apriori: %.2f" (:apriori hyp)))
     (. hyp-confidence-label setText (format "Conf: %.2f" (ws/hyp-conf workspace hyp)))
     (. hyp-truefalse-label setText

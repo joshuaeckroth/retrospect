@@ -22,7 +22,7 @@
 
 (defn generate-kb
   [training]
-  [(new-hyp "KB" :kb :kb false nil [] [] "" ""
+  [(new-hyp "KB" :kb :kb false [] [] "" ""
             {:walk-dist (read-walk-dist (format "%s/tracking/walks-%d.txt"
                                                 @datadir (:MaxWalk params)))})])
 
@@ -33,10 +33,10 @@
                   (let [desc (format (str "Sensor detection by %s - color: %s, "
                                           "x: %d, y: %d, time: %d")
                                      (:id sensor) (color-str color) x y time)
-                        from (new-hyp "SensFrom" :sensor :sensor-from true nil [] []
+                        from (new-hyp "SensFrom" :sensor :sensor-from true [] []
                                       (format "%d,%d@%d" x y time) desc
                                       {:sensor sensor :det det})
-                        to (new-hyp "SensTo" :sensor :sensor-to true nil [] []
+                        to (new-hyp "SensTo" :sensor :sensor-to true [] []
                                     (format "%d,%d@%d" x y time) desc
                                     {:sensor sensor :det det})]
                     (cond (= time time-prev) [to]
@@ -65,8 +65,10 @@
   [vals]
   (double (/ (reduce + 0.0 vals) (count vals))))
 
-(defn conflicts [h1 h2]
-  (and (= :movement (:type h1) (:type h2))
+(defn conflicts?
+  [h1 h2]
+  (and (not= h1 h2)
+       (= :movement (:type h1) (:type h2))
        (or (and (= (:x (:det h1)) (:x (:det2 h2)))
                 (= (:time (:det h1)) (:time (:det2 h2))))
            (and (= (:x (:det2 h1)) (:x (:det h2)))
@@ -102,7 +104,7 @@
 
 (defn new-mov-hyp
   [to from det-color det2-color]
-  (new-hyp "Mov" :movement :movement false conflicts
+  (new-hyp "Mov" :movement :movement false
            [to from] [] (path-str [det-color det2-color])
            (format "%s (dist=%.2f)"
                    (path-str [det-color det2-color])
@@ -146,18 +148,19 @@
   [sensor-hyps accepted hyps]
   (prof :hypothesize
         (let [from-hyps (filter #(= :sensor-from (:subtype %)) sensor-hyps)
-              to-hyps (filter #(= :sensor-to (:subtype %)) sensor-hyps)]
-          (apply concat
-                 (for [evidence from-hyps]
-                   (let [;; remove this
-                         sm (fn [h] (score-movement h evidence (get-walk-dist hyps)))
-                         acc-mov-hyps (get accepted :movement)
-                         nearby (map (fn [h] h) (filter #(= :sensor-to (:subtype %))
-                                                        (get accepted :sensor)))
-                         mov-hyps (mapcat (fn [h]
-                                            (new-mov-hyps h evidence acc-mov-hyps))
-                                          nearby)]
-                     (filter-valid-movs mov-hyps acc-mov-hyps)))))))
+              to-hyps (filter #(= :sensor-to (:subtype %)) sensor-hyps)
+              hyps (apply concat
+                          (for [evidence from-hyps]
+                            (let [ ;; remove this
+                                  sm (fn [h] (score-movement h evidence (get-walk-dist hyps)))
+                                  acc-mov-hyps (get accepted :movement)
+                                  nearby (map (fn [h] h) (filter #(= :sensor-to (:subtype %))
+                                                                 (get accepted :sensor)))
+                                  mov-hyps (mapcat (fn [h]
+                                                     (new-mov-hyps h evidence acc-mov-hyps))
+                                                   nearby)]
+                              (filter-valid-movs mov-hyps acc-mov-hyps))))]
+          (map (fn [h] (assoc h :conflicts (map :id (filter #(conflicts? h %) hyps)))) hyps))))
 
 (defn update-kb
   [accepted unexplained hypotheses]

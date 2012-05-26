@@ -6,36 +6,37 @@
   (:require [clojure.set :as set])
   (:use [retrospect.evaluate :only [calc-increase avg]])
   (:use [retrospect.epistemicstates :only [cur-ep ep-path]])
-  (:use [retrospect.reason.abduction.workspace :only
-         [find-conflicts find-conflicts-selected hyp-conf]])
+  (:use [retrospect.reason.abduction.workspace :only [hyp-conf]])
   (:use [loom.graph :only [weight]])
+  (:use [retrospect.profile :only [prof]])
   (:use [retrospect.logging])
   (:use [retrospect.state]))
 
 (defn true-hyp?
   [truedata time-now hyp]
-  (or (= :sensor (:type hyp))
-      (= :kb (:type hyp))
-      (= :transition (:type hyp))
-      (let [sentence (nth (:test-sentences truedata) (dec time-now))
-            start-pos (or (first (:pos-seq hyp)) (inc (:trans-pos hyp)))
-            end-pos (or (last (:pos-seq hyp)) (inc (:trans-pos hyp)))
-            true-words (loop [i 0 ws [] sent sentence]
-                         (cond (empty? sent) ws
-                               (> i end-pos) ws
-                               (< i start-pos)
-                               (recur (+ i (count (first sent)))
-                                      ws (rest sent))
-                               :else
-                               (recur (+ i (count (first sent)))
-                                      (conj ws (first sent))
-                                      (rest sent))))]
-        (cond (= :word (:type hyp))
-              (or (= [(:word hyp)] true-words)
-                  (= (:words hyp) true-words))
-              (= :merge (:type hyp)) (empty? true-words)
-              ;; leave if and true/false because not-empty returns the first item
-              (= :split (:type hyp)) (if (not-empty true-words) true false)))))
+  (prof :true-hyp
+        (or (= :sensor (:type hyp))
+            (= :kb (:type hyp))
+            (= :transition (:type hyp))
+            (let [sentence (nth (:test-sentences truedata) (dec time-now))
+                  start-pos (or (first (:pos-seq hyp)) (inc (:trans-pos hyp)))
+                  end-pos (or (last (:pos-seq hyp)) (inc (:trans-pos hyp)))
+                  true-words (loop [i 0 ws [] sent sentence]
+                               (cond (empty? sent) ws
+                                     (> i end-pos) ws
+                                     (< i start-pos)
+                                     (recur (+ i (count (first sent)))
+                                            ws (rest sent))
+                                     :else
+                                     (recur (+ i (count (first sent)))
+                                            (conj ws (first sent))
+                                            (rest sent))))]
+              (cond (= :word (:type hyp))
+                    (or (= [(:word hyp)] true-words)
+                        (= (:words hyp) true-words))
+                    (= :merge (:type hyp)) (empty? true-words)
+                    ;; leave if and true/false because not-empty returns the first item
+                    (= :split (:type hyp)) (if (not-empty true-words) true false))))))
 
 (defn run-scorer
   [sentences believed train-dict]
