@@ -6,7 +6,7 @@
   (:require [clojure.set :as set])
   (:use [retrospect.evaluate :only [calc-increase avg]])
   (:use [retrospect.epistemicstates :only [cur-ep ep-path]])
-  (:use [retrospect.reason.abduction.workspace :only [hyp-conf]])
+  (:use [retrospect.reason.abduction.workspace :only [hyp-conf lookup-hyp]])
   (:use [loom.graph :only [weight]])
   (:use [retrospect.profile :only [prof]])
   (:use [retrospect.logging])
@@ -82,11 +82,13 @@
        (catch Exception e (do (log e) [-1.0 -1.0 -1.0 -1.0 -1.0 -1.0 -1.0]))))
 
 (defn get-words
-  [ambiguous accepted unexplained]
+  [lookup-hyp ambiguous accepted unexplained]
   (let [kb (first (get accepted :kb))
-        cuts (sort (set (concat (map :trans-pos (get accepted :split))
-                                (map (comp dec first :pos-seq) (get accepted :word))
-                                (map (comp last :pos-seq) (get accepted :word))
+        cuts (sort (set (concat (map :trans-pos (map lookup-hyp (get accepted :split)))
+                                (map (comp dec first :pos-seq)
+                                     (map lookup-hyp (get accepted :word)))
+                                (map (comp last :pos-seq)
+                                     (map lookup-hyp (get accepted :word)))
                                 (if (= "merge" (:DefaultMergeSplit params)) []
                                     (map :trans-pos (filter #(= :transition (:type %))
                                                             unexplained))))))]
@@ -105,12 +107,15 @@
 
 (defn evaluate
   [truedata est]
-  (if (or true (not @batch) (= (:Steps params) (:time (cur-ep est))))
+  (if (or (and (not training?) (not @batch))
+          (and (not training?) (= (:Steps params) (:time (cur-ep est)))))
     (let [eps (rest (ep-path est))
           time-now (:time (last eps))
-          believed (map (fn [ep] (get-words (get (:test truedata) (dec (:time ep)))
-                                            (:accepted (:workspace ep))
-                                            (:unexplained (:log (:workspace ep)))))
+          believed (map (fn [ep] (get-words
+                                  (partial lookup-hyp (:workspace ep))
+                                  (get (:test truedata) (dec (:time ep)))
+                                  (:accepted (:workspace ep))
+                                  (:unexplained (:log (:workspace ep)))))
                         eps)
           sentences (map (fn [i] (nth (:test-sentences truedata) i)) (range time-now))
           [prec recall f-score oov-rate oov-recall iv-recall]

@@ -63,25 +63,29 @@
                   {"Hypotheses"
                    (apply merge
                           (for [t (keys (:hypotheses ws))]
-                            (let [acc-hyps (get (:accepted ws) t)
+                            (let [acc-hyps (map #(ws/lookup-hyp ws %)
+                                                (get (:accepted ws) t))
                                   not-acc-hyps (set/difference
-                                                (set (get (:hypotheses ws) t))
+                                                (set (map #(ws/lookup-hyp ws %)
+                                                          (get (:hypotheses ws) t)))
                                                 acc-hyps )
                                   acc-tf-hyps (group-by tf-fn acc-hyps)
                                   not-acc-tf-hyps (group-by tf-fn not-acc-hyps)]
                               {(name t)
-                               {"All" (list-hyps (get (:hypotheses ws) t))
+                               {"All" (list-hyps (map #(ws/lookup-hyp ws %)
+                                                      (get (:hypotheses ws) t)))
                                 "Accepted"
                                 {"True" (list-hyps (get acc-tf-hyps true))
                                  "False" (list-hyps (get acc-tf-hyps false))}
                                 "Not accepted"
                                 {"True" (list-hyps (get not-acc-tf-hyps true))
                                  "False" (list-hyps (get not-acc-tf-hyps false))}}})))
-                   "Forced" (list-hyps (:forced ws))
+                   "Forced" (list-hyps (map #(ws/lookup-hyp ws %) (:forced ws)))
                    "Cycles" (apply sorted-map-by anc
                                    (mapcat #(build-cycle wslog %)
                                            (range (count (:best wslog)))))
-                   "Accepted" (list-hyps (apply concat (vals (:accepted ws))))
+                   "Accepted" (list-hyps (map #(ws/lookup-hyp ws %)
+                                              (apply concat (vals (:accepted ws)))))
                    "No explainers" (list-hyps (ws/find-no-explainers ws))
                    "Unexplained" (list-hyps (:unexplained wslog))
                    "Unaccepted" (list-hyps (ws/find-unaccepted ws))}))]
@@ -102,7 +106,7 @@
         boosts (str/join ", " (map str (sort-by :id alphanum (:boosts hyp))))
         conflicts (str/join ", " (map str (sort-by :id alphanum
                                                    (ws/find-conflicts-all workspace hyp))))]
-    (. hyp-apriori-label setText (format "Apriori: %.2f" (:apriori hyp)))
+    (. hyp-apriori-label setText (format "Apriori: %.2f" (ws/lookup-score workspace hyp)))
     (. hyp-confidence-label setText (format "Conf: %.2f" (ws/hyp-conf workspace hyp)))
     (. hyp-truefalse-label setText
        (if ((:true-hyp?-fn (:abduction @problem)) @truedata time hyp) "TF: True" "TF: False"))
@@ -138,8 +142,8 @@
           ws (if ep-state (:workspace ep-state))]
       (when (not= "Log" last-comp)
         (swap! workspace-selected (constantly ws))
-        (let [hyp (if ws (find-first #(= (:id %) last-comp)
-                                     (apply concat (vals (:hypotheses ws)))))]
+        (let [hyp (if ws (ws/lookup-hyp ws (find-first #(= % last-comp)
+                                                       (apply concat (vals (:hypotheses ws))))))]
           (swap! hyp-selected (constantly hyp))
           (when hyp (update-hyp-info ws (:time ep-state) hyp)))))))
 

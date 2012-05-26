@@ -7,12 +7,14 @@
   (:use [retrospect.evaluate :only [calc-increase]])
   (:use [retrospect.reason.abduction.workspace
          :only [get-unexp-pct get-noexp-pct hyp-conf calc-doubt calc-coverage
-                accepted? lookup-score]])
+                accepted? lookup-score lookup-hyp]])
   (:use [retrospect.state]))
 
 (defn group-hyps-by-true-false
   [hyps type-key truedata workspace time true-hyp?]
-  (let [hs (group-by type-key (set/difference (set hyps) (:forced workspace)))
+  (let [hs (group-by type-key (set/difference
+                               (set hyps)
+                               (set (map #(lookup-hyp workspace %) (:forced workspace)))))
         tf (reduce (fn [m subtype]
                      (let [grouped (group-by (fn [h] (if (true-hyp? truedata time h)
                                                        true false))
@@ -69,11 +71,10 @@
   [truedata est]
   (let [ep (cur-ep est)
         workspace (:workspace ep)
-        accepted (:accepted workspace)
-        rejected (:rejected workspace)
         true-false (group-hyps-by-true-false
-                    (apply concat (vals (:hypotheses workspace))) :type
-                    truedata workspace
+                    (map #(lookup-hyp workspace %)
+                         (apply concat (vals (:hypotheses workspace))))
+                    :type truedata workspace
                     (:time ep) (:true-hyp?-fn (:abduction @problem)))
         true-false-confs (calc-true-false-confs workspace true-false)]
     (merge {:Problem (:name @problem)}
@@ -92,8 +93,9 @@
   [workspace truedata time-now]
   (let [true-false-types (map (fn [t]
                                 (group-hyps-by-true-false
-                                 (get (:hypotheses workspace) t) :subtype
-                                 truedata workspace
+                                 (map #(lookup-hyp workspace %)
+                                      (get (:hypotheses workspace) t))
+                                 :subtype truedata workspace
                                  time-now (:true-hyp?-fn (:abduction @problem))))
                               (keys (:hypotheses workspace)))]
     (reduce

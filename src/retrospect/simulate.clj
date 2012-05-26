@@ -127,11 +127,18 @@
 (defn train
   [training or-state]
   (profile
-   (binding [training? true
-             params (assoc params :Steps 30)]
-     (let [ors (run-simulation training or-state)]
-       (update-in or-state [:workspace]
-                  (:extract-training-fn @reason) (:workspace (cur-ep (:est ors))))))))
+   (let [batch-orig @batch]
+     (dosync (alter batch (constantly true)))
+     (binding [training? true
+               params (assoc params :Steps 1000)]
+       (let [ors (run-simulation training or-state)
+             ws ((:extract-training-fn @reason)
+                 (:workspace (cur-ep (:est or-state)))
+                 (:workspace (cur-ep (:est ors))))
+             ep-ws (assoc (cur-ep (:est or-state)) :workspace ws)
+             ors-trained (update-in or-state [:est] update-est ep-ws)]
+         (dosync (alter batch (constantly batch-orig)))
+         ors-trained)))))
 
 (defn init-ors
   [sensors training]

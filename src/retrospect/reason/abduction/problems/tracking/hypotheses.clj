@@ -145,17 +145,15 @@
             [(new-mov-hyp to from det-color det2-color)]))))
 
 (defn hypothesize
-  [sensor-hyps accepted hyps]
+  [sensor-hyps accepted lookup-hyp]
   (prof :hypothesize
         (let [from-hyps (filter #(= :sensor-from (:subtype %)) sensor-hyps)
               to-hyps (filter #(= :sensor-to (:subtype %)) sensor-hyps)
               hyps (apply concat
                           (for [evidence from-hyps]
-                            (let [ ;; remove this
-                                  sm (fn [h] (score-movement h evidence (get-walk-dist hyps)))
-                                  acc-mov-hyps (get accepted :movement)
+                            (let [acc-mov-hyps (map lookup-hyp (get accepted :movement))
                                   nearby (map (fn [h] h) (filter #(= :sensor-to (:subtype %))
-                                                                 (get accepted :sensor)))
+                                                                 (map lookup-hyp (get accepted :sensor))))
                                   mov-hyps (mapcat (fn [h]
                                                      (new-mov-hyps h evidence acc-mov-hyps))
                                                    nearby)]
@@ -163,5 +161,5 @@
           (map (fn [h] (assoc h :conflicts (map :id (filter #(conflicts? h %) hyps)))) hyps))))
 
 (defn update-kb
-  [accepted unexplained hypotheses]
-  (get accepted :kb))
+  [lookup-hyp accepted unexplained hypotheses]
+  (lookup-hyp (first (get accepted :kb))))

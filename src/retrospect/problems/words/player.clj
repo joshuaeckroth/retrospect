@@ -7,6 +7,7 @@
   (:use [retrospect.epistemicstates :only [cur-ep]])
   (:use [retrospect.reason.abduction.problems.words.evaluate :only
          [get-words find-oov find-new-symbols]])
+  (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
   (:use [retrospect.state]))
 
 (def fscore-label (label ""))
@@ -62,7 +63,8 @@
   (let [ws (:workspace (cur-ep (:est @or-state)))
         accepted (:accepted ws)
         unexplained (:unexplained (:log ws))]
-    (str/join " __ " (get-words (get (:test @truedata) (dec @time-now))
+    (str/join " __ " (get-words (partial lookup-hyp ws)
+                                (get (:test @truedata) (dec @time-now))
                                 accepted unexplained))))
 
 (defn player-setup-diagram

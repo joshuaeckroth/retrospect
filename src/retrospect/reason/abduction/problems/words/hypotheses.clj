@@ -18,10 +18,6 @@
   [kb]
   [(new-hyp "KB" :kb :kb false [] [] "" "" kb)])
 
-(defn get-kb
-  [hyps]
-  (first (get hyps :kb)))
-
 (defn make-sensor-hyps
   [sensor time-prev time-now hyps]
   (map (fn [[[sym1 pos1] [sym2 pos2]]]
@@ -85,8 +81,8 @@
          (update-in [:bigram-model] add-to-bigram-model sent))]))
 
 (defn update-kb
-  [accepted unexplained hypotheses]
-  (get accepted :kb))
+  [lookup-hyp accepted unexplained hypotheses]
+  (lookup-hyp (first (get accepted :kb))))
 
 (defn find-dict-words
   [sym-string dict-tree]
@@ -131,8 +127,8 @@
             [seen-split-prob end-prob start-prob]))))
 
 (defn hypothesize
-  [forced-hyps accepted hyps]
-  (let [kb (get-kb hyps)
+  [forced-hyps accepted lookup-hyp]
+  (let [kb (lookup-hyp (first (get accepted :kb)))
         hyp-types (set (str/split (:HypTypes params) #","))
         transition-hyps (vec (sort-by :trans-pos forced-hyps))
         merge-hyps

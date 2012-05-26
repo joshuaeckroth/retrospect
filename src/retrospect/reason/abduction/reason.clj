@@ -42,7 +42,6 @@
                                 :ContrastPreference ["delta" ["delta" "arbitrary"]]
                                 :ApplyBoosting [true [true false]]
                                 :HypPreference ["abd" ["abd" "arbitrary"]]
-                                :RequireExplainedAccepted [false [true false]]
                                 :TransitiveExplanation [false [true false]]
                                 :ConfAdjustment ["max" ["min" "max" "avg" "none" "norm"]]}
                                (:default-params (:abduction @problem))))
