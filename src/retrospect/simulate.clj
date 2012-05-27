@@ -90,7 +90,10 @@
         sensors (update-sensors-from-to time-prev time-now truedata (:sensors ors))
         ;; start the clock
         start-time (. System (nanoTime))
-        ors-new (update-in ors [:est] new-child-ep time-now)
+        ors-new (if-not (:GrowEst params)
+                  (update-in ors [:est] update-est (assoc (cur-ep (:est ors))
+                                                     :time time-now))
+                  (update-in ors [:est] new-child-ep time-now))
         ep (cur-ep (:est ors-new))
         workspace (if (and (not= 0 time-prev) (:ResetEachStep params))
                     (do (log "Resetting workspace...")
@@ -110,7 +113,9 @@
     (when (:Stats params)
       ((:stats-fn @reason) truedata ors-results time-now))
     (when (not player?)
-      (.write System/out (int \.)) (.flush System/out))
+      (.write System/out (int \.))
+      (when (= 0 (mod time-now 1000)) (print (str time-now)))
+      (.flush System/out))
     ors-results))
 
 (defn run-simulation
@@ -127,7 +132,8 @@
    (let [batch-orig @batch]
      (dosync (alter batch (constantly true)))
      (binding [training? true
-               params (assoc params :Steps (count (:test training)))]
+               params (assoc params :Steps (count (:test training))
+                             :GrowEst false)]
        (println "training with" (:Steps params) "steps")
        (let [ors (run-simulation training or-state)
              ws ((:extract-training-fn @reason)
@@ -151,6 +157,7 @@
    :Knowledge [80 [80]]
    :UpdateKB [true [true false]]
    :Oracle ["none" ["none"]]
+   :GrowEst [true [true]]
    :Steps [10 [10]]
    :Stats [false [false]]})
 
