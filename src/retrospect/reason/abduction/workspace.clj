@@ -467,8 +467,10 @@
                              (:unexplained (:log workspace))
                              (:hypotheses workspace)
                              (partial lookup-hyp workspace))]
-            (-> workspace (assoc :initial-kb new-kb-hyps)
-                (assoc-in [:accepted :kb] new-kb-hyps)))))
+            (-> (reduce (fn [ws h] (assoc-in ws [:hyp-ids (:id h)] h))
+                        workspace new-kb-hyps)
+                (assoc :initial-kb new-kb-hyps)
+                (assoc-in [:accepted :kb] (set (map :id new-kb-hyps)))))))
 
 (defn update-hypotheses
   [workspace]

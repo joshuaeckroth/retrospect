@@ -89,8 +89,14 @@
             :ExplainCycles (:cycle workspace)
             :HypothesisCount (reduce + (map count (vals (:hypotheses workspace))))})))
 
-(defn update-training
+(defn count-false-accepted
   [workspace truedata time-now]
+  (count (filter #(not ((:true-hyp?-fn (:abduction @problem)) truedata time-now %))
+                 (map #(lookup-hyp workspace %)
+                      (apply concat (vals (:accepted workspace)))))))
+
+(defn update-training
+  [workspace truedata time-now temp]
   (let [true-false-types (map (fn [t]
                                 (group-hyps-by-true-false
                                  (map #(lookup-hyp workspace %)
@@ -109,9 +115,9 @@
                 (let [prior (get-in ws4 [:scores (:type hyp) (:subtype hyp)] 0.5)]
                   (if tf
                     (assoc-in ws4 [:scores (:type hyp) (:subtype hyp)]
-                              (min 1.0 (+ prior 0.05)))
+                              (min 1.0 (+ prior (* 0.05 temp))))
                     (assoc-in ws4 [:scores (:type hyp) (:subtype hyp)]
-                              (max 0.0 (- prior 0.05))))))
+                              (max 0.0 (- prior (* 0.05 temp)))))))
               ws3 (get-in tfs [st tf])))
            ws2 (keys (get tfs st))))
         ws (keys tfs)))

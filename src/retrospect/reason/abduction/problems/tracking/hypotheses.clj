@@ -162,4 +162,4 @@
 
 (defn update-kb
   [accepted unexplained hypotheses lookup-hyp]
-  (lookup-hyp (first (get accepted :kb))))
+  (map lookup-hyp (get accepted :kb)))

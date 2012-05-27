@@ -6,30 +6,44 @@
   (:use [retrospect.reason.abduction.meta
          :only [metareasoning-activated? workspace-compare]])
   (:use [retrospect.reason.abduction.evaluate
-         :only [evaluate evaluate-comp update-training]])
+         :only [evaluate evaluate-comp update-training
+                count-false-accepted]])
   (:use [retrospect.reason.abduction.gui.hypgraph
          :only [hypgraph-tab update-hypgraph]])
   (:use [retrospect.reason.abduction.gui.logs
          :only [logs-tab update-logs]])
   (:use [retrospect.state]))
 
+(defn reason-train
+  [truedata workspace time-prev time-now sensors]
+  (let [ws-orig (if (= "none" (:Oracle params)) workspace
+                    (assoc workspace :oracle
+                           (partial (:true-hyp?-fn (:abduction @problem))
+                                    truedata time-now)))]
+    (loop [ws ws-orig
+           temp 1.0] ;; "temperature"
+      (let [ws-result
+            (if sensors
+              (explain (update-hypotheses
+                        (add-sensor-hyps ws time-prev time-now sensors)))
+              (explain (update-hypotheses ws)))]
+        (cond (or (not training?)
+                  (>= 0.0 temp)
+                  (= 0 (count-false-accepted ws-result truedata time-now)))
+              ws-result
+              :else
+              (recur (extract-training
+                      ws (update-training ws-result truedata time-now temp))
+                     (- temp 0.2)))))))
+
 (def reason-abduction
   {:name "Abduction"
-   :reason-fn (fn [truedata workspace time-prev time-now sensors]
-                (let [ws (if (= "none" (:Oracle params)) workspace
-                             (assoc workspace :oracle
-                                    (partial (:true-hyp?-fn (:abduction @problem))
-                                             truedata time-now)))]
-                  (if sensors
-                    (explain (update-hypotheses
-                              (add-sensor-hyps ws time-prev time-now sensors)))
-                    (explain (update-hypotheses ws)))))
+   :reason-fn reason-train
    :revise-fn revise
    :stats-fn (fn [truedata ors time-now] ((:stats-fn (:abduction @problem))
                                           truedata ors time-now))
    :metareasoning-activated?-fn metareasoning-activated?
    :workspace-compare-fn workspace-compare
-   :update-training-fn update-training
    :extract-training-fn extract-training
    :evaluate-fn evaluate
    :evaluate-comp-fn evaluate-comp

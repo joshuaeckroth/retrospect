@@ -99,10 +99,7 @@
         workspace-reasoned ((:reason-fn @reason)
                             (when (:Oracle params) truedata)
                             workspace time-prev time-now sensors)
-        workspace-trained (if-not training? workspace-reasoned
-                                  ((:update-training-fn @reason) workspace-reasoned
-                                   truedata time-now))
-        ep-reason (assoc ep :workspace workspace-trained)
+        ep-reason (assoc ep :workspace workspace-reasoned)
         meta-est (metareason truedata (update-est (:est ors-new) ep-reason)
                              time-prev time-now sensors)
         ;; stop the clock
@@ -130,7 +127,8 @@
    (let [batch-orig @batch]
      (dosync (alter batch (constantly true)))
      (binding [training? true
-               params (assoc params :Steps 1000)]
+               params (assoc params :Steps (count (:test training)))]
+       (println "training with" (:Steps params) "steps")
        (let [ors (run-simulation training or-state)
              ws ((:extract-training-fn @reason)
                  (:workspace (cur-ep (:est or-state)))
