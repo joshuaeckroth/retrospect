@@ -566,4 +566,5 @@
 
 (defn extract-training
   [ws-orig ws-trained]
-  (assoc ws-orig :scores (:scores ws-trained)))
+  (add-kb (assoc ws-orig :scores (:scores ws-trained))
+          (:initial-kb ws-trained)))
