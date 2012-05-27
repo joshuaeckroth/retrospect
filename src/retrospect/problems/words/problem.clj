@@ -30,16 +30,15 @@
                :update-kb-fn update-kb
                :stats-fn stats
                :true-hyp?-fn true-hyp?
-               :default-params {:HypTypes ["words,biwords"
-                                           ["words", "words,biwords"]]
-                                :SplitScore ["bestAbs" ["bestAbs" "max" "min" "avg"]]
-                                :SplitScorePoss [true [true false]]}}
+               :default-params {:HypTypes ["words,mergesplit"
+                                           ["words", "words,mergesplit"
+                                            "mergesplit"]]}}
    :default-params
    {:Steps [50 [50]]
     :StepsBetween [1 [1]]
     :ResetEachStep [true [true]]
     :SensorNoise [0 [0]]
-    ;; ["carroll" "cityu_training" "as_training" "msr_training" "pku_training"]
-    :Dataset ["pku_training" ["pku_training"]]
+    :Dataset ["pku_training" ["carroll" "cityu_training" "as_training"
+                              "msr_training" "pku_training"]]
     :ShortFirst [false [true false]]
     :DefaultMergeSplit ["merge" ["merge" "split"]]}})
