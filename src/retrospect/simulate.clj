@@ -114,7 +114,7 @@
       ((:stats-fn @reason) truedata ors-results time-now))
     (when (not player?)
       (.write System/out (int \.))
-      (when (= 0 (mod time-now 1000)) (print (str time-now)))
+      (when (= 0 (mod time-now 1000)) (.print System/out (str time-now)))
       (.flush System/out))
     ors-results))
 
