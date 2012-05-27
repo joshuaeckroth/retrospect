@@ -36,7 +36,6 @@
   {:graph (digraph)
    :oracle nil
    :cycle 0
-   :initial-kb []
    ;; hyp type => hyp subtype => score
    :scores {}
    :log {:unexplained [] :best [] :accrej {}}
@@ -469,7 +468,6 @@
                              (partial lookup-hyp workspace))]
             (-> (reduce (fn [ws h] (assoc-in ws [:hyp-ids (:id h)] h))
                         workspace new-kb-hyps)
-                (assoc :initial-kb new-kb-hyps)
                 (assoc-in [:accepted :kb] (set (map :id new-kb-hyps)))))))
 
 (defn update-hypotheses
@@ -547,8 +545,7 @@
   (reduce (fn [ws h]
             (let [acc-prior (get-in ws [:accepted (:type h)] #{})]
               (-> ws (add h)
-                  (assoc-in [:accepted (:type h)] (conj acc-prior (:id h)))
-                  (update-in [:initial-kb] conj h))))
+                  (assoc-in [:accepted (:type h)] (conj acc-prior (:id h))))))
           workspace hyps))
 
 (defn init-kb
@@ -559,7 +556,8 @@
   [workspace]
   (add-kb (assoc empty-workspace :oracle (:oracle workspace)
                  :scores (:scores workspace))
-          (:initial-kb workspace)))
+          (map #(lookup-hyp workspace %)
+               (get-in workspace [:accepted :kb]))))
 
 (defn init-workspace
   ([] empty-workspace))
@@ -567,4 +565,5 @@
 (defn extract-training
   [ws-orig ws-trained]
   (add-kb (assoc ws-orig :scores (:scores ws-trained))
-          (:initial-kb ws-trained)))
+          (map #(lookup-hyp ws-trained %)
+               (get-in ws-trained [:accepted :kb]))))

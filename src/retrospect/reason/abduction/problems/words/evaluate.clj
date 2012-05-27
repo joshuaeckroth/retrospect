@@ -31,9 +31,7 @@
                                      (recur (+ i (count (first sent)))
                                             (conj ws (first sent))
                                             (rest sent))))]
-              (cond (= :word (:type hyp))
-                    (or (= [(:word hyp)] true-words)
-                        (= (:words hyp) true-words))
+              (cond (= :word (:type hyp)) (= [(:word hyp)] true-words)
                     (= :merge (:type hyp)) (empty? true-words)
                     ;; leave if and true/false because not-empty returns the first item
                     (= :split (:type hyp)) (if (not-empty true-words) true false))))))

@@ -32,8 +32,8 @@
                   (= 0 (count-false-accepted ws-result truedata time-now)))
               ws-result
               :else
-              (recur (extract-training
-                      ws (update-training ws-result truedata time-now temp))
+              (recur (assoc ws :scores
+                            (:scores (update-training ws-result truedata time-now temp)))
                      (- temp 0.2)))))))
 
 (def reason-abduction

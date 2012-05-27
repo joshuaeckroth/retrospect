@@ -90,9 +90,11 @@
             transition-hyps (sort-by :trans-pos (map lookup-hyp (get accepted :transition)))
             words (get-words lookup-hyp (apply str (map :sym1 transition-hyps))
                              accepted unexplained)
-            new-dict (set/union dict (set words))]
+            new-dict (set/union dict (set words))
+            new-dict-tree (new-dict-tree new-dict)]
         [(assoc kb :dict new-dict
-                :dict-tree (new-dict-tree words))])))
+                :dict-tree new-dict-tree
+                :contents {:dict new-dict :dict-tree new-dict-tree})])))
 
 (defn find-dict-words
   [sym-string dict-tree]
