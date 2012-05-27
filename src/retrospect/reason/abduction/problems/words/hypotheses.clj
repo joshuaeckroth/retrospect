@@ -74,13 +74,12 @@
   [accepted lookup-hyp]
   (lookup-hyp (first (get accepted :kb))))
 
-(defn new-dict-tree
-  [words]
-  (let [dict-tree (AhoCorasick.)]
-    (doseq [w words]
-      (.add dict-tree (.getBytes w) w))
-    (.prepare dict-tree)
-    dict-tree))
+(defn update-dict-tree
+  [dict-tree words]
+  (.reset dict-tree)
+  (doseq [w words]
+    (.add dict-tree (.getBytes w) w))
+  (.prepare dict-tree))
 
 (defn update-kb
   [accepted unexplained hypotheses lookup-hyp]
@@ -90,11 +89,10 @@
             transition-hyps (sort-by :trans-pos (map lookup-hyp (get accepted :transition)))
             words (get-words lookup-hyp (apply str (map :sym1 transition-hyps))
                              accepted unexplained)
-            new-dict (set/union dict (set words))
-            new-dict-tree (new-dict-tree new-dict)]
+            new-dict (set/union dict (set words))]
+        (update-dict-tree (:dict-tree kb) new-dict)
         [(assoc kb :dict new-dict
-                :dict-tree new-dict-tree
-                :contents {:dict new-dict :dict-tree new-dict-tree})])))
+                :contents (assoc (:contents kb) :dict new-dict))])))
 
 (defn find-dict-words
   [sym-string dict-tree]
