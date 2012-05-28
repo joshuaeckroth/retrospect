@@ -1,6 +1,7 @@
 (ns retrospect.reason.abduction.reason
+  (:require [clojure.string :as str])
   (:use [retrospect.reason.abduction.workspace
-         :only [explain revise add-sensor-hyps init-workspace
+         :only [explain add-sensor-hyps init-workspace
                 update-hypotheses init-kb reset-workspace
                 calc-doubt calc-coverage extract-training]])
   (:use [retrospect.reason.abduction.meta
@@ -39,7 +40,6 @@
 (def reason-abduction
   {:name "Abduction"
    :reason-fn reason-train
-   :revise-fn revise
    :stats-fn (fn [truedata ors time-now] ((:stats-fn (:abduction @problem))
                                           truedata ors time-now))
    :metareasoning-activated?-fn metareasoning-activated?
