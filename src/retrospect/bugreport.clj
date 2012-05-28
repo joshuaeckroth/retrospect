@@ -5,7 +5,8 @@
   (:use [clj-swing.panel])
   (:use [clj-swing.button])
   (:use [clj-swing.frame])
-  (:use [clj-swing.text-field]))
+  (:use [clj-swing.text-field])
+  (:use [retrospect.state]))
 
 (def exception (ref ""))
 
@@ -17,7 +18,9 @@
        (dosync (alter exception (constantly
                                  (let [s (StringWriter.)]
                                    (.printStackTrace throwable (PrintWriter. s))
-                                   (str s)))))
+                                   (format "Params:\n%s\n\n%s"
+                                           (pr-str params) (str s))))))
+       (println @exception)
        (frame :title "Exception"
               :layout (GridBagLayout.)
               :constrains (java.awt.GridBagConstraints.)
