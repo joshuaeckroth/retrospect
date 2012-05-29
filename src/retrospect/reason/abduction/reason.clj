@@ -22,7 +22,7 @@
                            (partial (:true-hyp?-fn (:abduction @problem))
                                     truedata time-now)))]
     (loop [ws ws-orig
-           temp 1.0] ;; "temperature"
+           temp 0.1] ;; "temperature"
       (let [ws-result
             (if sensors
               (explain (update-hypotheses
