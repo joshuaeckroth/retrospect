@@ -52,13 +52,11 @@
            end2 (last (:pos-seq hyp2))]
        (not (or (< end1 start2) (< end2 start1))))
 
-     (and (not (hyp-types "wordsnosplit"))
-          (= :word (:type hyp1)) (= :split (:type hyp2)))
+     (and (= :word (:type hyp1)) (= :split (:type hyp2)))
      (and (>= (:trans-pos hyp2) (first (:pos-seq hyp1)))
           (<= (:trans-pos hyp2) (dec (last (:pos-seq hyp1)))))
 
-     (and (not (hyp-types "wordsnosplit"))
-          (= :word (:type hyp2)) (= :split (:type hyp1)))
+     (and (= :word (:type hyp2)) (= :split (:type hyp1)))
      (and (>= (:trans-pos hyp1) (first (:pos-seq hyp2)))
           (<= (:trans-pos hyp1) (dec (last (:pos-seq hyp2)))))
      
@@ -151,12 +149,14 @@
                       (let [word (apply str (map :sym1 t-hyps))
                             pos-seq (map :trans-pos t-hyps)]
                         (new-hyp "Word" :word word false
-                                 (if (hyp-types "wordsnosplit")
-                                   (filter #(not= :split (:type %)) t-hyps)
-                                   t-hyps)
-                                 (if (hyp-types "wordsboost")
-                                   (filter #(= :split (:type %)) t-hyps)
-                                   [])
+                                 ;; explain merge/split hyps
+                                 (concat (filter #(or (= (:trans-pos %) (dec (first pos-seq)))
+                                                      (= (:trans-pos %) (last pos-seq)))
+                                                 split-hyps)
+                                         (filter #(and (>= (:trans-pos %) (first pos-seq))
+                                                       (< (:trans-pos %) (last pos-seq)))
+                                                 merge-hyps))
+                                 [] ;; no boosting
                                  word (format "Word: %s, pos-seq: %s" word
                                               (str/join ", " (map str pos-seq)))
                                  {:pos-seq pos-seq :word word})))
