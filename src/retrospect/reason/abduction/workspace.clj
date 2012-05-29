@@ -226,12 +226,12 @@
   (if (or (not (:ApplyBoosting params))
           (not ((:available workspace) (:id hyp))))
     workspace
-    (let [new-conf (min 1.0 (+ 0.25 (hyp-conf workspace hyp)))]
+    (let [new-conf (min 1.0 (+ 0.10 (hyp-conf workspace hyp)))]
       (-> workspace
           (assoc-in [:hyp-confidences (:id hyp)] new-conf)
-          (update-in [:hyp-log hyp] conj
-                     (format "Confidence boosted in cycle %d from %.2f to %.2f"
-                             (:cycle workspace) (hyp-conf workspace hyp) new-conf))))))
+          #_(update-in [:hyp-log hyp] conj
+                       (format "Confidence boosted in cycle %d from %.2f to %.2f"
+                               (:cycle workspace) (hyp-conf workspace hyp) new-conf))))))
 
 (defn find-conflicts-all
   [workspace hyp]

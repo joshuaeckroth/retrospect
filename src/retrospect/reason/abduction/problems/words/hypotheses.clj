@@ -136,16 +136,9 @@
                merge-hyps))
         sym-string (apply str (map :sym1 transition-hyps))
         words (filter not-empty
-                      (map (fn [[w i]]
-                             (when (or (< i 0) (> (+ i (count w)) (count transition-hyps)))
-                               (println i w (count w) (count transition-hyps) transition-hyps)
-                               (println (interleave (range (count sym-string)) (seq sym-string)))
-                               (println (find-dict-words sym-string (:dict-tree kb)
-                                                         (:dict kb)))
-                               (prn params)
-                               (prn (:dict kb)))
-                             (subvec transition-hyps (max 0 i) (min (count transition-hyps)
-                                                                    (+ i (count w)))))
+                      (map (fn [[w i]] (subvec transition-hyps
+                                               (max 0 i) (min (count transition-hyps)
+                                                              (+ i (count w)))))
                            (find-dict-words sym-string (:dict-tree kb) (:dict kb))))
         word-hyps
         (prof :word-hyps
@@ -153,18 +146,16 @@
                #(not-empty (:explains %))
                (map (fn [t-hyps]
                       (let [word (apply str (map :sym1 t-hyps))
-                            pos-seq (map :trans-pos t-hyps)
-                            similar-words (map #(apply str (map :sym1 %))
-                                               (filter
-                                                #(and (>= (:trans-pos (first t-hyps))
-                                                          (:trans-pos (first %)))
-                                                      (<= (:trans-pos (last t-hyps))
-                                                          (:trans-pos (last %))))
-                                                words))]
-                        (new-hyp "Word" :word word false t-hyps [] ;; no boosting
-                                 word (format "Word: %s, pos-seq: %s\nsimilar: %s" word
-                                              (str/join ", " (map str pos-seq))
-                                              (str/join ", " similar-words))
+                            pos-seq (map :trans-pos t-hyps)]
+                        (new-hyp "Word" :word word false
+                                 (if (hyp-types "wordsnosplit")
+                                   (filter #(not= :split (:type %)) t-hyps)
+                                   t-hyps)
+                                 (if (hyp-types "wordsboost")
+                                   (filter #(= :split (:type %)) t-hyps)
+                                   [])
+                                 word (format "Word: %s, pos-seq: %s" word
+                                              (str/join ", " (map str pos-seq)))
                                  {:pos-seq pos-seq :word word})))
                     (sort-by (comp :trans-pos first) words))))
         hyps (concat (if (hyp-types "mergesplit") (concat merge-hyps split-hyps) [])
