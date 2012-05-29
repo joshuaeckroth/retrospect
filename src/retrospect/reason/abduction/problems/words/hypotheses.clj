@@ -113,7 +113,7 @@
         (prof :merge-hyps
               (map
                (fn [t-hyp]
-                 (new-hyp "Merge" :merge {:sym1 (:sym1 t-hyp) :sym2 (:sym2 t-hyp)} true
+                 (new-hyp "Merge" :merge {:sym1 (:sym1 t-hyp) :sym2 (:sym2 t-hyp)} false
                           [t-hyp] [] (format "%s+%s" (:sym1 t-hyp) (:sym2 t-hyp))
                           (format (str "Merge of %s+%s at %d")
                                   (:sym1 t-hyp)
@@ -126,7 +126,7 @@
               (map
                (fn [m-hyp]
                  (let [t-hyp (first (:explains m-hyp))]
-                   (new-hyp "Split" :split {:sym1 (:sym1 t-hyp) :sym2 (:sym2 t-hyp)} true
+                   (new-hyp "Split" :split {:sym1 (:sym1 t-hyp) :sym2 (:sym2 t-hyp)} false
                             [t-hyp] [] (format "%s-%s" (:sym1 t-hyp)
                                                (:sym2 t-hyp))
                             (format (str "Split of %s-%s at %d")
@@ -149,14 +149,7 @@
                       (let [word (apply str (map :sym1 t-hyps))
                             pos-seq (map :trans-pos t-hyps)]
                         (new-hyp "Word" :word word false
-                                 ;; explain merge/split hyps
-                                 (concat (filter #(or (= (:trans-pos %) (dec (first pos-seq)))
-                                                      (= (:trans-pos %) (last pos-seq)))
-                                                 split-hyps)
-                                         (filter #(and (>= (:trans-pos %) (first pos-seq))
-                                                       (< (:trans-pos %) (last pos-seq)))
-                                                 merge-hyps))
-                                 [] ;; no boosting
+                                 t-hyps [] ;; no boosting
                                  word (format "Word: %s, pos-seq: %s" word
                                               (str/join ", " (map str pos-seq)))
                                  {:pos-seq pos-seq :word word})))
