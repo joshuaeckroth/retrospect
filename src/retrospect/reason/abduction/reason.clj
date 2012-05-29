@@ -2,7 +2,7 @@
   (:require [clojure.string :as str])
   (:use [retrospect.reason.abduction.workspace
          :only [explain add-sensor-hyps init-workspace
-                update-hypotheses init-kb reset-workspace
+                update-hypotheses init-kb update-kb reset-workspace
                 calc-doubt calc-coverage extract-training]])
   (:use [retrospect.reason.abduction.meta
          :only [metareasoning-activated? workspace-compare]])
@@ -31,7 +31,7 @@
         (cond (or (not training?)
                   (>= 0.0 temp)
                   (= 0 (count-false-accepted ws-result truedata time-now)))
-              ws-result
+              (update-kb ws-result)
               :else
               (recur (assoc ws :scores
                             (:scores (update-training ws-result truedata time-now temp)))

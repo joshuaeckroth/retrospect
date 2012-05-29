@@ -148,7 +148,9 @@
   [sensors training]
   (profile
    (train training
-          (let [est (init-est ((:init-kb-fn @reason) ((:init-workspace-fn @reason))))]
+          (let [est (init-est ((:init-kb-fn @reason)
+                               ((:init-workspace-fn @reason))
+                               training))]
             {:resources {:milliseconds 0 :meta-accepted 0 :meta-activations 0}
              :sensors sensors :est est}))))
 
