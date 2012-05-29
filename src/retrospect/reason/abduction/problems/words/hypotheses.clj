@@ -79,15 +79,14 @@
 
 (defn update-kb
   [accepted unexplained hypotheses lookup-hyp]
-  (if (not ((get-hyp-types) "words")) (map lookup-hyp (get accepted :kb))
-      (let [kb (get-kb accepted lookup-hyp)
-            dict (:dict kb)
-            transition-hyps (sort-by :trans-pos (map lookup-hyp (get accepted :transition)))
-            words (get-words lookup-hyp (apply str (map :sym1 transition-hyps))
-                             accepted unexplained)
-            new-dict (set/union dict (set words))]
-        [(assoc kb :dict new-dict
-                :contents (assoc (:contents kb) :dict new-dict))])))
+  (let [kb (get-kb accepted lookup-hyp)
+        dict (:dict kb)
+        transition-hyps (sort-by :trans-pos (map lookup-hyp (get accepted :transition)))
+        words (get-words lookup-hyp (apply str (map :sym1 transition-hyps))
+                         accepted unexplained)
+        new-dict (set/union dict (set words))]
+    [(assoc kb :dict new-dict
+            :contents (assoc (:contents kb) :dict new-dict))]))
 
 (defn find-dict-words
   [sym-string dict-tree dict]
