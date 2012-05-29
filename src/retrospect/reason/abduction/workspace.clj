@@ -49,8 +49,8 @@
    :hyp-ids {}
    ;; a map of type => seq
    :hypotheses {}
-   ;; a map keyed by hypothesis :data + :type maps (for dup searching)
-   :hyp-contents {}
+   ;; a set of hypothesis :data + :type maps (for dup searching)
+   :hyp-contents #{}
    ;; hyp-ids that are neither accepted nor rejected
    :available #{}
    ;; keyed by hyp-id
@@ -162,15 +162,17 @@
   (let [expl-filter (fn [hypid] ((:available workspace) hypid))]
     (prof :find-all-explainers
           (sort-by (comp :id first)
-                   (filter (comp first :expl)
+                   (doall (filter
+                           (comp first :expl)
                            (map
                             (fn [h]
                               {:hyp h
-                               :expl (map #(lookup-hyp workspace %)
-                                          (filter expl-filter
-                                                  (get (:active-explainers workspace) (:id h))))})
+                               :expl (doall (map #(lookup-hyp workspace %)
+                                                 (filter expl-filter
+                                                         (get (:active-explainers workspace)
+                                                              (:id h)))))})
                             (map #(lookup-hyp workspace %)
-                                 (keys (:active-explainers workspace)))))))))
+                                 (keys (:active-explainers workspace))))))))))
 
 (defn normalize-confidences
   "Normalize the apriori confidences of a collection of hyps.
@@ -298,7 +300,7 @@
                 (prof :add-ws-update
                       (-> ws-needs-explainer
                           (update-in [:hyp-ids] assoc (:id hyp) hyp)
-                          (update-in [:hyp-contents] assoc (:contents hyp) true)
+                          (update-in [:hyp-contents] conj (:contents hyp))
                           (update-in [:available] conj (:id hyp))
                           (add-explainers hyp)
                           (assoc-in

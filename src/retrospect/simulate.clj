@@ -107,7 +107,7 @@
                              time-prev time-now sensors)
         ;; stop the clock
         ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
-        meta-est-eval (evaluate truedata meta-est)
+        meta-est-eval (if training? meta-est (evaluate truedata meta-est))
         ors-est (assoc ors-new :est meta-est-eval :sensors sensors)
         ors-results (update-in ors-est [:resources :milliseconds] + ms)]
     (when (:Stats params)
