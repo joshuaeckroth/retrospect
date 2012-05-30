@@ -38,40 +38,39 @@
 
 (defn conflicts?
   [hyp1 hyp2]
-  (let [hyp-types (get-hyp-types)]
-    (cond
-     (= hyp1 hyp2) false
-     
-     (or (= :transition (:type hyp1)) (= :transition (:type hyp2))) false
-     
-     (and (= :word (:type hyp1)) (= :word (:type hyp2)))
-     (let [start1 (first (:pos-seq hyp1))
-           end1 (last (:pos-seq hyp1))
-           start2 (first (:pos-seq hyp2))
-           end2 (last (:pos-seq hyp2))]
-       (not (or (< end1 start2) (< end2 start1))))
+  (cond
+   (= hyp1 hyp2) false
+   
+   (or (= :transition (:type hyp1)) (= :transition (:type hyp2))) false
+   
+   (and (= :word (:type hyp1)) (= :word (:type hyp2)))
+   (let [start1 (first (:pos-seq hyp1))
+         end1 (last (:pos-seq hyp1))
+         start2 (first (:pos-seq hyp2))
+         end2 (last (:pos-seq hyp2))]
+     (not (or (< end1 start2) (< end2 start1))))
 
-     (and (= :word (:type hyp1)) (= :split (:type hyp2)))
-     (and (>= (:trans-pos hyp2) (first (:pos-seq hyp1)))
-          (<= (:trans-pos hyp2) (dec (last (:pos-seq hyp1)))))
+   (and (= :word (:type hyp1)) (= :split (:type hyp2)))
+   (and (>= (:trans-pos hyp2) (first (:pos-seq hyp1)))
+        (<= (:trans-pos hyp2) (dec (last (:pos-seq hyp1)))))
 
-     (and (= :word (:type hyp2)) (= :split (:type hyp1)))
-     (and (>= (:trans-pos hyp1) (first (:pos-seq hyp2)))
-          (<= (:trans-pos hyp1) (dec (last (:pos-seq hyp2)))))
-     
-     (and (= :word (:type hyp2)) (= :merge (:type hyp1)))
-     (or (= (:trans-pos hyp1) (dec (first (:pos-seq hyp2))))
-         (= (:trans-pos hyp1) (last (:pos-seq hyp2))))
+   (and (= :word (:type hyp2)) (= :split (:type hyp1)))
+   (and (>= (:trans-pos hyp1) (first (:pos-seq hyp2)))
+        (<= (:trans-pos hyp1) (dec (last (:pos-seq hyp2)))))
+   
+   (and (= :word (:type hyp2)) (= :merge (:type hyp1)))
+   (or (= (:trans-pos hyp1) (dec (first (:pos-seq hyp2))))
+       (= (:trans-pos hyp1) (last (:pos-seq hyp2))))
 
-     (and (= :word (:type hyp1)) (= :merge (:type hyp2)))
-     (or (= (:trans-pos hyp2) (dec (first (:pos-seq hyp1))))
-         (= (:trans-pos hyp2) (last (:pos-seq hyp1))))
+   (and (= :word (:type hyp1)) (= :merge (:type hyp2)))
+   (or (= (:trans-pos hyp2) (dec (first (:pos-seq hyp1))))
+       (= (:trans-pos hyp2) (last (:pos-seq hyp1))))
 
-     (or (and (= :split (:type hyp1)) (= :merge (:type hyp2)))
-         (and (= :merge (:type hyp1)) (= :split (:type hyp2))))
-     (= (:trans-pos hyp1) (:trans-pos hyp2))
-     
-     :else false)))
+   (or (and (= :split (:type hyp1)) (= :merge (:type hyp2)))
+       (and (= :merge (:type hyp1)) (= :split (:type hyp2))))
+   (= (:trans-pos hyp1) (:trans-pos hyp2))
+   
+   :else false))
 
 (defn get-kb
   [accepted lookup-hyp]
