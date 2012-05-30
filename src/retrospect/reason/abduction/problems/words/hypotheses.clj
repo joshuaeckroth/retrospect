@@ -79,7 +79,7 @@
 
 (defn update-kb
   [accepted unexplained hypotheses lookup-hyp]
-  (map lookup-get (get accepted :kb)))
+  (map lookup-hyp (get accepted :kb)))
 
 (defn find-dict-words
   [sym-string dict-tree]
