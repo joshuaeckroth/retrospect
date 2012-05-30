@@ -50,6 +50,14 @@
          end2 (last (:pos-seq hyp2))]
      (not (or (< end1 start2) (< end2 start1))))
 
+   (and (= :word (:type hyp1)) (= :split (:type hyp2)))
+   (and (>= (:trans-pos hyp2) (first (:pos-seq hyp1)))
+        (<= (:trans-pos hyp2) (dec (last (:pos-seq hyp1)))))
+
+   (and (= :word (:type hyp2)) (= :split (:type hyp1)))
+   (and (>= (:trans-pos hyp1) (first (:pos-seq hyp2)))
+        (<= (:trans-pos hyp1) (dec (last (:pos-seq hyp2)))))
+   
    (and (= :word (:type hyp2)) (= :merge (:type hyp1)))
    (or (= (:trans-pos hyp1) (dec (first (:pos-seq hyp2))))
        (= (:trans-pos hyp1) (last (:pos-seq hyp2))))
@@ -131,20 +139,12 @@
                       (let [word (apply str (map :sym1 t-hyps))
                             pos-seq (map :trans-pos t-hyps)]
                         (new-hyp "Word" :word word false
-                                 (filter #(and (>= (:trans-pos %) (first pos-seq))
-                                               (< (:trans-pos %) (last pos-seq)))
-                                         t-hyps)
-                                 [] ;; no boosting
+                                 t-hyps [] ;; no boosting
                                  word (format "Word: %s, pos-seq: %s" word
                                               (str/join ", " (map str pos-seq)))
                                  {:pos-seq pos-seq :word word})))
                     (sort-by (comp :trans-pos first) words))))
         hyps (concat (if (hyp-types "mergesplit") (concat merge-hyps split-hyps) [])
-                     (if (hyp-types "mergesplitnoword")
-                       (filter #(not-any? (set (mapcat :explains word-hyps))
-                                          (:explains %))
-                               (concat merge-hyps split-hyps))
-                       [])
                      (if (hyp-types "words") word-hyps []))]
     (doall (map (fn [h] (assoc h :conflicts
                                (map :id (filter #(conflicts? h %) hyps))))
