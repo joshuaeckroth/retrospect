@@ -74,8 +74,8 @@
                                (second (re-find #"=== IV Recall Rate:\s+(\d\.\d\d\d)"
                                                 (:out results))))
                               (catch Exception _ 0.0))]
-           #_(println (format "prec: %.2f, recall: %.2f, f-score: %.2f, oov-recall: %.2f, oov-rate: %.2f"
-                            prec recall f-score oov-recall oov-rate))
+           (println (format "%s: prec: %.2f, recall: %.2f, f-score: %.2f, oov-recall: %.2f, oov-rate: %.2f"
+                            (:HypTypes params) prec recall f-score oov-recall oov-rate))
            [prec recall f-score oov-rate oov-recall iv-recall]))
        (catch Exception e (do (log e) [-1.0 -1.0 -1.0 -1.0 -1.0 -1.0 -1.0]))))
 

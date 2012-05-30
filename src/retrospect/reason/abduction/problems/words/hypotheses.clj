@@ -18,8 +18,7 @@
     (doseq [w (:test-dict training)]
       (.add dict-tree (.getBytes w) w))
     (.prepare dict-tree)
-    [(new-hyp "KB" :kb :kb false [] [] "" ""
-              {:dict-tree dict-tree :dict #{}})]))
+    [(new-hyp "KB" :kb :kb false [] [] "" "" {:dict-tree dict-tree})]))
 
 (defn make-sensor-hyps
   [sensor time-prev time-now hyps]
@@ -80,29 +79,21 @@
 
 (defn update-kb
   [accepted unexplained hypotheses lookup-hyp]
-  (let [kb (get-kb accepted lookup-hyp)
-        dict (:dict kb)
-        transition-hyps (sort-by :trans-pos (map lookup-hyp (get accepted :transition)))
-        words (get-words lookup-hyp (apply str (map :sym1 transition-hyps))
-                         accepted unexplained)
-        new-dict (set/union dict (set words))]
-    [(assoc kb :dict new-dict
-            :contents (assoc (:contents kb) :dict new-dict))]))
+  (map lookup-get (get accepted :kb)))
 
 (defn find-dict-words
-  [sym-string dict-tree dict]
+  [sym-string dict-tree]
   (prof :find-dict-words
         (let [sym-count (count sym-string)
               sym-bytes (.getBytes sym-string)
               searcher (.search dict-tree sym-bytes)]
           (loop [found []]
-            (if-not (.hasNext searcher)
-              (filter (comp dict first) found)
-              (let [result (.next searcher)
-                    last-index (.getLastIndex result)]
-                (recur (reduce (fn [fs w]
-                                 (conj fs [w (int (- (/ last-index 3) (count w)))]))
-                               found (.getOutputs result)))))))))
+            (if-not (.hasNext searcher) found
+                    (let [result (.next searcher)
+                          last-index (.getLastIndex result)]
+                      (recur (reduce (fn [fs w]
+                                       (conj fs [w (int (- (/ last-index 3) (count w)))]))
+                                     found (.getOutputs result)))))))))
 
 (defn hypothesize
   [forced-hyps accepted lookup-hyp]
@@ -140,7 +131,7 @@
                       (map (fn [[w i]] (subvec transition-hyps
                                                (max 0 i) (min (count transition-hyps)
                                                               (+ i (count w)))))
-                           (find-dict-words sym-string (:dict-tree kb) (:dict kb))))
+                           (find-dict-words sym-string (:dict-tree kb))))
         word-hyps
         (prof :word-hyps
               (filter
