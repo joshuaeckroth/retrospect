@@ -100,9 +100,9 @@
               (let [prior (get-in ws4 [:scores (:type hyp) (:subtype hyp)] 0.5)]
                 (if tf
                   (assoc-in ws4 [:scores (:type hyp) (:subtype hyp)]
-                            (min 1.0 (+ prior (* 0.05 temp))))
+                            (min 1.0 (+ prior (* (:TempMult params) temp))))
                   (assoc-in ws4 [:scores (:type hyp) (:subtype hyp)]
-                            (max 0.0 (- prior (* 0.05 temp)))))))
+                            (max 0.0 (- prior (* (:TempMult params) temp)))))))
             ws3 (get-in tfs [st tf])))
          ws2 (keys (get tfs st))))
       ws (keys tfs)))
