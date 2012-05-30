@@ -17,9 +17,9 @@
                         (str/split-lines (slurp (format "%s/words/%s.utf8"
                                                         @datadir (:Dataset params))
                                                 :encoding "utf-8")))
-         [training test2] (split-at (int (* (/ (:Knowledge params) 100.0)
-                                            (count sentences)))
-                                    (my-shuffle sentences))
+         [training test2] (map vec (split-at (int (* (/ (:Knowledge params) 100.0)
+                                                     (count sentences)))
+                                             (my-shuffle sentences)))
          test (if (:ShortFirst params) (sort-by count test2) test2)
          test-dict (set (apply concat test))
          training-dict (set (apply concat training))
