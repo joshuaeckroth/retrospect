@@ -28,13 +28,27 @@
               (explain (update-hypotheses
                         (add-sensor-hyps ws time-prev time-now sensors)))
               (explain (update-hypotheses ws)))
-            true-false-types (map (fn [t]
-                                    (group-hyps-by-true-false
-                                     (map #(lookup-hyp ws-result %)
-                                          (get (:hypotheses ws-result) t))
-                                     :subtype truedata ws-result
-                                     time-now (:true-hyp?-fn (:abduction @problem))))
-                                  (keys (dissoc (:hypotheses ws-result) :all)))
+            true-false-types (reduce
+                              (fn [m t]
+                                (assoc m t
+                                       (group-hyps-by-true-false
+                                        (map #(lookup-hyp ws-result %)
+                                             (get (:hypotheses ws-result) t))
+                                        :subtype truedata ws-result
+                                        time-now (:true-hyp?-fn (:abduction @problem)))))
+                              {} (keys (dissoc (:hypotheses ws-result) :all)))
+            true-false-all {true (set (mapcat (fn [type]
+                                                (mapcat (fn [subtype]
+                                                          (get-in true-false-types
+                                                                  [type subtype true]))
+                                                        (keys (get true-false-types type))))
+                                              (keys true-false-types)))
+                            false (set (mapcat (fn [type]
+                                                (mapcat (fn [subtype]
+                                                          (get-in true-false-types
+                                                                  [type subtype false]))
+                                                        (keys (get true-false-types type))))
+                                              (keys true-false-types)))}
             false-accepted (filter #(some #{(:id %)}
                                           (get-in ws-result [:accepted (:type %)]))
                                    (mapcat (fn [tfs] (get (:all tfs) false))
@@ -54,7 +68,8 @@
                          (keys true-by-type))))
               :else
               (recur (assoc ws :scores
-                            (:scores (update-training ws-result true-false-types temp)))
+                            (:scores (update-training ws-result true-false-types
+                                                      true-false-all temp)))
                      (- temp 0.2)))))))
 
 (def reason-abduction

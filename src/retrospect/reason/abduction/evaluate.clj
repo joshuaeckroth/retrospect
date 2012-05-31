@@ -7,7 +7,7 @@
   (:use [retrospect.evaluate :only [calc-increase]])
   (:use [retrospect.reason.abduction.workspace
          :only [get-unexp-pct get-noexp-pct hyp-conf calc-doubt calc-coverage
-                accepted? lookup-score lookup-hyp]])
+                accepted? lookup-score lookup-hyp find-conflicts-all]])
   (:use [retrospect.state]))
 
 (defn group-hyps-by-true-false
@@ -21,8 +21,8 @@
                               (reduce (fn [g tf] (if (nil? (get g tf)) (assoc g tf []) g))
                                       grouped [true false]))))
                    {} (keys hs))
-        all-true (mapcat #(get % true) (vals tf))
-        all-false (mapcat #(get % false) (vals tf))]
+        all-true (set (mapcat #(get % true) (vals tf)))
+        all-false (set (mapcat #(get % false) (vals tf)))]
     (assoc tf :all {true all-true false all-false})))
 
 (defn calc-true-false-confs
@@ -88,27 +88,32 @@
             :HypothesisCount (reduce + (map count (vals (:hypotheses workspace))))})))
 
 (defn update-training
-  [workspace true-false-types temp]
+  [workspace true-false-types true-false-all temp]
   (reduce
-   (fn [ws tfs] ;; true-false groups (keyed by subtype)
+   (fn [ws type] ;; true-false groups (keyed by subtype)
      (reduce
       (fn [ws2 st] ;; subtype key
         (reduce
          (fn [ws3 tf] ;; true/false key
            (reduce
             (fn [ws4 hyp] ;; hyps in that true/false, subtype, type
-              (let [prior (get-in ws4 [:scores (:type hyp) (:subtype hyp)] 0.5)]
-                (cond (and tf (not (accepted? workspace hyp))) ;; true and not accepted
-                      (assoc-in ws4 [:scores (:type hyp) (:subtype hyp)]
-                                (min 1.0 (+ prior (* (:TempMult params) temp))))
-                      (and (not tf) (accepted? workspace hyp)) ;; false and accepted
-                      (assoc-in ws4 [:scores (:type hyp) (:subtype hyp)]
-                                (max 0.0 (- prior (* (:TempMult params) temp))))
-                      :else ws4)))
-            ws3 (get-in tfs [st tf])))
-         ws2 (keys (get tfs st))))
-      ws (keys tfs)))
-   workspace true-false-types))
+              (if-not (and (not tf) (accepted? workspace hyp)) ;; false but accepted
+                ws4
+                (let [better-choices (filter (get true-false-all true)
+                                             (find-conflicts-all workspace hyp))]
+                  (reduce
+                   (fn [ws5 bc]
+                     (let [prior (get-in ws5 [:scores (:type bc) (:subtype bc)] 0.5)]
+                       (assoc-in ws5 [:scores (:type bc) (:subtype bc)]
+                                 (min 1.0 (+ prior (* (:TempMult params) temp))))))
+                   (let [prior (get-in ws4 [:scores (:type hyp) (:subtype hyp)] 0.5)]
+                     (assoc-in ws4 [:scores (:type hyp) (:subtype hyp)]
+                               (max 0.0 (- prior (* (:TempMult params) temp)))))
+                   better-choices))))
+            ws3 (get-in true-false-types [type st tf])))
+         ws2 (keys (get-in true-false-types [type st]))))
+      ws (keys (get true-false-types type))))
+   workspace (keys true-false-types)))
 
 (defn prefix-params
   [prefix params]
