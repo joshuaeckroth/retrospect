@@ -347,8 +347,8 @@
                   g-facts
                   (reduce
                    (fn [g h]
-                     (-> g (update-in [:graph] add-attr h :fontcolor "gray50")
-                         (update-in [:graph] add-attr h :color "gray50")))
+                     (-> g (add-attr h :fontcolor "gray50")
+                         (add-attr h :color "gray50")))
                    g-accepted (:forced workspace))]
               (assoc workspace :graph g-facts)))))
 

@@ -77,6 +77,8 @@
                                 :ApplyBoosting [true [true false]]
                                 :HypPreference ["abd" ["abd" "arbitrary"]]
                                 :TransitiveExplanation [false [true false]]
+                                :StartingTemp [1.0 [1.0]]
+                                :TempMult [0.05 [0.05]]
                                 :ConfAdjustment ["max" ["min" "max" "avg" "none" "norm"]]}
                                (:default-params (:abduction @problem))))
    :init-workspace-fn init-workspace
