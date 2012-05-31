@@ -98,7 +98,7 @@
            (reduce
             (fn [ws4 hyp] ;; hyps in that true/false, subtype, type
               (let [prior (get-in ws4 [:scores (:type hyp) (:subtype hyp)] 0.5)]
-                (cond (and tf (not (accepted? worksapce hyp))) ;; true and not accepted
+                (cond (and tf (not (accepted? workspace hyp))) ;; true and not accepted
                       (assoc-in ws4 [:scores (:type hyp) (:subtype hyp)]
                                 (min 1.0 (+ prior (* (:TempMult params) temp))))
                       (and (not tf) (accepted? workspace hyp)) ;; false and accepted
