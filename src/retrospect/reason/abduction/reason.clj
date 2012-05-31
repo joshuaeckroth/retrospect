@@ -51,8 +51,9 @@
                                               (keys true-false-types)))}
             false-accepted (filter #(some #{(:id %)}
                                           (get-in ws-result [:accepted (:type %)]))
-                                   (mapcat (fn [tfs] (get (:all tfs) false))
-                                           true-false-types))]
+                                   (mapcat (fn [type]
+                                             (get-in true-false-types [type :all false]))
+                                           (keys true-false-types)))]
         (cond (not training?)
               (update-kb ws-result)
               (= 0 (count false-accepted))
