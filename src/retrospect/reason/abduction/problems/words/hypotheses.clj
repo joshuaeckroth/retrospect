@@ -66,8 +66,8 @@
    (or (= (:trans-pos hyp2) (dec (first (:pos-seq hyp1))))
        (= (:trans-pos hyp2) (last (:pos-seq hyp1))))
 
-   (or (and (= :split (:type hyp1)) (= :merge (:type hyp2)))
-       (and (= :merge (:type hyp1)) (= :split (:type hyp2))))
+   (and (or (= :split (:type hyp1)) (= :split (:type hyp2)))
+        (or (= :merge (:type hyp1)) (= :merge (:type hyp2))))
    (= (:trans-pos hyp1) (:trans-pos hyp2))
    
    :else false))
@@ -101,30 +101,36 @@
         transition-hyps (vec (sort-by :trans-pos forced-hyps))
         merge-hyps
         (prof :merge-hyps
-              (map
+              (mapcat
                (fn [t-hyp]
-                 (new-hyp "Merge" :merge {:sym1 (:sym1 t-hyp) :sym2 (:sym2 t-hyp)} false
-                          [t-hyp] [] (format "%s+%s" (:sym1 t-hyp) (:sym2 t-hyp))
-                          (format (str "Merge of %s+%s at %d")
-                                  (:sym1 t-hyp)
-                                  (:sym2 t-hyp)
-                                  (:trans-pos t-hyp))
-                          {:trans-pos (:trans-pos t-hyp)}))
+                 (map (fn [subtype]
+                        (new-hyp "Merge" :merge subtype false [t-hyp] []
+                                 (format "%s+%s" (:sym1 t-hyp) (:sym2 t-hyp))
+                                 (format (str "Merge of %s+%s at %d")
+                                         (:sym1 t-hyp)
+                                         (:sym2 t-hyp)
+                                         (:trans-pos t-hyp))
+                                 {:trans-pos (:trans-pos t-hyp)}))
+                      [[(:sym1 t-hyp) (:sym2 t-hyp)]
+                       [(:sym1 t-hyp) :right]
+                       [:left (:sym2 t-hyp)]]))
                transition-hyps))
         split-hyps
         (prof :split-hyps
-              (map
-               (fn [m-hyp]
-                 (let [t-hyp (first (:explains m-hyp))]
-                   (new-hyp "Split" :split {:sym1 (:sym1 t-hyp) :sym2 (:sym2 t-hyp)} false
-                            [t-hyp] [] (format "%s-%s" (:sym1 t-hyp)
-                                               (:sym2 t-hyp))
-                            (format (str "Split of %s-%s at %d")
-                                    (:sym1 t-hyp)
-                                    (:sym2 t-hyp)
-                                    (:trans-pos t-hyp))
-                            {:trans-pos (:trans-pos t-hyp)})))
-               merge-hyps))
+              (mapcat
+               (fn [t-hyp]
+                 (map (fn [subtype]
+                        (new-hyp "Split" :split subtype false [t-hyp] []
+                                 (format "%s+%s" (:sym1 t-hyp) (:sym2 t-hyp))
+                                 (format (str "Split of %s+%s at %d")
+                                         (:sym1 t-hyp)
+                                         (:sym2 t-hyp)
+                                         (:trans-pos t-hyp))
+                                 {:trans-pos (:trans-pos t-hyp)}))
+                      [[(:sym1 t-hyp) (:sym2 t-hyp)]
+                       [(:sym1 t-hyp) :right]
+                       [:left (:sym2 t-hyp)]]))
+               transition-hyps))
         sym-string (apply str (map :sym1 transition-hyps))
         words (filter not-empty
                       (map (fn [[w i]] (subvec transition-hyps
