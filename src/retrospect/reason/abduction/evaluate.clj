@@ -98,11 +98,13 @@
            (reduce
             (fn [ws4 hyp] ;; hyps in that true/false, subtype, type
               (let [prior (get-in ws4 [:scores (:type hyp) (:subtype hyp)] 0.5)]
-                (if tf
-                  (assoc-in ws4 [:scores (:type hyp) (:subtype hyp)]
-                            (min 1.0 (+ prior (* (:TempMult params) temp))))
-                  (assoc-in ws4 [:scores (:type hyp) (:subtype hyp)]
-                            (max 0.0 (- prior (* (:TempMult params) temp)))))))
+                (cond (and tf (not (accepted? worksapce hyp))) ;; true and not accepted
+                      (assoc-in ws4 [:scores (:type hyp) (:subtype hyp)]
+                                (min 1.0 (+ prior (* (:TempMult params) temp))))
+                      (and (not tf) (accepted? workspace hyp)) ;; false and accepted
+                      (assoc-in ws4 [:scores (:type hyp) (:subtype hyp)]
+                                (max 0.0 (- prior (* (:TempMult params) temp))))
+                      :else ws4)))
             ws3 (get-in tfs [st tf])))
          ws2 (keys (get tfs st))))
       ws (keys tfs)))
