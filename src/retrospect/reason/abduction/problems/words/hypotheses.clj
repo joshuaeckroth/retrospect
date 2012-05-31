@@ -112,9 +112,11 @@
                                          (:trans-pos t-hyp)
                                          (str subtype))
                                  {:trans-pos (:trans-pos t-hyp)}))
-                      [[(:sym1 t-hyp) (:sym2 t-hyp)]
-                       [(:sym1 t-hyp) :right]
-                       [:left (:sym2 t-hyp)]]))
+                      (if (hyp-types "mergesplitlr")
+                        [[(:sym1 t-hyp) (:sym2 t-hyp)]
+                         [(:sym1 t-hyp) :right]
+                         [:left (:sym2 t-hyp)]]
+                        [[(:sym1 t-hyp) (:sym2 t-hyp)]])))
                transition-hyps))
         split-hyps
         (prof :split-hyps
@@ -129,9 +131,11 @@
                                          (:trans-pos t-hyp)
                                          (str subtype))
                                  {:trans-pos (:trans-pos t-hyp)}))
-                      [[(:sym1 t-hyp) (:sym2 t-hyp)]
-                       [(:sym1 t-hyp) :right]
-                       [:left (:sym2 t-hyp)]]))
+                      (if (hyp-types "mergesplitlr")
+                        [[(:sym1 t-hyp) (:sym2 t-hyp)]
+                         [(:sym1 t-hyp) :right]
+                         [:left (:sym2 t-hyp)]]
+                        [[(:sym1 t-hyp) (:sym2 t-hyp)]])))
                transition-hyps))
         sym-string (apply str (map :sym1 transition-hyps))
         words (filter not-empty
@@ -152,7 +156,8 @@
                                               (str/join ", " (map str pos-seq)))
                                  {:pos-seq pos-seq :word word})))
                     (sort-by (comp :trans-pos first) words))))
-        hyps (concat (if (hyp-types "mergesplit") (concat merge-hyps split-hyps) [])
+        hyps (concat (if (or (hyp-types "mergesplit") (hyp-types "mergesplitlr"))
+                       (concat merge-hyps split-hyps) [])
                      (if (hyp-types "words") word-hyps []))]
     (doall (map (fn [h] (assoc h :conflicts
                                (map :id (filter #(conflicts? h %) hyps))))
