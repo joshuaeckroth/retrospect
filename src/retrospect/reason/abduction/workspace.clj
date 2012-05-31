@@ -69,7 +69,7 @@
                 (format "%s%d" prefix id)
                 type subtype needs-explainer? explains boosts short-str desc data)
                data)
-      :contents (assoc data :type type))))
+      :contents (assoc data :type type :subtype subtype))))
 
 (defn lookup-hyp
   [workspace id]
