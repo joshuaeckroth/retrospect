@@ -28,6 +28,9 @@
 (def hyp-conflicts (ref ""))
 (def hyp-log (ref ""))
 
+(def current-hypgraph-dot (ref ""))
+(def current-hypgraph-svg (ref ""))
+
 (defn listener
   [node]
   (let [workspace (:workspace (cur-ep (:est @or-state)))
@@ -60,7 +63,8 @@
   []
   (let [ep (cur-ep (:est @or-state))
         hypgraph (:graph (ws/update-graph (:workspace ep)))]
-    (generate-graph hypgraph @canvas listener false)))
+    (generate-graph hypgraph @canvas listener false
+                    current-hypgraph-dot current-hypgraph-svg)))
 
 (defn hypgraph-tab
   []
@@ -88,9 +92,15 @@
           _ (log-box hyp-conflicts)
           :gridy 3 :gridx 0 :gridwidth 4 :weightx 1.0
           _ (log-box hyp-log)
-          :gridy 4 :gridwidth 3 :gridx 0 :weighty 0.0
+          :gridy 4 :gridwidth 1 :gridx 0 :weighty 0.0
           _ (panel)
-          :gridx 3 :gridwidth 1
+          :gridx 1
+          _ (doto (button "Save Dot")
+              (add-action-listener ([_] (save-dot @current-hypgraph-dot))))
+          :gridx 2
+          _ (doto (button "Save SVG")
+              (add-action-listener ([_] (save-svg @current-hypgraph-svg))))
+          :gridx 3
           _ (doto (button "Generate")
               (add-action-listener ([_] (generate-hypgraph))))]))
 

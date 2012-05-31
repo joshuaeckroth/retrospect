@@ -124,8 +124,8 @@
                (fn [t-hyp]
                  (map (fn [subtype]
                         (new-hyp "Split" :split subtype false [t-hyp] []
-                                 (format "%s+%s" (:sym1 t-hyp) (:sym2 t-hyp))
-                                 (format (str "Split of %s+%s at %d\nsubtype: %s")
+                                 (format "%s-%s" (:sym1 t-hyp) (:sym2 t-hyp))
+                                 (format (str "Split of %s-%s at %d\nsubtype: %s")
                                          (:sym1 t-hyp)
                                          (:sym2 t-hyp)
                                          (:trans-pos t-hyp)

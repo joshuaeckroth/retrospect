@@ -312,13 +312,14 @@
                           (update-in [:hypotheses (:type hyp)] conj (:id hyp))))]
             (if @batch ws-explainers
                 (prof :add-graph-update
-                      (let [g-added (reduce (fn [g n] (-> g (add-nodes n)
-                                                          (add-attr n :id n)
-                                                          (add-attr n :label n)))
+                      (let [g-added (reduce (fn [g h]
+                                              (-> g (add-nodes (:id h))
+                                                  (add-attr (:id h) :id (:id h))
+                                                  (add-attr (:id h) :label (:short-str h))))
                                             (:graph ws-explainers)
-                                            (map :id (conj (explains hyp) hyp)))
-                            g-expl (reduce (fn [g e] (add-edges g [(:id hyp) e]))
-                                           g-added (map :id (explains hyp)))]
+                                            (conj (explains hyp) hyp))
+                            g-expl (reduce (fn [g e] (add-edges g [(:id hyp) (:id e)]))
+                                           g-added (explains hyp))]
                         (assoc ws-explainers :graph g-expl))))))))
 
 (defn update-graph
