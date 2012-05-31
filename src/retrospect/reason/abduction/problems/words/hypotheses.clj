@@ -39,7 +39,7 @@
 (defn conflicts?
   [hyp1 hyp2]
   (cond
-   (= hyp1 hyp2) false
+   (= (:id hyp1) (:id hyp2)) false
    
    (or (= :transition (:type hyp1)) (= :transition (:type hyp2))) false
    
@@ -66,8 +66,8 @@
    (or (= (:trans-pos hyp2) (dec (first (:pos-seq hyp1))))
        (= (:trans-pos hyp2) (last (:pos-seq hyp1))))
 
-   (and (or (= :split (:type hyp1)) (= :split (:type hyp2)))
-        (or (= :merge (:type hyp1)) (= :merge (:type hyp2))))
+   (and (or (= :split (:type hyp1)) (= :merge (:type hyp1)))
+        (or (= :split (:type hyp2)) (= :merge (:type hyp2))))
    (= (:trans-pos hyp1) (:trans-pos hyp2))
    
    :else false))

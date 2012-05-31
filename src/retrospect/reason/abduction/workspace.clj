@@ -328,7 +328,8 @@
             (let [g-conflicts
                   (reduce
                    (fn [g h]
-                     (let [conflicts (find-conflicts-all workspace h)]
+                     (let [conflicts (find-conflicts-all
+                                      workspace (lookup-hyp workspace h))]
                        (reduce (fn [g2 c]
                                  (if (or (has-edge? g2 h c) (has-edge? g2 c h)) g2
                                      (-> g2 (add-edges [h c])
@@ -337,7 +338,7 @@
                                          (add-attr h c :constraint false))))
                                g (map :id conflicts))))
                    (:graph workspace)
-                   (map :id (apply concat (vals (:hypotheses workspace)))))
+                   (apply concat (vals (:hypotheses workspace))))
                   g-accepted
                   (reduce
                    (fn [g h]
