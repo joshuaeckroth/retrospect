@@ -30,9 +30,7 @@
                :update-kb-fn update-kb
                :stats-fn stats
                :true-hyp?-fn true-hyp?
-               :default-params {:HypTypes ["words,mergesplit"
-                                           ["words", "words,mergesplit"
-                                            "mergesplit"]]}}
+               :default-params {:HypTypes ["words", "wordslr"]}}
    :default-params
    {:Steps [50 [50]]
     :StepsBetween [1 [1]]

@@ -15,12 +15,11 @@
 (defn true-hyp?
   [truedata time-now hyp]
   (prof :true-hyp
-        (or (= :sensor (:type hyp))
+        (or (= :symbol (:type hyp))
             (= :kb (:type hyp))
-            (= :transition (:type hyp))
             (let [breaks (nth (:test-breaks truedata) (dec time-now))
-                  start-pos (or (first (:pos-seq hyp)) (inc (:trans-pos hyp)))
-                  end-pos (inc (or (last (:pos-seq hyp)) (:trans-pos hyp)))]
+                  start-pos (first (:pos-seq hyp))
+                  end-pos (inc (last (:pos-seq hyp)))]
               (if (cond (and (= :word (:type hyp))
                              (not= :left (first (:subtype hyp)))
                              (not= :right (second (:subtype hyp))))
@@ -41,8 +40,7 @@
                              (= :right (second (:subtype hyp)))
                              (not-any? breaks (range (inc start-pos) end-pos)))
                         (and (not (breaks start-pos)) (not (breaks end-pos)))
-                        (= :merge (:type hyp)) (not (breaks start-pos))
-                        (= :split (:type hyp)) (breaks start-pos))
+                        :else false)
                 ;; keep this to ensure we report a boolean, not an object
                 true false)))))
 
@@ -92,16 +90,16 @@
 (defn get-words
   [lookup-hyp ambiguous accepted unexplained]
   (let [kb (first (get accepted :kb))
-        cuts (sort (set (concat (map :trans-pos (map lookup-hyp (get accepted :split)))
-                                (map (comp dec first :pos-seq)
-                                     (filter #(not= :left (first (:subtype %)))
-                                             (map lookup-hyp (get accepted :word))))
-                                (map (comp last :pos-seq)
-                                     (filter #(not= :right (second (:subtype %)))
-                                             (map lookup-hyp (get accepted :word))))
-                                (if (= "merge" (:DefaultMergeSplit params)) []
-                                    (map :trans-pos (filter #(= :transition (:type %))
-                                                            unexplained))))))]
+        cuts (sort (set (concat 
+                         (map (comp dec first :pos-seq)
+                              (filter #(not= :left (first (:subtype %)))
+                                      (map lookup-hyp (get accepted :word))))
+                         (map (comp last :pos-seq)
+                              (filter #(not= :right (second (:subtype %)))
+                                      (map lookup-hyp (get accepted :word))))
+                         (if (= "merge" (:DefaultMergeSplit params)) []
+                             (map :pos (filter #(= :symbol (:type %))
+                                               unexplained))))))]
     (loop [amb (vec ambiguous)
            cs (filter #(>= % 0) cuts)
            i 0

@@ -36,12 +36,8 @@
 (defn generate-truedata
   []
   (profile
-   ;; attached a space at the end of each sentence to facilitate
-   ;; sensor hyps that have pairs of symbols
    (let [sentences (doall (map (fn [sent]
-                                 (doall (concat (filter not-empty
-                                                        (str/split sent #"[\s　]+"))
-                                                [" "])))
+                                 (doall (concat (filter not-empty (str/split sent #"[\s　]+")))))
                                (str/split-lines (slurp (format "%s/words/%s.utf8"
                                                                @datadir (:Dataset params))
                                                        :encoding "utf-8"))))
@@ -56,6 +52,8 @@
          training-dict (set (apply concat training))
          dict-no-comps (when (:NoComposites params)
                          (loop [dict training-dict]
+                           (.write System/out (int \-))
+                           (.flush System/out)
                            (let [composites
                                  (filter second (map #(find-inner-words % dict) dict))]
                              (if (empty? composites) dict
