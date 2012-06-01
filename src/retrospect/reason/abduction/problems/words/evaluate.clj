@@ -84,9 +84,11 @@
   (let [kb (first (get accepted :kb))
         cuts (sort (set (concat (map :trans-pos (map lookup-hyp (get accepted :split)))
                                 (map (comp dec first :pos-seq)
-                                     (map lookup-hyp (get accepted :word)))
+                                     (filter #(not= :left (first (:subtype %)))
+                                             (map lookup-hyp (get accepted :word))))
                                 (map (comp last :pos-seq)
-                                     (map lookup-hyp (get accepted :word)))
+                                     (filter #(not= :right (second (:subtype %)))
+                                             (map lookup-hyp (get accepted :word))))
                                 (if (= "merge" (:DefaultMergeSplit params)) []
                                     (map :trans-pos (filter #(= :transition (:type %))
                                                             unexplained))))))]
