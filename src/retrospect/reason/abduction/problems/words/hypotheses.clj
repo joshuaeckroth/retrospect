@@ -44,57 +44,62 @@
    (or (= :transition (:type hyp1)) (= :transition (:type hyp2))) false
    
    (and (= :word (:type hyp1)) (= :word (:type hyp2)))
-   (let [start1 (first (:pos-seq hyp1))
-         end1 (last (:pos-seq hyp1))
-         start2 (first (:pos-seq hyp2))
-         end2 (last (:pos-seq hyp2))]
-     (not (or (< end1 start2) (< end2 start1))))
+   (let [[first-word second-word] (sort-by (comp first :pos-seq) [hyp1 hyp2])
+         start1 (first (:pos-seq first-word))
+         end1 (last (:pos-seq first-word))
+         start2 (first (:pos-seq second-word))
+         end2 (last (:pos-seq second-word))]
+     (cond
+      ;; right,left any overlap is a conflict
+      (and (= :right (second (:subtype first-word)))
+           (= :left (first (:subtype second-word))))
+      (and (>= end1 start2) (>= end2 start1))
+      ;; right,(not left): any overlap plus following pos of next word
+      (and (= :right (second (:subtype first-word)))
+           (not= :left (first (:subtype second-word))))
+      (and (>= end1 (dec start2)) (>= end2 start1))
+      ;; (not right),left: any overlap plus previous pos of prior word
+      (and (not= :right (second (:subtype first-word)))
+           (= :left (first (:subtype second-word))))
+      (and (>= end1 start2) (>= end2 (dec start1)))
+      ;; (not right),(not left): any overlap
+      :else
+      (and (>= end1 start2) (>= end2 start1))))
 
-   (and (= :word (:type hyp1)) (= :split (:type hyp2)))
-   (cond (= :left (first (:subtype hyp1)))
-         (and
-          (>= (:trans-pos hyp2) (dec (first (:pos-seq hyp1))))
-          (< (:trans-pos hyp2) (last (:pos-seq hyp1))))
-         (= :right (second (:subtype hyp1)))
-         (and
-          (>= (:trans-pos hyp2) (first (:pos-seq hyp1)))
-          (<= (:trans-pos hyp2) (last (:pos-seq hyp1))))
-         :else
-         (and
-          (>= (:trans-pos hyp2) (first (:pos-seq hyp1)))
-          (< (:trans-pos hyp2) (last (:pos-seq hyp1)))))
+   (or (and (= :word (:type hyp2)) (= :split (:type hyp1)))
+       (and (= :word (:type hyp1)) (= :split (:type hyp2))))
+   (let [word (if (= :word (:type hyp1)) hyp1 hyp2)
+         split (if (= :split (:type hyp1)) hyp1 hyp2)]
+     (cond (= [:left :right] (take 2 (:subtype word)))
+           (and
+            (>= (:trans-pos split) (dec (first (:pos-seq word))))
+            (<= (:trans-pos split) (last (:pos-seq word))))
+           (= :left (first (:subtype word)))
+           (and
+            (>= (:trans-pos split) (dec (first (:pos-seq word))))
+            (< (:trans-pos split) (last (:pos-seq word))))
+           (= :right (second (:subtype word)))
+           (and
+            (>= (:trans-pos split) (first (:pos-seq word)))
+            (<= (:trans-pos split) (last (:pos-seq word))))
+           :else
+           (and
+            (>= (:trans-pos split) (first (:pos-seq word)))
+            (< (:trans-pos split) (last (:pos-seq word))))))
 
-   (and (= :word (:type hyp2)) (= :split (:type hyp1)))
-   (cond (= :left (first (:subtype hyp2)))
-         (and
-          (>= (:trans-pos hyp1) (first (:pos-seq hyp2)))
-          (< (:trans-pos hyp1) (last (:pos-seq hyp2))))
-         (= :right (second (:subtype hyp2)))
-         (and
-          (> (:trans-pos hyp1) (first (:pos-seq hyp2)))
-          (<= (:trans-pos hyp1) (last (:pos-seq hyp2))))
-         :else
-         (and
-          (> (:trans-pos hyp1) (first (:pos-seq hyp2)))
-          (< (:trans-pos hyp1) (last (:pos-seq hyp2)))))
-
-   (and (= :word (:type hyp2)) (= :merge (:type hyp1)))
-   (cond (= :left (first (:subtype hyp2)))
-         (= (:trans-pos hyp1) (last (:pos-seq hyp2)))
-         (= :right (second (:subtype hyp2)))
-         (= (:trans-pos hyp1) (dec (first (:pos-seq hyp2))))
-         :else
-         (or (= (:trans-pos hyp1) (dec (first (:pos-seq hyp2))))
-             (= (:trans-pos hyp1) (last (:pos-seq hyp2)))))
-
-   (and (= :word (:type hyp1)) (= :merge (:type hyp2)))
-   (cond (= :left (first (:subtype hyp1)))
-         (= (:trans-pos hyp2) (last (:pos-seq hyp1)))
-         (= :right (second (:subtype hyp1)))
-         (= (:trans-pos hyp2) (dec (first (:pos-seq hyp1))))
-         :else
-         (or (= (:trans-pos hyp2) (dec (first (:pos-seq hyp1))))
-             (= (:trans-pos hyp2) (last (:pos-seq hyp1)))))
+   (or (and (= :word (:type hyp2)) (= :merge (:type hyp1)))
+       (and (= :word (:type hyp1)) (= :merge (:type hyp2))))
+   (let [word (if (= :word (:type hyp1)) hyp1 hyp2)
+         merge (if (= :merge (:type hyp1)) hyp1 hyp2)]
+     (cond (= [:left :right] (take 2 (:subtype word)))
+           false
+           (= :left (first (:subtype word)))
+           (= (:trans-pos merge) (last (:pos-seq word)))
+           (= :right (second (:subtype word)))
+           (= (:trans-pos merge) (dec (first (:pos-seq word))))
+           :else
+           (or (= (:trans-pos merge) (dec (first (:pos-seq word))))
+               (= (:trans-pos merge) (last (:pos-seq word))))))
 
    (and (or (= :split (:type hyp1)) (= :merge (:type hyp1)))
         (or (= :split (:type hyp2)) (= :merge (:type hyp2))))
@@ -134,14 +139,18 @@
               (mapcat
                (fn [t-hyp]
                  (map (fn [subtype]
-                        (new-hyp "Merge" :merge subtype false [t-hyp] []
-                                 (format "%s+%s" (:sym1 t-hyp) (:sym2 t-hyp))
-                                 (format (str "Merge of %s+%s at %d\nsubtype: %s")
-                                         (:sym1 t-hyp)
-                                         (:sym2 t-hyp)
-                                         (:trans-pos t-hyp)
-                                         (str subtype))
-                                 {:trans-pos (:trans-pos t-hyp)}))
+                        (new-hyp
+                         (format "Merge%s" (cond (= :left (first subtype)) "L"
+                                                 (= :right (second subtype)) "R"
+                                                 :else ""))
+                         :merge subtype false [t-hyp] []
+                         (format "%s+%s" (:sym1 t-hyp) (:sym2 t-hyp))
+                         (format (str "Merge of %s+%s at %d\nsubtype: %s")
+                                 (:sym1 t-hyp)
+                                 (:sym2 t-hyp)
+                                 (:trans-pos t-hyp)
+                                 (str subtype))
+                         {:trans-pos (:trans-pos t-hyp)}))
                       (if (hyp-types "mergesplitlr")
                         [[(:sym1 t-hyp) (:sym2 t-hyp)]
                          [(:sym1 t-hyp) :right]
@@ -153,14 +162,18 @@
               (mapcat
                (fn [t-hyp]
                  (map (fn [subtype]
-                        (new-hyp "Split" :split subtype false [t-hyp] []
-                                 (format "%s-%s" (:sym1 t-hyp) (:sym2 t-hyp))
-                                 (format (str "Split of %s-%s at %d\nsubtype: %s")
-                                         (:sym1 t-hyp)
-                                         (:sym2 t-hyp)
-                                         (:trans-pos t-hyp)
-                                         (str subtype))
-                                 {:trans-pos (:trans-pos t-hyp)}))
+                        (new-hyp
+                         (format "Split%s" (cond (= :left (first subtype)) "L"
+                                                 (= :right (second subtype)) "R"
+                                                 :else ""))
+                         :split subtype false [t-hyp] []
+                         (format "%s-%s" (:sym1 t-hyp) (:sym2 t-hyp))
+                         (format (str "Split of %s-%s at %d\nsubtype: %s")
+                                 (:sym1 t-hyp)
+                                 (:sym2 t-hyp)
+                                 (:trans-pos t-hyp)
+                                 (str subtype))
+                         {:trans-pos (:trans-pos t-hyp)}))
                       (if (hyp-types "mergesplitlr")
                         [[(:sym1 t-hyp) (:sym2 t-hyp)]
                          [(:sym1 t-hyp) :right]
@@ -182,16 +195,22 @@
                   (let [word (apply str (map :sym1 t-hyps))
                         pos-seq (map :trans-pos t-hyps)]
                     (map (fn [subtype]
-                           (new-hyp "Word" :word subtype false
-                                    t-hyps [] ;; no boosting
-                                    word (format "Word: %s, pos-seq: %s\nsubtype: %s"
-                                                 word (str/join ", " (map str pos-seq))
-                                                 subtype)
-                                    {:pos-seq pos-seq :word word}))
+                           (new-hyp
+                            (format "Word%s" (cond (= [:left :right] (take 2 subtype)) "LR"
+                                                   (= :left (first subtype)) "L"
+                                                   (= :right (second subtype)) "R"
+                                                   :else ""))
+                            :word subtype false
+                            t-hyps [] ;; no boosting
+                            word (format "Word: %s, pos-seq: %s\nsubtype: %s"
+                                         word (str/join ", " (map str pos-seq))
+                                         subtype)
+                            {:pos-seq pos-seq :word word}))
                          (if (hyp-types "wordslr")
                            [[word]
                             [:left word]
-                            [word :right]]
+                            [word :right]
+                            [:left :right word]]
                            [[word]]))))
                 (sort-by (comp :trans-pos first) words))))
         hyps (concat (if (or (hyp-types "mergesplit") (hyp-types "mergesplitlr"))
