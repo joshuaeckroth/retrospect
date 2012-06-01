@@ -9,30 +9,49 @@
 
 (defn find-inner-words
   [word dictionary]
-  (if (empty? word) []
-      (let [ws (filter dictionary (map (fn [i] (apply str (take i word)))
-                                       (range 1 (inc (count word)))))]
-        (concat
-         (if (dictionary word) [[word]] [])
-         (mapcat (fn [w] (let [rest-word (apply str (drop (count w) word))
-                               rest-inner-words (find-inner-words rest-word dictionary)]
-                           (map #(concat [w] %) rest-inner-words)))
-                 ws)))))
+  (prof :find-inner-words
+        (if (empty? word) []
+            (let [ws (filter dictionary (map (fn [i] (apply str (take i word)))
+                                             (range 1 (inc (count word)))))]
+              (concat
+               (if (dictionary word) [[word]] [])
+               (mapcat (fn [w] (let [rest-word (apply str (drop (count w) word))
+                                     rest-inner-words (find-inner-words rest-word dictionary)]
+                                 (map #(concat [w] %) rest-inner-words)))
+                       ws))))))
+
+(defn find-true-breaks
+  [sentences]
+  (prof :find-true-breaks
+        (vec (map (fn [sent]
+                    (loop [i 0
+                           breaks #{}
+                           s sent]
+                      (if (empty? s)
+                        breaks
+                        (recur (+ i (count (first s)))
+                               (conj breaks i) (rest s)))))
+                  sentences))))
 
 (defn generate-truedata
   []
   (profile
    ;; attached a space at the end of each sentence to facilitate
    ;; sensor hyps that have pairs of symbols
-   (let [sentences (map (fn [sent] (concat (filter not-empty (str/split sent #"[\s　]+"))
-                                           [" "]))
-                        (str/split-lines (slurp (format "%s/words/%s.utf8"
-                                                        @datadir (:Dataset params))
-                                                :encoding "utf-8")))
+   (let [sentences (doall (map (fn [sent]
+                                 (doall (concat (filter not-empty
+                                                        (str/split sent #"[\s　]+"))
+                                                [" "])))
+                               (str/split-lines (slurp (format "%s/words/%s.utf8"
+                                                               @datadir (:Dataset params))
+                                                       :encoding "utf-8"))))
          [training test2] (map vec (split-at (int (* (/ (:Knowledge params) 100.0)
                                                      (count sentences)))
                                              (my-shuffle sentences)))
-         test (if (:ShortFirst params) (sort-by count test2) test2)
+         test (if (:ShortFirst params)
+                (vec (take (:Steps params) (sort-by count test2)))
+                (vec (take (:Steps params) test2)))
+         [training-breaks test-breaks] (map find-true-breaks [training test])
          test-dict (set (apply concat test))
          training-dict (set (apply concat training))
          dict-no-comps (when (:NoComposites params)
@@ -48,7 +67,9 @@
                                            "size dict no comp" (count dict-no-comps)))
      {:training {:test (zipmap (range (count ambiguous-training)) ambiguous-training)
                  :test-sentences training
+                 :test-breaks training-breaks
                  :test-dict (if (:NoComposites params) dict-no-comps training-dict)}
       :test (zipmap (range (count ambiguous)) ambiguous)
       :test-sentences test
+      :test-breaks test-breaks
       :test-dict test-dict})))

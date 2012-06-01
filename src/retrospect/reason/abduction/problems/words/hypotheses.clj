@@ -218,5 +218,5 @@
                      (if (or (hyp-types "words") (hyp-types "wordslr"))
                        word-hyps []))]
     (doall (map (fn [h] (assoc h :conflicts
-                               (map :id (filter #(conflicts? h %) hyps))))
+                               (doall (map :id (filter #(conflicts? h %) hyps)))))
                 hyps))))

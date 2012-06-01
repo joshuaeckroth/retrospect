@@ -18,23 +18,33 @@
         (or (= :sensor (:type hyp))
             (= :kb (:type hyp))
             (= :transition (:type hyp))
-            (let [sentence (nth (:test-sentences truedata) (dec time-now))
+            (let [breaks (nth (:test-breaks truedata) (dec time-now))
                   start-pos (or (first (:pos-seq hyp)) (inc (:trans-pos hyp)))
-                  end-pos (or (last (:pos-seq hyp)) (inc (:trans-pos hyp)))
-                  true-words (loop [i 0 ws [] sent sentence]
-                               (cond (empty? sent) ws
-                                     (> i end-pos) ws
-                                     (< i start-pos)
-                                     (recur (+ i (count (first sent)))
-                                            ws (rest sent))
-                                     :else
-                                     (recur (+ i (count (first sent)))
-                                            (conj ws (first sent))
-                                            (rest sent))))]
-              (cond (= :word (:type hyp)) (= [(:word hyp)] true-words)
-                    (= :merge (:type hyp)) (empty? true-words)
-                    ;; leave if and true/false because not-empty returns the first item
-                    (= :split (:type hyp)) (if (not-empty true-words) true false))))))
+                  end-pos (inc (or (last (:pos-seq hyp)) (:trans-pos hyp)))]
+              (if (cond (and (= :word (:type hyp))
+                             (not= :left (first (:subtype hyp)))
+                             (not= :right (second (:subtype hyp))))
+                        (and (breaks start-pos) (breaks end-pos)
+                             (not-any? breaks (range (inc start-pos) end-pos)))
+                        (and (= :word (:type hyp))
+                             (not= :left (first (:subtype hyp)))
+                             (= :right (second (:subtype hyp)))
+                             (not-any? breaks (range (inc start-pos) end-pos)))
+                        (and (breaks start-pos) (not (breaks end-pos)))
+                        (and (= :word (:type hyp))
+                             (= :left (first (:subtype hyp)))
+                             (not= :right (second (:subtype hyp)))
+                             (not-any? breaks (range (inc start-pos) end-pos)))
+                        (and (not (breaks start-pos)) (breaks end-pos))
+                        (and (= :word (:type hyp))
+                             (= :left (first (:subtype hyp)))
+                             (= :right (second (:subtype hyp)))
+                             (not-any? breaks (range (inc start-pos) end-pos)))
+                        (and (not (breaks start-pos)) (not (breaks end-pos)))
+                        (= :merge (:type hyp)) (not (breaks start-pos))
+                        (= :split (:type hyp)) (breaks start-pos))
+                ;; keep this to ensure we report a boolean, not an object
+                true false)))))
 
 (defn run-scorer
   [sentences believed train-dict]
