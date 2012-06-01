@@ -38,6 +38,7 @@
     :StepsBetween [1 [1]]
     :ResetEachStep [true [true]]
     :SensorNoise [0 [0]]
+    :NoComposites [false [true false]]
     :Dataset ["pku_training" ["carroll" "cityu_training" "as_training"
                               "msr_training" "pku_training"]]
     :ShortFirst [false [true false]]
