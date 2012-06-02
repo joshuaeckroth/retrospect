@@ -471,7 +471,8 @@
             (let [essential (first (filter #(nil? (second (:expl %))) explainers))]
               (if essential
                 (let [best (first (:expl essential))]
-                  {:best best :essential? true :delta nil :explained (:hyp essential)})
+                  {:best best :essential? true
+                   :explained (:hyp essential) :choices []})
                 ;; otherwise, choose highest-delta non-essential
                 (let [expl (first explainers)
                       best (first (:expl expl))
@@ -480,7 +481,7 @@
                                (hyp-conf workspace next-best))]            
                   (when (>= delta threshold)
                     {:best best :essential? false :delta delta
-                     :explained (:hyp expl)})))))))
+                     :explained (:hyp expl) :alts (rest (:expl expl))})))))))
 
 (defn update-kb
   [workspace]

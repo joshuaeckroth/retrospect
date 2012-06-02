@@ -44,19 +44,24 @@
                                                         (keys (get true-false-types type))))
                                               (keys true-false-types)))
                             false (set (mapcat (fn [type]
-                                                (mapcat (fn [subtype]
-                                                          (get-in true-false-types
-                                                                  [type subtype false]))
-                                                        (keys (get true-false-types type))))
-                                              (keys true-false-types)))}
+                                                 (mapcat (fn [subtype]
+                                                           (get-in true-false-types
+                                                                   [type subtype false]))
+                                                         (keys (get true-false-types type))))
+                                               (keys true-false-types)))}
             false-accepted (filter #(some #{(:id %)}
                                           (get-in ws-result [:accepted (:type %)]))
                                    (mapcat (fn [type]
                                              (get-in true-false-types [type :all false]))
-                                           (keys true-false-types)))]
+                                           (keys true-false-types)))
+            unexplained (:unexplained (:log ws-result))]
+        (comment (println "count false accepted" (count false-accepted)
+                          "count unexplained" (count unexplained)
+                          "temp" temp))
         (cond (not training?)
               (update-kb ws-result)
-              (= 0 (count false-accepted))
+              (and (= 0 (count false-accepted))
+                   (= 0 (count unexplained)))
               (update-kb ws-result)
               (>= 0.0 temp) ;; temperature ran out; ensure only correct stuff is accepted
               (let [true-by-type (group-by :type (mapcat (fn [tfs] (get (:all tfs) true))

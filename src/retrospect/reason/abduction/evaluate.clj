@@ -7,7 +7,7 @@
   (:use [retrospect.evaluate :only [calc-increase]])
   (:use [retrospect.reason.abduction.workspace
          :only [get-unexp-pct get-noexp-pct hyp-conf calc-doubt calc-coverage
-                accepted? lookup-score lookup-hyp find-conflicts-all]])
+                accepted? lookup-score lookup-hyp find-conflicts-all explains]])
   (:use [retrospect.state]))
 
 (defn group-hyps-by-true-false
@@ -87,33 +87,82 @@
             :ExplainCycles (:cycle workspace)
             :HypothesisCount (reduce + (map count (vals (:hypotheses workspace))))})))
 
+(comment
+  (cond
+   (and (not tf) (accepted? workspace hyp)) ;; false but accepted
+   (let [better-choices (filter (get true-false-all true)
+                                (find-conflicts-all workspace hyp))
+         best-choice (last (sort-by (comp count :explains) better-choices))
+         prior-wrong (get-in ws4 [:scores (:type hyp) (:subtype hyp)] 0.5)
+         prior-best (get-in ws4 [:scores (:type best-choice)
+                                 (:subtype best-choice)] 0.5)]
+     (if best-choice
+       (-> ws4
+           (assoc-in
+            [:scores (:type hyp) (:subtype hyp)]
+            (max 0.0 (- prior-wrong (* (:TempMult params) temp))))
+           (assoc-in
+            [:scores (:type best-choice) (:subtype best-choice)]
+            (min 1.0 (+ prior-best (* (:TempMult params) temp)))))
+       (assoc-in ws4 [:scores (:type hyp) (:subtype hyp)]
+                 (max 0.0 (- prior-wrong (* (:TempMult params) temp))))))
+   ;; true but not accepted and what it explains is unexplained
+   (and tf (some unexplained (explains hyp)))
+   (let [prior (get-in ws4 [:scores (:type hyp) (:subtype hyp)] 0.5)]
+     (assoc-in ws4 [:scores (:type hyp) (:subtype hyp)]
+               (min 1.0 (+ prior (* (:TempMult params) temp)))))
+   :else ws4))
+
+(comment (let [unexplained (set (:unexplained (:log workspace)))]
+           (reduce
+            (fn [ws type] ;; true-false groups (keyed by subtype)
+              (reduce
+               (fn [ws2 st] ;; subtype key
+                 (reduce
+                  (fn [ws3 tf] ;; true/false key
+                    (reduce
+                     (fn [ws4 hyp] ;; hyps in that true/false, subtype, type
+                       (let [prior (get-in ws4 [:scores (:type hyp) (:subtype hyp)] 0.5)]
+                         (if tf
+                           (assoc-in ws4 [:scores (:type hyp) (:subtype hyp)]
+                                     (min 1.0 (+ prior (* (:TempMult params) temp))))
+                           (assoc-in ws4 [:scores (:type hyp) (:subtype hyp)]
+                                     (max 0.0 (- prior (* (:TempMult params) temp)))))))
+                     ws3 (get-in true-false-types [type st tf])))
+                  ws2 (keys (get-in true-false-types [type st]))))
+               ws (keys (get true-false-types type))))
+            workspace (keys true-false-types))))
+
 (defn update-training
   [workspace true-false-types true-false-all temp]
-  (reduce
-   (fn [ws type] ;; true-false groups (keyed by subtype)
-     (reduce
-      (fn [ws2 st] ;; subtype key
-        (reduce
-         (fn [ws3 tf] ;; true/false key
-           (reduce
-            (fn [ws4 hyp] ;; hyps in that true/false, subtype, type
-              (if-not (and (not tf) (accepted? workspace hyp)) ;; false but accepted
-                ws4
-                (let [better-choices (filter (get true-false-all true)
-                                             (find-conflicts-all workspace hyp))]
-                  (reduce
-                   (fn [ws5 bc]
-                     (let [prior (get-in ws5 [:scores (:type bc) (:subtype bc)] 0.5)]
-                       (assoc-in ws5 [:scores (:type bc) (:subtype bc)]
-                                 (min 1.0 (+ prior (* (:TempMult params) temp))))))
-                   (let [prior (get-in ws4 [:scores (:type hyp) (:subtype hyp)] 0.5)]
-                     (assoc-in ws4 [:scores (:type hyp) (:subtype hyp)]
-                               (max 0.0 (- prior (* (:TempMult params) temp)))))
-                   better-choices))))
-            ws3 (get-in true-false-types [type st tf])))
-         ws2 (keys (get-in true-false-types [type st]))))
-      ws (keys (get true-false-types type))))
-   workspace (keys true-false-types)))
+  (let [bests (reverse (sort-by :delta (:best (:log workspace))))
+        biggest-mistake (first (drop-while #((get true-false-all true) (:best %)) bests))
+        wrong-choice (:best biggest-mistake)
+        better-choice (first (reverse (sort-by #(hyp-conf workspace %)
+                                               (filter (get true-false-all true)
+                                                       (:alts biggest-mistake)))))
+        delta (:delta biggest-mistake)
+        adjust (+ (* 0.50 delta) 0.01)
+        wrong-prior (get-in workspace
+                            [:scores (:type wrong-choice) (:subtype wrong-choice)]
+                            0.5)
+        better-prior (get-in workspace
+                             [:scores (:type better-choice) (:subtype better-choice)]
+                             0.5)]
+    (comment (println "biggest mistake" biggest-mistake)
+             (println "wrong choice" wrong-choice (hyp-conf workspace wrong-choice)
+                      (:pos-seq wrong-choice))
+             (println "better choice" better-choice (hyp-conf workspace better-choice)
+                      (:pos-seq better-choice))
+             (println "delta" delta "adjust" adjust))
+    (if better-choice
+      (-> workspace
+          (assoc-in [:scores (:type wrong-choice) (:subtype wrong-choice)]
+                    (max 0.0 (- wrong-prior adjust)))
+          (assoc-in [:scores (:type better-choice) (:subtype better-choice)]
+                    (min 1.0 (+ better-prior adjust))))
+      (assoc-in workspace [:scores (:type wrong-choice) (:subtype wrong-choice)]
+                (max 0.0 (- wrong-prior 0.1))))))
 
 (defn prefix-params
   [prefix params]
