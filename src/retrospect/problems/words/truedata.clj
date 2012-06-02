@@ -28,7 +28,7 @@
                            breaks #{}
                            s sent]
                       (if (empty? s)
-                        breaks
+                        (conj breaks i)
                         (recur (+ i (count (first s)))
                                (conj breaks i) (rest s)))))
                   sentences))))
@@ -37,7 +37,8 @@
   []
   (profile
    (let [sentences (doall (map (fn [sent]
-                                 (doall (concat (filter not-empty (str/split sent #"[\s　]+")))))
+                                 (doall (concat (filter not-empty
+                                                        (str/split sent #"[\s　]+")))))
                                (str/split-lines (slurp (format "%s/words/%s.utf8"
                                                                @datadir (:Dataset params))
                                                        :encoding "utf-8"))))
@@ -49,7 +50,9 @@
                 (vec (take (:Steps params) test2)))
          [training-breaks test-breaks] (map find-true-breaks [training test])
          test-dict (set (apply concat test))
-         training-dict (set (apply concat training))
+         training-dict (set (concat (apply concat training)
+                                    ;; add all characters, too
+                                    (map str (apply concat (apply concat training)))))
          dict-no-comps (when (:NoComposites params)
                          (loop [dict training-dict]
                            (.write System/out (int \-))
