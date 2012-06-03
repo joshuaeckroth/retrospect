@@ -18,12 +18,14 @@
     (doseq [w (:test-dict training)]
       (.add dict-tree (.getBytes w) w))
     (.prepare dict-tree)
-    [(new-hyp "KB" :kb :kb false [] [] "" "" {:dict-tree dict-tree})]))
+    [(new-hyp "KB" :kb :kb false (constantly false)
+              [] [] "" "" {:dict-tree dict-tree})]))
 
 (defn make-sensor-hyps
   [sensor time-prev time-now hyps]
   (map (fn [[sym pos]]
-         (new-hyp "Symbol" :symbol :symbol true [] []
+         (new-hyp "Symbol" :symbol :symbol true (constantly false)
+                  [] []
                   (format "%s" sym)
                   (format "Symbol: %s, pos: %d" sym pos)
                   {:pos pos :sym sym}))
@@ -41,23 +43,25 @@
    (or (= :symbol (:type hyp1)) (= :symbol (:type hyp2))) false
    
    (and (= :word (:type hyp1)) (= :word (:type hyp2)))
-   (let [[first-word second-word] (sort-by (comp first :pos-seq) [hyp1 hyp2])
+   (let [first-word (if (<= (first (:pos-seq hyp1)) (first (:pos-seq hyp2)))
+                      hyp1 hyp2)
+         second-word (if (<= (first (:pos-seq hyp1)) (first (:pos-seq hyp2)))
+                       hyp2 hyp1)
          start1 (first (:pos-seq first-word))
          end1 (last (:pos-seq first-word))
          start2 (first (:pos-seq second-word))
-         end2 (last (:pos-seq second-word))]
+         end2 (last (:pos-seq second-word))
+         first-right? (= :right (second (:subtype first-word)))
+         second-left? (= :left (first (:subtype second-word)))]
      (cond
       ;; right,left any overlap is a conflict
-      (and (= :right (second (:subtype first-word)))
-           (= :left (first (:subtype second-word))))
+      (and first-right? second-left?)
       (and (>= end1 start2) (>= end2 start1))
       ;; right,(not left): any overlap plus following pos of next word
-      (and (= :right (second (:subtype first-word)))
-           (not= :left (first (:subtype second-word))))
+      (and first-right? (not second-left?))
       (and (>= end1 (dec start2)) (>= end2 start1))
       ;; (not right),left: any overlap plus previous pos of prior word
-      (and (not= :right (second (:subtype first-word)))
-           (= :left (first (:subtype second-word))))
+      (and (not first-right?) second-left?)
       (and (>= end1 start2) (>= end2 (dec start1)))
       ;; (not right),(not left): any overlap
       :else
@@ -93,26 +97,27 @@
         hyp-types (get-hyp-types)
         symbol-hyps (vec (sort-by :pos forced-hyps))
         sym-string (apply str (map :sym symbol-hyps))
-        words (filter not-empty
-                      (map (fn [[w i]]
-                             (subvec symbol-hyps (max 0 i) (min (count symbol-hyps)
-                                                                (+ i (count w)))))
-                           (find-dict-words sym-string (:dict-tree kb))))
+        words (doall
+               (filter not-empty
+                       (map (fn [[w i]]
+                              (subvec symbol-hyps (max 0 i) (min (count symbol-hyps)
+                                                                 (+ i (count w)))))
+                            (find-dict-words sym-string (:dict-tree kb)))))
         word-hyps
         (prof :word-hyps
-              (filter
-               #(not-empty (:explains %))
+              (doall
                (mapcat
                 (fn [s-hyps]
                   (let [word (apply str (map :sym s-hyps))
                         pos-seq (map :pos s-hyps)]
                     (map (fn [subtype]
                            (new-hyp
-                            (format "Word%s" (cond (= [:left :right] (take 2 subtype)) "LR"
-                                                   (= :left (first subtype)) "L"
-                                                   (= :right (second subtype)) "R"
-                                                   :else ""))
-                            :word subtype false
+                            (format "Word%s"
+                                    (cond (= [:left :right] (take 2 subtype)) "LR"
+                                          (= :left (first subtype)) "L"
+                                          (= :right (second subtype)) "R"
+                                          :else ""))
+                            :word subtype false conflicts?
                             s-hyps [] ;; no boosting
                             (format "%s%s%s"
                                     (if (= :left (first subtype)) "#" "")
@@ -129,6 +134,4 @@
                             [:left :right word]]
                            [[word]]))))
                 (sort-by (comp :pos first) words))))]
-    (doall (map (fn [h] (assoc h :conflicts
-                               (doall (map :id (filter #(conflicts? h %) word-hyps)))))
-                word-hyps))))
+    word-hyps))

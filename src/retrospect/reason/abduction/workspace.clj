@@ -16,7 +16,7 @@
   (:use [retrospect.state]))
 
 (defrecord Hypothesis
-    [id type subtype needs-explainer? explains boosts short-str desc data]
+    [id type subtype needs-explainer? conflicts?-fn explains boosts short-str desc data]
   Object
   (toString [self] (format "%s(%s)" id short-str))
   Comparable
@@ -61,13 +61,14 @@
    :accepted {}})
 
 (defn new-hyp
-  [prefix type subtype needs-explainer? explains boosts short-str desc data]
+  [prefix type subtype needs-explainer? conflicts?-fn explains boosts short-str desc data]
   (let [id (inc last-id)]
     (set-last-id id)
     (assoc
         (merge (Hypothesis.
                 (format "%s%d" prefix id)
-                type subtype needs-explainer? explains boosts short-str desc data)
+                type subtype needs-explainer? conflicts?-fn explains
+                boosts short-str desc data)
                data)
       :contents (assoc data :type type :subtype subtype))))
 
@@ -236,13 +237,13 @@
 (defn find-conflicts-all
   [workspace hyp]
   (prof :find-conflicts-all
-        (map #(lookup-hyp workspace %) (:conflicts hyp))))
+        (doall (filter (partial (:conflicts?-fn hyp) hyp) (vals (:hyp-ids workspace))))))
 
 (defn find-conflicts
   [workspace hyp]
   (prof :find-conflicts
-        (doall (map #(lookup-hyp workspace %)
-                    (filter (:available workspace) (:conflicts hyp))))))
+        (doall (filter (partial (:conflicts?-fn hyp) hyp)
+                       (map #(lookup-hyp workspace %) (:available workspace))))))
 
 (defn add-explainers
   [workspace hyp]

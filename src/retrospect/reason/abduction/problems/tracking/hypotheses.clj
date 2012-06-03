@@ -22,7 +22,8 @@
 
 (defn generate-kb
   [training]
-  [(new-hyp "KB" :kb :kb false [] [] "" ""
+  [(new-hyp "KB" :kb :kb false (constantly false)
+            [] [] "" ""
             {:walk-dist (read-walk-dist (format "%s/tracking/walks-%d.txt"
                                                 @datadir (:MaxWalk params)))})])
 
@@ -33,10 +34,12 @@
                   (let [desc (format (str "Sensor detection by %s - color: %s, "
                                           "x: %d, y: %d, time: %d")
                                      (:id sensor) (color-str color) x y time)
-                        from (new-hyp "SensFrom" :sensor :sensor-from true [] []
+                        from (new-hyp "SensFrom" :sensor :sensor-from
+                                      true (constantly false) [] []
                                       (format "%d,%d@%d" x y time) desc
                                       {:sensor sensor :det det})
-                        to (new-hyp "SensTo" :sensor :sensor-to true [] []
+                        to (new-hyp "SensTo" :sensor :sensor-to
+                                    true (constantly false) [] []
                                     (format "%d,%d@%d" x y time) desc
                                     {:sensor sensor :det det})]
                     (cond (= time time-prev) [to]
@@ -104,7 +107,7 @@
 
 (defn new-mov-hyp
   [to from det-color det2-color]
-  (new-hyp "Mov" :movement :movement false
+  (new-hyp "Mov" :movement :movement false conflicts?
            [to from] [] (path-str [det-color det2-color])
            (format "%s (dist=%.2f)"
                    (path-str [det-color det2-color])

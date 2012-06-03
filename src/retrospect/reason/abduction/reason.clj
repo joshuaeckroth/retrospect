@@ -55,9 +55,14 @@
                                              (get-in true-false-types [type :all false]))
                                            (keys true-false-types)))
             unexplained (:unexplained (:log ws-result))]
-        (comment (println "count false accepted" (count false-accepted)
-                          "count unexplained" (count unexplained)
-                          "temp" temp))
+        (comment
+          (.print System/out (format "%d/%d " (count false-accepted) (count unexplained)))
+          (.flush System/out)
+          (when (and (not-empty false-accepted)
+                     (= 2 (count false-accepted)))
+            (println (map (fn [h] [h (get-in ws-result
+                                             [:scores (:type h) (:subtype h)]
+                                             0.5)]) false-accepted))))
         (cond (not training?)
               (update-kb ws-result)
               (and (= 0 (count false-accepted))

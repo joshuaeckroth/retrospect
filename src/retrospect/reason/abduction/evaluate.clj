@@ -142,19 +142,20 @@
                                                (filter (get true-false-all true)
                                                        (:alts biggest-mistake)))))
         delta (:delta biggest-mistake)
-        adjust (+ (* 0.50 delta) 0.01)
+        adjust (if delta (+ (* 0.50 delta) 0.01))
         wrong-prior (get-in workspace
                             [:scores (:type wrong-choice) (:subtype wrong-choice)]
                             0.5)
         better-prior (get-in workspace
                              [:scores (:type better-choice) (:subtype better-choice)]
                              0.5)]
-    (comment (println "biggest mistake" biggest-mistake)
-             (println "wrong choice" wrong-choice (hyp-conf workspace wrong-choice)
-                      (:pos-seq wrong-choice))
-             (println "better choice" better-choice (hyp-conf workspace better-choice)
-                      (:pos-seq better-choice))
-             (println "delta" delta "adjust" adjust))
+    (comment
+      (println "biggest mistake" biggest-mistake)
+      (println "wrong choice" wrong-choice (hyp-conf workspace wrong-choice)
+               (:pos-seq wrong-choice))
+      (println "better choice" better-choice (hyp-conf workspace better-choice)
+               (:pos-seq better-choice))
+      (println "delta" delta "adjust" adjust))
     (if better-choice
       (-> workspace
           (assoc-in [:scores (:type wrong-choice) (:subtype wrong-choice)]
