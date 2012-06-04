@@ -14,13 +14,13 @@
   [hyps type-key truedata workspace time true-hyp?]
   (let [hs (group-by type-key (filter #(not ((:forced workspace) (:id %))) hyps))
         tf (reduce (fn [m subtype]
-                     (let [grouped (group-by (fn [h] (if (true-hyp? truedata time h)
-                                                       true false))
-                                             (get hs subtype))]
-                       (assoc m subtype
-                              (reduce (fn [g tf] (if (nil? (get g tf)) (assoc g tf []) g))
-                                      grouped [true false]))))
-                   {} (keys hs))
+                (let [grouped (group-by (fn [h] (if (true-hyp? truedata time h)
+                                                 true false))
+                                        (get hs subtype))]
+                  (assoc m subtype
+                         (reduce (fn [g tf] (if (nil? (get g tf)) (assoc g tf []) g))
+                            grouped [true false]))))
+              {} (keys hs))
         all-true (set (mapcat #(get % true) (vals tf)))
         all-false (set (mapcat #(get % false) (vals tf)))]
     (assoc tf :all {true all-true false all-false})))
@@ -30,40 +30,40 @@
    confidence for false hyps."
   [workspace true-false]
   (let [confs (reduce (fn [m t]
-                        (assoc m t
-                               {true (map #(hyp-conf workspace %)
-                                          (get (get true-false t) true))
-                                false (map #(hyp-conf workspace %)
-                                           (get (get true-false t) false))}))
-                      {} (keys true-false))
+                   (assoc m t
+                          {true (map #(hyp-conf workspace %)
+                                   (get (get true-false t) true))
+                           false (map #(hyp-conf workspace %)
+                                    (get (get true-false t) false))}))
+                 {} (keys true-false))
         apriori (reduce (fn [m t]
-                          (assoc m t
-                                 {true (map #(lookup-score workspace %)
-                                            (get (get true-false t) true))
-                                  false (map #(lookup-score workspace %)
-                                             (get (get true-false t) false))}))
-                        {} (keys true-false))
+                     (assoc m t
+                            {true (map #(lookup-score workspace %)
+                                     (get (get true-false t) true))
+                             false (map #(lookup-score workspace %)
+                                      (get (get true-false t) false))}))
+                   {} (keys true-false))
         avg (fn [vals] (if (empty? vals) 0.0 (/ (reduce + vals) (count vals))))]
     (reduce (fn [m t]
-              (let [k (apply str (map str/capitalize (str/split (name t) #"-")))]
-                (assoc m
-                  (keyword (format "TrueCount%s" k))
-                  (count (get (get true-false t) true))
-                  (keyword (format "FalseCount%s" k))
-                  (count (get (get true-false t) false))
-                  (keyword (format "TrueAcc%s" k))
-                  (count (filter #(accepted? workspace %) (get (get true-false t) true)))
-                  (keyword (format "FalseAcc%s" k))
-                  (count (filter #(accepted? workspace %) (get (get true-false t) false)))
-                  (keyword (format "AvgTrueConf%s" k))
-                  (avg (get (get confs t) true))
-                  (keyword (format "AvgTrueApriori%s" k))
-                  (avg (get (get apriori t) true))
-                  (keyword (format "AvgFalseConf%s" k))
-                  (avg (get (get confs t) false))
-                  (keyword (format "AvgFalseApriori%s" k))
-                  (avg (get (get apriori t) false)))))
-            {} (keys true-false))))
+         (let [k (apply str (map str/capitalize (str/split (name t) #"-")))]
+           (assoc m
+             (keyword (format "TrueCount%s" k))
+             (count (get (get true-false t) true))
+             (keyword (format "FalseCount%s" k))
+             (count (get (get true-false t) false))
+             (keyword (format "TrueAcc%s" k))
+             (count (filter #(accepted? workspace %) (get (get true-false t) true)))
+             (keyword (format "FalseAcc%s" k))
+             (count (filter #(accepted? workspace %) (get (get true-false t) false)))
+             (keyword (format "AvgTrueConf%s" k))
+             (avg (get (get confs t) true))
+             (keyword (format "AvgTrueApriori%s" k))
+             (avg (get (get apriori t) true))
+             (keyword (format "AvgFalseConf%s" k))
+             (avg (get (get confs t) false))
+             (keyword (format "AvgFalseApriori%s" k))
+             (avg (get (get apriori t) false)))))
+       {} (keys true-false))))
 
 (defn evaluate
   [truedata est]
@@ -71,7 +71,7 @@
         workspace (:workspace ep)
         true-false (group-hyps-by-true-false
                     (map #(lookup-hyp workspace %)
-                         (apply concat (vals (:hypotheses workspace))))
+                       (apply concat (vals (:hypotheses workspace))))
                     :type truedata workspace
                     (:time ep) (:true-hyp?-fn (:abduction @problem)))
         true-false-confs (calc-true-false-confs workspace true-false)]
@@ -133,37 +133,74 @@
                ws (keys (get true-false-types type))))
             workspace (keys true-false-types))))
 
+(defn get-best-true
+  [workspace hyps true-false-all]
+  (first (reverse (sort-by #(hyp-conf workspace %)
+                           (filter (get true-false-all true) hyps)))))
+
 (defn update-training
   [workspace true-false-types true-false-all temp]
   (let [bests (reverse (sort-by :delta (:best (:log workspace))))
         biggest-mistake (first (drop-while #((get true-false-all true) (:best %)) bests))
         wrong-choice (:best biggest-mistake)
-        better-choice (first (reverse (sort-by #(hyp-conf workspace %)
-                                               (filter (get true-false-all true)
-                                                       (:alts biggest-mistake)))))
-        delta (:delta biggest-mistake)
+        correct-conflicting (when wrong-choice
+                              (get-best-true
+                               workspace (find-conflicts-all workspace wrong-choice)
+                               true-false-all))
+        better-choice (or (get-best-true workspace (:alts biggest-mistake) true-false-all)
+                          correct-conflicting)
+        delta (when better-choice (- (hyp-conf workspace wrong-choice)
+                                     (hyp-conf workspace better-choice)))
         adjust (if delta (+ (* 0.50 delta) 0.01))
         wrong-prior (get-in workspace
-                            [:scores (:type wrong-choice) (:subtype wrong-choice)]
+                            [:scores [(:type wrong-choice) (:subtype wrong-choice)]]
                             0.5)
         better-prior (get-in workspace
-                             [:scores (:type better-choice) (:subtype better-choice)]
+                             [:scores [(:type better-choice) (:subtype better-choice)]]
                              0.5)]
     (comment
       (println "biggest mistake" biggest-mistake)
       (println "wrong choice" wrong-choice (hyp-conf workspace wrong-choice)
-               (:pos-seq wrong-choice))
+               (:pos-seq wrong-choice)
+               "adjustments:"
+               (count (get-in workspace [:score-adjustments
+                                         [(:type wrong-choice) (:subtype wrong-choice)]]))
+               (get-in workspace [:score-adjustments
+                                  [(:type wrong-choice) (:subtype wrong-choice)]]))
+      (println "correct conflicting" correct-conflicting)
       (println "better choice" better-choice (hyp-conf workspace better-choice)
-               (:pos-seq better-choice))
+               (:pos-seq better-choice)
+               "adjustments:"
+               (count (get-in workspace [:score-adjustments
+                                         [(:type better-choice) (:subtype better-choice)]]))
+               (get-in workspace [:score-adjustments
+                                  [(:type better-choice) (:subtype better-choice)]]))
       (println "delta" delta "adjust" adjust))
-    (if better-choice
-      (-> workspace
-          (assoc-in [:scores (:type wrong-choice) (:subtype wrong-choice)]
-                    (max 0.0 (- wrong-prior adjust)))
-          (assoc-in [:scores (:type better-choice) (:subtype better-choice)]
-                    (min 1.0 (+ better-prior adjust))))
-      (assoc-in workspace [:scores (:type wrong-choice) (:subtype wrong-choice)]
-                (max 0.0 (- wrong-prior 0.1))))))
+    (comment (not= :merge (:type better-choice))
+             (not= :split (:type better-choice)))
+    (cond better-choice 
+          (-> workspace
+             (update-in [:score-adjustments
+                         [(:type wrong-choice) (:subtype wrong-choice)]]
+                        conj (max 0.0 (- wrong-prior adjust)))
+             (assoc-in [:scores
+                        [(:type wrong-choice) (:subtype wrong-choice)]]
+                       (max 0.0 (- wrong-prior adjust)))
+             (update-in [:score-adjustments
+                         [(:type better-choice) (:subtype better-choice)]]
+                        conj (min 1.0 (+ better-prior adjust)))
+             (assoc-in [:scores
+                        [(:type better-choice) (:subtype better-choice)]]
+                       (min 1.0 (+ better-prior adjust))))
+          wrong-choice
+          (-> workspace
+             (update-in [:score-adjustments
+                         [(:type wrong-choice) (:subtype wrong-choice)]]
+                        conj (max 0.0 (- wrong-prior 0.1)))
+             (assoc-in [:scores
+                        [(:type wrong-choice) (:subtype wrong-choice)]]
+                       (max 0.0 (- wrong-prior 0.1))))
+          :else workspace)))
 
 (defn prefix-params
   [prefix params]
@@ -182,19 +219,19 @@
                    ((:evaluate-comp-fn (:abduction @problem)) control comparison
                     control-params comparison-params)
                    (map #(calc-increase control comparison %)
-                        (concat [:UnexplainedPct :NoExplainersPct
-                                 :Doubt :Coverage :ExplainCycles :HypothesisCount]
-                                (mapcat
-                                 (fn [tf]
-                                   (map #(keyword
-                                          (format "%s%s" tf
-                                                  (apply str
-                                                         (map str/capitalize
-                                                              (str/split (name %) #"-")))))
-                                        (:hyp-subtypes @problem)))
-                                 ["AvgTrueConf" "AvgTrueApriori"
-                                  "AvgFalseConf" "AvgFalseApriori"
-                                  "TrueCount" "FalseCount" "TrueAcc" "FalseAcc"])))))]
+                      (concat [:UnexplainedPct :NoExplainersPct
+                               :Doubt :Coverage :ExplainCycles :HypothesisCount]
+                              (mapcat
+                               (fn [tf]
+                                 (map #(keyword
+                                      (format "%s%s" tf
+                                         (apply str
+                                                (map str/capitalize
+                                                   (str/split (name %) #"-")))))
+                                    (:hyp-subtypes @problem)))
+                               ["AvgTrueConf" "AvgTrueApriori"
+                                "AvgFalseConf" "AvgFalseApriori"
+                                "TrueCount" "FalseCount" "TrueAcc" "FalseAcc"])))))]
     ;; if control/comparison have different number of results
     ;; (different steps between or steps), then just use the last
     ;; result set
