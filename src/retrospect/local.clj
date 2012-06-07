@@ -44,7 +44,7 @@
       (.write writer (write-csv [(map str row)])))))
 
 (defn run-partition
-  [comparative? recdir params start-time sim-count]
+  [comparative? recdir params start-time sim-count save-record?]
   (loop [ps params]
     (when (< 0 @progress)
       (print-progress (- (.getTime (Date.)) start-time) @progress sim-count))
@@ -52,30 +52,32 @@
       (if comparative?
         (let [[control-results comparison-results comparative-results]
               (run comparative? (first ps))]
-          (doseq [rs control-results]
-            (write-results-csv (format "%s/control-results-%d.csv"
-                                       recdir (:simulation (ffirst ps)))
-                               rs))
-          (doseq [rs comparison-results]
-            (write-results-csv (format "%s/comparison-results-%d.csv"
-                                       recdir (:simulation (ffirst ps)))
-                               rs))
-          (doseq [rs comparative-results]
-            (write-results-csv (format "%s/comparative-results-%d.csv"
-                                       recdir (:simulation (ffirst ps)))
-                               rs))
+          (when save-record?
+            (doseq [rs control-results]
+              (write-results-csv (format "%s/control-results-%d.csv"
+                                         recdir (:simulation (ffirst ps)))
+                                 rs))
+            (doseq [rs comparison-results]
+              (write-results-csv (format "%s/comparison-results-%d.csv"
+                                         recdir (:simulation (ffirst ps)))
+                                 rs))
+            (doseq [rs comparative-results]
+              (write-results-csv (format "%s/comparative-results-%d.csv"
+                                         recdir (:simulation (ffirst ps)))
+                                 rs)))
           (dosync
            (alter progress inc))
           (recur (rest ps)))
         (let [control-results (run comparative? (first ps))]
-          (doseq [rs control-results]
-            (write-results-csv (format "%s/control-results-%d.csv"
-                                       recdir (:simulation (first ps))) rs))
+          (when save-record?
+            (doseq [rs control-results]
+              (write-results-csv (format "%s/control-results-%d.csv"
+                                         recdir (:simulation (first ps))) rs)))
           (dosync (alter progress inc))
           (recur (rest ps)))))))
 
 (defn run-partitions
-  [run-meta comparative? params recdir nthreads upload? repetitions]
+  [run-meta comparative? params recdir nthreads save-record? repetitions]
   (let [start-time (.getTime (Date.))
         sim-count (* repetitions (count params))
         seeds (repeatedly repetitions #(my-rand-int 10000000))
@@ -92,7 +94,8 @@
         partitions (partition-all (math/ceil (/ (count numbered-params) nthreads))
                                   (my-shuffle numbered-params))
         workers (for [part partitions]
-                  (future (run-partition comparative? recdir part start-time sim-count)))]
+                  (future (run-partition comparative? recdir part
+                                         start-time sim-count save-record?)))]
     (doall (pmap (fn [w] @w) workers))
     (let [run-meta-stopped (assoc run-meta :endtime (. System (currentTimeMillis)))]
-      (spit (format "%s/meta.clj" recdir) (pr-str run-meta-stopped)))))
+      (when save-record? (spit (format "%s/meta.clj" recdir) (pr-str run-meta-stopped))))))

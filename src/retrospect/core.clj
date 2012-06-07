@@ -54,6 +54,7 @@
      [seed "Seed" "0"]
      [database "Database identifier" "http://127.0.0.1:5984/retrospect"]
      [upload "Upload?" "true"]
+     [save-record "Save in record directory?" "true"]
      [recdir "Record directory" ""]]
     (let [seed (Integer/parseInt seed)
           reason (choose-reason reason)
@@ -82,6 +83,7 @@
             (= action "run")
             (let [nthreads (Integer/parseInt nthreads)
                   upload? (Boolean/parseBoolean upload)
+                  save-record? (Boolean/parseBoolean save-record)
                   [problem ps] (read-params params)
                   git-dirty? (not-empty
                               (filter #(not= "??" (if (>= 2 (count %)) "??" (subs % 0 2)))
@@ -97,7 +99,8 @@
                (alter state/batch (constantly true))
                (alter state/problem (constantly (choose-problem problem)))               
                (alter state/db-params (constantly ps)))
-              (run-with-new-record seed git recordsdir nthreads upload? repetitions))
+              (run-with-new-record seed git recordsdir nthreads
+                upload? save-record? repetitions))
             
             :else
             (println "No action given.")))))

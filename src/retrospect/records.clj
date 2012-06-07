@@ -82,7 +82,7 @@
 
 (defn run-with-new-record
   "Create a new folder for storing run data and execute the run."
-  [seed git recordsdir nthreads upload? repetitions]
+  [seed git recordsdir nthreads upload? save-record? repetitions]
   (try
     (let [t (. System (currentTimeMillis))
           recdir (str recordsdir "/" t)
@@ -107,14 +107,15 @@
       (when (and comparative? (not= (count control-params) (count comparison-params)))
         (println "Control/comparison param counts are not equal.")
         (System/exit -1))
-      (print (format "Making new directory %s..." recdir))
-      (.mkdirs (File. recdir))
-      (println "done.")
-      (println (format "Running %d parameters, %d repetitions = %d simulations..."
+      (when save-record?
+        (print (format "Making new directory %s..." recdir))
+        (.mkdirs (File. recdir))
+        (println "done."))
+      #_(println (format "Running %d parameters, %d repetitions = %d simulations..."
                        (count control-params) repetitions
                        (* (count control-params) repetitions)))
       (doall (run-partitions run comparative? (if comparative? paired-params control-params)
-                             recdir nthreads upload? repetitions))
+                             recdir nthreads save-record? repetitions))
       (when (and upload? (not= "" @database))
         (submit-archived-results recdir))
       (System/exit 0))
