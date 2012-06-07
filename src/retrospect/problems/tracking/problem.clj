@@ -24,6 +24,7 @@
                 :setup-diagram-fn player-setup-diagram
                 :update-diagram-fn player-update-diagram}
    :generate-truedata-fn generate-truedata
+   :count-truedata-fn #(count (get % 0)) ;; count movements of entity 0
    :generate-sensors-fn generate-sensors
    :perturb-fn perturb
    :prepared-map prepared-map

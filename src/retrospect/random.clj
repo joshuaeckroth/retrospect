@@ -9,7 +9,7 @@
 
 (defn my-rand
   ([] (.nextDouble rgen))
-  ([n] (* n (my-rand))))
+  ([n] (* (double n) (my-rand))))
 
 (defn my-rand-int
   [n]

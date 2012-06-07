@@ -143,6 +143,7 @@
   (let [bests (reverse (sort-by :delta (:best (:log workspace))))
         biggest-mistake (first (drop-while #((get true-false-all true) (:best %)) bests))
         wrong-choice (:best biggest-mistake)
+        ;; figure out why conflicting choice is correct and was not the bigger delta
         correct-conflicting (when wrong-choice
                               (get-best-true
                                workspace (find-conflicts-all workspace wrong-choice)
@@ -178,29 +179,33 @@
       (println "delta" delta "adjust" adjust))
     (comment (not= :merge (:type better-choice))
              (not= :split (:type better-choice)))
-    (cond better-choice 
-          (-> workspace
-             (update-in [:score-adjustments
-                         [(:type wrong-choice) (:subtype wrong-choice)]]
-                        conj (max 0.0 (- wrong-prior adjust)))
-             (assoc-in [:scores
-                        [(:type wrong-choice) (:subtype wrong-choice)]]
-                       (max 0.0 (- wrong-prior adjust)))
-             (update-in [:score-adjustments
-                         [(:type better-choice) (:subtype better-choice)]]
-                        conj (min 1.0 (+ better-prior adjust)))
-             (assoc-in [:scores
-                        [(:type better-choice) (:subtype better-choice)]]
-                       (min 1.0 (+ better-prior adjust))))
-          wrong-choice
-          (-> workspace
-             (update-in [:score-adjustments
-                         [(:type wrong-choice) (:subtype wrong-choice)]]
-                        conj (max 0.0 (- wrong-prior 0.1)))
-             (assoc-in [:scores
-                        [(:type wrong-choice) (:subtype wrong-choice)]]
-                       (max 0.0 (- wrong-prior 0.1))))
-          :else workspace)))
+    
+    ;; don't adjust too much
+    (if (and adjust (> adjust 0.2)) workspace
+        (cond better-choice
+              (-> workspace
+                 (update-in [:score-adjustments
+                             [(:type wrong-choice) (:subtype wrong-choice)]]
+                            conj (max 0.0 (- wrong-prior adjust)))
+                 (assoc-in [:scores
+                            [(:type wrong-choice) (:subtype wrong-choice)]]
+                           (max 0.0 (- wrong-prior adjust)))
+                 (update-in [:score-adjustments
+                             [(:type better-choice) (:subtype better-choice)]]
+                            conj (min 1.0 (+ better-prior adjust)))
+                 (assoc-in [:scores
+                            [(:type better-choice) (:subtype better-choice)]]
+                           (min 1.0 (+ better-prior adjust))))
+              ;; check if this happens any more now that we have merges/splits
+              wrong-choice
+              (-> workspace
+                 (update-in [:score-adjustments
+                             [(:type wrong-choice) (:subtype wrong-choice)]]
+                            conj (max 0.0 (- wrong-prior 0.1)))
+                 (assoc-in [:scores
+                            [(:type wrong-choice) (:subtype wrong-choice)]]
+                           (max 0.0 (- wrong-prior 0.1))))
+              :else workspace))))
 
 (defn prefix-params
   [prefix params]

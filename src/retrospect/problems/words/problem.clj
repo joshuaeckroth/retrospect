@@ -17,6 +17,7 @@
                 :get-truedata-log player-get-truedata-log
                 :get-problem-log player-get-problem-log}
    :generate-truedata-fn generate-truedata
+   :count-truedata-fn count
    :generate-sensors-fn generate-sensors
    :perturb-fn perturb
    :prepared-map prepared-map

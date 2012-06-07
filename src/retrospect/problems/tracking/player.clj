@@ -14,6 +14,7 @@
          [format-movements-comparative]])
   (:use [retrospect.reason.abduction.problems.tracking.evaluate :only
          [get-true-movements]])
+  (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
   (:use [retrospect.problems.tracking.colors])
   (:use [retrospect.epistemicstates :only [cur-ep]])
   (:use [retrospect.state]))
@@ -139,7 +140,8 @@
                  (constantly (make-diagram
                               #(when (> @time-now 0)
                                  (let [ws (:workspace (cur-ep (:est @or-state)))]
-                                   (map :mov (:movement (:accepted ws)))))))))
+                                   (map (fn [hypid] (:mov (lookup-hyp ws hypid)))
+                                      (:movement (:accepted ws)))))))))
   (panel :layout (GridBagLayout.)
          :constrains (java.awt.GridBagConstraints.)
          [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0

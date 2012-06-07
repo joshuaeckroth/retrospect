@@ -28,9 +28,8 @@
                (my-rand-int (:height (meta movements)))]
         c (my-rand-nth [red blue green])
         b (my-rand-nth [:straight :left :right])
-        e (symbol (str (count (keys movements))))]
+        e (count (keys movements))]
     (assoc movements e [{:x x :y y :time time :color c}])))
-
 
 (defn entities-at
   [movements x y time]

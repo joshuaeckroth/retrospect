@@ -14,31 +14,21 @@
   (let [maxwalk (:MaxWalk params)]
     (reduce #(walk %1 %2 time maxwalk) movements (my-shuffle (entities movements)))))
 
-(defn output-walk-sizes
-  [movements]
-  (let [dists (map #(dist (:ox %) (:oy %) (:x %) (:y %))
-                   (mapcat rest (vals movements)))
-        dist-counts (reduce (fn [dc d]
-                              (if (dc (str d))
-                                (update-in dc [(str d)] inc)
-                                (assoc dc (str d) 1)))
-                            {} dists)
-        dc-strs (map #(format "%s,%d\n" % (get dist-counts %))
-                     (sort (keys dist-counts)))]
-    (spit (format "walks-%s.txt" (:MaxWalk params))
-          (str (count dists) "\n" (apply str dc-strs)))))
-
-(defn generate-truedata
-  []
+(defn generate-movements
+  [max-time]
   (let [movements (add-new-entities
                    (new-movements (:GridWidth params) (:GridHeight params))
                    (:NumberEntities params))]
     (loop [time 1
            m movements]
-      (if (> time (:Steps params))
-        ;; todo: fix (don't train on same stuff as test)
-        (do (comment (output-walk-sizes m)) {:test m :training {:test m}})
-        (recur (inc time) (random-walks m time))))))
+      (if (> time max-time) m
+          (recur (inc time) (random-walks m time))))))
+
+(defn generate-truedata
+  []
+  {:test (generate-movements (:Steps params))
+   :training {:test (generate-movements (int (* (/ (double (:Knowledge params)) 100.0)
+                                                (:Steps params))))}})
 
 (defn format-movements-comparative
   [true-movements believed-movements mintime maxtime]

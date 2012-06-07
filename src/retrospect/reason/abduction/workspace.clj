@@ -38,6 +38,8 @@
    :cycle 0
    ;; hyp type => hyp subtype => score
    :scores {}
+   ;; hyp type => hyp subtype => seq of history of scores
+   :score-adjustments {}
    :log {:unexplained [] :best [] :accrej {}}
    :hyp-log {}
    ;; a list of hyps that explain each key;
@@ -284,7 +286,7 @@
 (defn lookup-score
   [workspace hyp]
   (prof :lookup-score
-        (get-in workspace [:scores (:type hyp) (:subtype hyp)] 0.5)))
+        (get-in workspace [:scores [(:type hyp) (:subtype hyp)]] 0.5)))
 
 (defn add
   [workspace hyp]
@@ -365,20 +367,20 @@
                                       (set ((:explainers workspace) (:id hyp))))))
               ws-acc (prof :accept-update
                            (-> ws-needs-exp
-                               (update-in [:accepted (:type hyp)] conj (:id hyp))
-                               (update-in [:accepted :all] conj (:id hyp))
-                               (update-in [:available] disj (:id hyp))))
+                              (update-in [:accepted (:type hyp)] conj (:id hyp))
+                              (update-in [:accepted :all] conj (:id hyp))
+                              (update-in [:available] disj (:id hyp))))
               ws-hyplog (if @batch ws-acc
                             (update-in ws-acc [:hyp-log hyp] conj
                                        (format (str "Accepted in cycle %d "
-                                                    "to explain %s with delta %.2f"
-                                                    " (essential? %s)")
-                                               (:cycle workspace)
-                                               explained delta essential?)))
+                                               "to explain %s with delta %.2f"
+                                               " (essential? %s)")
+                                          (:cycle workspace)
+                                          explained delta essential?)))
               ws-expl (prof :accept-expl
                             (reduce (fn [ws2 h]
-                                      (update-in ws2 [:active-explainers] dissoc (:id h)))
-                                    ws-hyplog (explains hyp)))
+                                 (update-in ws2 [:active-explainers] dissoc (:id h)))
+                               ws-hyplog (explains hyp)))
               conflicts (prof :accept-conflicts (find-conflicts ws-expl hyp))
               ws-conflicts (prof :accept-reject-many (reject-many ws-expl conflicts))
               ws-boosts (prof :accept-boosts (reduce boost ws-conflicts (:boosts hyp)))]
@@ -402,13 +404,13 @@
   [workspace]
   (prof :get-unexp-pct
         (if (empty? (filter :needs-explainer?
-                            (map #(lookup-hyp workspace %)
-                                 (:all (:accepted workspace)))))
+                       (map #(lookup-hyp workspace %)
+                            (:all (:accepted workspace)))))
           0.0
           (/ (double (count (:unexplained (:log workspace))))
              (double (count (filter :needs-explainer?
-                                    (map #(lookup-hyp workspace %)
-                                         (:all (:accepted workspace))))))))))
+                               (map #(lookup-hyp workspace %)
+                                    (:all (:accepted workspace))))))))))
 
 (defn get-noexp-pct
   [workspace]
@@ -426,11 +428,11 @@
   [workspace]
   (prof :calc-doubt
         (let [acc-not-forced (filter #(not ((:forced workspace) %))
-                                     (:all (:accepted workspace)))]
+                                (:all (:accepted workspace)))]
           (if (empty? acc-not-forced)
             (if (empty? (:unexplained (:log workspace))) 0.0 1.0)
             (let [confs (vals (select-keys (:hyp-confidences workspace) acc-not-forced))]
-              (reduce + 0.0 (map #(- 1.0 %) confs)))))))
+              (/ (reduce + 0.0 (map #(- 1.0 %) confs)) (count confs)))))))
 
 (defn calc-coverage
   [workspace]
@@ -501,7 +503,7 @@
 (defn update-hypotheses
   [workspace]
   (let [hyps ((:hypothesize-fn (:abduction @problem))
-              (map #(lookup-hyp workspace %) (:forced workspace))
+              (map #(lookup-hyp workspace %) (keys (:active-explainers workspace)))
               (:accepted workspace) (partial lookup-hyp workspace))]
     (reduce add workspace hyps)))
 
@@ -589,7 +591,8 @@
   [workspace]
   (add-kb (assoc empty-workspace :oracle (:oracle workspace)
                  :oracle-types (:oracle-types workspace)
-                 :scores (:scores workspace))
+                 :scores (:scores workspace)
+                 :score-adjustments (:score-adjustments workspace))
           (map #(lookup-hyp workspace %)
                (get-in workspace [:accepted :kb]))))
 
@@ -600,6 +603,7 @@
 
 (defn extract-training
   [ws-orig ws-trained]
-  (add-kb (assoc ws-orig :scores (:scores ws-trained))
+  (add-kb (assoc ws-orig :scores (:scores ws-trained)
+                 :score-adjustments (:score-adjustments ws-trained))
           (map #(lookup-hyp ws-trained %)
                (get-in ws-trained [:accepted :kb]))))

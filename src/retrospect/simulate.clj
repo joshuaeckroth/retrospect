@@ -113,8 +113,8 @@
     (when (:Stats params)
       ((:stats-fn @reason) truedata ors-results time-now))
     (when (not player?)
-      (.write System/out (int \.))
-      (when (= 0 (mod time-now 1000)) (.print System/out (str time-now)))
+      #_(.write System/out (int \.))
+      #_(when (= 0 (mod time-now 1000)) (.print System/out (str time-now)))
       (.flush System/out))
     ors-results))
 
@@ -132,9 +132,10 @@
    (let [batch-orig @batch]
      (dosync (alter batch (constantly true)))
      (binding [training? true
-               params (assoc params :Steps (count (:test training))
-                             :GrowEst false)]
-       (println "training with" (:Steps params) "steps")
+               params (assoc params
+                        :Steps ((:count-truedata-fn @problem) (:test training))
+                        :GrowEst (not= "Words" (:name @problem)))]
+       #_(println "training with" (:Steps params) "steps")
        (let [ors (run-simulation training or-state)
              ws ((:extract-training-fn @reason)
                  (:workspace (cur-ep (:est or-state)))

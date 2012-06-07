@@ -133,21 +133,23 @@
                                (:accepted (:workspace ep))
                                (:unexplained (:log (:workspace ep)))))
                       eps)
+          latest-kb (lookup-hyp (:workspace (last eps))
+                                (first (get (:accepted (:workspace (last eps))) :kb)))
           sentences (map (fn [i] (nth (:test-sentences truedata) i)) (range time-now))
           [prec recall f-score oov-rate oov-recall iv-recall]
-          (run-scorer sentences believed (:test-dict (:training truedata)))]
+          (run-scorer sentences believed (:dict latest-kb))]
       {:Prec prec
        :Recall recall
        :FScore f-score
        :OOVRate oov-rate
        :OOVRecall oov-recall
        :IVRecall iv-recall})
-    {:Prec -1.0
-     :Recall -1.0
-     :FScore -1.0
-     :OOVRate -1.0
-     :OOVRecall -1.0
-     :IVRecall -1.0}))
+    {:Prec 0.0
+     :Recall 0.0
+     :FScore 0.0
+     :OOVRate 0.0
+     :OOVRecall 0.0
+     :IVRecall 0.0}))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
