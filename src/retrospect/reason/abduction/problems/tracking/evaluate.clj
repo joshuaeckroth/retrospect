@@ -3,16 +3,13 @@
   (:use [retrospect.evaluate :only [calc-increase]])
   (:use [retrospect.epistemicstates :only [cur-ep flatten-est]])
   (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
-  (:use [retrospect.problems.tracking.colors :only [match-color?]])
-  (:use [retrospect.problems.tracking.movements :only [moves-match? dets-match?]])
   (:use [retrospect.profile :only [prof]]))
 
 (defn true-hyp?
-  [truedata time hyp]
-  (let [true-movs (apply concat (vals (:test truedata)))]
-    (cond (= :movement (:type hyp))
-          (some #(moves-match? (:mov hyp) %) true-movs)
-          :else true)))
+  [truedata _ hyp]
+  (if (= :movement (:type hyp))
+    ((:all-moves truedata) (:mov hyp))
+    true))
 
 (defn hyps-equal?
   [hyp1 hyp2]
@@ -23,7 +20,7 @@
 
 (defn count-matches
   [true-movs movs]
-  (count (filter (fn [m] (some #(moves-match? m %) true-movs)) movs)))
+  (count (filter true-movs movs)))
 
 (defn tp-tn-fp-fn
   [true-movs acc-movs not-acc-movs]
@@ -36,8 +33,8 @@
 
 (defn get-true-movements
   [truedata time-now]
-  (filter #(and (:ot %) (<= (:time %) time-now))
-     (apply concat (vals (:test truedata)))))
+  (set (filter #(and (:ot %) (<= (:time %) time-now))
+          (:all-moves truedata))))
 
 (defn evaluate-helper
   [truedata workspace time-now]

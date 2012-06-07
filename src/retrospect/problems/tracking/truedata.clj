@@ -26,22 +26,26 @@
 
 (defn generate-truedata
   []
-  {:test (generate-movements (:Steps params))
-   :training {:test (generate-movements (int (* (/ (double (:Knowledge params)) 100.0)
-                                                (:Steps params))))}})
+  (let [test-movements (generate-movements (:Steps params))
+        training-steps (int (* (/ (double (:Knowledge params)) 100.0)
+                               (:Steps params)))
+        training-movements (generate-movements training-steps)]
+    {:test test-movements
+     :all-moves (set (apply concat (vals test-movements)))
+     :training {:test training-movements
+                :all-moves (set (apply concat (vals training-movements)))}}))
 
 (defn format-movements-comparative
   [true-movements believed-movements mintime maxtime]
   (let [es (sort-by str (AlphanumComparator.) (entities true-movements))
         arrows (fn [ss] (apply str (interpose " -> " ss)))
-        lines (fn [ss] (apply str (interpose "\n" ss)))]
+        lines (fn [ss] (apply str (interpose "\n" ss)))
+        bel-movs-set (set believed-movements)]
     (lines (for [e es]
              (format "%s (%s): %s"
-                     e (color-str (:color (first (get true-movements e))))
-                     (arrows (for [{:keys [x y time] :as mov}
-                                   (entity-movements true-movements e mintime maxtime)]
-                               (if (or (= 0 time)
-                                       (some #(moves-match? mov %)
-                                             believed-movements))
-                                 (format "%d,%d@%d" x y time)
-                                 (format "!! %d,%d@%d" x y time)))))))))
+                e (color-str (:color (first (get true-movements e))))
+                (arrows (for [{:keys [x y time] :as mov}
+                              (entity-movements true-movements e mintime maxtime)]
+                          (if (or (= 0 time) (bel-movs-set mov))
+                            (format "%d,%d@%d" x y time)
+                            (format "!! %d,%d@%d" x y time)))))))))
