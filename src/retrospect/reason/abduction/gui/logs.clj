@@ -68,7 +68,7 @@
                                   not-acc-hyps (set/difference
                                                 (set (map #(ws/lookup-hyp ws %)
                                                           (get (:hypotheses ws) t)))
-                                                acc-hyps )
+                                                acc-hyps)
                                   acc-tf-hyps (group-by tf-fn acc-hyps)
                                   not-acc-tf-hyps (group-by tf-fn not-acc-hyps)]
                               {(name t)
