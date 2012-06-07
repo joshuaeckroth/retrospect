@@ -39,22 +39,27 @@
   [h1 h2]
   (and (not= (:id h1) (:id h2))
        (= :movement (:type h1) (:type h2))
-       (or (and (= (:x (:det h1)) (:x (:det h2)))
-                (= (:time (:det h1)) (:time (:det h2))))
-           (and (= (:x (:det h1)) (:x (:det2 h2)))
-                (= (:time (:det h1)) (:time (:det2 h2))))
-           (and (= (:x (:det h1)) (:x (:det2 h2)))
-                (= (:time (:det h1)) (:time (:det2 h2))))
-           (and (= (:x (:det2 h1)) (:x (:det2 h2)))
-                (= (:time (:det2 h1)) (:time (:det2 h2)))))
-       (or (and (= (:y (:det h1)) (:y (:det h2)))
-                (= (:time (:det h1)) (:time (:det h2))))
-           (and (= (:y (:det h1)) (:y (:det2 h2)))
-                (= (:time (:det h1)) (:time (:det2 h2))))
-           (and (= (:y (:det h1)) (:y (:det2 h2)))
-                (= (:time (:det h1)) (:time (:det2 h2))))
-           (and (= (:y (:det2 h1)) (:y (:det2 h2)))
-                (= (:time (:det2 h1)) (:time (:det2 h2)))))))
+       (let [mov1 (:mov h1)
+             mov2 (:mov h2)]
+         (or
+          ;; start at same place
+          (and (= (:x mov1) (:x mov2))
+               (= (:y mov1) (:y mov2))
+               (= (:time mov1) (:time mov2)))
+          ;; end at same place
+          (and (= (:ox mov1) (:ox mov2))
+               (= (:oy mov1) (:oy mov2))
+               (= (:ot mov1) (:ot mov2)))
+          ;; mov1 ends where mov2 starts and not same color
+          (and (= (:x mov1) (:ox mov2))
+               (= (:y mov1) (:oy mov2))
+               (= (:time mov1) (:ot mov2))
+               (not= (:color mov1) (:color mov2)))
+          ;; mov2 ends where mov1 starts and not same color
+          (and (= (:x mov2) (:ox mov1))
+               (= (:y mov2) (:oy mov1))
+               (= (:time mov2) (:ot mov1))
+               (not= (:color mov2) (:color mov1)))))))
 
 (defn connecting-movs
   [h acc-mov-hyps]
@@ -77,13 +82,14 @@
 (defn new-mov-hyp
   [to from det-color det2-color]
   (new-hyp "Mov" :movement
-           [(:x det-color) (:y det-color) (:x det2-color) (:y det2-color)]
+           (dist (:x det-color) (:y det-color)
+                 (:x det2-color) (:y det2-color))
            false conflicts? [to from] []
            (path-str [det-color det2-color])
            (format "%s (dist=%.2f)"
-                   (path-str [det-color det2-color])
-                   (dist (:x det-color) (:y det-color)
-                         (:x det2-color) (:y det2-color)))
+              (path-str [det-color det2-color])
+              (dist (:x det-color) (:y det-color)
+                    (:x det2-color) (:y det2-color)))
            {:det det-color :det2 det2-color
             :mov {:x (:x det2-color) :y (:y det2-color) :time (:time det2-color)
                   :ox (:x det-color) :oy (:y det-color) :ot (:time det-color)

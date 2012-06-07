@@ -192,11 +192,12 @@
   []
   ;; TODO: fix so it's not specific to abduction
   (if (<= @time-now 0) ""
-      (format-movements-comparative
-       (:test @truedata)
-       (map :mov (get (:accepted (:workspace (cur-ep (:est @or-state))))
-                    :movement))
-       (max 0 @time-prev) @time-now)))
+      (let [ws (:workspace (cur-ep (:est @or-state)))]
+        (format-movements-comparative
+         (:test @truedata)
+         (map #(:mov (lookup-hyp ws %))
+            (get (:accepted ws) :movement))
+         (max 0 @time-prev) @time-now))))
 
 (defn move-str
   [mov]
