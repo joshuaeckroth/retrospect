@@ -205,7 +205,27 @@
                  (assoc-in [:scores
                             [(:type wrong-choice) (:subtype wrong-choice)]]
                            (max 0.0 (- wrong-prior 0.1))))
-              :else workspace))))
+              ;; no wrong choice, meanining nothing wrong was accepted
+              ;; so there must be unexplained data; so increase scores
+              ;; on all true hyps, decrease scores on all false hyps
+              :else
+              (let [ws-penalized
+                    (reduce (fn [ws h]
+                         (let [prior (get-in ws [:scores [(:type h) (:subtype h)]] 0.5)]
+                           (-> ws
+                              (update-in [:score-adjustments [(:type h) (:subtype h)]]
+                                         conj (max 0.0 (- prior 0.01)))
+                              (assoc-in [:scores [(:type h) (:subtype h)]]
+                                        (max 0.0 (- prior 0.01))))))
+                       workspace (get true-false-all false))]
+                (reduce (fn [ws h]
+                     (let [prior (get-in ws [:scores [(:type h) (:subtype h)]] 0.5)]
+                       (-> ws
+                          (update-in [:score-adjustments [(:type h) (:subtype h)]]
+                                     conj (min 1.0 (+ prior 0.01)))
+                          (assoc-in [:scores [(:type h) (:subtype h)]]
+                                    (min 1.0 (+ prior 0.01))))))
+                   ws-penalized (get true-false-all true)))))))
 
 (defn prefix-params
   [prefix params]
