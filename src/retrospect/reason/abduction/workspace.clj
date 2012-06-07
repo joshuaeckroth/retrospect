@@ -60,7 +60,7 @@
    ;; set of hyp-ids
    :forced #{}
    ;; a map of type => seq, with additional key :all
-   :accepted {}})
+   :accepted {:all #{}}})
 
 (defn new-hyp
   [prefix type subtype needs-explainer? conflicts?-fn explains boosts short-str desc data]
@@ -82,7 +82,7 @@
 (defn accepted?
   [workspace hyp]
   (prof :accepted?
-        (some #{(:id hyp)} (get-in workspace [:accepted (:type hyp)]))))
+        ((get-in workspace [:accepted :all] #{}) (:id hyp))))
 
 (defn hyp-log
   [workspace hyp]
@@ -498,7 +498,7 @@
                   (-> (reduce (fn [ws h] (assoc-in ws [:hyp-ids (:id h)] h))
                               workspace new-kb-hyps)
                       (assoc-in [:accepted :kb] (map :id new-kb-hyps))
-                      (update-in [:accepted :all] concat (map :id new-kb-hyps)))))))
+                      (update-in [:accepted :all] set/union (set (map :id new-kb-hyps))))))))
 
 (defn update-hypotheses
   [workspace]
@@ -607,3 +607,11 @@
                  :score-adjustments (:score-adjustments ws-trained))
           (map #(lookup-hyp ws-trained %)
                (get-in ws-trained [:accepted :kb]))))
+
+(defn inject-accepted-hyps
+  [workspace true-false-all]
+  (reduce (fn [ws h]
+       (update-in ws [:accepted (:type h)] conj (:id h)))
+     (assoc (assoc-in workspace [:log :unexplained] [])
+       :accepted {:all (set (map :id (get true-false-all true)))})
+     (get true-false-all true)))

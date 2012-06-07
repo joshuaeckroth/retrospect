@@ -2,8 +2,9 @@
   (:require [clojure.string :as str])
   (:use [retrospect.reason.abduction.workspace
          :only [explain add-sensor-hyps init-workspace
-                update-hypotheses init-kb update-kb reset-workspace
-                calc-doubt calc-coverage extract-training lookup-hyp]])
+                update-hypotheses init-kb update-kb reset-workspace accepted?
+                calc-doubt calc-coverage extract-training lookup-hyp
+                inject-accepted-hyps]])
   (:use [retrospect.reason.abduction.problems.words.evaluate :only [run-scorer get-words]])
   (:use [retrospect.reason.abduction.problems.tracking.evaluate :only [evaluate-helper]])
   (:use [retrospect.reason.abduction.meta
@@ -16,6 +17,39 @@
   (:use [retrospect.reason.abduction.gui.logs
          :only [logs-tab update-logs]])
   (:use [retrospect.state]))
+
+(defn find-false-accepted
+  [workspace true-false-types]
+  (filter #(accepted? workspace %)
+     (mapcat (fn [type] (get-in true-false-types [type :all false]))
+             (keys true-false-types))))
+
+(defn get-true-false-types
+  [workspace truedata time-now]
+  (reduce
+   (fn [m t]
+     (assoc m t
+            (group-hyps-by-true-false
+             (map #(lookup-hyp workspace %)
+                (get (:hypotheses workspace) t))
+             :subtype truedata workspace
+             time-now (:true-hyp?-fn (:abduction @problem)))))
+   {} (keys (dissoc (:hypotheses workspace) :all))))
+
+(defn get-true-false-all
+  [true-false-types]
+  {true (set (mapcat (fn [type]
+                       (mapcat (fn [subtype]
+                                 (get-in true-false-types
+                                         [type subtype true]))
+                               (keys (get true-false-types type))))
+                     (keys true-false-types)))
+   false (set (mapcat (fn [type]
+                        (mapcat (fn [subtype]
+                                  (get-in true-false-types
+                                          [type subtype false]))
+                                (keys (get true-false-types type))))
+                      (keys true-false-types)))})
 
 (defn reason-train
   [truedata workspace time-prev time-now sensors]
@@ -30,32 +64,9 @@
               (explain (update-hypotheses
                         (add-sensor-hyps ws time-prev time-now sensors)))
               (explain (update-hypotheses ws)))
-            true-false-types (reduce
-                              (fn [m t]
-                                (assoc m t
-                                       (group-hyps-by-true-false
-                                        (map #(lookup-hyp ws-result %)
-                                           (get (:hypotheses ws-result) t))
-                                        :subtype truedata ws-result
-                                        time-now (:true-hyp?-fn (:abduction @problem)))))
-                              {} (keys (dissoc (:hypotheses ws-result) :all)))
-            true-false-all {true (set (mapcat (fn [type]
-                                                (mapcat (fn [subtype]
-                                                          (get-in true-false-types
-                                                                  [type subtype true]))
-                                                        (keys (get true-false-types type))))
-                                              (keys true-false-types)))
-                            false (set (mapcat (fn [type]
-                                                 (mapcat (fn [subtype]
-                                                           (get-in true-false-types
-                                                                   [type subtype false]))
-                                                         (keys (get true-false-types type))))
-                                               (keys true-false-types)))}
-            false-accepted (filter #(some #{(:id %)}
-                                  (get-in ws-result [:accepted (:type %)]))
-                              (mapcat (fn [type]
-                                        (get-in true-false-types [type :all false]))
-                                      (keys true-false-types)))
+            true-false-types (get-true-false-types ws-result truedata time-now)
+            true-false-all (get-true-false-all true-false-types)
+            false-accepted (find-false-accepted ws-result true-false-types)
             unexplained (:unexplained (:log ws-result))]
         (when (= "Tracking" (:name @problem))
           (when (or (>= 0.0 temp) (= (:StartingTemp params) temp)
@@ -122,12 +133,7 @@
                    (= 0 (count unexplained)))
               (update-kb ws-result)
               (>= 0.0 temp) ;; temperature ran out; ensure only correct stuff is accepted
-              (update-kb
-               (reduce (fn [ws h]
-                    (update-in ws [:accepted (:type h)] conj (:id h)))
-                  (assoc (assoc-in ws-result [:log :unexplained] [])
-                    :accepted {:all (map :id (get true-false-all true))})
-                  (get true-false-all true)))
+              (update-kb (inject-accepted-hyps ws-result true-false-all))
               :else
               (let [ws-scored (update-training ws-result true-false-types
                                                true-false-all temp)]
