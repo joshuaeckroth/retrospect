@@ -1,8 +1,5 @@
 (ns retrospect.problems.words.truedata
-  (:import (java.util.regex Pattern))
   (:require [clojure.string :as str])
-  (:use [clojure.contrib.string :only [substring?]])
-  (:use [loom.graph :only [weighted-digraph weight add-edges edges]])
   (:use [retrospect.profile :only [prof profile]])
   (:use [retrospect.random])
   (:use [retrospect.state]))
