@@ -106,7 +106,7 @@
                           correct-conflicting)
         delta (when better-choice (Math/abs (- (hyp-conf workspace wrong-choice)
                                                (hyp-conf workspace better-choice))))
-        adjust (if delta (+ (* 0.50 delta) 0.1))
+        adjust (if delta (+ (* 0.50 delta) (:TrainingAdjustment params)))
         wrong-prior
         (get-in workspace
                 [:scores [(:type wrong-choice) (:subtype wrong-choice)]] 0.5)
@@ -134,10 +134,10 @@
               (-> workspace
                  (update-in [:score-adjustments
                              [(:type wrong-choice) (:subtype wrong-choice)]]
-                            conj (max 0.0 (- wrong-prior 0.1)))
+                            conj (max 0.0 (- wrong-prior (:TrainingAdjustment params))))
                  (assoc-in [:scores
                             [(:type wrong-choice) (:subtype wrong-choice)]]
-                           (max 0.0 (- wrong-prior 0.1))))
+                           (max 0.0 (- wrong-prior (:TrainingAdjustment params)))))
               ;; no wrong choice, meanining nothing wrong was accepted
               ;; so there must be unexplained data (that had
               ;; explainers); so increase scores on all true hyps,
@@ -148,18 +148,18 @@
                          (let [prior (get-in ws [:scores [(:type h) (:subtype h)]] 0.5)]
                            (-> ws
                               (update-in [:score-adjustments [(:type h) (:subtype h)]]
-                                         conj (max 0.0 (- prior 0.1)))
+                                         conj (max 0.0 (- prior (:TrainingAdjustment params))))
                               (assoc-in [:scores [(:type h) (:subtype h)]]
-                                        (max 0.0 (- prior 0.1))))))
+                                        (max 0.0 (- prior (:TrainingAdjustment params)))))))
                        workspace (filter #(not= :kb (:type %))
                                     (get-in true-false-types [:all false])))]
                 (reduce (fn [ws h]
                      (let [prior (get-in ws [:scores [(:type h) (:subtype h)]] 0.5)]
                        (-> ws
                           (update-in [:score-adjustments [(:type h) (:subtype h)]]
-                                     conj (min 1.0 (+ prior 0.1)))
+                                     conj (min 1.0 (+ prior (:TrainingAdjustment params))))
                           (assoc-in [:scores [(:type h) (:subtype h)]]
-                                    (min 1.0 (+ prior 0.1))))))
+                                    (min 1.0 (+ prior (:TrainingAdjustment params)))))))
                    ws-penalized (filter #(not= :kb (:type %))
                                    (get-in true-false-types [:all true]))))
               :else workspace))))
