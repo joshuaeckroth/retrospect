@@ -147,7 +147,6 @@
                               (:workspace (cur-ep (:est ors))))
                           ep-ws (assoc (cur-ep (:est or-state)) :workspace ws)
                           ors-trained (update-in or-state [:est] update-est ep-ws)]
-                      (spit "trained-workspace.clj" (pr-str ws))
                       (dosync (alter batch (constantly batch-orig)))
                       ors-trained))))))))
 
