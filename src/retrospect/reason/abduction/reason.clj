@@ -46,7 +46,7 @@
                                         (set no-explainers))]
         (when (:TrainingStats params)
           ((:training-stats-fn (:abduction @problem))
-           ws-result false-accepted unexplained truedata time-now temp))
+           ws-result false-accepted unexplained truedata time-now cycle))
         (cond (not training?)
               (update-kb ws-result)
               (and (= 0 (count false-accepted))
@@ -57,7 +57,7 @@
               :else
               (let [ws-scored (update-training
                                ws-result true-false-types
-                               unexplained temp)]
+                               unexplained)]
                 (recur (assoc ws :scores (:scores ws-scored)
                               :score-adjustments (:score-adjustments ws-scored))
                        (dec cycle))))))))

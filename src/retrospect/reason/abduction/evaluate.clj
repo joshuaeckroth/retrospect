@@ -93,7 +93,7 @@
                            (filter (get-in true-false-types [:all true]) hyps)))))
 
 (defn update-training
-  [workspace true-false-types unexplained temp]
+  [workspace true-false-types unexplained]
   (let [bests (reverse (sort-by :delta (:best (:log workspace))))
         biggest-mistake (first (drop-while #((get-in true-false-types [:all true])
                                              (:best %)) bests))

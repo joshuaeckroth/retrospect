@@ -182,11 +182,11 @@
    (:dict (lookup-hyp workspace (first (get (:accepted workspace) :kb))))))
 
 (defn training-stats
-  [workspace false-accepted unexplained truedata time-now temp]
-  (when (or (>= 0.0 temp) (= (:StartingTemp params) temp)
+  [workspace false-accepted unexplained truedata time-now cycle]
+  (when (or (= 0 cycle) (= (:TrainingCycles params) cycle)
             (and (= 0 (count false-accepted))
                  (= 0 (count unexplained))))
-    (when (and (= 1 time-now) (= (:StartingTemp params) temp))
+    (when (and (= 1 time-now) (= (:TrainingCycles params) cycle))
       (spit "words-adjustments.csv"
             "time,tag,num,min,max\n")
       (spit "words-adjustments-all.txt" "")
@@ -232,7 +232,7 @@
                max-adjusted-score min-adjusted-score
                avg-max-adjusted-score avg-min-adjusted-score
                (count adjustments)
-               (if (= (:StartingTemp params) temp) "beg" "end"))
+               (if (= (:TrainingCycles params) cycle) "beg" "end"))
             :append true))))
 
 (defn stats
