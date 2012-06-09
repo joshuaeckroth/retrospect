@@ -32,7 +32,7 @@
                :stats-fn stats
                :training-stats-fn training-stats
                :true-hyp?-fn true-hyp?
-               :hyp-types []
+               :hyp-types [:category]
                :default-params {}}
    :default-params
    {:Steps [50 [50]]

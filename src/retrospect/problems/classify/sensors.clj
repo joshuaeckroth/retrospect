@@ -5,7 +5,7 @@
 (defn sense
   [sensor test time]
   (let [words (get test (dec time))]
-    (add-sensed sensor time words)))
+    (add-sensed sensor time [words])))
 
 (defn generate-sensors
   []

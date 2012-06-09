@@ -6,7 +6,7 @@
 (defn generate-truedata
   []
   (let [doccats (reduce (fn [m line] (let [[docid _ & cats] (str/split line #"\s+")]
-                                 (assoc m docid cats)))
+                                 (assoc m docid (set cats))))
                    {} (str/split-lines (slurp (format "%s/classify/%s/listing.txt"
                                                  @datadir (:Dataset params)))))
         docwords (reduce (fn [m docid]
@@ -16,11 +16,13 @@
                     {} (keys doccats))
         [training-docids testing-docids] (split-at (int (* (/ (:Knowledge params) 100.0)
                                                            (count docwords)))
-                                                   (my-shuffle (keys docwords)))
+                                                   (my-shuffle (sort (keys docwords))))
         known-cats (set (apply concat (vals doccats)))]
-    {:training {:test (select-keys docwords training-docids)
+    {:training {:test (zipmap (range (count training-docids))
+                              (sort-by first (seq (select-keys docwords training-docids))))
                 :cats (select-keys doccats training-docids)
                 :known-cats known-cats}
-     :test (select-keys docwords testing-docids)
-     :cats (select-keys docwords training-docids)
+     :test (zipmap (range (count testing-docids))
+                   (sort-by first (seq (select-keys docwords testing-docids))))
+     :cats (select-keys doccats testing-docids)
      :known-cats known-cats}))
