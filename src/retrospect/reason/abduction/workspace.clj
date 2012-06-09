@@ -546,8 +546,8 @@
                   (do (log "Best is" (:id best) (hyp-conf ws-confs best))
                       (let [ws-accepted
                             (let [ws-logged (-> ws-confs
-                                                (update-in [:cycle] inc)
-                                                (update-in [:log :best] conj b))]
+                                               (update-in [:cycle] inc)
+                                               (update-in [:log :best] conj b))]
                               (accept ws-logged best explained delta essential?))]
                         (recur (assoc ws-accepted :prior-explainers explainers-sorted)))))))))))
 
@@ -581,7 +581,16 @@
             (-> ws (add h)
                 (update-in [:accepted (:type h)] conj (:id h))
                 (update-in [:accepted :all] conj (:id h))))
-          workspace hyps))
+     workspace hyps))
+
+(defn remove-kb
+  [workspace]
+  (let [kb-hyps (map #(lookup-hyp workspace %)
+                   (get-in workspace [:hypotheses :kb]))]
+    (-> workspace
+       (update-in [:hyp-contents] set/difference (set (map :contents kb-hyps)))
+       (assoc-in [:accepted :kb] '())
+       (assoc-in [:hypotheses :kb] '()))))
 
 (defn init-kb
   [workspace training]
@@ -603,15 +612,15 @@
 
 (defn extract-training
   [ws-orig ws-trained]
-  (add-kb (assoc ws-orig :scores (:scores ws-trained)
-                 :score-adjustments (:score-adjustments ws-trained))
+  (add-kb (remove-kb (assoc ws-orig :scores (:scores ws-trained)
+                            :score-adjustments (:score-adjustments ws-trained)))
           (map #(lookup-hyp ws-trained %)
-               (get-in ws-trained [:accepted :kb]))))
+             (get-in ws-trained [:accepted :kb]))))
 
-(defn inject-accepted-hyps
-  [workspace true-false-all]
+(defn inject-true-hyps
+  [workspace true-false-types]
   (reduce (fn [ws h]
        (update-in ws [:accepted (:type h)] conj (:id h)))
      (assoc (assoc-in workspace [:log :unexplained] [])
-       :accepted {:all (set (map :id (get true-false-all true)))})
-     (get true-false-all true)))
+       :accepted {:all (set (map :id (get-in true-false-types [:all true])))})
+     (get-in true-false-types [:all true])))

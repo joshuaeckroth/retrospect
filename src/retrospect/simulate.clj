@@ -113,8 +113,8 @@
     (when (:Stats params)
       ((:stats-fn @reason) truedata ors-results time-now))
     (when (not player?)
-      #_(.write System/out (int \.))
-      #_(when (= 0 (mod time-now 1000)) (.print System/out (str time-now)))
+      (.write System/out (int \.))
+      (when (= 0 (mod time-now 1000)) (.print System/out (str time-now)))
       (.flush System/out))
     ors-results))
 
@@ -129,21 +129,27 @@
 (defn train
   [training or-state]
   (profile
-   (let [batch-orig @batch]
-     (dosync (alter batch (constantly true)))
-     (binding [training? true
-               params (assoc params
-                        :Steps ((:count-truedata-fn @problem) (:test training))
-                        :GrowEst (not= "Words" (:name @problem)))]
-       #_(println "training with" (:Steps params) "steps")
-       (let [ors (run-simulation training or-state)
-             ws ((:extract-training-fn @reason)
-                 (:workspace (cur-ep (:est or-state)))
-                 (:workspace (cur-ep (:est ors))))
-             ep-ws (assoc (cur-ep (:est or-state)) :workspace ws)
-             ors-trained (update-in or-state [:est] update-est ep-ws)]
-         (dosync (alter batch (constantly batch-orig)))
-         ors-trained)))))
+   (loop [i 0
+          or-state or-state]
+     (if (= i 1) or-state
+         (recur (inc i)
+                (let [batch-orig @batch]
+                  (dosync (alter batch (constantly true)))
+                  (binding [training? true
+                            params (assoc params
+                                     :Steps ((:count-truedata-fn @problem) (:test training))
+                                     :GrowEst (not= "Words" (:name @problem))
+                                     :UpdateKB true)]
+                    (println "training with" (:Steps params) "steps")
+                    (let [ors (run-simulation training or-state)
+                          ws ((:extract-training-fn @reason)
+                              (:workspace (cur-ep (:est or-state)))
+                              (:workspace (cur-ep (:est ors))))
+                          ep-ws (assoc (cur-ep (:est or-state)) :workspace ws)
+                          ors-trained (update-in or-state [:est] update-est ep-ws)]
+                      (spit "trained-workspace.clj" (pr-str ws))
+                      (dosync (alter batch (constantly batch-orig)))
+                      ors-trained))))))))
 
 (defn init-ors
   [sensors training]
@@ -162,7 +168,8 @@
    :Oracle ["none" ["none"]]
    :GrowEst [true [true]]
    :Steps [10 [10]]
-   :Stats [false [false]]})
+   :Stats [false [false]]
+   :TrainingStats [false [false]]})
 
 (defn get-default-params-ranges
   []

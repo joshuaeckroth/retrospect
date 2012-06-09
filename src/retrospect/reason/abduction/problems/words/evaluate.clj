@@ -6,7 +6,8 @@
   (:require [clojure.set :as set])
   (:use [retrospect.evaluate :only [calc-increase avg]])
   (:use [retrospect.epistemicstates :only [cur-ep ep-path]])
-  (:use [retrospect.reason.abduction.workspace :only [hyp-conf lookup-hyp]])
+  (:use [retrospect.reason.abduction.workspace :only
+         [hyp-conf lookup-hyp calc-doubt]])
   (:use [loom.graph :only [weight]])
   (:use [retrospect.profile :only [prof]])
   (:use [retrospect.logging])
@@ -24,6 +25,8 @@
               (= :split (:type hyp))
               (let [breaks (nth (:test-breaks truedata) (dec time-now))]
                 (if (breaks (:pos2 hyp)) true false))
+              (= :notword (:type hyp))
+              (not (true-hyp? truedata time-now (assoc hyp :type :word)))
               :else
               (let [breaks (nth (:test-breaks truedata) (dec time-now))
                     start-pos (first (:pos-seq hyp))
@@ -56,14 +59,14 @@
   [sentences believed train-dict]
   (try (do
          (spit (format "/tmp/truth-%d.txt" (:simulation params))
-               (str/join "\n" (map #(str/join " " %) sentences))
+               (format "%s\n\n" (str/join "\n" (map #(str/join " " %) sentences)))
                :encoding "utf-8")
          (spit (format "/tmp/believed-%d.txt" (:simulation params))
-               (str/join "\n" (map (fn [s] (if (empty? s) "_" s))
-                                 (map #(str/join " " %) believed)))
+               (format "%s\n\n" (str/join "\n" (map (fn [s] (if (empty? s) "_" s))
+                                             (map #(str/join " " %) believed))))
                :encoding "utf-8")
          (spit (format "/tmp/dictionary-%d.txt" (:simulation params))
-               (str/join "\n" (sort train-dict))
+               (format "%s\n\n" (str/join "\n" (sort train-dict)))
                :encoding "utf-8")
          (let [results (sh (format "%s/words/score" @datadir)
                            (format "/tmp/dictionary-%d.txt" (:simulation params))
@@ -90,8 +93,9 @@
                                (second (re-find #"=== IV Recall Rate:\s+(\d\.\d\d\d)"
                                                 (:out results))))
                               (catch Exception _ 0.0))]
-           #_(println (format "%s: prec: %.2f, recall: %.2f, f-score: %.2f, oov-recall: %.2f, oov-rate: %.2f"
-                         (:HypTypes params) prec recall f-score oov-recall oov-rate))
+           (when (not training?)
+             (println (format "prec: %.2f, recall: %.2f, f-score: %.2f, oov-recall: %.2f, oov-rate: %.2f"
+                         prec recall f-score oov-recall oov-rate)))
            [prec recall f-score oov-rate oov-recall iv-recall]))
        (catch Exception e (do (log e) [0.0 0.0 0.0 0.0 0.0 0.0 0.0]))))
 
@@ -158,12 +162,78 @@
                    :Prec :Recall :FScore :OOVRecall])))
 
 (defn find-oov
-  [truedata time-now]
-  (let [sentence (nth (:test-sentences truedata) (dec time-now))
-        oov (set (filter #(not ((:test-dict (:training truedata)) %)) sentence))]
+  [workspace truedata time-now]
+  (let [latest-kb (lookup-hyp workspace (first (get (:accepted workspace) :kb)))
+        sentence (nth (:test-sentences truedata) (dec time-now))
+        oov (set (filter #(not ((:dict latest-kb) %)) sentence))]
     (reduce (fn [m w] (assoc m w (map (fn [i] (reduce + (map count (take i sentence))))
                               (filter #(= w (nth sentence %)) (range (count sentence))))))
        {} oov)))
+
+(comment
+  [prec recall f-score oov-rate oov-recall iv-recall]
+  (run-scorer
+   [(nth (:test-sentences truedata) (dec time-now))]
+   [(get-words
+     (partial lookup-hyp workspace)
+     (get (:test truedata) (dec time-now))
+     (:accepted workspace)
+     (:unexplained (:log workspace)))]
+   (:dict (lookup-hyp workspace (first (get (:accepted workspace) :kb))))))
+
+(defn training-stats
+  [workspace false-accepted unexplained truedata time-now temp]
+  (when (or (>= 0.0 temp) (= (:StartingTemp params) temp)
+            (and (= 0 (count false-accepted))
+                 (= 0 (count unexplained))))
+    (when (and (= 1 time-now) (= (:StartingTemp params) temp))
+      (spit "words-adjustments.csv"
+            "time,tag,num,min,max\n")
+      (spit "words-adjustments-all.txt" "")
+      (spit "words.csv"
+            (str "time,pctfalseacc,doubt,"
+                 "maxadjlength,minadjustlength,avgadjustlength,"
+                 "maxadjustscore,minadjustscore,"
+                 "avgmaxadjust,avgminadjust,numadjust,begend\n")))
+    (let [adjustments (vals (:score-adjustments workspace))
+          max-adjust-length (if (empty? adjustments) 0 (apply max (map count adjustments)))
+          min-adjust-length (if (empty? adjustments) 0 (apply min (map count adjustments)))
+          avg-adjust-length (/ (double (reduce + (map count adjustments)))
+                               (double (count adjustments)))
+          avg-max-adjusted-score (/ (double (reduce + (map #(apply max 0.0 %) adjustments)))
+                                    (double (count adjustments)))
+          avg-min-adjusted-score (/ (double (reduce + (map #(apply min 1.0 %) adjustments)))
+                                    (double (count adjustments)))
+          max-adjusted-score (apply max 0.0 (apply concat adjustments))
+          min-adjusted-score (apply min 1.0 (apply concat adjustments))]
+      (doseq [tag (keys (:score-adjustments workspace))]
+        (let [adjs (get (:score-adjustments workspace) tag)]
+          (spit "words-adjustments.csv"
+                (format "%d,\"%s\",%d,%.2f,%.2f\n"
+                   time-now (str tag) (count adjs)
+                   (apply min adjs) (apply max adjs))
+                :append true)))
+      (spit "words-adjustments-all.txt"
+            (format "\n-----\ntime: %d\n\n" time-now)
+            :append true)
+      (doseq [tag (keys (:score-adjustments workspace))]
+        (spit "words-adjustments-all.txt"
+              (let [adjs (get (:score-adjustments workspace) tag)]
+                (format "\"%s\",%s\n"
+                   (str tag) (str/join ", " (reverse (map #(format "%.2f" %) adjs)))))
+              :append true))
+      (spit "words.csv"
+            (format "%d,%.4f,%.4f,%d,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%d,\"%s\"\n"
+               time-now
+               (double (/ (count false-accepted)
+                          (count (:forced workspace))))
+               (calc-doubt workspace)
+               max-adjust-length min-adjust-length avg-adjust-length
+               max-adjusted-score min-adjusted-score
+               avg-max-adjusted-score avg-min-adjusted-score
+               (count adjustments)
+               (if (= (:StartingTemp params) temp) "beg" "end"))
+            :append true))))
 
 (defn stats
   [truedata ors time-now]

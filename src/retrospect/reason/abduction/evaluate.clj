@@ -12,15 +12,15 @@
 
 (defn group-hyps-by-true-false
   [hyps type-key truedata workspace time true-hyp?]
-  (let [hs (group-by type-key (filter #(not ((:forced workspace) (:id %))) hyps))
-        tf (reduce (fn [m subtype]
+  (let [hs (group-by type-key hyps)
+        tf (reduce (fn [m type]
                 (let [grouped (group-by (fn [h] (if (true-hyp? truedata time h)
                                                  true false))
-                                        (get hs subtype))]
-                  (assoc m subtype
+                                        (get hs type))]
+                  (assoc m type
                          (reduce (fn [g tf] (if (nil? (get g tf)) (assoc g tf []) g))
                             grouped [true false]))))
-              {} (keys hs))
+              {} (set (concat (keys hs) (:hyp-types (:abduction @problem)))))
         all-true (set (mapcat #(get % true) (vals tf)))
         all-false (set (mapcat #(get % false) (vals tf)))]
     (assoc tf :all {true all-true false all-false})))
@@ -70,8 +70,8 @@
   (let [ep (cur-ep est)
         workspace (:workspace ep)
         true-false (group-hyps-by-true-false
-                    (map #(lookup-hyp workspace %)
-                       (apply concat (vals (:hypotheses workspace))))
+                    (filter #(not ((:forced workspace) (:id %)))
+                       (vals (:hyp-ids workspace)))
                     :type truedata workspace
                     (:time ep) (:true-hyp?-fn (:abduction @problem)))
         true-false-confs (calc-true-false-confs workspace true-false)]
@@ -87,101 +87,34 @@
             :ExplainCycles (:cycle workspace)
             :HypothesisCount (reduce + (map count (vals (:hypotheses workspace))))})))
 
-(comment
-  (cond
-   (and (not tf) (accepted? workspace hyp)) ;; false but accepted
-   (let [better-choices (filter (get true-false-all true)
-                                (find-conflicts-all workspace hyp))
-         best-choice (last (sort-by (comp count :explains) better-choices))
-         prior-wrong (get-in ws4 [:scores (:type hyp) (:subtype hyp)] 0.5)
-         prior-best (get-in ws4 [:scores (:type best-choice)
-                                 (:subtype best-choice)] 0.5)]
-     (if best-choice
-       (-> ws4
-           (assoc-in
-            [:scores (:type hyp) (:subtype hyp)]
-            (max 0.0 (- prior-wrong (* (:TempMult params) temp))))
-           (assoc-in
-            [:scores (:type best-choice) (:subtype best-choice)]
-            (min 1.0 (+ prior-best (* (:TempMult params) temp)))))
-       (assoc-in ws4 [:scores (:type hyp) (:subtype hyp)]
-                 (max 0.0 (- prior-wrong (* (:TempMult params) temp))))))
-   ;; true but not accepted and what it explains is unexplained
-   (and tf (some unexplained (explains hyp)))
-   (let [prior (get-in ws4 [:scores (:type hyp) (:subtype hyp)] 0.5)]
-     (assoc-in ws4 [:scores (:type hyp) (:subtype hyp)]
-               (min 1.0 (+ prior (* (:TempMult params) temp)))))
-   :else ws4))
-
-(comment (let [unexplained (set (:unexplained (:log workspace)))]
-           (reduce
-            (fn [ws type] ;; true-false groups (keyed by subtype)
-              (reduce
-               (fn [ws2 st] ;; subtype key
-                 (reduce
-                  (fn [ws3 tf] ;; true/false key
-                    (reduce
-                     (fn [ws4 hyp] ;; hyps in that true/false, subtype, type
-                       (let [prior (get-in ws4 [:scores (:type hyp) (:subtype hyp)] 0.5)]
-                         (if tf
-                           (assoc-in ws4 [:scores (:type hyp) (:subtype hyp)]
-                                     (min 1.0 (+ prior (* (:TempMult params) temp))))
-                           (assoc-in ws4 [:scores (:type hyp) (:subtype hyp)]
-                                     (max 0.0 (- prior (* (:TempMult params) temp)))))))
-                     ws3 (get-in true-false-types [type st tf])))
-                  ws2 (keys (get-in true-false-types [type st]))))
-               ws (keys (get true-false-types type))))
-            workspace (keys true-false-types))))
-
 (defn get-best-true
-  [workspace hyps true-false-all]
+  [workspace hyps true-false-types]
   (first (reverse (sort-by #(hyp-conf workspace %)
-                           (filter (get true-false-all true) hyps)))))
+                           (filter (get-in true-false-types [:all true]) hyps)))))
 
 (defn update-training
-  [workspace true-false-types true-false-all temp]
+  [workspace true-false-types unexplained temp]
   (let [bests (reverse (sort-by :delta (:best (:log workspace))))
-        biggest-mistake (first (drop-while #((get true-false-all true) (:best %)) bests))
+        biggest-mistake (first (drop-while #((get-in true-false-types [:all true])
+                                             (:best %)) bests))
         wrong-choice (:best biggest-mistake)
-        ;; figure out why conflicting choice is correct and was not the bigger delta
         correct-conflicting (when wrong-choice
                               (get-best-true
                                workspace (find-conflicts-all workspace wrong-choice)
-                               true-false-all))
-        better-choice (or (get-best-true workspace (:alts biggest-mistake) true-false-all)
+                               true-false-types))
+        better-choice (or (get-best-true workspace (:alts biggest-mistake) true-false-types)
                           correct-conflicting)
-        delta (when better-choice (- (hyp-conf workspace wrong-choice)
-                                     (hyp-conf workspace better-choice)))
-        adjust (if delta (+ (* 0.50 delta) 0.01))
-        wrong-prior (get-in workspace
-                            [:scores [(:type wrong-choice) (:subtype wrong-choice)]]
-                            0.5)
-        better-prior (get-in workspace
-                             [:scores [(:type better-choice) (:subtype better-choice)]]
-                             0.5)]
-    (comment
-      (println "biggest mistake" biggest-mistake)
-      (println "wrong choice" wrong-choice (hyp-conf workspace wrong-choice)
-               (:pos-seq wrong-choice)
-               "adjustments:"
-               (count (get-in workspace [:score-adjustments
-                                         [(:type wrong-choice) (:subtype wrong-choice)]]))
-               (get-in workspace [:score-adjustments
-                                  [(:type wrong-choice) (:subtype wrong-choice)]]))
-      (println "correct conflicting" correct-conflicting)
-      (println "better choice" better-choice (hyp-conf workspace better-choice)
-               (:pos-seq better-choice)
-               "adjustments:"
-               (count (get-in workspace [:score-adjustments
-                                         [(:type better-choice) (:subtype better-choice)]]))
-               (get-in workspace [:score-adjustments
-                                  [(:type better-choice) (:subtype better-choice)]]))
-      (println "delta" delta "adjust" adjust))
-    (comment (not= :merge (:type better-choice))
-             (not= :split (:type better-choice)))
-    
+        delta (when better-choice (Math/abs (- (hyp-conf workspace wrong-choice)
+                                               (hyp-conf workspace better-choice))))
+        adjust (if delta (+ (* 0.50 delta) 0.1))
+        wrong-prior
+        (get-in workspace
+                [:scores [(:type wrong-choice) (:subtype wrong-choice)]] 0.5)
+        better-prior
+        (get-in workspace
+                [:scores [(:type better-choice) (:subtype better-choice)]] 0.5)]
     ;; don't adjust too much
-    (if (and adjust (> adjust 0.2)) workspace
+    (if (and adjust (> adjust 0.5)) workspace
         (cond better-choice
               (-> workspace
                  (update-in [:score-adjustments
@@ -206,26 +139,30 @@
                             [(:type wrong-choice) (:subtype wrong-choice)]]
                            (max 0.0 (- wrong-prior 0.1))))
               ;; no wrong choice, meanining nothing wrong was accepted
-              ;; so there must be unexplained data; so increase scores
-              ;; on all true hyps, decrease scores on all false hyps
-              :else
+              ;; so there must be unexplained data (that had
+              ;; explainers); so increase scores on all true hyps,
+              ;; decrease scores on all false hyps
+              (not-empty unexplained)
               (let [ws-penalized
                     (reduce (fn [ws h]
                          (let [prior (get-in ws [:scores [(:type h) (:subtype h)]] 0.5)]
                            (-> ws
                               (update-in [:score-adjustments [(:type h) (:subtype h)]]
-                                         conj (max 0.0 (- prior 0.01)))
+                                         conj (max 0.0 (- prior 0.1)))
                               (assoc-in [:scores [(:type h) (:subtype h)]]
-                                        (max 0.0 (- prior 0.01))))))
-                       workspace (get true-false-all false))]
+                                        (max 0.0 (- prior 0.1))))))
+                       workspace (filter #(not= :kb (:type %))
+                                    (get-in true-false-types [:all false])))]
                 (reduce (fn [ws h]
                      (let [prior (get-in ws [:scores [(:type h) (:subtype h)]] 0.5)]
                        (-> ws
                           (update-in [:score-adjustments [(:type h) (:subtype h)]]
-                                     conj (min 1.0 (+ prior 0.01)))
+                                     conj (min 1.0 (+ prior 0.1)))
                           (assoc-in [:scores [(:type h) (:subtype h)]]
-                                    (min 1.0 (+ prior 0.01))))))
-                   ws-penalized (get true-false-all true)))))))
+                                    (min 1.0 (+ prior 0.1))))))
+                   ws-penalized (filter #(not= :kb (:type %))
+                                   (get-in true-false-types [:all true]))))
+              :else workspace))))
 
 (defn prefix-params
   [prefix params]

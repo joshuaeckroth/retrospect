@@ -1,7 +1,7 @@
 (ns retrospect.problems.tracking.problem
   (:require [clojure.string :as str])
   (:use [retrospect.reason.abduction.problems.tracking.evaluate :only
-         [evaluate evaluate-comp true-hyp?]])
+         [evaluate evaluate-comp true-hyp? training-stats]])
   (:use [retrospect.problems.tracking.truedata :only
          [generate-truedata]])
   (:use [retrospect.problems.tracking.sensors :only
@@ -35,8 +35,10 @@
                :evaluate-comp-fn evaluate-comp
                :update-kb-fn update-kb
                :stats-fn (constantly nil)
+               :training-stats-fn training-stats
                :true-hyp?-fn true-hyp?
                :learn-fn (constantly [])
+               :hyp-types [:movement]
                :default-params
                {:ResensePrevTime [true [true]]}}
    :default-params

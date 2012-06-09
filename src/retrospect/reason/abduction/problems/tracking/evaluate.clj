@@ -2,8 +2,9 @@
   (:require [clojure.set :as set])
   (:use [retrospect.evaluate :only [calc-increase]])
   (:use [retrospect.epistemicstates :only [cur-ep flatten-est]])
-  (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
-  (:use [retrospect.profile :only [prof]]))
+  (:use [retrospect.reason.abduction.workspace :only [lookup-hyp calc-doubt]])
+  (:use [retrospect.profile :only [prof]])
+  (:use [retrospect.state]))
 
 (defn true-hyp?
   [truedata _ hyp]
@@ -67,3 +68,29 @@
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
                     [:TP :TN :FP :FN :TPR :FPR :F1])))
+
+(defn training-stats
+  [workspace false-accepted unexplained truedata time-now temp]
+  (when (or (>= 0.0 temp) (= (:StartingTemp params) temp)
+            (and (= 0 (count false-accepted))
+                 (= 0 (count unexplained))))
+    (when (and (= 1 time-now) (= (:StartingTemp params) temp))
+      (.print System/out "time,pctfalseacc,doubt,maxadjlength,minadjustlength,avgadjustlength,avgmaxadjust,avgminadjust,numadjust,tpr,fpr,f1,begend\n"))
+    (let [adjustments (vals (:score-adjustments workspace))
+          max-adjust-length (if (empty? adjustments) 0 (apply max (map count adjustments)))
+          min-adjust-length (if (empty? adjustments) 0 (apply min (map count adjustments)))
+          avg-adjust-length (/ (double (reduce + (map count adjustments))) (double (count adjustments)))
+          avg-max-adjusted-score (/ (double (reduce + (map #(apply max 0.0 %) adjustments)))
+                                    (double (count adjustments)))
+          avg-min-adjusted-score (/ (double (reduce + (map #(apply min 1.0 %) adjustments)))
+                                    (double (count adjustments)))
+          {:keys [TPR FPR F1]} (evaluate-helper truedata workspace time-now)]
+      (.print System/out (format "%d,%.4f,%.4f,%d,%d,%.2f,%.2f,%.2f,%d,%.4f,%.4f,%.4f,\"%s\"\n"
+                            time-now
+                            (double (/ (count false-accepted)
+                                       (count (:forced workspace))))
+                            (calc-doubt workspace)
+                            max-adjust-length min-adjust-length avg-adjust-length
+                            avg-max-adjusted-score avg-min-adjusted-score
+                            (count adjustments) TPR FPR F1
+                            (if (= (:StartingTemp params) temp) "beg" "end"))))))

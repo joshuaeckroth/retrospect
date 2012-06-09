@@ -53,6 +53,10 @@
    (or (= :symbol (:type hyp1)) (= :symbol (:type hyp2))) false
    (or (= :transition (:type hyp1)) (= :transition (:type hyp2))) false
 
+   (or (and (= :word (:type hyp1)) (= :notword (:type hyp2)))
+       (and (= :word (:type hyp2)) (= :notword (:type hyp1))))
+   (= (:explains hyp1) (:explains hyp2))
+
    (and (or (= :merge (:type hyp1)) (= :merge (:type hyp2)))
         (or (= :split (:type hyp1)) (= :split (:type hyp2))))
    (= (:pos1 hyp1) (:pos1 hyp2))
@@ -117,9 +121,9 @@
 
 (defn update-kb
   [accepted unexplained hypotheses lookup-hyp]
-  (let [words (get-words lookup-hyp
-                         (apply str (map :sym (sort-by :pos (map lookup-hyp (get hypotheses :symbol)))))
-                         accepted unexplained)
+  (let [symbol-hyps (map lookup-hyp (get hypotheses :symbol))
+        sym-string (apply str (map :sym (sort-by :pos symbol-hyps)))
+        words (get-words lookup-hyp sym-string accepted unexplained)
         old-kb (get-kb accepted lookup-hyp)
         new-dict (reduce conj (:dict old-kb) words)]
     [(assoc old-kb :dict new-dict)]))
@@ -132,7 +136,7 @@
               searcher (.search dict-tree sym-bytes)]
           (loop [found []]
             (if-not (.hasNext searcher)
-              (if training? (filter dict found) found)
+              (if training? (filter #(dict (first %)) found) found)
               (let [result (.next searcher)
                     last-index (.getLastIndex result)]
                 (recur (reduce (fn [fs w]
@@ -179,28 +183,32 @@
                 (fn [s-hyps]
                   (let [word (apply str (map :sym s-hyps))
                         pos-seq (map :pos s-hyps)]
-                    (map (fn [subtype]
-                         (new-hyp
-                          (format "Word%s"
-                             (cond (= [:left :right] (take 2 subtype)) "LR"
-                                   (= :left (first subtype)) "L"
-                                   (= :right (second subtype)) "R"
-                                   :else ""))
-                          :word subtype false conflicts?
-                          s-hyps [] ;; no boosting
-                          (format "%s%s%s"
-                             (if (= :left (first subtype)) "#" "")
-                             word
-                             (if (= :right (second subtype)) "#" ""))
-                          (format "Word: %s, pos-seq: %s\nsubtype: %s"
-                             word (str/join ", " (map str pos-seq))
-                             subtype)
-                          {:pos-seq pos-seq :word word}))
-                       (if (hyp-types "wordslr")
-                         [[word]
-                          [:left word]
-                          [word :right]
-                          [:left :right word]]
-                         [[word]]))))
+                    (mapcat (fn [subtype]
+                            (map (fn [type]
+                                 (new-hyp
+                                  (format "%sWord%s"
+                                     (if (= :notword type) "Not" "")
+                                     (cond (= [:left :right] (take 2 subtype)) "LR"
+                                           (= :left (first subtype)) "L"
+                                           (= :right (second subtype)) "R"
+                                           :else ""))
+                                  type subtype false conflicts?
+                                  s-hyps [] ;; no boosting
+                                  (format "%s%s%s%s"
+                                     (if (= :notword type) "!" "")
+                                     (if (= :left (first subtype)) "#" "")
+                                     word
+                                     (if (= :right (second subtype)) "#" ""))
+                                  (format "Word: %s, pos-seq: %s\nsubtype: %s"
+                                     word (str/join ", " (map str pos-seq))
+                                     subtype)
+                                  {:pos-seq pos-seq :word word}))
+                               [:word :notword]))
+                          (if (hyp-types "wordslr")
+                            [[word]
+                             [:left word]
+                             [word :right]
+                             [:left :right word]]
+                            [[word]]))))
                 (sort-by (comp :pos first) words))))]
     (concat merge-split-hyps word-hyps)))

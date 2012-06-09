@@ -37,17 +37,18 @@
   []
   (profile
    (let [sentences (doall (map (fn [sent]
-                                 (doall (concat (filter not-empty
-                                                        (str/split sent #"[\s　]+")))))
-                               (str/split-lines (slurp (format "%s/words/%s.utf8"
-                                                               @datadir (:Dataset params))
-                                                       :encoding "utf-8"))))
-         [training test2] (map vec (split-at (int (* (/ (:Knowledge params) 100.0)
-                                                     (count sentences)))
-                                             (my-shuffle sentences)))
+                               (doall (concat (filter not-empty
+                                                 (str/split sent #"[\s　]+")))))
+                             (str/split-lines (slurp (format "%s/words/%s.utf8"
+                                                        @datadir (:Dataset params))
+                                                     :encoding "utf-8"))))
+         [training2 test2] (map vec (split-at (int (* (/ (:Knowledge params) 100.0)
+                                                    (count sentences)))
+                                            (my-shuffle sentences)))
          test (if (:ShortFirst params)
                 (vec (take (:Steps params) (sort-by count test2)))
                 (vec (take (:Steps params) test2)))
+         training (if (:TestIsTraining params) test training2)
          [training-breaks test-breaks] (map find-true-breaks [training test])
          test-dict (set (apply concat test))
          training-dict (set (concat (apply concat training)

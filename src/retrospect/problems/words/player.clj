@@ -47,13 +47,14 @@
 (defn player-get-truedata-log
   []
   (if (= @time-now 0) ""
-      (let [sentence (nth (:test-sentences @truedata) (dec @time-now))]
+      (let [ws (:workspace (cur-ep (:est @or-state)))
+            sentence (nth (:test-sentences @truedata) (dec @time-now))]
         (format "%s\n\n%s\n\nOOV: %s"
                 (get (:test @truedata) (dec @time-now))
                 (str/join " __ " sentence)
                 (str/join ", " (map (fn [[w positions]]
                                       (format "%s (%s)" w (str/join ", " (map str positions))))
-                                    (seq (find-oov @truedata @time-now))))))))
+                                    (seq (find-oov ws @truedata @time-now))))))))
 
 (defn player-get-problem-log
   []
