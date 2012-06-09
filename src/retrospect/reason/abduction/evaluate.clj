@@ -74,7 +74,18 @@
                        (vals (:hyp-ids workspace)))
                     :type truedata workspace
                     (:time ep) (:true-hyp?-fn (:abduction @problem)))
-        true-false-confs (calc-true-false-confs workspace true-false)]
+        true-false-confs (calc-true-false-confs workspace true-false)
+        adjustments (vals (:score-adjustments workspace))
+        max-adjust-length (if (empty? adjustments) 0 (apply max (map count adjustments)))
+        min-adjust-length (if (empty? adjustments) 0 (apply min (map count adjustments)))
+        avg-adjust-length (/ (double (reduce + (map count adjustments)))
+                             (double (count adjustments)))
+        avg-max-adjusted-score (/ (double (reduce + (map #(apply max 0.0 %) adjustments)))
+                                  (double (count adjustments)))
+        avg-min-adjusted-score (/ (double (reduce + (map #(apply min 1.0 %) adjustments)))
+                                  (double (count adjustments)))
+        max-adjusted-score (apply max 0.0 (apply concat adjustments))
+        min-adjusted-score (apply min 1.0 (apply concat adjustments))]
     (merge {:Problem (:name @problem)}
            params
            ((:evaluate-fn (:abduction @problem)) truedata est)
@@ -85,7 +96,14 @@
             :Doubt (calc-doubt (:workspace ep))
             :Coverage (calc-coverage (:workspace ep))
             :ExplainCycles (:cycle workspace)
-            :HypothesisCount (reduce + (map count (vals (:hypotheses workspace))))})))
+            :HypothesisCount (reduce + (map count (vals (:hypotheses workspace))))
+            :MaxAdjustLength max-adjust-length
+            :MinAdjustLength min-adjust-length
+            :AvgAdjustLength avg-adjust-length
+            :AvgMaxAdjustedScore avg-max-adjusted-score
+            :AvgMinAdjustedScore avg-min-adjusted-score
+            :MaxAdjustedScore max-adjusted-score
+            :MinAdjustedScore min-adjusted-score})))
 
 (defn get-best-true
   [workspace hyps true-false-types]
@@ -114,7 +132,7 @@
         (get-in workspace
                 [:scores [(:type better-choice) (:subtype better-choice)]] 0.5)]
     ;; don't adjust too much
-    (if (and adjust (> adjust 0.5)) workspace
+    (if (and adjust (> adjust (:TrainingMaxAdjust params))) workspace
         (cond better-choice
               (-> workspace
                  (update-in [:score-adjustments

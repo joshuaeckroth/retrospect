@@ -84,6 +84,7 @@
                                 :TransitiveExplanation [false [true false]]
                                 :TrainingCycles [10 [10]]
                                 :TrainingAdjustment [0.1 [0.1]]
+                                :TrainingMaxAdjust [0.5 [0.5]]
                                 :ConfAdjustment ["none" ["min" "max" "avg" "none" "norm"]]}
                                (:default-params (:abduction @problem))))
    :init-workspace-fn init-workspace
