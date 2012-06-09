@@ -18,4 +18,5 @@
   (assoc sensor :sensed
          (reduce (fn [sensed time]
                    (assoc sensed time (get sensed time)))
-                 (:sensed sensor) (keys (:sensed sensor)))))
+            (:sensed sensor) (keys (:sensed sensor)))))
+
