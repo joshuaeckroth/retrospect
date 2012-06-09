@@ -1,15 +1,19 @@
 (ns retrospect.gui.repl
   (:import (java.io PipedReader PipedWriter CharArrayWriter PrintWriter))
   (:import (java.awt GridBagLayout Insets Dimension Font))
+  (:import (org.fife.ui.rtextarea RTextScrollPane))
+  (:import (org.fife.ui.rsyntaxtextarea RSyntaxTextArea SyntaxConstants))
   (:use [clj-swing.panel])
   (:use [clj-swing.text-field])
   (:use [clj-swing.button])
   (:use [retrospect.state]))
 
-(def repl-input (ref ""))
 (def repl-output (ref ""))
 
 (def *print-stack-trace-on-error* true)
+
+(def editor (doto (RSyntaxTextArea.)
+              (.setSyntaxEditingStyle SyntaxConstants/SYNTAX_STYLE_CLOJURE)))
 
 ;; adapted from http://code.google.com/p/enclojure-clojure-lib/
 ;;              source/browse/trunk/org.enclojure.repl/src/org/enclojure/repl/main.clj
@@ -25,7 +29,7 @@
    can be called with a valid clojure expression and the results are read using
    the result-fn."
   (let [cmd-wtr (PipedWriter.)
-        result-rdr (PipedReader.)
+        result-rdr (PipedReader. 10000)
         piped-in (clojure.lang.LineNumberingPushbackReader. (PipedReader. cmd-wtr))
         piped-out (PrintWriter. (PipedWriter. result-rdr))
         repl-thread-fn #(binding [*in* piped-in
@@ -34,8 +38,7 @@
                           (try
                             (clojure.main/repl
                              :init (fn [] (in-ns 'retrospect.state))
-                             :read (fn [prompt exit]
-                                     (read))
+                             :read (fn [prompt exit] (read))
                              :print (fn [s] (println (format "--\n%s" (prn-str s))))
                              :caught (fn [e]
                                        (when (is-eof-ex? e)
@@ -74,10 +77,8 @@
 
 (defn evaluate
   [repl-fn result-fn]
-  (repl-fn (str "(do " @repl-input ")"))
-  (dosync (alter repl-output str (result-fn)))
-  ;; force evaluation of repl-output to grab the whole stream
-  @repl-output)
+  (repl-fn (str "(do " (.getText editor) ")"))
+  (dosync (alter repl-output str (result-fn))))
 
 (defn update-repl-tab
   [])
@@ -86,15 +87,14 @@
   []
   (let [{:keys [repl-fn result-fn]} (create-clojure-repl)]
     (dosync (alter repl-output (constantly (result-fn))))
-    (doto (split-vertical
+    (doto (split-vertical           
            (scroll-panel (doto (text-area :str-ref repl-output :editable false :wrap true)
                            (.setFont (Font. "WenQuanYi Micro Hei" Font/PLAIN 12))))
            (panel :layout (GridBagLayout.)
                   :constrains (java.awt.GridBagConstraints.)
                   [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0 :gridwidth 2
                    :fill :BOTH :insets (Insets. 5 0 5 0)
-                   _ (scroll-panel (text-area :str-ref repl-input
-                                              :editable true :wrap true))
+                   _ (RTextScrollPane. editor)
                    :gridx 0 :gridy 1 :weightx 1.0 :weighty 0.0 :gridwidth 1
                    _ (panel)
                    :gridx 1 :weightx 0.0
