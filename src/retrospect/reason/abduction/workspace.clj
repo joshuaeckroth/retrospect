@@ -16,11 +16,24 @@
   (:use [retrospect.state]))
 
 (defrecord Hypothesis
-    [id type subtype needs-explainer? conflicts?-fn explains boosts short-str desc data]
+    [id name type subtype needs-explainer? conflicts?-fn
+     explains boosts short-str desc data]
   Object
-  (toString [self] (format "%s(%s)" id short-str))
+  (toString [self] (format "%s(%s)" name short-str))
   Comparable
   (compareTo [self other] (compare (hash self) (hash other))))
+
+(defn new-hyp
+  [prefix type subtype needs-explainer? conflicts?-fn explains boosts short-str desc data]
+  (let [id (inc last-id)]
+    (set-last-id id)
+    (assoc
+        (merge (Hypothesis.
+                id (format "%s%d" prefix id)
+                type subtype needs-explainer? conflicts?-fn explains
+                boosts short-str desc data)
+               data)
+      :contents (assoc data :type type :subtype subtype))))
 
 (defn explains
   [hyp]
@@ -61,18 +74,6 @@
    :forced #{}
    ;; a map of type => seq, with additional key :all
    :accepted {:all #{}}})
-
-(defn new-hyp
-  [prefix type subtype needs-explainer? conflicts?-fn explains boosts short-str desc data]
-  (let [id (inc last-id)]
-    (set-last-id id)
-    (assoc
-        (merge (Hypothesis.
-                (format "%s%d" prefix id)
-                type subtype needs-explainer? conflicts?-fn explains
-                boosts short-str desc data)
-               data)
-      :contents (assoc data :type type :subtype subtype))))
 
 (defn lookup-hyp
   [workspace id]
@@ -239,13 +240,13 @@
 (defn find-conflicts-all
   [workspace hyp]
   (prof :find-conflicts-all
-        (doall (filter (partial (:conflicts?-fn hyp) hyp) (vals (:hyp-ids workspace))))))
+        (doall (filter #((:conflicts?-fn hyp) hyp %) (vals (:hyp-ids workspace))))))
 
 (defn find-conflicts
   [workspace hyp]
   (prof :find-conflicts
-        (doall (filter (partial (:conflicts?-fn hyp) hyp)
-                       (map #(lookup-hyp workspace %) (:available workspace))))))
+        (doall (filter #((:conflicts?-fn hyp) hyp (lookup-hyp workspace %))
+                  (:available workspace)))))
 
 (defn add-explainers
   [workspace hyp]

@@ -38,7 +38,7 @@
 
 (defn list-hyps
   [hyps]
-  (apply sorted-map-by anc (mapcat (fn [h] [(:id h) nil]) hyps)))
+  (apply sorted-map-by anc (mapcat (fn [h] [(:name h) nil]) hyps)))
 
 (defn build-cycle
   [wslog i]
@@ -47,8 +47,8 @@
         ars (get (:accrej wslog) (inc i))]
     [(format "Cycle %d %s" (inc i) (if (:essential? b) "essential"
                                        (format "delta %.2f" (:delta b))))
-     {"Best" {(:id (:best b)) nil}
-      "Explained" {(:id (:explained b)) nil}
+     {"Best" {(:name (:best b)) nil}
+      "Explained" {(:name (:explained b)) nil}
       "Accepted" (list-hyps (disj (set (map :acc ars)) (:best b)))
       "Rejected" (list-hyps (mapcat :rej ars))}]))
 
@@ -96,15 +96,15 @@
 (defn update-hyp-info
   [workspace time hyp]
   (let [alphanum (AlphanumComparator.)
-        explains (str/join ", " (map str (sort-by :id alphanum (ws/explains hyp))))
+        explains (str/join ", " (map str (sort-by :name alphanum (ws/explains hyp))))
         explainers (str/join ", " (map #(format "[%s]" %)
-                                       (map #(str/join ", " (sort-by :id alphanum %))
+                                       (map #(str/join ", " (sort-by :name alphanum %))
                                             (vals (group-by :type
                                                             (map #(ws/lookup-hyp workspace %)
                                                                  (get (:explainers workspace)
-                                                                      (:id hyp))))))))
-        boosts (str/join ", " (map str (sort-by :id alphanum (:boosts hyp))))
-        conflicts (str/join ", " (map str (sort-by :id alphanum
+                                                                      (:name hyp))))))))
+        boosts (str/join ", " (map str (sort-by :name alphanum (:boosts hyp))))
+        conflicts (str/join ", " (map str (sort-by :name alphanum
                                                    (ws/find-conflicts-all workspace hyp))))]
     (. hyp-apriori-label setText (format "Apriori: %.2f" (ws/lookup-score workspace hyp)))
     (. hyp-confidence-label setText (format "Conf: %.2f" (ws/hyp-conf workspace hyp)))
@@ -122,11 +122,11 @@
 
 (defn final-explainers
   [workspace]
-  (letfn [(confs [expl] (map (fn [h] (format "%s (%.2f)" (:id h) (ws/hyp-conf workspace h)))
+  (letfn [(confs [expl] (map (fn [h] (format "%s (%.2f)" (:name h) (ws/hyp-conf workspace h)))
                              expl))]
     (format "Final explainers:\n\n%s"
             (str/join "\n" (map (fn [{hyp :hyp expl :expl}]
-                                  (format "%s: %s" (:id hyp) (str/join ", " (confs expl))))
+                                  (format "%s: %s" (:name hyp) (str/join ", " (confs expl))))
                                 (:last-explainers (:log workspace)))))))
 
 (defn show-log
@@ -135,15 +135,12 @@
     (let [last-comp (node (. path getLastPathComponent))
           ;; find top-most ep-state
           ep-state (if (< 1 (. path getPathCount))
-                     (if-let [ep-id (re-find #"^[A-Z]+"
-                                             (str (. path getPathComponent 1)))]
-                       (find-first #(= (:id %) ep-id) (flatten-est
-                                                       (:est @or-state)))))
+                     (if-let [ep-id (re-find #"^[A-Z]+" (str (. path getPathComponent 1)))]
+                       (find-first #(= (:id %) ep-id) (flatten-est (:est @or-state)))))
           ws (if ep-state (:workspace ep-state))]
       (when (not= "Log" last-comp)
         (swap! workspace-selected (constantly ws))
-        (let [hyp (if ws (ws/lookup-hyp ws (find-first #(= % last-comp)
-                                                       (apply concat (vals (:hypotheses ws))))))]
+        (let [hyp (if ws (find-first #(= (:name %) last-comp) (vals (:hyp-ids ws))))]
           (swap! hyp-selected (constantly hyp))
           (when hyp (update-hyp-info ws (:time ep-state) hyp)))))))
 
