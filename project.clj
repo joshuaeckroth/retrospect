@@ -21,5 +21,5 @@
   :keep-non-project-classes true
   :java-source-path "src/jvm"
   :radagast/ns-whitelist #"retrospect"
-  :warn-on-reflection true ;; Emit warnings on all reflection calls.
-  :jvm-opts ["-Dawt.useSystemAAFontSettings=on" "-Xmx7000m"])
+  :warn-on-reflection false ;; Emit warnings on all reflection calls.
+  :jvm-opts ["-Dawt.useSystemAAFontSettings=on" "-Xmx5000m"])
