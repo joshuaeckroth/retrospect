@@ -165,7 +165,6 @@
    :Knowledge [80 [80]]
    :UpdateKB [true [true false]]
    :Oracle ["none" ["none"]]
-   :GrowEst [true [true]]
    :Steps [10 [10]]
    :Stats [false [false]]
    :TrainingStats [false [false]]})

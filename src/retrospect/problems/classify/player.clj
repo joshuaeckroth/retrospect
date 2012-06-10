@@ -37,7 +37,7 @@
 (defn player-get-problem-log
   []
   (let [ws (:workspace (cur-ep (:est @or-state)))
-        doccats (chosen-cats {} ws)]
+        doccats (chosen-cats ws)]
     (str/join "\n" (map (fn [[docid cats]]
                         (format "%s chosen categories: %s" docid
                            (str/join ", " (sort cats))))
