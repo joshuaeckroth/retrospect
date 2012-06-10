@@ -38,6 +38,7 @@
    {:Steps [50 [50]]
     :StepsBetween [1 [1]]
     :ResetEachStep [true [true]]
+    :ResetSensors [true [true]]
     :SensorNoise [0 [0]]
     :Dataset ["spam-bare" ["spam-bare"]]
     :TestIsTraining [false [false]]}})

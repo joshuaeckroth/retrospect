@@ -6,8 +6,8 @@
   (:use [retrospect.epistemicstates :only
          [cur-ep new-child-ep new-branch-ep init-est ep-state-depth
           update-est nth-previous-ep print-est goto-ep
-          get-init-workspace]])
-  (:use [retrospect.sensors :only [update-sensors]])
+          get-init-workspace flatten-est]])
+  (:use [retrospect.sensors :only [update-sensors reset-sensors]])
   (:use [retrospect.random :only [rgen new-seed my-rand-int]])
   (:use [retrospect.logging])
   (:use [retrospect.state]))
@@ -78,7 +78,7 @@
 (defn update-sensors-from-to
   [time-prev time-now truedata sensors]
   (loop [t time-prev
-         sens sensors]
+         sens (if (:ResetSensors params) (reset-sensors sensors) sensors)]
     (let [sens2 (update-sensors sens (:test truedata) t)]
       (if (>= t time-now) sens2
           (recur (inc t) sens2)))))
@@ -91,8 +91,8 @@
         ;; start the clock
         start-time (. System (nanoTime))
         ors-new (if-not (:GrowEst params)
-                  (update-in ors [:est] update-est (assoc (cur-ep (:est ors))
-                                                     :time time-now))
+                  (update-in ors [:est] update-est
+                             (assoc (cur-ep (:est ors)) :time time-now))
                   (update-in ors [:est] new-child-ep time-now))
         ep (cur-ep (:est ors-new))
         workspace (if (and (not= 0 time-prev) (:ResetEachStep params))
@@ -121,7 +121,7 @@
 (defn run-simulation
   [truedata or-state]
   (loop [ors or-state]
-    (dosync (alter retrospect.state/or-state (constantly ors)))
+    (when (not @batch) (dosync (alter retrospect.state/or-state (constantly ors))))
     (if (>= (:time (cur-ep (:est ors))) (:Steps params))
       (do (println "") ors)
       (recur (run-simulation-step truedata ors false)))))
@@ -138,7 +138,7 @@
                   (binding [training? true
                             params (assoc params
                                      :Steps ((:count-truedata-fn @problem) (:test training))
-                                     :GrowEst (not= "Words" (:name @problem))
+                                     :GrowEst (= "Tracking" (:name @problem))
                                      :UpdateKB true)]
                     (println "training with" (:Steps params) "steps")
                     (let [ors (run-simulation training or-state)

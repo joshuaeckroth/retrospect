@@ -27,3 +27,7 @@
   (doall (map (fn [s] (if (<= time (:sensed-up-to s)) s
                           ((:sense-fn s) s test time)))
               sensors)))
+
+(defn reset-sensors
+  [sensors]
+  (map #(assoc % :sensed {}) sensors))

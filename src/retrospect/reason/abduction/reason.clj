@@ -55,9 +55,7 @@
               (= 0 cycle) ;; done training; ensure only correct stuff is accepted
               (update-kb (inject-true-hyps ws-result true-false-types))
               :else
-              (let [ws-scored (update-training
-                               ws-result true-false-types
-                               unexplained)]
+              (let [ws-scored (update-training ws-result true-false-types unexplained)]
                 (recur (assoc ws :scores (:scores ws-scored)
                               :score-adjustments (:score-adjustments ws-scored))
                        (dec cycle))))))))

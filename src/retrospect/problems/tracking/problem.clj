@@ -49,5 +49,7 @@
     :GridHeight [20 [20]]
     :NumberEntities [4 [2 4 6]]
     :MaxWalk [10 [1 2 3 4 5 6 7 8 9 10]]
+    :ResetEachStep [false [false]]
+    :ResetSensors [false [false]]
     :SensorSeesColor [60 [0 20 40 60 80 100]]
     :SensorCoverage [100 [100]]}})
