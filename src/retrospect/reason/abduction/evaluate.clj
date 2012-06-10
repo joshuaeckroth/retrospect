@@ -65,46 +65,6 @@
              (avg (get (get apriori t) false)))))
        {} (keys true-false))))
 
-(defn evaluate
-  [truedata est]
-  (let [ep (cur-ep est)
-        workspace (:workspace ep)
-        true-false (group-hyps-by-true-false
-                    (filter #(not ((:forced workspace) (:id %)))
-                       (vals (:hyp-ids workspace)))
-                    :type truedata workspace
-                    (:time ep) (:true-hyp?-fn (:abduction @problem)))
-        true-false-confs (calc-true-false-confs workspace true-false)
-        adjustments (vals (:score-adjustments workspace))
-        max-adjust-length (if (empty? adjustments) 0 (apply max (map count adjustments)))
-        min-adjust-length (if (empty? adjustments) 0 (apply min (map count adjustments)))
-        avg-adjust-length (/ (double (reduce + (map count adjustments)))
-                             (double (count adjustments)))
-        avg-max-adjusted-score (/ (double (reduce + (map #(apply max 0.0 %) adjustments)))
-                                  (double (count adjustments)))
-        avg-min-adjusted-score (/ (double (reduce + (map #(apply min 1.0 %) adjustments)))
-                                  (double (count adjustments)))
-        max-adjusted-score (apply max 0.0 (apply concat adjustments))
-        min-adjusted-score (apply min 1.0 (apply concat adjustments))]
-    (merge {:Problem (:name @problem)}
-           params
-           ((:evaluate-fn (:abduction @problem)) truedata est)
-           true-false-confs
-           {:Step (:time ep)
-            :UnexplainedPct (get-unexp-pct (:workspace ep))
-            :NoExplainersPct (get-noexp-pct (:workspace ep))
-            :Doubt (calc-doubt (:workspace ep))
-            :Coverage (calc-coverage (:workspace ep))
-            :ExplainCycles (:cycle workspace)
-            :HypothesisCount (reduce + (map count (vals (:hypotheses workspace))))
-            :MaxAdjustLength max-adjust-length
-            :MinAdjustLength min-adjust-length
-            :AvgAdjustLength avg-adjust-length
-            :AvgMaxAdjustedScore avg-max-adjusted-score
-            :AvgMinAdjustedScore avg-min-adjusted-score
-            :MaxAdjustedScore max-adjusted-score
-            :MinAdjustedScore min-adjusted-score})))
-
 (defn get-best-true
   [workspace hyps true-false-types]
   (first (reverse (sort-by #(hyp-conf workspace %)
@@ -124,7 +84,8 @@
                           correct-conflicting)
         delta (when better-choice (Math/abs (- (hyp-conf workspace wrong-choice)
                                                (hyp-conf workspace better-choice))))
-        adjust (if delta (+ (* 0.50 delta) (:TrainingAdjustment params)))
+        training-adjust (:TrainingAdjustment params)
+        adjust (if delta (+ (* 0.50 delta) training-adjust))
         wrong-prior
         (get-in workspace
                 [:scores [(:type wrong-choice) (:subtype wrong-choice)]] 0.5)
@@ -152,10 +113,10 @@
               (-> workspace
                  (update-in [:score-adjustments
                              [(:type wrong-choice) (:subtype wrong-choice)]]
-                            conj (max 0.0 (- wrong-prior (:TrainingAdjustment params))))
+                            conj (max 0.0 (- wrong-prior training-adjust)))
                  (assoc-in [:scores
                             [(:type wrong-choice) (:subtype wrong-choice)]]
-                           (max 0.0 (- wrong-prior (:TrainingAdjustment params)))))
+                           (max 0.0 (- wrong-prior training-adjust))))
               ;; no wrong choice, meanining nothing wrong was accepted
               ;; so there must be unexplained data (that had
               ;; explainers); so increase scores on all true hyps,
@@ -166,21 +127,75 @@
                          (let [prior (get-in ws [:scores [(:type h) (:subtype h)]] 0.5)]
                            (-> ws
                               (update-in [:score-adjustments [(:type h) (:subtype h)]]
-                                         conj (max 0.0 (- prior (:TrainingAdjustment params))))
+                                         conj (max 0.0 (- prior training-adjust)))
                               (assoc-in [:scores [(:type h) (:subtype h)]]
-                                        (max 0.0 (- prior (:TrainingAdjustment params)))))))
+                                        (max 0.0 (- prior training-adjust))))))
                        workspace (filter #(not= :kb (:type %))
                                     (get-in true-false-types [:all false])))]
                 (reduce (fn [ws h]
                      (let [prior (get-in ws [:scores [(:type h) (:subtype h)]] 0.5)]
                        (-> ws
                           (update-in [:score-adjustments [(:type h) (:subtype h)]]
-                                     conj (min 1.0 (+ prior (:TrainingAdjustment params))))
+                                     conj (min 1.0 (+ prior training-adjust)))
                           (assoc-in [:scores [(:type h) (:subtype h)]]
-                                    (min 1.0 (+ prior (:TrainingAdjustment params)))))))
+                                    (min 1.0 (+ prior training-adjust))))))
                    ws-penalized (filter #(not= :kb (:type %))
                                    (get-in true-false-types [:all true]))))
               :else workspace))))
+
+(defn evaluate
+  [truedata est]
+  (let [ep (cur-ep est)
+        workspace (:workspace ep)
+        true-false (group-hyps-by-true-false
+                    (filter #(not ((:forced workspace) (:id %)))
+                       (vals (:hyp-ids workspace)))
+                    :type truedata workspace
+                    (:time ep) (:true-hyp?-fn (:abduction @problem)))
+        true-false-confs (calc-true-false-confs workspace true-false)
+        adjustment-metrics
+        (if (not= (:Steps params) (:time ep))
+          {:NumAdjustments 0
+           :MaxAdjustLength 0
+           :MinAdjustLength 0
+           :AvgAdjustLength 0.0
+           :AvgMaxAdjustedScore 0.0
+           :AvgMinAdjustedScore 0.0
+           :MaxAdjustedScore 0.0
+           :MinAdjustedScore 0.0}
+          (let [adjustments (vals (:score-adjustments workspace))
+                max-adjust-length (if (empty? adjustments) 0
+                                      (apply max (map count adjustments)))
+                min-adjust-length (if (empty? adjustments) 0
+                                      (apply min (map count adjustments)))
+                avg-adjust-length (/ (double (reduce + (map count adjustments)))
+                                     (double (count adjustments)))
+                avg-max-adjusted-score (/ (double (reduce + (map #(apply max 0.0 %) adjustments)))
+                                          (double (count adjustments)))
+                avg-min-adjusted-score (/ (double (reduce + (map #(apply min 1.0 %) adjustments)))
+                                          (double (count adjustments)))
+                max-adjusted-score (apply max 0.0 (apply concat adjustments))
+                min-adjusted-score (apply min 1.0 (apply concat adjustments))]
+            {:NumAdjustments (count adjustments)
+             :MaxAdjustLength max-adjust-length
+             :MinAdjustLength min-adjust-length
+             :AvgAdjustLength avg-adjust-length
+             :AvgMaxAdjustedScore avg-max-adjusted-score
+             :AvgMinAdjustedScore avg-min-adjusted-score
+             :MaxAdjustedScore max-adjusted-score
+             :MinAdjustedScore min-adjusted-score}))]
+    (merge {:Problem (:name @problem)}
+           params
+           ((:evaluate-fn (:abduction @problem)) truedata est)
+           true-false-confs
+           {:Step (:time ep)
+            :UnexplainedPct (get-unexp-pct (:workspace ep))
+            :NoExplainersPct (get-noexp-pct (:workspace ep))
+            :Doubt (calc-doubt (:workspace ep))
+            :Coverage (calc-coverage (:workspace ep))
+            :ExplainCycles (:cycle workspace)
+            :HypothesisCount (reduce + (map count (vals (:hypotheses workspace))))}
+           adjustment-metrics)))
 
 (defn prefix-params
   [prefix params]
