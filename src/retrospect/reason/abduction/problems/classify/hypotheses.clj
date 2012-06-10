@@ -17,9 +17,10 @@
              words))
         (sensed-at sensor (inc time-prev))))
 
-(defn conflicts?
-  [hyp1 hyp2]
-  false)
+(comment
+  (defn conflicts?
+    [hyp1 hyp2]
+    false))
 
 (defn get-kb
   [accepted lookup-hyp]
@@ -32,11 +33,12 @@
 (defn hypothesize
   [forced-hyps accepted lookup-hyp]
   (let [kb (get-kb accepted lookup-hyp)]
-    (mapcat (fn [cat]
-              (map (fn [word-hyp]
-                   (new-hyp cat :category [cat (:word word-hyp)] false conflicts?
-                            [word-hyp] []
-                            cat (format "%s is cat %s" (:docid word-hyp) cat)
-                            {:cat cat :word (:word word-hyp) :docid (:docid word-hyp)}))
-                 forced-hyps))
-            (:known-cats kb))))
+    (doall
+     (mapcat (fn [cat]
+               (map (fn [word-hyp]
+                    (new-hyp cat :category [cat (:word word-hyp)] false nil
+                             [word-hyp] []
+                             cat (format "%s is cat %s" (:docid word-hyp) cat)
+                             {:cat cat :word (:word word-hyp) :docid (:docid word-hyp)}))
+                  forced-hyps))
+             (:known-cats kb)))))

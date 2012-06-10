@@ -240,7 +240,8 @@
 (defn find-conflicts-all
   [workspace hyp]
   (prof :find-conflicts-all
-        (doall (filter #((:conflicts?-fn hyp) hyp %) (vals (:hyp-ids workspace))))))
+        (if (nil? (:conflicts hyp)) []
+            (doall (filter #((:conflicts?-fn hyp) hyp %) (vals (:hyp-ids workspace)))))))
 
 (defn find-conflicts
   [workspace hyp]
@@ -382,7 +383,9 @@
                             (reduce (fn [ws2 h]
                                  (update-in ws2 [:active-explainers] dissoc (:id h)))
                                ws-hyplog (explains hyp)))
-              conflicts (prof :accept-conflicts (find-conflicts ws-expl hyp))
+              conflicts (prof :accept-conflicts
+                              (when (:conflicts hyp)
+                                (find-conflicts ws-expl hyp)))
               ws-conflicts (prof :accept-reject-many (reject-many ws-expl conflicts))
               ws-boosts (prof :accept-boosts (reduce boost ws-conflicts (:boosts hyp)))]
           (prof :accept-final
@@ -513,12 +516,9 @@
   (prof :explain-prior-filter
         (doall
          (filter (comp first :expl)
-                 (map (fn [es]
-                        (assoc es :expl
-                               (filter #((:available workspace) (:id %))
-                                       (:expl es))))
-                      (filter #((:active-explainers workspace) (:id (:hyp %)))
-                              (:prior-explainers workspace)))))))
+            (map (fn [es] (assoc es :expl (filter #((:available workspace) (:id %)) (:expl es))))
+               (filter #((:active-explainers workspace) (:id (:hyp %)))
+                  (:prior-explainers workspace)))))))
 
 (defn explain
   [workspace]
