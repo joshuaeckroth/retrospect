@@ -1,6 +1,5 @@
 (ns retrospect.problems.words.player
   (:import (java.awt GridBagLayout Insets))
-  (:import (javax.swing JSpinner SpinnerNumberModel))
   (:use [clj-swing.label])
   (:use [clj-swing.panel])
   (:require [clojure.string :as str])
