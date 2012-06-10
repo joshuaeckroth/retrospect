@@ -6,8 +6,6 @@
   (:use [retrospect.problems.tracking.colors])
   (:use [retrospect.problems.tracking.movements
          :only [dist dets-match?]])
-  (:use [retrospect.reason.abduction.problems.tracking.pathsgraph
-         :only [get-paths build-paths-graph path-str]])
   (:use [retrospect.profile :only [prof]])
   (:use [retrospect.state]))
 
@@ -85,9 +83,9 @@
            (dist (:x det-color) (:y det-color)
                  (:x det2-color) (:y det2-color))
            false conflicts? [to from] []
-           (path-str [det-color det2-color])
+           (str [det-color det2-color])
            (format "%s (dist=%.2f)"
-              (path-str [det-color det2-color])
+              (str [det-color det2-color])
               (dist (:x det-color) (:y det-color)
                     (:x det2-color) (:y det2-color)))
            {:det det-color :det2 det2-color
