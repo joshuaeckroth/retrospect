@@ -10,21 +10,21 @@
         :else
         ((get-in truedata [:cats (:docid hyp)]) (:cat hyp))))
 
+(defn chosen-cats
+  [doccats workspace]
+  (let [dochyps (group-by :docid (map #(lookup-hyp workspace %)
+                                    (:category (:accepted workspace))))]
+    (reduce (fn [m [docid hyps]]
+         (let [prior-cats (get m docid)]
+           (if prior-cats (update-in m [docid] set/union (set (map :cat hyps)))
+               (assoc m docid (set (map :cat hyps))))))
+       doccats (seq dochyps))))
+
 (defn evaluate
   [truedata est]
   (let [eps (rest (ep-path est))
         time-now (:time (last eps))
-        doccats (reduce (fn [m ws]
-                     (let [dochyps (group-by :docid
-                                             (map #(lookup-hyp ws %)
-                                                (:category (:accepted ws))))]
-                       (reduce (fn [m2 [docid hyps]]
-                            (let [prior-cats (get m2 docid)]
-                              (if prior-cats (update-in m2 [docid] set/union
-                                                        (set (map :cat hyps)))
-                                  (assoc m2 docid (set (map :cat hyps))))))
-                          m (seq dochyps))))
-                   {} (map :workspace eps))
+        doccats (reduce chosen-cats {} (map :workspace eps))
         [tp fp fn] (loop [tp 0 fp 0 fn 0
                           docids (map #(first (get (:test truedata) %))
                                     (range time-now))]
