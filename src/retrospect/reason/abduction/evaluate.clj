@@ -16,8 +16,12 @@
         tf (reduce (fn [m type]
                 (let [grouped (group-by (fn [h] (if (true-hyp? truedata time h)
                                                  true false))
-                                        (get hs type))]
-                  (assoc m type
+                                        (get hs type))
+                      m-individual (reduce (fn [m2 [tf hs]]
+                                        (reduce (fn [m3 h] (assoc-in m3 [:individual (:id h)] tf))
+                                           m2 hs))
+                                      m (seq grouped))]
+                  (assoc m-individual type
                          (reduce (fn [g tf] (if (nil? (get g tf)) (assoc g tf []) g))
                             grouped [true false]))))
               {} (set (concat (keys hs) (:hyp-types (:abduction @problem)))))
@@ -68,13 +72,14 @@
 (defn get-best-true
   [workspace hyps true-false-types]
   (first (reverse (sort-by #(hyp-conf workspace %)
-                           (filter (get-in true-false-types [:all true]) hyps)))))
+                           (filter #(get-in true-false-types [:individual (:id %)]) hyps)))))
 
 (defn update-training
   [workspace true-false-types unexplained]
   (let [bests (reverse (sort-by :delta (:best (:log workspace))))
-        biggest-mistake (first (drop-while #((get-in true-false-types [:all true])
-                                             (:best %)) bests))
+        biggest-mistake (first (drop-while
+                                #(get-in true-false-types [:individual (:id (:best %))])
+                                bests))
         wrong-choice (:best biggest-mistake)
         correct-conflicting (when wrong-choice
                               (get-best-true
