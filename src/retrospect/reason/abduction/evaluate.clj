@@ -21,8 +21,8 @@
                          (reduce (fn [g tf] (if (nil? (get g tf)) (assoc g tf []) g))
                             grouped [true false]))))
               {} (set (concat (keys hs) (:hyp-types (:abduction @problem)))))
-        all-true (set (mapcat #(get % true) (vals tf)))
-        all-false (set (mapcat #(get % false) (vals tf)))]
+        all-true (mapcat #(get % true) (vals tf))
+        all-false (mapcat #(get % false) (vals tf))]
     (assoc tf :all {true all-true false all-false})))
 
 (defn calc-true-false-confs
