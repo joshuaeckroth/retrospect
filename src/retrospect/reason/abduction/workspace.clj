@@ -98,8 +98,8 @@
 (defn find-no-explainers
   [workspace]
   (prof :find-no-explainers
-        (map #(lookup-hyp workspace (first %))
-           (filter (fn [[hypid expls]] (empty? expls)) (seq (:explainers workspace))))))
+        (doall (map #(lookup-hyp workspace (first %))
+                  (filter (fn [[hypid expls]] (empty? expls)) (seq (:explainers workspace)))))))
 
 (defn normalize-confidences
   "Normalize the apriori confidences of a collection of hyps.
@@ -204,26 +204,26 @@
                                 :else
                                 (fn [hs] (sort #(compare-by-delta
                                                  workspace (:expl %1) (:expl %2)) hs)))]
-          (expl-sorter (map #(update-in % [:expl] hyp-sorter) explainers)))))
+          (expl-sorter (doall (map #(update-in % [:expl] hyp-sorter) explainers))))))
 
 (defn update-sorted-explainers
   [workspace]
   (prof :update-sorted-explainers
         (do
           (log "Updating sorted explainers.")
-          (let [expls (filter (comp first :expl)
-                         (map (fn [hypid]
-                              {:hyp (lookup-hyp workspace hypid)
-                               :expl (map #(lookup-hyp workspace %)
-                                        (get-in workspace [:sorted-explainers hypid]))})
-                            (:sorted-explainers-explained workspace)))
+          (let [expls (doall (filter (comp first :expl)
+                                (map (fn [hypid]
+                                     {:hyp (lookup-hyp workspace hypid)
+                                      :expl (doall (map #(lookup-hyp workspace %)
+                                                      (get-in workspace [:sorted-explainers hypid])))})
+                                   (:sorted-explainers-explained workspace))))
                 expls-conf (if (= "none" (:ConfAdjustment params)) expls
                                (update-confidences workspace expls))
                 expls-sorted (sort-explainers workspace expls-conf)]
             (reduce (fn [ws {h :hyp expl :expl}]
-                 (assoc-in ws [:sorted-explainers (:id h)] (map :id expl)))
+                 (assoc-in ws [:sorted-explainers (:id h)] (doall (map :id expl))))
                (assoc workspace :sorted-explainers-explained
-                      (map (comp :id :hyp) expls-sorted)
+                      (doall (map (comp :id :hyp) expls-sorted))
                       :dirty false)
                expls-sorted)))))
 
@@ -312,7 +312,7 @@
 (defn increase-score
   [workspace hyp]
   (let [prior (get-in workspace [:scores (:type hyp) (:subtype hyp)] [1 2])]
-    (assoc-in workspace [:scores (:type hyp) (:subtype hyp)] (map inc prior))))
+    (assoc-in workspace [:scores (:type hyp) (:subtype hyp)] (doall (map inc prior)))))
 
 (defn decrease-score
   [workspace hyp]
@@ -329,7 +329,7 @@
   [workspace hyp]
   (prof :add
         (do
-          (log "Adding" hyp)
+          #_(log "Adding" hyp)
           (if (prof :add-dup-search ((:hyp-contents workspace) (:contents hyp)))
             workspace
             (let [ws (prof :add-ws-update
@@ -399,7 +399,7 @@
 (defn get-unexplained
   [workspace]
   (prof :get-unexplained
-        (map #(lookup-hyp workspace %) (:sorted-explainers-explained workspace))))
+        (doall (map #(lookup-hyp workspace %) (:sorted-explainers-explained workspace)))))
 
 (defn get-unexp-pct
   [workspace]
@@ -414,13 +414,13 @@
   [workspace]
   (prof :get-noexp-pct
         (if (empty? (filter :needs-explainer?
-                            (map #(lookup-hyp workspace %)
-                                 (:all (:accepted workspace)))))
+                       (map #(lookup-hyp workspace %)
+                          (:all (:accepted workspace)))))
           0.0
           (/ (double (count (find-no-explainers workspace)))
              (double (count (filter :needs-explainer?
-                                    (map #(lookup-hyp workspace %)
-                                         (:all (:accepted workspace))))))))))
+                               (map #(lookup-hyp workspace %)
+                                  (:all (:accepted workspace))))))))))
 
 (defn calc-doubt
   [workspace]
@@ -470,8 +470,8 @@
             ;; otherwise, choose highest-delta non-essential
             (let [explid (first (:sorted-explainers-explained workspace))
                   expl (lookup-hyp workspace explid)
-                  choices (map #(lookup-hyp workspace %)
-                             (get (:sorted-explainers workspace) explid))
+                  choices (doall (map #(lookup-hyp workspace %)
+                                    (get (:sorted-explainers workspace) explid)))
                   best (first choices)
                   nbest (second choices)
                   delta (- (hyp-conf workspace best)
@@ -490,9 +490,9 @@
                                    (:hypotheses workspace)
                                    (partial lookup-hyp workspace))]
                   (-> (reduce (fn [ws h] (assoc-in ws [:hyp-ids (:id h)] h))
-                              workspace new-kb-hyps)
-                      (assoc-in [:accepted :kb] (map :id new-kb-hyps))
-                      (update-in [:accepted :all] set/union (set (map :id new-kb-hyps))))))))
+                        workspace new-kb-hyps)
+                     (assoc-in [:accepted :kb] (doall (map :id new-kb-hyps)))
+                     (update-in [:accepted :all] set/union (set (map :id new-kb-hyps))))))))
 
 (defn get-explaining-hypotheses
   [workspace]
@@ -604,8 +604,8 @@
 (defn remove-kb
   [workspace]
   (prof :remove-kb
-        (let [kb-hyps (map #(lookup-hyp workspace %)
-                         (get-in workspace [:hypotheses :kb]))]
+        (let [kb-hyps (doall (map #(lookup-hyp workspace %)
+                                (get-in workspace [:hypotheses :kb])))]
           (-> workspace
              (update-in [:hyp-contents] set/difference (set (map :contents kb-hyps)))
              (assoc-in [:accepted :kb] '())
@@ -623,8 +623,8 @@
                        :oracle-types (:oracle-types workspace)
                        :scores (:scores workspace)
                        :score-adjustments (:score-adjustments workspace))
-                (map #(lookup-hyp workspace %)
-                   (get-in workspace [:accepted :kb])))))
+                (doall (map #(lookup-hyp workspace %)
+                          (get-in workspace [:accepted :kb]))))))
 
 (defn init-workspace
   []
@@ -638,8 +638,8 @@
   (prof :extract-training
         (add-kb (remove-kb (assoc ws-orig :scores (:scores ws-trained)
                                   :score-adjustments (:score-adjustments ws-trained)))
-                (map #(lookup-hyp ws-trained %)
-                   (get-in ws-trained [:accepted :kb])))))
+                (doall (map #(lookup-hyp ws-trained %)
+                          (get-in ws-trained [:accepted :kb]))))))
 
 (defn inject-true-hyps
   [workspace true-false-types]
