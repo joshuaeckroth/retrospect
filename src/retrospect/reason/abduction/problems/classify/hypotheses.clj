@@ -1,6 +1,7 @@
 (ns retrospect.reason.abduction.problems.classify.hypotheses
   (:use [retrospect.reason.abduction.workspace :only [new-hyp]])
-  (:use [retrospect.sensors :only [sensed-at]]))
+  (:use [retrospect.sensors :only [sensed-at]])
+  (:use [retrospect.profile :only [prof]]))
 
 (defn generate-kb
   [training]
@@ -9,13 +10,14 @@
 
 (defn make-sensor-hyps
   [sensor time-prev time-now hyps]
-  (mapcat (fn [[docid words]]
-          (map (fn [word]
-               (new-hyp "Word" :word :word true (constantly false)
-                        [] [] word (format "%s from %s" word docid)
-                        {:docid docid :word word}))
-             words))
-        (sensed-at sensor (inc time-prev))))
+  (prof :make-sensor-hyps
+        (mapcat (fn [[docid words]]
+                  (map (fn [word]
+                       (new-hyp "Word" :word :word true (constantly false)
+                                [] [] word (format "%s from %s" word docid)
+                                {:docid docid :word word}))
+                     words))
+                (sensed-at sensor (inc time-prev)))))
 
 (comment
   (defn conflicts?
@@ -32,13 +34,16 @@
 
 (defn hypothesize
   [forced-hyps accepted lookup-hyp]
-  (let [kb (get-kb accepted lookup-hyp)]
-    (doall
-     (mapcat (fn [cat]
-               (map (fn [word-hyp]
-                    (new-hyp cat :category [cat (:word word-hyp)] false nil
-                             [word-hyp] []
-                             cat (format "%s is cat %s" (:docid word-hyp) cat)
-                             {:cat cat :word (:word word-hyp) :docid (:docid word-hyp)}))
-                  forced-hyps))
-             (:known-cats kb)))))
+  (prof :hypothesize
+        (let [kb (get-kb accepted lookup-hyp)
+              word-hyps (sort-by :id forced-hyps)]
+          (doall
+           (mapcat (fn [cat]
+                     (map (fn [word-hyp]
+                          (new-hyp cat :category [cat (:word word-hyp)] false nil
+                                   [word-hyp] []
+                                   cat (format "%s is cat %s" (:docid word-hyp) cat)
+                                   {:cat cat :word (:word word-hyp)
+                                    :docid (:docid word-hyp)}))
+                        word-hyps))
+                   (sort (:known-cats kb)))))))
