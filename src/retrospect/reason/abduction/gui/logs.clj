@@ -87,7 +87,7 @@
                    "Accepted" (list-hyps (map #(ws/lookup-hyp ws %)
                                               (apply concat (vals (:accepted ws)))))
                    "No explainers" (list-hyps (ws/find-no-explainers ws))
-                   "Unexplained" (list-hyps (:unexplained wslog))
+                   "Unexplained" (list-hyps (ws/get-unexplained wslog))
                    "Unaccepted" (list-hyps (ws/find-unaccepted ws))}))]
     (apply sorted-map-by anc
            (mapcat (fn [ep] [(str ep) (assoc (ws-fn (:workspace ep) (:time ep)) "Log" nil)])
@@ -102,7 +102,7 @@
                                             (vals (group-by :type
                                                             (map #(ws/lookup-hyp workspace %)
                                                                  (get (:explainers workspace)
-                                                                      (:name hyp))))))))
+                                                                      (:id hyp))))))))
         boosts (str/join ", " (map str (sort-by :name alphanum (:boosts hyp))))
         conflicts (str/join ", " (map str (sort-by :name alphanum
                                                    (ws/find-conflicts-all workspace hyp))))]
