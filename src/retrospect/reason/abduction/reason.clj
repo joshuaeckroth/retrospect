@@ -3,7 +3,9 @@
   (:require [clojure.string :as str])
   (:use [retrospect.reason.abduction.workspace
          :only [explain add-sensor-hyps init-workspace
-                update-hypotheses init-kb update-kb reset-workspace accepted?
+                update-hypotheses get-explaining-hypotheses
+                increase-score decrease-score
+                init-kb update-kb reset-workspace accepted?
                 calc-doubt calc-coverage extract-training lookup-hyp
                 inject-true-hyps find-no-explainers]])
   (:use [retrospect.reason.abduction.problems.words.evaluate :only [run-scorer get-words]])
@@ -25,40 +27,59 @@
 
 (defn reason-train
   [truedata workspace time-prev time-now sensors]
-  (let [ws-orig (if (= "none" (:Oracle params)) workspace
-                    (assoc workspace :oracle
-                           (partial (:true-hyp?-fn (:abduction @problem))
-                                    truedata time-now)))]
-    (loop [ws ws-orig
-           cycle (:TrainingCycles params)]
-      (let [ws-result
-            (if sensors
-              (explain (update-hypotheses
-                        (add-sensor-hyps ws time-prev time-now sensors)))
-              (explain (update-hypotheses ws)))
-            true-false-types (group-hyps-by-true-false
-                              (vals (:hyp-ids ws-result))
-                              :type truedata ws-result
-                              time-now (:true-hyp?-fn (:abduction @problem)))
-            false-accepted (find-false-accepted ws-result true-false-types)
-            no-explainers (find-no-explainers ws-result)
-            unexplained (set/difference (set (:unexplained (:log ws-result)))
-                                        (set no-explainers))]
-        (when (:TrainingStats params)
-          ((:training-stats-fn (:abduction @problem))
-           ws-result false-accepted unexplained truedata time-now cycle))
-        (cond (not training?)
-              (update-kb ws-result)
-              (and (= 0 (count false-accepted))
-                   (= 0 (count unexplained)))
-              (update-kb ws-result)
-              (= 0 cycle) ;; done training; ensure only correct stuff is accepted
-              (update-kb (inject-true-hyps ws-result true-false-types))
-              :else
-              (let [ws-scored (update-training ws-result true-false-types unexplained)]
-                (recur (assoc ws :scores (:scores ws-scored)
-                              :score-adjustments (:score-adjustments ws-scored))
-                       (dec cycle))))))))
+  (if training?
+    (let [ws (add-sensor-hyps workspace time-prev time-now sensors)
+          hyps (get-explaining-hypotheses ws)
+          true-false-types (group-hyps-by-true-false
+                            hyps :type truedata
+                            time-now (:true-hyp?-fn (:abduction @problem)))
+          ws-scored (reduce (fn [ws h] (if (get-in true-false-types [:individual (:id h)])
+                                   (increase-score ws h)
+                                   (decrease-score ws h)))
+                       ws hyps)]
+      (update-kb (inject-true-hyps ws-scored true-false-types)))
+    (if sensors
+      (update-kb (explain (update-hypotheses
+                           (add-sensor-hyps workspace time-prev time-now sensors))))
+      (update-kb (explain (update-hypotheses workspace))))))
+
+(comment
+  (defn reason-train
+    [truedata workspace time-prev time-now sensors]
+    (let [ws-orig (if (= "none" (:Oracle params)) workspace
+                      (assoc workspace :oracle
+                             (partial (:true-hyp?-fn (:abduction @problem))
+                                      truedata time-now)))]
+      (loop [ws ws-orig
+             cycle (:TrainingCycles params)]
+        (let [ws-result
+              (if sensors
+                (explain (update-hypotheses
+                          (add-sensor-hyps ws time-prev time-now sensors)))
+                (explain (update-hypotheses ws)))
+              true-false-types (group-hyps-by-true-false
+                                (vals (:hyp-ids ws-result))
+                                :type truedata
+                                time-now (:true-hyp?-fn (:abduction @problem)))
+              false-accepted (find-false-accepted ws-result true-false-types)
+              no-explainers (find-no-explainers ws-result)
+              unexplained (set/difference (set (:unexplained (:log ws-result)))
+                                          (set no-explainers))]
+          (when (:TrainingStats params)
+            ((:training-stats-fn (:abduction @problem))
+             ws-result false-accepted unexplained truedata time-now cycle))
+          (cond (not training?)
+                (update-kb ws-result)
+                (and (= 0 (count false-accepted))
+                     (= 0 (count unexplained)))
+                (update-kb ws-result)
+                (= 0 cycle) ;; done training; ensure only correct stuff is accepted
+                (update-kb (inject-true-hyps ws-result true-false-types))
+                :else
+                (let [ws-scored (update-training ws-result true-false-types unexplained)]
+                  (recur (assoc ws :scores (:scores ws-scored)
+                                :score-adjustments (:score-adjustments ws-scored))
+                         (dec cycle)))))))))
 
 (def reason-abduction
   {:name "Abduction"

@@ -309,10 +309,21 @@
                             (format "Rejected in cycle %d" (:cycle workspace))))))
          workspace hyps)))
 
+(defn increase-score
+  [workspace hyp]
+  (let [prior (get-in workspace [:scores (:type hyp) (:subtype hyp)] [1 2])]
+    (assoc-in workspace [:scores (:type hyp) (:subtype hyp)] (map inc prior))))
+
+(defn decrease-score
+  [workspace hyp]
+  (let [prior (get-in workspace [:scores (:type hyp) (:subtype hyp)] [1 2])]
+    (assoc-in workspace [:scores (:type hyp) (:subtype hyp)]
+              [(first prior) (inc (second prior))])))
+
 (defn lookup-score
   [workspace hyp]
   (prof :lookup-score
-        (get-in workspace [:scores [(:type hyp) (:subtype hyp)]] 0.5)))
+        (apply / (map double (get-in workspace [:scores (:type hyp) (:subtype hyp)] [1 2])))))
 
 (defn add
   [workspace hyp]
@@ -483,13 +494,18 @@
                       (assoc-in [:accepted :kb] (map :id new-kb-hyps))
                       (update-in [:accepted :all] set/union (set (map :id new-kb-hyps))))))))
 
+(defn get-explaining-hypotheses
+  [workspace]
+  (prof :get-explaining-hypotheses
+        ((:hypothesize-fn (:abduction @problem))
+         (map #(lookup-hyp workspace %)
+            (:sorted-explainers-explained workspace))
+         (:accepted workspace) (partial lookup-hyp workspace))))
+
 (defn update-hypotheses
   [workspace]
   (prof :update-hypotheses
-        (let [hyps ((:hypothesize-fn (:abduction @problem))
-                    (map #(lookup-hyp workspace %)
-                       (:sorted-explainers-explained workspace))
-                    (:accepted workspace) (partial lookup-hyp workspace))]
+        (let [hyps (get-explaining-hypotheses workspace)]
           (reduce add workspace hyps))))
 
 (defn explain
@@ -629,9 +645,14 @@
   [workspace true-false-types]
   (prof :inject-true-hyps
         (reduce (fn [ws h]
-             (update-in ws [:accepted (:type h)] conj (:id h)))
-           (assoc workspace
-             :sorted-explainers {}
-             :sorted-explainers-explained '()
-             :accepted {:all (set (map :id (get-in true-false-types [:all true])))})
+             (-> ws
+                (update-in [:accepted (:type h)] conj (:id h))
+                (update-in [:hypotheses (:type h)] conj (:id h))
+                (update-in [:hypotheses :all] conj (:id h))
+                (assoc-in [:hyp-ids (:id h)] h)))
+           (-> workspace
+              (assoc :sorted-explainers {}
+                     :sorted-explainers-explained '())
+              (update-in [:accepted :all]
+                         (set/union (set (map :id (get-in true-false-types [:all true]))))))
            (get-in true-false-types [:all true]))))

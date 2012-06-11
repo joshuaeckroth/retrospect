@@ -11,7 +11,7 @@
   (:use [retrospect.state]))
 
 (defn group-hyps-by-true-false
-  [hyps type-key truedata workspace time true-hyp?]
+  [hyps type-key truedata time true-hyp?]
   (let [hs (group-by type-key hyps)
         tf (reduce (fn [m type]
                 (let [grouped (group-by (fn [h] (if (true-hyp? truedata time h)
@@ -155,40 +155,9 @@
         true-false (group-hyps-by-true-false
                     (filter #(not ((:forced workspace) (:id %)))
                        (vals (:hyp-ids workspace)))
-                    :type truedata workspace
+                    :type truedata
                     (:time ep) (:true-hyp?-fn (:abduction @problem)))
-        true-false-confs (calc-true-false-confs workspace true-false)
-        adjustment-metrics
-        (if (not= (:Steps params) (:time ep))
-          {:NumAdjustments 0
-           :MaxAdjustLength 0
-           :MinAdjustLength 0
-           :AvgAdjustLength 0.0
-           :AvgMaxAdjustedScore 0.0
-           :AvgMinAdjustedScore 0.0
-           :MaxAdjustedScore 0.0
-           :MinAdjustedScore 0.0}
-          (let [adjustments (vals (:score-adjustments workspace))
-                max-adjust-length (if (empty? adjustments) 0
-                                      (apply max (map count adjustments)))
-                min-adjust-length (if (empty? adjustments) 0
-                                      (apply min (map count adjustments)))
-                avg-adjust-length (/ (double (reduce + (map count adjustments)))
-                                     (double (count adjustments)))
-                avg-max-adjusted-score (/ (double (reduce + (map #(apply max 0.0 %) adjustments)))
-                                          (double (count adjustments)))
-                avg-min-adjusted-score (/ (double (reduce + (map #(apply min 1.0 %) adjustments)))
-                                          (double (count adjustments)))
-                max-adjusted-score (apply max 0.0 (apply concat adjustments))
-                min-adjusted-score (apply min 1.0 (apply concat adjustments))]
-            {:NumAdjustments (count adjustments)
-             :MaxAdjustLength max-adjust-length
-             :MinAdjustLength min-adjust-length
-             :AvgAdjustLength avg-adjust-length
-             :AvgMaxAdjustedScore avg-max-adjusted-score
-             :AvgMinAdjustedScore avg-min-adjusted-score
-             :MaxAdjustedScore max-adjusted-score
-             :MinAdjustedScore min-adjusted-score}))]
+        true-false-confs (calc-true-false-confs workspace true-false)]
     (merge {:Problem (:name @problem)}
            params
            ((:evaluate-fn (:abduction @problem)) truedata est)
@@ -199,8 +168,7 @@
             :Doubt (calc-doubt (:workspace ep))
             :Coverage (calc-coverage (:workspace ep))
             :ExplainCycles (:cycle workspace)
-            :HypothesisCount (reduce + (map count (vals (:hypotheses workspace))))}
-           adjustment-metrics)))
+            :HypothesisCount (reduce + (map count (vals (:hypotheses workspace))))})))
 
 (defn prefix-params
   [prefix params]
