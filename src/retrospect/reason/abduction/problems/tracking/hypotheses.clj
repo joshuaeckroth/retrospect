@@ -14,7 +14,7 @@
   [(new-hyp "KB" :kb :kb false (constantly false) [] [] "" "" {})])
 
 (defn make-sensor-hyps
-  [sensor time-prev time-now hyps]
+  [sensor time-prev time-now accepted lookup-hyp]
   (prof :make-sensor-hyps
         (mapcat (fn [{:keys [x y color time] :as det}]
                   (let [desc (format (str "Sensor detection by %s - color: %s, "

@@ -52,6 +52,7 @@
    ;; hyp type => hyp subtype => seq of history of scores
    :score-adjustments {}
    :log {:best [] :accrej {}}
+   ;; keyed by hypid
    :hyp-log {}
    ;; all explainers, keyed by hyp-id, with vals as sets of hyp-ids; serves as a cache
    :explainers {}
@@ -86,7 +87,7 @@
 
 (defn hyp-log
   [workspace hyp]
-  (get (:hyp-log workspace) hyp))
+  (get (:hyp-log workspace) (:id hyp)))
 
 (defn hyp-conf
   [workspace hyp]
@@ -235,21 +236,22 @@
           (let [new-conf (min 1.0 (+ 0.10 (hyp-conf workspace hyp)))]
             (-> workspace
                (assoc-in [:hyp-confidences (:id hyp)] new-conf)
-               (update-in [:hyp-log hyp] conj
+               (update-in [:hyp-log (:id hyp)] conj
                           (format "Confidence boosted in cycle %d from %.2f to %.2f"
                              (:cycle workspace) (hyp-conf workspace hyp) new-conf)))))))
 
 (defn find-conflicts-all
   [workspace hyp]
   (prof :find-conflicts-all
-        (if (nil? (:conflicts hyp)) []
+        (if (nil? (:conflicts?-fn hyp)) []
             (doall (filter #((:conflicts?-fn hyp) hyp %) (vals (:hyp-ids workspace)))))))
 
 (defn find-conflicts
   [workspace hyp]
   (prof :find-conflicts
-        (doall (filter #((:conflicts?-fn hyp) hyp (lookup-hyp workspace %))
-                  (set (apply concat (vals (:sorted-explainers workspace))))))))
+        (doall (filter #((:conflicts?-fn hyp) hyp %)
+                  (map #(lookup-hyp workspace %)
+                     (set (apply concat (vals (:sorted-explainers workspace)))))))))
 
 (defn dissoc-needing-explanation
   [workspace hyps]
@@ -302,10 +304,11 @@
   (prof :reject-many
         (reduce
          (fn [ws hyp]
+           (log "Rejecting" hyp)
            (let [ws2 (-> (dissoc-in ws [:sorted-explainers (:id hyp)])
                         (dissoc-explainer hyp))]
              (if @batch ws2
-                 (update-in ws2 [:hyp-log hyp] conj
+                 (update-in ws2 [:hyp-log (:id hyp)] conj
                             (format "Rejected in cycle %d" (:cycle workspace))))))
          workspace hyps)))
 
@@ -364,7 +367,7 @@
                               (update-in [:accepted (:type hyp)] conj (:id hyp))
                               (update-in [:accepted :all] conj (:id hyp))))
               ws-hyplog (if @batch ws-acc
-                            (update-in ws-acc [:hyp-log hyp] conj
+                            (update-in ws-acc [:hyp-log (:id hyp)] conj
                                        (format (str "Accepted in cycle %d "
                                                "to explain %s with delta %.2f"
                                                " (essential? %s)")
@@ -373,7 +376,7 @@
               ws-expl (dissoc-needing-explanation ws-hyplog (explains hyp))
               ws-expl2 (dissoc-explainer ws-expl hyp)
               conflicts (prof :accept-conflicts
-                              (when (:conflicts hyp)
+                              (when (:conflicts?-fn hyp)
                                 (find-conflicts ws-expl2 hyp)))
               ws-conflicts (if conflicts
                              (prof :accept-reject-many (reject-many ws-expl2 conflicts))
@@ -588,7 +591,8 @@
   [workspace time-prev time-now sensors]
   (prof :add-sensor-hyps
         (let [hs (mapcat (fn [s] ((:make-sensor-hyps-fn (:abduction @problem))
-                                 s time-prev time-now (:hypotheses workspace)))
+                                 s time-prev time-now
+                                 (:accepted workspace) (partial lookup-hyp workspace)))
                          sensors)]
           (reduce add-fact workspace hs))))
 

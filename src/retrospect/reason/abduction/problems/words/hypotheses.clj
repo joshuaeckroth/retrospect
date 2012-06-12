@@ -23,7 +23,7 @@
               [] [] "" "" {:dict-tree dict-tree :dict #{}})]))
 
 (defn make-sensor-hyps
-  [sensor time-prev time-now hyps]
+  [sensor time-prev time-now accepted lookup-hyp]
   (concat (map (fn [[sym pos]]
                (new-hyp "Symbol" :symbol :symbol true (constantly false)
                         [] []

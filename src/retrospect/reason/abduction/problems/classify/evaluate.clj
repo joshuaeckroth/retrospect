@@ -8,16 +8,21 @@
   (cond (= :word (:type hyp)) true
         (= :kb (:type hyp)) true
         :else
-        ((get-in truedata [:cats (:docid hyp)]) (:cat hyp))))
+        (let [true-cats (get-in truedata [:cats (:docid hyp)])]
+          (and (every? true-cats (:categories hyp))
+               (not-any? true-cats (:not-categories hyp))))))
 
 (defn chosen-cats
   [workspace]
   (let [dochyps (group-by :docid (map #(lookup-hyp workspace %)
-                                    (:category (:accepted workspace))))]
+                                    (concat (:category (:accepted workspace))
+                                            (:catpair-both (:accepted workspace))
+                                            (:catpair-only-left (:accepted workspace))
+                                            (:catpair-only-right (:accepted workspace)))))]
     (reduce (fn [m [docid hyps]]
          (let [prior-cats (get m docid)]
-           (if prior-cats (update-in m [docid] set/union (set (map :cat hyps)))
-               (assoc m docid (set (map :cat hyps))))))
+           (if prior-cats (update-in m [docid] set/union (set (mapcat :categories hyps)))
+               (assoc m docid (set (mapcat :categories hyps))))))
        {} (seq dochyps))))
 
 (defn evaluate
