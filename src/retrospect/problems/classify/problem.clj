@@ -32,8 +32,7 @@
                :stats-fn stats
                :training-stats-fn training-stats
                :true-hyp?-fn true-hyp?
-               :hyp-types [:category :catpair-both :catpair-only-left
-                           :catpair-only-right :catpair-neither]
+               :hyp-types [:category]
                :default-params {}}
    :default-params
    {:Steps [50 [50]]
