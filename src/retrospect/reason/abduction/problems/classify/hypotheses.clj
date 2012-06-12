@@ -80,7 +80,6 @@
                             (new-hyp (format "!%s+!%s" cat1 cat2) :catpair-neither [cat1 cat2]
                                      false conflicts? [catpair-hyp] []
                                      (format "!%s+!%s" cat1 cat2) (format "!%s+!%s" cat1 cat2)
-                                     {:not-categories [cat1 cat2]
-                                      :docid docid})]))
+                                     {:docid docid})]))
                        catpair-hyps))
              docids))))))
