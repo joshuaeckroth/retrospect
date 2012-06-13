@@ -15,7 +15,8 @@
                  [log4j/log4j "1.2.16"]
                  [junit/junit "4.10"]
                  [com.intellij/annotations "5.1"]
-                 [clojure-csv/clojure-csv "2.0.0-alpha1"]]
+                 [clojure-csv/clojure-csv "2.0.0-alpha1"]
+                 [com.fifesoft/rsyntaxtextarea "2.0.2"]]
   :dev-dependencies [[lein-marginalia "0.7.0"]]
   :main retrospect.core
   :keep-non-project-classes true
