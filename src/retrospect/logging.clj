@@ -8,6 +8,7 @@
 (defn log
   [& objs]
   (prof :log
-        #_(apply println objs)
-        (when (not @batch)
-          (def reason-log (conj reason-log (join " " (map str objs)))))))
+        (do
+          #_(apply println objs)
+          (when (not @batch)
+            (def reason-log (conj reason-log (join " " (map str objs))))))))
