@@ -1,5 +1,7 @@
 (ns retrospect.problems.words.truedata
+  (:import (org.arabidopsis.ahocorasick AhoCorasick))
   (:require [clojure.string :as str])
+  (:require [clojure.set :as set])
   (:use [retrospect.profile :only [prof profile]])
   (:use [retrospect.random])
   (:use [retrospect.state]))
@@ -61,13 +63,20 @@
                                  (recur (apply disj dict
                                                (map #(apply str (first %)) composites)))))))
          ambiguous (map #(apply str %) test)
-         ambiguous-training (map #(apply str %) training)]
+         ambiguous-training (map #(apply str %) training)
+         dict-tree (AhoCorasick.)]
+     (doseq [w (set/union (set (concat (apply concat test)
+                                   (apply concat training))))]
+       (.add dict-tree (.getBytes w) w))
+     (.prepare dict-tree)
      (when (:NoComposites params) (println "size dict" (count training-dict)
                                            "size dict no comp" (count dict-no-comps)))
      {:training {:test (zipmap (range (count ambiguous-training)) ambiguous-training)
                  :test-sentences training
                  :test-breaks training-breaks
-                 :test-dict (if (:NoComposites params) dict-no-comps training-dict)}
+                 :test-dict (if (:NoComposites params) dict-no-comps training-dict)
+                 :original-training-dict (set (apply concat training))
+                 :dict-tree dict-tree}
       :test (zipmap (range (count ambiguous)) ambiguous)
       :test-sentences test
       :test-breaks test-breaks

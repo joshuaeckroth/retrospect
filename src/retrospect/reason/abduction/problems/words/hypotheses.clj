@@ -1,6 +1,4 @@
 (ns retrospect.reason.abduction.problems.words.hypotheses
-  (:import (java.util.regex Pattern))
-  (:import (org.arabidopsis.ahocorasick AhoCorasick))
   (:require [clojure.string :as str])
   (:require [clojure.set :as set])
   (:use [loom.graph :only [has-edge? weight edges neighbors incoming]])
@@ -15,12 +13,8 @@
 
 (defn generate-kb
   [training]
-  (let [dict-tree (AhoCorasick.)]
-    (doseq [w (:test-dict training)]
-      (.add dict-tree (.getBytes w) w))
-    (.prepare dict-tree)
-    [(new-hyp "KB" :kb :kb false (constantly false)
-              [] [] "" "" {:dict-tree dict-tree :dict #{}})]))
+  [(new-hyp "KB" :kb :kb false (constantly false)
+            [] [] "" "" {:dict-tree (:dict-tree training) :dict #{}})])
 
 (defn make-sensor-hyps
   [sensor time-prev time-now accepted lookup-hyp]
@@ -136,7 +130,7 @@
               searcher (.search dict-tree sym-bytes)]
           (loop [found []]
             (if-not (.hasNext searcher)
-              (if training? (filter #(dict (first %)) found) found)
+              (filter #(dict (first %)) found)
               (let [result (.next searcher)
                     last-index (.getLastIndex result)]
                 (recur (reduce (fn [fs w]

@@ -139,7 +139,7 @@
                       eps)
           sentences (map (fn [i] (nth (:test-sentences truedata) i)) (range time-now))
           [prec recall f-score oov-rate oov-recall iv-recall]
-          (run-scorer sentences believed (:test-dict (:training truedata)))]
+          (run-scorer sentences believed (:original-training-dict (:training truedata)))]
       {:Prec prec
        :Recall recall
        :FScore f-score
