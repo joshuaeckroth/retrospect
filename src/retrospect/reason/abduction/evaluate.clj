@@ -6,7 +6,7 @@
   (:use [retrospect.epistemicstates :only [cur-ep]])
   (:use [retrospect.evaluate :only [calc-increase]])
   (:use [retrospect.reason.abduction.workspace
-         :only [get-unexp-pct get-noexp-pct hyp-conf calc-doubt calc-coverage
+         :only [get-unexp-pct get-noexp-pct lookup-score calc-doubt calc-coverage
                 accepted? lookup-score lookup-hyp find-conflicts-all explains]])
   (:use [retrospect.state]))
 
@@ -29,24 +29,16 @@
         all-false (mapcat #(get % false) (vals tf))]
     (assoc tf :all {true all-true false all-false})))
 
-(defn calc-true-false-confs
-  "Find average confidence and apriori values for true hyps, average
-   confidence for false hyps."
+(defn calc-true-false-scores
+  "Find average scores for true hyps, average scores for false hyps."
   [workspace true-false]
-  (let [confs (reduce (fn [m t]
-                   (assoc m t
-                          {true (map #(hyp-conf workspace %)
-                                   (get (get true-false t) true))
-                           false (map #(hyp-conf workspace %)
-                                    (get (get true-false t) false))}))
-                 {} (keys true-false))
-        apriori (reduce (fn [m t]
-                     (assoc m t
-                            {true (map #(lookup-score workspace %)
-                                     (get (get true-false t) true))
-                             false (map #(lookup-score workspace %)
-                                      (get (get true-false t) false))}))
-                   {} (keys true-false))
+  (let [scores (reduce (fn [m t]
+                    (assoc m t
+                           {true (map #(lookup-score workspace %)
+                                    (get (get true-false t) true))
+                            false (map #(lookup-score workspace %)
+                                     (get (get true-false t) false))}))
+                  {} (keys true-false))
         avg (fn [vals] (if (empty? vals) 0.0 (/ (reduce + vals) (count vals))))]
     (reduce (fn [m t]
          (let [k (apply str (map str/capitalize (str/split (name t) #"-")))]
@@ -59,19 +51,15 @@
              (count (filter #(accepted? workspace %) (get (get true-false t) true)))
              (keyword (format "FalseAcc%s" k))
              (count (filter #(accepted? workspace %) (get (get true-false t) false)))
-             (keyword (format "AvgTrueConf%s" k))
-             (avg (get (get confs t) true))
-             (keyword (format "AvgTrueApriori%s" k))
-             (avg (get (get apriori t) true))
-             (keyword (format "AvgFalseConf%s" k))
-             (avg (get (get confs t) false))
-             (keyword (format "AvgFalseApriori%s" k))
-             (avg (get (get apriori t) false)))))
+             (keyword (format "AvgTrueScore%s" k))
+             (avg (get (get scores t) true))
+             (keyword (format "AvgFalseScore%s" k))
+             (avg (get (get scores t) false)))))
        {} (keys true-false))))
 
 (defn get-best-true
   [workspace hyps true-false-types]
-  (first (reverse (sort-by #(hyp-conf workspace %)
+  (first (reverse (sort-by #(lookup-score workspace %)
                            (filter #(get-in true-false-types [:individual (:id %)]) hyps)))))
 
 (defn update-training
@@ -87,8 +75,8 @@
                                true-false-types))
         better-choice (or (get-best-true workspace (:alts biggest-mistake) true-false-types)
                           correct-conflicting)
-        delta (when better-choice (Math/abs (- (hyp-conf workspace wrong-choice)
-                                               (hyp-conf workspace better-choice))))
+        delta (when better-choice (Math/abs (- (lookup-score workspace wrong-choice)
+                                               (lookup-score workspace better-choice))))
         training-adjust (:TrainingAdjustment params)
         adjust (if delta (+ (* 0.50 delta) training-adjust))
         wrong-prior
@@ -157,11 +145,11 @@
                        (vals (:hyp-ids workspace)))
                     :type truedata
                     (:time ep) (:true-hyp?-fn (:abduction @problem)))
-        true-false-confs (calc-true-false-confs workspace true-false)]
+        true-false-scores (calc-true-false-scores workspace true-false)]
     (merge {:Problem (:name @problem)}
            params
            ((:evaluate-fn (:abduction @problem)) truedata est)
-           true-false-confs
+           true-false-scores
            {:Step (:time ep)
             :UnexplainedPct (get-unexp-pct (:workspace ep))
             :NoExplainersPct (get-noexp-pct (:workspace ep))

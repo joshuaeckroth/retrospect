@@ -5,6 +5,7 @@
          :only [explain add-sensor-hyps init-workspace
                 update-hypotheses get-explaining-hypotheses
                 increase-score decrease-score
+                increase-co-occurrence decrease-co-occurrence
                 init-kb update-kb reset-workspace accepted?
                 calc-doubt calc-coverage extract-training lookup-hyp
                 inject-true-hyps find-no-explainers]])
@@ -33,10 +34,21 @@
           true-false-types (group-hyps-by-true-false
                             hyps :type truedata
                             time-now (:true-hyp?-fn (:abduction @problem)))
+          occurrences (set (filter identity (map (comp first :co-occurrence)
+                                          (get-in true-false-types [:all true]))))
+          ws-co-occur (reduce (fn [ws h]
+                           (let [occur-id (first (:co-occurrence h))]
+                             (if (nil? occur-id) ws
+                                 (reduce (fn [ws2 co-occur-id]
+                                      (if (occurrences co-occur-id)
+                                        (increase-co-occurrence ws2 occur-id co-occur-id)
+                                        (decrease-co-occurrence ws2 occur-id co-occur-id)))
+                                    ws (second (:co-occurrence h))))))
+                         ws (get-in true-false-types [:all true]))
           ws-scored (reduce (fn [ws h] (if (get-in true-false-types [:individual (:id h)])
                                    (increase-score ws h)
                                    (decrease-score ws h)))
-                       ws hyps)]
+                       ws-co-occur hyps)]
       (update-kb (inject-true-hyps ws-scored true-false-types)))
     (if sensors
       (update-kb (explain (update-hypotheses
@@ -95,16 +107,10 @@
    :calc-coverage-fn calc-coverage
    :default-params-fn (fn []
                         (merge {:Threshold [0 [0]]
-                                :ConfThreshold [0 [0]]
                                 :UseScores [true [true]]
                                 :ContrastPreference ["delta" ["delta" "arbitrary"]]
-                                :ApplyBoosting [true [true false]]
                                 :HypPreference ["abd" ["abd" "arbitrary"]]
-                                :TransitiveExplanation [false [true false]]
-                                :TrainingCycles [10 [10]]
-                                :TrainingAdjustment [0.1 [0.1]]
-                                :TrainingMaxAdjust [0.5 [0.5]]
-                                :ConfAdjustment ["none" ["min" "max" "avg" "none" "norm"]]}
+                                :TransitiveExplanation [false [true false]]}
                                (:default-params (:abduction @problem))))
    :init-workspace-fn init-workspace
    :reset-workspace-fn reset-workspace

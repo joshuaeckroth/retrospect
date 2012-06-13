@@ -41,7 +41,8 @@
            (mapcat (fn [cat]
                      (map (fn [word-hyp]
                           (new-hyp cat :category [cat (:word word-hyp)]
-                                   false nil [word-hyp] []
+                                   false nil [word-hyp]
+                                   [cat (disj (:known-cats kb) cat)]
                                    cat (format "%s is cat %s" (:docid word-hyp) cat)
                                    {:categories [cat] :word (:word word-hyp)
                                     :docid (:docid word-hyp)}))

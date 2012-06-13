@@ -23,8 +23,7 @@
 (def hyp-selected (atom nil))
 (def workspace-selected (atom nil))
 (def hyp-id (ref ""))
-(def hyp-apriori-label (label "Apriori:"))
-(def hyp-confidence-label (label "Conf:"))
+(def hyp-score-label (label "Score:"))
 (def hyp-truefalse-label (label "T/F:"))
 (def hyp-accepted-label (label "Acc:"))
 (def hyp-explains (ref ""))
@@ -106,8 +105,7 @@
         boosts (str/join ", " (map str (sort-by :name alphanum (:boosts hyp))))
         conflicts (str/join ", " (map str (sort-by :name alphanum
                                                    (ws/find-conflicts-all workspace hyp))))]
-    (. hyp-apriori-label setText (format "Apriori: %.2f" (ws/lookup-score workspace hyp)))
-    (. hyp-confidence-label setText (format "Conf: %.2f" (ws/hyp-conf workspace hyp)))
+    (. hyp-score-label setText (format "Score: %.2f" (ws/lookup-score workspace hyp)))
     (. hyp-truefalse-label setText
        (if ((:true-hyp?-fn (:abduction @problem)) @truedata time hyp) "TF: True" "TF: False"))
     (. hyp-accepted-label setText
@@ -119,15 +117,6 @@
      (alter hyp-boosts (constantly (str "Boosts: " boosts)))
      (alter hyp-conflicts (constantly (str "Conflicts: " conflicts)))
      (alter hyp-log (constantly (str/join "\n" (ws/hyp-log workspace hyp)))))))
-
-(defn final-explainers
-  [workspace]
-  (letfn [(confs [expl] (map (fn [h] (format "%s (%.2f)" (:name h) (ws/hyp-conf workspace h)))
-                             expl))]
-    (format "Final explainers:\n\n%s"
-            (str/join "\n" (map (fn [{hyp :hyp expl :expl}]
-                                  (format "%s: %s" (:name hyp) (str/join ", " (confs expl))))
-                                (:last-explainers (:log workspace)))))))
 
 (defn show-log
   [path]
@@ -178,17 +167,15 @@
                          (.setFont (Font. "Sans" Font/PLAIN 10)))
                        (panel :layout (GridBagLayout.)
                               :constrains (java.awt.GridBagConstraints.)
-                              [:gridx 0 :gridy 0 :gridwidth 4 :weightx 1.0 :weighty 1.0
+                              [:gridx 0 :gridy 0 :gridwidth 3 :weightx 1.0 :weighty 1.0
                                :fill :BOTH :insets (Insets. 5 5 5 5)
                                _ (log-box hyp-id)
 
                                :gridy 1 :gridwidth 1 :weighty 0.0
-                               _ hyp-apriori-label
+                               _ hyp-score-label
                                :gridx 1
-                               _ hyp-confidence-label
-                               :gridx 2
                                _ hyp-truefalse-label
-                               :gridx 3
+                               :gridx 2
                                _ hyp-accepted-label
 
                                :gridy 2 :gridx 0 :gridwidth 4 :weighty 1.0

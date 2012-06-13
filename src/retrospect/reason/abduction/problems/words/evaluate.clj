@@ -7,7 +7,7 @@
   (:use [retrospect.evaluate :only [calc-increase avg]])
   (:use [retrospect.epistemicstates :only [cur-ep ep-path]])
   (:use [retrospect.reason.abduction.workspace :only
-         [hyp-conf lookup-hyp calc-doubt]])
+         [lookup-hyp calc-doubt]])
   (:use [loom.graph :only [weight]])
   (:use [retrospect.profile :only [prof]])
   (:use [retrospect.logging])
