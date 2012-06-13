@@ -137,10 +137,11 @@
                                                    (vec (sort [occur-id co-occur-id]))]
                                         [1 2]))
                               (filter (:occurrences workspace) (second (:co-occurrence hyp))))
-               prod-occur-score (when (not-empty occur-fracs)
-                                  (reduce * (map (fn [frac] (apply / (map double frac)))
-                                          occur-fracs)))]
-           (if-not prod-occur-score score (/ (+ score prod-occur-score) 2.0))))))
+               occur-score (when (not-empty occur-fracs)
+                             (last (sort-by #(Math/abs (- % 0.5))
+                                            (map (fn [frac] (apply / (map double frac)))
+                                               occur-fracs))))]
+           (if-not occur-score score (/ (+ score occur-score) 2.0))))))
 
 (defn compare-by-score
   "Since we are using probabilities, smaller value = less
