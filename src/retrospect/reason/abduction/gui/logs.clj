@@ -110,7 +110,7 @@
     (. hyp-apriori-label setText
        (format "Apriori: %.2f" (:apriori hyp)))
     (. hyp-conditional-label setText
-       (format "Cond: %.2f" (ws/lookup-conditional-score workspace hyp)))
+       (format "Cond: %.2f" 0.5))
     (. hyp-score-label setText
        (format "Score: %.2f" (ws/lookup-score workspace hyp)))
     (. hyp-truefalse-label setText

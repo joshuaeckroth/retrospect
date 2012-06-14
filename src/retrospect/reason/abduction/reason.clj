@@ -45,9 +45,11 @@
                                         (decrease-co-occurrence ws2 occur-id co-occur-id)))
                                     ws (second (:co-occurrence h))))))
                          ws (get-in true-false-types [:all true]))
-          ws-scored (reduce (fn [ws h] (if (get-in true-false-types [:individual (:id h)])
-                                   (increase-score ws h)
-                                   (decrease-score ws h)))
+          ws-scored (reduce (fn [ws h] (reduce (fn [ws [feature-id feature]]
+                                      (if (get-in true-false-types [:individual (:id h)])
+                                        (increase-score ws h feature-id feature)
+                                        (decrease-score ws h feature-id feature)))
+                                    ws (filter second (seq (:features h)))))
                        ws-co-occur hyps)]
       (update-kb (inject-true-hyps ws-scored true-false-types)))
     (if sensors

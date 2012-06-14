@@ -17,46 +17,15 @@
   [truedata time-now hyp]
   (prof :true-hyp
         (cond (= :symbol (:type hyp)) true
-              (= :transition (:type hyp)) true
               (= :kb (:type hyp)) true
-              (= :merge (:type hyp))
-              (let [breaks (nth (:test-breaks truedata) (dec time-now))]
-                (if (not (breaks (:pos2 hyp))) true false))
-              (= :split (:type hyp))
-              (let [breaks (nth (:test-breaks truedata) (dec time-now))]
-                (if (breaks (:pos2 hyp)) true false))
-              (= :notword (:type hyp))
-              (not (true-hyp? truedata time-now (assoc hyp :type :word)))
-              :else
-              (let [breaks (nth (:test-breaks truedata) (dec time-now))
-                    start-pos (first (:pos-seq hyp))
-                    end-pos (inc (last (:pos-seq hyp)))]
-                (if (cond (and (= :word (:type hyp))
-                               (not= :left (first (:subtype hyp)))
-                               (not= :right (second (:subtype hyp))))
-                          (and (breaks start-pos) (breaks end-pos)
-                               (not-any? breaks (range (inc start-pos) end-pos)))
-                          (and (= :word (:type hyp))
-                               (not= :left (first (:subtype hyp)))
-                               (= :right (second (:subtype hyp)))
-                               (not-any? breaks (range (inc start-pos) end-pos)))
-                          (and (breaks start-pos) (not (breaks end-pos)))
-                          (and (= :word (:type hyp))
-                               (= :left (first (:subtype hyp)))
-                               (not= :right (second (:subtype hyp)))
-                               (not-any? breaks (range (inc start-pos) end-pos)))
-                          (and (not (breaks start-pos)) (breaks end-pos))
-                          (and (= :word (:type hyp))
-                               (= :left (first (:subtype hyp)))
-                               (= :right (second (:subtype hyp)))
-                               (not-any? breaks (range (inc start-pos) end-pos)))
-                          (and (not (breaks start-pos)) (not (breaks end-pos)))
-                          :else false)
-                  ;; keep this to ensure we report a boolean, not an object
-                  true false)))))
+              (= :tag (:type hyp))
+              (let [sent (nth (:test-tags truedata) (dec time-now))
+                    [_ tag] (nth sent (:pos hyp))]
+                (= tag (:tag hyp)))
+              :else false)))
 
 (defn run-scorer
-  [sentences believed train-dict]
+  [sentences believed dict]
   (try (do
          (spit (format "/tmp/truth-%d.txt" (:simulation params))
                (format "%s\n\n" (str/join "\n" (map #(str/join " " %) sentences)))
@@ -66,7 +35,7 @@
                                              (map #(str/join " " %) believed))))
                :encoding "utf-8")
          (spit (format "/tmp/dictionary-%d.txt" (:simulation params))
-               (format "%s\n\n" (str/join "\n" (sort train-dict)))
+               (format "%s\n\n" (str/join "\n" (sort dict)))
                :encoding "utf-8")
          (let [results (sh (format "%s/words/score" @datadir)
                            (format "/tmp/dictionary-%d.txt" (:simulation params))
@@ -101,29 +70,14 @@
 
 (defn get-words
   [lookup-hyp ambiguous accepted unexplained]
-  (let [cuts (sort (set (concat
-                         (map (comp :pos1 lookup-hyp) (get accepted :split))
-                         (map (comp dec first :pos-seq)
-                            (filter #(not= :left (first (:subtype %)))
-                               (map lookup-hyp (get accepted :word))))
-                         (map (comp last :pos-seq)
-                            (filter #(not= :right (second (:subtype %)))
-                               (map lookup-hyp (get accepted :word))))
-                         (if (= "merge" (:DefaultMergeSplit params)) []
-                             (map :pos (filter #(= :symbol (:type %))
-                                        unexplained))))))]
-    (loop [amb (vec ambiguous)
-           cs (filter #(>= % 0) cuts)
-           i 0
-           words []]
-      (cond (empty? amb) words
-            (empty? cs) (conj words (apply str amb))
-            :else
-            (let [c (inc (first cs))]
-              (recur (vec (drop (- c i) amb))
-                     (rest cs)
-                     c
-                     (conj words (apply str (subvec amb 0 (- c i))))))))))
+  (let [sent (apply str (for [{sym :sym tag :tag}
+                              (sort-by :pos (map lookup-hyp (get accepted :tag)))]
+                          (cond (= tag :Start) (format " %s" sym)
+                                (= tag :Only) (format " %s " sym)
+                                (= tag :End) (format "%s " sym)
+                                ;; i.e., :Middle
+                                :else sym)))]
+    (str/split sent #"\s+")))
 
 (defn evaluate
   [truedata est]
@@ -139,7 +93,7 @@
                       eps)
           sentences (map (fn [i] (nth (:test-sentences truedata) i)) (range time-now))
           [prec recall f-score oov-rate oov-recall iv-recall]
-          (run-scorer sentences believed (:original-training-dict (:training truedata)))]
+          (run-scorer sentences believed (:dict (:training truedata)))]
       {:Prec prec
        :Recall recall
        :FScore f-score
@@ -160,78 +114,15 @@
                    :Prec :Recall :FScore :OOVRecall])))
 
 (defn find-oov
-  [workspace truedata time-now]
-  (let [latest-kb (lookup-hyp workspace (first (get (:accepted workspace) :kb)))
-        sentence (nth (:test-sentences truedata) (dec time-now))
-        oov (set (filter #(not ((:dict latest-kb) %)) sentence))]
+  [truedata time-now]
+  (let [sentence (nth (:test-sentences truedata) (dec time-now))
+        oov (set (filter #(not ((:dict (:training truedata)) %)) sentence))]
     (reduce (fn [m w] (assoc m w (map (fn [i] (reduce + (map count (take i sentence))))
                               (filter #(= w (nth sentence %)) (range (count sentence))))))
        {} oov)))
 
-(comment
-  [prec recall f-score oov-rate oov-recall iv-recall]
-  (run-scorer
-   [(nth (:test-sentences truedata) (dec time-now))]
-   [(get-words
-     (partial lookup-hyp workspace)
-     (get (:test truedata) (dec time-now))
-     (:accepted workspace)
-     (:unexplained (:log workspace)))]
-   (:dict (lookup-hyp workspace (first (get (:accepted workspace) :kb))))))
-
 (defn training-stats
-  [workspace false-accepted unexplained truedata time-now cycle]
-  (when (or (= 0 cycle) (= (:TrainingCycles params) cycle)
-            (and (= 0 (count false-accepted))
-                 (= 0 (count unexplained))))
-    (when (and (= 1 time-now) (= (:TrainingCycles params) cycle))
-      (spit "words-adjustments.csv"
-            "time,tag,num,min,max\n")
-      (spit "words-adjustments-all.txt" "")
-      (spit "words.csv"
-            (str "time,pctfalseacc,doubt,"
-                 "maxadjlength,minadjustlength,avgadjustlength,"
-                 "maxadjustscore,minadjustscore,"
-                 "avgmaxadjust,avgminadjust,numadjust,begend\n")))
-    (let [adjustments (vals (:score-adjustments workspace))
-          max-adjust-length (if (empty? adjustments) 0 (apply max (map count adjustments)))
-          min-adjust-length (if (empty? adjustments) 0 (apply min (map count adjustments)))
-          avg-adjust-length (/ (double (reduce + (map count adjustments)))
-                               (double (count adjustments)))
-          avg-max-adjusted-score (/ (double (reduce + (map #(apply max 0.0 %) adjustments)))
-                                    (double (count adjustments)))
-          avg-min-adjusted-score (/ (double (reduce + (map #(apply min 1.0 %) adjustments)))
-                                    (double (count adjustments)))
-          max-adjusted-score (apply max 0.0 (apply concat adjustments))
-          min-adjusted-score (apply min 1.0 (apply concat adjustments))]
-      (doseq [tag (keys (:score-adjustments workspace))]
-        (let [adjs (get (:score-adjustments workspace) tag)]
-          (spit "words-adjustments.csv"
-                (format "%d,\"%s\",%d,%.2f,%.2f\n"
-                   time-now (str tag) (count adjs)
-                   (apply min adjs) (apply max adjs))
-                :append true)))
-      (spit "words-adjustments-all.txt"
-            (format "\n-----\ntime: %d\n\n" time-now)
-            :append true)
-      (doseq [tag (keys (:score-adjustments workspace))]
-        (spit "words-adjustments-all.txt"
-              (let [adjs (get (:score-adjustments workspace) tag)]
-                (format "\"%s\",%s\n"
-                   (str tag) (str/join ", " (reverse (map #(format "%.2f" %) adjs)))))
-              :append true))
-      (spit "words.csv"
-            (format "%d,%.4f,%.4f,%d,%d,%.4f,%.4f,%.4f,%.4f,%.4f,%d,\"%s\"\n"
-               time-now
-               (double (/ (count false-accepted)
-                          (count (:forced workspace))))
-               (calc-doubt workspace)
-               max-adjust-length min-adjust-length avg-adjust-length
-               max-adjusted-score min-adjusted-score
-               avg-max-adjusted-score avg-min-adjusted-score
-               (count adjustments)
-               (if (= (:TrainingCycles params) cycle) "beg" "end"))
-            :append true))))
+  [workspace false-accepted unexplained truedata time-now cycle])
 
 (defn stats
   [truedata ors time-now]

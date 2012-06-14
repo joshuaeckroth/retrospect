@@ -13,7 +13,7 @@
   (:use [retrospect.state]))
 
 (defrecord Hypothesis
-    [id name type subtype apriori needs-explainer? conflicts?-fn
+    [id name type subtype features apriori needs-explainer? conflicts?-fn
      explains co-occurrence short-str desc data]
   Object
   (toString [self] (format "%s(%s)" name short-str))
@@ -21,7 +21,7 @@
   (compareTo [self other] (compare (hash self) (hash other))))
 
 (defn new-hyp
-  [prefix type subtype apriori needs-explainer? conflicts?-fn
+  [prefix type subtype features apriori needs-explainer? conflicts?-fn
    explains co-occurrence short-str desc data]
   (prof :new-hyp
         (let [id (inc last-id)]
@@ -29,7 +29,7 @@
           (assoc
               (merge (Hypothesis.
                       id (format "%s%d" prefix id)
-                      type subtype apriori needs-explainer? conflicts?-fn
+                      type subtype features apriori needs-explainer? conflicts?-fn
                       explains co-occurrence short-str desc data)
                      data)
             :contents (assoc data :type type :subtype subtype)))))
@@ -48,7 +48,7 @@
   {:graph (digraph)
    :oracle nil
    :cycle 0
-   ;; hyp type => hyp subtype => score
+   ;; hyp type => hyp feature => score
    :scores {}
    ;; hyp co-occurrence type => hyp co-occurrence type => score
    :co-occurrence-scores {}
@@ -97,15 +97,17 @@
                   (filter (fn [[hypid expls]] (empty? expls)) (seq (:explainers workspace)))))))
 
 (defn increase-score
-  [workspace hyp]
-  (let [prior (get-in workspace [:scores (:type hyp) (:subtype hyp)] [1 2])]
-    (assoc-in workspace [:scores (:type hyp) (:subtype hyp)]
+  [workspace hyp feature-id feature]
+  (let [prior (get-in workspace [:scores (:type hyp) (:subtype hyp)
+                                 feature-id feature] [1 2])]
+    (assoc-in workspace [:scores (:type hyp) (:subtype hyp) feature-id feature]
               (vec (map inc prior)))))
 
 (defn decrease-score
-  [workspace hyp]
-  (let [prior (get-in workspace [:scores (:type hyp) (:subtype hyp)] [1 2])]
-    (assoc-in workspace [:scores (:type hyp) (:subtype hyp)]
+  [workspace hyp feature-id feature]
+  (let [prior (get-in workspace [:scores (:type hyp) (:subtype hyp)
+                                 feature-id feature] [1 2])]
+    (assoc-in workspace [:scores (:type hyp) (:subtype hyp) feature-id feature]
               [(first prior) (inc (second prior))])))
 
 (defn increase-co-occurrence
@@ -122,9 +124,10 @@
     (assoc-in workspace [:co-occurrence-scores occur-pair]
               [(first prior) (inc (second prior))])))
 
-(defn lookup-conditional-score
-  [workspace hyp]
-  (let [score-frac (get-in workspace [:scores (:type hyp) (:subtype hyp)] [1 2])]
+(defn lookup-feature-score
+  [workspace hyp feature-id feature]
+  (let [score-frac (get-in workspace [:scores (:type hyp) (:subtype hyp)
+                                      feature-id feature] [1 2])]
     (apply / (map double score-frac))))
 
 (defn lookup-score
@@ -134,8 +137,13 @@
          (not (:UseScores params)) 1.0
          ((:oracle-types workspace) (:type hyp)) (if ((:oracle workspace) hyp) 1.0 0.0)
          :else
-         (let [
-               score (* (:apriori hyp) (lookup-conditional-score workspace hyp))
+         (let [feature-scores (map (fn [[feature-id feature]]
+                                   (lookup-feature-score workspace hyp feature-id feature))
+                                 (filter second (seq (:features hyp))))
+               most-sig-feature-score (last (sort-by #(Math/abs (- % 0.5)) feature-scores))
+               score (if most-sig-feature-score
+                       (* (:apriori hyp) most-sig-feature-score)
+                       (:apriori hyp))
                occur-id (first (:co-occurrence hyp))
                occur-fracs (map (fn [co-occur-id]
                                 (get-in workspace [:co-occurrence-scores
