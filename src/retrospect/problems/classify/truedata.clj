@@ -1,4 +1,5 @@
 (ns retrospect.problems.classify.truedata
+  (:require [clojure.set :as set])
   (:require [clojure.string :as str])
   (:use [clojure.contrib.combinatorics :only [combinations]])
   (:use [retrospect.random])
@@ -32,39 +33,55 @@
         [training-docids testing-docids] (split-at (int (* (/ (:Knowledge params) 100.0)
                                                            (count docwords)))
                                                    (my-shuffle (sort (keys docwords))))
-        known-cats (set (apply concat (vals doccats)))
-        catpaircounts (reduce (fn [m [_ cats]] (reduce (fn [m2 [cat1 cat2]]
-                                              (let [prior (get m2 [cat1 cat2] 0)]
-                                                (assoc m2 [cat1 cat2] (inc prior))))
-                                            m (combinations cats 2)))
-                         {} (seq doccats))
-        catcounts (reduce (fn [m [_ cats]] (reduce (fn [m2 cat] (let [prior (get m2 cat 0)]
-                                                      (assoc m2 cat (inc prior))))
-                                        m cats))
-                     {} (seq doccats))
-        maxcatcount (apply max (vals catcounts))
-        catgraph-relative-dot (reduce (fn [s [[cat1 cat2] count]]
-                                   (format "%s%s -- %s [penwidth=%.2f, weight=%.2f]\n"
-                                      s cat1 cat2
-                                      (* 50.0 (double (/ count (+ (get catcounts cat1)
-                                                                  (get catcounts cat2)))))
-                                      (* 50.0 (double (/ count (+ (get catcounts cat1)
-                                                                  (get catcounts cat2)))))))
-                                 "" (seq catpaircounts))
-        catgraph-dot (reduce (fn [s [[cat1 cat2] count]]
-                          (format "%s%s -- %s [penwidth=%.2f, weight=%.2f]\n"
-                             s cat1 cat2 (* 50.0 (double (/ count maxcatcount)))
-                             (* 50.0 (double (/ count maxcatcount)))))
-                        "" (seq catpaircounts))]
-    (comment
-      (spit (format "%s-cats-relative.dot" (:Dataset params))
-            (format "graph g {\n%s\n}" catgraph-relative-dot))
-      (spit (format "%s-cats.dot" (:Dataset params))
-            (format "graph g {\n%s\n}" catgraph-dot)))
+        [word-doc-counts cat-probs cat-word-probs]
+        (loop [docids training-docids
+               word-doc-counts {}
+               cat-probs {}
+               cat-word-probs {}]
+          (if (empty? docids)
+            (let [new-cat-probs
+                  (reduce (fn [m cat]
+                       (assoc m cat
+                              (/ (double (get m cat))
+                                 (double (+ 2 (count training-docids))))))
+                     cat-probs (keys cat-probs))
+                  new-cat-word-probs
+                  (reduce (fn [m [cat word]]
+                       (assoc m [cat word]
+                              (/ (double (get m [cat word]))
+                                 (double (+ 2 (get word-doc-counts word))))))
+                     cat-word-probs (keys cat-word-probs))]
+              [word-doc-counts new-cat-probs new-cat-word-probs])
+            (let [docid (first docids)
+                  new-word-doc-counts
+                  (reduce (fn [m word] (let [prior (get m word 1)]
+                                   (assoc m word (inc prior))))
+                     word-doc-counts (get docwords docid))
+                  new-cat-probs
+                  (reduce (fn [m cat] (let [prior (get m cat 1)]
+                                  (assoc m cat (inc prior))))
+                     cat-probs (get doccats docid))
+                  new-cat-word-probs
+                  (reduce (fn [m cat] (reduce (fn [m2 word] (let [prior (get m2 [cat word] 1)]
+                                                  (assoc m2 [cat word] (inc prior))))
+                                   m (get docwords docid)))
+                     cat-word-probs (get doccats docid))]
+              (recur (rest docids) new-word-doc-counts new-cat-probs new-cat-word-probs))))
+        known-cats (keys cat-probs)
+        word-prob-ranges (reduce (fn [m word]
+                              (let [probs (sort
+                                           (map (fn [cat] (get cat-word-probs [cat word] 0.5))
+                                              known-cats))]
+                                ;; [largest-prob, smallest-prob]
+                                (assoc m word [(last probs) (first probs)])))
+                            {} (keys word-doc-counts))]
     {:training {:test (zipmap (range (count training-docids))
                               (sort-by first (seq (select-keys docwords training-docids))))
                 :cats (select-keys doccats training-docids)
-                :known-cats known-cats}
+                :known-cats known-cats
+                :cat-probs cat-probs
+                :cat-word-probs cat-word-probs
+                :word-prob-ranges word-prob-ranges}
      :test (zipmap (range (count testing-docids))
                    (sort-by first (seq (select-keys docwords testing-docids))))
      :cats (select-keys doccats testing-docids)

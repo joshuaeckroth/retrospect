@@ -13,7 +13,7 @@
   (:use [retrospect.state]))
 
 (defrecord Hypothesis
-    [id name type subtype needs-explainer? conflicts?-fn
+    [id name type subtype apriori needs-explainer? conflicts?-fn
      explains co-occurrence short-str desc data]
   Object
   (toString [self] (format "%s(%s)" name short-str))
@@ -21,7 +21,7 @@
   (compareTo [self other] (compare (hash self) (hash other))))
 
 (defn new-hyp
-  [prefix type subtype needs-explainer? conflicts?-fn
+  [prefix type subtype apriori needs-explainer? conflicts?-fn
    explains co-occurrence short-str desc data]
   (prof :new-hyp
         (let [id (inc last-id)]
@@ -29,7 +29,7 @@
           (assoc
               (merge (Hypothesis.
                       id (format "%s%d" prefix id)
-                      type subtype needs-explainer? conflicts?-fn
+                      type subtype apriori needs-explainer? conflicts?-fn
                       explains co-occurrence short-str desc data)
                      data)
             :contents (assoc data :type type :subtype subtype)))))
@@ -122,6 +122,11 @@
     (assoc-in workspace [:co-occurrence-scores occur-pair]
               [(first prior) (inc (second prior))])))
 
+(defn lookup-conditional-score
+  [workspace hyp]
+  (let [score-frac (get-in workspace [:scores (:type hyp) (:subtype hyp)] [1 2])]
+    (apply / (map double score-frac))))
+
 (defn lookup-score
   [workspace hyp]
   (prof :lookup-score
@@ -129,8 +134,8 @@
          (not (:UseScores params)) 1.0
          ((:oracle-types workspace) (:type hyp)) (if ((:oracle workspace) hyp) 1.0 0.0)
          :else
-         (let [score-frac (get-in workspace [:scores (:type hyp) (:subtype hyp)] [1 2])
-               score (apply / (map double score-frac))
+         (let [
+               score (* (:apriori hyp) (lookup-conditional-score workspace hyp))
                occur-id (first (:co-occurrence hyp))
                occur-fracs (map (fn [co-occur-id]
                                 (get-in workspace [:co-occurrence-scores
@@ -161,21 +166,24 @@
           (- (compare conf-diff 0)))))
 
 (defn compare-by-delta
-  [workspace hyps1 hyps2]
+  [workspace {hyp1 :hyp expl1 :expl} {hyp2 :hyp expl2 :expl}]
   (prof :compare-by-delta
         (let [delta-fn (fn [hyps] (if (second hyps)
                                     (- (lookup-score workspace (first hyps))
                                        (lookup-score workspace (second hyps)))
                                     (lookup-score workspace (first hyps))))
-              hyps1-delta (delta-fn hyps1)
-              hyps2-delta (delta-fn hyps2)]
-          (if (= 0 (compare hyps1-delta hyps2-delta))
-            (if (= 0 (compare (lookup-score workspace (first hyps1))
-                              (lookup-score workspace (first hyps2))))
-              (compare (:id (first hyps1)) (:id (first hyps2)))
-              (- (compare (lookup-score workspace (first hyps1))
-                          (lookup-score workspace (first hyps2)))))
-            (- (compare hyps1-delta hyps2-delta))))))
+              expl1-delta (delta-fn expl1)
+              expl2-delta (delta-fn expl2)]
+          ;; prefer explained hyps (hyp1/hyp2) with higher apriori values
+          (if (= 0 (compare (:apriori hyp1) (:apriori hyp2)))
+            (if (= 0 (compare expl1-delta expl2-delta))
+              (if (= 0 (compare (lookup-score workspace (first expl1))
+                                (lookup-score workspace (first expl2))))
+                (compare (:id (first expl1)) (:id (first expl2)))
+                (- (compare (lookup-score workspace (first expl1))
+                            (lookup-score workspace (first expl2)))))
+              (- (compare expl1-delta expl2-delta)))
+            (- (compare (:apriori hyp1) (:apriori hyp2)))))))
 
 (defn sort-explainers
   [workspace explainers]
@@ -183,17 +191,11 @@
         (let [hyp-sorter (cond (= (:HypPreference params) "abd")
                                #(sort (partial compare-by-score workspace) %)
                                (= (:HypPreference params) "arbitrary")
-                               #(my-shuffle %)
-                               :else
-                               #(sort (partial compare-by-score workspace) %))
+                               #(my-shuffle %))
               expl-sorter (cond (= (:ContrastPreference params) "delta")
-                                (fn [hs] (sort #(compare-by-delta
-                                                 workspace (:expl %1) (:expl %2)) hs))
+                                (fn [hs] (sort #(compare-by-delta workspace %1 %2) hs))
                                 (= (:ContrastPreference params) "arbitrary")
-                                #(my-shuffle %)
-                                :else
-                                (fn [hs] (sort #(compare-by-delta
-                                                 workspace (:expl %1) (:expl %2)) hs)))]
+                                #(my-shuffle %))]
           (expl-sorter (doall (map #(update-in % [:expl] hyp-sorter) explainers))))))
 
 (defn update-sorted-explainers
@@ -335,8 +337,9 @@
               ws-conflicts (if conflicts
                              (prof :accept-reject-many (reject-many ws-expl conflicts))
                              ws-expl)
-              ws-needs-exp (prof :accept-needs-exp
-                                 (assoc-needing-explanation ws-conflicts hyp))
+              ws-needs-exp (if-not (:needs-explainer? hyp) ws-conflicts
+                                   (prof :accept-needs-exp
+                                         (assoc-needing-explanation ws-conflicts hyp)))
               ws-occur (if-let [occur-id (first (:co-occurrence hyp))]
                          (assoc (update-in ws-needs-exp [:occurrences] conj occur-id)
                            :dirty true)

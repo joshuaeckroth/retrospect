@@ -23,6 +23,8 @@
 (def hyp-selected (atom nil))
 (def workspace-selected (atom nil))
 (def hyp-id (ref ""))
+(def hyp-apriori-label (label "Apriori:"))
+(def hyp-conditional-label (label "Cond:"))
 (def hyp-score-label (label "Score:"))
 (def hyp-truefalse-label (label "T/F:"))
 (def hyp-accepted-label (label "Acc:"))
@@ -104,10 +106,16 @@
                                                                       (:id hyp))))))))
         boosts (str/join ", " (map str (sort-by :name alphanum (:boosts hyp))))
         conflicts (str/join ", " (map str (sort-by :name alphanum
-                                                   (ws/find-conflicts-all workspace hyp))))]
-    (. hyp-score-label setText (format "Score: %.2f" (ws/lookup-score workspace hyp)))
+                                                 (ws/find-conflicts-all workspace hyp))))]
+    (. hyp-apriori-label setText
+       (format "Apriori: %.2f" (:apriori hyp)))
+    (. hyp-conditional-label setText
+       (format "Cond: %.2f" (ws/lookup-conditional-score workspace hyp)))
+    (. hyp-score-label setText
+       (format "Score: %.2f" (ws/lookup-score workspace hyp)))
     (. hyp-truefalse-label setText
-       (if ((:true-hyp?-fn (:abduction @problem)) @truedata time hyp) "TF: True" "TF: False"))
+       (if ((:true-hyp?-fn (:abduction @problem)) @truedata time hyp)
+         "TF: True" "TF: False"))
     (. hyp-accepted-label setText
        (if (ws/accepted? workspace hyp) "Acc: True" "Acc: False"))
     (dosync
@@ -167,18 +175,22 @@
                          (.setFont (Font. "Sans" Font/PLAIN 10)))
                        (panel :layout (GridBagLayout.)
                               :constrains (java.awt.GridBagConstraints.)
-                              [:gridx 0 :gridy 0 :gridwidth 3 :weightx 1.0 :weighty 1.0
+                              [:gridx 0 :gridy 0 :gridwidth 5 :weightx 1.0 :weighty 1.0
                                :fill :BOTH :insets (Insets. 5 5 5 5)
                                _ (log-box hyp-id)
 
                                :gridy 1 :gridwidth 1 :weighty 0.0
-                               _ hyp-score-label
+                               _ hyp-apriori-label
                                :gridx 1
-                               _ hyp-truefalse-label
+                               _ hyp-conditional-label
                                :gridx 2
+                               _ hyp-score-label
+                               :gridx 3
+                               _ hyp-truefalse-label
+                               :gridx 4
                                _ hyp-accepted-label
 
-                               :gridy 2 :gridx 0 :gridwidth 4 :weighty 1.0
+                               :gridy 2 :gridx 0 :gridwidth 5 :weighty 1.0
                                _ (log-box hyp-explains)
 
                                :gridy 3

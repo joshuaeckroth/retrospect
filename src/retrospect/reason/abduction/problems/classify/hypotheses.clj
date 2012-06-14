@@ -6,8 +6,12 @@
 
 (defn generate-kb
   [training]
-  [(new-hyp "KB" :kb :kb false (constantly false)
-            [] [] "" "" {:known-cats (:known-cats training)})])
+  [(new-hyp "KB" :kb :kb 1.0 false (constantly false)
+            [] [] "" ""
+            {:known-cats (:known-cats training)
+             :cat-probs (:cat-probs training)
+             :cat-word-probs (:cat-word-probs training)
+             :word-prob-ranges (:word-prob-ranges training)})])
 
 (defn get-kb
   [accepted lookup-hyp]
@@ -16,13 +20,15 @@
 (defn make-sensor-hyps
   [sensor time-prev time-now accepted lookup-hyp]
   (prof :make-sensor-hyps
-        (mapcat (fn [[docid words]]
-                  (map (fn [word]
-                       (new-hyp "Word" :word :word true nil
-                                [] [] word (format "%s from %s" word docid)
-                                {:docid docid :word word}))
-                     words))
-                (sensed-at sensor (inc time-prev)))))
+        (let [kb (get-kb accepted lookup-hyp)]
+          (mapcat (fn [[docid words]]
+                    (map (fn [word]
+                         (new-hyp "Word" :word :word
+                                  (apply - (get (:word-prob-ranges kb) word [0.5 0.5]))
+                                  true nil [] [] word (format "%s from %s" word docid)
+                                  {:docid docid :word word}))
+                       words))
+                  (sensed-at sensor (inc time-prev))))))
 
 (comment
   (defn conflicts?
@@ -40,11 +46,15 @@
           (doall
            (mapcat (fn [cat]
                      (map (fn [word-hyp]
-                          (new-hyp cat :category [cat (:word word-hyp)]
-                                   false nil [word-hyp]
-                                   [cat (disj (:known-cats kb) cat)]
-                                   cat (format "%s is cat %s" (:docid word-hyp) cat)
-                                   {:categories [cat] :word (:word word-hyp)
-                                    :docid (:docid word-hyp)}))
+                          (let [word (:word word-hyp)
+                                docid (:docid word-hyp)]
+                            (new-hyp cat :category [cat word]
+                                     (get (:cat-probs kb) cat 0.5)
+                                     false nil [word-hyp] []
+                                     cat (format "%s is category %s" docid cat)
+                                     {:categories [cat] :word word :docid docid})))
                         word-hyps))
                    (sort (:known-cats kb)))))))
+
+(comment
+  [cat (disj (:known-cats kb) cat)])
