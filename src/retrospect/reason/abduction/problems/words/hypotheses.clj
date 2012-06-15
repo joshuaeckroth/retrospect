@@ -32,7 +32,18 @@
    (= (:id hyp1) (:id hyp2)) false
    (or (= :symbol (:type hyp1)) (= :symbol (:type hyp2))) false
    (and (= :tag (:type hyp1)) (= :tag (:type hyp2)))
-   (= (:pos hyp1) (:pos hyp2))
+   (or (= (:pos hyp1) (:pos hyp2))
+       (let [first-hyp (if (< (:pos hyp1) (:pos hyp2)) hyp1 hyp2)
+             second-hyp (if (< (:pos hyp1) (:pos hyp2)) hyp2 hyp1)]
+         (and (= (inc (:pos first-hyp)) (:pos second-hyp))
+              (or (and (= :Start (:tag first-hyp))
+                       (not (#{:Middle :End} (:tag second-hyp))))
+                  (and (= :Middle (:tag first-hyp))
+                       (not (#{:Middle :End} (:tag second-hyp))))
+                  (and (= :End (:tag first-hyp))
+                       (not (#{:Start :Only} (:tag second-hyp))))
+                  (and (= :Only (:tag first-hyp))
+                       (not (#{:Start :Only} (:tag second-hyp))))))))
    :else false))
 
 (defn get-kb
