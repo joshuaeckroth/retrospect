@@ -1,13 +1,10 @@
 (ns retrospect.reason.abduction.evaluate
-  (:require [clojure.set :as set])
   (:require [clojure.string :as str])
-  (:use [loom.graph :only [incoming nodes neighbors]])
-  (:use [loom.alg-generic :only [dijkstra-span]])
   (:use [retrospect.epistemicstates :only [cur-ep]])
   (:use [retrospect.evaluate :only [calc-increase]])
   (:use [retrospect.reason.abduction.workspace
-         :only [get-unexp-pct get-noexp-pct lookup-score calc-doubt calc-coverage
-                accepted? lookup-score lookup-hyp find-conflicts-all explains]])
+         :only [get-unexp-pct get-noexp-pct calc-doubt calc-coverage
+                accepted? lookup-hyp]])
   (:use [retrospect.state]))
 
 (defn group-hyps-by-true-false
@@ -34,10 +31,8 @@
   [workspace true-false]
   (let [scores (reduce (fn [m t]
                     (assoc m t
-                           {true (map #(lookup-score workspace %)
-                                    (get (get true-false t) true))
-                            false (map #(lookup-score workspace %)
-                                     (get (get true-false t) false))}))
+                           {true (map :apriori (get (get true-false t) true))
+                            false (map :apriori (get (get true-false t) false))}))
                   {} (keys true-false))
         avg (fn [vals] (if (empty? vals) 0.0 (/ (reduce + vals) (count vals))))]
     (reduce (fn [m t]
@@ -56,85 +51,6 @@
              (keyword (format "AvgFalseScore%s" k))
              (avg (get (get scores t) false)))))
        {} (keys true-false))))
-
-(defn get-best-true
-  [workspace hyps true-false-types]
-  (first (reverse (sort-by #(lookup-score workspace %)
-                           (filter #(get-in true-false-types [:individual (:id %)]) hyps)))))
-
-(defn update-training
-  [workspace true-false-types unexplained]
-  (let [bests (reverse (sort-by :delta (:best (:log workspace))))
-        biggest-mistake (first (drop-while
-                                #(get-in true-false-types [:individual (:id (:best %))])
-                                bests))
-        wrong-choice (:best biggest-mistake)
-        correct-conflicting (when wrong-choice
-                              (get-best-true
-                               workspace (find-conflicts-all workspace wrong-choice)
-                               true-false-types))
-        better-choice (or (get-best-true workspace (:alts biggest-mistake) true-false-types)
-                          correct-conflicting)
-        delta (when better-choice (Math/abs (- (lookup-score workspace wrong-choice)
-                                               (lookup-score workspace better-choice))))
-        training-adjust (:TrainingAdjustment params)
-        adjust (if delta (+ (* 0.50 delta) training-adjust))
-        wrong-prior
-        (get-in workspace
-                [:scores [(:type wrong-choice) (:subtype wrong-choice)]] 0.5)
-        better-prior
-        (get-in workspace
-                [:scores [(:type better-choice) (:subtype better-choice)]] 0.5)]
-    ;; don't adjust too much
-    (if (and adjust (> adjust (:TrainingMaxAdjust params))) workspace
-        (cond better-choice
-              (-> workspace
-                 (update-in [:score-adjustments
-                             [(:type wrong-choice) (:subtype wrong-choice)]]
-                            conj (max 0.0 (- wrong-prior adjust)))
-                 (assoc-in [:scores
-                            [(:type wrong-choice) (:subtype wrong-choice)]]
-                           (max 0.0 (- wrong-prior adjust)))
-                 (update-in [:score-adjustments
-                             [(:type better-choice) (:subtype better-choice)]]
-                            conj (min 1.0 (+ better-prior adjust)))
-                 (assoc-in [:scores
-                            [(:type better-choice) (:subtype better-choice)]]
-                           (min 1.0 (+ better-prior adjust))))
-              ;; check if this happens any more now that we have merges/splits
-              wrong-choice
-              (-> workspace
-                 (update-in [:score-adjustments
-                             [(:type wrong-choice) (:subtype wrong-choice)]]
-                            conj (max 0.0 (- wrong-prior training-adjust)))
-                 (assoc-in [:scores
-                            [(:type wrong-choice) (:subtype wrong-choice)]]
-                           (max 0.0 (- wrong-prior training-adjust))))
-              ;; no wrong choice, meanining nothing wrong was accepted
-              ;; so there must be unexplained data (that had
-              ;; explainers); so increase scores on all true hyps,
-              ;; decrease scores on all false hyps
-              (not-empty unexplained)
-              (let [ws-penalized
-                    (reduce (fn [ws h]
-                         (let [prior (get-in ws [:scores [(:type h) (:subtype h)]] 0.5)]
-                           (-> ws
-                              (update-in [:score-adjustments [(:type h) (:subtype h)]]
-                                         conj (max 0.0 (- prior training-adjust)))
-                              (assoc-in [:scores [(:type h) (:subtype h)]]
-                                        (max 0.0 (- prior training-adjust))))))
-                       workspace (filter #(not= :kb (:type %))
-                                    (get-in true-false-types [:all false])))]
-                (reduce (fn [ws h]
-                     (let [prior (get-in ws [:scores [(:type h) (:subtype h)]] 0.5)]
-                       (-> ws
-                          (update-in [:score-adjustments [(:type h) (:subtype h)]]
-                                     conj (min 1.0 (+ prior training-adjust)))
-                          (assoc-in [:scores [(:type h) (:subtype h)]]
-                                    (min 1.0 (+ prior training-adjust))))))
-                   ws-penalized (filter #(not= :kb (:type %))
-                                   (get-in true-false-types [:all true]))))
-              :else workspace))))
 
 (defn evaluate
   [truedata est]

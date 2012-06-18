@@ -107,7 +107,7 @@
                              time-prev time-now sensors)
         ;; stop the clock
         ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
-        meta-est-eval (if training? meta-est (evaluate truedata meta-est))
+        meta-est-eval (evaluate truedata meta-est)
         ors-est (assoc ors-new :est meta-est-eval :sensors sensors)
         ors-results (update-in ors-est [:resources :milliseconds] + ms)]
     (when (:Stats params)
@@ -126,39 +126,11 @@
       (do (println "") ors)
       (recur (run-simulation-step truedata ors false)))))
 
-(defn train
-  [training or-state]
-  (profile
-   (loop [i 0
-          or-state or-state]
-     (if (= i 1) or-state
-         (recur (inc i)
-                (let [batch-orig @batch]
-                  (dosync (alter batch (constantly true)))
-                  (binding [training? true
-                            params (assoc params
-                                     :Steps ((:count-truedata-fn @problem) (:test training))
-                                     :GrowEst (= "Tracking" (:name @problem))
-                                     :UpdateKB true)]
-                    (println "training with" (:Steps params) "steps")
-                    (let [ors (run-simulation training or-state)
-                          ws ((:extract-training-fn @reason)
-                              (:workspace (cur-ep (:est or-state)))
-                              (:workspace (cur-ep (:est ors))))
-                          ep-ws (assoc (cur-ep (:est or-state)) :workspace ws)
-                          ors-trained (update-in or-state [:est] update-est ep-ws)]
-                      (dosync (alter batch (constantly batch-orig)))
-                      ors-trained))))))))
-
 (defn init-ors
   [sensors training]
-  (profile
-   (train training
-          (let [est (init-est ((:init-kb-fn @reason)
-                               ((:init-workspace-fn @reason))
-                               training))]
-            {:resources {:milliseconds 0 :meta-accepted 0 :meta-activations 0}
-             :sensors sensors :est est}))))
+  (let [est (init-est ((:init-kb-fn @reason) ((:init-workspace-fn @reason)) training))]
+    {:resources {:milliseconds 0 :meta-accepted 0 :meta-activations 0}
+     :sensors sensors :est est}))
 
 (def global-default-params
   {:Metareasoning ["none" ["none" "learn"]]
@@ -166,8 +138,7 @@
    :UpdateKB [true [true false]]
    :Oracle ["none" ["none"]]
    :Steps [10 [10]]
-   :Stats [false [false]]
-   :TrainingStats [false [false]]})
+   :Stats [false [false]]})
 
 (defn get-default-params-ranges
   []

@@ -1,6 +1,6 @@
 (ns retrospect.problems.words.problem
   (:use [retrospect.reason.abduction.problems.words.evaluate :only
-         [evaluate evaluate-comp true-hyp? stats training-stats]])
+         [evaluate evaluate-comp true-hyp? stats]])
   (:use [retrospect.problems.words.truedata :only [generate-truedata]])
   (:use [retrospect.problems.words.sensors :only [generate-sensors perturb]])
   (:use [retrospect.reason.abduction.problems.words.hypotheses :only
@@ -30,10 +30,8 @@
                :evaluate-comp-fn evaluate-comp
                :update-kb-fn update-kb
                :stats-fn stats
-               :training-stats-fn training-stats
                :true-hyp?-fn true-hyp?
-               :hyp-types [:word :notword :merge :split]
-               :default-params {:HypTypes ["words", "wordslr"]}}
+               :hyp-types [:word :tag]}
    :default-params
    {:Steps [50 [50]]
     :StepsBetween [1 [1]]
@@ -41,9 +39,7 @@
     :ResetSensors [true [true]]
     :GrowEst [true [true]]
     :SensorNoise [0 [0]]
-    :NoComposites [false [true false]]
     :Dataset ["pku_training" ["carroll" "cityu_training" "as_training"
                               "msr_training" "pku_training"]]
     :ShortFirst [false [false]]
-    :TestIsTraining [false [false]]    
-    :DefaultMergeSplit ["merge" ["merge" "split"]]}})
+    :TestIsTraining [false [false]]}})

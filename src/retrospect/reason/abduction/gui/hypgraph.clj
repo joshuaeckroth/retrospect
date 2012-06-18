@@ -19,7 +19,7 @@
 (def hyp-id (ref ""))
 (def hyp-id-label (doto (label "")
                     (.setFont (Font. "WenQuanYi Micro Hei" Font/PLAIN 12))))
-(def hyp-score-label (label "Score:"))
+(def hyp-apriori-label (label "Apriori:"))
 (def hyp-truefalse-label (label "T/F:"))
 (def hyp-accepted-label (label "Acc:"))
 (def hyp-explains (ref ""))
@@ -45,7 +45,7 @@
             conflicts (str/join ", " (map str (sort-by :id alphanum
                                                        (ws/find-conflicts workspace hyp))))]
         (. hyp-id-label setText (format "%s %s" (:id hyp) (:short-str hyp)))
-        (. hyp-score-label setText (format "Score: %.2f" (ws/lookup-score workspace hyp)))
+        (. hyp-apriori-label setText (format "Apriori: %.2f" (:apriori hyp)))
         (. hyp-truefalse-label setText
            (if ((:true-hyp?-fn (:abduction @problem))
                 @truedata (:time (cur-ep (:est @or-state))) hyp)
@@ -75,7 +75,7 @@
           :gridy 1 :gridwidth 1 :gridx 0 :weightx 0.25 :weighty 0.0
           _ hyp-id-label
           :gridx 1
-          _ hyp-score-label
+          _ hyp-apriori-label
           :gridx 2
           _ hyp-truefalse-label
           :gridy 2 :gridx 0 :weighty 0.1

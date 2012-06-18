@@ -8,6 +8,7 @@
   (:use [retrospect.epistemicstates :only [cur-ep ep-path]])
   (:use [retrospect.reason.abduction.workspace :only
          [lookup-hyp calc-doubt]])
+  (:use [retrospect.problems.words.truedata :only [extract-tags-word]])
   (:use [loom.graph :only [weight]])
   (:use [retrospect.profile :only [prof]])
   (:use [retrospect.logging])
@@ -22,6 +23,8 @@
               (let [sent (nth (:test-tags truedata) (dec time-now))
                     [_ tag] (nth sent (:pos hyp))]
                 (= tag (:tag hyp)))
+              (= :word (:type hyp))
+              false
               :else false)))
 
 (defn run-scorer
@@ -70,13 +73,22 @@
 
 (defn get-words
   [lookup-hyp ambiguous accepted unexplained]
-  (let [sent (apply str (for [{sym :sym tag :tag}
-                              (sort-by :pos (map lookup-hyp (get accepted :tag)))]
-                          (cond (= tag :Start) (format " %s" sym)
-                                (= tag :Only) (format " %s " sym)
-                                (= tag :End) (format "%s " sym)
-                                ;; i.e., :Middle
-                                :else sym)))]
+  (let [sym-tag-pairs
+        (sort-by :pos
+                 (set (concat
+                       (map #(select-keys (lookup-hyp %) [:sym :tag :pos])
+                          (get accepted :tag))
+                       (map (fn [[pos [sym tag]]] {:sym sym :tag tag :pos pos})
+                          (apply merge
+                                 (map #(zipmap (:pos-seq %) (extract-tags-word (:word %)))
+                                    (map lookup-hyp (get accepted :word))))))))
+        sent (apply str (map (fn [{:keys [sym tag]}]
+                             (cond (= tag "S") (format " %s" sym)
+                                   (= tag "O") (format " %s " sym)
+                                   (= tag "E") (format "%s " sym)
+                                   ;; i.e., "M"
+                                   :else sym))
+                           sym-tag-pairs))]
     (str/split sent #"\s+")))
 
 (defn evaluate
@@ -120,9 +132,6 @@
     (reduce (fn [m w] (assoc m w (map (fn [i] (reduce + (map count (take i sentence))))
                               (filter #(= w (nth sentence %)) (range (count sentence))))))
        {} oov)))
-
-(defn training-stats
-  [workspace false-accepted unexplained truedata time-now cycle])
 
 (defn stats
   [truedata ors time-now]

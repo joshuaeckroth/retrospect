@@ -13,24 +13,24 @@
   (:use [retrospect.state]))
 
 (defrecord Hypothesis
-    [id name type subtype features apriori needs-explainer? conflicts?-fn
-     explains co-occurrence short-str desc data]
+    [id name type subtype apriori needs-explainer? conflicts?-fn
+     explains short-str desc data]
   Object
   (toString [self] (format "%s(%s)" name short-str))
   Comparable
   (compareTo [self other] (compare (hash self) (hash other))))
 
 (defn new-hyp
-  [prefix type subtype features apriori needs-explainer? conflicts?-fn
-   explains co-occurrence short-str desc data]
+  [prefix type subtype apriori needs-explainer? conflicts?-fn
+   explains short-str desc data]
   (prof :new-hyp
         (let [id (inc last-id)]
           (set-last-id id)
           (assoc
               (merge (Hypothesis.
                       id (format "%s%d" prefix id)
-                      type subtype features apriori needs-explainer? conflicts?-fn
-                      explains co-occurrence short-str desc data)
+                      type subtype apriori needs-explainer? conflicts?-fn
+                      explains short-str desc data)
                      data)
             :contents (assoc data :type type :subtype subtype)))))
 
@@ -41,19 +41,13 @@
     (:explains hyp)))
 
 (defmethod print-method Hypothesis
-  [o w]
-  (print-simple (format "%s(%s)" (:name o) (:short-str o)) w))
+  [h w]
+  (print-simple (format "%s(%s)/%.2f" (:name h) (:short-str h) (:apriori h)) w))
 
 (def empty-workspace
   {:graph (digraph)
    :oracle nil
    :cycle 0
-   ;; hyp type => hyp feature => score
-   :scores {}
-   ;; hyp co-occurrence type => hyp co-occurrence type => score
-   :co-occurrence-scores {}
-   ;; set of occurrence-ids of accepted hyps ("occurrences")
-   :occurrences #{}
    :log {:best [] :accrej {}}
    ;; keyed by hypid
    :hyp-log {}
@@ -96,66 +90,6 @@
         (doall (map #(lookup-hyp workspace (first %))
                   (filter (fn [[hypid expls]] (empty? expls)) (seq (:explainers workspace)))))))
 
-(defn increase-score
-  [workspace hyp feature-id feature]
-  (let [prior (get-in workspace [:scores (:type hyp) (:subtype hyp)
-                                 feature-id feature] [1 2])]
-    (assoc-in workspace [:scores (:type hyp) (:subtype hyp) feature-id feature]
-              (vec (map inc prior)))))
-
-(defn decrease-score
-  [workspace hyp feature-id feature]
-  (let [prior (get-in workspace [:scores (:type hyp) (:subtype hyp)
-                                 feature-id feature] [1 2])]
-    (assoc-in workspace [:scores (:type hyp) (:subtype hyp) feature-id feature]
-              [(first prior) (inc (second prior))])))
-
-(defn increase-co-occurrence
-  [workspace occur-id co-occur-id]
-  (let [occur-pair (vec (sort [occur-id co-occur-id]))
-        prior (get-in workspace [:co-occurrence-scores occur-pair] [1 2])]
-    (assoc-in workspace [:co-occurrence-scores occur-pair]
-              (vec (map inc prior)))))
-
-(defn decrease-co-occurrence
-  [workspace occur-id co-occur-id]
-  (let [occur-pair (vec (sort [occur-id co-occur-id]))
-        prior (get-in workspace [:co-occurrence-scores occur-pair] [1 2])]
-    (assoc-in workspace [:co-occurrence-scores occur-pair]
-              [(first prior) (inc (second prior))])))
-
-(defn lookup-feature-score
-  [workspace hyp feature-id feature]
-  (let [score-frac (get-in workspace [:scores (:type hyp) (:subtype hyp)
-                                      feature-id feature] [1 2])]
-    (apply / (map double score-frac))))
-
-(defn lookup-score
-  [workspace hyp]
-  (prof :lookup-score
-        (cond
-         (not (:UseScores params)) 1.0
-         ((:oracle-types workspace) (:type hyp)) (if ((:oracle workspace) hyp) 1.0 0.0)
-         :else
-         (let [feature-scores (map (fn [[feature-id feature]]
-                                   (lookup-feature-score workspace hyp feature-id feature))
-                                 (filter second (seq (:features hyp))))
-               most-sig-feature-score (last (sort-by #(Math/abs (- % 0.5)) feature-scores))
-               score (if most-sig-feature-score
-                       (* (:apriori hyp) most-sig-feature-score)
-                       (:apriori hyp))
-               occur-id (first (:co-occurrence hyp))
-               occur-fracs (map (fn [co-occur-id]
-                                (get-in workspace [:co-occurrence-scores
-                                                   (vec (sort [occur-id co-occur-id]))]
-                                        [1 2]))
-                              (filter (:occurrences workspace) (second (:co-occurrence hyp))))
-               occur-score (when (not-empty occur-fracs)
-                             (last (sort-by #(Math/abs (- % 0.5))
-                                            (map (fn [frac] (apply / (map double frac)))
-                                               occur-fracs))))]
-           (if-not occur-score score (/ (+ score occur-score) 2.0))))))
-
 (defn compare-by-score
   "Since we are using probabilities, smaller value = less
    confidence. We want most confident first. With equal confidences,
@@ -163,8 +97,7 @@
    fails, comparison is done by the :id's (to keep it deterministic)."
   [workspace hyp1 hyp2]
   (prof :compar-by-conf-expl
-        (let [conf-diff (double (- (lookup-score workspace hyp1)
-                                   (lookup-score workspace hyp2)))
+        (let [conf-diff (double (- (:apriori hyp1) (:apriori hyp2)))
               expl (- (compare (count (explains hyp1))
                                (count (explains hyp2))))
               explainers (- (compare
@@ -177,19 +110,18 @@
   [workspace {hyp1 :hyp expl1 :expl} {hyp2 :hyp expl2 :expl}]
   (prof :compare-by-delta
         (let [delta-fn (fn [hyps] (if (second hyps)
-                                    (- (lookup-score workspace (first hyps))
-                                       (lookup-score workspace (second hyps)))
-                                    (lookup-score workspace (first hyps))))
+                                    (- (:apriori (first hyps)) (:apriori (second hyps)))
+                                    (:apriori (first hyps))))
               expl1-delta (delta-fn expl1)
               expl2-delta (delta-fn expl2)]
           ;; prefer explained hyps (hyp1/hyp2) with higher apriori values
           (if (= 0 (compare (:apriori hyp1) (:apriori hyp2)))
             (if (= 0 (compare expl1-delta expl2-delta))
-              (if (= 0 (compare (lookup-score workspace (first expl1))
-                                (lookup-score workspace (first expl2))))
+              (if (= 0 (compare (:apriori (first expl1))
+                                (:apriori (first expl2))))
                 (compare (:id (first expl1)) (:id (first expl2)))
-                (- (compare (lookup-score workspace (first expl1))
-                            (lookup-score workspace (first expl2)))))
+                (- (compare (:apriori (first expl1))
+                            (:apriori (first expl2)))))
               (- (compare expl1-delta expl2-delta)))
             (- (compare (:apriori hyp1) (:apriori hyp2)))))))
 
@@ -256,7 +188,8 @@
         (let [expls (get-in workspace [:explainers (:id hyp)])]
           (-> workspace
              (update-in [:sorted-explainers-explained] conj (:id hyp))
-             (assoc-in [:explainers (:id hyp)] expls) ;; put the key in even if expls is empty
+             ;; put the key in even if expls is empty
+             (assoc-in [:explainers (:id hyp)] expls)
              (assoc-in [:sorted-explainers (:id hyp)] expls)
              (assoc :dirty true)))))
 
@@ -347,13 +280,9 @@
                              ws-expl)
               ws-needs-exp (if-not (:needs-explainer? hyp) ws-conflicts
                                    (prof :accept-needs-exp
-                                         (assoc-needing-explanation ws-conflicts hyp)))
-              ws-occur (if-let [occur-id (first (:co-occurrence hyp))]
-                         (assoc (update-in ws-needs-exp [:occurrences] conj occur-id)
-                           :dirty true)
-                         ws-needs-exp)]
+                                         (assoc-needing-explanation ws-conflicts hyp)))]
           (prof :accept-final
-                (update-in ws-occur [:log :accrej (:cycle ws-occur)] conj
+                (update-in ws-needs-exp [:log :accrej (:cycle ws-needs-exp)] conj
                            {:acc hyp :rej conflicts})))))
 
 (defn add-fact
@@ -400,7 +329,7 @@
                                 (:all (:accepted workspace)))]
           (if (empty? acc-not-forced)
             (if (empty? (:sorted-explainers-explained workspace)) 0.0 1.0)
-            (let [confs (map #(lookup-score workspace (lookup-hyp workspace %))
+            (let [confs (map #(:apriori (lookup-hyp workspace %))
                            acc-not-forced)]
               (/ (reduce + 0.0 (map #(- 1.0 %) confs)) (count confs)))))))
 
@@ -446,8 +375,7 @@
                                     (get (:sorted-explainers workspace) explid)))
                   best (first choices)
                   nbest (second choices)
-                  delta (- (lookup-score workspace best)
-                           (lookup-score workspace nbest))]            
+                  delta (- (:apriori best) (:apriori nbest))]            
               (when (>= delta threshold)
                 {:best best :essential? false :delta delta
                  :explained expl :alts (rest choices)}))))))
@@ -498,30 +426,13 @@
                 (if-not best
                   (do (log "No best. Done.")
                       ws-explainers)
-                  (do (log "Best is" (:id best) (lookup-score ws-explainers best))
+                  (do (log "Best is" (:id best) (:apriori best))
                       (let [ws-accepted
                             (let [ws-logged (-> ws-explainers
                                                (update-in [:cycle] inc)
                                                (update-in [:log :best] conj b))]
                               (accept ws-logged best explained delta essential?))]
                         (recur ws-accepted))))))))))
-
-(comment
-  (defn revise
-    [workspace hyp]
-    ;; don't 'revise' if already accepted this hyp
-    (if (some #{(:id hyp)} (get-in workspace [:accepted (:type hyp)])) workspace
-        ;; here is "belief revision" in all its glory
-        (let [conflicts (filter (set (map #(lookup-hyp workspace %)
-                                          (apply concat (vals (:accepted workspace)))))
-                                (map #(lookup-hyp workspace %) (:conflicts hyp)))]
-          #_(println "revising with" hyp "conflicts" conflicts)
-          (-> (reduce (fn [ws h] (update-in ws [:accepted (:type h)] disj (:id h)))
-                      workspace conflicts)
-              (add hyp)
-              (accept hyp [] nil false)
-              (assoc :prior-explainers nil)
-              (explain))))))
 
 (defn update-graph
   [workspace]
@@ -592,9 +503,7 @@
   [workspace]
   (prof :reset-workspace
         (add-kb (assoc empty-workspace :oracle (:oracle workspace)
-                       :oracle-types (:oracle-types workspace)
-                       :scores (:scores workspace)
-                       :co-occurrence-scores (:co-occurrence-scores workspace))
+                       :oracle-types (:oracle-types workspace))
                 (doall (map #(lookup-hyp workspace %)
                           (get-in workspace [:accepted :kb]))))))
 
@@ -604,28 +513,3 @@
         (assoc empty-workspace
           :oracle-types
           (set (map keyword (str/split (:Oracle params) #","))))))
-
-(defn extract-training
-  [ws-orig ws-trained]
-  (prof :extract-training
-        (add-kb (remove-kb (assoc ws-orig
-                             :scores (:scores ws-trained)
-                             :co-occurrence-scores (:co-occurrence-scores ws-trained)))
-                (doall (map #(lookup-hyp ws-trained %)
-                          (get-in ws-trained [:accepted :kb]))))))
-
-(defn inject-true-hyps
-  [workspace true-false-types]
-  (prof :inject-true-hyps
-        (reduce (fn [ws h]
-             (-> ws
-                (update-in [:accepted (:type h)] conj (:id h))
-                (update-in [:hypotheses (:type h)] conj (:id h))
-                (update-in [:hypotheses :all] conj (:id h))
-                (assoc-in [:hyp-ids (:id h)] h)))
-           (-> workspace
-              (assoc :sorted-explainers {}
-                     :sorted-explainers-explained '())
-              (update-in [:accepted :all]
-                         (set/union (set (map :id (get-in true-false-types [:all true]))))))
-           (get-in true-false-types [:all true]))))
