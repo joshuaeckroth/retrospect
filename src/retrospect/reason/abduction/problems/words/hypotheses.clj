@@ -78,6 +78,7 @@
         words (get-words lookup-hyp sym-string accepted unexplained)
         old-kb (get-kb accepted lookup-hyp)
         new-dict (reduce conj (:dict old-kb) words)]
+    ;; TODO: update freqs as well
     [(assoc old-kb :dict new-dict)]))
 
 (defn find-dict-words
@@ -126,10 +127,9 @@
          (map (fn [s-hyps]
               (let [word (apply str (map :sym s-hyps))
                     containing-words (filter #(substring? word %)
-                                        (filter #(> (count %) (count word))
-                                           (:dict kb)))
+                                        (filter #(> (count %) (count word)) (:dict kb)))
                     containing-freq-sum (reduce + (+ 2 (get dict-freqs word))
-                                           (map #(get dict-freqs %) containing-words))
+                                           (map #(get dict-freqs % 0) containing-words))
                     pos-seq (map :pos s-hyps)]
                 (new-hyp "Word" :word :word
                          (/ (double (get dict-freqs word 1))
