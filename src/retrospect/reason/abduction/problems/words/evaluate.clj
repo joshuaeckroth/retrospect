@@ -108,19 +108,34 @@
                       eps)
           sentences (map (fn [i] (nth (:test-sentences truedata) i)) (range time-now))
           [prec recall f-score oov-rate oov-recall iv-recall]
-          (run-scorer sentences believed (:dict (:training truedata)))]
+          (run-scorer sentences believed (:dict (:training truedata)))
+          [crf-prec crf-recall crf-f-score crf-oov-rate crf-oov-recall crf-iv-recall]
+          (run-scorer sentences (take time-now (:crf-output truedata))
+                      (:dict (:training truedata)))]
       {:Prec prec
        :Recall recall
        :FScore f-score
        :OOVRate oov-rate
        :OOVRecall oov-recall
-       :IVRecall iv-recall})
+       :IVRecall iv-recall
+       :CRFPrec crf-prec
+       :CRFRecall crf-recall
+       :CRFFScore crf-f-score
+       :CRFOOVRate crf-oov-rate
+       :CRFOOVRecall crf-oov-recall
+       :CRFIVRecall crf-iv-recall})
     {:Prec 0.0
      :Recall 0.0
      :FScore 0.0
      :OOVRate 0.0
      :OOVRecall 0.0
-     :IVRecall 0.0}))
+     :IVRecall 0.0
+     :CRFPrec 0.0
+     :CRFRecall 0.0
+     :CRFFScore 0.0
+     :CRFOOVRate 0.0
+     :CRFOOVRecall 0.0
+     :CRFIVRecall 0.0}))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]

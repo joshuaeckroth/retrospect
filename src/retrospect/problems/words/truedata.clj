@@ -25,6 +25,22 @@
   [sents]
   (str/join "\n" (map (fn [sent] (apply str (map crf-format-word sent))) sents)))
 
+(defn extract-crf-output
+  [marginals]
+  (for [sent (str/split marginals #"\n\n")]
+    (let [tags (map (fn [[sym _ tag-score-pair & _]]
+                    [sym (first (str/split tag-score-pair #"/"))])
+                  (map #(vec (str/split % #"\s+"))
+                     ;; skip first line of each test, which gives
+                     ;; overall confidence score
+                     (rest (str/split-lines sent))))]
+      (str/split (apply str (for [[sym tag] tags]
+                              (cond (= tag "S") (format " %s" sym)
+                                    (= tag "O") (format " %s " sym)
+                                    (= tag "E") (format "%s " sym)
+                                    :else sym)))
+                 #"\s+"))))
+
 (defn extract-crf-scores
   [marginals]
   (let [tests (str/split marginals #"\n\n")]
@@ -57,8 +73,6 @@
 (defn extract-tags
   [sents]
   (vec (map (fn [sent] (vec (mapcat extract-tags-word sent))) sents)))
-
-(comment )
 
 (defn generate-truedata
   []
@@ -122,6 +136,9 @@
                   (extract-crf-scores
                    (slurp (format "%s/words/%s-%d-%d.scores"
                              @datadir (:Dataset params) (:Seed params) split-location))))
+         crf-output (extract-crf-output (slurp (format "%s/words/%s-%d-%d.scores"
+                                                  @datadir (:Dataset params)
+                                                  (:Seed params) split-location)))
          ambiguous (map #(apply str %) test)
          ambiguous-training (map #(apply str %) training)]
      {:training {:test (zipmap (range (count ambiguous-training)) ambiguous-training)
@@ -132,4 +149,5 @@
                  :dict-tree dict-tree}
       :test (zipmap (range (count ambiguous)) ambiguous)
       :test-sentences test
-      :test-tags test-tags})))
+      :test-tags test-tags
+      :crf-output crf-output})))
