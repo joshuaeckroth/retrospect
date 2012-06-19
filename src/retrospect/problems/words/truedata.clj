@@ -89,7 +89,8 @@
          test-tags (extract-tags test)
          training (if (:TestIsTraining params) test training2)
          training-tags (extract-tags training)
-         training-dict (set (apply concat training))
+         training-dict-freqs (frequencies (apply concat training))
+         training-dict (set (keys training-dict-freqs))
          test-dict (set (apply concat test))
          dict-tree (let [dict-tree (AhoCorasick.)]
                      (doseq [w (set/union training-dict test-dict)]
@@ -146,7 +147,8 @@
                  :test-tags training-tags
                  :scores scores
                  :dict training-dict
-                 :dict-tree dict-tree}
+                 :dict-tree dict-tree
+                 :dict-freqs training-dict-freqs}
       :test (zipmap (range (count ambiguous)) ambiguous)
       :test-sentences test
       :test-tags test-tags

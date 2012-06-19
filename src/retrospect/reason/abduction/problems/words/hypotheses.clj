@@ -1,5 +1,6 @@
 (ns retrospect.reason.abduction.problems.words.hypotheses
   (:require [clojure.string :as str])
+  (:use [clojure.contrib.string :only [substring?]])
   (:require [clojure.set :as set])
   (:use [loom.graph :only [has-edge? weight edges neighbors incoming]])
   (:use [retrospect.profile :only [prof]])
@@ -16,7 +17,8 @@
   [training]
   [(new-hyp "KB" :kb :kb 1.0 false nil
             [] "" "" {:dict-tree (:dict-tree training) :dict (:dict training)
-                      :scores (:scores training)})])
+                      :scores (:scores training)
+                      :dict-freqs (:dict-freqs training)})])
 
 (defn make-sensor-hyps
   [sensor time-prev time-now accepted lookup-hyp]
@@ -104,7 +106,8 @@
                         (map (fn [[w i]]
                              (subvec symbol-hyps (max 0 i) (min (count symbol-hyps)
                                                                 (+ i (count w)))))
-                           (find-dict-words sym-string (:dict-tree kb) (:dict kb)))))]
+                           (find-dict-words sym-string (:dict-tree kb) (:dict kb)))))
+        dict-freqs (:dict-freqs kb)]
     (concat
      ;; tag hyps
      (mapcat
@@ -122,9 +125,19 @@
          ;; word hyps
          (map (fn [s-hyps]
               (let [word (apply str (map :sym s-hyps))
+                    containing-words (filter #(substring? word %)
+                                        (filter #(> (count %) (count word))
+                                           (:dict kb)))
+                    containing-freq-sum (reduce + (+ 2 (get dict-freqs word))
+                                           (map #(get dict-freqs %) containing-words))
                     pos-seq (map :pos s-hyps)]
-                (new-hyp "Word" :word :word 0.7
+                (new-hyp "Word" :word :word
+                         (/ (double (get dict-freqs word 1))
+                            (double containing-freq-sum))
                          false conflicts? s-hyps
-                         word (format "%s\npos-seq: %s" word (str/join "," pos-seq))
+                         word (format "%s\npos-seq: %s\nfreq: %d\ncontaining: %s (%d)"
+                                 word (str/join "," pos-seq) (get dict-freqs word 0)
+                                 (str/join ", " containing-words)
+                                 containing-freq-sum)
                          {:word word :pos-seq pos-seq})))
             (sort-by (comp :pos first) words))))))
