@@ -42,4 +42,5 @@
     :Dataset ["pku_training" ["carroll" "cityu_training" "as_training"
                               "msr_training" "pku_training"]]
     :ShortFirst [false [false]]
-    :TestIsTraining [false [false]]}})
+    :TestIsTraining [false [false]]
+    :IncludeWords [true [true false]]}})

@@ -29,11 +29,11 @@
 (defn calc-true-false-scores
   "Find average scores for true hyps, average scores for false hyps."
   [workspace true-false]
-  (let [scores (reduce (fn [m t]
-                    (assoc m t
-                           {true (map :apriori (get (get true-false t) true))
-                            false (map :apriori (get (get true-false t) false))}))
-                  {} (keys true-false))
+  (let [aprioris (reduce (fn [m t]
+                      (assoc m t
+                             {true (map :apriori (get (get true-false t) true))
+                              false (map :apriori (get (get true-false t) false))}))
+                    {} (keys true-false))
         avg (fn [vals] (if (empty? vals) 0.0 (/ (reduce + vals) (count vals))))]
     (reduce (fn [m t]
          (let [k (apply str (map str/capitalize (str/split (name t) #"-")))]
@@ -46,10 +46,10 @@
              (count (filter #(accepted? workspace %) (get (get true-false t) true)))
              (keyword (format "FalseAcc%s" k))
              (count (filter #(accepted? workspace %) (get (get true-false t) false)))
-             (keyword (format "AvgTrueScore%s" k))
-             (avg (get (get scores t) true))
-             (keyword (format "AvgFalseScore%s" k))
-             (avg (get (get scores t) false)))))
+             (keyword (format "AvgTrueApriori%s" k))
+             (avg (get (get aprioris t) true))
+             (keyword (format "AvgFalseApriori%s" k))
+             (avg (get (get aprioris t) false)))))
        {} (keys true-false))))
 
 (defn evaluate

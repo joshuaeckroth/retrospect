@@ -36,14 +36,14 @@
        (let [[first-hyp second-hyp] (if (< (:pos hyp1) (:pos hyp2))
                                         [hyp1 hyp2] [hyp2 hyp1])]
          (and (= (inc (:pos first-hyp)) (:pos second-hyp))
-              (or (and (= :Start (:tag first-hyp))
-                       (not (#{:Middle :End} (:tag second-hyp))))
-                  (and (= :Middle (:tag first-hyp))
-                       (not (#{:Middle :End} (:tag second-hyp))))
-                  (and (= :End (:tag first-hyp))
-                       (not (#{:Start :Only} (:tag second-hyp))))
-                  (and (= :Only (:tag first-hyp))
-                       (not (#{:Start :Only} (:tag second-hyp))))))))
+              (or (and (= "S" (:tag first-hyp))
+                       (not (#{"M" "E"} (:tag second-hyp))))
+                  (and (= "M" (:tag first-hyp))
+                       (not (#{"M" "E"} (:tag second-hyp))))
+                  (and (= "E" (:tag first-hyp))
+                       (not (#{"S" "O"} (:tag second-hyp))))
+                  (and (= "O" (:tag first-hyp))
+                       (not (#{"S" "O"} (:tag second-hyp))))))))
    (and (= :word (:type hyp1)) (= :word (:type hyp2)))
    (let [[first-word second-word] (if (<= (first (:pos-seq hyp1)) (first (:pos-seq hyp2)))
                                     [hyp1 hyp2] [hyp2 hyp1])
@@ -118,12 +118,13 @@
                         {:pos (:pos s-hyp) :sym (:sym s-hyp) :tag tag}))
              tag-apriori)))
       symbol-hyps)
-     ;; word hyps
-     (map (fn [s-hyps]
-          (let [word (apply str (map :sym s-hyps))
-                pos-seq (map :pos s-hyps)]
-            (new-hyp "Word" :word :word 0.5
-                     false conflicts? s-hyps
-                     word (format "%s\npos-seq: %s" word (str/join "," pos-seq))
-                     {:word word :pos-seq pos-seq})))
-        (sort-by (comp :pos first) words)))))
+     (if (not (:IncludeWords params)) []
+         ;; word hyps
+         (map (fn [s-hyps]
+              (let [word (apply str (map :sym s-hyps))
+                    pos-seq (map :pos s-hyps)]
+                (new-hyp "Word" :word :word 0.7
+                         false conflicts? s-hyps
+                         word (format "%s\npos-seq: %s" word (str/join "," pos-seq))
+                         {:word word :pos-seq pos-seq})))
+            (sort-by (comp :pos first) words))))))

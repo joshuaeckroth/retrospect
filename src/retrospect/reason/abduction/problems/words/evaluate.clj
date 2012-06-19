@@ -24,7 +24,10 @@
                     [_ tag] (nth sent (:pos hyp))]
                 (= tag (:tag hyp)))
               (= :word (:type hyp))
-              false
+              (let [sent (nth (:test-tags truedata) (dec time-now))
+                    word-tags (zipmap (:pos-seq hyp) (extract-tags-word (:word hyp)))]
+                (every? (fn [[pos sym-tag-pair]] (= sym-tag-pair (nth sent pos)))
+                        word-tags))
               :else false)))
 
 (defn run-scorer
@@ -69,7 +72,7 @@
              (println (format "prec: %.2f, recall: %.2f, f-score: %.2f, oov-recall: %.2f, oov-rate: %.2f"
                          prec recall f-score oov-recall oov-rate)))
            [prec recall f-score oov-rate oov-recall iv-recall]))
-       (catch Exception e (do (log e) [0.0 0.0 0.0 0.0 0.0 0.0 0.0]))))
+       (catch Exception e (do (log e) (println e) [0.0 0.0 0.0 0.0 0.0 0.0 0.0]))))
 
 (defn get-words
   [lookup-hyp ambiguous accepted unexplained]
