@@ -51,22 +51,21 @@
 (defn extract-crf-output-tags
   [marginals]
   (let [sents (str/split marginals #"\n\n")]
-    (apply concat
-           (for [sent sents]
-             (let [tags (map #(vec (str/split % #"\s+"))
-                           ;; skip first line of each test, which gives
-                           ;; overall confidence score
-                           (rest (str/split-lines sent)))]
-               (for [[sym true-tag & tag-score-pairs] tags]
-                 [sym true-tag (first (str/split (first tag-score-pairs) #"/"))
-                  (reverse (sort-by second (map #(let [[tag score] (str/split % #"/")]
-                                                 [tag (Double/parseDouble score)])
-                                              (rest tag-score-pairs))))]))))))
+    (for [sent sents]
+      (let [tags (map #(vec (str/split % #"\s+"))
+                    ;; skip first line of each test, which gives
+                    ;; overall confidence score
+                    (rest (str/split-lines sent)))]
+        (for [[sym true-tag & tag-score-pairs] tags]
+          [sym true-tag (first (str/split (first tag-score-pairs) #"/"))
+           (reverse (sort-by second (map #(let [[tag score] (str/split % #"/")]
+                                          [tag (Double/parseDouble score)])
+                                       (rest tag-score-pairs))))])))))
 
 (defn extract-crf-output
   [marginals]
-  (for [tags (extract-crf-output-tags marginals)]
-    (str/split (apply str (for [[sym _ tag _] tags]
+  (for [sent-tags (extract-crf-output-tags marginals)]
+    (str/split (apply str (for [[sym _ tag _] sent-tags]
                             (cond (= tag "S") (format " %s" sym)
                                   (= tag "O") (format " %s " sym)
                                   (= tag "E") (format "%s " sym)
