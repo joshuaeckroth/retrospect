@@ -112,7 +112,7 @@
         ors-results (update-in ors-est [:resources :milliseconds] + ms)]
     (when (:Stats params)
       ((:stats-fn @reason) truedata ors-results time-now))
-    (when (not player?)
+    (when (and (not player?) (not (:Stats params)))
       (.write System/out (int \.))
       (when (= 0 (mod time-now 1000)) (.print System/out (str time-now)))
       (.flush System/out))
@@ -174,7 +174,8 @@
                   control-sensors ((:generate-sensors-fn @problem))
                   control-ors (profile (init-ors control-sensors
                                                  (:training control-truedata)))]
-              (println "Control:" (pr-str control-params))
+              (when (not (:Stats params))
+                (println "Control:" (pr-str control-params)))
               (map (fn [rs] (assoc rs :control-params (pr-str control-params)
                                    :comparison-params (pr-str comparison-params)))
                    (let [ors-final (run-simulation control-truedata control-ors)]
@@ -187,7 +188,8 @@
                   comparison-sensors ((:generate-sensors-fn @problem))
                   comparison-ors (profile (init-ors comparison-sensors
                                                     (:training comparison-truedata)))]
-              (println "Comparison:" (pr-str comparison-params))
+              (when (not (:Stats params))
+                (println "Comparison:" (pr-str comparison-params)))
               (map (fn [rs] (assoc rs
                               :control-params (pr-str control-params)
                               :comparison-params (pr-str comparison-params)))
@@ -207,7 +209,8 @@
         (let [truedata (profile ((:generate-truedata-fn @problem)))
               sensors ((:generate-sensors-fn @problem))
               ors (profile (init-ors sensors (:training truedata)))]
-          (println "Params:" (pr-str params))
+          (when (not (:Stats params))
+            (println "Params:" (pr-str params)))
           (map (fn [rs] (assoc rs :params (pr-str params)))
                (let [ors-final (run-simulation truedata ors)]
                  (:results (cur-ep (:est ors-final))))))))))
