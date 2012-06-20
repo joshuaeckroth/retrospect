@@ -43,4 +43,5 @@
                               "msr_training" "pku_training"]]
     :ShortFirst [false [false]]
     :TestIsTraining [false [false]]
-    :IncludeWords [true [true false]]}})
+    :IncludeWords [true [true false]]
+    :IncludeTags [true [true false]]}})

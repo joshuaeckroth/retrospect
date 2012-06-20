@@ -112,18 +112,19 @@
                            (find-dict-words sym-string (:dict-tree kb) (:dict kb)))))
         dict-freqs (:dict-freqs kb)]
     (concat
-     ;; tag hyps
-     (mapcat
-      (fn [s-hyp]
-        (let [[_ tag-apriori] (nth scores (:pos s-hyp))]
-          (map (fn [[tag apriori]]
-               (new-hyp tag :tag tag apriori
-                        false conflicts? [s-hyp]
-                        (format "%s:%s" tag (:sym s-hyp))
-                        (format "%s:%s\npos: %d" tag (:sym s-hyp) (:pos s-hyp))
-                        {:pos (:pos s-hyp) :sym (:sym s-hyp) :tag tag}))
-             tag-apriori)))
-      symbol-hyps)
+     (if (not (:IncludeTags params)) []
+         ;; tag hyps
+         (mapcat
+          (fn [s-hyp]
+            (let [[_ tag-apriori] (nth scores (:pos s-hyp))]
+              (map (fn [[tag apriori]]
+                   (new-hyp tag :tag tag apriori
+                            false conflicts? [s-hyp]
+                            (format "%s:%s" tag (:sym s-hyp))
+                            (format "%s:%s\npos: %d" tag (:sym s-hyp) (:pos s-hyp))
+                            {:pos (:pos s-hyp) :sym (:sym s-hyp) :tag tag}))
+                 tag-apriori)))
+          symbol-hyps))
      (if (not (:IncludeWords params)) []
          ;; word hyps
          (map (fn [s-hyps]
