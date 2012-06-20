@@ -24,8 +24,8 @@
   [sensor time-prev time-now accepted lookup-hyp]
   (map (fn [[sym pos]]
        (new-hyp "Symbol" :symbol :symbol 1.0 true nil
-                [] (format "%s" sym) (format "Symbol: %s, pos: %d" sym pos)
-                {:pos pos :sym sym :time (inc time-prev)}))
+                [] (str sym) (format "Symbol: %s, pos: %d" sym pos)
+                {:pos pos :sym (str sym) :time (inc time-prev)}))
      (sensed-at sensor (inc time-prev))))
 
 (defn conflicts?
@@ -77,9 +77,11 @@
         sym-string (apply str (map :sym (sort-by :pos symbol-hyps)))
         words (get-words lookup-hyp sym-string accepted unexplained)
         old-kb (get-kb accepted lookup-hyp)
-        new-dict (reduce conj (:dict old-kb) words)]
-    ;; TODO: update freqs as well
-    [(assoc old-kb :dict new-dict)]))
+        new-dict (reduce conj (:dict old-kb) words)
+        new-dict-freqs (reduce (fn [m w] (let [prior (get m w 0)]
+                                     (assoc m w (inc prior))))
+                          (:dict-freqs old-kb) words)]
+    [(assoc old-kb :dict new-dict :dict-freqs new-dict-freqs)]))
 
 (defn find-dict-words
   [sym-string dict-tree dict]
@@ -118,7 +120,7 @@
                (new-hyp tag :tag tag apriori
                         false conflicts? [s-hyp]
                         (format "%s:%s" tag (:sym s-hyp))
-                        (format "%s:%s" tag (:sym s-hyp))
+                        (format "%s:%s\npos: %d" tag (:sym s-hyp) (:pos s-hyp))
                         {:pos (:pos s-hyp) :sym (:sym s-hyp) :tag tag}))
              tag-apriori)))
       symbol-hyps)
