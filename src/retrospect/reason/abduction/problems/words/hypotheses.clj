@@ -128,9 +128,11 @@
               (let [word (apply str (map :sym s-hyps))
                     containing-words (filter #(substring? word %)
                                         (filter #(> (count %) (count word)) (:dict kb)))
-                    containing-freq-sum (reduce + (+ 2 (get dict-freqs word))
+                    containing-freq-sum (reduce + (+ 2 (get dict-freqs word 0))
                                            (map #(get dict-freqs % 0) containing-words))
                     pos-seq (map :pos s-hyps)]
+                (when (nil? (get dict-freqs word))
+                  (println word sym-string))
                 (new-hyp "Word" :word :word
                          (/ (double (get dict-freqs word 1))
                             (double containing-freq-sum))
