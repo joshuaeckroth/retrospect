@@ -376,7 +376,8 @@
                   best (first choices)
                   nbest (second choices)
                   delta (- (:apriori best) (:apriori nbest))]            
-              (when (>= delta threshold)
+              (when (or (not ((:conflicts?-fn best) best nbest))
+                        (>= delta threshold))
                 {:best best :essential? false :delta delta
                  :explained expl :alts (rest choices)}))))))
 
