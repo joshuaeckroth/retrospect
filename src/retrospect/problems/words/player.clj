@@ -6,7 +6,7 @@
   (:use [retrospect.epistemicstates :only [cur-ep]])
   (:use [retrospect.reason.abduction.problems.words.evaluate :only
          [get-words find-oov]])
-  (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
+  (:use [retrospect.reason.abduction.workspace :only [lookup-hyp get-unexplained]])
   (:use [retrospect.state]))
 
 (def fscore-label (label ""))
@@ -46,22 +46,24 @@
 (defn player-get-truedata-log
   []
   (if (= @time-now 0) ""
-      (let [sentence (nth (:test-sentences @truedata) (dec @time-now))]
+      (let [sentence (nth (:test-sentences-nonoise @truedata) (dec @time-now))]
         (format "%s\n\n%s\n\nOOV: %s"
-                (get (:test @truedata) (dec @time-now))
-                (str/join " __ " sentence)
-                (str/join ", " (map (fn [[w positions]]
-                                      (format "%s (%s)" w (str/join ", " (map str positions))))
-                                    (seq (find-oov @truedata @time-now))))))))
+           (get (:test-nonoise @truedata) (dec @time-now))
+           (str/join " __ " sentence)
+           (str/join ", " (map (fn [[w positions]]
+                               (format "%s (%s)" w (str/join ", " (map str positions))))
+                             (seq (find-oov @truedata @time-now))))))))
 
 (defn player-get-problem-log
   []
   (let [ws (:workspace (cur-ep (:est @or-state)))
         accepted (:accepted ws)
-        unexplained (:unexplained (:log ws))]
-    (str/join " __ " (get-words (partial lookup-hyp ws)
-                                (get (:test @truedata) (dec @time-now))
-                                accepted unexplained))))
+        unexplained (get-unexplained ws)]
+    (format "%s\n\n%s"
+       (get (:test @truedata) (dec @time-now))
+       (str/join " __ " (get-words (partial lookup-hyp ws)
+                                   (get (:test @truedata) (dec @time-now))
+                                   accepted unexplained)))))
 
 (defn player-setup-diagram
   [])

@@ -86,7 +86,7 @@
                    "Accepted" (list-hyps (map #(ws/lookup-hyp ws %)
                                               (apply concat (vals (:accepted ws)))))
                    "No explainers" (list-hyps (ws/find-no-explainers ws))
-                   "Unexplained" (list-hyps (ws/get-unexplained wslog))
+                   "Unexplained" (list-hyps (ws/get-unexplained ws))
                    "Unaccepted" (list-hyps (ws/find-unaccepted ws))}))]
     (apply sorted-map-by anc
            (mapcat (fn [ep] [(str ep) (assoc (ws-fn (:workspace ep) (:time ep)) "Log" nil)])

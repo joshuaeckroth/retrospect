@@ -49,22 +49,23 @@
                                                 (rest tag-score-pairs))))])))))))
 
 (defn extract-crf-output-tags
-  [marginals]
-  (let [sents (str/split marginals #"\n\n")]
-    (for [sent sents]
-      (let [tags (map #(vec (str/split % #"\s+"))
-                    ;; skip first line of each test, which gives
-                    ;; overall confidence score
-                    (rest (str/split-lines sent)))]
-        (for [[sym true-tag & tag-score-pairs] tags]
-          [sym true-tag (first (str/split (first tag-score-pairs) #"/"))
-           (reverse (sort-by second (map #(let [[tag score] (str/split % #"/")]
-                                          [tag (Double/parseDouble score)])
-                                       (rest tag-score-pairs))))])))))
+  [marginals sents]
+  (for [[tag-lines sent] (partition 2 (interleave (str/split marginals #"\n\n") sents))]
+    (let [tags (partition 2 (interleave
+                             (apply str sent)
+                             (map #(vec (str/split % #"\s+"))
+                                ;; skip first line of each test, which gives
+                                ;; overall confidence score
+                                (rest (str/split-lines tag-lines)))))]
+      (for [[sym [_ true-tag & tag-score-pairs]] tags]
+        [sym true-tag (first (str/split (first tag-score-pairs) #"/"))
+         (reverse (sort-by second (map #(let [[tag score] (str/split % #"/")]
+                                        [tag (Double/parseDouble score)])
+                                     (rest tag-score-pairs))))]))))
 
 (defn extract-crf-output
-  [marginals]
-  (for [sent-tags (extract-crf-output-tags marginals)]
+  [marginals sents]
+  (for [sent-tags (extract-crf-output-tags marginals sents)]
     (str/split (apply str (for [[sym _ tag _] sent-tags]
                             (cond (= tag "S") (format " %s" sym)
                                   (= tag "O") (format " %s " sym)
@@ -128,6 +129,19 @@
                        (.add dict-tree (.getBytes w) w))
                      (.prepare dict-tree)
                      dict-tree)
+         all-symbols (vec (set (apply concat (set/union training-dict test-dict))))
+         test-noisy (if (= 0 (:SensorNoise params)) test
+                        (vec (map (fn [sent]
+                                  (vec (map (fn [word]
+                                            (apply str
+                                                   (map (fn [sym]
+                                                        (if (< (my-rand)
+                                                               (/ (:SensorNoise params) 100.0))
+                                                          (my-rand-nth all-symbols)
+                                                          sym))
+                                                      word)))
+                                          sent)))
+                                test)))
          scores (do
                   (when (or (not (.exists (File. (format "%s/words/%s-%d-%d.crf-input-training"
                                                     @datadir (:Dataset params)
@@ -147,7 +161,7 @@
                           (crf-format training))
                     (spit (format "%s/words/%s-%d-%d.crf-input-test"
                              @datadir (:Dataset params) (:Seed params) split-location)
-                          (crf-format test))
+                          (crf-format test-noisy))
                     ;; train CRF
                     (sh "crf_learn" "-p" "4"
                         (format "%s/words/%s.crf-template" @datadir (:Dataset params))
@@ -171,13 +185,15 @@
          crf-output (extract-crf-output
                      (slurp (format "%s/words/%s-%d-%d.scores"
                                @datadir (:Dataset params)
-                               (:Seed params) split-location)))
+                               (:Seed params) split-location))
+                     test)
          crf-predicted-word-tags (extract-crf-output-word-tags
                                   (slurp (format "%s/words/%s-%d-%d.scores"
                                             @datadir (:Dataset params)
                                             (:Seed params) split-location))
                                   test training-dict)
-         ambiguous (map #(apply str %) test)
+         ambiguous (map #(apply str %) test-noisy)
+         ambiguous-nonoise (map #(apply str %) test)
          ambiguous-training (map #(apply str %) training)]
      {:training {:test (zipmap (range (count ambiguous-training)) ambiguous-training)
                  :test-sentences training
@@ -187,7 +203,9 @@
                  :dict-tree dict-tree
                  :dict-freqs training-dict-freqs}
       :test (zipmap (range (count ambiguous)) ambiguous)
-      :test-sentences test
+      :test-nonoise (zipmap (range (count ambiguous-nonoise)) ambiguous-nonoise)
+      :test-sentences test-noisy
+      :test-sentences-nonoise test
       :test-tags test-tags
       :crf-output crf-output
       :crf-predicted-word-tags crf-predicted-word-tags})))

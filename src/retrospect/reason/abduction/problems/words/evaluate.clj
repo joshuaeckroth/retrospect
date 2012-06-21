@@ -7,7 +7,7 @@
   (:use [retrospect.evaluate :only [calc-increase avg]])
   (:use [retrospect.epistemicstates :only [cur-ep ep-path]])
   (:use [retrospect.reason.abduction.workspace :only
-         [lookup-hyp calc-doubt]])
+         [lookup-hyp calc-doubt get-unexplained]])
   (:use [retrospect.problems.words.truedata :only [extract-tags-word]])
   (:use [loom.graph :only [weight]])
   (:use [retrospect.profile :only [prof]])
@@ -77,22 +77,64 @@
 
 (defn get-words
   [lookup-hyp ambiguous accepted unexplained]
-  (let [sym-tag-pairs
-        (sort-by :pos
-                 (set (concat
-                       (map #(select-keys (lookup-hyp %) [:sym :tag :pos])
-                          (get accepted :tag))
-                       (map (fn [[pos [sym tag]]] {:sym sym :tag tag :pos pos})
-                          (apply merge
-                                 (map #(zipmap (:pos-seq %) (extract-tags-word (:word %)))
-                                    (map lookup-hyp (get accepted :word))))))))
-        sent (apply str (map (fn [{:keys [sym tag]}]
-                             (cond (= tag "S") (format " %s" sym)
-                                   (= tag "O") (format " %s " sym)
-                                   (= tag "E") (format "%s " sym)
-                                   ;; i.e., "M"
-                                   :else sym))
-                           sym-tag-pairs))]
+  (let [tags (sort-by :pos (set (concat
+                                 (map #(select-keys (lookup-hyp %) [:tag :pos])
+                                    (get accepted :tag))
+                                 (map (fn [[pos [sym tag]]] {:tag tag :pos pos})
+                                    (apply merge
+                                           (map #(zipmap (:pos-seq %)
+                                                       (extract-tags-word (:word %)))
+                                              (map lookup-hyp (get accepted :word)))))
+                                 (mapcat (fn [hyps]
+                                         (if (= 1 (count hyps))
+                                           [{:tag "O" :pos (:pos (first hyps))}]
+                                           (concat [{:tag "S" :pos (:pos (first hyps))}]
+                                                   (map (fn [h] {:tag "M" :pos (:pos h)})
+                                                      (rest (butlast hyps)))
+                                                   [{:tag "E" :pos (:pos (last hyps))}])))
+                                       (loop [hyps (sort-by :pos (filter #(= :symbol (:type %))
+                                                                    unexplained))
+                                              grouped []
+                                              current-group []
+                                              last-pos 0]
+                                         (cond (empty? hyps)
+                                               (filter not-empty (conj grouped current-group))
+                                               (< last-pos (:pos (first hyps)))
+                                               (recur hyps (conj grouped current-group)
+                                                      [] (:pos (first hyps)))
+                                               :else
+                                               (recur (rest hyps) grouped
+                                                      (conj current-group (first hyps))
+                                                      (inc last-pos))))))))
+        sent (apply str (loop [ts tags
+                               prior nil
+                               built []]
+                          (if (empty? ts) built
+                              (let [{:keys [pos tag]} (first ts)]
+                                (cond (and (= prior "O") (not (#{"S" "O"} tag)))
+                                      (recur (rest ts) "S"
+                                             (conj built (format " %s" (nth ambiguous pos))))
+                                      (and (= prior "S") (not (#{"E" "M"} tag)))
+                                      (recur (rest ts) "M"
+                                             (conj built (nth ambiguous pos)))
+                                      (and (= prior "M") (not (#{"E" "M"} tag)))
+                                      (recur (rest ts) "S"
+                                             (conj built (format " %s" (nth ambiguous pos))))
+                                      (and (= prior "E") (not (#{"S" "O"} tag)))
+                                      (recur (rest ts) "S"
+                                             (conj built (format " %s" (nth ambiguous pos))))
+                                      (= tag "S")
+                                      (recur (rest ts) "S"
+                                             (conj built (format " %s" (nth ambiguous pos))))
+                                      (= tag "O")
+                                      (recur (rest ts) "O"
+                                             (conj built (format " %s " (nth ambiguous pos))))
+                                      (= tag "E")
+                                      (recur (rest ts) "E"
+                                             (conj built (format "%s " (nth ambiguous pos))))
+                                      :else
+                                      (recur (rest ts) "M"
+                                             (conj built (nth ambiguous pos))))))))]
     (str/split sent #"\s+")))
 
 (defn evaluate
@@ -103,11 +145,11 @@
           time-now (:time (last eps))
           believed (map (fn [ep] (get-words
                                (partial lookup-hyp (:workspace ep))
-                               (get (:test truedata) (dec (:time ep)))
+                               (get (:test-nonoise truedata) (dec (:time ep)))
                                (:accepted (:workspace ep))
-                               (:unexplained (:log (:workspace ep)))))
+                               (get-unexplained (:workspace ep))))
                       eps)
-          sentences (map (fn [i] (nth (:test-sentences truedata) i)) (range time-now))
+          sentences (map (fn [i] (nth (:test-sentences-nonoise truedata) i)) (range time-now))
           [prec recall f-score oov-rate oov-recall iv-recall]
           (run-scorer sentences believed (:dict (:training truedata)))
           [crf-prec crf-recall crf-f-score crf-oov-rate crf-oov-recall crf-iv-recall]
@@ -146,7 +188,7 @@
 
 (defn find-oov
   [truedata time-now]
-  (let [sentence (nth (:test-sentences truedata) (dec time-now))
+  (let [sentence (nth (:test-sentences-nonoise truedata) (dec time-now))
         oov (set (filter #(not ((:dict (:training truedata)) %)) sentence))]
     (reduce (fn [m w] (assoc m w (map (fn [i] (reduce + (map count (take i sentence))))
                               (filter #(= w (nth sentence %)) (range (count sentence))))))
