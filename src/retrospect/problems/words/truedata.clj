@@ -142,55 +142,59 @@
                                                       word)))
                                           sent)))
                                 test)))
-         scores (do
-                  (when (or (not (.exists (File. (format "%s/words/%s-%d-%d.crf-input-training"
-                                                    @datadir (:Dataset params)
-                                                    (:Seed params) split-location))))
-                            (not (.exists (File. (format "%s/words/%s-%d-%d.crf-input-test"
-                                                    @datadir (:Dataset params)
-                                                    (:Seed params) split-location))))
-                            (not (.exists (File. (format "%s/words/%s-%d-%d.crf-model"
-                                                    @datadir (:Dataset params)
-                                                    (:Seed params) split-location))))
-                            (not (.exists (File. (format "%s/words/%s-%d-%d.scores"
-                                                    @datadir (:Dataset params)
-                                                    (:Seed params) split-location)))))
-                    ;; create input files
-                    (spit (format "%s/words/%s-%d-%d.crf-input-training"
-                             @datadir (:Dataset params) (:Seed params) split-location)
-                          (crf-format training))
-                    (spit (format "%s/words/%s-%d-%d.crf-input-test"
-                             @datadir (:Dataset params) (:Seed params) split-location)
-                          (crf-format test-noisy))
-                    ;; train CRF
-                    (sh "crf_learn" "-p" "4"
-                        (format "%s/words/%s.crf-template" @datadir (:Dataset params))
-                        (format "%s/words/%s-%d-%d.crf-input-training"
-                           @datadir (:Dataset params) (:Seed params) split-location)
-                        (format "%s/words/%s-%d-%d.crf-model"
-                           @datadir (:Dataset params) (:Seed params) split-location))
-                    ;; create scores file
-                    (spit
-                     (format "%s/words/%s-%d-%d.scores"
+         _ (do (when (or (not (.exists (File. (format "%s/words/%s-%d-%d.crf-input-training"
+                                                 @datadir (:Dataset params)
+                                                 (:Seed params) split-location))))
+                         (not (.exists (File. (format "%s/words/%s-%d-%d.crf-model"
+                                                 @datadir (:Dataset params)
+                                                 (:Seed params) split-location)))))
+                 (spit (format "%s/words/%s-%d-%d.crf-input-training"
+                          @datadir (:Dataset params) (:Seed params) split-location)
+                       (crf-format training))
+                 ;; train CRF
+                 (sh "crf_learn" "-p" "4"
+                     (format "%s/words/%s.crf-template" @datadir (:Dataset params))
+                     (format "%s/words/%s-%d-%d.crf-input-training"
                         @datadir (:Dataset params) (:Seed params) split-location)
-                     (:out
-                      (sh "crf_test" "-v2" "-m"
-                          (format "%s/words/%s-%d-%d.crf-model"
-                             @datadir (:Dataset params) (:Seed params) split-location)
-                          (format "%s/words/%s-%d-%d.crf-input-test"
-                             @datadir (:Dataset params) (:Seed params) split-location)))))
-                  (extract-crf-scores
-                   (slurp (format "%s/words/%s-%d-%d.scores"
-                             @datadir (:Dataset params) (:Seed params) split-location))))
+                     (format "%s/words/%s-%d-%d.crf-model"
+                        @datadir (:Dataset params) (:Seed params) split-location))))
+         scores (do (when (or (not (.exists (File. (format "%s/words/%s-%d-%d-%d.crf-input-test"
+                                                      @datadir (:Dataset params)
+                                                      (:Seed params) split-location
+                                                      (:SensorNoise params)))))
+                              (not (.exists (File. (format "%s/words/%s-%d-%d-%d.scores"
+                                                      @datadir (:Dataset params)
+                                                      (:Seed params) split-location
+                                                      (:SensorNoise params))))))
+                      (spit (format "%s/words/%s-%d-%d-%d.crf-input-test"
+                               @datadir (:Dataset params) (:Seed params)
+                               split-location (:SensorNoise params))
+                            (crf-format test-noisy))
+                      ;; create scores file
+                      (spit
+                       (format "%s/words/%s-%d-%d-%d.scores"
+                          @datadir (:Dataset params) (:Seed params)
+                          split-location (:SensorNoise params))
+                       (:out
+                        (sh "crf_test" "-v2" "-m"
+                            (format "%s/words/%s-%d-%d.crf-model"
+                               @datadir (:Dataset params) (:Seed params) split-location)
+                            (format "%s/words/%s-%d-%d-%d.crf-input-test"
+                               @datadir (:Dataset params) (:Seed params)
+                               split-location (:SensorNoise params))))))
+                    (extract-crf-scores
+                     (slurp (format "%s/words/%s-%d-%d-%d.scores"
+                               @datadir (:Dataset params) (:Seed params)
+                               split-location (:SensorNoise params)))))
          crf-output (extract-crf-output
-                     (slurp (format "%s/words/%s-%d-%d.scores"
-                               @datadir (:Dataset params)
-                               (:Seed params) split-location))
+                     (slurp (format "%s/words/%s-%d-%d-%d.scores"
+                               @datadir (:Dataset params) (:Seed params)
+                               split-location (:SensorNoise params)))
                      test)
          crf-predicted-word-tags (extract-crf-output-word-tags
-                                  (slurp (format "%s/words/%s-%d-%d.scores"
-                                            @datadir (:Dataset params)
-                                            (:Seed params) split-location))
+                                  (slurp (format "%s/words/%s-%d-%d-%d.scores"
+                                            @datadir (:Dataset params) (:Seed params)
+                                            split-location (:SensorNoise params)))
                                   test training-dict)
          ambiguous (map #(apply str %) test-noisy)
          ambiguous-nonoise (map #(apply str %) test)
