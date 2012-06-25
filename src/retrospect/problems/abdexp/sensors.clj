@@ -2,8 +2,8 @@
   (:use [retrospect.sensors :only [init-sensor add-sensed]]))
 
 (defn sense
-  [sensor expgraphs time]
-  (add-sensed sensor time (nth expgraphs (dec time))))
+  [sensor test time]
+  (add-sensed sensor time (get test time)))
 
 (defn generate-sensors
   []

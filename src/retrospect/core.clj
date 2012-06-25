@@ -8,7 +8,6 @@
   (:require [retrospect.state :as state])
   (:use [retrospect.database :only [read-params]])
   (:use [retrospect.reason.abduction.reason :only [reason-abduction]])
-  (:use [retrospect.reason.abdexp.reason :only [reason-abdexp]])
   (:use [retrospect.problems.tracking.problem :only [tracking-problem]])
   (:use [retrospect.problems.words.problem :only [words-problem]])
   (:use [retrospect.problems.classify.problem :only [classify-problem]])
@@ -37,9 +36,7 @@
 (defn choose-reason
   [reason]
   (cond (or (= "Abduction" reason) (= "abduction" reason))
-        reason-abduction
-        (or (= "AbdExp" reason) (= "abdexp" reason))
-        reason-abdexp))
+        reason-abduction))
 
 (defn -main [& args]
   (set-exception-handler)

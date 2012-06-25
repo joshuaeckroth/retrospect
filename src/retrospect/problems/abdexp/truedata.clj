@@ -94,4 +94,7 @@
 
 (defn generate-truedata
   []
-  {:test (repeatedly (:Steps params) #(random-expgraph-levels))})
+  (let [expgraphs (zipmap (range 1 (inc (:Steps params)))
+                          (repeatedly (:Steps params) #(random-expgraph-levels)))]
+    {:training {:test expgraphs}
+     :test expgraphs}))

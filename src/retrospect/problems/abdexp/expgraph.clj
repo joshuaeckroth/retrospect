@@ -13,11 +13,17 @@
   [expgraph vertex]
   (= "filled" (attr expgraph vertex :style)))
 
+(defn explains
+  [expgraph vertex]
+  (filter #(and (not= "none" (attr expgraph vertex % :dir))
+           (not= "none" (attr expgraph % vertex :dir)))
+     (neighbors expgraph vertex)))
+
 (defn explainers
   [expgraph vertex]
   (filter #(and (not= "none" (attr expgraph vertex % :dir))
-                (not= "none" (attr expgraph % vertex :dir)))
-          (incoming expgraph vertex)))
+           (not= "none" (attr expgraph % vertex :dir)))
+     (incoming expgraph vertex)))
 
 (defn unexplained?
   [expgraph vertex]
@@ -70,8 +76,9 @@
 (defn set-conflicts
   [expgraph [v1 v2]]
   (-> expgraph (add-edges [v1 v2])
-      (add-attr v1 v2 :style "dotted")
-      (add-attr v1 v2 :dir "none")))
+     (add-attr v1 v2 :style "dotted")
+     (add-attr v1 v2 :dir "none")
+     (add-attr v1 v2 :constraint false)))
 
 (defn consistent?
   [expgraph]
@@ -81,17 +88,17 @@
   [expgraph]
   (and (consistent? expgraph)
        (every? (fn [v] (some (fn [p] (filled? expgraph p))
-                             (explainers expgraph v)))
+                         (explainers expgraph v)))
                (filled-nodes expgraph))))
 
 (defn need-explanation
   [expgraph]
   (filter (fn [v] (and (not-empty (explainers expgraph v))
-                       (not-any? #(filled? expgraph %) (explainers expgraph v))))
-          (filled-nodes expgraph)))
+                 (not-any? #(filled? expgraph %) (explainers expgraph v))))
+     (filled-nodes expgraph)))
 
 (defn format-dot-expgraph
   [expgraph]
   (reduce (fn [eg v]
-            (add-attr eg v :label (format "%d / %.2f" v (attr eg v :score))))
-          expgraph (nodes expgraph)))
+       (add-attr eg v :label (format "%d / %.2f" v (attr eg v :score))))
+     expgraph (nodes expgraph)))
