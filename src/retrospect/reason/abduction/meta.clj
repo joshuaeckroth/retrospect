@@ -12,7 +12,7 @@
     (comment (or (not-empty (ws/find-no-explainers (:log workspace)))
                  (> 0.90 (ws/calc-coverage workspace))
                  (< 0.10 (ws/calc-doubt workspace))))
-    true))
+    (not-empty (ws/find-no-explainers (:log workspace)))))
 
 (comment (let [comp-cov (- (compare (:coverage ws1) (:coverage ws2)))]
            (if (not= 0 comp-cov) comp-cov
@@ -20,6 +20,4 @@
 
 (defn workspace-compare
   [ws-new ws-old]
-  (comment (if (< (ws/calc-doubt ws-new) (* 1.5 (ws/calc-doubt ws-old))) -1 1))
-  -1)
-
+  (if (< (ws/calc-doubt ws-new) (ws/calc-doubt ws-old)) -1 1))
