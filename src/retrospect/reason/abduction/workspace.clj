@@ -172,15 +172,25 @@
                   (map #(lookup-hyp workspace %)
                      (set (apply concat (vals (:sorted-explainers workspace)))))))))
 
+(defn clear-empty-explainers
+  [workspace]
+  (let [new-sorted-explainers (reduce (fn [m h] (if (empty? (get m h)) (dissoc m h) m))
+                                 (:sorted-explainers workspace) (keys (:sorted-explainers workspace)))]
+    (assoc workspace :sorted-explainers new-sorted-explainers
+           :sorted-explainers-explained
+           (filter #(get new-sorted-explainers %)
+              (:sorted-explainers-explained workspace)))))
+
 (defn dissoc-needing-explanation
   [workspace hyps]
   (prof :dissoc-needing-explanation
-        (reduce (fn [ws h]
-             (-> ws (assoc :sorted-explainers-explained
-                     (filter #(not= (:id h) %)
-                        (:sorted-explainers-explained ws)))
-                (update-in [:sorted-explainers] dissoc (:id h))))
-           workspace hyps)))
+        (clear-empty-explainers
+         (reduce (fn [ws h]
+              (-> ws (assoc :sorted-explainers-explained
+                      (filter #(not= (:id h) %)
+                         (:sorted-explainers-explained ws)))
+                 (update-in [:sorted-explainers] dissoc (:id h))))
+            workspace hyps))))
 
 (defn assoc-needing-explanation
   [workspace hyp]
@@ -210,10 +220,11 @@
   (prof :dissoc-explainer
         (do
           (log (format "Dissociating %s as an explainer" (str hyp)))
-          (reduce (fn [ws h] (assoc-in ws [:sorted-explainers (:id h)]
-                                 (filter #(not= (:id hyp) %)
-                                    (get-in ws [:sorted-explainers (:id h)]))))
-             workspace (explains hyp)))))
+          (clear-empty-explainers
+           (reduce (fn [ws h] (assoc-in ws [:sorted-explainers (:id h)]
+                                  (filter #(not= (:id hyp) %)
+                                     (get-in ws [:sorted-explainers (:id h)]))))
+              workspace (explains hyp))))))
 
 (defn reject-many
   "Each 'rejected' hypothesis will be removed from the list of hyps
@@ -222,15 +233,16 @@
    rejected hyp."
   [workspace hyps]
   (prof :reject-many
-        (reduce
-         (fn [ws hyp]
-           (log "Rejecting" hyp)
-           (let [ws2 (-> (dissoc-in ws [:sorted-explainers (:id hyp)])
-                        (dissoc-explainer hyp))]
-             (if @batch ws2
-                 (update-in ws2 [:hyp-log (:id hyp)] conj
-                            (format "Rejected in cycle %d" (:cycle workspace))))))
-         workspace hyps)))
+        (clear-empty-explainers
+         (reduce
+          (fn [ws hyp]
+            (log "Rejecting" hyp)
+            (let [ws2 (-> (dissoc-in ws [:sorted-explainers (:id hyp)])
+                         (dissoc-explainer hyp))]
+              (if @batch ws2
+                  (update-in ws2 [:hyp-log (:id hyp)] conj
+                             (format "Rejected in cycle %d" (:cycle workspace))))))
+          workspace hyps))))
 
 (defn add
   [workspace hyp]
@@ -381,7 +393,8 @@
                                     (get (:sorted-explainers workspace) explid)))
                   best (first choices)
                   nbest (second choices)
-                  delta (- (:apriori best) (:apriori nbest))]            
+                  delta (- (:apriori best) (:apriori nbest))]
+              (log "best:" best "nbest:" nbest "delta:" delta)
               (when (or (not ((:conflicts?-fn best) best nbest))
                         (>= delta threshold))
                 {:best best :essential? false :delta delta
@@ -431,7 +444,7 @@
               (let [{:keys [best essential? explained delta] :as b}
                     (find-best ws-explainers)]
                 (if-not best
-                  (do (log "No best. Done.")
+                  (do (log "No best. Explainers:" (:sorted-explainers ws-explainers))
                       ws-explainers)
                   (do (log "Best is" (:id best) (:apriori best))
                       (let [ws-accepted
