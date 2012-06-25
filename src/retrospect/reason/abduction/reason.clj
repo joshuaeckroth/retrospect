@@ -5,8 +5,6 @@
          :only [explain add-sensor-hyps init-workspace init-kb
                 update-hypotheses update-kb reset-workspace
                 calc-doubt calc-coverage]])
-  (:use [retrospect.reason.abduction.problems.words.evaluate :only [run-scorer get-words]])
-  (:use [retrospect.reason.abduction.problems.tracking.evaluate :only [evaluate-helper]])
   (:use [retrospect.reason.abduction.meta
          :only [metareasoning-activated? workspace-compare]])
   (:use [retrospect.reason.abduction.evaluate
