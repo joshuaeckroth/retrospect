@@ -31,9 +31,9 @@
                                (:TrainingSteps params)))
         training-movements (generate-movements training-steps)]
     {:test test-movements
-     :all-moves (set (apply concat (vals test-movements)))
+     :all-moves (set (filter :ot (apply concat (vals test-movements))))
      :training {:test training-movements
-                :all-moves (set (apply concat (vals training-movements)))}}))
+                :all-moves (set (filter :ot (apply concat (vals training-movements))))}}))
 
 (defn format-movements-comparative
   [true-movements believed-movements mintime maxtime]

@@ -1,7 +1,7 @@
 (ns retrospect.reason.abduction.problems.tracking.evaluate
   (:require [clojure.set :as set])
   (:use [retrospect.evaluate :only [calc-increase]])
-  (:use [retrospect.epistemicstates :only [cur-ep flatten-est]])
+  (:use [retrospect.epistemicstates :only [cur-ep ep-path]])
   (:use [retrospect.reason.abduction.workspace :only [lookup-hyp calc-doubt]])
   (:use [retrospect.profile :only [prof]])
   (:use [retrospect.state]))
@@ -37,32 +37,34 @@
   (set (filter #(and (:ot %) (<= (:time %) time-now))
           (:all-moves truedata))))
 
-(defn evaluate-helper
-  [truedata workspace time-now]
-  (let [true-movs (get-true-movements truedata time-now)
-        accepted (map #(lookup-hyp workspace %)
-                    (:movement (:accepted workspace)))
-        not-accepted (set/difference
-                      (set (map #(lookup-hyp workspace %)
-                              (:movement (:hypotheses workspace))))
-                      accepted)
-        acc-movs (map :mov accepted)
-        not-acc-movs (map :mov not-accepted)
-        [tp tn fp fn] (tp-tn-fp-fn true-movs acc-movs not-acc-movs)]
-    ;; http://en.wikipedia.org/wiki/Receiver_operating_characteristic
-    {:TP tp :TN tn :FP fp :FN fn
-     :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
-     :FPR (if (= 0 (+ fp tn)) 1.0 (/ (double fp) (double (+ fp tn))))
-     :F1 (if (= 0 (+ tp fp fn)) 1.0 (/ (double (* 2.0 tp))
-                                       (double (+ (* 2.0 tp) fp fn))))}))
-
 (defn evaluate
   [truedata est]
-  (prof :evaluate
-        (let [eps (rest (flatten-est est))
-              ws (:workspace (last eps))
-              time-now (:time (last eps))]
-          (evaluate-helper truedata ws time-now))))
+  (if (or (and (not training?) (not @batch))
+          (and (not training?) (= (:Steps params) (:time (cur-ep est)))))
+    (let [ep (cur-ep est)
+          ws (:workspace ep)
+          time-now (:time ep)
+          true-movs (get-true-movements truedata time-now)
+          accepted (map #(lookup-hyp ws %) (:movement (:accepted ws)))
+          not-accepted (set/difference
+                        (set (map #(lookup-hyp ws %)
+                                (:movement (:hypotheses ws))))
+                        accepted)
+          acc-movs (map :mov accepted)
+          not-acc-movs (map :mov not-accepted)
+          [tp tn fp fn] (tp-tn-fp-fn true-movs acc-movs not-acc-movs)]
+      (println {:TP tp :TN tn :FP fp :FN fn
+       :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
+       :FPR (if (= 0 (+ fp tn)) 1.0 (/ (double fp) (double (+ fp tn))))
+       :F1 (if (= 0 (+ tp fp fn)) 1.0 (/ (double (* 2.0 tp))
+                                         (double (+ (* 2.0 tp) fp fn))))})
+      ;; http://en.wikipedia.org/wiki/Receiver_operating_characteristic
+      {:TP tp :TN tn :FP fp :FN fn
+       :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
+       :FPR (if (= 0 (+ fp tn)) 1.0 (/ (double fp) (double (+ fp tn))))
+       :F1 (if (= 0 (+ tp fp fn)) 1.0 (/ (double (* 2.0 tp))
+                                         (double (+ (* 2.0 tp) fp fn))))})
+    {:TP 0 :TN 0 :FP 0 :FN 0 :TPR 0.0 :FPR 0.0 :F1 0.0}))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
@@ -70,27 +72,4 @@
                     [:TP :TN :FP :FN :TPR :FPR :F1])))
 
 (defn training-stats
-  [workspace false-accepted unexplained truedata time-now cycle]
-  (when (or (= 0 cycle) (= (:TrainingCycles params) cycle)
-            (and (= 0 (count false-accepted))
-                 (= 0 (count unexplained))))
-    (when (and (= 1 time-now) (= (:TrainingCycles params) cycle))
-      (.print System/out "time,pctfalseacc,doubt,maxadjlength,minadjustlength,avgadjustlength,avgmaxadjust,avgminadjust,numadjust,tpr,fpr,f1,begend\n"))
-    (let [adjustments (vals (:score-adjustments workspace))
-          max-adjust-length (if (empty? adjustments) 0 (apply max (map count adjustments)))
-          min-adjust-length (if (empty? adjustments) 0 (apply min (map count adjustments)))
-          avg-adjust-length (/ (double (reduce + (map count adjustments))) (double (count adjustments)))
-          avg-max-adjusted-score (/ (double (reduce + (map #(apply max 0.0 %) adjustments)))
-                                    (double (count adjustments)))
-          avg-min-adjusted-score (/ (double (reduce + (map #(apply min 1.0 %) adjustments)))
-                                    (double (count adjustments)))
-          {:keys [TPR FPR F1]} (evaluate-helper truedata workspace time-now)]
-      (.print System/out (format "%d,%.4f,%.4f,%d,%d,%.2f,%.2f,%.2f,%d,%.4f,%.4f,%.4f,\"%s\"\n"
-                            time-now
-                            (double (/ (count false-accepted)
-                                       (count (:forced workspace))))
-                            (calc-doubt workspace)
-                            max-adjust-length min-adjust-length avg-adjust-length
-                            avg-max-adjusted-score avg-min-adjusted-score
-                            (count adjustments) TPR FPR F1
-                            (if (= (:TrainingCycles params) cycle) "beg" "end"))))))
+  [workspace false-accepted unexplained truedata time-now cycle])

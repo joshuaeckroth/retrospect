@@ -12,8 +12,7 @@
 (defn generate-kb
   [training]
   (let [walk-dists (frequencies (map #(dist (:ox %) (:oy %) (:x %) (:y %))
-                                   ;; ignore initial entity locations
-                                   (filter :ox (:all-moves training))))]
+                                   (:all-moves training)))]
     [(new-hyp "KB" :kb :kb 1.0 false nil [] "" ""
               {:walk-dists walk-dists
                :walk-count (count (filter :ox (:all-moves training)))})]))
@@ -109,12 +108,12 @@
                 (:x det-color) (:y det-color)
                 (:x det2-color) (:y det2-color)
                 (:time det2-color) (color-str (:color det-color)))
-             (format "%d,%d -> %d,%d (dist=%.2f) at time %d (%s)"
+             (format "%d,%d -> %d,%d (dist=%.2f) at time %d->%d (%s)"
                 (:x det-color) (:y det-color)
                 (:x det2-color) (:y det2-color)
                 (dist (:x det-color) (:y det-color)
                       (:x det2-color) (:y det2-color))
-                (:time det2-color)
+                (:time det-color) (:time det2-color)
                 (color-str (:color det-color)))
              {:det det-color :det2 det2-color
               :mov {:x (:x det2-color) :y (:y det2-color) :time (:time det2-color)
@@ -156,7 +155,8 @@
   (let [{x1 :x y1 :y} (:det to)
         {x2 :x y2 :y} (:det from)
         d (dist x1 y1 x2 y2)]
-    (<= d (* (Math/sqrt 2) (:MaxWalk params)))))
+    (and (<= d (* (Math/sqrt 2) (:MaxWalk params)))
+         (= (:time (:det to)) (inc (:time (:det from)))))))
 
 (defn hypothesize
   [sensor-hyps accepted lookup-hyp]
