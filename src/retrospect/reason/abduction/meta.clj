@@ -12,12 +12,15 @@
     (comment (or (not-empty (ws/find-no-explainers (:log workspace)))
                  (> 0.90 (ws/calc-coverage workspace))
                  (< 0.10 (ws/calc-doubt workspace))))
-    (not-empty (ws/find-no-explainers (:log workspace)))))
+    (not-empty (ws/find-no-explainers workspace))))
 
 (comment (let [comp-cov (- (compare (:coverage ws1) (:coverage ws2)))]
            (if (not= 0 comp-cov) comp-cov
                (compare (:doubt ws1) (:doubt ws2)))))
 
+(comment (if (< (ws/calc-doubt ws-new) (ws/calc-doubt ws-old)) -1 1))
+
 (defn workspace-compare
   [ws-new ws-old]
-  (if (< (ws/calc-doubt ws-new) (ws/calc-doubt ws-old)) -1 1))
+  ;; we wanted to fix "no explainers"; so, did we?
+  (if (empty? (ws/find-no-explainers ws-new)) -1 1))
