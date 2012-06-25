@@ -61,8 +61,8 @@
     (intersection explained-vs (data-nodes expgraph))))
 
 (defn fill
-  [expgraph vertex]
-  (add-attr expgraph vertex :style "filled"))
+  [expgraph & vertices]
+  (reduce (fn [g v] (add-attr g v :style "filled")) expgraph vertices))
 
 (defn conflicts?
   [expgraph v1 v2]
@@ -100,5 +100,5 @@
 (defn format-dot-expgraph
   [expgraph]
   (reduce (fn [eg v]
-       (add-attr eg v :label (format "%d / %.2f" v (attr eg v :score))))
+       (add-attr eg v :label (format "%s / %.2f" (str v) (or (attr eg v :score) 1.0))))
      expgraph (nodes expgraph)))

@@ -6,7 +6,8 @@
   (:use [retrospect.reason.abduction.problems.abdexp.hypotheses :only
          [generate-kb make-sensor-hyps hypothesize update-kb]])
   (:use [retrospect.reason.abduction.problems.abdexp.evaluate :only
-         [evaluate evaluate-comp stats true-hyp?]]))
+         [evaluate evaluate-comp stats true-hyp?]])
+  (:use [retrospect.problems.abdexp.prepared :only [prepared-map]]))
 
 (def abdexp-problem
   {:name "AbdExp"
@@ -19,7 +20,7 @@
    :generate-truedata-fn generate-truedata
    :generate-sensors-fn generate-sensors
    :perturb-fn identity
-   :prepared-map {}
+   :prepared-map prepared-map
    :abduction {:generate-kb-fn generate-kb
                :make-sensor-hyps-fn make-sensor-hyps
                :hypothesize-fn hypothesize
@@ -37,5 +38,6 @@
                     :GrowEst [true [true]]
                     :SensorNoise [0 [0]]
                     :NumVertices [40 [40]]
+                    :NumLevels [3 [3]]
                     :MaxExplainLinks [10 [10]]
                     :MaxConflictLinks [10 [10]]}})
