@@ -23,7 +23,8 @@
         ws-old (:workspace new-ep)
         ws-new ((:reason-fn @reason)
                 (when (:Oracle params) truedata)
-                ((:reset-workspace-fn @reason) ws-old) time-prev time-now sensors)
+                (if (nil? sensors) ws-old ((:reset-workspace-fn @reason) ws-old))
+                time-prev time-now sensors)
         new-expl-est (update-est new-est (assoc new-ep :workspace ws-new))]
     (if (> 0 ((:workspace-compare-fn @reason) ws-new ws-old))
       new-expl-est
