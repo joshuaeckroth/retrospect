@@ -395,7 +395,8 @@
                   nbest (second choices)
                   delta (- (:apriori best) (:apriori nbest))]
               (log "best:" best "nbest:" nbest "delta:" delta)
-              (when (or (not ((:conflicts?-fn best) best nbest))
+              (when (or (nil? (:conflicts-fn? best))
+                        (not ((:conflicts?-fn best) best nbest))
                         (>= delta threshold))
                 {:best best :essential? false :delta delta
                  :explained expl :alts (rest choices)}))))))
