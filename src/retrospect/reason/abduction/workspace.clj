@@ -239,12 +239,18 @@
           #_(log "Adding" hyp)
           (if (prof :add-dup-search ((:hyp-contents workspace) (:contents hyp)))
             workspace
-            (let [ws (prof :add-ws-update
+            (let [hyp-oracle (if ((:oracle-types workspace) (:type hyp))
+                               (if ((:oracle workspace) hyp)
+                                 (assoc hyp :apriori 1.0)
+                                 (assoc hyp :apriori 0.0))
+                               hyp)
+                  ws (prof :add-ws-update
                            (-> workspace
-                              (update-in [:hyp-ids] assoc (:id hyp) hyp)
-                              (update-in [:hyp-contents] conj (:contents hyp))
-                              (assoc-explainer hyp)
-                              (update-in [:hypotheses (:type hyp)] conj (:id hyp))))]
+                              (update-in [:hyp-ids] assoc (:id hyp) hyp-oracle)
+                              (update-in [:hyp-contents] conj (:contents hyp-oracle))
+                              (assoc-explainer hyp-oracle)
+                              (update-in [:hypotheses (:type hyp-oracle)]
+                                         conj (:id hyp-oracle))))]
               (if @batch ws
                   (prof :add-graph-update
                         (let [g-added (reduce (fn [g h]
@@ -252,9 +258,9 @@
                                               (add-attr (:id h) :id (:id h))
                                               (add-attr (:id h) :label (:short-str h))))
                                          (:graph ws)
-                                         (conj (explains hyp) hyp))
-                              g-expl (reduce (fn [g e] (add-edges g [(:id hyp) (:id e)]))
-                                        g-added (explains hyp))]
+                                         (conj (explains hyp-oracle) hyp-oracle))
+                              g-expl (reduce (fn [g e] (add-edges g [(:id hyp-oracle) (:id e)]))
+                                        g-added (explains hyp-oracle))]
                           (assoc ws :graph g-expl)))))))))
 
 (defn accept
