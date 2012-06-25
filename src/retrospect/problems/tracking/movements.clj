@@ -77,7 +77,8 @@
                        ;; we're done
                        (= i 0) loc
                        ;; if we land in an occupied space, don't update pos
-                       (not-empty (entities-at movements nx ny time))
+                       (or (not-empty (entities-at movements nx ny time))
+                           (not-empty (entities-at movements nx ny (dec time))))
                        (recur (dec i) [x y])
                        ;; if we go out of bounds, don't update pos
                        (or (> nx width) (> ny height) (< nx 0) (< ny 0))

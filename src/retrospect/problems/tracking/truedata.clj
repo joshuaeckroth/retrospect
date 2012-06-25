@@ -28,7 +28,7 @@
   []
   (let [test-movements (generate-movements (:Steps params))
         training-steps (int (* (/ (double (:Knowledge params)) 100.0)
-                               (:Steps params)))
+                               (:TrainingSteps params)))
         training-movements (generate-movements training-steps)]
     {:test test-movements
      :all-moves (set (apply concat (vals test-movements)))

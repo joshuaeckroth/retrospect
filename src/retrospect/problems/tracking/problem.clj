@@ -47,6 +47,7 @@
     :SensorNoise [0 [0]]
     :GridWidth [20 [20]]
     :GridHeight [20 [20]]
+    :TrainingSteps [1000 [1000]]
     :NumberEntities [4 [2 4 6]]
     :MaxWalk [10 [1 2 3 4 5 6 7 8 9 10]]
     :ResetEachStep [false [false]]

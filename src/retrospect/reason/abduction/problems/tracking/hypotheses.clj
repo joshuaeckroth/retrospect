@@ -11,7 +11,28 @@
 
 (defn generate-kb
   [training]
-  [(new-hyp "KB" :kb :kb false (constantly false) [] [] "" "" {})])
+  (let [walk-dists (frequencies (map #(dist (:ox %) (:oy %) (:x %) (:y %))
+                                   ;; ignore initial entity locations
+                                   (filter :ox (:all-moves training))))]
+    [(new-hyp "KB" :kb :kb 1.0 false nil [] "" ""
+              {:walk-dists walk-dists
+               :walk-count (count (filter :ox (:all-moves training)))})]))
+
+(defn get-kb
+  [accepted lookup-hyp]
+  (lookup-hyp (first (get accepted :kb))))
+
+(defn update-kb
+  [accepted unexplained hypotheses lookup-hyp]
+  (let [mov-hyps (map lookup-hyp (get accepted :movement))
+        old-kb (get-kb accepted lookup-hyp)
+        new-kb (reduce (fn [k mov]
+                    (let [d (dist (:ox mov) (:oy mov) (:x mov) (:y mov))
+                          prior (get-in k [:walk-dists d] 0)]
+                      (assoc-in k [:walk-dists d] (inc prior))))
+                  (update-in old-kb [:walk-count] + (count mov-hyps))
+                  (map :mov mov-hyps))]
+    [new-kb]))
 
 (defn make-sensor-hyps
   [sensor time-prev time-now accepted lookup-hyp]
@@ -21,11 +42,11 @@
                                      "x: %d, y: %d, time: %d")
                                 (:id sensor) (color-str color) x y time)
                         from (new-hyp "SensFrom" :sensor :sensor-from
-                                      true (constantly false) [] []
+                                      1.0 true nil []
                                       (format "%d,%d@%d" x y time) desc
                                       {:sensor sensor :det det})
                         to (new-hyp "SensTo" :sensor :sensor-to
-                                    true (constantly false) [] []
+                                    1.0 true nil []
                                     (format "%d,%d@%d" x y time) desc
                                     {:sensor sensor :det det})]
                     (cond (= time time-prev) [to]
@@ -78,23 +99,30 @@
           (filter valid? mov-hyps))))
 
 (defn new-mov-hyp
-  [to from det-color det2-color]
-  (new-hyp "Mov" :movement
-           (dist (:x det-color) (:y det-color)
-                 (:x det2-color) (:y det2-color))
-           false conflicts? [to from] []
-           (str [det-color det2-color])
-           (format "%s (dist=%.2f)"
-              (str [det-color det2-color])
-              (dist (:x det-color) (:y det-color)
-                    (:x det2-color) (:y det2-color)))
-           {:det det-color :det2 det2-color
-            :mov {:x (:x det2-color) :y (:y det2-color) :time (:time det2-color)
-                  :ox (:x det-color) :oy (:y det-color) :ot (:time det-color)
-                  :color (:color det-color)}}))
+  [to from det-color det2-color walk-dists walk-count]
+  (let [d (dist (:x det-color) (:y det-color)
+                (:x det2-color) (:y det2-color))]
+    (new-hyp "Mov" :movement :movement
+             (/ (double (+ 1 (get walk-dists d 0))) (double (+ 2 walk-count)))
+             false conflicts? [to from]
+             (format "%d,%d->%d,%d @ %d, %s"
+                (:x det-color) (:y det-color)
+                (:x det2-color) (:y det2-color)
+                (:time det2-color) (color-str (:color det-color)))
+             (format "%d,%d -> %d,%d (dist=%.2f) at time %d (%s)"
+                (:x det-color) (:y det-color)
+                (:x det2-color) (:y det2-color)
+                (dist (:x det-color) (:y det-color)
+                      (:x det2-color) (:y det2-color))
+                (:time det2-color)
+                (color-str (:color det-color)))
+             {:det det-color :det2 det2-color
+              :mov {:x (:x det2-color) :y (:y det2-color) :time (:time det2-color)
+                    :ox (:x det-color) :oy (:y det-color) :ot (:time det-color)
+                    :color (:color det-color)}})))
 
 (defn new-mov-hyps
-  [to from acc-mov-hyps]
+  [to from acc-mov-hyps walk-dists walk-count]
   (prof :new-mov-hyps
         (let [det (:det to) det2 (:det from)
               colors-in (set (map (comp :color :det2)
@@ -118,9 +146,10 @@
           (if (= gray (:color det-color) (:color det2-color))
             (map #(new-mov-hyp to from
                              (assoc det-color :color %)
-                             (assoc det2-color :color %))
+                             (assoc det2-color :color %)
+                             walk-dists walk-count)
                [red green blue])
-            [(new-mov-hyp to from det-color det2-color)]))))
+            [(new-mov-hyp to from det-color det2-color walk-dists walk-count)]))))
 
 (defn movement-in-range?
   [to from]
@@ -133,16 +162,15 @@
   [sensor-hyps accepted lookup-hyp]
   (prof :hypothesize
         (let [from-hyps (filter #(= :sensor-from (:subtype %)) sensor-hyps)
-              to-hyps (filter #(= :sensor-to (:subtype %)) sensor-hyps)]
+              to-hyps (filter #(= :sensor-to (:subtype %)) sensor-hyps)
+              kb (get-kb accepted lookup-hyp)]
           (mapcat
            (fn [evidence]
              (let [acc-mov-hyps (map lookup-hyp (get accepted :movement))
                    nearby (filter #(movement-in-range? evidence %) to-hyps)
-                   mov-hyps (mapcat #(new-mov-hyps % evidence acc-mov-hyps) nearby)]
+                   mov-hyps (mapcat #(new-mov-hyps % evidence acc-mov-hyps
+                                                   (:walk-dists kb) (:walk-count kb))
+                                    nearby)]
                (filter-valid-movs mov-hyps acc-mov-hyps)))
            from-hyps))))
-
-(defn update-kb
-  [accepted unexplained hypotheses lookup-hyp]
-  (map lookup-hyp (get accepted :kb)))
 

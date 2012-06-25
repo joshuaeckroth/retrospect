@@ -201,12 +201,14 @@
 
 (defn move-str
   [mov]
-  (format "%d,%d@%d -> %d,%d@%d (%s)" (:ox mov) (:oy mov) (:ot mov)
-          (:x mov) (:y mov) (:time mov) (color-str (:color mov))))
+  (format "%d,%d -> %d,%d at time %d (%s)" (:ox mov) (:oy mov)
+     (:x mov) (:y mov) (:time mov) (color-str (:color mov))))
 
 (defn player-get-problem-log
   []
-  (let [movs (sort-by :id (AlphanumComparator.)
-                      (get (:accepted (:workspace (cur-ep (:est @or-state)))) :movement))
+  (let [ws (:workspace (cur-ep (:est @or-state)))
+        mov-hyps (sort-by :id (AlphanumComparator.)
+                          (map #(lookup-hyp ws %) (get (:accepted ws) :movement)))
         lines (fn [ss] (apply str (interpose "\n" ss)))]
-    (format "Believed movements:\n%s" (lines (map str movs)))))
+    (format "Believed movements:\n%s" (lines (map #(format "%s: %s" % (move-str (:mov %)))
+                                           mov-hyps)))))
