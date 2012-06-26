@@ -93,27 +93,26 @@
                   (filter (fn [[hypid expls]] (empty? expls))
                      (seq (:explainers workspace)))))))
 
+(defn hyp-better-than?
+  [workspace hyp1 hyp2]
+  (let [conf (- (compare (double (- (:apriori hyp1) (:apriori hyp2))) 0.001))
+        expl (- (compare (count (filter (set (:sorted-explainers-explained workspace))
+                                   (explains workspace hyp1)))
+                         (count (filter (set (:sorted-explainers-explained workspace))
+                                   (explains workspace hyp2)))))
+        explainers (- (compare
+                       (count (get-in workspace [:explainers (:id hyp1)] []))
+                       (count (get-in workspace [:explainers (:id hyp2)] []))))]
+    {:conf conf :expl expl :explainers explainers}))
+
 (defn compare-hyps
   "Since we are using probabilities, smaller value = less
    confidence. We want most confident first. With equal confidences,
    we look for higher explanatory power (explains more). If all that
    fails, comparison is done by the :id's (to keep it deterministic)."
   [workspace hyp1 hyp2]
-  (prof :compare-hyps
-        (let [conf (- (compare 0.0 (double (- (:apriori hyp1) (:apriori hyp2)))))
-              expl (- (compare (count (explains workspace hyp1))
-                               (count (explains workspace hyp2))))
-              explainers (- (compare
-                             (count (get-in workspace [:explainers (:id hyp1)] []))
-                             (count (get-in workspace [:explainers (:id hyp2)] []))))
-              id (compare (:id hyp1) (:id hyp2))]
-          (if (= 0 conf)
-            (if (= 0 expl)
-              (if (= 0 explainers)
-                id
-                explainers)
-              expl)
-            conf))))
+  (if (some #{-1} (vals (hyp-better-than? workspace hyp1 hyp2)))
+    -1 (compare (:id hyp1) (:id hyp2))))
 
 (defn compare-by-delta
   [workspace {hyp1 :hyp expl1 :expl} {hyp2 :hyp expl2 :expl}]
@@ -215,11 +214,13 @@
 (defn assoc-explainer
   [workspace hyp]
   (prof :assoc-explainer
-        (reduce (fn [ws h] (-> ws
-                        ;; add to explainers cache
-                        (update-in [:explainers (:id h)] conjs (:id hyp))
-                        ;; add to active explainers
-                        (update-in [:sorted-explainers (:id h)] conjs (:id hyp))))
+        (reduce (fn [ws h]
+             (log "Associating" hyp "as explainer of" h)
+             (-> ws
+                ;; add to explainers cache
+                (update-in [:explainers (:id h)] conjs (:id hyp))
+                ;; add to active explainers
+                (update-in [:sorted-explainers (:id h)] conjs (:id hyp))))
            (assoc workspace :dirty true) (explains workspace hyp))))
 
 (defn dissoc-explainer
@@ -291,7 +292,7 @@
                                     conj (:id hyp-oracle))))))))))
 
 (defn accept
-  [workspace hyp explained delta essential?]
+  [workspace hyp nbest explained delta comparison]
   (prof :accept
         (let [ws-acc (prof :accept-update
                            (-> workspace
@@ -300,10 +301,12 @@
               ws-hyplog (if @batch ws-acc
                             (update-in ws-acc [:hyp-log (:id hyp)] conj
                                        (format (str "Accepted in cycle %d "
-                                               "to explain %s with delta %.2f"
-                                               " (essential? %s)")
+                                               "to explain %s with delta %.2f "
+                                               "(essential? %s; next-best: %s); "
+                                               "comparison: %s")
                                           (:cycle workspace)
-                                          explained delta essential?)))
+                                          explained delta (nil? nbest) nbest
+                                          comparison)))
               ws-expl (dissoc-needing-explanation ws-hyplog (explains workspace hyp))
               conflicts (prof :accept-conflicts
                               (when (:conflicts?-fn hyp)
@@ -406,15 +409,13 @@
 (defn find-best
   [workspace]
   (prof :find-best
-        (let [threshold (/ (:Threshold params) 100.0)
-              essentialid (first (filter #(nil? (second (get (:sorted-explainers workspace) %)))
+        (let [essentialid (first (filter #(nil? (second (get (:sorted-explainers workspace) %)))
                                     (:sorted-explainers-explained workspace)))]
           (if essentialid
             (let [essential (lookup-hyp workspace essentialid) 
                   bestid (first (get (:sorted-explainers workspace) essentialid))
                   best (lookup-hyp workspace bestid)]
-              {:best best :essential? true
-               :explained essential :choices []})
+              {:best best :explained essential :alts [] :comparison {}})
             ;; otherwise, choose highest-delta non-essential
             (let [explid (first (:sorted-explainers-explained workspace))
                   expl (lookup-hyp workspace explid)
@@ -422,15 +423,18 @@
                                     (get (:sorted-explainers workspace) explid)))
                   best (first choices)
                   nbest (second choices)
-                  delta (- (:apriori best) (:apriori nbest))]
+                  delta (- (:apriori best) (:apriori nbest))
+                  comparison (hyp-better-than? workspace best nbest)]
               (log "best:" best "nbest:" nbest "delta:" delta)
-              (when (or (>= delta threshold)
+              (when (or (= 0 (:Threshold params))
+                        (>= delta (+ 0.001 (/ (:Threshold params) 100.0)))
                         ;; if threshold is not good enough,
                         ;; see if one hyp is better purely by
                         ;; other factors such as explanatory power
-                        (= -1 (compare-hyps workspace best nbest)))
-                {:best best :essential? false :delta delta
-                 :explained expl :alts (rest choices)}))))))
+                        (some #{-1} (vals comparison)))
+                {:best best :nbest nbest :delta delta
+                 :explained expl :alts (rest choices)
+                 :comparison comparison}))))))
 
 (defn update-kb
   [workspace]
@@ -476,7 +480,7 @@
             (if (empty? (:sorted-explainers-explained ws-explainers))
               (do (log "No explainers. Done.")
                   ws-explainers)
-              (let [{:keys [best essential? explained delta] :as b}
+              (let [{:keys [best nbest explained delta comparison] :as b}
                     (find-best ws-explainers)]
                 (if-not best
                   (do (log "No best. Explainers:" (:sorted-explainers ws-explainers))
@@ -486,7 +490,7 @@
                             (let [ws-logged (-> ws-explainers
                                                (update-in [:cycle] inc)
                                                (update-in [:log :best] conj b))]
-                              (accept ws-logged best explained delta essential?))]
+                              (accept ws-logged best nbest explained delta comparison))]
                         (recur ws-accepted))))))))))
 
 (defn update-graph

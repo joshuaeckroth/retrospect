@@ -48,6 +48,7 @@
                                        (format "delta %.2f" (:delta b))))
      {"Best" {(:name (:best b)) nil}
       "Explained" {(:name (:explained b)) nil}
+      "Alternatives" (list-hyps (:alts b))
       "Accepted" (list-hyps (disj (set (map :acc ars)) (:best b)))
       "Rejected" (list-hyps (mapcat :rej ars))}]))
 
