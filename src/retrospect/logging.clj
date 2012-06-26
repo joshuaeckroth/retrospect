@@ -3,7 +3,7 @@
   (:use [retrospect.state :only [batch]])
   (:use [retrospect.profile :only [prof]]))
 
-(def reason-log [])
+(def reason-log '())
 
 (defn log
   [& objs]
