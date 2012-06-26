@@ -93,21 +93,27 @@
                   (filter (fn [[hypid expls]] (empty? expls))
                      (seq (:explainers workspace)))))))
 
-(defn compare-by-score
+(defn compare-hyps
   "Since we are using probabilities, smaller value = less
    confidence. We want most confident first. With equal confidences,
    we look for higher explanatory power (explains more). If all that
    fails, comparison is done by the :id's (to keep it deterministic)."
   [workspace hyp1 hyp2]
-  (prof :compar-by-conf-expl
-        (let [conf-diff (double (- (:apriori hyp1) (:apriori hyp2)))
+  (prof :compare-hyps
+        (let [conf (- (compare 0.0 (double (- (:apriori hyp1) (:apriori hyp2)))))
               expl (- (compare (count (explains workspace hyp1))
                                (count (explains workspace hyp2))))
               explainers (- (compare
                              (count (get-in workspace [:explainers (:id hyp1)] []))
                              (count (get-in workspace [:explainers (:id hyp2)] []))))
               id (compare (:id hyp1) (:id hyp2))]
-          (- (compare conf-diff 0)))))
+          (if (= 0 conf)
+            (if (= 0 expl)
+              (if (= 0 explainers)
+                id
+                explainers)
+              expl)
+            conf))))
 
 (defn compare-by-delta
   [workspace {hyp1 :hyp expl1 :expl} {hyp2 :hyp expl2 :expl}]
@@ -132,7 +138,7 @@
   [workspace explainers]
   (prof :sort-explainers
         (let [hyp-sorter (cond (= (:HypPreference params) "abd")
-                               #(sort (partial compare-by-score workspace) %)
+                               #(sort (partial compare-hyps workspace) %)
                                (= (:HypPreference params) "arbitrary")
                                #(my-shuffle %))
               expl-sorter (cond (= (:ContrastPreference params) "delta")
@@ -418,7 +424,11 @@
                   nbest (second choices)
                   delta (- (:apriori best) (:apriori nbest))]
               (log "best:" best "nbest:" nbest "delta:" delta)
-              (when (>= delta threshold)
+              (when (or (>= delta threshold)
+                        ;; if threshold is not good enough,
+                        ;; see if one hyp is better purely by
+                        ;; other factors such as explanatory power
+                        (= -1 (compare-hyps workspace best nbest)))
                 {:best best :essential? false :delta delta
                  :explained expl :alts (rest choices)}))))))
 
