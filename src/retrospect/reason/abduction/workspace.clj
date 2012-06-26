@@ -245,50 +245,44 @@
                             (format "Rejected in cycle %d" (:cycle workspace))))))
          workspace hyps)))
 
-(defn reject-if-conflicts
-  [workspace hyp]
-  (if (and (:conflicts?-fn hyp)
-           (some (fn [hyp2] ((:conflicts?-fn hyp) hyp hyp2))
-              (map #(lookup-hyp workspace %)
-                 (:all (:accepted workspace)))))
-    (reject-many workspace [hyp])
-    workspace))
-
 (defn add
   [workspace hyp]
   (prof :add
         (do
           (log "Adding" hyp)
-          (if-let [prior-hyp-id (get (:hyp-contents workspace) (:contents hyp))]
-            ;; hyp already present; update explains in case it changed
-            (let [prior-hyp (lookup-hyp workspace prior-hyp-id)]
-              (log hyp "already in workspace as" prior-hyp "-- updating what it explains")
-              (reject-if-conflicts
-               (assoc-explainer
-                (update-in workspace [:explains prior-hyp-id]
-                           set/union (set (map #(get (:hyp-contents workspace) %)
-                                             (:explains hyp))))
-                prior-hyp)
-               prior-hyp))
-            ;; otherwise, add the new hyp
-            (let [hyp-oracle (if ((:oracle-types workspace) (:type hyp))
-                               (if ((:oracle workspace) hyp)
-                                 (assoc hyp :apriori 1.0)
-                                 (assoc hyp :apriori 0.0))
-                               hyp)
-                  ws-update (prof :add-ws-update
-                                  (-> workspace
-                                     (assoc-in [:hyp-ids (:id hyp-oracle)] hyp-oracle)
-                                     (assoc-in [:hyp-contents (:contents hyp-oracle)]
-                                               (:id hyp-oracle))
-                                     (assoc-in [:explains (:id hyp-oracle)]
-                                               (set (map #(get (:hyp-contents workspace) %)
-                                                       (:explains hyp-oracle))))
-                                     (assoc-explainer hyp-oracle)
-                                     (update-in [:hypotheses (:type hyp-oracle)]
-                                                conj (:id hyp-oracle))))]
-              ;; may have to immediately reject this hyp
-              (reject-if-conflicts ws-update hyp-oracle))))))
+          (if (and (:conflicts?-fn hyp)
+                   (some (fn [hyp2] ((:conflicts?-fn hyp) hyp hyp2))
+                      (map #(lookup-hyp workspace %)
+                         (:all (:accepted workspace)))))
+            ;; hyp is in conflict; don't add it
+            (do
+              (log "Not adding hyp because it has conflicts")
+              workspace)
+            (if-let [prior-hyp-id (get (:hyp-contents workspace) (:contents hyp))]
+              ;; hyp already present; update explains in case it changed
+              (let [prior-hyp (lookup-hyp workspace prior-hyp-id)]
+                (log hyp "already in workspace as" prior-hyp "-- updating what it explains")
+                (assoc-explainer (update-in workspace [:explains prior-hyp-id]
+                                            set/union (set (map #(get (:hyp-contents workspace) %)
+                                                              (:explains hyp))))
+                                 prior-hyp))
+              ;; otherwise, add the new hyp
+              (let [hyp-oracle (if ((:oracle-types workspace) (:type hyp))
+                                 (if ((:oracle workspace) hyp)
+                                   (assoc hyp :apriori 1.0)
+                                   (assoc hyp :apriori 0.0))
+                                 hyp)]
+                (prof :add-ws-update
+                      (-> workspace
+                         (assoc-in [:hyp-ids (:id hyp-oracle)] hyp-oracle)
+                         (assoc-in [:hyp-contents (:contents hyp-oracle)]
+                                   (:id hyp-oracle))
+                         (assoc-in [:explains (:id hyp-oracle)]
+                                   (set (map #(get (:hyp-contents workspace) %)
+                                           (:explains hyp-oracle))))
+                         (assoc-explainer hyp-oracle)
+                         (update-in [:hypotheses (:type hyp-oracle)]
+                                    conj (:id hyp-oracle))))))))))
 
 (defn accept
   [workspace hyp explained delta essential?]
@@ -304,7 +298,7 @@
                                                " (essential? %s)")
                                           (:cycle workspace)
                                           explained delta essential?)))
-              ws-expl (dissoc-needing-explanation ws-hyplog (explains workspace hyp))              
+              ws-expl (dissoc-needing-explanation ws-hyplog (explains workspace hyp))
               conflicts (prof :accept-conflicts
                               (when (:conflicts?-fn hyp)
                                 (find-conflicts ws-expl hyp)))
@@ -328,11 +322,14 @@
           ;; what it explains
           (add workspace hyp)
           ;; otherwise, it's not a duplicate
-          (-> (add workspace hyp)
-             (update-in [:forced] conj (:id hyp))
-             (update-in [:accepted (:type hyp)] conj (:id hyp))
-             (update-in [:accepted :all] conj (:id hyp))
-             (assoc-needing-explanation hyp)))))
+          (let [ws (-> (add workspace hyp)             
+                      (update-in [:forced] conj (:id hyp))
+                      (update-in [:accepted (:type hyp)] conj (:id hyp))
+                      (update-in [:accepted :all] conj (:id hyp))
+                      (assoc-needing-explanation hyp))]
+            ;; we have "accepted" this forced hyp so whatever it explains
+            ;; does not need to be explained
+            (dissoc-needing-explanation ws (explains ws hyp))))))
 
 (defn get-unexplained
   [workspace]
@@ -421,9 +418,7 @@
                   nbest (second choices)
                   delta (- (:apriori best) (:apriori nbest))]
               (log "best:" best "nbest:" nbest "delta:" delta)
-              (when (or (nil? (:conflicts-fn? best))
-                        (not ((:conflicts?-fn best) best nbest))
-                        (>= delta threshold))
+              (when (>= delta threshold)
                 {:best best :essential? false :delta delta
                  :explained expl :alts (rest choices)}))))))
 
