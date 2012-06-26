@@ -456,7 +456,7 @@
   (prof :explain
         ;; need (loop) because we are using (recur) which isn't going
         ;; to work when profiling is on
-        (loop [workspace workspace]
+        (loop [workspace (assoc workspace :log (:log empty-workspace) :cycle 0)]
           (log "Explaining again...")
           (let [ws-explainers (if (:dirty workspace)
                                 (update-sorted-explainers workspace)
