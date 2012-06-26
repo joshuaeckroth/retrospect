@@ -118,7 +118,7 @@
             (let [[_ tag-apriori] (nth scores (:pos s-hyp))]
               (map (fn [[tag apriori]]
                    (new-hyp tag :tag tag apriori
-                            false conflicts? [(:content s-hyp)]
+                            false conflicts? [(:contents s-hyp)]
                             (format "%s:%s" tag (:sym s-hyp))
                             (format "%s:%s\npos: %d" tag (:sym s-hyp) (:pos s-hyp))
                             {:pos (:pos s-hyp) :sym (:sym s-hyp) :tag tag}))
@@ -138,7 +138,7 @@
                 (new-hyp "Word" :word :word
                          (/ (double (get dict-freqs word 1))
                             (double containing-freq-sum))
-                         false conflicts? (map :content s-hyps)
+                         false conflicts? (map :contents s-hyps)
                          word (format "%s\npos-seq: %s\nfreq: %d\ncontaining: %s (%d)"
                                  word (str/join "," pos-seq) (get dict-freqs word 0)
                                  (str/join ", " containing-words)
