@@ -99,11 +99,10 @@
                           found (.getOutputs result)))))))))
 
 (defn hypothesize
-  [forced-hyps accepted lookup-hyp]
+  [forced-hyps accepted lookup-hyp time-now]
   (let [kb (get-kb accepted lookup-hyp)
         symbol-hyps (vec (sort-by :pos forced-hyps))
         sym-string (apply str (map :sym symbol-hyps))
-        time-now (:time (first symbol-hyps))
         scores (nth (:scores kb) (dec time-now))
         words (doall (filter not-empty
                         (map (fn [[w i]]

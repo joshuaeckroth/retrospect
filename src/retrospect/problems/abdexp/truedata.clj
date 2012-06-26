@@ -23,8 +23,8 @@
         expl-links (set (mapcat (fn [[vs1 vs2]]
                                   (mapcat (fn [v2]
                                             (map (fn [v1] [v1 v2])
-                                                 (take (inc (my-rand-int (:MaxExplainLinks params)))
-                                                       (my-shuffle vs1))))
+                                               (take (inc (my-rand-int (:MaxExplainLinks params)))
+                                                     (my-shuffle vs1))))
                                           vs2))
                                 (partition 2 1 vs-levels)))
         eg (connect (apply add-edges (digraph) expl-links))
@@ -33,22 +33,23 @@
         conflict-links (take (:MaxConflictLinks params)
                              (set (mapcat (fn [vs]
                                             (filter (fn [[v1 v2]] (and (not= v1 v2)
-                                                                       (not (has-edge? eg v1 v2))
-                                                                       (not (has-edge? eg v2 v1))))
-                                                    (partition 2 (interleave (my-shuffle vs)
-                                                                             (my-shuffle vs)))))
+                                                                 (not (has-edge? eg v1 v2))
+                                                                 (not (has-edge? eg v2 v1))))
+                                               (partition 2 (interleave (my-shuffle vs)
+                                                                        (my-shuffle vs)))))
                                           (butlast vs-levels))))
         eg-conflicts (reduce set-conflicts eg-filled conflict-links)
         eg-scores (reduce (fn [eg v]
-                            (add-attr eg v :score
-                                      (cond (and (:Scores params) (non-data v))
-                                            (my-rand)
-                                            (and (not (:Scores params)) (non-data v))
-                                            0.0
-                                            ;; data
-                                            :else 1.0)))
-                          eg-conflicts (sort (nodes eg-conflicts)))]
-    (if (empty? (data-nodes eg-scores)) (random-expgraph-levels) eg-scores)))
+                       (add-attr eg v :score
+                                 (cond (and (:Scores params) (non-data v))
+                                       (my-rand)
+                                       (and (not (:Scores params)) (non-data v))
+                                       0.0
+                                       ;; data
+                                       :else 1.0)))
+                     eg-conflicts (sort (nodes eg-conflicts)))
+        eg-forced (apply force-fill eg-scores (bottom-nodes eg-scores))]
+    (if (empty? (forced-nodes eg-forced)) (random-expgraph-levels) eg-forced)))
 
 (defn random-expgraph
   []
@@ -62,9 +63,9 @@
                               (my-shuffle possible-expl-links)))
         eg (connect (apply add-edges (digraph) expl-links))
         eg-filled (reduce fill eg (filter #(empty? (neighbors eg %))
-                                          (nodes eg)))
+                                (nodes eg)))
         non-data (set (filter #(not-empty (neighbors eg-filled %))
-                              (nodes eg-filled)))
+                         (nodes eg-filled)))
         bunch-of-edges (apply concat (repeat (/ (:NumVertices params) 2)
                                              (sort (nodes eg-filled))))
         possible-conflict-links (partition 2 (interleave
@@ -80,17 +81,18 @@
                              (my-shuffle valid-conflict-links))
         eg-conflicts (reduce set-conflicts eg-filled conflict-links)
         eg-scores (reduce (fn [eg v]
-                            (add-attr eg v :score
-                                      (cond (and (:Scores params)
-                                                 (non-data v))
-                                            (my-rand)
-                                            (and (not (:Scores params))
-                                                 (non-data v))
-                                            0.0
-                                            ;; data
-                                            :else 1.0)))
-                          eg-conflicts (sort (nodes eg-conflicts)))]
-    eg-scores))
+                       (add-attr eg v :score
+                                 (cond (and (:Scores params)
+                                            (non-data v))
+                                       (my-rand)
+                                       (and (not (:Scores params))
+                                            (non-data v))
+                                       0.0
+                                       ;; data
+                                       :else 1.0)))
+                     eg-conflicts (sort (nodes eg-conflicts)))
+        eg-forced (force-fill eg-scores (bottom-nodes eg-scores))]
+    eg-forced))
 
 (defn generate-truedata
   []

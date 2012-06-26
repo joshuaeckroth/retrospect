@@ -24,8 +24,9 @@
                                truedata time-now)))]
     (if sensors
       (update-kb (explain (update-hypotheses
-                           (add-sensor-hyps ws time-prev time-now sensors))))
-      (update-kb (explain (update-hypotheses ws))))))
+                           (add-sensor-hyps ws time-prev time-now sensors)
+                           time-now)))
+      (update-kb (explain (update-hypotheses ws time-now))))))
 
 (def reason-abduction
   {:name "Abduction"

@@ -13,6 +13,10 @@
   [expgraph vertex]
   (= "filled" (attr expgraph vertex :style)))
 
+(defn forced?
+  [expgraph vertex]
+  (attr expgraph vertex :forced))
+
 (defn explains
   [expgraph vertex]
   (filter #(and (not= "none" (attr expgraph vertex % :dir))
@@ -30,6 +34,10 @@
   (and (not-empty (explainers expgraph vertex))
        (not-any? (fn [v] (filled? expgraph v)) (explainers expgraph vertex))))
 
+(defn forced-nodes
+  [expgraph]
+  (set (filter #(forced? expgraph %) (nodes expgraph))))
+
 (defn filled-nodes
   [expgraph]
   (set (filter #(filled? expgraph %) (nodes expgraph))))
@@ -38,13 +46,13 @@
   [expgraph]
   (set (filter #(unexplained? expgraph %) (filled-nodes expgraph))))
 
-(defn data-nodes
-  [expgraph]
-  (set (filter #(empty? (neighbors expgraph %)) (nodes expgraph))))
-
 (defn accepted-nodes
   [expgraph]
-  (difference (filled-nodes expgraph) (data-nodes expgraph)))
+  (difference (filled-nodes expgraph) (forced-nodes expgraph)))
+
+(defn bottom-nodes
+  [expgraph]
+  (set (filter #(empty? (neighbors expgraph %)) (nodes expgraph))))
 
 (defn top-nodes
   [expgraph]
@@ -58,11 +66,15 @@
         explained-vs (set (mapcat #(pre-traverse eg-filled %)
                                   ;; be sure to refer back to original expgraph
                                   (top-nodes expgraph)))]
-    (intersection explained-vs (data-nodes expgraph))))
+    (intersection explained-vs (forced-nodes expgraph))))
 
 (defn fill
   [expgraph & vertices]
   (reduce (fn [g v] (add-attr g v :style "filled")) expgraph vertices))
+
+(defn force-fill
+  [expgraph & vertices]
+  (reduce (fn [g v] (-> g (fill v) (add-attr v :forced true))) expgraph vertices))
 
 (defn conflicts?
   [expgraph v1 v2]
@@ -74,11 +86,13 @@
   (some #(conflicts? expgraph vertex %) (filled-nodes expgraph)))
 
 (defn set-conflicts
-  [expgraph [v1 v2]]
-  (-> expgraph (add-edges [v1 v2])
-     (add-attr v1 v2 :style "dotted")
-     (add-attr v1 v2 :dir "none")
-     (add-attr v1 v2 :constraint false)))
+  [expgraph & pairs]
+  (reduce (fn [g [v1 v2]]
+       (-> g (add-edges [v1 v2])
+          (add-attr v1 v2 :style "dotted")
+          (add-attr v1 v2 :dir "none")
+          (add-attr v1 v2 :constraint false)))
+     expgraph pairs))
 
 (defn consistent?
   [expgraph]
