@@ -111,6 +111,12 @@
                  (not-any? #(filled? expgraph %) (explainers expgraph v))))
      (filled-nodes expgraph)))
 
+(defn sorted-by-dep
+  [expgraph]
+  (rest (topsort (reduce (fn [g v] (add-edges g [-1 v])) (transpose expgraph)
+                    (bottom-nodes expgraph))
+                 -1)))
+
 (defn format-dot-expgraph
   [expgraph]
   (reduce (fn [eg v]

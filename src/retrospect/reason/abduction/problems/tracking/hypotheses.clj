@@ -103,7 +103,7 @@
                 (:x det2-color) (:y det2-color))]
     (new-hyp "Mov" :movement :movement
              (/ (double (+ 1 (get walk-dists d 0))) (double (+ 2 walk-count)))
-             false conflicts? [to from]
+             false conflicts? (map :content [to from])
              (format "%d,%d->%d,%d @ %d, %s"
                 (:x det-color) (:y det-color)
                 (:x det2-color) (:y det2-color)
@@ -159,7 +159,7 @@
          (= (:time (:det to)) (inc (:time (:det from)))))))
 
 (defn hypothesize
-  [sensor-hyps accepted lookup-hyp time-now]
+  [sensor-hyps forced-hyps accepted lookup-hyp time-now]
   (prof :hypothesize
         (let [from-hyps (filter #(= :sensor-from (:subtype %)) sensor-hyps)
               to-hyps (filter #(= :sensor-to (:subtype %)) sensor-hyps)

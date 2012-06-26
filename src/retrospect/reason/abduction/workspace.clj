@@ -264,9 +264,11 @@
             (let [prior-hyp (lookup-hyp workspace prior-hyp-id)]
               (log hyp "already in workspace as" prior-hyp "-- updating what it explains")
               (reject-if-conflicts
-               (assoc-explainer (update-in workspace [:explains prior-hyp-id]
-                                           set/union (set (map :id (:explains hyp))))
-                                prior-hyp)
+               (assoc-explainer
+                (update-in workspace [:explains prior-hyp-id]
+                           set/union (set (map #(get (:hyp-contents workspace) %)
+                                             (:explains hyp))))
+                prior-hyp)
                prior-hyp))
             ;; otherwise, add the new hyp
             (let [hyp-oracle (if ((:oracle-types workspace) (:type hyp))
@@ -276,10 +278,12 @@
                                hyp)
                   ws-update (prof :add-ws-update
                                   (-> workspace
-                                     (update-in [:hyp-ids] assoc (:id hyp-oracle) hyp-oracle)
-                                     (assoc-in [:hyp-contents (:contents hyp-oracle)] (:id hyp-oracle))
-                                     (update-in [:explains] assoc (:id hyp-oracle)
-                                                (set (map :id (:explains hyp-oracle))))
+                                     (assoc-in [:hyp-ids (:id hyp-oracle)] hyp-oracle)
+                                     (assoc-in [:hyp-contents (:contents hyp-oracle)]
+                                               (:id hyp-oracle))
+                                     (assoc-in [:explains (:id hyp-oracle)]
+                                               (set (map #(get (:hyp-contents workspace) %)
+                                                       (:explains hyp-oracle))))
                                      (assoc-explainer hyp-oracle)
                                      (update-in [:hypotheses (:type hyp-oracle)]
                                                 conj (:id hyp-oracle))))]
@@ -441,10 +445,10 @@
   [workspace time-now]
   (prof :get-explaining-hypotheses
         ((:hypothesize-fn (:abduction @problem))
-         (map #(lookup-hyp workspace %)
-            (:sorted-explainers-explained workspace))
-         (:accepted workspace) (partial lookup-hyp workspace)
-         time-now)))
+         (map #(lookup-hyp workspace %) (:sorted-explainers-explained workspace))
+         (map #(lookup-hyp workspace %) (:forced workspace))
+         (:accepted workspace)
+         (partial lookup-hyp workspace) time-now)))
 
 (defn update-hypotheses
   [workspace time-now]

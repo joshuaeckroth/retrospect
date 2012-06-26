@@ -99,7 +99,7 @@
                           found (.getOutputs result)))))))))
 
 (defn hypothesize
-  [forced-hyps accepted lookup-hyp time-now]
+  [sensor-hyps forced-hyps accepted lookup-hyp time-now]
   (let [kb (get-kb accepted lookup-hyp)
         symbol-hyps (vec (sort-by :pos forced-hyps))
         sym-string (apply str (map :sym symbol-hyps))
@@ -118,7 +118,7 @@
             (let [[_ tag-apriori] (nth scores (:pos s-hyp))]
               (map (fn [[tag apriori]]
                    (new-hyp tag :tag tag apriori
-                            false conflicts? [s-hyp]
+                            false conflicts? [(:content s-hyp)]
                             (format "%s:%s" tag (:sym s-hyp))
                             (format "%s:%s\npos: %d" tag (:sym s-hyp) (:pos s-hyp))
                             {:pos (:pos s-hyp) :sym (:sym s-hyp) :tag tag}))
@@ -138,7 +138,7 @@
                 (new-hyp "Word" :word :word
                          (/ (double (get dict-freqs word 1))
                             (double containing-freq-sum))
-                         false conflicts? s-hyps
+                         false conflicts? (map :content s-hyps)
                          word (format "%s\npos-seq: %s\nfreq: %d\ncontaining: %s (%d)"
                                  word (str/join "," pos-seq) (get dict-freqs word 0)
                                  (str/join ", " containing-words)

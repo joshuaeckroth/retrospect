@@ -2,8 +2,6 @@
   (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.reason.abduction.workspace :only [new-hyp]])
   (:use [retrospect.problems.abdexp.expgraph])
-  (:use [loom.graph :only [transpose add-edges]])
-  (:use [loom.alg :only [topsort]])
   (:require [retrospect.state :as state]))
 
 (defn generate-kb
@@ -21,27 +19,36 @@
 (defn make-sensor-hyps
   [sensor time-prev time-now accepted lookup-hyp]
   (let [expgraph (sensed-at sensor time-now)
-        observations (forced-nodes expgraph)]
-    (map (fn [v] (new-hyp "Obs" :observation :observation 1.0 true nil []
-                       (str v) (str v) {:vertex v}))
-       observations)))
+        prev-hyps (map lookup-hyp (:all accepted))
+        observed (set (forced-nodes expgraph))]
+    (loop [hyps (zipmap (map :vertex prev-hyps) prev-hyps)
+           vertices (filter observed (sorted-by-dep expgraph))]
+      (if (empty? vertices)
+        (filter #(= :observation (:type %)) (map #(get hyps %) (sorted-by-dep expgraph)))
+        (let [v (first vertices)]
+          (recur
+           (assoc hyps v (new-hyp "Obs" :observation :observation 1.0 true
+                                  #(conflicts? expgraph (:vertex %1) (:vertex %2))
+                                  (map #(:contents (get hyps %)) (explains expgraph v))
+                                  (str v) (str v)
+                                  {:vertex v}))
+           (rest vertices)))))))
 
 (defn hypothesize
-  [sensor-hyps accepted lookup-hyp time-now]
+  [sensor-hyps forced-hyps accepted lookup-hyp time-now]
   (let [kb (get-kb accepted lookup-hyp)
         expgraph (get (:expgraphs kb) time-now)]
-    (loop [hyps (zipmap (map :vertex sensor-hyps) sensor-hyps)
-           vertices (rest (topsort (reduce (fn [g v] (add-edges g [-1 v])) (transpose expgraph)
-                                      (map :vertex sensor-hyps))
-                                   -1))]
-      (if (empty? vertices) (filter #(not= :observation (:type %)) (vals hyps))
-          (let [v (first vertices)]
-            (if (nil? (get hyps v))
-              (recur (assoc hyps v (new-hyp "Expl" :expl :expl 1.0
-                                            (not-empty (explainers expgraph v))
-                                            #(conflicts? expgraph (:vertex %1) (:vertex %2))
-                                            (filter identity (map #(get hyps %) (explains expgraph v)))
-                                            (format "%s" v) (format "%s @ %d" v time-now)
-                                            {:vertex v}))
-                     (rest vertices))
-              (recur hyps (rest vertices))))))))
+    (loop [hyps (zipmap (map :vertex forced-hyps) forced-hyps)
+           vertices (sorted-by-dep expgraph)]
+      (if (empty? vertices)
+        (filter #(not= :observation (:type %)) (map #(get hyps %) (sorted-by-dep expgraph)))
+        (let [v (first vertices)]
+          (if (nil? (get hyps v))
+            (recur (assoc hyps v (new-hyp "Expl" :expl :expl 1.0
+                                          (not-empty (explainers expgraph v))
+                                          #(conflicts? expgraph (:vertex %1) (:vertex %2))
+                                          (map #(:contents (get hyps %)) (explains expgraph v))
+                                          (format "%s" v) (format "%s @ %d" v time-now)
+                                          {:vertex v}))
+                   (rest vertices))
+            (recur hyps (rest vertices))))))))
