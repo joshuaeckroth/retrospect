@@ -51,33 +51,37 @@
                 :test progression}
      :sensors (generate-sensors)}))
 
+(defn hr23-setup
+  []
+  (-> (digraph)
+     (add-edges ["skidding" "accident"]
+                ["skidding" "tire marks present"]
+                ["obstacles" "skidding"]
+                ["loss of control" "skidding"]
+                ["wheels locked" "skidding"]
+                ["speeding in curve" "loss of control"]
+                ["speeding in curve" "not observed nature of tire marks"]
+                ["slowing down in curve" "observed nature of tire marks"])
+     (set-conflicts ["not obstacles" "obstacles"])
+     (set-conflicts ["not observed nature of tire marks"
+                     "observed nature of tire marks"])))
+
 (defn hr23
   []
-  (let [expgraph (-> (digraph)
-                    (add-edges ["skidding" "accident"]
-                               ["skidding" "tire marks present"]
-                               ["obstacles" "skidding"]
-                               ["loss of control" "skidding"]
-                               ["wheels locked" "skidding"]
-                               ["speeding in curve" "loss of control"]
-                               ["speeding in curve" "not observed nature of tire marks"]
-                               ["slowing down in curve" "observed nature of tire marks"]
-                               ["passenger drunk" "passenger pulls handbrake"]
-                               ["passenger pulls handbrake" "wheels locked"]
-                               ["passenger pulls handbrake" "handbrake pulled"]
-                               ["passenger pulls handbrake" "driver says handbrake pulled"])
-                    (set-conflicts ["not obstacles" "obstacles"])
-                    (set-conflicts ["not observed nature of tire marks"
-                                    "observed nature of tire marks"])
-                    (fill "not obstacles"
-                          "tire marks present"
-                          "observed nature of tire marks"
-                          "handbrake pulled"
-                          "driver says handbrake pulled"
-                          "passenger drunk"))]
-    {:params {:Steps 1}
-     :truedata {:training {:test {1 expgraph}}
-                :test {1 expgraph}}
+  (let [expgraph-1 (force-fill (hr23-setup) "accident" "skidding" "tire marks present"
+                               "obstacles" "observed nature of tire marks")
+        expgraph-2 (-> expgraph-1
+                      (add-edges ["passenger pulls handbrake" "wheels locked"]
+                                 ["passenger pulls handbrake" "handbrake pulled"]
+                                 ["passenger pulls handbrake" "driver says handbrake pulled"])
+                      (force-fill "handbrake pulled" "driver says handbrake pulled"))
+        expgraph-3 (-> expgraph-2
+                      (add-edges ["passenger drunk" "passenger pulls handbrake"])
+                      (force-fill "passenger drunk"))
+        progression {1 expgraph-1, 2 expgraph-2, 3 expgraph-3}]
+    {:params {:Steps 3}
+     :truedata {:training {:test progression}
+                :test progression}
      :sensors (generate-sensors)}))
 
 (def prepared-map
