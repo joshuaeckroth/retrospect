@@ -95,14 +95,13 @@
 
 (defn hyp-better-than?
   [workspace hyp1 hyp2]
-  (let [conf (- (compare (double (- (:apriori hyp1) (:apriori hyp2))) 0.001))
-        expl (- (compare (count (filter (set (:sorted-explainers-explained workspace))
-                                   (explains workspace hyp1)))
-                         (count (filter (set (:sorted-explainers-explained workspace))
-                                   (explains workspace hyp2)))))
-        explainers (- (compare
-                       (count (get-in workspace [:explainers (:id hyp1)] []))
-                       (count (get-in workspace [:explainers (:id hyp2)] []))))]
+  (let [conf (> (double (- (:apriori hyp1) (:apriori hyp2))) 0.001)
+        expl (> (count (filter (set (:sorted-explainers-explained workspace))
+                          (explains workspace hyp1)))
+                (count (filter (set (:sorted-explainers-explained workspace))
+                          (explains workspace hyp2))))
+        explainers (> (count (get-in workspace [:explainers (:id hyp1)] []))
+                      (count (get-in workspace [:explainers (:id hyp2)] [])))]
     {:conf conf :expl expl :explainers explainers}))
 
 (defn compare-hyps
@@ -111,7 +110,7 @@
    we look for higher explanatory power (explains more). If all that
    fails, comparison is done by the :id's (to keep it deterministic)."
   [workspace hyp1 hyp2]
-  (if (some #{-1} (vals (hyp-better-than? workspace hyp1 hyp2)))
+  (if (some identity (vals (hyp-better-than? workspace hyp1 hyp2)))
     -1 (compare (:id hyp1) (:id hyp2))))
 
 (defn compare-by-delta
@@ -386,16 +385,12 @@
 (defn calc-coverage
   [workspace]
   (prof :calc-coverage
-        (let [forced (set (map #(lookup-hyp workspace %)
-                               (:forced workspace)))
-              accepted (set (map #(lookup-hyp workspace %)
-                                 (:all (:accepted workspace))))
-              accessible (set
-                          (mapcat (fn [h] (map #(lookup-hyp workspace %)
-                                               (pre-traverse (:graph workspace) (:id h))))
-                                  (set/difference accepted forced)))]
-          (/ (double (count (set/intersection forced accessible)))
-             (double (count forced))))))
+        (if (empty? (:forced workspace)) 1.0
+            (let [accessible (mapcat (fn [hyp-id] (pre-traverse (:graph workspace) hyp-id))
+                                     (set/difference (set (:all (:accepted workspace)))
+                                                     (set (:forced workspace))))]
+              (/ (double (count (set/intersection (:forced workspace) (set accessible))))
+                 (double (count (:forced workspace))))))))
 
 (defn find-unaccepted
   [workspace]
@@ -431,7 +426,7 @@
                         ;; if threshold is not good enough,
                         ;; see if one hyp is better purely by
                         ;; other factors such as explanatory power
-                        (some #{-1} (vals comparison)))
+                        (some identity (vals comparison)))
                 {:best best :nbest nbest :delta delta
                  :explained expl :alts (rest choices)
                  :comparison comparison}))))))
@@ -459,18 +454,51 @@
          (:accepted workspace)
          (partial lookup-hyp workspace) time-now)))
 
-(defn update-hypotheses
-  [workspace time-now]
-  (prof :update-hypotheses
-        (let [hyps (get-explaining-hypotheses workspace time-now)]
-          (reduce add workspace hyps))))
+(defn update-graph
+  "Need to run this before evaluation in order to calculate coverage."
+  [workspace]
+  (prof :update-graph
+        (let [g-added (reduce (fn [g h]
+                           (-> g (add-nodes (:id h))
+                              (add-attr (:id h) :id (:id h))
+                              (add-attr (:id h) :label (:short-str h))))
+                         (digraph)
+                         (vals (:hyp-ids workspace)))
+              g-expl (reduce (fn [g h] (reduce (fn [g2 e]
+                                      (add-edges g2 [(:id h) (:id e)]))
+                                    g (explains workspace h)))
+                        g-added (vals (:hyp-ids workspace)))
+              g-conflicts (reduce
+                           (fn [g h]
+                             (let [conflicts (find-conflicts-all
+                                              workspace (lookup-hyp workspace h))]
+                               (reduce (fn [g2 c]
+                                    (if (or (has-edge? g2 h c) (has-edge? g2 c h)) g2
+                                        (-> g2 (add-edges [h c])
+                                           (add-attr h c :dir "none")
+                                           (add-attr h c :style "dotted")
+                                           (add-attr h c :constraint false))))
+                                  g (map :id conflicts))))
+                           g-expl (apply concat (vals (:hypotheses workspace))))
+              g-accepted (reduce
+                          (fn [g h]
+                            (-> g (add-attr h :fontcolor "green")
+                               (add-attr h :color "green")))
+                          g-conflicts (:all (:accepted workspace)))
+              g-facts (reduce
+                       (fn [g h]
+                         (-> g (add-attr h :fontcolor "gray50")
+                            (add-attr h :color "gray50")))
+                       g-accepted (:forced workspace))]
+          (assoc workspace :graph g-facts))))
 
 (defn explain
   [workspace]
   (prof :explain
         ;; need (loop) because we are using (recur) which isn't going
         ;; to work when profiling is on
-        (loop [workspace (assoc workspace :log (:log empty-workspace) :cycle 0)]
+        (loop [workspace (-> workspace (assoc :log (:log empty-workspace) :cycle 0)
+                            (update-graph))]
           (log "Explaining again...")
           (let [ws-explainers (if (:dirty workspace)
                                 (update-sorted-explainers workspace)
@@ -493,46 +521,11 @@
                               (accept ws-logged best nbest explained delta comparison))]
                         (recur ws-accepted))))))))))
 
-(defn update-graph
-  [workspace]
-  (if @batch workspace
-      (prof :update-graph
-            (let [g-added (reduce (fn [g h]
-                               (-> g (add-nodes (:id h))
-                                  (add-attr (:id h) :id (:id h))
-                                  (add-attr (:id h) :label (:short-str h))))
-                             (digraph)
-                             (vals (:hyp-ids workspace)))
-                  g-expl (reduce (fn [g h] (reduce (fn [g2 e]
-                                          (add-edges g2 [(:id h) (:id e)]))
-                                        g (explains workspace h)))
-                            g-added (vals (:hyp-ids workspace)))
-                  g-conflicts
-                  (reduce
-                   (fn [g h]
-                     (let [conflicts (find-conflicts-all
-                                      workspace (lookup-hyp workspace h))]
-                       (reduce (fn [g2 c]
-                            (if (or (has-edge? g2 h c) (has-edge? g2 c h)) g2
-                                (-> g2 (add-edges [h c])
-                                   (add-attr h c :dir "none")
-                                   (add-attr h c :style "dotted")
-                                   (add-attr h c :constraint false))))
-                          g (map :id conflicts))))
-                   g-expl (apply concat (vals (:hypotheses workspace))))
-                  g-accepted
-                  (reduce
-                   (fn [g h]
-                     (-> g (add-attr h :fontcolor "green")
-                        (add-attr h :color "green")))
-                   g-conflicts (:all (:accepted workspace)))
-                  g-facts
-                  (reduce
-                   (fn [g h]
-                     (-> g (add-attr h :fontcolor "gray50")
-                        (add-attr h :color "gray50")))
-                   g-accepted (:forced workspace))]
-              (assoc workspace :graph g-facts)))))
+(defn update-hypotheses
+  [workspace time-now]
+  (prof :update-hypotheses
+        (let [hyps (get-explaining-hypotheses workspace time-now)]
+          (reduce add workspace hyps))))
 
 (defn add-sensor-hyps
   [workspace time-prev time-now sensors]
