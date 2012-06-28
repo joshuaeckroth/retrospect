@@ -171,12 +171,15 @@
 (defn hypothesize
   [sensor-hyps forced-hyps accepted lookup-hyp time-now]
   (prof :hypothesize
-        (let [from-hyps (filter #(= :sensor-from (:subtype %)) sensor-hyps)
-              to-hyps (filter #(= :sensor-to (:subtype %)) sensor-hyps)
+        (let [from-hyps (filter #(= :sensor-from (:subtype %))
+                           (sort-by (comp :time :det) sensor-hyps))
+              to-hyps (filter #(= :sensor-to (:subtype %))
+                         (sort-by (comp :time :det) sensor-hyps))
               kb (get-kb accepted lookup-hyp)]
           (mapcat
            (fn [evidence]
-             (let [acc-mov-hyps (map lookup-hyp (get accepted :movement))
+             (let [acc-mov-hyps (sort-by (comp :time :mov)
+                                         (map lookup-hyp (get accepted :movement)))
                    nearby (filter #(movement-in-range? evidence %) to-hyps)
                    mov-hyps (mapcat #(new-mov-hyps % evidence acc-mov-hyps
                                                    (:walk-dists kb) (:walk-count kb)

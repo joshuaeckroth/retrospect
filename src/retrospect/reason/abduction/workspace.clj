@@ -111,15 +111,22 @@
    we look for higher explanatory power (explains more). If all that
    fails, comparison is done by the :id's (to keep it deterministic)."
   [workspace hyp1 hyp2]
-  (if (some identity (vals (hyp-better-than? workspace hyp1 hyp2)))
-    -1 (compare (:id hyp1) (:id hyp2))))
+  (let [comp1 (hyp-better-than? workspace hyp1 hyp2)
+        comp2 (hyp-better-than? workspace hyp2 hyp1)]
+    (cond (:conf comp1) -1
+          (:conf comp2) 1
+          (:expl comp1) -1
+          (:expl comp2) 1
+          (:explainers comp1) -1
+          (:explainers comp2) 1
+          :else (compare (:id hyp1) (:id hyp2)))))
 
 (defn compare-by-delta
   [workspace {hyp1 :hyp expl1 :expl} {hyp2 :hyp expl2 :expl}]
   (prof :compare-by-delta
         (let [delta-fn (fn [hyps] (if (second hyps)
-                                    (- (:apriori (first hyps)) (:apriori (second hyps)))
-                                    (:apriori (first hyps))))
+                                   (- (:apriori (first hyps)) (:apriori (second hyps)))
+                                   (:apriori (first hyps))))
               expl1-delta (delta-fn expl1)
               expl2-delta (delta-fn expl2)]
           ;; prefer explained hyps (hyp1/hyp2) with higher apriori values
@@ -152,8 +159,8 @@
                                  (:sorted-explainers workspace) (keys (:sorted-explainers workspace)))]
     (assoc workspace :sorted-explainers new-sorted-explainers
            :sorted-explainers-explained
-           (filter #(get new-sorted-explainers %)
-              (:sorted-explainers-explained workspace)))))
+           (doall (filter #(get new-sorted-explainers %)
+                     (:sorted-explainers-explained workspace))))))
 
 (defn update-sorted-explainers
   [workspace]
