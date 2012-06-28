@@ -96,10 +96,11 @@
 (defn hyp-better-than?
   [workspace hyp1 hyp2]
   (let [conf (> (double (- (:apriori hyp1) (:apriori hyp2))) 0.001)
-        expl (> (count (filter (set (:sorted-explainers-explained workspace))
-                          (explains workspace hyp1)))
-                (count (filter (set (:sorted-explainers-explained workspace))
-                          (explains workspace hyp2))))
+        ;; TODO: Fix for transitive explanation
+        expl (> (count (filter (fn [hyp-id] (some #(= % hyp-id) (:sorted-explainers-explained workspace)))
+                          (get (:explains workspace) (:id hyp1))))
+                (count (filter (fn [hyp-id] (some #(= % hyp-id) (:sorted-explainers-explained workspace)))
+                          (get (:explains workspace) (:id hyp2)))))
         explainers (> (count (get-in workspace [:explainers (:id hyp1)] []))
                       (count (get-in workspace [:explainers (:id hyp2)] [])))]
     {:conf conf :expl expl :explainers explainers}))
@@ -468,18 +469,21 @@
                                       (add-edges g2 [(:id h) (:id e)]))
                                     g (explains workspace h)))
                         g-added (vals (:hyp-ids workspace)))
-              g-conflicts (reduce
-                           (fn [g h]
-                             (let [conflicts (find-conflicts-all
-                                              workspace (lookup-hyp workspace h))]
-                               (reduce (fn [g2 c]
-                                    (if (or (has-edge? g2 h c) (has-edge? g2 c h)) g2
-                                        (-> g2 (add-edges [h c])
-                                           (add-attr h c :dir "none")
-                                           (add-attr h c :style "dotted")
-                                           (add-attr h c :constraint false))))
-                                  g (map :id conflicts))))
-                           g-expl (apply concat (vals (:hypotheses workspace))))
+              ;; finding conflicts takes a long time, so only do this
+              ;; if not in batch mode
+              g-conflicts (if @batch g-expl
+                              (reduce
+                               (fn [g h]
+                                 (let [conflicts (find-conflicts-all
+                                                  workspace (lookup-hyp workspace h))]
+                                   (reduce (fn [g2 c]
+                                        (if (or (has-edge? g2 h c) (has-edge? g2 c h)) g2
+                                            (-> g2 (add-edges [h c])
+                                               (add-attr h c :dir "none")
+                                               (add-attr h c :style "dotted")
+                                               (add-attr h c :constraint false))))
+                                      g (map :id conflicts))))
+                               g-expl (apply concat (vals (:hypotheses workspace)))))
               g-accepted (reduce
                           (fn [g h]
                             (-> g (add-attr h :fontcolor "green")
