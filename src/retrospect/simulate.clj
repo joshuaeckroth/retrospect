@@ -33,10 +33,11 @@
         ws-old (:workspace new-ep)
         ws-new ((:reason-fn @reason)
                 (when (:Oracle params) truedata)
-                (if (nil? sensors) ws-old ((:reset-workspace-fn @reason) ws-old))
+                (if (or (nil? sensors) (not (:ResetEachStep params))) ws-old
+                    ((:reset-workspace-fn @reason) ws-old))
                 time-prev time-now sensors)
         new-expl-est (update-est new-est (assoc new-ep :workspace ws-new))]
-    (if (> 0 ((:workspace-compare-fn @reason) ws-new ws-old))
+    (if ((:workspace-better?-fn @reason) ws-new ws-old)
       {:est new-expl-est
        :considered? true
        :accepted-branch? true}
@@ -46,7 +47,7 @@
 
 (defn meta-batch
   [n truedata est _ time-now sensors]
-  (let [branch-root? (or (nil? n) (>= (ep-state-depth est) n))
+  (let [branch-root? (or (nil? n) (>= n (ep-state-depth est)))
         branch-ep (nth-previous-ep est n)
         new-est (new-branch-ep est branch-ep)
         new-est-time (update-est new-est

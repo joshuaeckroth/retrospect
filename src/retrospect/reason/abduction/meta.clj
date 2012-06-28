@@ -20,7 +20,7 @@
 
 (comment (if (< (ws/calc-doubt ws-new) (ws/calc-doubt ws-old)) -1 1))
 
-(defn workspace-compare
+(defn workspace-better?
   [ws-new ws-old]
   ;; we wanted to fix "no explainers"; so, did we?
-  (if (empty? (ws/find-no-explainers ws-new)) -1 1))
+  (empty? (ws/find-no-explainers ws-new)))
