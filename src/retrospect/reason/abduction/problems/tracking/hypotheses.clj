@@ -78,7 +78,11 @@
           (and (= (:x mov2) (:ox mov1))
                (= (:y mov2) (:oy mov1))
                (= (:time mov2) (:ot mov1))
-               (not (match-color? (:color mov2) (:color mov1))))))))
+               (not (match-color? (:color mov2) (:color mov1))))
+          ;; same color, same time, different paths
+          (and (= (:color mov1) (:color mov2))
+               (or (= (:time mov1) (:time mov2))
+                   (= (:ot mov1) (:ot mov2))))))))
 
 (defn connecting-movs
   [h acc-mov-hyps]
