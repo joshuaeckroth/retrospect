@@ -55,26 +55,27 @@
   []
   (-> (digraph)
      (add-edges ["skidding" "accident"]
-                ["skidding" "tire marks present"]
-                ["obstacles" "skidding"]
+                ["skidding" "tire marks"]
                 ["loss of control" "skidding"]
+                ["argument" "occupants reported arguing"]
+                ["argument" "loss of control"]
                 ["wheels locked" "skidding"]
-                ["speeding in curve" "loss of control"]
-                ["speeding in curve" "not observed nature of tire marks"]
-                ["slowing down in curve" "observed nature of tire marks"])
-     (set-conflicts ["not obstacles" "obstacles"])
-     (set-conflicts ["not observed nature of tire marks"
-                     "observed nature of tire marks"])))
+                ["speeding in curve" "loss of control"])))
 
 (defn hr23
   []
-  (let [expgraph-1 (force-fill (hr23-setup) "accident" "skidding" "tire marks present"
-                               "obstacles" "observed nature of tire marks")
+  (let [expgraph-1 (force-fill (hr23-setup)
+                               "accident" "tire marks"
+                               "occupants reported arguing")
         expgraph-2 (-> expgraph-1
                       (add-edges ["passenger pulls handbrake" "wheels locked"]
+                                 ["driver pulls handbrake" "wheels locked"]
                                  ["passenger pulls handbrake" "handbrake pulled"]
-                                 ["passenger pulls handbrake" "driver says handbrake pulled"])
-                      (force-fill "handbrake pulled" "driver says handbrake pulled"))
+                                 ["driver pulls handbrake" "handbrake pulled"]
+                                 ["passenger pulls handbrake" "driver says passenger pulled handbrake"]
+                                 ["driver is lying" "driver says passenger pulled handbrake"])
+                      (force-fill "handbrake pulled" "driver says passenger pulled handbrake")
+                      (set-conflicts ["driver pulls handbrake" "passenger pulls handbrake"]))
         expgraph-3 (-> expgraph-2
                       (add-edges ["passenger drunk" "passenger pulls handbrake"])
                       (force-fill "passenger drunk"))
