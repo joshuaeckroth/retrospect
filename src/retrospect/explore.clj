@@ -12,6 +12,7 @@
   (:use [retrospect.random :only [rgen new-seed my-rand-nth my-rand-int my-rand]])
   (:use [retrospect.simulate :only [get-default-params-ranges run-simulation init-ors]])
   (:use [retrospect.gui.results :only [update-results results-tab]])
+  (:use [retrospect.epistemicstates :only [cur-ep]])
   (:use [retrospect.state]))
 
 (def params-edit (ref ""))
@@ -66,18 +67,14 @@
              best-score init-score]
         (if (> t permutations) {:best best :best-score best-score}
             (do
-              (println (format "\nPermutation %d of %d"
-                               t permutations))
-              #_(dosync (alter log-box (str (format "\nPermutation %d of %d"
-                                                    t permutations))))
+              (dosync (alter log-box str (format "\nPermutation %d of %d"
+                                            t permutations)))
               (let [next (permute state)
                     next-score (scorer next)
                     better? (comp next-score score)]
                 (when better?
-                  (println (format "\nNew best score: %.2f for %s"
-                                   next-score next))
-                  #_(dosync (alter log-box (str (format "\nNew best score: %.2f for %s"
-                                                        next-score next)))))
+                  (dosync (alter log-box str (format "\nNew best score: %.2f for %s"
+                                                next-score next))))
                 (if better?
                   (recur (inc t) next next-score
                          (if (comp next-score best-score) next best)
@@ -87,28 +84,24 @@
 
 (defn run
   [metric params repetitions]
-  (println (format "\nSimulation %s" (pr-str params)))
-  #_(dosync (alter log-box (str (format "\nSimulation %s" (pr-str params)))))
+  (dosync (alter log-box str (format "\nSimulation %s" (pr-str params))))
   (let [rs (for [i (range repetitions)]
              (let [seed (my-rand-int 10000000)]
                (binding [rgen (new-seed seed)
                          last-id 0
                          retrospect.state/params (assoc params :Seed seed)]
-                 (println (format "\nSeed: %d" seed))
-                 #_(dosync (alter log-box (str (format "\nSeed: %d" seed))))
+                 (dosync (alter log-box str (format "\nSeed: %d" seed)))
                  (let [truedata ((:generate-truedata-fn @problem))
                        sensors ((:generate-sensors-fn @problem))
                        ors (init-ors sensors (:training truedata))
-                       results (run-simulation truedata ors)]
+                       results (:results (cur-ep (:est (run-simulation truedata ors))))]
                    (dosync (alter retrospect.state/results conj (last results)))
                    (update-results)
-                   (println (format "\n%s = %s" (name metric)
-                                    (get (last results) metric)))
-                   #_(dosync (alter log-box (str (format "\n%s = %s" (name metric)
-                                                       (get (last results) metric)))))
+                   (dosync (alter log-box str (format "\n%s = %s" (name metric)
+                                                 (get (last results) metric))))
                    results))))
         avg (double (/ (reduce + (map #(get (last %) metric) rs)) repetitions))]
-    #_(dosync (alter log-box (str (format "\nAvg = %.2f" avg))))
+    (dosync (alter log-box str (format "\nAvg = %.2f" avg)))
     avg))
 
 (defn next-params
@@ -119,8 +112,7 @@
           params (assoc last-params field val)]
       (if (or (= (get last-params field) val) (@attempted params))
         (recur)
-        (do (println (format "\nSwapping %s with %s" field val))
-            #_(dosync (alter log-box (str (format "\nSwapping %s with %s" field val))))
+        (do (dosync (alter log-box str (format "\nSwapping %s with %s" field val)))
             (send attempted conj params)
             params)))))
 
@@ -128,7 +120,7 @@
   [params]
   (let [ps (reduce (fn [m k] (assoc m k (my-rand-nth (get params k)))) {} (keys params))]
     (if (@attempted ps) (recur params)
-        (do (println "Restarting...") ps))))
+        (do (dosync (alter log-box str "\nRestarting...")) ps))))
 
 (defn explore
   [state]

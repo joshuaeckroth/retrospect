@@ -74,8 +74,10 @@
             (SwingUtilities/invokeLater start-player)
 
             (= action "explore")
-            ;; start the explore gui on swing's "event dispatch thread"
-            (SwingUtilities/invokeLater start-explore)
+            (do
+              (dosync (alter state/batch (constantly true)))
+              ;; start the explore gui on swing's "event dispatch thread"
+              (SwingUtilities/invokeLater start-explore))
 
             (= action "resubmit")
             (submit-archived-results recdir)
