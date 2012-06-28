@@ -33,7 +33,9 @@
     {:test test-movements
      :all-moves (set (filter :ot (apply concat (vals test-movements))))
      :training {:test training-movements
-                :all-moves (set (filter :ot (apply concat (vals training-movements))))}}))
+                :all-moves (set (filter :ot (apply concat (vals training-movements))))
+                ;; give all true seen colors (for now)
+                :seen-colors (set (map :color (apply concat (vals test-movements))))}}))
 
 (defn format-movements-comparative
   [true-movements believed-movements mintime maxtime]

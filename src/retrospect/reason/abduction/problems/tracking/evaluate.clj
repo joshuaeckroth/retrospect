@@ -9,7 +9,7 @@
 (defn true-hyp?
   [truedata _ hyp]
   (if (= :movement (:type hyp))
-    ((:all-moves truedata) (:mov hyp))
+    (if ((:all-moves truedata) (:mov hyp)) true false)
     true))
 
 (defn hyps-equal?

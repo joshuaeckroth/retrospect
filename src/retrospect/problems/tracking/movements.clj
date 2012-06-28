@@ -26,8 +26,7 @@
   [movements time]
   (let [[x y] [(my-rand-int (:width (meta movements)))
                (my-rand-int (:height (meta movements)))]
-        c (my-rand-nth [red blue green])
-        b (my-rand-nth [:straight :left :right])
+        c (rand-color)
         e (count (keys movements))]
     (assoc movements e [{:x x :y y :time time :color c}])))
 

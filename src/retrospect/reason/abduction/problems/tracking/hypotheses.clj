@@ -15,7 +15,8 @@
                                    (:all-moves training)))]
     [(new-hyp "KB" :kb :kb 1.0 false nil [] "" ""
               {:walk-dists walk-dists
-               :walk-count (count (filter :ox (:all-moves training)))})]))
+               :walk-count (count (filter :ox (:all-moves training)))
+               :seen-colors (:seen-colors training)})]))
 
 (defn get-kb
   [accepted lookup-hyp]
@@ -72,12 +73,12 @@
           (and (= (:x mov1) (:ox mov2))
                (= (:y mov1) (:oy mov2))
                (= (:time mov1) (:ot mov2))
-               (not= (:color mov1) (:color mov2)))
+               (not (match-color? (:color mov1) (:color mov2))))
           ;; mov2 ends where mov1 starts and not same color
           (and (= (:x mov2) (:ox mov1))
                (= (:y mov2) (:oy mov1))
                (= (:time mov2) (:ot mov1))
-               (not= (:color mov2) (:color mov1)))))))
+               (not (match-color? (:color mov2) (:color mov1))))))))
 
 (defn connecting-movs
   [h acc-mov-hyps]
@@ -104,24 +105,27 @@
     (new-hyp "Mov" :movement :movement
              (/ (double (+ 1 (get walk-dists d 0))) (double (+ 2 walk-count)))
              false conflicts? (map :contents [to from])
-             (format "%d,%d->%d,%d @ %d, %s"
+             (format "%d,%d->%d,%d @ %d->%d (%s->%s)"
                 (:x det-color) (:y det-color)
                 (:x det2-color) (:y det2-color)
-                (:time det2-color) (color-str (:color det-color)))
-             (format "%d,%d -> %d,%d (dist=%.2f) at time %d->%d (%s)"
+                (:time det-color) (:time det2-color)
+                (color-str (:color det-color))
+                (color-str (:color det2-color)))
+             (format "%d,%d -> %d,%d (dist=%.2f) at time %d->%d (%s->%s)"
                 (:x det-color) (:y det-color)
                 (:x det2-color) (:y det2-color)
                 (dist (:x det-color) (:y det-color)
                       (:x det2-color) (:y det2-color))
                 (:time det-color) (:time det2-color)
-                (color-str (:color det-color)))
+                (color-str (:color det-color))
+                (color-str (:color det2-color)))
              {:det det-color :det2 det2-color
               :mov {:x (:x det2-color) :y (:y det2-color) :time (:time det2-color)
                     :ox (:x det-color) :oy (:y det-color) :ot (:time det-color)
                     :color (:color det-color)}})))
 
 (defn new-mov-hyps
-  [to from acc-mov-hyps walk-dists walk-count]
+  [to from acc-mov-hyps walk-dists walk-count seen-colors]
   (prof :new-mov-hyps
         (let [det (:det to) det2 (:det from)
               colors-in (set (map (comp :color :det2)
@@ -142,13 +146,15 @@
                                     (= 1 (count colors-in)))
                                (assoc det2 :color (first colors-in))
                                :else det2)]
-          (if (= gray (:color det-color) (:color det2-color))
-            (map #(new-mov-hyp to from
-                             (assoc det-color :color %)
-                             (assoc det2-color :color %)
-                             walk-dists walk-count)
-               [red green blue])
-            [(new-mov-hyp to from det-color det2-color walk-dists walk-count)]))))
+          (cond (= gray (:color det-color) (:color det2-color))
+                (map #(new-mov-hyp to from
+                                 (assoc det-color :color %)
+                                 (assoc det2-color :color %)
+                                 walk-dists walk-count)
+                   seen-colors)
+                (match-color? (:color det-color) (:color det2-color))
+                [(new-mov-hyp to from det-color det2-color walk-dists walk-count)]
+                :else []))))
 
 (defn movement-in-range?
   [to from]
@@ -169,7 +175,8 @@
              (let [acc-mov-hyps (map lookup-hyp (get accepted :movement))
                    nearby (filter #(movement-in-range? evidence %) to-hyps)
                    mov-hyps (mapcat #(new-mov-hyps % evidence acc-mov-hyps
-                                                   (:walk-dists kb) (:walk-count kb))
+                                                   (:walk-dists kb) (:walk-count kb)
+                                                   (:seen-colors kb))
                                     nearby)]
                (filter-valid-movs mov-hyps acc-mov-hyps)))
            from-hyps))))
