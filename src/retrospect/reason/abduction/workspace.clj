@@ -147,7 +147,14 @@
                                #(sort (partial compare-hyps workspace) %)
                                (= (:HypPreference params) "arbitrary")
                                #(my-shuffle %))
-              expl-sorter (cond (= (:ContrastPreference params) "delta")
+              expl-sorter (cond (= (:ContrastPreference params) "apriori,delta")
+                                (fn [hs] (sort #(let [hyp-apriori (- (compare (:apriori (:hyp %1))
+                                                                             (:apriori (:hyp %2))))]
+                                                 (if (= 0 hyp-apriori)
+                                                   (compare-by-delta workspace %1 %2)
+                                                   hyp-apriori))
+                                              hs))
+                                (= (:ContrastPreference params) "delta")
                                 (fn [hs] (sort #(compare-by-delta workspace %1 %2) hs))
                                 (= (:ContrastPreference params) "arbitrary")
                                 #(my-shuffle %))]
@@ -434,7 +441,8 @@
                         ;; if threshold is not good enough,
                         ;; see if one hyp is better purely by
                         ;; other factors such as explanatory power
-                        (some identity (vals comparison)))
+                        (and (= true (:ConsiderExplPower params))
+                             (or (:expl comparison) (:explainers comparison))))
                 {:best best :nbest nbest :delta delta
                  :explained expl :alts (rest choices)
                  :comparison comparison}))))))
@@ -522,8 +530,11 @@
               (let [{:keys [best nbest explained delta comparison] :as b}
                     (find-best ws-explainers)]
                 (if-not best
-                  (do (log "No best. Explainers:" (:sorted-explainers ws-explainers))
-                      ws-explainers)
+                  (do (log "No best. Dropping first contrast set.")
+                      (let [h (first (:sorted-explainers-explained ws-explainers))]
+                        (recur (-> ws-explainers
+                                  (update-in [:sorted-explainers-explained] rest)
+                                  (update-in [:sorted-explainers] dissoc h)))))
                   (do (log "Best is" (:id best) (:apriori best))
                       (let [ws-accepted
                             (let [ws-logged (-> ws-explainers
@@ -541,10 +552,9 @@
 (defn add-sensor-hyps
   [workspace time-prev time-now sensors]
   (prof :add-sensor-hyps
-        (let [hs (mapcat (fn [s] ((:make-sensor-hyps-fn (:abduction @problem))
-                                 s time-prev time-now
-                                 (:accepted workspace) (partial lookup-hyp workspace)))
-                         sensors)]
+        (let [hs ((:make-sensor-hyps-fn (:abduction @problem))
+                  sensors time-prev time-now
+                  (:accepted workspace) (partial lookup-hyp workspace))]
           (reduce add-fact workspace hs))))
 
 (defn add-kb

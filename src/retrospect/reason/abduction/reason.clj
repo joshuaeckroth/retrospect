@@ -44,6 +44,7 @@
                                 :UseScores [true [true]]
                                 :ContrastPreference ["delta" ["delta" "arbitrary"]]
                                 :HypPreference ["abd" ["abd" "arbitrary"]]
+                                :ConsiderExplPower [false [true false]]
                                 :TransitiveExplanation [false [true false]]}
                                (:default-params (:abduction @problem))))
    :init-workspace-fn init-workspace
