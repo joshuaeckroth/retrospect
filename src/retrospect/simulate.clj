@@ -14,6 +14,7 @@
 
 (defn evaluate
   [truedata est meta-considered? meta-accepted-branch?]
+  ;; TODO: grab MetaConsidered/MetaAccepted from prior results, not current results
   (let [results ((:evaluate-fn @reason) truedata est)
         prior-considered (get results :MetaConsidered 0)
         prior-accepted (get results :MetaAccepted 0)
