@@ -44,7 +44,7 @@
         (filter #(not= :observation (:type %)) (map #(get hyps %) (sorted-by-dep expgraph)))
         (let [v (first vertices)]
           (if (nil? (get hyps v))
-            (recur (assoc hyps v (new-hyp "Expl" :expl :expl 1.0
+            (recur (assoc hyps v (new-hyp "Expl" :expl :expl (score expgraph v)
                                           (not-empty (explainers expgraph v))
                                           #(conflicts? expgraph (:vertex %1) (:vertex %2))
                                           (map #(:contents (get hyps %)) (explains expgraph v))
