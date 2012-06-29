@@ -42,7 +42,7 @@
    :default-params-fn (fn []
                         (merge {:Threshold [0 [0]]
                                 :UseScores [true [true]]
-                                :ContrastPreference ["delta" ["delta" "arbitrary"]]
+                                :ContrastPreference ["delta" ["delta" "arbitrary" "apriori,delta"]]
                                 :HypPreference ["abd" ["abd" "arbitrary"]]
                                 :ConsiderExplPower [false [true false]]
                                 :TransitiveExplanation [false [true false]]}
