@@ -2,7 +2,7 @@
   (:require [clojure.set :as set])
   (:use [retrospect.evaluate :only [calc-increase]])
   (:use [retrospect.epistemicstates :only [cur-ep ep-path]])
-  (:use [retrospect.reason.abduction.workspace :only [lookup-hyp calc-doubt]])
+  (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
   (:use [retrospect.profile :only [prof]])
   (:use [retrospect.state]))
 
