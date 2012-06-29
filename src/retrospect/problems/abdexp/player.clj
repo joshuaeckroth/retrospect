@@ -8,6 +8,7 @@
   (:use [clj-swing.label])
   (:use [retrospect.gui.graphs])
   (:use [retrospect.problems.abdexp.expgraph :only [format-dot-expgraph]])
+  (:use [retrospect.reason.abduction.problems.abdexp.evaluate :only [true-vertices-now]])
   (:use [retrospect.epistemicstates :only [cur-ep]])
   (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
   (:use [retrospect.state]))
@@ -91,7 +92,7 @@
   []
   ;; TODO: fix so it's not specific to abduction
   (if (<= @time-now 0) ""
-      (let [true-vertices (get (:true-vertices @truedata) @time-now)]
+      (let [true-vertices (true-vertices-now @truedata @time-now)]
         (str "True vertices: "
              (str/join ", " (sort true-vertices))))))
 
@@ -100,5 +101,5 @@
   (if (<= @time-now 0) ""
       (let [ws (:workspace (cur-ep (:est @or-state)))]
         (str "Believed vertices: "
-             (str/join ", " (sort (map #(:vertex (lookup-hyp ws %))
-                                     (get (:accepted ws) :expl))))))))
+             (str/join ", " (sort (set (map #(:vertex (lookup-hyp ws %))
+                                          (get (:accepted ws) :expl)))))))))

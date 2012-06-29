@@ -58,6 +58,10 @@
   [expgraph]
   (set (filter #(empty? (incoming expgraph %)) (nodes expgraph))))
 
+(defn vertices
+  [expgraph]
+  (nodes expgraph))
+
 (defn data-explained-by-top
   [expgraph]
   (let [eg-filled (apply remove-nodes expgraph
@@ -112,13 +116,15 @@
      (filled-nodes expgraph)))
 
 (defn sorted-by-dep
-  [expgraph]
-  (rest (topsort (reduce (fn [g v] (add-edges g [-1 v]))
-                    (let [conflicts-edges (filter #(apply conflicts? expgraph %)
-                                             (edges expgraph))]
-                      (transpose (apply remove-edges expgraph conflicts-edges)))
-                    (bottom-nodes expgraph))
-                 -1)))
+  ([expgraph]
+     (sorted-by-dep expgraph (bottom-nodes expgraph)))
+  ([expgraph starts]
+     (rest (topsort (reduce (fn [g v] (add-edges g [-1 v]))
+                       (let [conflicts-edges (filter #(apply conflicts? expgraph %)
+                                                (edges expgraph))]
+                         (transpose (apply remove-edges expgraph conflicts-edges)))
+                       starts)
+                    -1))))
 
 (defn format-dot-expgraph
   [expgraph]
