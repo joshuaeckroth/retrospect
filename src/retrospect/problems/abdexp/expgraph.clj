@@ -113,7 +113,10 @@
 
 (defn sorted-by-dep
   [expgraph]
-  (rest (topsort (reduce (fn [g v] (add-edges g [-1 v])) (transpose expgraph)
+  (rest (topsort (reduce (fn [g v] (add-edges g [-1 v]))
+                    (let [conflicts-edges (filter #(apply conflicts? expgraph %)
+                                             (edges expgraph))]
+                      (transpose (apply remove-edges expgraph conflicts-edges)))
                     (bottom-nodes expgraph))
                  -1)))
 
