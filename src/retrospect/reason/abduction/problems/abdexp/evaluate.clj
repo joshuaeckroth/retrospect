@@ -1,61 +1,57 @@
 (ns retrospect.reason.abduction.problems.abdexp.evaluate
+  (:require [clojure.set :as set])
   (:use [retrospect.evaluate :only [calc-increase]])
   (:use [retrospect.epistemicstates :only [cur-ep]])
+  (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
   (:use [retrospect.problems.abdexp.expgraph])
   (:use [retrospect.state]))
 
-(comment
-  (let [{:keys [arb efli deltas]} (:workspace (cur-ep (:est ors)))]
-    (update-in
-     ors [:results] conj
-     (merge {:Problem (:name @problem)}
-            params
-            {:ArbDoubt (doubt-expgraph arb)
-             :ArbCoverage (double (/ (count (data-explained-by-top arb))
-                                     (count (data-nodes arb))))
-             :EFLIDoubt (doubt-expgraph efli)
-             :EFLIDelta (if (empty? deltas) 1.0
-                            (apply min (vals deltas)))
-             :EFLICoverage (double (/ (count (data-explained-by-top efli))
-                                      (count (data-nodes efli))))}))))
-
 (defn true-hyp?
   [truedata time-now hyp]
-  false)
+  (or (not= :expl (:type hyp))
+      (let [true-vertices (get (:true-vertices truedata) time-now)]
+        (if (true-vertices (:vertex hyp)) true false))))
+
+(defn count-matches
+  [true-vertices vertices]
+  (count (filter true-vertices vertices)))
+
+(defn tp-tn-fp-fn
+  [true-vertices acc-vertices not-acc-vertices]
+  (if (empty? true-vertices) [1.0 1.0 1.0 1.0]
+      (let [true-pos (count-matches true-vertices acc-vertices)
+            false-pos (- (count acc-vertices) true-pos)
+            false-neg (count-matches true-vertices not-acc-vertices)
+            true-neg (- (count not-acc-vertices) false-neg)]
+        [true-pos true-neg false-pos false-neg])))
 
 (defn evaluate
   [truedata est]
-  {})
+  (let [time-now (:time (cur-ep est))
+        ws (:workspace (cur-ep est))
+        true-vertices (get (:true-vertices truedata) time-now)
+        acc-vertices (set (map #(:vertex (lookup-hyp ws %))
+                             (get (:accepted ws) :expl)))
+        not-acc-vertices (set/difference (set (map #(:vertex (lookup-hyp ws %))
+                                                 (get (:hypotheses ws) :expl)))
+                                         acc-vertices)
+        [tp tn fp fn] (tp-tn-fp-fn true-vertices acc-vertices not-acc-vertices)]
+    (println {:TP tp :TN tn :FP fp :FN fn
+              :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
+              :FPR (if (= 0 (+ fp tn)) 1.0 (/ (double fp) (double (+ fp tn))))
+              :F1 (if (= 0 (+ tp fp fn)) 1.0 (/ (double (* 2.0 tp))
+                                                (double (+ (* 2.0 tp) fp fn))))})
+    ;; http://en.wikipedia.org/wiki/Receiver_operating_characteristic
+    {:TP tp :TN tn :FP fp :FN fn
+     :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
+     :FPR (if (= 0 (+ fp tn)) 1.0 (/ (double fp) (double (+ fp tn))))
+     :F1 (if (= 0 (+ tp fp fn)) 1.0 (/ (double (* 2.0 tp))
+                                       (double (+ (* 2.0 tp) fp fn))))}))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
-  {})
-
-(comment
-  (println "Nodes only in arbitrary:" (difference (filled-nodes eg-arb)
-                                                  (filled-nodes eg-least)))
-  (println "Nodes only in efli:" (difference (filled-nodes eg-efli)
-                                             (filled-nodes eg-least)))
-  (println "Nodes in least:" (difference (filled-nodes eg-least)
-                                         (filled-nodes eg-arb)))
-  (println "Least is complete?" (complete? eg-least))
-  (println "--")
-  (println "Arbitrary is complete?" (complete? eg-arb))
-  (println "Arbitrary equal to least?" (= eg-arb eg-least))
-  (println "Nodes in least-arb:"
-           (difference (filled-nodes eg-least)
-                       (filled-nodes eg-arb)))
-  (println "Arbitrary cardinality increase:"
-           )
-  (println "--")
-  (println "EFLI is complete?" (complete? eg-efli))
-  (println "EFLI equal to least?" (= eg-efli eg-least))
-  (println "Nodes in least-efli:"
-           (difference (filled-nodes eg-least)
-                       (filled-nodes eg-efli)))
-  (println "EFLI cardinality increase:"
-           (- (cardinality eg-efli) (cardinality eg-least)))
-  (view eg-efli))
+  (apply merge (map #(calc-increase control-results comparison-results %)
+                  [:TP :TN :FP :FN :TPR :FPR :F1])))
 
 (defn stats
   [truedata ors time-now])

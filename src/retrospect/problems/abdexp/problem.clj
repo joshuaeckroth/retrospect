@@ -2,7 +2,9 @@
   (:use [retrospect.problems.abdexp.truedata :only [generate-truedata]])
   (:use [retrospect.problems.abdexp.sensors :only [generate-sensors]])
   (:use [retrospect.problems.abdexp.player :only
-         [player-get-stats-panel player-setup-diagram player-update-diagram]])
+         [player-get-stats-panel player-update-stats
+          player-setup-diagram player-update-diagram
+          player-get-truedata-log player-get-problem-log]])
   (:use [retrospect.reason.abduction.problems.abdexp.hypotheses :only
          [generate-kb make-sensor-hyps hypothesize update-kb]])
   (:use [retrospect.reason.abduction.problems.abdexp.evaluate :only
@@ -12,11 +14,11 @@
 (def abdexp-problem
   {:name "AbdExp"
    :player-fns {:get-stats-panel-fn player-get-stats-panel
-                :update-stats-fn (constantly nil)
+                :update-stats-fn player-update-stats
                 :setup-diagram-fn player-setup-diagram
                 :update-diagram-fn player-update-diagram
-                :get-truedata-log (constantly "")
-                :get-problem-log (constantly "")}
+                :get-truedata-log player-get-truedata-log
+                :get-problem-log player-get-problem-log}
    :generate-truedata-fn generate-truedata
    :generate-sensors-fn generate-sensors
    :perturb-fn identity
