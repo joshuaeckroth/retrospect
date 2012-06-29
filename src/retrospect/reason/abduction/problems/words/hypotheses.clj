@@ -21,12 +21,12 @@
                       :dict-freqs (:dict-freqs training)})])
 
 (defn make-sensor-hyps
-  [sensor time-prev time-now accepted lookup-hyp]
+  [sensors time-prev time-now accepted lookup-hyp]
   (map (fn [[sym pos]]
        (new-hyp "Symbol" :symbol :symbol 1.0 true nil
                 [] (str sym) (format "Symbol: %s, pos: %d" sym pos)
                 {:pos pos :sym (str sym) :time (inc time-prev)}))
-     (sensed-at sensor (inc time-prev))))
+     (sensed-at (first sensors) (inc time-prev))))
 
 (defn conflicts?
   [hyp1 hyp2]
