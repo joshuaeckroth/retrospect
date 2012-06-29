@@ -53,7 +53,12 @@
                                                      (not (has-edge? eg v2 v1))))
                                               (combinations vs 2)))))))
         eg-conflicts (reduce set-conflicts eg-filled conflict-links)
-        eg-scores (reduce (fn [eg v] (add-attr eg v :score (if (non-data v) (my-rand) 1.0)))
+        eg-scores (reduce (fn [eg v] (add-attr eg v :score
+                                         (if (non-data v)
+                                           (if (true-vertices v)
+                                             (min 1.0 (+ (my-rand) (my-rand)))
+                                             (max 0.0 (- (my-rand) (my-rand))))
+                                           1.0)))
                      eg-conflicts (sort (nodes eg-conflicts)))
         eg-forced (apply force-fill eg-scores (bottom-nodes eg-scores))]
     (if (empty? (forced-nodes eg-forced)) (random-expgraph-levels)
