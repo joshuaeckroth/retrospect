@@ -288,22 +288,22 @@
                                                               (:explains hyp))))
                                  prior-hyp))
               ;; otherwise, add the new hyp
-              (let [hyp-oracle (if ((:oracle-types workspace) (:type hyp))
+              (let [hyp-apriori (if ((:oracle-types workspace) (:type hyp))
                                  (if ((:oracle workspace) hyp)
                                    (assoc hyp :apriori 1.0)
                                    (assoc hyp :apriori 0.0))
-                                 hyp)]
+                                 (if (:UseScores params) hyp (assoc hyp :apriori 1.0)))]
                 (prof :add-ws-update
                       (-> workspace
-                         (assoc-in [:hyp-ids (:id hyp-oracle)] hyp-oracle)
-                         (assoc-in [:hyp-contents (:contents hyp-oracle)]
-                                   (:id hyp-oracle))
-                         (assoc-in [:explains (:id hyp-oracle)]
+                         (assoc-in [:hyp-ids (:id hyp-apriori)] hyp-apriori)
+                         (assoc-in [:hyp-contents (:contents hyp-apriori)]
+                                   (:id hyp-apriori))
+                         (assoc-in [:explains (:id hyp-apriori)]
                                    (set (map #(get (:hyp-contents workspace) %)
-                                           (:explains hyp-oracle))))
-                         (assoc-explainer hyp-oracle)
-                         (update-in [:hypotheses (:type hyp-oracle)]
-                                    conj (:id hyp-oracle))))))))))
+                                           (:explains hyp-apriori))))
+                         (assoc-explainer hyp-apriori)
+                         (update-in [:hypotheses (:type hyp-apriori)]
+                                    conj (:id hyp-apriori))))))))))
 
 (defn accept
   [workspace hyp nbest explained delta comparison]
