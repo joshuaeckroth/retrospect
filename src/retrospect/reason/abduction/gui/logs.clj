@@ -86,9 +86,12 @@
                                            (range (count (:best wslog)))))
                    "Accepted" (list-hyps (map #(ws/lookup-hyp ws %)
                                               (apply concat (vals (:accepted ws)))))
-                   "No explainers" (list-hyps (ws/find-no-explainers ws))
-                   "Unexplained" (list-hyps (ws/get-unexplained ws))
-                   "Unaccepted" (list-hyps (ws/find-unaccepted ws))}))]
+                   "No explainers" (list-hyps (map #(ws/lookup-hyp ws %)
+                                                 (ws/find-no-explainers ws)))
+                   "Unexplained" (list-hyps (map #(ws/lookup-hyp ws %)
+                                               (ws/get-unexplained ws)))
+                   "Unaccepted" (list-hyps (map #(ws/lookup-hyp ws %)
+                                              (ws/find-unaccepted ws)))}))]
     (apply sorted-map-by anc
            (mapcat (fn [ep] [(str ep) (assoc (ws-fn (:workspace ep) (:time ep)) "Log" nil)])
                    ep-states))))

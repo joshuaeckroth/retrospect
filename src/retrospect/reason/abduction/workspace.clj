@@ -50,6 +50,8 @@
    :explains {}
    ;; all explainers, keyed by hyp-id, with vals as sets of hyp-ids; serves as a cache
    :explainers {}
+   ;; a set of hypids that, should a hyp in here be accepted, needs to be explained
+   :needs-explanation #{}
    ;; a map of hyp-id => set of hypids
    :hyp-ids {}
    ;; a map of type => seq
@@ -84,14 +86,13 @@
 (defn explains
   "TODO: Fix for transitive explanation"
   [workspace hyp]
-  (map #(lookup-hyp workspace %) (get (:explains workspace) (:id hyp))))
+  (doall (map #(lookup-hyp workspace %) (get (:explains workspace) (:id hyp)))))
 
 (defn find-no-explainers
   [workspace]
   (prof :find-no-explainers
-        (doall (map #(lookup-hyp workspace (first %))
-                  (filter (fn [[hypid expls]] (empty? expls))
-                     (seq (:explainers workspace)))))))
+        (doall (map first (filter (fn [[hypid expls]] (empty? expls))
+                           (seq (:explainers workspace)))))))
 
 (defn hyp-better-than?
   [workspace hyp1 hyp2]
@@ -266,6 +267,11 @@
                             (format "Rejected in cycle %d" (:cycle workspace))))))
          workspace hyps)))
 
+(defn record-if-needs-explanation
+  [workspace hyp]
+  (if-not (:needs-explainer? hyp) workspace
+          (update-in workspace [:needs-explanation] conj (:id hyp))))
+
 (defn add
   [workspace hyp]
   (prof :add
@@ -280,19 +286,22 @@
               (log "Not adding hyp because it has conflicts")
               workspace)
             (if-let [prior-hyp-id (get (:hyp-contents workspace) (:contents hyp))]
-              ;; hyp already present; update explains in case it changed
+              ;; hyp already present; update explains in case it changed,
+              ;; and whether it needs explanation or not
               (let [prior-hyp (lookup-hyp workspace prior-hyp-id)]
                 (log hyp "already in workspace as" prior-hyp "-- updating what it explains")
-                (assoc-explainer (update-in workspace [:explains prior-hyp-id]
-                                            set/union (set (map #(get (:hyp-contents workspace) %)
-                                                              (:explains hyp))))
-                                 prior-hyp))
+                (-> workspace 
+                   (update-in [:explains prior-hyp-id]
+                              set/union (set (map #(get (:hyp-contents workspace) %)
+                                                (:explains hyp))))
+                   (record-if-needs-explanation prior-hyp)
+                   (assoc-explainer prior-hyp)))
               ;; otherwise, add the new hyp
               (let [hyp-apriori (if ((:oracle-types workspace) (:type hyp))
-                                 (if ((:oracle workspace) hyp)
-                                   (assoc hyp :apriori 1.0)
-                                   (assoc hyp :apriori 0.0))
-                                 (if (:UseScores params) hyp (assoc hyp :apriori 1.0)))]
+                                  (if ((:oracle workspace) hyp)
+                                    (assoc hyp :apriori 1.0)
+                                    (assoc hyp :apriori 0.0))
+                                  (if (:UseScores params) hyp (assoc hyp :apriori 1.0)))]
                 (prof :add-ws-update
                       (-> workspace
                          (assoc-in [:hyp-ids (:id hyp-apriori)] hyp-apriori)
@@ -301,6 +310,7 @@
                          (assoc-in [:explains (:id hyp-apriori)]
                                    (set (map #(get (:hyp-contents workspace) %)
                                            (:explains hyp-apriori))))
+                         (record-if-needs-explanation hyp-apriori)
                          (assoc-explainer hyp-apriori)
                          (update-in [:hypotheses (:type hyp-apriori)]
                                     conj (:id hyp-apriori))))))))))
@@ -330,7 +340,7 @@
                                    (clear-empty-explainers
                                     (reject-many ws-expl conflicts)))
                              ws-expl)
-              ws-needs-exp (if-not (:needs-explainer? hyp) ws-conflicts
+              ws-needs-exp (if-not ((:needs-explanation ws-conflicts) (:id hyp)) ws-conflicts
                                    (prof :accept-needs-exp
                                          (assoc-needing-explanation ws-conflicts hyp)))]
           (prof :accept-final
@@ -349,6 +359,7 @@
                       (update-in [:forced] conj (:id hyp))
                       (update-in [:accepted (:type hyp)] conj (:id hyp))
                       (update-in [:accepted :all] conj (:id hyp))
+                      (record-if-needs-explanation hyp)
                       (assoc-needing-explanation hyp))]
             ;; we have "accepted" this forced hyp so whatever it explains
             ;; does not need to be explained
@@ -357,12 +368,11 @@
 (defn get-unexplained
   [workspace]
   (prof :get-unexplained
-        (let [acc (map #(lookup-hyp workspace %) (:all (:accepted workspace)))
-              acc-need-expl (filter :needs-explainer? acc)]
-          (filter (fn [h] (not-any? (fn [h2] (accepted? workspace h2))
-                              (map #(lookup-hyp workspace %)
-                                 (get (:explainers workspace) (:id h)))))
-             acc-need-expl))))
+        (let [acc-ids (:all (:accepted workspace))
+              acc-ids-need-expl (filter (:needs-explanation workspace) acc-ids)]
+          (filter (fn [hyp-id] (not-any? (get-in workspace [:accepted :all] #{})
+                                   (get (:explainers workspace) hyp-id)))
+             acc-ids-need-expl))))
 
 (defn get-unexp-pct
   [workspace]
@@ -370,21 +380,18 @@
         (let [unexp (get-unexplained workspace)]
           (if (empty? unexp) 0.0
               (/ (double (count unexp))
-                 (double (count (filter :needs-explainer?
-                                   (map #(lookup-hyp workspace %)
-                                      (:all (:accepted workspace)))))))))))
+                 (double (count (filter (:needs-explanation workspace)
+                                   (:all (:accepted workspace))))))))))
 
 (defn get-noexp-pct
   [workspace]
   (prof :get-noexp-pct
-        (if (empty? (filter :needs-explainer?
-                       (map #(lookup-hyp workspace %)
-                          (:all (:accepted workspace)))))
+        (if (empty? (filter (:needs-explanation workspace)
+                       (:all (:accepted workspace))))
           0.0
           (/ (double (count (find-no-explainers workspace)))
-             (double (count (filter :needs-explainer?
-                               (map #(lookup-hyp workspace %)
-                                  (:all (:accepted workspace))))))))))
+             (double (count (filter (:needs-explanation workspace)
+                               (:all (:accepted workspace)))))))))
 
 (defn calc-doubt
   [workspace]
@@ -409,12 +416,9 @@
 
 (defn find-unaccepted
   [workspace]
-  (prof :find-unaccepted
-        (set/difference
-         (set (map #(lookup-hyp workspace %)
-                   (apply concat (vals (:hypotheses workspace)))))
-         (set (map #(lookup-hyp workspace %)
-                   (:all (:accepted workspace)))))))
+  (set/difference
+   (set (apply concat (vals (:hypotheses workspace))))
+   (set (:all (:accepted workspace)))))
 
 (defn find-best
   [workspace]
