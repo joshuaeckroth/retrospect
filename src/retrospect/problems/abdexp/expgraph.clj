@@ -7,7 +7,7 @@
 
 (defn score
   [expgraph vertex]
-  (attr expgraph vertex :score))
+  (or (attr expgraph vertex :score) 1.0))
 
 (defn filled?
   [expgraph vertex]

@@ -9,10 +9,10 @@
   [est]
   (let [workspace (:workspace (cur-ep est))]
     ;; TODO: implement other conditions
-    (comment (or (not-empty (ws/find-no-explainers (:log workspace)))
+    (comment (or (not-empty (ws/find-no-explainers workspace))
                  (> 0.90 (ws/calc-coverage workspace))
                  (< 0.10 (ws/calc-doubt workspace))))
-    (not-empty (ws/find-no-explainers workspace))))
+    (not-empty (ws/get-no-explainers workspace))))
 
 (comment (let [comp-cov (- (compare (:coverage ws1) (:coverage ws2)))]
            (if (not= 0 comp-cov) comp-cov
@@ -23,4 +23,4 @@
 (defn workspace-better?
   [ws-new ws-old]
   ;; we wanted to fix "no explainers"; so, did we?
-  (empty? (ws/find-no-explainers ws-new)))
+  (empty? (ws/get-no-explainers ws-new)))

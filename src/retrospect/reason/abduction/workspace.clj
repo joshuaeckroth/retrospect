@@ -86,13 +86,7 @@
 (defn explains
   "TODO: Fix for transitive explanation"
   [workspace hyp]
-  (doall (map #(lookup-hyp workspace %) (get (:explains workspace) (:id hyp)))))
-
-(defn find-no-explainers
-  [workspace]
-  (prof :find-no-explainers
-        (doall (map first (filter (fn [[hypid expls]] (empty? expls))
-                           (seq (:explainers workspace)))))))
+  (doall (filter identity (map #(lookup-hyp workspace %) (get (:explains workspace) (:id hyp))))))
 
 (defn hyp-better-than?
   [workspace hyp1 hyp2]
@@ -269,8 +263,11 @@
 
 (defn record-if-needs-explanation
   [workspace hyp]
-  (if-not (:needs-explainer? hyp) workspace
-          (update-in workspace [:needs-explanation] conj (:id hyp))))
+  (if (:needs-explainer? hyp)
+    (do
+      (log "Recording" hyp "as needing explanation.")
+      (update-in workspace [:needs-explanation] conj (:id hyp)))
+    workspace))
 
 (defn add
   [workspace hyp]
@@ -294,8 +291,9 @@
                    (update-in [:explains prior-hyp-id]
                               set/union (set (map #(get (:hyp-contents workspace) %)
                                                 (:explains hyp))))
-                   (record-if-needs-explanation prior-hyp)
-                   (assoc-explainer prior-hyp)))
+                   (record-if-needs-explanation (assoc prior-hyp :needs-explainer?
+                                                       (:needs-explainer? hyp)))
+                   (assoc-explainer (assoc prior-hyp :explains (:explains hyp)))))
               ;; otherwise, add the new hyp
               (let [hyp-apriori (if ((:oracle-types workspace) (:type hyp))
                                   (if ((:oracle workspace) hyp)
@@ -314,6 +312,24 @@
                          (assoc-explainer hyp-apriori)
                          (update-in [:hypotheses (:type hyp-apriori)]
                                     conj (:id hyp-apriori))))))))))
+
+(defn add-fact
+  [workspace hyp]
+  (prof :add-fact
+        (if (get (:hyp-contents workspace) (:contents hyp))
+          ;; "add" the hyp even though it's a duplicate, just to update
+          ;; what it explains
+          (add workspace hyp)
+          ;; otherwise, it's not a duplicate
+          (let [ws (-> (add workspace hyp)             
+                      (update-in [:forced] conj (:id hyp))
+                      (update-in [:accepted (:type hyp)] conj (:id hyp))
+                      (update-in [:accepted :all] conj (:id hyp))
+                      (record-if-needs-explanation hyp)
+                      (assoc-needing-explanation hyp))]
+            ;; we have "accepted" this forced hyp so whatever it explains
+            ;; does not need to be explained
+            (dissoc-needing-explanation ws (explains ws hyp))))))
 
 (defn accept
   [workspace hyp nbest explained delta comparison]
@@ -347,24 +363,6 @@
                 (update-in ws-needs-exp [:log :accrej (:cycle ws-needs-exp)] conj
                            {:acc hyp :rej conflicts})))))
 
-(defn add-fact
-  [workspace hyp]
-  (prof :add-fact
-        (if (get (:hyp-contents workspace) (:contents hyp))
-          ;; "add" the hyp even though it's a duplicate, just to update
-          ;; what it explains
-          (add workspace hyp)
-          ;; otherwise, it's not a duplicate
-          (let [ws (-> (add workspace hyp)             
-                      (update-in [:forced] conj (:id hyp))
-                      (update-in [:accepted (:type hyp)] conj (:id hyp))
-                      (update-in [:accepted :all] conj (:id hyp))
-                      (record-if-needs-explanation hyp)
-                      (assoc-needing-explanation hyp))]
-            ;; we have "accepted" this forced hyp so whatever it explains
-            ;; does not need to be explained
-            (dissoc-needing-explanation ws (explains ws hyp))))))
-
 (defn get-unexplained
   [workspace]
   (prof :get-unexplained
@@ -383,15 +381,22 @@
                  (double (count (filter (:needs-explanation workspace)
                                    (:all (:accepted workspace))))))))))
 
+(defn get-no-explainers
+  [workspace]
+  (prof :find-no-explainers
+        (filter (fn [hyp-id] (not-any? (:all (:accepted workspace))
+                                 (get (:explainers workspace) hyp-id)))
+           (filter (:needs-explanation workspace)
+              (:all (:accepted workspace))))))
+
 (defn get-noexp-pct
   [workspace]
   (prof :get-noexp-pct
-        (if (empty? (filter (:needs-explanation workspace)
-                       (:all (:accepted workspace))))
-          0.0
-          (/ (double (count (find-no-explainers workspace)))
-             (double (count (filter (:needs-explanation workspace)
-                               (:all (:accepted workspace)))))))))
+        (let [noexp (get-no-explainers workspace)]
+          (if (empty? noexp) 0.0
+              (/ (double (count noexp))
+                 (double (count (filter (:needs-explanation workspace)
+                                   (:all (:accepted workspace))))))))))
 
 (defn calc-doubt
   [workspace]

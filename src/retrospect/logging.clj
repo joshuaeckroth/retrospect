@@ -9,6 +9,6 @@
   [& objs]
   (prof :log
         (do
-          #_(apply println objs)
+          (apply println objs)
           (when (not @batch)
             (def reason-log (conj reason-log (join " " (map str objs))))))))

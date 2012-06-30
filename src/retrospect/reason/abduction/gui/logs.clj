@@ -87,7 +87,7 @@
                    "Accepted" (list-hyps (map #(ws/lookup-hyp ws %)
                                               (apply concat (vals (:accepted ws)))))
                    "No explainers" (list-hyps (map #(ws/lookup-hyp ws %)
-                                                 (ws/find-no-explainers ws)))
+                                                 (ws/get-no-explainers ws)))
                    "Unexplained" (list-hyps (map #(ws/lookup-hyp ws %)
                                                (ws/get-unexplained ws)))
                    "Unaccepted" (list-hyps (map #(ws/lookup-hyp ws %)

@@ -48,7 +48,9 @@
         progression {1 expgraph-1, 2 expgraph-2, 3 expgraph-3}]
     {:params {:Steps 3}
      :truedata {:training {:test progression}
-                :test progression}
+                :test progression
+                :true-vertices #{"E1" "E2" "E3" "E4" "E5" "E6" "E7" "E8" "E9" "E10"
+                                 "E11" "E12" "E13" "E14" "E16" "E17"}}
      :sensors (generate-sensors)}))
 
 (defn hr23-setup
@@ -82,9 +84,44 @@
         progression {1 expgraph-1, 2 expgraph-2, 3 expgraph-3}]
     {:params {:Steps 3}
      :truedata {:training {:test progression}
-                :test progression}
+                :test progression
+                :true-vertices #{"passenger pulls handbrake"}}
+     :sensors (generate-sensors)}))
+
+(defn noexp-setup
+  []
+  (-> (digraph)
+     (add-edges ["10" "1"]
+                ["11" "2"]
+                ["12" "3"]
+                ["13" "4"]
+                ["20" "10"]
+                ["21" "11"]
+                ["22" "12"]
+                ["23" "10"]
+                ["23" "13"]
+                ["30" "11"]
+                ["30" "23"])
+     (set-conflicts ["20" "21"])))
+
+(defn noexp
+  []
+  (let [expgraph-1 (force-fill (noexp-setup)
+                               "1" "2" "3" "4")
+        expgraph-2 (-> expgraph-1
+                      (add-edges ["40" "31"]
+                                 ["31" "23"]
+                                 ["31" "22"]
+                                 ["31" "23"])
+                      (set-conflicts ["30" "31"] ["31" "20"]))
+        progression {1 expgraph-1, 2 expgraph-2}]
+    {:params {:Steps 2}
+     :truedata {:training {:test progression}
+                :test progression
+                :true-vertices #{"1" "2" "3" "4" "21" "30"}}
      :sensors (generate-sensors)}))
 
 (def prepared-map
   (sorted-map "peyer" peyer
-              "hr23" hr23))
+              "hr23" hr23
+              "noexp" noexp))
