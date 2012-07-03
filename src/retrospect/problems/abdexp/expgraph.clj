@@ -13,6 +13,10 @@
   [expgraph vertex]
   (= "filled" (attr expgraph vertex :style)))
 
+(defn observation?
+  [vertex]
+  (= "O" (subs vertex 0 1)))
+
 (defn forced?
   [expgraph vertex]
   (attr expgraph vertex :forced))
