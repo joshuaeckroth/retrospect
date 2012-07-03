@@ -64,7 +64,7 @@
                      eg-conflicts (sort (nodes eg-conflicts)))
         eg-forced (apply force-fill eg-scores observations)]
     (if (empty? (forced-nodes eg-forced)) (random-expgraph-levels)
-        {:expgraph eg-forced :true-vertices true-vertices})))
+        {:expgraph eg-forced :true-vertices true-vertices :observations (set observations)})))
 
 (defn segment-expgraph-steps
   [expgraph]
@@ -111,9 +111,11 @@
 
 (defn generate-truedata
   []
-  (let [{:keys [expgraph true-vertices]} (random-expgraph-levels)
+  (let [{:keys [expgraph true-vertices observations]} (random-expgraph-levels)
         expgraphs (segment-expgraph-steps expgraph)]
     {:training {:test expgraphs
-                :true-vertices true-vertices}
+                :true-vertices true-vertices
+                :observations observations}
      :test expgraphs
-     :true-vertices true-vertices}))
+     :true-vertices true-vertices
+     :observations observations}))

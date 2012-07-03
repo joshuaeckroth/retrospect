@@ -18,9 +18,10 @@
 
 (defn make-sensor-hyps
   [sensors time-prev time-now accepted lookup-hyp]
-  (let [expgraph (sensed-at (first sensors) time-now)
+  (let [kb (get-kb accepted lookup-hyp)
+        expgraph (get (:expgraphs kb) time-now)
         prev-hyps (map lookup-hyp (:all accepted))
-        observed (set (forced-nodes expgraph))]
+        observed (sensed-at (first sensors) time-now)]
     (loop [hyps (zipmap (map :vertex prev-hyps) prev-hyps)
            vertices (filter observed (sorted-by-dep expgraph))]
       (if (empty? vertices)
