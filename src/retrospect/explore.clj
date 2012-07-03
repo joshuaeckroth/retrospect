@@ -84,21 +84,21 @@
 
 (defn run
   [metric params repetitions]
-  (dosync (alter log-box str (format "\nSimulation %s" (pr-str params))))
+  #_(dosync (alter log-box str (format "\nSimulation %s" (pr-str params))))
   (let [rs (for [i (range repetitions)]
              (let [seed (my-rand-int 10000000)]
                (binding [rgen (new-seed seed)
                          last-id 0
                          retrospect.state/params (assoc params :Seed seed)]
-                 (dosync (alter log-box str (format "\nSeed: %d" seed)))
+                 #_(dosync (alter log-box str (format "\nSeed: %d" seed)))
                  (let [truedata ((:generate-truedata-fn @problem))
                        sensors ((:generate-sensors-fn @problem))
                        ors (init-ors sensors (:training truedata))
                        results (:results (cur-ep (:est (run-simulation truedata ors))))]
                    (dosync (alter retrospect.state/results conj (last results)))
                    (update-results)
-                   (dosync (alter log-box str (format "\n%s = %s" (name metric)
-                                                 (get (last results) metric))))
+                   #_(dosync (alter log-box str (format "\n%s = %s" (name metric)
+                                                   (get (last results) metric))))
                    results))))
         avg (double (/ (reduce + (map #(get (last %) metric) rs)) repetitions))]
     (dosync (alter log-box str (format "\nAvg = %.2f" avg)))
@@ -153,7 +153,8 @@
           (pr-str (assoc ps :Seed seed :Permutations permutations
                          :Restarts restarts :Repetitions repetitions
                          :MinMax min-max :Metric (name metric))))
-    (dosync (alter params-edit (constantly (format-params ps))))
+    (dosync (alter params-edit (constantly (format-params ps)))
+            (alter retrospect.state/results (constantly [])))
     (when (and (not= "" min-max) (not= "" metric))
       (send (agent {:bests [] :params ps :seed seed :permutations permutations
                     :restarts restarts :repetitions repetitions
