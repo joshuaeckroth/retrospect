@@ -33,7 +33,7 @@
                :update-kb-fn update-kb
                :stats-fn stats
                :true-hyp?-fn true-hyp?
-               :hyp-types []}
+               :hyp-types [:expl :observation]}
    :default-params {:Steps [100 [100]]
                     :StepsBetween [1 [1]]
                     :ResetEachStep [false [false]]
