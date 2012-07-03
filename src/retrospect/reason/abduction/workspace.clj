@@ -385,7 +385,8 @@
   [workspace]
   (prof :find-no-explainers
         (filter (fn [hyp-id] (empty? (get (:explainers workspace) hyp-id)))
-           (:needs-explanation workspace))))
+           (filter (:needs-explanation workspace)
+              (:all (:accepted workspace))))))
 
 (defn get-noexp-pct
   [workspace]
@@ -393,7 +394,8 @@
         (let [noexp (get-no-explainers workspace)]
           (if (empty? noexp) 0.0
               (/ (double (count noexp))
-                 (double (count (:needs-explanation workspace))))))))
+                 (double (count (filter (:needs-explanation workspace)
+                                   (:all (:accepted workspace))))))))))
 
 (defn calc-doubt
   [workspace]
