@@ -18,9 +18,10 @@
 
 (defn random-expgraph-levels
   []
-  (let [vertices (my-shuffle (range (* 5 (:Steps params))
-                                    (+ (* 5 (:Steps params)) (:NumVertices params))))
-        observations (range (* 5 (:Steps params)))
+  (let [vertices (map #(format "E%d" %)
+                    (my-shuffle (range (* 5 (:Steps params))
+                                       (+ (* 5 (:Steps params)) (:NumVertices params)))))
+        observations (map #(format "O%d" %) (range (* 5 (:Steps params))))
         vs-levels (loop [vs-levels []
                          vs vertices
                          cuts (repeatedly (:NumLevels params)
@@ -64,7 +65,7 @@
                      eg-conflicts (sort (nodes eg-conflicts)))
         eg-forced (apply force-fill eg-scores observations)]
     (if (empty? (forced-nodes eg-forced)) (random-expgraph-levels)
-        {:expgraph eg-forced :true-vertices true-vertices :observations (set observations)})))
+        {:expgraph eg-forced :true-vertices true-vertices})))
 
 (defn segment-expgraph-steps
   [expgraph]
@@ -114,8 +115,6 @@
   (let [{:keys [expgraph true-vertices observations]} (random-expgraph-levels)
         expgraphs (segment-expgraph-steps expgraph)]
     {:training {:test expgraphs
-                :true-vertices true-vertices
-                :observations observations}
+                :true-vertices true-vertices}
      :test expgraphs
-     :true-vertices true-vertices
-     :observations observations}))
+     :true-vertices true-vertices}))
