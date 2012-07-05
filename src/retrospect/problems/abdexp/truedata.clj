@@ -18,10 +18,10 @@
 
 (defn random-expgraph-levels
   []
-  (let [vertices (map #(format "E%d" %)
-                    (my-shuffle (range (* 5 (:Steps params))
-                                       (+ (* 5 (:Steps params)) (:NumVertices params)))))
-        observations (map #(format "O%d" %) (range (* 5 (:Steps params))))
+  (let [observations (set (repeatedly (* 10 (:Steps params))
+                                      #(format "O%d" (my-rand-int 1000))))
+        vertices (set (repeatedly (:NumVertices params)
+                                  #(format "E%d" (+ 1000 (my-rand-int 1000)))))
         vs-levels (loop [vs-levels []
                          vs vertices
                          cuts (repeatedly (:NumLevels params)
@@ -40,9 +40,8 @@
                                 (partition 2 1 vs-levels)))
         eg (apply add-edges (digraph) expl-links)
         eg-filled (reduce fill eg (last vs-levels))
-        true-vertices (set/difference (set (apply concat (for [v (last vs-levels)]
-                                                           (arbitrary-path-up eg-filled v))))
-                                      (set (last vs-levels)))
+        true-vertices (set (apply concat (for [v (filled-nodes eg-filled)]
+                                           (arbitrary-path-up eg-filled v))))
         non-data (set (apply concat (butlast vs-levels)))
         conflict-links (let [vs (sort (set/difference
                                        (nodes eg-filled) (set (last vs-levels)) true-vertices))]
@@ -81,9 +80,10 @@
                 prior-vertices (if prior-expgraph
                                  (set (sorted-by-dep prior-expgraph)) #{})
                 obs-up-to-time (if (>= (count obs-groups) time)
-                                 (mapcat #(get obs-groups %) (range time)) [])
+                                 (mapcat #(nth obs-groups %) (range time)) [])
                 available-vertices (filter #(not (prior-vertices %))
                                       (sorted-by-dep expgraph obs-up-to-time))
+                ;; don't take all newly-observed vertices and explainers
                 new-vertices (take (my-rand-int (count available-vertices))
                                    available-vertices)
                 current-vertices (set/union (set prior-vertices) (set new-vertices))

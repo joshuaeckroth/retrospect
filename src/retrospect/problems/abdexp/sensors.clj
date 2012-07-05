@@ -1,4 +1,5 @@
 (ns retrospect.problems.abdexp.sensors
+  (:require [clojure.set :as set])
   (:use [retrospect.sensors :only [init-sensor add-sensed]])
   (:use [loom.graph :only [digraph]])
   (:use [retrospect.problems.abdexp.expgraph])
@@ -11,9 +12,11 @@
     (if (= 0 (:SensorNoise params))
       (add-sensed sensor time observations)
       (let [noise-prob (/ (double (:SensorNoise params)) 100.0)
-            noisy-observations (set (map (fn [v] (if (<= (my-rand) noise-prob)
-                                                (format "O%d" (my-rand-int 1000)) v))
-                                       observations))]
+            noisy-observations
+            (set/union observations
+                   (repeatedly (my-rand-int (int (* (/ (:SensorNoise params) 100)
+                                                    (:Steps params))))
+                               #(format "O%d" (my-rand-int 1000))))]
         (add-sensed sensor time noisy-observations)))))
 
 (defn generate-sensors
