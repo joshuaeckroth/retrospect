@@ -23,7 +23,7 @@
 
 (defn tp-tn-fp-fn
   [true-vertices acc-vertices not-acc-vertices]
-  (if (empty? true-vertices) [1.0 1.0 1.0 1.0]
+  (if (empty? true-vertices) [0 0 0 0]
       (let [true-pos (count-matches true-vertices acc-vertices)
             false-pos (- (count acc-vertices) true-pos)
             false-neg (count-matches true-vertices not-acc-vertices)

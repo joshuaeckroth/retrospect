@@ -25,7 +25,7 @@
 
 (defn tp-tn-fp-fn
   [true-movs acc-movs not-acc-movs]
-  (if (empty? true-movs) [1.0 1.0 1.0 1.0]
+  (if (empty? true-movs) [0 0 0 0]
       (let [true-pos (count-matches true-movs acc-movs)
             false-pos (- (count acc-movs) true-pos)
             false-neg (count-matches true-movs not-acc-movs)
