@@ -80,7 +80,6 @@
                                 "Not accepted"
                                 {"True" (list-hyps (get not-acc-tf-hyps true))
                                  "False" (list-hyps (get not-acc-tf-hyps false))}}})))
-                   "Forced" (list-hyps (map #(ws/lookup-hyp ws %) (:forced ws)))
                    "Cycles" (apply sorted-map-by anc
                                    (mapcat #(build-cycle wslog %)
                                            (range (count (:best wslog)))))

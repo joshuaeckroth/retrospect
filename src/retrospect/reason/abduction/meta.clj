@@ -2,7 +2,7 @@
   (:require [clojure.set :as set])
   (:use [retrospect.reason.abduction.workspace :only
          [get-no-explainers new-hyp init-workspace
-          explain add-fact add lookup-hyp]])
+          explain add-observation add lookup-hyp]])
   (:use [retrospect.epistemicstates :only [cur-ep]])
   (:use [retrospect.state]))
 
@@ -66,7 +66,7 @@
         noexp (map (partial lookup-hyp workspace) (get-no-explainers workspace))
         noexp-hyps (make-noexp-hyps noexp)
         meta-hyps (make-meta-hyps noexp-hyps)
-        meta-ws (reduce add (reduce add-fact (init-workspace) noexp-hyps) meta-hyps)
+        meta-ws (reduce add (reduce add-observation (init-workspace) noexp-hyps) meta-hyps)
         meta-ws-explained (explain meta-ws)
         accepted (map (partial lookup-hyp meta-ws-explained)
                     (concat (:anomaly (:accepted meta-ws-explained))

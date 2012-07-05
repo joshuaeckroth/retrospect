@@ -56,11 +56,8 @@
   [truedata est]
   (let [ep (cur-ep est)
         workspace (:workspace ep)
-        true-false (group-hyps-by-true-false
-                    (filter #(not ((:forced workspace) (:id %)))
-                       (vals (:hyp-ids workspace)))
-                    :type truedata
-                    (:time ep) (:true-hyp?-fn (:abduction @problem)))
+        true-false (group-hyps-by-true-false (vals (:hyp-ids workspace))
+                    :type truedata (:time ep) (:true-hyp?-fn (:abduction @problem)))
         true-false-scores (calc-true-false-scores workspace true-false)]
     (merge {:Problem (:name @problem)}
            params

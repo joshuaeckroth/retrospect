@@ -58,8 +58,6 @@
    :hypotheses {}
    ;; :data + :type map keys => hyp-id values (for dup searching)
    :hyp-contents {}
-   ;; set of hyp-ids
-   :forced #{}
    ;; a map of type => seq, with additional key :all
    :accepted {:all #{}}
    ;; a map of hypid => set of hypids
@@ -313,21 +311,20 @@
                          (update-in [:hypotheses (:type hyp-apriori)]
                                     conj (:id hyp-apriori))))))))))
 
-(defn add-fact
+(defn add-observation
   [workspace hyp]
-  (prof :add-fact
+  (prof :add-observation
         (if (get (:hyp-contents workspace) (:contents hyp))
           ;; "add" the hyp even though it's a duplicate, just to update
           ;; what it explains
           (add workspace hyp)
           ;; otherwise, it's not a duplicate
           (let [ws (-> (add workspace hyp)             
-                      (update-in [:forced] conj (:id hyp))
                       (update-in [:accepted (:type hyp)] conj (:id hyp))
                       (update-in [:accepted :all] conj (:id hyp))
                       (record-if-needs-explanation hyp)
                       (assoc-needing-explanation hyp))]
-            ;; we have "accepted" this forced hyp so whatever it explains
+            ;; we have "accepted" this hyp so whatever it explains
             ;; does not need to be explained
             (dissoc-needing-explanation ws (explains ws hyp))))))
 
@@ -400,23 +397,22 @@
 (defn calc-doubt
   [workspace]
   (prof :calc-doubt
-        (let [acc-not-forced (filter #(not ((:forced workspace) %))
-                                (:all (:accepted workspace)))]
-          (if (empty? acc-not-forced)
-            (if (empty? (:sorted-explainers-explained workspace)) 0.0 1.0)
-            (let [confs (map #(:apriori (lookup-hyp workspace %))
-                           acc-not-forced)]
-              (/ (reduce + 0.0 (map #(- 1.0 %) confs)) (count confs)))))))
+        (if (empty? (:all (:accepted workspace)))
+          (if (empty? (:sorted-explainers-explained workspace)) 0.0 1.0)
+          (let [confs (map #(:apriori (lookup-hyp workspace %))
+                         (:all (:accepted workspace)))]
+            (/ (reduce + 0.0 (map #(- 1.0 %) confs)) (count confs))))))
 
 (defn calc-coverage
   [workspace]
   (prof :calc-coverage
-        (if (empty? (:forced workspace)) 1.0
-            (let [accessible (mapcat (fn [hyp-id] (pre-traverse (:graph workspace) hyp-id))
-                                     (set/difference (set (:all (:accepted workspace)))
-                                                     (set (:forced workspace))))]
-              (/ (double (count (set/intersection (:forced workspace) (set accessible))))
-                 (double (count (:forced workspace))))))))
+        (let [acc-needs-exp (set (filter (:needs-explanation workspace)
+                                    (:all (:accepted workspace))))]
+          (if (empty? acc-needs-exp) 1.0
+              (let [accessible (mapcat (fn [hyp-id] (pre-traverse (:graph workspace) hyp-id))
+                                       acc-needs-exp)]
+                (/ (double (count (set/intersection acc-needs-exp (set accessible))))
+                   (double (count acc-needs-exp))))))))
 
 (defn find-unaccepted
   [workspace]
@@ -474,7 +470,6 @@
   (prof :get-explaining-hypotheses
         ((:hypothesize-fn (:abduction @problem))
          (map #(lookup-hyp workspace %) (:sorted-explainers-explained workspace))
-         (map #(lookup-hyp workspace %) (:forced workspace))
          (:accepted workspace)
          (partial lookup-hyp workspace) time-now)))
 
@@ -511,13 +506,8 @@
                           (fn [g h]
                             (-> g (add-attr h :fontcolor "green")
                                (add-attr h :color "green")))
-                          g-conflicts (:all (:accepted workspace)))
-              g-facts (reduce
-                       (fn [g h]
-                         (-> g (add-attr h :fontcolor "gray50")
-                            (add-attr h :color "gray50")))
-                       g-accepted (:forced workspace))]
-          (assoc workspace :graph g-facts))))
+                          g-conflicts (:all (:accepted workspace)))]
+          (assoc workspace :graph g-accepted))))
 
 (defn explain
   [workspace]
@@ -563,7 +553,7 @@
         (let [hs ((:make-sensor-hyps-fn (:abduction @problem))
                   sensors time-prev time-now
                   (:accepted workspace) (partial lookup-hyp workspace))]
-          (reduce add-fact workspace hs))))
+          (reduce add-observation workspace hs))))
 
 (defn add-kb
   [workspace hyps]

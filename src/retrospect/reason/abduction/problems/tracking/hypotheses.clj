@@ -180,7 +180,7 @@
          (= (:time (:det to)) (inc (:time (:det from)))))))
 
 (defn hypothesize
-  [sensor-hyps forced-hyps accepted lookup-hyp time-now]
+  [sensor-hyps accepted lookup-hyp time-now]
   (prof :hypothesize
         (let [from-hyps (filter #(= :sensor-from (:subtype %))
                            (sort-by (comp :time :det) sensor-hyps))
