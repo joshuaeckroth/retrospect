@@ -6,7 +6,7 @@
                 update-hypotheses update-kb reset-workspace
                 calc-doubt calc-coverage]])
   (:use [retrospect.reason.abduction.meta
-         :only [metareasoning-activated? workspace-better?]])
+         :only [metareason metareasoning-activated? workspace-better?]])
   (:use [retrospect.reason.abduction.evaluate
          :only [evaluate evaluate-comp]])
   (:use [retrospect.reason.abduction.gui.hypgraph
@@ -15,25 +15,25 @@
          :only [logs-tab update-logs]])
   (:use [retrospect.state]))
 
-
-(defn do-reason
-  [truedata workspace time-prev time-now sensors]
-  (let [ws (if (= "none" (:Oracle params)) workspace
-               (assoc workspace :oracle
-                      (partial (:true-hyp?-fn (:abduction @problem))
-                               truedata time-now)))]
-    (if sensors
-      (update-kb (explain (update-hypotheses
-                           (add-sensor-hyps ws time-prev time-now sensors)
-                           time-now)))
-      (update-kb (explain (update-hypotheses ws time-now))))))
-
 (def reason-abduction
   {:name "Abduction"
-   :reason-fn do-reason
-   :stats-fn (fn [truedata ors time-now] ((:stats-fn (:abduction @problem))
-                                         truedata ors time-now))
+   :reason-fn (fn [truedata workspace time-prev time-now sensors]
+                (let [ws (if (= "none" (:Oracle params)) workspace
+                             (assoc workspace :oracle
+                                    (partial (:true-hyp?-fn (:abduction @problem))
+                                             truedata time-now)))]
+                  (if sensors
+                    (update-kb (explain (update-hypotheses
+                                         (add-sensor-hyps ws time-prev time-now sensors)
+                                         time-now)))
+                    (update-kb (explain (update-hypotheses ws time-now))))))
+   :stats-fn (fn [truedata ors time-now]
+               ((:stats-fn (:abduction @problem)) truedata ors time-now))
    :metareasoning-activated?-fn metareasoning-activated?
+   :metareason-fn (fn [truedata est time-prev time-now sensors]
+                    (if (not= "abd" (:Metareasoning params))
+                      {:est est :considered? false :accepted-branch? false}
+                      (metareason truedata est time-prev time-now sensors)))
    :workspace-better?-fn workspace-better?
    :evaluate-fn evaluate
    :evaluate-comp-fn evaluate-comp

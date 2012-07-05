@@ -90,8 +90,10 @@
                   (partial meta-batch 5)
                   (= "lowerthresh" m)
                   meta-lower-threshold
-                  :else (constantly {:est est :considered? false
-                                     :accepted-branch? false}))]
+                  ;; did not recognize the metareasoning strategy;
+                  ;; hand-off to the reasoning engine
+                  :else
+                  (:metareason-fn @reason))]
       (f truedata est time-prev time-now sensors))))
 
 (defn update-sensors-from-to
