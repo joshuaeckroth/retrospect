@@ -37,24 +37,28 @@
              (format "%s has no explainer but needs an explanation." ne)
              {:hyp ne})))
 
+(defn conflicts?
+  [hyp1 hyp2]
+  (= (:explains hyp1) (:explains hyp2)))
+
 (defn make-meta-hyps
   "Create explanations, and associated actions, for noexp."
   [noexp-hyps]
   (concat
    ;; anomaly hyps
-   (map (fn [ne] (new-hyp "Anomaly" :anomaly :anomaly 1.0 false nil [(:contents ne)]
+   (map (fn [ne] (new-hyp "Anomaly" :anomaly :anomaly 1.0 false conflicts? [(:contents ne)]
                        (format "%s is an anomaly" ne) (format "%s is an anomaly" ne)
                        {:action belief-revision}))
       noexp-hyps)
    ;; noise hyps
    (if (= 0 (:SensorNoise params)) []
-       (map (fn [ne] (new-hyp "Noise" :noise :noise 1.0 false nil [(:contents ne)]
+       (map (fn [ne] (new-hyp "Noise" :noise :noise 1.0 false conflicts? [(:contents ne)]
                            (format "%s is noise" ne) (format "%s is noise" ne)
                            {:action ignore-hyp}))
           noexp-hyps))
    ;; learn hyps
    (if (= 100 (:Knowledge params)) []
-       (map (fn [ne] (new-hyp "Learn" :learn :learn 1.0 false nil [(:contents ne)]
+       (map (fn [ne] (new-hyp "Learn" :learn :learn 1.0 false conflicts? [(:contents ne)]
                            (format "%s should be learned" ne)
                            (format "%s should be learned" ne)
                            {:action learn-hyp}))
