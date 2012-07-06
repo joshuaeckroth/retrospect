@@ -1,4 +1,5 @@
 (ns retrospect.problems.tracking.prepared
+  (:import (java.awt Color))
   (:require [retrospect.state])
   (:require [retrospect.random])
   (:use [retrospect.random :only [new-seed]])
@@ -44,8 +45,8 @@
     {:params params
      :sensors [(new-sensor (keyword "right") 5 9 0 9 false)]
      :truedata {:test (entity-paths params
-                                    ["1" :straight red  0 5,4 4,4]
-                                    ["2" :straight blue 0 5,5 5,4])}}))
+                                    ["1" :straight (Color. 255 0 0)  0 5,4 4,4]
+                                    ["2" :straight (Color. 0 0 255) 0 5,5 5,4])}}))
 
 (defn color-update
   []
@@ -54,7 +55,7 @@
      :sensors [(new-sensor (keyword "1") 0 3 0 9 false)
                (new-sensor (keyword "2g") 4 7 0 9 true)
                (new-sensor (keyword "3") 8 9 0 9 false)]
-     :truedata {:test (entity-paths params ["1" :straight red 0 9,5 5,5 2,5])}}))
+     :truedata {:test (entity-paths params ["1" :straight (Color. 255 0 0) 0 9,5 5,5 2,5])}}))
 
 (defn gray-in-range
   []
@@ -64,8 +65,8 @@
                (new-sensor (keyword "middle-gray") 0 9 4 6 false)
                (new-sensor (keyword "bottom") 0 9 7 9 true)]
      :truedata {:test (entity-paths params
-                                    ["1" :straight red   0 3,0 3,5 3,9]
-                                    ["2" :straight blue 0 7,0 7,5 7,9])}}))
+                                    ["1" :straight (Color. 255 0 0)   0 3,0 3,5 3,9]
+                                    ["2" :straight (Color. 0 0 255) 0 7,0 7,5 7,9])}}))
 
 (defn intersection-ambiguity
   []
@@ -76,8 +77,8 @@
                (new-sensor (keyword "middle") 3 4 0 9 false)
                (new-sensor (keyword "right") 5 9 0 9 true)]
      :truedata {:test (entity-paths params
-                                    ["1" :straight red  0 5,7 4,3 3,3 2,2]
-                                    ["2" :straight blue 0 5,4 4,8 3,8 2,9])}}))
+                                    ["1" :straight (Color. 255 0 0)  0 5,7 4,3 3,3 2,2]
+                                    ["2" :straight (Color. 0 0 255) 0 5,4 4,8 3,8 2,9])}}))
 
 (defn intersection-continued-ambiguity
   []
@@ -87,8 +88,8 @@
      :sensors [(new-sensor :top 0 9 0 2 true)
                (new-sensor :bottom 0 9 3 9 false)]
      :truedata {:test (entity-paths params
-                                    ["1" :straight red  0 2,0 2,1 3,2 3,3 2,4 1,5 0,6 0,7]
-                                    ["2" :straight blue 0 7,0 7,1 6,2 6,3 7,4 8,5 9,6 9,7])}}))
+                                    ["1" :straight (Color. 255 0 0)  0 2,0 2,1 3,2 3,3 2,4 1,5 0,6 0,7]
+                                    ["2" :straight (Color. 0 0 255) 0 7,0 7,1 6,2 6,3 7,4 8,5 9,6 9,7])}}))
 
 (defn random-bias-bug-nometa
   []
