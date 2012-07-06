@@ -1,10 +1,26 @@
 (ns retrospect.reason.abduction.meta
   (:require [clojure.set :as set])
+  (:use [retrospect.epistemicstates :only
+         [cur-ep new-child-ep new-branch-ep init-est ep-state-depth
+          update-est nth-previous-ep print-est goto-ep
+          get-init-workspace]])
   (:use [retrospect.reason.abduction.workspace :only
          [get-no-explainers new-hyp init-workspace
-          explain add-observation add lookup-hyp]])
-  (:use [retrospect.epistemicstates :only [cur-ep]])
+          explain add-observation add lookup-hyp reset-workspace
+          update-kb explain update-hypotheses add-sensor-hyps]])
   (:use [retrospect.state]))
+
+(defn reason
+  [truedata workspace time-prev time-now sensors]
+  (let [ws (if (= "none" (:Oracle params)) workspace
+               (assoc workspace :oracle
+                      (partial (:true-hyp?-fn (:abduction @problem))
+                               truedata time-now)))]
+    (if sensors
+      (update-kb (explain (update-hypotheses
+                           (add-sensor-hyps ws time-prev time-now sensors)
+                           time-now)))
+      (update-kb (explain (update-hypotheses ws time-now))))))
 
 (defn metareasoning-activated?
   "Check if any of the metareasoning activation conditions are met."

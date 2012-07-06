@@ -25,7 +25,7 @@
 (defn get-saved-params
   []
   (let [ps (try (read-string (.get @prefs (format "%s-%s-params"
-                                                  (:name @reason) (:name @problem))
+                                                  (:name @reasoner) (:name @problem))
                                    (pr-str (get-default-params-ranges))))
                 (catch Exception _ (get-default-params-ranges)))]
     (alter-var-root (var params) (constantly ps))))
@@ -41,7 +41,7 @@
   []
   (let [ps (get-default-params-ranges)]
     (alter-var-root (var params) (constantly ps))
-    (.put @prefs (format "%s-%s-params" (:name @reason) (:name @problem))
+    (.put @prefs (format "%s-%s-params" (:name @reasoner) (:name @problem))
           (pr-str ps))
     (dosync (alter params-edit (constantly (format-params ps))))))
 
@@ -149,7 +149,7 @@
         min-max @min-max-selected
         metric (keyword @metric-edit)]
     (alter-var-root (var params) (constantly ps))
-    (.put @prefs (format "%s-%s-params" (:name @reason) (:name @problem))
+    (.put @prefs (format "%s-%s-params" (:name @reasoner) (:name @problem))
           (pr-str (assoc ps :Seed seed :Permutations permutations
                          :Restarts restarts :Repetitions repetitions
                          :MinMax min-max :Metric (name metric))))

@@ -1,7 +1,7 @@
 (ns retrospect.state)
 
 (def batch (ref false))
-(def reason (ref nil))
+(def reasoner (ref nil))
 (def problem (ref nil))
 (def datadir (ref nil))
 (def database (ref nil))

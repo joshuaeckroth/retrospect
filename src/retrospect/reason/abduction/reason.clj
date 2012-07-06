@@ -2,11 +2,9 @@
   (:require [clojure.set :as set])
   (:require [clojure.string :as str])
   (:use [retrospect.reason.abduction.workspace
-         :only [explain add-sensor-hyps init-workspace init-kb
-                update-hypotheses update-kb reset-workspace
-                calc-doubt calc-coverage]])
+         :only [reset-workspace init-workspace init-kb calc-doubt calc-coverage]])
   (:use [retrospect.reason.abduction.meta
-         :only [metareason metareasoning-activated? workspace-better?]])
+         :only [reason metareason metareasoning-activated? workspace-better?]])
   (:use [retrospect.reason.abduction.evaluate
          :only [evaluate evaluate-comp]])
   (:use [retrospect.reason.abduction.gui.hypgraph
@@ -17,16 +15,7 @@
 
 (def reason-abduction
   {:name "Abduction"
-   :reason-fn (fn [truedata workspace time-prev time-now sensors]
-                (let [ws (if (= "none" (:Oracle params)) workspace
-                             (assoc workspace :oracle
-                                    (partial (:true-hyp?-fn (:abduction @problem))
-                                             truedata time-now)))]
-                  (if sensors
-                    (update-kb (explain (update-hypotheses
-                                         (add-sensor-hyps ws time-prev time-now sensors)
-                                         time-now)))
-                    (update-kb (explain (update-hypotheses ws time-now))))))
+   :reason-fn reason
    :stats-fn (fn [truedata ors time-now]
                ((:stats-fn (:abduction @problem)) truedata ors time-now))
    :metareasoning-activated?-fn metareasoning-activated?

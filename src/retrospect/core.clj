@@ -33,9 +33,9 @@
         (or (= "Causal" problem) (= "causal" problem))
         causal-problem))
 
-(defn choose-reason
-  [reason]
-  (cond (or (= "Abduction" reason) (= "abduction" reason))
+(defn choose-reasoner
+  [reasoner]
+  (cond (or (= "Abduction" reasoner) (= "abduction" reasoner))
         reason-abduction))
 
 (defn -main [& args]
@@ -43,7 +43,7 @@
   (with-command-line args
     "retrospect"
     [[action "Action (run/player/explore/resubmit)" "player"]
-     [reason "Reasoning algorithm" "abduction"]
+     [reasoner "Reasoning algorithm" "abduction"]
      [problem "Problem" "tracking"]
      [params "Parameters identifier (e.g. 'Words/foobar')" ""]
      [datadir "Data directory" "data"]
@@ -57,14 +57,14 @@
      [save-record "Save in record directory?" "true"]
      [recdir "Record directory" ""]]
     (let [seed (Integer/parseInt seed)
-          reason (choose-reason reason)
+          reasoner (choose-reasoner reasoner)
           problem (choose-problem problem)
           repetitions (Integer/parseInt repetitions)]
       (alter-var-root (var rgen) (constantly (new-seed seed)))
       (dosync
        (alter state/datadir (constantly datadir))
        (alter state/database (constantly database))
-       (alter state/reason (constantly reason))
+       (alter state/reasoner (constantly reasoner))
        (alter state/problem (constantly problem)))
       (cond (and (= action "run") (= "" params))
             (println "--params identifier required.")

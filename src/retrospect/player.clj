@@ -31,7 +31,7 @@
 (defn get-saved-params
   []
   (let [ps (try (read-string (.get @prefs (format "%s-%s-params"
-                                                  (:name @reason) (:name @problem))
+                                                  (:name @reasoner) (:name @problem))
                                    (pr-str (get-default-params))))
                 (catch Exception _ (get-default-params)))]
     (alter-var-root (var params) (constantly ps))))
@@ -47,7 +47,7 @@
   []
   (let [ps (get-default-params)]
     (alter-var-root (var params) (constantly ps))
-    (.put @prefs (format "%s-%s-params" (:name @reason) (:name @problem))
+    (.put @prefs (format "%s-%s-params" (:name @reasoner) (:name @problem))
           (pr-str ps))
     (dosync (alter params-edit (constantly (format-params (dissoc ps :Seed)))))))
 
@@ -68,13 +68,13 @@
      (alter time-prev (constantly time-p)))
     (. steplabel (setText (format "Step: %d->%d" @time-prev @time-now))))
   (let [ws (:workspace (cur-ep (:est @or-state)))]
-    (. coverage-label (setText (format "%.2f" ((:calc-coverage-fn @reason) ws))))
-    (. doubt-label (setText (format "%.2f" ((:calc-doubt-fn @reason) ws)))))
+    (. coverage-label (setText (format "%.2f" ((:calc-coverage-fn @reasoner) ws))))
+    (. doubt-label (setText (format "%.2f" ((:calc-doubt-fn @reasoner) ws)))))
   (dosync
    (alter ep-list (constantly (sort (list-ep-states (:est @or-state)))))
    (alter results (constantly (:results (cur-ep (:est @or-state))))))
   (update-ep-tree)
-  ((:update-tabs-fn (:player-fns @reason)))
+  ((:update-tabs-fn (:player-fns @reasoner)))
   (update-results)
   (update-repl-tab)
   ((:update-stats-fn (:player-fns @problem)))
@@ -107,7 +107,7 @@
             seed (if (:Seed ps) (:Seed ps) (get-seed))
             ps-seed (assoc ps :Seed seed)]
         (alter-var-root (var params) (constantly ps-seed))
-        (.put @prefs (format "%s-%s-params" (:name @reason) (:name @problem))
+        (.put @prefs (format "%s-%s-params" (:name @reasoner) (:name @problem))
               (pr-str ps-seed))
         (dosync (alter params-edit (constantly (format-params (dissoc ps-seed :Seed)))))
         (alter-var-root (var rgen) (constantly (new-seed seed)))
@@ -133,7 +133,7 @@
           sens (:sensors prepared)]
       (dosync (alter params-edit (constantly (format-params (dissoc ps-seed :seed)))))
       (alter-var-root (var params) (constantly ps-seed))
-      (.put @prefs (format "%s-%s-params" (:name @reason) (:name @problem)) (pr-str ps-seed))
+      (.put @prefs (format "%s-%s-params" (:name @reasoner) (:name @problem)) (pr-str ps-seed))
       (alter-var-root (var rgen) (constantly (new-seed seed)))
       (set-last-id 0)
       (dosync
@@ -164,7 +164,7 @@
           _ (let [tabs (JTabbedPane.)]
               (when-let [f (:setup-diagram-fn (:player-fns @problem))]
                 (.addTab tabs "Diagram" (f)))
-              (doseq [t ((:get-tabs-fn (:player-fns @reason)))]
+              (doseq [t ((:get-tabs-fn (:player-fns @reasoner)))]
                 (.addTab tabs (first t) (second t)))
               (doto tabs
                 (.addTab "Ep tree" (ep-tree-tab))

@@ -6,7 +6,7 @@
   (:use [retrospect.epistemicstates :only
          [cur-ep new-child-ep new-branch-ep init-est ep-state-depth
           update-est nth-previous-ep print-est goto-ep
-          get-init-workspace flatten-est]])
+          get-init-workspace]])
   (:use [retrospect.sensors :only [update-sensors reset-sensors]])
   (:use [retrospect.random :only [rgen new-seed my-rand-int]])
   (:use [retrospect.logging])
@@ -15,7 +15,7 @@
 (defn evaluate
   [truedata est meta-considered? meta-accepted-branch?]
   ;; TODO: grab MetaConsidered/MetaAccepted from prior results, not current results
-  (let [results ((:evaluate-fn @reason) truedata est)
+  (let [results ((:evaluate-fn @reasoner) truedata est)
         prior-considered (get results :MetaConsidered 0)
         prior-accepted (get results :MetaAccepted 0)
         meta-results (-> results
@@ -31,13 +31,13 @@
   [truedata est new-est time-prev time-now sensors]
   (let [new-ep (cur-ep new-est)
         ws-old (:workspace new-ep)
-        ws-new ((:reason-fn @reason)
+        ws-new ((:reason-fn @reasoner)
                 (when (:Oracle params) truedata)
                 (if (or (nil? sensors) (not (:ResetEachStep params))) ws-old
-                    ((:reset-workspace-fn @reason) ws-old))
+                    ((:reset-workspace-fn @reasoner) ws-old))
                 time-prev time-now sensors)
         new-expl-est (update-est new-est (assoc new-ep :workspace ws-new))]
-    (if ((:workspace-better?-fn @reason) ws-new ws-old)
+    (if ((:workspace-better?-fn @reasoner) ws-new ws-old)
       {:est new-expl-est
        :considered? true
        :accepted-branch? true}
@@ -73,7 +73,7 @@
   "Activate the appropriate metareasoning strategy (as given by
    the parameter :Metareasoning)"
   [truedata est time-prev time-now sensors]
-  (if (not ((:metareasoning-activated?-fn @reason) est))
+  (if (not ((:metareasoning-activated?-fn @reasoner) est))
     {:est est :considered? false :accepted-branch? false}
     (let [m (:Metareasoning params)
           f (cond (= "batchbeg" m)
@@ -93,7 +93,7 @@
                   ;; did not recognize the metareasoning strategy;
                   ;; hand-off to the reasoning engine
                   :else
-                  (:metareason-fn @reason))]
+                  (:metareason-fn @reasoner))]
       (f truedata est time-prev time-now sensors))))
 
 (defn update-sensors-from-to
@@ -118,9 +118,9 @@
         ep (cur-ep (:est ors-new))
         workspace (if (and (not= 0 time-prev) (:ResetEachStep params))
                     (do (log "Resetting workspace...")
-                        ((:reset-workspace-fn @reason) (:workspace ep)))
+                        ((:reset-workspace-fn @reasoner) (:workspace ep)))
                     (:workspace ep))
-        workspace-reasoned ((:reason-fn @reason)
+        workspace-reasoned ((:reason-fn @reasoner)
                             (when (:Oracle params) truedata)
                             workspace time-prev time-now sensors)
         ep-reason (assoc ep :workspace workspace-reasoned)
@@ -133,7 +133,7 @@
         ors-est (assoc ors-new :est meta-est-eval :sensors sensors)
         ors-results (update-in ors-est [:resources :milliseconds] + ms)]
     (when (:Stats params)
-      ((:stats-fn @reason) truedata ors-results time-now))
+      ((:stats-fn @reasoner) truedata ors-results time-now))
     (when (and (not player?) (not (:Stats params)))
       (.write System/out (int \.))
       (when (= 0 (mod time-now 1000)) (.print System/out (str time-now)))
@@ -150,7 +150,7 @@
 
 (defn init-ors
   [sensors training]
-  (let [est (init-est ((:init-kb-fn @reason) ((:init-workspace-fn @reason)) training))]
+  (let [est (init-est ((:init-kb-fn @reasoner) ((:init-workspace-fn @reasoner)) training))]
     {:resources {:milliseconds 0 :meta-accepted 0 :meta-activations 0}
      :sensors sensors :est est}))
 
@@ -166,7 +166,7 @@
   []
   (let [ps (merge global-default-params
                   (:default-params @problem)
-                  ((:default-params-fn @reason)))]
+                  ((:default-params-fn @reasoner)))]
     (reduce (fn [m k] (assoc m k (second (get ps k))))
             {} (keys ps))))
 
@@ -174,7 +174,7 @@
   []
   (let [ps (merge global-default-params
                   (:default-params @problem)
-                  ((:default-params-fn @reason)))]
+                  ((:default-params-fn @reasoner)))]
     (reduce (fn [m k] (assoc m k (first (get ps k))))
             {} (keys ps))))
 
@@ -221,7 +221,7 @@
        (map (fn [rs] (assoc rs
                        :control-params (pr-str (first params))
                        :comparison-params (pr-str (second params))))
-            ((:evaluate-comp-fn @reason) control-results comparison-results
+            ((:evaluate-comp-fn @reasoner) control-results comparison-results
              control-params comparison-params))])
     ;; if non-comparative, just run the simulation
     (let [params (merge-default-params params)]

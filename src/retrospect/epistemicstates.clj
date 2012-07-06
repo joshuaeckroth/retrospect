@@ -20,8 +20,8 @@
   Object
   (toString [_]
     (format "%s %d %.2f/%.2f" id time
-            ((:calc-doubt-fn @reason) workspace)
-            ((:calc-coverage-fn @reason) workspace))))
+       ((:calc-doubt-fn @reasoner) workspace)
+       ((:calc-coverage-fn @reasoner) workspace))))
 
 (defrecord RootNode [children workspace])
 
