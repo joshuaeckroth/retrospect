@@ -153,15 +153,6 @@
                                 #(my-shuffle %))]
           (expl-sorter (doall (map #(update-in % [:expl] hyp-sorter) explainers))))))
 
-(defn clear-empty-explainers
-  [workspace]
-  (let [new-sorted-explainers (reduce (fn [m h] (if (empty? (get m h)) (dissoc m h) m))
-                                 (:sorted-explainers workspace) (keys (:sorted-explainers workspace)))]
-    (assoc workspace :sorted-explainers new-sorted-explainers
-           :sorted-explainers-explained
-           (doall (filter #(get new-sorted-explainers %)
-                     (:sorted-explainers-explained workspace))))))
-
 (defn update-sorted-explainers
   [workspace]
   (prof :update-sorted-explainers
@@ -176,13 +167,12 @@
                                           (get-in workspace [:sorted-explainers hypid])))})
                              (:sorted-explainers-explained workspace))))
                 expls-sorted (sort-explainers workspace expls)]
-            (clear-empty-explainers
-             (reduce (fn [ws {h :hyp expl :expl}]
-                  (assoc-in ws [:sorted-explainers (:id h)] (doall (map :id expl))))
-                (assoc workspace :sorted-explainers-explained
-                       (doall (map (comp :id :hyp) expls-sorted))
-                       :dirty false)
-                expls-sorted))))))
+            (reduce (fn [ws {h :hyp expl :expl}]
+                 (assoc-in ws [:sorted-explainers (:id h)] (doall (map :id expl))))
+               (assoc workspace :sorted-explainers-explained
+                      (doall (map (comp :id :hyp) expls-sorted))
+                      :dirty false)
+               expls-sorted)))))
 
 (defn find-conflicts-all
   [workspace hyp]
@@ -311,63 +301,47 @@
                          (update-in [:hypotheses (:type hyp-apriori)]
                                     conj (:id hyp-apriori))))))))))
 
-(defn add-observation
-  [workspace hyp]
-  (prof :add-observation
-        (if (get (:hyp-contents workspace) (:contents hyp))
-          ;; "add" the hyp even though it's a duplicate, just to update
-          ;; what it explains
-          (add workspace hyp)
-          ;; otherwise, it's not a duplicate
-          (let [ws (-> (add workspace hyp)             
-                      (update-in [:accepted (:type hyp)] conj (:id hyp))
-                      (update-in [:accepted :all] conj (:id hyp))
-                      (record-if-needs-explanation hyp)
-                      (assoc-needing-explanation hyp))]
-            ;; we have "accepted" this hyp so whatever it explains
-            ;; does not need to be explained
-            (dissoc-needing-explanation ws (explains ws hyp))))))
-
 (defn accept
   [workspace hyp nbest explained delta comparison]
   (prof :accept
-        (let [ws-acc (prof :accept-update
-                           (-> workspace
-                              (update-in [:accepted (:type hyp)] conj (:id hyp))
-                              (update-in [:accepted :all] conj (:id hyp))))
-              ws-hyplog (if @batch ws-acc
-                            (update-in ws-acc [:hyp-log (:id hyp)] conj
-                                       (format (str "Accepted in cycle %d "
-                                               "to explain %s with delta %.2f "
-                                               "(essential? %s; next-best: %s); "
-                                               "comparison: %s")
-                                          (:cycle workspace)
-                                          explained delta (nil? nbest) nbest
-                                          comparison)))
-              ws-expl (dissoc-needing-explanation ws-hyplog (explains workspace hyp))
-              conflicts (prof :accept-conflicts
-                              (when (:conflicts?-fn hyp)
-                                (find-conflicts ws-expl hyp)))
-              ws-conflicts (if conflicts
-                             (prof :accept-reject-many
-                                   (clear-empty-explainers
-                                    (reject-many ws-expl conflicts)))
-                             ws-expl)
-              ws-needs-exp (if-not ((:needs-explanation ws-conflicts) (:id hyp)) ws-conflicts
-                                   (prof :accept-needs-exp
-                                         (assoc-needing-explanation ws-conflicts hyp)))]
-          (prof :accept-final
-                (update-in ws-needs-exp [:log :accrej (:cycle ws-needs-exp)] conj
-                           {:acc hyp :rej conflicts})))))
+        ;; don't "accept" a hyp that was never added (due to
+        ;; conflicts); this probably only matters in (add-observation)
+        (if (nil? (get (:hyp-ids workspace) (:id hyp))) workspace
+            (let [ws-acc (prof :accept-update
+                               (-> workspace
+                                  (update-in [:accepted (:type hyp)] conj (:id hyp))
+                                  (update-in [:accepted :all] conj (:id hyp))))
+                  ws-hyplog (if @batch ws-acc
+                                (update-in ws-acc [:hyp-log (:id hyp)] conj
+                                           (format (str "Accepted in cycle %d "
+                                                   "to explain %s with delta %.2f "
+                                                   "(essential? %s; next-best: %s); "
+                                                   "comparison: %s")
+                                              (:cycle workspace)
+                                              explained delta (nil? nbest) nbest
+                                              comparison)))
+                  ws-expl (dissoc-needing-explanation ws-hyplog (explains workspace hyp))
+                  conflicts (prof :accept-conflicts
+                                  (when (:conflicts?-fn hyp)
+                                    (find-conflicts ws-expl hyp)))
+                  ws-conflicts (if conflicts
+                                 (prof :accept-reject-many
+                                       (reject-many ws-expl conflicts))
+                                 ws-expl)
+                  ws-needs-exp (if-not ((:needs-explanation ws-conflicts) (:id hyp)) ws-conflicts
+                                       (prof :accept-needs-exp
+                                             (assoc-needing-explanation ws-conflicts hyp)))]
+              (prof :accept-final
+                    (update-in ws-needs-exp [:log :accrej (:cycle ws-needs-exp)] conj
+                               {:acc hyp :rej conflicts}))))))
+
+(defn add-observation
+  [workspace hyp]
+  (-> workspace (add hyp) (accept hyp nil [] 0.0 {})))
 
 (defn get-unexplained
   [workspace]
-  (prof :get-unexplained
-        (let [acc-ids (:all (:accepted workspace))
-              acc-ids-need-expl (filter (:needs-explanation workspace) acc-ids)]
-          (filter (fn [hyp-id] (not-any? (get-in workspace [:accepted :all] #{})
-                                   (get (:explainers workspace) hyp-id)))
-             acc-ids-need-expl))))
+  (keys (:sorted-explainers workspace)))
 
 (defn get-unexp-pct
   [workspace]
@@ -423,33 +397,36 @@
 (defn find-best
   [workspace]
   (prof :find-best
-        (let [essentialid (first (filter #(nil? (second (get (:sorted-explainers workspace) %)))
-                                    (:sorted-explainers-explained workspace)))]
-          (if essentialid
-            (let [essential (lookup-hyp workspace essentialid) 
-                  bestid (first (get (:sorted-explainers workspace) essentialid))
-                  best (lookup-hyp workspace bestid)]
-              {:best best :explained essential :alts [] :comparison {}})
-            ;; otherwise, choose highest-delta non-essential
-            (let [explid (first (:sorted-explainers-explained workspace))
-                  expl (lookup-hyp workspace explid)
-                  choices (doall (map #(lookup-hyp workspace %)
-                                    (get (:sorted-explainers workspace) explid)))
-                  best (first choices)
-                  nbest (second choices)
-                  delta (- (:apriori best) (:apriori nbest))
-                  comparison (hyp-better-than? workspace best nbest)]
-              (log "best:" best "nbest:" nbest "delta:" delta)
-              (when (or (= 0 (:Threshold params))
-                        (>= delta (+ 0.001 (/ (:Threshold params) 100.0)))
-                        ;; if threshold is not good enough,
-                        ;; see if one hyp is better purely by
-                        ;; other factors such as explanatory power
-                        (and (= true (:ConsiderExplPower params))
-                             (or (:expl comparison) (:explainers comparison))))
-                {:best best :nbest nbest :delta delta
-                 :explained expl :alts (rest choices)
-                 :comparison comparison}))))))
+        (let [not-empty-explained (filter #(not-empty (get (:sorted-explainers workspace) %))
+                                     (:sorted-explainers-explained workspace))]
+          (when (not-empty not-empty-explained)
+            (let [essentialid (first (filter #(nil? (second (get (:sorted-explainers workspace) %)))
+                                        not-empty-explained))]
+              (if essentialid
+                (let [essential (lookup-hyp workspace essentialid) 
+                      bestid (first (get (:sorted-explainers workspace) essentialid))
+                      best (lookup-hyp workspace bestid)]
+                  {:best best :explained essential :alts [] :comparison {}})
+                ;; otherwise, choose highest-delta non-essential
+                (let [explid (first not-empty-explained)
+                      expl (lookup-hyp workspace explid)
+                      choices (doall (map #(lookup-hyp workspace %)
+                                        (get (:sorted-explainers workspace) explid)))
+                      best (first choices)
+                      nbest (second choices)
+                      delta (- (:apriori best) (:apriori nbest))
+                      comparison (hyp-better-than? workspace best nbest)]
+                  (log "best:" best "nbest:" nbest "delta:" delta)
+                  (when (or (= 0 (:Threshold params))
+                            (>= delta (+ 0.001 (/ (:Threshold params) 100.0)))
+                            ;; if threshold is not good enough,
+                            ;; see if one hyp is better purely by
+                            ;; other factors such as explanatory power
+                            (and (= true (:ConsiderExplPower params))
+                                 (or (:expl comparison) (:explainers comparison))))
+                    {:best best :nbest nbest :delta delta
+                     :explained expl :alts (rest choices)
+                     :comparison comparison}))))))))
 
 (defn update-kb
   [workspace]
@@ -514,7 +491,7 @@
   (prof :explain
         ;; need (loop) because we are using (recur) which isn't going
         ;; to work when profiling is on
-        (loop [workspace (-> workspace (assoc :log (:log empty-workspace) :cycle 0)
+        (loop [workspace (-> workspace (assoc :log (:log empty-workspace))
                             (update-graph))]
           (log "Explaining again...")
           (let [ws-explainers (if (:dirty workspace)
@@ -583,7 +560,8 @@
   [workspace]
   (prof :reset-workspace
         (add-kb (assoc empty-workspace :oracle (:oracle workspace)
-                       :oracle-types (:oracle-types workspace))
+                       :oracle-types (:oracle-types workspace)
+                       :cycle (:cycle workspace))
                 (doall (map #(lookup-hyp workspace %)
                           (get-in workspace [:accepted :kb]))))))
 

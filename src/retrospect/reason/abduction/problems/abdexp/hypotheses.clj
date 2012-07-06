@@ -37,9 +37,10 @@
            (rest vertices)))))))
 
 (defn hypothesize
-  [sensor-hyps accepted lookup-hyp time-now]
+  [unexp-hyps accepted lookup-hyp time-now]
   (let [kb (get-kb accepted lookup-hyp)
-        expgraph (get (:expgraphs kb) time-now)]
+        expgraph (get (:expgraphs kb) time-now)
+        sensor-hyps (filter #(= :observation (:type %)) unexp-hyps)]
     (loop [hyps (zipmap (map :vertex sensor-hyps) sensor-hyps)
            vertices (filter #(not (observation? %)) (sorted-by-dep expgraph))]
       (if (empty? vertices)
