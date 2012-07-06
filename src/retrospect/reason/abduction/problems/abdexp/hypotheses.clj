@@ -11,7 +11,7 @@
 
 (defn get-kb
   [accepted lookup-hyp]
-  (lookup-hyp (first (get accepted :kb))))
+  (first (filter :expgraphs (map lookup-hyp (get accepted :kb)))))
 
 (defn update-kb
   [accepted unexplained hypotheses lookup-hyp]
@@ -30,7 +30,9 @@
         (let [v (first vertices)]
           (recur
            (assoc hyps v (new-hyp "Obs" :observation :observation (score expgraph v) true
-                                  #(conflicts? expgraph (:vertex %1) (:vertex %2))
+                                  #(or (conflicts? expgraph (:vertex %1) (:vertex %2))
+                                       (and (= :ignore (:subtype %1)) (= (:vertex %1) (:vertex %2)))
+                                       (and (= :ignore (:subtype %2)) (= (:vertex %1) (:vertex %2))))
                                   (map #(:contents (get hyps %)) (explains expgraph v))
                                   (str v) (str v)
                                   {:vertex v}))

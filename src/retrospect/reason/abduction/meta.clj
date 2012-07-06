@@ -6,7 +6,7 @@
           get-init-workspace]])
   (:use [retrospect.reason.abduction.workspace :only
          [get-no-explainers new-hyp init-workspace
-          explain add-observation add lookup-hyp reset-workspace
+          explain add-kb add-observation add lookup-hyp reset-workspace
           update-kb explain update-hypotheses add-sensor-hyps]])
   (:use [retrospect.state]))
 
@@ -38,8 +38,29 @@
   {:est est :considered? true :accepted-branch? false})
 
 (defn ignore-hyp
-  [est time-prev time-now sensors]
-  {:est est :considered? true :accepted-branch? false})
+  [noexp-hyp est time-prev time-now sensors]
+  (let [new-est (new-branch-ep est (cur-ep est))
+        new-ep (cur-ep new-est)
+        ws-old (:workspace new-ep)
+        ws-new (add-kb (reset-workspace ws-old)
+                       [(new-hyp "Ignore" :kb :ignore 1.0 false
+                                 #(and (or (= :observation (:type %1))
+                                           (= :observation (:type %2)))
+                                       (= (:vertex %1) (:vertex %2)))
+                                 []
+                                 (format "Ignore %s" (:hyp noexp-hyp))
+                                 (format "Ignore %s" (:hyp noexp-hyp))
+                                 {:vertex (:vertex (:hyp noexp-hyp))})])
+        ws-expl (reason (when (:Oracle params) truedata) ws-new
+                        time-prev time-now sensors)
+        new-expl-est (update-est new-est (assoc new-ep :workspace ws-expl))]
+    (if (workspace-better? ws-expl ws-old)
+      {:est new-expl-est
+       :considered? true
+       :accepted-branch? true}
+      {:est (goto-ep new-expl-est (:id (cur-ep est)))
+       :considered? true
+       :accepted-branch? false})))
 
 (defn learn-hyp
   [est time-prev time-now sensors]
@@ -62,7 +83,7 @@
   [noexp-hyps]
   (concat
    ;; anomaly hyps
-   (map (fn [ne] (new-hyp "Anomaly" :anomaly :anomaly 1.0 false conflicts? [(:contents ne)]
+   [] #_(map (fn [ne] (new-hyp "Anomaly" :anomaly :anomaly 1.0 false conflicts? [(:contents ne)]
                        (format "%s is an anomaly" ne) (format "%s is an anomaly" ne)
                        {:action belief-revision}))
       noexp-hyps)
@@ -70,7 +91,7 @@
    (if (= 0 (:SensorNoise params)) []
        (map (fn [ne] (new-hyp "Noise" :noise :noise 1.0 false conflicts? [(:contents ne)]
                            (format "%s is noise" ne) (format "%s is noise" ne)
-                           {:action ignore-hyp}))
+                           {:action (partial ignore-hyp ne)}))
           noexp-hyps))
    ;; learn hyps
    (if (= 100 (:Knowledge params)) []
