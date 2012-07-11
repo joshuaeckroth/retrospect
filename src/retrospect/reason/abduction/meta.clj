@@ -44,9 +44,7 @@
         ws-old (:workspace new-ep)
         ws-new (add-kb (reset-workspace ws-old)
                        [(new-hyp "Ignore" :kb :ignore 1.0 false
-                                 #(and (or (= :observation (:type %1))
-                                           (= :observation (:type %2)))
-                                       (= (:vertex %1) (:vertex %2)))
+                                 (:conflicts?-fn (:hyp noexp-hyp))
                                  []
                                  (format "Ignore %s" (:hyp noexp-hyp))
                                  (format "Ignore %s" (:hyp noexp-hyp))
