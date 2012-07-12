@@ -27,8 +27,7 @@
 
 (defn clone-ep
   [ep id children]
-  (EpistemicState. id children (:time ep) (:results ep)
-                   (:workspace ep) (:meta-workspace ep)))
+  (EpistemicState. id children (:time ep) (:results ep) (:workspace ep) nil))
 
 (extend-protocol EpistemicStateTree
   EpistemicState
