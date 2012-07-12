@@ -34,21 +34,30 @@
   (empty? (get-no-explainers ws-new)))
 
 (defn belief-revision
-  [est time-prev time-now sensors]
-  {:est est :considered? true :accepted-branch? false})
+  [noexp-hyp workspace]
+  workspace)
 
 (defn ignore-hyp
-  [noexp-hyp est time-prev time-now sensors]
+  [noexp-hyp workspace]
+  (add-kb (reset-workspace workspace)
+          [(new-hyp "Ignore" :kb :ignore 1.0 false
+                    (:conflicts?-fn (:hyp noexp-hyp))
+                    []
+                    (format "Ignore %s" (:hyp noexp-hyp))
+                    (format "Ignore %s" (:hyp noexp-hyp))
+                    {:vertex (:vertex (:hyp noexp-hyp))})]))
+
+(defn learn-hyp
+  [noexp-hyp workspace]
+  workspace)
+
+(defn apply-resolutions
+  [accepted est time-prev time-now sensors]
   (let [new-est (new-branch-ep est (cur-ep est))
         new-ep (cur-ep new-est)
         ws-old (:workspace new-ep)
-        ws-new (add-kb (reset-workspace ws-old)
-                       [(new-hyp "Ignore" :kb :ignore 1.0 false
-                                 (:conflicts?-fn (:hyp noexp-hyp))
-                                 []
-                                 (format "Ignore %s" (:hyp noexp-hyp))
-                                 (format "Ignore %s" (:hyp noexp-hyp))
-                                 {:vertex (:vertex (:hyp noexp-hyp))})])
+        ;; apply all the actions specified by the accepted meta-hyps
+        ws-new (reduce (fn [ws h] ((:action h) ws)) ws-old accepted)
         ws-expl (reason (when (:Oracle params) truedata) ws-new
                         time-prev time-now sensors)
         new-expl-est (update-est new-est (assoc new-ep :workspace ws-expl))]
@@ -59,10 +68,6 @@
       {:est (goto-ep new-expl-est (:id (cur-ep est)))
        :considered? true
        :accepted-branch? false})))
-
-(defn learn-hyp
-  [est time-prev time-now sensors]
-  {:est est :considered? true :accepted-branch? false})
 
 (defn make-noexp-hyps
   [noexp]
@@ -81,9 +86,9 @@
   [noexp-hyps]
   (concat
    ;; anomaly hyps
-   (map (fn [ne] (new-hyp "Anomaly" :anomaly :anomaly 1.0 false conflicts? [(:contents ne)]
+   (map (fn [ne] (new-hyp "Anomaly" :anomaly :anomaly 0.0 false conflicts? [(:contents ne)]
                             (format "%s is an anomaly" ne) (format "%s is an anomaly" ne)
-                            {:action belief-revision :noexp-hyp ne}))
+                            {:action (partial belief-revision ne) :noexp-hyp ne}))
            noexp-hyps)
    ;; noise hyps
    (mapcat (fn [ne]
@@ -103,7 +108,7 @@
        (map (fn [ne] (new-hyp "Learn" :learn :learn 1.0 false conflicts? [(:contents ne)]
                            (format "%s should be learned" ne)
                            (format "%s should be learned" ne)
-                           {:action learn-hyp :noexp-hyp ne}))
+                           {:action (partial learn-hyp ne) :noexp-hyp ne}))
           noexp-hyps))))
 
 (defn metareason
@@ -120,5 +125,4 @@
                     (concat (:anomaly (:accepted meta-ws-explained))
                             (:noise (:accepted meta-ws-explained))
                             (:learn (:accepted meta-ws-explained))))]
-    ((:action (first accepted)) est-meta time-prev time-now sensors)))
-
+    (apply-resolutions accepted est-meta time-prev time-now sensors)))
