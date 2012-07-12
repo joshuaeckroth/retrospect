@@ -5,7 +5,7 @@
           update-est nth-previous-ep print-est goto-ep
           get-init-workspace]])
   (:use [retrospect.reason.abduction.workspace :only
-         [get-no-explainers new-hyp init-workspace
+         [get-no-explainers new-hyp init-workspace calc-doubt
           explain add-kb add-observation add lookup-hyp reset-workspace
           update-kb explain update-hypotheses add-sensor-hyps]])
   (:use [retrospect.state]))
@@ -35,7 +35,9 @@
 
 (defn belief-revision
   [noexp-hyp workspace]
-  workspace)
+  ;; reset workspace to ensure sensor hyps are all added new, and all
+  ;; beliefs are gone
+  (reset-workspace workspace))
 
 (defn ignore-hyp
   [noexp-hyp workspace]
@@ -49,6 +51,8 @@
 
 (defn learn-hyp
   [noexp-hyp workspace]
+  ;; ask problem domain to create new kb hyps that take into account
+  ;; this noexp hyp is "true" (i.e., should be learned)
   workspace)
 
 (defn apply-resolutions
@@ -83,13 +87,15 @@
 
 (defn make-meta-hyps
   "Create explanations, and associated actions, for noexp."
-  [noexp-hyps]
+  [ws-original noexp-hyps]
   (concat
    ;; anomaly hyps
-   (map (fn [ne] (new-hyp "Anomaly" :anomaly :anomaly 0.0 false conflicts? [(:contents ne)]
-                            (format "%s is an anomaly" ne) (format "%s is an anomaly" ne)
-                            {:action (partial belief-revision ne) :noexp-hyp ne}))
-           noexp-hyps)
+   (map (fn [ne] (new-hyp "Anomaly" :anomaly :anomaly
+                       (- 1.0 (calc-doubt ws-original))
+                       false conflicts? [(:contents ne)]
+                       (format "%s is an anomaly" ne) (format "%s is an anomaly" ne)
+                       {:action (partial belief-revision ne) :noexp-hyp ne}))
+      noexp-hyps)
    ;; noise hyps
    (mapcat (fn [ne]
              [(new-hyp "Noise" :noise :insertion-noise
@@ -117,7 +123,7 @@
   (let [workspace (:workspace (cur-ep est))
         noexp (map (partial lookup-hyp workspace) (get-no-explainers workspace))
         noexp-hyps (make-noexp-hyps noexp)
-        meta-hyps (make-meta-hyps noexp-hyps)
+        meta-hyps (make-meta-hyps workspace noexp-hyps)
         meta-ws (reduce add (reduce add-observation (init-workspace) noexp-hyps) meta-hyps)
         meta-ws-explained (explain meta-ws)
         ep-meta (assoc (cur-ep est) :meta-workspace meta-ws-explained)
