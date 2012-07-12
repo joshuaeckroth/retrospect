@@ -201,6 +201,7 @@
   [workspace hyp]
   (prof :assoc-needing-explanation
         (let [expls (get-in workspace [:explainers (:id hyp)])]
+          (log "Associating" hyp "as now needing explanation.")
           (-> workspace
              (update-in [:sorted-explainers-explained] conj (:id hyp))
              ;; put the key in even if expls is empty
@@ -505,11 +506,7 @@
               (let [{:keys [best nbest explained delta comparison] :as b}
                     (find-best ws-explainers)]
                 (if-not best
-                  (do (log "No best. Dropping first contrast set.")
-                      (let [h (first (:sorted-explainers-explained ws-explainers))]
-                        (recur (-> ws-explainers
-                                  (update-in [:sorted-explainers-explained] rest)
-                                  (update-in [:sorted-explainers] dissoc h)))))
+                  (do (log "No best. Done.") ws-explainers)
                   (do (log "Best is" (:id best) (:apriori best))
                       (let [ws-accepted
                             (let [ws-logged (-> ws-explainers
