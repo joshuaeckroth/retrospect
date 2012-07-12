@@ -59,21 +59,21 @@
         ws-fn (fn [ws time]
                 (let [wslog (:log ws)
                       tf-fn (fn [hyp] ((:true-hyp?-fn (:abduction @problem))
-                                       @truedata time hyp))]
+                                      @truedata time hyp))]
                   {"Hypotheses"
                    (apply merge
                           (for [t (keys (:hypotheses ws))]
                             (let [acc-hyps (map #(ws/lookup-hyp ws %)
-                                                (get (:accepted ws) t))
+                                              (get (:accepted ws) t))
                                   not-acc-hyps (set/difference
                                                 (set (map #(ws/lookup-hyp ws %)
-                                                          (get (:hypotheses ws) t)))
+                                                        (get (:hypotheses ws) t)))
                                                 acc-hyps)
                                   acc-tf-hyps (group-by tf-fn acc-hyps)
                                   not-acc-tf-hyps (group-by tf-fn not-acc-hyps)]
                               {(name t)
                                {"All" (list-hyps (map #(ws/lookup-hyp ws %)
-                                                      (get (:hypotheses ws) t)))
+                                                    (get (:hypotheses ws) t)))
                                 "Accepted"
                                 {"True" (list-hyps (get acc-tf-hyps true))
                                  "False" (list-hyps (get acc-tf-hyps false))}
@@ -84,7 +84,7 @@
                                    (mapcat #(build-cycle wslog %)
                                            (range (count (:best wslog)))))
                    "Accepted" (list-hyps (map #(ws/lookup-hyp ws %)
-                                              (apply concat (vals (:accepted ws)))))
+                                            (apply concat (vals (:accepted ws)))))
                    "No explainers" (list-hyps (map #(ws/lookup-hyp ws %)
                                                  (ws/get-no-explainers ws)))
                    "Unexplained" (list-hyps (map #(ws/lookup-hyp ws %)
@@ -92,7 +92,12 @@
                    "Unaccepted" (list-hyps (map #(ws/lookup-hyp ws %)
                                               (ws/find-unaccepted ws)))}))]
     (apply sorted-map-by anc
-           (mapcat (fn [ep] [(str ep) (assoc (ws-fn (:workspace ep) (:time ep)) "Log" nil)])
+           (mapcat (fn [ep] [(str ep)
+                            {"Workspace" (assoc (ws-fn (:workspace ep) (:time ep))
+                                           "Log" nil)
+                             "Meta-workspace" (if-not (:meta-workspace ep) {}
+                                                      (assoc (ws-fn (:meta-workspace ep) (:time ep))
+                                                        "Log" nil))}])
                    ep-states))))
 
 (defn update-hyp-info
@@ -128,10 +133,11 @@
   (if path
     (let [last-comp (node (. path getLastPathComponent))
           ;; find top-most ep-state
-          ep-state (if (< 1 (. path getPathCount))
+          ep-state (if (< 2 (. path getPathCount))
                      (if-let [ep-id (re-find #"^[A-Z]+" (str (. path getPathComponent 1)))]
                        (find-first #(= (:id %) ep-id) (flatten-est (:est @or-state)))))
-          ws (if ep-state (:workspace ep-state))]
+          meta-ws? (if ep-state (= "Meta-workspace" (str (. path getPathComponent 2))))
+          ws (if ep-state (if meta-ws? (:meta-workspace ep-state) (:workspace ep-state)))]
       (when (not= "Log" last-comp)
         (swap! workspace-selected (constantly ws))
         (let [hyp (if ws (find-first #(= (:name %) last-comp) (vals (:hyp-ids ws))))]

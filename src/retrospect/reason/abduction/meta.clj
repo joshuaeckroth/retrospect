@@ -81,22 +81,29 @@
   [noexp-hyps]
   (concat
    ;; anomaly hyps
-   [] #_(map (fn [ne] (new-hyp "Anomaly" :anomaly :anomaly 1.0 false conflicts? [(:contents ne)]
-                       (format "%s is an anomaly" ne) (format "%s is an anomaly" ne)
-                       {:action belief-revision}))
-      noexp-hyps)
+   (map (fn [ne] (new-hyp "Anomaly" :anomaly :anomaly 1.0 false conflicts? [(:contents ne)]
+                            (format "%s is an anomaly" ne) (format "%s is an anomaly" ne)
+                            {:action belief-revision :noexp-hyp ne}))
+           noexp-hyps)
    ;; noise hyps
-   (if (= 0 (:SensorNoise params)) []
-       (map (fn [ne] (new-hyp "Noise" :noise :noise 1.0 false conflicts? [(:contents ne)]
-                           (format "%s is noise" ne) (format "%s is noise" ne)
-                           {:action (partial ignore-hyp ne)}))
-          noexp-hyps))
+   (mapcat (fn [ne]
+             [(new-hyp "Noise" :noise :insertion-noise
+                       (/ (double (:SensorInsertionNoise params)) 100.0)
+                       false conflicts? [(:contents ne)]
+                       (format "%s is insertion noise" ne) (format "%s is insertion noise" ne)
+                       {:action (partial ignore-hyp ne) :noexp-hyp ne})
+              (new-hyp "Noise" :noise :distortion-noise
+                       (/ (double (:SensorDistortionNoise params)) 100.0)
+                       false conflicts? [(:contents ne)]
+                       (format "%s is distortion noise" ne) (format "%s is distortion noise" ne)
+                       {:action (partial ignore-hyp ne) :noexp-hyp ne})])
+           noexp-hyps)
    ;; learn hyps
    (if (= 100 (:Knowledge params)) []
        (map (fn [ne] (new-hyp "Learn" :learn :learn 1.0 false conflicts? [(:contents ne)]
                            (format "%s should be learned" ne)
                            (format "%s should be learned" ne)
-                           {:action learn-hyp}))
+                           {:action learn-hyp :noexp-hyp ne}))
           noexp-hyps))))
 
 (defn metareason
@@ -107,9 +114,11 @@
         meta-hyps (make-meta-hyps noexp-hyps)
         meta-ws (reduce add (reduce add-observation (init-workspace) noexp-hyps) meta-hyps)
         meta-ws-explained (explain meta-ws)
+        ep-meta (assoc (cur-ep est) :meta-workspace meta-ws-explained)
+        est-meta (update-est est ep-meta)
         accepted (map (partial lookup-hyp meta-ws-explained)
                     (concat (:anomaly (:accepted meta-ws-explained))
                             (:noise (:accepted meta-ws-explained))
                             (:learn (:accepted meta-ws-explained))))]
-    ((:action (first accepted)) est time-prev time-now sensors)))
+    ((:action (first accepted)) est-meta time-prev time-now sensors)))
 
