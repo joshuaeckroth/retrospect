@@ -104,12 +104,13 @@
                        {:action (partial ignore-hyp ne) :noexp-hyp ne})])
            noexp-hyps)
    ;; learn hyps
-   (if (= 100 (:Knowledge params)) []
-       (map (fn [ne] (new-hyp "Learn" :learn :learn 1.0 false conflicts? [(:contents ne)]
-                           (format "%s should be learned" ne)
-                           (format "%s should be learned" ne)
-                           {:action (partial learn-hyp ne) :noexp-hyp ne}))
-          noexp-hyps))))
+   (map (fn [ne] (new-hyp "Learn" :learn :learn
+                       (- 1.0 (/ (double (:Knowledge params)) 100.0))
+                       false conflicts? [(:contents ne)]
+                       (format "%s should be learned" ne)
+                       (format "%s should be learned" ne)
+                       {:action (partial learn-hyp ne) :noexp-hyp ne}))
+      noexp-hyps)))
 
 (defn metareason
   [truedata est time-prev time-now sensors]
