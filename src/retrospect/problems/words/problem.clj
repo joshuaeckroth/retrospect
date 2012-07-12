@@ -37,7 +37,6 @@
     :ResetEachStep [true [true]]
     :ResetSensors [true [true]]
     :GrowEst [true [true]]
-    :SensorNoise [0 [0]]
     :Dataset ["pku_training" ["carroll" "cityu_training" "as_training"
                               "msr_training" "pku_training"]]
     :ShortFirst [false [false]]

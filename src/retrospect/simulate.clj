@@ -160,7 +160,10 @@
    :UpdateKB [true [true false]]
    :Oracle ["none" ["none"]]
    :Steps [10 [10]]
-   :Stats [false [false]]})
+   :Stats [false [false]]
+   :SensorDeletionNoise [0 [0]]
+   :SensorInsertionNoise [0 [0]]
+   :SensorDistortionNoise [0 [0]]})
 
 (defn get-default-params-ranges
   []

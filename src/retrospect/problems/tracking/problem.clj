@@ -43,7 +43,6 @@
    :default-params
    {:Steps [20 [20]]
     :StepsBetween [3 [1 2 3]]
-    :SensorNoise [0 [0]]
     :GridWidth [20 [20]]
     :GridHeight [20 [20]]
     :TrainingSteps [1000 [1000]]

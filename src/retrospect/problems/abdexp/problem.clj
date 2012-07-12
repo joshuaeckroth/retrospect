@@ -38,7 +38,6 @@
                     :StepsBetween [1 [1]]
                     :ResetEachStep [false [false]]
                     :GrowEst [true [true]]
-                    :SensorNoise [0 [0]]
                     :NumVertices [40 [40]]
                     :NumLevels [3 [3]]
                     :MaxExplainLinks [10 [10]]
