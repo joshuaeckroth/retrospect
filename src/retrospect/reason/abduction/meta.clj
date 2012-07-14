@@ -96,17 +96,19 @@
   [hyp1 hyp2]
   (= (:explains hyp1) (:explains hyp2)))
 
+(comment (map (fn [ne] (new-hyp "Anomaly" :anomaly :anomaly
+                             (calc-doubt ws-original)
+                             false conflicts? [(:contents ne)]
+                             (format "%s is an anomaly" ne) (format "%s is an anomaly" ne)
+                             {:action (partial belief-revision ne) :noexp-hyp ne}))
+            noexp-hyps))
+
 (defn make-meta-hyps
   "Create explanations, and associated actions, for noexp."
   [ws-original noexp-hyps]
   (concat
    ;; anomaly hyps
-   (map (fn [ne] (new-hyp "Anomaly" :anomaly :anomaly
-                       (calc-doubt ws-original)
-                       false conflicts? [(:contents ne)]
-                       (format "%s is an anomaly" ne) (format "%s is an anomaly" ne)
-                       {:action (partial belief-revision ne) :noexp-hyp ne}))
-      noexp-hyps)
+   []
    ;; noise hyps
    (mapcat (fn [ne]
              [(new-hyp "Noise" :noise :insertion-noise
