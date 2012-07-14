@@ -91,7 +91,7 @@
   (concat
    ;; anomaly hyps
    (map (fn [ne] (new-hyp "Anomaly" :anomaly :anomaly
-                       (- 1.0 (calc-doubt ws-original))
+                       (calc-doubt ws-original)
                        false conflicts? [(:contents ne)]
                        (format "%s is an anomaly" ne) (format "%s is an anomaly" ne)
                        {:action (partial belief-revision ne) :noexp-hyp ne}))
