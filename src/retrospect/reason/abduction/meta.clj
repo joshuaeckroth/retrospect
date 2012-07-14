@@ -72,7 +72,7 @@
         ;; apply all the actions specified by the accepted meta-hyps;
         ;; always revert workspace first
         ws-new (reduce (fn [ws h] ((:action h) ws))
-                  (revert-workspace ws-old) accepted)
+                  (reset-workspace ws-old) accepted)
         ws-expl (reason (when (:Oracle params) truedata) ws-new
                         time-prev time-now sensors)
         new-expl-est (update-est new-est (assoc new-ep :workspace ws-expl))]
