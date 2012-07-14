@@ -50,7 +50,7 @@
 
 (defn ignore-hyp
   [noexp-hyp workspace]
-  (add-kb (revert-workspace workspace)
+  (add-kb workspace
           [(new-hyp "Ignore" :kb :ignore 1.0 false
                     (:conflicts?-fn (:hyp noexp-hyp))
                     []
@@ -69,8 +69,10 @@
   (let [new-est (new-branch-ep est (cur-ep est))
         new-ep (cur-ep new-est)
         ws-old (:workspace new-ep)
-        ;; apply all the actions specified by the accepted meta-hyps
-        ws-new (reduce (fn [ws h] ((:action h) ws)) ws-old accepted)
+        ;; apply all the actions specified by the accepted meta-hyps;
+        ;; always revert workspace first
+        ws-new (reduce (fn [ws h] ((:action h) ws))
+                  (revert-workspace ws-old) accepted)
         ws-expl (reason (when (:Oracle params) truedata) ws-new
                         time-prev time-now sensors)
         new-expl-est (update-est new-est (assoc new-ep :workspace ws-expl))]
