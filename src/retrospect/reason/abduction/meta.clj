@@ -108,7 +108,7 @@
                        false conflicts? [(:contents ne)]
                        (format "%s is distortion noise" ne) (format "%s is distortion noise" ne)
                        {:action (partial ignore-hyp ne) :noexp-hyp ne})])
-           (filter #(= :observation (:type (:noexp-hyp %))) noexp-hyps))
+           (filter #(= :observation (:type (:hyp %))) noexp-hyps))
    ;; learn hyps
    (map (fn [ne] (new-hyp "Learn" :learn :learn
                        (- 1.0 (/ (double (:Knowledge params)) 100.0))
