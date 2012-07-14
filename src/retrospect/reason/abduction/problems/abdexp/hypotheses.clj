@@ -22,7 +22,8 @@
   (let [kb (get-kb accepted lookup-hyp)
         expgraph (get (:expgraphs kb) time-now)
         prev-hyps (map lookup-hyp (:all accepted))
-        observed (sensed-at (first sensors) time-now)]
+        observed (reduce set/union (map #(sensed-at (first sensors) %)
+                                 (range (inc time-now))))]
     (loop [hyps (zipmap (map :vertex prev-hyps) prev-hyps)
            vertices observed]
       (if (empty? vertices)
