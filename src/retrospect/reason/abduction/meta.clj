@@ -91,7 +91,7 @@
   (concat
    ;; anomaly hyps
    (map (fn [ne] (new-hyp "Anomaly" :anomaly :anomaly
-                       (calc-doubt ws-original)
+                       0.0 ;(calc-doubt ws-original)
                        false conflicts? [(:contents ne)]
                        (format "%s is an anomaly" ne) (format "%s is an anomaly" ne)
                        {:action (partial belief-revision ne) :noexp-hyp ne}))
@@ -99,12 +99,12 @@
    ;; noise hyps
    (mapcat (fn [ne]
              [(new-hyp "Noise" :noise :insertion-noise
-                       (+ 0.5 (* 0.5 (/ (double (:SensorInsertionNoise params)) 100.0)))
+                       1.0 ;(+ 0.5 (* 0.5 (/ (double (:SensorInsertionNoise params)) 100.0)))
                        false conflicts? [(:contents ne)]
                        (format "%s is insertion noise" ne) (format "%s is insertion noise" ne)
                        {:action (partial ignore-hyp ne) :noexp-hyp ne})
               (new-hyp "Noise" :noise :distortion-noise
-                       (+ 0.5 (* 0.5 (/ (double (:SensorDistortionNoise params)) 100.0)))
+                       0.0 ;(+ 0.5 (* 0.5 (/ (double (:SensorDistortionNoise params)) 100.0)))
                        false conflicts? [(:contents ne)]
                        (format "%s is distortion noise" ne) (format "%s is distortion noise" ne)
                        {:action (partial ignore-hyp ne) :noexp-hyp ne})])
