@@ -6,16 +6,19 @@
           get-init-workspace]])
   (:use [retrospect.reason.abduction.workspace :only
          [get-no-explainers new-hyp init-workspace calc-doubt
-          explain add-kb add-observation add lookup-hyp reset-workspace
+          explain add-kb add-observation add lookup-hyp
+          reset-workspace revert-workspace
           update-kb explain update-hypotheses add-sensor-hyps]])
   (:use [retrospect.state]))
 
 (defn reason
   [truedata workspace time-prev time-now sensors]
-  (let [ws (if (= "none" (:Oracle params)) workspace
-               (assoc workspace :oracle
-                      (partial (:true-hyp?-fn (:abduction @problem))
-                               truedata time-now)))]
+  (let [ws (assoc (if (= "none" (:Oracle params))
+                    workspace
+                    (assoc workspace :oracle
+                           (partial (:true-hyp?-fn (:abduction @problem))
+                                    truedata time-now)))
+             :prior-workspace workspace)]
     (if sensors
       (update-kb (explain (update-hypotheses
                            (add-sensor-hyps ws time-prev time-now sensors)
@@ -39,9 +42,15 @@
   ;; beliefs are gone
   (reset-workspace workspace))
 
+(defn transitive-explanation
+  [noexp-hyp workspace]
+  ;; how to do this? this will explain unexplained-impasses, not
+  ;; noexp-impasses
+  workspace)
+
 (defn ignore-hyp
   [noexp-hyp workspace]
-  (add-kb (reset-workspace workspace)
+  (add-kb (revert-workspace workspace)
           [(new-hyp "Ignore" :kb :ignore 1.0 false
                     (:conflicts?-fn (:hyp noexp-hyp))
                     []

@@ -40,7 +40,8 @@
   (print-simple (format "%s(%s)/%.2f" (:name h) (:short-str h) (:apriori h)) w))
 
 (def empty-workspace
-  {:graph (digraph)
+  {:prior-workspace nil
+   :graph (digraph)
    :oracle nil
    :cycle 0
    :log {:best [] :accrej {}}
@@ -553,6 +554,13 @@
   (prof :init-kb
         (add-kb workspace ((:generate-kb-fn (:abduction @problem)) training))))
 
+(defn init-workspace
+  []
+  (prof :init-workspace
+        (assoc empty-workspace
+          :oracle-types
+          (set (map keyword (str/split (:Oracle params) #","))))))
+
 (defn reset-workspace
   [workspace]
   (prof :reset-workspace
@@ -562,9 +570,6 @@
                 (doall (map #(lookup-hyp workspace %)
                           (get-in workspace [:accepted :kb]))))))
 
-(defn init-workspace
-  []
-  (prof :init-workspace
-        (assoc empty-workspace
-          :oracle-types
-          (set (map keyword (str/split (:Oracle params) #","))))))
+(defn revert-workspace
+  [workspace]
+  (or (:prior-workspace workspace) (reset-workspace workspace)))
