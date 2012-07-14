@@ -96,32 +96,32 @@
   [hyp1 hyp2]
   (= (:explains hyp1) (:explains hyp2)))
 
-(comment (map (fn [ne] (new-hyp "Anomaly" :anomaly :anomaly
-                             (calc-doubt ws-original)
+(comment (mapcat (fn [ne]
+                   [(new-hyp "Noise" :noise :insertion-noise
+                             (+ 0.5 (* 0.5 (/ (double (:SensorInsertionNoise params)) 100.0)))
                              false conflicts? [(:contents ne)]
-                             (format "%s is an anomaly" ne) (format "%s is an anomaly" ne)
-                             {:action (partial belief-revision ne) :noexp-hyp ne}))
-            noexp-hyps))
+                             (format "%s is insertion noise" ne) (format "%s is insertion noise" ne)
+                             {:action (partial ignore-hyp ne) :noexp-hyp ne})
+                    (new-hyp "Noise" :noise :distortion-noise
+                             (+ 0.5 (* 0.5 (/ (double (:SensorDistortionNoise params)) 100.0)))
+                             false conflicts? [(:contents ne)]
+                             (format "%s is distortion noise" ne) (format "%s is distortion noise" ne)
+                             {:action (partial ignore-hyp ne) :noexp-hyp ne})])
+                 (filter #(= :observation (:type (:hyp %))) noexp-hyps)))
 
 (defn make-meta-hyps
   "Create explanations, and associated actions, for noexp."
   [ws-original noexp-hyps]
   (concat
    ;; anomaly hyps
-   []
+   (map (fn [ne] (new-hyp "Anomaly" :anomaly :anomaly
+                       (calc-doubt ws-original)
+                       false conflicts? [(:contents ne)]
+                       (format "%s is an anomaly" ne) (format "%s is an anomaly" ne)
+                       {:action (partial belief-revision ne) :noexp-hyp ne}))
+      noexp-hyps)
    ;; noise hyps
-   (mapcat (fn [ne]
-             [(new-hyp "Noise" :noise :insertion-noise
-                       (+ 0.5 (* 0.5 (/ (double (:SensorInsertionNoise params)) 100.0)))
-                       false conflicts? [(:contents ne)]
-                       (format "%s is insertion noise" ne) (format "%s is insertion noise" ne)
-                       {:action (partial ignore-hyp ne) :noexp-hyp ne})
-              (new-hyp "Noise" :noise :distortion-noise
-                       (+ 0.5 (* 0.5 (/ (double (:SensorDistortionNoise params)) 100.0)))
-                       false conflicts? [(:contents ne)]
-                       (format "%s is distortion noise" ne) (format "%s is distortion noise" ne)
-                       {:action (partial ignore-hyp ne) :noexp-hyp ne})])
-           (filter #(= :observation (:type (:hyp %))) noexp-hyps))
+   []
    ;; learn hyps
    (map (fn [ne] (new-hyp "Learn" :learn :learn
                        (- 1.0 (/ (double (:Knowledge params)) 100.0))
