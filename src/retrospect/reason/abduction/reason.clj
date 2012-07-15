@@ -20,7 +20,7 @@
                ((:stats-fn (:abduction @problem)) truedata ors time-now))
    :metareasoning-activated?-fn metareasoning-activated?
    :metareason-fn (fn [truedata est time-prev time-now sensors]
-                    (if (not= "abd" (:Metareasoning params))
+                    (if (not= "abd" (subs (:Metareasoning params) 0 3))
                       {:est est :considered? false :accepted-branch? false}
                       (metareason truedata est time-prev time-now sensors)))
    :workspace-better?-fn workspace-better?
