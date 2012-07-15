@@ -1,6 +1,6 @@
 (ns retrospect.reason.abduction.evaluate
   (:require [clojure.string :as str])
-  (:use [retrospect.epistemicstates :only [cur-ep]])
+  (:use [retrospect.epistemicstates :only [cur-ep flatten-est]])
   (:use [retrospect.evaluate :only [calc-increase]])
   (:use [retrospect.reason.abduction.workspace
          :only [get-unexp-pct get-noexp-pct calc-doubt calc-coverage
@@ -55,6 +55,7 @@
 (defn evaluate
   [truedata est]
   (let [ep (cur-ep est)
+        eps (flatten-est est)
         workspace (:workspace ep)
         true-false (group-hyps-by-true-false (vals (:hyp-ids workspace))
                     :type truedata (:time ep) (:true-hyp?-fn (:abduction @problem)))
@@ -68,8 +69,8 @@
             :NoExplainersPct (get-noexp-pct (:workspace ep))
             :Doubt (calc-doubt (:workspace ep))
             :Coverage (calc-coverage (:workspace ep))
-            :ExplainCycles (:cycle workspace)
-            :HypothesisCount (reduce + (map count (vals (:hypotheses workspace))))})))
+            :ExplainCycles (reduce + (map (comp :cycle :workspace) eps))
+            :HypothesisCount (reduce + (map (comp count vals :hypotheses :workspace) eps))})))
 
 (defn prefix-params
   [prefix params]
