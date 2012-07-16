@@ -34,6 +34,44 @@
                   (map :mov mov-hyps))]
     [new-kb]))
 
+(defn conflicts?
+  [h1 h2]
+  (and (not= (:id h1) (:id h2))
+       (or
+        (and (= :ignore (:subtype h1))
+             (= :observation (:type h2))
+             (= (:det h1) (:det h2)))
+        (and (= :ignore (:subtype h2))
+             (= :observation (:type h1))
+             (= (:det h2) (:det h1)))
+        (and
+         (= :movement (:type h1) (:type h2))
+         (let [mov1 (:mov h1)
+               mov2 (:mov h2)]
+           (or
+            ;; start at same place
+            (and (= (:x mov1) (:x mov2))
+                 (= (:y mov1) (:y mov2))
+                 (= (:time mov1) (:time mov2)))
+            ;; end at same place
+            (and (= (:ox mov1) (:ox mov2))
+                 (= (:oy mov1) (:oy mov2))
+                 (= (:ot mov1) (:ot mov2)))
+            ;; mov1 ends where mov2 starts and not same color
+            (and (= (:x mov1) (:ox mov2))
+                 (= (:y mov1) (:oy mov2))
+                 (= (:time mov1) (:ot mov2))
+                 (not (match-color? (:color mov1) (:color mov2))))
+            ;; mov2 ends where mov1 starts and not same color
+            (and (= (:x mov2) (:ox mov1))
+                 (= (:y mov2) (:oy mov1))
+                 (= (:time mov2) (:ot mov1))
+                 (not (match-color? (:color mov2) (:color mov1))))
+            ;; same color, same time, different paths
+            (and (= (:color mov1) (:color mov2))
+                 (or (= (:time mov1) (:time mov2))
+                     (= (:ot mov1) (:ot mov2))))))))))
+
 (defn make-sensor-hyps
   [sensors time-prev time-now accepted lookup-hyp]
   (prof :make-sensor-hyps
@@ -44,12 +82,12 @@
                                  (color-str color) x y time)
                          from (new-hyp "SensFrom" :observation :from
                                        (- 1.0 (/ (double time) (double (:Steps params))))
-                                       true nil []
+                                       true conflicts? []
                                        (format "%d,%d@%d" x y time) desc
                                        {:det det})
                          to (new-hyp "SensTo" :observation :to
                                      (- 1.0 (/ (double time) (double (:Steps params))))
-                                     true nil []
+                                     true conflicts? []
                                      (format "%d,%d@%d" x y time) desc
                                      {:det det})]
                      (cond (= time time-prev) [to]
@@ -57,36 +95,6 @@
                            :else [from to])))
                  (sort-by :time (mapcat (fn [t] (mapcat (fn [s] (sensed-at s t)) sensors))
                                         (range time-prev (inc time-now))))))))
-
-(defn conflicts?
-  [h1 h2]
-  (and (not= (:id h1) (:id h2))
-       (= :movement (:type h1) (:type h2))
-       (let [mov1 (:mov h1)
-             mov2 (:mov h2)]
-         (or
-          ;; start at same place
-          (and (= (:x mov1) (:x mov2))
-               (= (:y mov1) (:y mov2))
-               (= (:time mov1) (:time mov2)))
-          ;; end at same place
-          (and (= (:ox mov1) (:ox mov2))
-               (= (:oy mov1) (:oy mov2))
-               (= (:ot mov1) (:ot mov2)))
-          ;; mov1 ends where mov2 starts and not same color
-          (and (= (:x mov1) (:ox mov2))
-               (= (:y mov1) (:oy mov2))
-               (= (:time mov1) (:ot mov2))
-               (not (match-color? (:color mov1) (:color mov2))))
-          ;; mov2 ends where mov1 starts and not same color
-          (and (= (:x mov2) (:ox mov1))
-               (= (:y mov2) (:oy mov1))
-               (= (:time mov2) (:ot mov1))
-               (not (match-color? (:color mov2) (:color mov1))))
-          ;; same color, same time, different paths
-          (and (= (:color mov1) (:color mov2))
-               (or (= (:time mov1) (:time mov2))
-                   (= (:ot mov1) (:ot mov2))))))))
 
 (defn connecting-movs
   [h acc-mov-hyps]

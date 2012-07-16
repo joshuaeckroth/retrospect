@@ -17,6 +17,17 @@
   [accepted unexplained hypotheses lookup-hyp]
   (map lookup-hyp (get accepted :kb)))
 
+(defn hyps-conflict?
+  [expgraph hyp1 hyp2]
+  (and (not= (:id hyp1) (:id hyp2))
+       (or (and (= :ignore (:subtype hyp1))
+                (= :observation (:subtype hyp2))
+                (= (:vertex hyp1) (:vertex hyp2)))
+           (and (= :ignore (:subtype hyp2))
+                (= :observation (:subtype hyp1))
+                (= (:vertex hyp2) (:vertex hyp1)))
+           (conflicts? expgraph (:vertex hyp1) (:vertex hyp2)))))
+
 (defn make-sensor-hyps
   [sensors time-prev time-now accepted lookup-hyp]
   (let [kb (get-kb accepted lookup-hyp)
@@ -31,9 +42,7 @@
         (let [v (first vertices)]
           (recur
            (assoc hyps v (new-hyp "Obs" :observation :observation (score expgraph v) true
-                                  #(or (conflicts? expgraph (:vertex %1) (:vertex %2))
-                                       (and (= :ignore (:subtype %1)) (= (:vertex %1) (:vertex %2)))
-                                       (and (= :ignore (:subtype %2)) (= (:vertex %1) (:vertex %2))))
+                                  #(hyps-conflict? expgraph %1 %2)
                                   (map #(:contents (get hyps %)) (explains expgraph v))
                                   (str v) (str v)
                                   {:vertex v}))
@@ -53,7 +62,7 @@
           (if (nil? (get hyps v))
             (recur (assoc hyps v (new-hyp "Expl" :expl :expl (score expgraph v)
                                           (not-empty (explainers expgraph v))
-                                          #(conflicts? expgraph (:vertex %1) (:vertex %2))
+                                          #(hyps-conflict? expgraph %1 %2)
                                           (map #(:contents (get hyps %)) (explains expgraph v))
                                           (format "%s" v) (format "%s @ %d" v time-now)
                                           {:vertex v}))
