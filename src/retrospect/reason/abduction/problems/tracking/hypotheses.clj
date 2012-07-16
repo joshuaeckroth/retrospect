@@ -40,10 +40,12 @@
        (or
         (and (= :ignore (:subtype h1))
              (= :observation (:type h2))
-             (= (:det h1) (:det h2)))
+             (= (:det h1) (:det h2))
+             (= (:from-to h1) (:from-to h2)))
         (and (= :ignore (:subtype h2))
              (= :observation (:type h1))
-             (= (:det h2) (:det h1)))
+             (= (:det h2) (:det h1))
+             (= (:from-to h1) (:from-to h2)))
         (and
          (= :movement (:type h1) (:type h2))
          (let [mov1 (:mov h1)
@@ -84,12 +86,12 @@
                                        (- 1.0 (/ (double time) (double (:Steps params))))
                                        true conflicts? []
                                        (format "%d,%d@%d" x y time) desc
-                                       {:det det})
+                                       {:det det :from-to :from})
                          to (new-hyp "SensTo" :observation :to
                                      (- 1.0 (/ (double time) (double (:Steps params))))
                                      true conflicts? []
                                      (format "%d,%d@%d" x y time) desc
-                                     {:det det})]
+                                     {:det det :from-to :to})]
                      (cond (= time time-prev) [to]
                            (= time time-now) [from]
                            :else [from to])))

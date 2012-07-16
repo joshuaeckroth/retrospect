@@ -56,7 +56,7 @@
                     []
                     (format "Ignore %s" (:hyp noexp-hyp))
                     (format "Ignore %s" (:hyp noexp-hyp))
-                    {:vertex (:vertex (:hyp noexp-hyp))})]))
+                    (:data (:hyp noexp-hyp)))]))
 
 (defn learn-hyp
   [noexp-hyp workspace]
