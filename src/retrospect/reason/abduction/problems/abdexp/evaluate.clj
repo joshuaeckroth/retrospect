@@ -26,8 +26,8 @@
   (if (empty? true-vertices) [0 0 0 0]
       (let [true-pos (count-matches true-vertices acc-vertices)
             false-pos (- (count acc-vertices) true-pos)
-            false-neg (count-matches true-vertices not-acc-vertices)
-            true-neg (- (count not-acc-vertices) false-neg)]
+            false-neg (count (set/difference true-vertices acc-vertices))
+            true-neg (- (count not-acc-vertices) (count-matches true-vertices not-acc-vertices))]
         [true-pos true-neg false-pos false-neg])))
 
 (defn evaluate

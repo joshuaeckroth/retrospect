@@ -28,8 +28,8 @@
   (if (empty? true-movs) [0 0 0 0]
       (let [true-pos (count-matches true-movs acc-movs)
             false-pos (- (count acc-movs) true-pos)
-            false-neg (count-matches true-movs not-acc-movs)
-            true-neg (- (count not-acc-movs) false-neg)]
+            false-neg (count (set/difference true-movs acc-movs))
+            true-neg (- (count not-acc-movs) (count-matches true-movs not-acc-movs))]
         [true-pos true-neg false-pos false-neg])))
 
 (defn get-true-movements
@@ -50,8 +50,8 @@
                         (set (map #(lookup-hyp ws %)
                                 (:movement (:hypotheses ws))))
                         accepted)
-          acc-movs (map :mov accepted)
-          not-acc-movs (map :mov not-accepted)
+          acc-movs (set (map :mov accepted))
+          not-acc-movs (set (map :mov not-accepted))
           [tp tn fp fn] (tp-tn-fp-fn true-movs acc-movs not-acc-movs)]
       (println {:TP tp :TN tn :FP fp :FN fn
        :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
