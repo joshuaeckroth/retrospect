@@ -16,8 +16,8 @@
   [truedata est meta-considered? meta-accepted-branch?]
   ;; TODO: grab MetaConsidered/MetaAccepted from prior results, not current results
   (let [results ((:evaluate-fn @reasoner) truedata est)
-        prior-considered (get results :MetaConsidered 0)
-        prior-accepted (get results :MetaAccepted 0)
+        prior-considered (get (last (:results (cur-ep est))) :MetaConsidered 0)
+        prior-accepted (get (last (:results (cur-ep est))) :MetaAccepted 0)
         meta-results (-> results
                         (assoc-in [:MetaConsidered]
                                   (if meta-considered?

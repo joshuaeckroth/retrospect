@@ -70,7 +70,7 @@
             :Doubt (calc-doubt (:workspace ep))
             :Coverage (calc-coverage (:workspace ep))
             :ExplainCycles (reduce + (map (comp :cycle :workspace) eps))
-            :HypothesisCount (reduce + (map (comp count vals :hypotheses :workspace) eps))})))
+            :HypothesisCount ((comp count :hyp-ids :workspace) ep)})))
 
 (defn prefix-params
   [prefix params]
@@ -90,7 +90,8 @@
                     control-params comparison-params)
                    (map #(calc-increase control comparison %)
                       (concat [:UnexplainedPct :NoExplainersPct
-                               :Doubt :Coverage :ExplainCycles :HypothesisCount]
+                               :Doubt :Coverage :ExplainCycles :HypothesisCount
+                               :MetaConsidered :MetaAccepted]
                               (mapcat
                                (fn [tf]
                                  (map #(keyword
