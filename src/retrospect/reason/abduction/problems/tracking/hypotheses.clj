@@ -42,12 +42,12 @@
                    (let [desc (format (str "Sensor detection - color: %s, "
                                       "x: %d, y: %d, time: %d")
                                  (color-str color) x y time)
-                         from (new-hyp "SensFrom" :sensor :sensor-from
+                         from (new-hyp "SensFrom" :observation :from
                                        (- 1.0 (/ (double time) (double (:Steps params))))
                                        true nil []
                                        (format "%d,%d@%d" x y time) desc
                                        {:det det})
-                         to (new-hyp "SensTo" :sensor :sensor-to
+                         to (new-hyp "SensTo" :observation :to
                                      (- 1.0 (/ (double time) (double (:Steps params))))
                                      true nil []
                                      (format "%d,%d@%d" x y time) desc
@@ -182,9 +182,9 @@
 (defn hypothesize
   [sensor-hyps accepted lookup-hyp time-now]
   (prof :hypothesize
-        (let [from-hyps (filter #(= :sensor-from (:subtype %))
+        (let [from-hyps (filter #(= :from (:subtype %))
                            (sort-by (comp :time :det) sensor-hyps))
-              to-hyps (filter #(= :sensor-to (:subtype %))
+              to-hyps (filter #(= :to (:subtype %))
                          (sort-by (comp :time :det) sensor-hyps))
               kb (get-kb accepted lookup-hyp)]
           (doall (mapcat
