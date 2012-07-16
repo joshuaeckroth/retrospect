@@ -26,8 +26,8 @@
   (if (empty? true-vertices) [0 0 0 0]
       (let [true-pos (count-matches true-vertices acc-vertices)
             false-pos (- (count acc-vertices) true-pos)
-            false-neg (count (set/difference true-vertices acc-vertices))
-            true-neg (- (count not-acc-vertices) (count-matches true-vertices not-acc-vertices))]
+            false-neg (count-matches true-vertices not-acc-vertices)
+            true-neg (- (count not-acc-vertices) false-neg)]
         [true-pos true-neg false-pos false-neg])))
 
 (defn evaluate
@@ -46,12 +46,14 @@
      :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
      :FPR (if (= 0 (+ fp tn)) 1.0 (/ (double fp) (double (+ fp tn))))
      :F1 (if (= 0 (+ tp fp fn)) 1.0 (/ (double (* 2.0 tp))
-                                       (double (+ (* 2.0 tp) fp fn))))}))
+                                       (double (+ (* 2.0 tp) fp fn))))
+     :TPRatio (if (empty? true-vertices-now) 1.0
+                  (/ (double tp) (double (count true-vertices-now))))}))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
-                  [:TP :TN :FP :FN :TPR :FPR :F1])))
+                  [:TP :TN :FP :FN :TPR :FPR :F1 :TPRatio])))
 
 (defn stats
   [truedata ors time-now])

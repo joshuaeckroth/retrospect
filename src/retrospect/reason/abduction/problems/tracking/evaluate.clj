@@ -28,8 +28,8 @@
   (if (empty? true-movs) [0 0 0 0]
       (let [true-pos (count-matches true-movs acc-movs)
             false-pos (- (count acc-movs) true-pos)
-            false-neg (count (set/difference true-movs acc-movs))
-            true-neg (- (count not-acc-movs) (count-matches true-movs not-acc-movs))]
+            false-neg (count-matches true-movs not-acc-movs)
+            true-neg (- (count not-acc-movs) false-neg)]
         [true-pos true-neg false-pos false-neg])))
 
 (defn get-true-movements
@@ -50,26 +50,30 @@
                         (set (map #(lookup-hyp ws %)
                                 (:movement (:hypotheses ws))))
                         accepted)
-          acc-movs (set (map :mov accepted))
-          not-acc-movs (set (map :mov not-accepted))
+          acc-movs (map :mov accepted)
+          not-acc-movs (map :mov not-accepted)
           [tp tn fp fn] (tp-tn-fp-fn true-movs acc-movs not-acc-movs)]
       (println {:TP tp :TN tn :FP fp :FN fn
-       :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
-       :FPR (if (= 0 (+ fp tn)) 1.0 (/ (double fp) (double (+ fp tn))))
-       :F1 (if (= 0 (+ tp fp fn)) 1.0 (/ (double (* 2.0 tp))
-                                         (double (+ (* 2.0 tp) fp fn))))})
+                :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
+                :FPR (if (= 0 (+ fp tn)) 1.0 (/ (double fp) (double (+ fp tn))))
+                :F1 (if (= 0 (+ tp fp fn)) 1.0 (/ (double (* 2.0 tp))
+                                                  (double (+ (* 2.0 tp) fp fn))))
+                :TPRatio (if (empty? true-movs) 1.0
+                             (/ (double tp) (double (count true-movs))))})
       ;; http://en.wikipedia.org/wiki/Receiver_operating_characteristic
       {:TP tp :TN tn :FP fp :FN fn
        :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
        :FPR (if (= 0 (+ fp tn)) 1.0 (/ (double fp) (double (+ fp tn))))
        :F1 (if (= 0 (+ tp fp fn)) 1.0 (/ (double (* 2.0 tp))
-                                         (double (+ (* 2.0 tp) fp fn))))})
-    {:TP 0 :TN 0 :FP 0 :FN 0 :TPR 0.0 :FPR 0.0 :F1 0.0}))
+                                         (double (+ (* 2.0 tp) fp fn))))
+       :TPRatio (if (empty? true-movs) 1.0
+                    (/ (double tp) (double (count true-movs))))})
+    {:TP 0 :TN 0 :FP 0 :FN 0 :TPR 0.0 :FPR 0.0 :F1 0.0 :TPRatio 0.0}))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
-                    [:TP :TN :FP :FN :TPR :FPR :F1])))
+                    [:TP :TN :FP :FN :TPR :FPR :F1 :TPRatio])))
 
 (defn training-stats
   [workspace false-accepted unexplained truedata time-now cycle])
