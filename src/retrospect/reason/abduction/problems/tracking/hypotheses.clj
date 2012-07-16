@@ -20,7 +20,7 @@
 
 (defn get-kb
   [accepted lookup-hyp]
-  (lookup-hyp (first (get accepted :kb))))
+  (first (filter #(= :kb (:subtype %)) (map lookup-hyp (get accepted :kb)))))
 
 (defn update-kb
   [accepted unexplained hypotheses lookup-hyp]
