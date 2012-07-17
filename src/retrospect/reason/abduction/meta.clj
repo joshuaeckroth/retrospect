@@ -110,7 +110,10 @@
                            {:action (partial belief-revision ne) :noexp-hyp ne}))
           noexp-hyps))
    ;; noise hyps
-   (if (= "abd-no-noise" (:Metareasoning params)) []
+   (if (or (= "abd-no-noise" (:Metareasoning params))
+           (and (= 0 (:SensorInsertionNoise params))
+                (= 0 (:SensorDistortionNoise params))
+                (= 0 (:SensorDeletionNoise params)))) []
        (mapcat (fn [ne]
                  [(new-hyp "Noise" :noise :insertion-noise
                            (+ 0.5 (* 0.5 (/ (double (:SensorInsertionNoise params)) 100.0)))
