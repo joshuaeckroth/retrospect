@@ -74,7 +74,8 @@
         ws-new (reduce (fn [ws h] ((:action h) ws))
                   (revert-workspace ws-old) accepted)
         ws-expl (reason (when (:Oracle params) truedata) ws-new
-                        time-prev time-now sensors)
+                        (if (some #{:anomaly} (map :type accepted)) 0 time-prev)
+                        time-now sensors)
         new-expl-est (update-est new-est (assoc new-ep :workspace ws-expl))]
     (if (workspace-better? ws-expl ws-old)
       {:est new-expl-est
