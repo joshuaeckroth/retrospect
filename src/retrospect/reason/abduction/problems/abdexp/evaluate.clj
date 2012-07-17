@@ -54,7 +54,7 @@
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
-                  [:TP :TN :FP :FN :TPR :FPR :F1 :TPRatio])))
+                  [:TP :TN :FP :FN :TPR :FPR :F1 :TPRatio :Prec])))
 
 (defn stats
   [truedata ors time-now])
