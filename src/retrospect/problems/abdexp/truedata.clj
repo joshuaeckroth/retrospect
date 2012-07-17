@@ -75,37 +75,42 @@
                      (vec (map (fn [[pos1 pos2]] (subvec vs pos1 pos2)) splits)))]
     (loop [time 1
            expgraphs {}]
-      (if (> time (:Steps params)) expgraphs
-          (let [prior-expgraph (get expgraphs (dec time))
-                prior-vertices (if prior-expgraph
-                                 (set (sorted-by-dep prior-expgraph)) #{})
-                obs-up-to-time (if (>= (count obs-groups) time)
-                                 (mapcat #(nth obs-groups %) (range time)) [])
-                new-vertices (filter #(not (prior-vertices %))
-                                (sorted-by-dep expgraph obs-up-to-time))
-                current-vertices (set/union (set prior-vertices) (set new-vertices))
-                related-edges (concat (mapcat (fn [v1]
-                                                (map (fn [v2] [v1 v2])
-                                                   (filter current-vertices (neighbors expgraph v1))))
-                                              new-vertices)
-                                      (mapcat (fn [v2]
-                                                (map (fn [v1] [v1 v2])
-                                                   (filter current-vertices (incoming expgraph v2))))
-                                              new-vertices))
-                new-edges (if prior-expgraph
-                            (filter #(not (apply has-edge? prior-expgraph %))
-                               related-edges)
-                            related-edges)
-                new-explains (filter #(not (apply conflicts? expgraph %)) new-edges)
-                new-conflicts (filter #(apply conflicts? expgraph %) new-edges)
-                next-expgraph-edges (apply add-edges (or prior-expgraph (digraph)) new-edges)
-                next-expgraph-scores (reduce (fn [eg v]
-                                          (add-attr eg v :score (score expgraph v)))
-                                        next-expgraph-edges new-vertices)
-                next-expgraph-conflicts (apply set-conflicts next-expgraph-scores new-conflicts)
-                next-expgraph-filled (apply force-fill next-expgraph-conflicts
-                                            (filter observations new-vertices))]
-            (recur (inc time) (assoc expgraphs time next-expgraph-filled)))))))
+      (if (= time (:Steps params))
+        ;; last step gets full graph
+        (assoc expgraphs time expgraph)
+        (let [prior-expgraph (get expgraphs (dec time))
+              prior-vertices (if prior-expgraph
+                               (set (sorted-by-dep prior-expgraph)) #{})
+              obs-up-to-time (if (>= (count obs-groups) time)
+                               (mapcat #(nth obs-groups %) (range time)) [])
+              available-vertices (filter #(not (prior-vertices %))
+                                    (sorted-by-dep expgraph obs-up-to-time))
+              ;; don't take all newly-observed vertices and explainers
+              new-vertices (take (my-rand-int (count available-vertices))
+                                 available-vertices)
+              current-vertices (set/union (set prior-vertices) (set new-vertices))
+              related-edges (concat (mapcat (fn [v1]
+                                              (map (fn [v2] [v1 v2])
+                                                 (filter current-vertices (neighbors expgraph v1))))
+                                            new-vertices)
+                                    (mapcat (fn [v2]
+                                              (map (fn [v1] [v1 v2])
+                                                 (filter current-vertices (incoming expgraph v2))))
+                                            new-vertices))
+              new-edges (if prior-expgraph
+                          (filter #(not (apply has-edge? prior-expgraph %))
+                             related-edges)
+                          related-edges)
+              new-explains (filter #(not (apply conflicts? expgraph %)) new-edges)
+              new-conflicts (filter #(apply conflicts? expgraph %) new-edges)
+              next-expgraph-edges (apply add-edges (or prior-expgraph (digraph)) new-edges)
+              next-expgraph-scores (reduce (fn [eg v]
+                                        (add-attr eg v :score (score expgraph v)))
+                                      next-expgraph-edges new-vertices)
+              next-expgraph-conflicts (apply set-conflicts next-expgraph-scores new-conflicts)
+              next-expgraph-filled (apply force-fill next-expgraph-conflicts
+                                          (filter observations new-vertices))]
+          (recur (inc time) (assoc expgraphs time next-expgraph-filled)))))))
 
 (defn generate-truedata
   []
