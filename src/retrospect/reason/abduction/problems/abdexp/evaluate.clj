@@ -48,7 +48,8 @@
      :F1 (if (= 0 (+ tp fp fn)) 1.0 (/ (double (* 2.0 tp))
                                        (double (+ (* 2.0 tp) fp fn))))
      :TPRatio (if (empty? true-vertices-now) 1.0
-                  (/ (double tp) (double (count true-vertices-now))))}))
+                  (/ (double tp) (double (count true-vertices-now))))
+     :Prec (if (= 0 (+ tp fp)) 1.0 (/ (double tp) (double (+ tp fp))))}))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]

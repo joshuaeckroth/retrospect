@@ -59,7 +59,8 @@
                 :F1 (if (= 0 (+ tp fp fn)) 1.0 (/ (double (* 2.0 tp))
                                                   (double (+ (* 2.0 tp) fp fn))))
                 :TPRatio (if (empty? true-movs) 1.0
-                             (/ (double tp) (double (count true-movs))))})
+                             (/ (double tp) (double (count true-movs))))
+                :Prec (if (= 0 (+ tp fp)) 1.0 (/ (double tp) (double (+ tp fp))))})
       ;; http://en.wikipedia.org/wiki/Receiver_operating_characteristic
       {:TP tp :TN tn :FP fp :FN fn
        :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
@@ -67,8 +68,9 @@
        :F1 (if (= 0 (+ tp fp fn)) 1.0 (/ (double (* 2.0 tp))
                                          (double (+ (* 2.0 tp) fp fn))))
        :TPRatio (if (empty? true-movs) 1.0
-                    (/ (double tp) (double (count true-movs))))})
-    {:TP 0 :TN 0 :FP 0 :FN 0 :TPR 0.0 :FPR 0.0 :F1 0.0 :TPRatio 0.0}))
+                    (/ (double tp) (double (count true-movs))))
+       :Prec (if (= 0 (+ tp fp)) 1.0 (/ (double tp) (double (+ tp fp))))})
+    {:TP 0 :TN 0 :FP 0 :FN 0 :TPR 0.0 :FPR 0.0 :F1 0.0 :TPRatio 0.0 :Prec 0.0}))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
