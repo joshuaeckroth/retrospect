@@ -116,12 +116,12 @@
                 (= 0 (:SensorDeletionNoise params)))) []
        (mapcat (fn [ne]
                  [(new-hyp "Noise" :noise :insertion-noise
-                           (+ 0.5 (* 0.5 (/ (double (:SensorInsertionNoise params)) 100.0)))
+                           (/ (double (:SensorInsertionNoise params)) 100.0)
                            false conflicts? [(:contents ne)]
                            (format "%s is insertion noise" ne) (format "%s is insertion noise" ne)
                            {:action (partial ignore-hyp ne) :noexp-hyp ne})
                   (new-hyp "Noise" :noise :distortion-noise
-                           (+ 0.5 (* 0.5 (/ (double (:SensorDistortionNoise params)) 100.0)))
+                           (/ (double (:SensorDistortionNoise params)) 100.0)
                            false conflicts? [(:contents ne)]
                            (format "%s is distortion noise" ne) (format "%s is distortion noise" ne)
                            {:action (partial ignore-hyp ne) :noexp-hyp ne})])
