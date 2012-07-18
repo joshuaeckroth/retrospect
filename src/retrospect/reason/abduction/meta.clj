@@ -39,7 +39,8 @@
 
 (defn belief-revision
   [noexp-hyp depth workspace]
-  (revert-workspace workspace depth))
+  ;; go back "before" this depth in order to repair
+  (revert-workspace workspace (dec depth)))
 
 (defn transitive-explanation
   [noexp-hyp workspace]
