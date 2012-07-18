@@ -104,8 +104,7 @@
    (if (= "abd-no-anomaly" (:Metareasoning params)) []
        (mapcat (fn [ne] (for [i (range (dec ws-depth) 0 -1)]
                        (new-hyp "Anomaly" :anomaly :anomaly
-                                (max 0.0 (- (calc-doubt (revert-workspace ws-original i))
-                                            (calc-doubt (revert-workspace ws-original (dec i)))))
+                                (calc-doubt (revert-workspace ws-original i))
                                 false conflicts? [(:contents ne)]
                                 (format "%s is an anomaly from depth %d" ne i)
                                 (format "%s is an anomaly from depth %d" ne i)

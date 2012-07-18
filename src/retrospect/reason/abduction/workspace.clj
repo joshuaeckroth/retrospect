@@ -43,6 +43,8 @@
   {:prior-workspace nil
    ;; workspace depth
    :depth 0
+   ;; on every acceptance, save the delta; this is used to calculate doubt
+   :acc-deltas []
    :graph (digraph)
    :oracle nil
    :cycle 0
@@ -375,11 +377,9 @@
 (defn calc-doubt
   [workspace]
   (prof :calc-doubt
-        (let [acc-no-kb (set/difference (:all (:accepted workspace))
-                                        (set (:kb (:accepted workspace))))]
-          (if (empty? acc-no-kb) 1.0
-              (let [confs (map #(:apriori (lookup-hyp workspace %)) acc-no-kb)]
-                (/ (reduce + 0.0 (map #(- 1.0 %) confs)) (count confs)))))))
+        (if (empty? (:acc-deltas workspace)) 1.0
+            (/ (reduce + (map #(- 1.0 %) (:acc-deltas workspace)))
+               (count (:acc-deltas workspace))))))
 
 (defn calc-coverage
   [workspace]
@@ -410,7 +410,7 @@
                 (let [essential (lookup-hyp workspace essentialid) 
                       bestid (first (get (:sorted-explainers workspace) essentialid))
                       best (lookup-hyp workspace bestid)]
-                  {:best best :explained essential :alts [] :comparison {}})
+                  {:best best :explained essential :alts [] :comparison {} :delta 1.0})
                 ;; otherwise, choose highest-delta non-essential
                 (let [explid (first not-empty-explained)
                       expl (lookup-hyp workspace explid)
@@ -495,7 +495,8 @@
   (prof :explain
         ;; need (loop) because we are using (recur) which isn't going
         ;; to work when profiling is on
-        (loop [workspace (-> workspace (assoc :log (:log empty-workspace))
+        (loop [workspace (-> workspace (assoc :log (:log empty-workspace)
+                                             :acc-deltas [])
                             (update-graph))]
           (log "Explaining again...")
           (let [ws-explainers (if (:dirty workspace)
@@ -513,6 +514,7 @@
                   (do (log "Best is" (:id best) (:apriori best))
                       (let [ws-accepted
                             (let [ws-logged (-> ws-explainers
+                                               (update-in [:acc-deltas] conj delta)
                                                (update-in [:cycle] inc)
                                                (update-in [:log :best] conj b))]
                               (accept ws-logged best nbest explained delta comparison))]

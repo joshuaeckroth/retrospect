@@ -83,13 +83,11 @@
                                       "x: %d, y: %d, time: %d")
                                  (color-str color) x y time)
                          from (new-hyp "SensFrom" :observation :from
-                                       (- 1.0 (/ (double time) (double (:Steps params))))
-                                       true conflicts? []
+                                       1.0 true conflicts? []
                                        (format "%d,%d@%d" x y time) desc
                                        {:det det :from-to :from})
                          to (new-hyp "SensTo" :observation :to
-                                     (- 1.0 (/ (double time) (double (:Steps params))))
-                                     true conflicts? []
+                                     1.0 true conflicts? []
                                      (format "%d,%d@%d" x y time) desc
                                      {:det det :from-to :to})]
                      (cond (= time time-prev) [to]
@@ -124,8 +122,8 @@
              (let [walk-prob (/ (double (+ 1 (get walk-dists d 0)))
                                 (double (+ 2 walk-count)))]
                (cond (= 0 gray-count) walk-prob
-                     (= 1 gray-count) (* 0.5 walk-prob)
-                     (= 2 gray-count) (* 0.25 walk-prob)))
+                     (= 1 gray-count) (* 0.75 walk-prob)
+                     (= 2 gray-count) (* 0.5 walk-prob)))
              false conflicts? (map :contents [to from])
              (format "%d,%d->%d,%d @ %d->%d (%s->%s)"
                 (:x det-color) (:y det-color)
