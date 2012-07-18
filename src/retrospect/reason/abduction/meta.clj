@@ -7,7 +7,7 @@
   (:use [retrospect.reason.abduction.workspace :only
          [get-no-explainers new-hyp init-workspace calc-doubt
           explain add-kb add-observation add lookup-hyp
-          reset-workspace revert-workspace
+          reset-workspace revert-workspace workspace-depth
           update-kb explain update-hypotheses add-sensor-hyps]])
   (:use [retrospect.state]))
 
@@ -18,7 +18,8 @@
                     (assoc workspace :oracle
                            (partial (:true-hyp?-fn (:abduction @problem))
                                     truedata time-now)))
-             :prior-workspace workspace)]
+             :prior-workspace workspace
+             :depth (inc (:depth workspace)))]
     (if sensors
       (update-kb (explain (update-hypotheses
                            (add-sensor-hyps ws time-prev time-now sensors)
@@ -37,10 +38,8 @@
   (empty? (get-no-explainers ws-new)))
 
 (defn belief-revision
-  [noexp-hyp workspace]
-  ;; reset workspace to ensure sensor hyps are all added new, and all
-  ;; beliefs are gone
-  (reset-workspace workspace))
+  [noexp-hyp depth workspace]
+  (revert-workspace workspace depth))
 
 (defn transitive-explanation
   [noexp-hyp workspace]
@@ -99,33 +98,36 @@
 
 (defn make-meta-hyps
   "Create explanations, and associated actions, for noexp."
-  [ws-original noexp-hyps]
+  [ws-original noexp-hyps ws-depth]
   (concat
    ;; anomaly hyps
    (if (= "abd-no-anomaly" (:Metareasoning params)) []
-       (map (fn [ne] (new-hyp "Anomaly" :anomaly :anomaly
-                           (calc-doubt ws-original)
-                           false conflicts? [(:contents ne)]
-                           (format "%s is an anomaly" ne) (format "%s is an anomaly" ne)
-                           {:action (partial belief-revision ne) :noexp-hyp ne}))
-          noexp-hyps))
+       (mapcat (fn [ne] (for [i (range (dec ws-depth) 0 -1)]
+                       (new-hyp "Anomaly" :anomaly :anomaly
+                                (max 0.0 (- (calc-doubt (revert-workspace ws-original i))
+                                            (calc-doubt (revert-workspace ws-original (dec i)))))
+                                false conflicts? [(:contents ne)]
+                                (format "%s is an anomaly from depth %d" ne i)
+                                (format "%s is an anomaly from depth %d" ne i)
+                                {:action (partial belief-revision ne i) :noexp-hyp ne})))
+             noexp-hyps))
    ;; noise hyps
    (if (or (= "abd-no-noise" (:Metareasoning params))
            (and (= 0 (:SensorInsertionNoise params))
                 (= 0 (:SensorDistortionNoise params))
                 (= 0 (:SensorDeletionNoise params)))) []
-       (mapcat (fn [ne]
-                 [(new-hyp "Noise" :noise :insertion-noise
-                           (/ (double (:SensorInsertionNoise params)) 100.0)
-                           false conflicts? [(:contents ne)]
-                           (format "%s is insertion noise" ne) (format "%s is insertion noise" ne)
-                           {:action (partial ignore-hyp ne) :noexp-hyp ne})
-                  (new-hyp "Noise" :noise :distortion-noise
-                           (/ (double (:SensorDistortionNoise params)) 100.0)
-                           false conflicts? [(:contents ne)]
-                           (format "%s is distortion noise" ne) (format "%s is distortion noise" ne)
-                           {:action (partial ignore-hyp ne) :noexp-hyp ne})])
-               (filter #(= :observation (:type (:hyp %))) noexp-hyps)))
+                (mapcat (fn [ne]
+                          [(new-hyp "Noise" :noise :insertion-noise
+                                    (/ (double (:SensorInsertionNoise params)) 100.0)
+                                    false conflicts? [(:contents ne)]
+                                    (format "%s is insertion noise" ne) (format "%s is insertion noise" ne)
+                                    {:action (partial ignore-hyp ne) :noexp-hyp ne})
+                           (new-hyp "Noise" :noise :distortion-noise
+                                    (/ (double (:SensorDistortionNoise params)) 100.0)
+                                    false conflicts? [(:contents ne)]
+                                    (format "%s is distortion noise" ne) (format "%s is distortion noise" ne)
+                                    {:action (partial ignore-hyp ne) :noexp-hyp ne})])
+                        (filter #(= :observation (:type (:hyp %))) noexp-hyps)))
    ;; learn hyps
    []))
 
@@ -140,9 +142,10 @@
 (defn metareason
   [truedata est time-prev time-now sensors]
   (let [workspace (:workspace (cur-ep est))
+        ws-depth (workspace-depth workspace)
         noexp (map (partial lookup-hyp workspace) (get-no-explainers workspace))
         noexp-hyps (make-noexp-hyps noexp)
-        meta-hyps (make-meta-hyps workspace noexp-hyps)
+        meta-hyps (make-meta-hyps workspace noexp-hyps ws-depth)
         meta-ws (reduce add (reduce add-observation (init-workspace) noexp-hyps) meta-hyps)
         meta-ws-explained (explain meta-ws)
         ep-meta (assoc (cur-ep est) :meta-workspace meta-ws-explained)

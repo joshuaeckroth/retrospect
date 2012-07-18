@@ -93,11 +93,12 @@
                                               (ws/find-unaccepted ws)))}))]
     (apply sorted-map-by anc
            (mapcat (fn [ep] [(str ep)
-                            {"Workspace" (assoc (ws-fn (:workspace ep) (:time ep))
-                                           "Log" nil)
-                             "Meta-workspace" (if-not (:meta-workspace ep) {}
-                                                      (assoc (ws-fn (:meta-workspace ep) (:time ep))
-                                                        "Log" nil))}])
+                            {(format "Workspace-%d" (:depth (:workspace ep)))
+                             (assoc (ws-fn (:workspace ep) (:time ep)) "Log" nil)
+                             "Meta-workspace"
+                             (if-not (:meta-workspace ep) {}
+                                     (assoc (ws-fn (:meta-workspace ep) (:time ep))
+                                       "Log" nil))}])
                    ep-states))))
 
 (defn update-hyp-info

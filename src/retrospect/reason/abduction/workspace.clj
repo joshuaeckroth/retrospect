@@ -41,6 +41,8 @@
 
 (def empty-workspace
   {:prior-workspace nil
+   ;; workspace depth
+   :depth 0
    :graph (digraph)
    :oracle nil
    :cycle 0
@@ -373,11 +375,11 @@
 (defn calc-doubt
   [workspace]
   (prof :calc-doubt
-        (if (empty? (:all (:accepted workspace)))
-          (if (empty? (:sorted-explainers-explained workspace)) 0.0 1.0)
-          (let [confs (map #(:apriori (lookup-hyp workspace %))
-                         (:all (:accepted workspace)))]
-            (/ (reduce + 0.0 (map #(- 1.0 %) confs)) (count confs))))))
+        (let [acc-no-kb (set/difference (:all (:accepted workspace))
+                                        (set (:kb (:accepted workspace))))]
+          (if (empty? acc-no-kb) 1.0
+              (let [confs (map #(:apriori (lookup-hyp workspace %)) acc-no-kb)]
+                (/ (reduce + 0.0 (map #(- 1.0 %) confs)) (count confs)))))))
 
 (defn calc-coverage
   [workspace]
@@ -571,5 +573,18 @@
                           (get-in workspace [:accepted :kb]))))))
 
 (defn revert-workspace
+  ([workspace depth]
+     (if (> depth (:depth workspace)) workspace
+         (loop [ws workspace]
+           (cond (= depth (:depth ws)) ws
+                 (nil? (:prior-workspace ws)) (reset-workspace workspace)
+                 :else
+                 (recur (:prior-workspace ws))))))
+  ([workspace] (revert-workspace workspace (dec (:depth workspace)))))
+
+(defn workspace-depth
   [workspace]
-  (or (:prior-workspace workspace) (reset-workspace workspace)))
+  (loop [ws workspace i 0]
+    (if-let [p (:prior-workspace ws)]
+      (recur p (inc i)) i)))
+
