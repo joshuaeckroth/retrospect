@@ -12,6 +12,7 @@
          [entities-at entity-movements]])
   (:use [retrospect.problems.tracking.truedata :only
          [format-movements-comparative]])
+  (:use [retrospect.reason.abduction.problems.tracking.hypotheses :only [get-kb]])
   (:use [retrospect.reason.abduction.problems.tracking.evaluate :only
          [get-true-movements]])
   (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
@@ -209,6 +210,11 @@
   (let [ws (:workspace (cur-ep (:est @or-state)))
         mov-hyps (sort-by :id (AlphanumComparator.)
                           (map #(lookup-hyp ws %) (get (:accepted ws) :movement)))
-        lines (fn [ss] (apply str (interpose "\n" ss)))]
-    (format "Believed movements:\n%s" (lines (map #(format "%s: %s" % (move-str (:mov %)))
-                                           mov-hyps)))))
+        lines (fn [ss] (apply str (interpose "\n" ss)))
+        kb (get-kb (:accepted ws) #(lookup-hyp ws %))
+        walk-dists (:walk-dists kb)
+        walk-count (:walk-count kb)]
+    (format "Believed movements:\n%s\n\nWalk dists (of %d):\n%s"
+       (lines (map #(format "%s: %s" % (move-str (:mov %))) mov-hyps))
+       walk-count
+       (lines (map (fn [[dist c]] (format "%.2f: %d" dist c)) (sort-by first walk-dists))))))
