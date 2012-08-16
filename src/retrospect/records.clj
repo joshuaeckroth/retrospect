@@ -44,33 +44,35 @@
 (defn read-csv
   [lines]
   (let [headers (map keyword (str/split (first lines) #","))]
-    (for [line (parse-csv (str/join "\n" (rest lines)))]
-      (let [data (map #(cond (re-matches #"^(true|false)$" %) (Boolean/parseBoolean %)
-                             (re-matches #"^\d+\.\d+$" %) (Double/parseDouble %)
-                             (re-matches #"^\d+$" %) (Integer/parseInt %)
-                             :else %)
-                      line)]
-        (apply hash-map (interleave headers data))))))
+    (doall
+     (for [line (parse-csv (str/join "\n" (rest lines)))]
+       (let [data (map #(cond (re-matches #"^(true|false)$" %) (Boolean/parseBoolean %)
+                            (re-matches #"^\d+\.\d+$" %) (Double/parseDouble %)
+                            (re-matches #"^\d+$" %) (Integer/parseInt %)
+                            :else %)
+                     line)]
+         (apply hash-map (interleave headers data)))))))
 
 (defn read-archived-results
   [recdir]
   (let [simulations (sort (set (map #(Integer/parseInt
-                                      (second (re-matches #".*\-(\d+)\.csv$"
-                                                          (.getName %))))
-                                    (filter #(re-find #"\.csv$" (.getName %))
-                                            (file-seq (clojure.java.io/file recdir))))))]
-    (for [sim simulations]
-      (let [control-file
-            (format "%s/control-results-%d.csv" recdir sim)
-            comparison-file
-            (format "%s/comparison-results-%d.csv" recdir sim)
-            comparative-file
-            (format "%s/comparative-results-%d.csv" recdir sim)]
-        {:control (read-csv (str/split (slurp control-file) #"\n"))
-         :comparison (when (. (file comparison-file) exists)
-                       (read-csv (str/split (slurp comparison-file) #"\n")))
-         :comparative (when (. (file comparative-file) exists)
-                        (read-csv (str/split (slurp comparative-file) #"\n")))}))))
+                                    (second (re-matches #".*\-(\d+)\.csv$"
+                                                        (.getName %))))
+                                  (filter #(re-find #"\.csv$" (.getName %))
+                                     (file-seq (clojure.java.io/file recdir))))))]
+    (doall
+     (for [sim simulations]
+       (let [control-file
+             (format "%s/control-results-%d.csv" recdir sim)
+             comparison-file
+             (format "%s/comparison-results-%d.csv" recdir sim)
+             comparative-file
+             (format "%s/comparative-results-%d.csv" recdir sim)]
+         {:control [(last (read-csv (str/split (slurp control-file) #"\n")))]
+          :comparison (when (. (file comparison-file) exists)
+                        [(last (read-csv (str/split (slurp comparison-file) #"\n")))])
+          :comparative (when (. (file comparative-file) exists)
+                         [(last (read-csv (str/split (slurp comparative-file) #"\n")))])})))))
 
 (defn submit-archived-results
   [recdir]
