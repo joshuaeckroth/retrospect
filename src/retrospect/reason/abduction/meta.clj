@@ -102,7 +102,7 @@
 (defn make-meta-hyps
   "Create explanations, and associated actions, for noexp."
   [ws-original noexp-hyps ws-depth]
-  (let [know-pct (/ (+ (:Step params) (:TrainingSteps params))
+  (let [know-pct (/ (double (+ time-now (:TrainingSteps params)))
                     (double (+ (:Steps params) (:TrainingSteps params))))]
     (concat
      ;; anomaly hyps
@@ -151,7 +151,7 @@
         ws-depth (workspace-depth workspace)
         noexp (map (partial lookup-hyp workspace) (get-no-explainers workspace))
         noexp-hyps (make-noexp-hyps noexp)
-        meta-hyps (make-meta-hyps workspace noexp-hyps ws-depth)
+        meta-hyps (make-meta-hyps workspace noexp-hyps ws-depth time-now)
         meta-ws (reduce add (reduce add-observation (init-workspace) noexp-hyps) meta-hyps)
         meta-ws-explained (explain meta-ws)
         ep-meta (assoc (cur-ep est) :meta-workspace meta-ws-explained)
