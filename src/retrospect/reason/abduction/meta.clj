@@ -101,7 +101,7 @@
 
 (defn make-meta-hyps
   "Create explanations, and associated actions, for noexp."
-  [ws-original noexp-hyps ws-depth]
+  [ws-original noexp-hyps ws-depth time-now]
   (let [know-pct (/ (double (+ time-now (:TrainingSteps params)))
                     (double (+ (:Steps params) (:TrainingSteps params))))]
     (concat
