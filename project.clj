@@ -12,6 +12,7 @@
                  [batik/batik-dom "1.6-1"]
                  [org.apache.httpcomponents/httpcore "4.1.4"]
                  [org.apache.httpcomponents/httpclient "4.1.2"]
+                 [org.apache.commons/commons-math3 "3.0"]
                  [log4j/log4j "1.2.16"]
                  [junit/junit "4.10"]
                  [com.intellij/annotations "5.1"]

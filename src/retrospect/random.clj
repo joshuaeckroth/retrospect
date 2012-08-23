@@ -1,4 +1,5 @@
 (ns retrospect.random
+  (:import (org.apache.commons.math3.distribution NormalDistribution))
   (:import (java.util Random)))
 
 (def rgen nil)
@@ -21,7 +22,11 @@
 
 (defn my-rand-gauss
   [mean variance]
-  (+ mean (* variance (.nextGaussian rgen))))
+  (+ mean (* (Math/sqrt variance) (.nextGaussian rgen))))
+
+(defn cumprob
+  [mean variance lower upper]
+  (.cumulativeProbability (NormalDistribution. mean (Math/sqrt variance)) lower upper))
 
 (defn my-shuffle
   [coll]

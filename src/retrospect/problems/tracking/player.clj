@@ -211,10 +211,8 @@
         mov-hyps (sort-by :id (AlphanumComparator.)
                           (map #(lookup-hyp ws %) (get (:accepted ws) :movement)))
         lines (fn [ss] (apply str (interpose "\n" ss)))
-        kb (get-kb (:accepted ws) #(lookup-hyp ws %))
-        walk-dists (:walk-dists kb)
-        walk-count (:walk-count kb)]
-    (format "Believed movements:\n%s\n\nWalk dists (of %d):\n%s"
+        kb (get-kb (:accepted ws) #(lookup-hyp ws %))]
+    (format "Believed movements:\n%s\n\nBelieved mean, variance (%d moves): %.2f, %.2f"
        (lines (map #(format "%s: %s" % (move-str (:mov %))) mov-hyps))
-       walk-count
-       (lines (map (fn [[dist c]] (format "%.2f: %d" dist c)) (sort-by first walk-dists))))))
+       (count (:moves kb))
+       (:mean (:moves-dist kb)) (:variance (:moves-dist kb)))))

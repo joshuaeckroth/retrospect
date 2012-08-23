@@ -7,15 +7,22 @@
   (:use [retrospect.problems.tracking.movements
          :only [dist dets-match?]])
   (:use [retrospect.profile :only [prof]])
+  (:use [retrospect.random])
   (:use [retrospect.state]))
+
+(defn compute-moves-dist
+  [moves]
+  (let [dists (map #(dist (:ox %) (:oy %) (:x %) (:y %)) moves)
+        mean (/ (reduce + dists) (count dists))
+        variance (/ (reduce + (map #(Math/pow (- mean %) 2.0) dists)) (count dists))]
+    {:mean mean :variance variance}))
 
 (defn generate-kb
   [training]
-  (let [walk-dists (frequencies (map #(dist (:ox %) (:oy %) (:x %) (:y %))
-                                   (:all-moves training)))]
+  (let []
     [(new-hyp "KB" :kb :kb 1.0 false nil [] "" ""
-              {:walk-dists walk-dists
-               :walk-count (count (filter :ox (:all-moves training)))
+              {:moves (:moves training)
+               :moves-dist (compute-moves-dist (:moves training))
                :seen-colors (:seen-colors training)})]))
 
 (defn get-kb
@@ -26,13 +33,9 @@
   [accepted unexplained hypotheses lookup-hyp]
   (let [mov-hyps (map lookup-hyp (get accepted :movement))
         old-kb (get-kb accepted lookup-hyp)
-        new-kb (reduce (fn [k mov]
-                    (let [d (dist (:ox mov) (:oy mov) (:x mov) (:y mov))
-                          prior (get-in k [:walk-dists d] 0)]
-                      (assoc-in k [:walk-dists d] (inc prior))))
-                  (update-in old-kb [:walk-count] + (count mov-hyps))
-                  (map :mov mov-hyps))]
-    [new-kb]))
+        kb-moves (update-in old-kb [:moves] concat (map :mov mov-hyps))
+        kb-moves-dist (assoc kb-moves :moves-dist (compute-moves-dist (:moves kb-moves)))]
+    [kb-moves-dist]))
 
 (defn conflicts?
   [h1 h2]
@@ -114,13 +117,16 @@
                                    (some #(dets-match? (:det %) (:det2 h)) c)))))]
           (filter valid? mov-hyps))))
 
+(defn move-prob
+  [dist moves-dist]
+  (cumprob (:mean moves-dist) (:variance moves-dist) (- dist 1.0) (+ dist 1.0)))
+
 (defn new-mov-hyp
-  [to from det-color det2-color walk-dists walk-count gray-count]
+  [to from det-color det2-color moves-dist gray-count]
   (let [d (dist (:x det-color) (:y det-color)
                 (:x det2-color) (:y det2-color))]
     (new-hyp "Mov" :movement :movement
-             (let [walk-prob (/ (double (+ 1 (get walk-dists d 0)))
-                                (double (+ 2 walk-count)))]
+             (let [walk-prob (move-prob d moves-dist)]
                (cond (= 0 gray-count) walk-prob
                      (= 1 gray-count) (* 0.75 walk-prob)
                      (= 2 gray-count) (* 0.5 walk-prob)))
@@ -146,7 +152,7 @@
                     :color (:color det-color)}})))
 
 (defn new-mov-hyps
-  [to from acc-mov-hyps walk-dists walk-count seen-colors]
+  [to from acc-mov-hyps moves-dist seen-colors]
   (prof :new-mov-hyps
         (let [det (:det to) det2 (:det from)
               colors-in (set (map (comp :color :det2)
@@ -171,21 +177,17 @@
                 (map #(new-mov-hyp to from
                                  (assoc det-color :color %)
                                  (assoc det2-color :color %)
-                                 walk-dists walk-count 2)
+                                 moves-dist 2)
                    seen-colors)
                 (match-color? (:color det-color) (:color det2-color))
-                [(new-mov-hyp to from det-color det2-color walk-dists walk-count
+                [(new-mov-hyp to from det-color det2-color moves-dist
                               (if (or (= gray (:color det)) (= gray (:color det2)))
                                 1 0))]
                 :else []))))
 
-(defn movement-in-range?
+(defn dets-connected?
   [to from]
-  (let [{x1 :x y1 :y} (:det to)
-        {x2 :x y2 :y} (:det from)
-        d (dist x1 y1 x2 y2)]
-    (and (<= d (* (Math/sqrt 2) (:MaxWalk params)))
-         (= (:time (:det to)) (inc (:time (:det from)))))))
+  (= (:time (:det to)) (inc (:time (:det from)))))
 
 (defn hypothesize
   [sensor-hyps accepted lookup-hyp time-now]
@@ -199,10 +201,9 @@
                   (fn [evidence]
                     (let [acc-mov-hyps (sort-by (comp :time :mov)
                                                 (map lookup-hyp (get accepted :movement)))
-                          nearby (filter #(movement-in-range? evidence %) to-hyps)
+                          nearby (filter #(dets-connected? evidence %) to-hyps)
                           mov-hyps (mapcat #(new-mov-hyps % evidence acc-mov-hyps
-                                                          (:walk-dists kb) (:walk-count kb)
-                                                          (:seen-colors kb))
+                                                          (:moves-dist kb) (:seen-colors kb))
                                            nearby)]
                       (filter-valid-movs mov-hyps acc-mov-hyps)))
                   from-hyps)))))
