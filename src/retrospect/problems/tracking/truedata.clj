@@ -10,26 +10,27 @@
   (reduce (fn [m _] (new-entity m 0)) movements (range numes)))
 
 (defn random-walks
-  [movements time]
-  (let [maxwalk (:MaxWalk params)]
-    (reduce #(walk %1 %2 time maxwalk) movements (my-shuffle (entities movements)))))
+  [movements time mean variance]
+  (reduce #(walk %1 %2 time mean variance) movements (my-shuffle (entities movements))))
 
 (defn generate-movements
-  [max-time]
+  [mean variance steps]
   (let [movements (add-new-entities
                    (new-movements (:GridWidth params) (:GridHeight params))
                    (:NumberEntities params))]
     (loop [time 1
            m movements]
-      (if (> time max-time) m
-          (recur (inc time) (random-walks m time))))))
+      (if (> time steps) m
+          (recur (inc time) (random-walks m time mean variance))))))
 
 (defn generate-truedata
   []
-  (let [test-movements (generate-movements (:Steps params))
-        training-steps (int (* (/ (double (:Knowledge params)) 100.0)
-                               (:TrainingSteps params)))
-        training-movements (generate-movements training-steps)]
+  (let [test-movements (generate-movements (:TrueMoveMean params)
+                                           (:TrueMoveVariance params)
+                                           (:Steps params))
+        training-movements (generate-movements (:BelMoveMean params)
+                                               (:BelMoveVariance params)
+                                               (:TrainingSteps params))]
     {:test test-movements
      :all-moves (set (filter :ot (apply concat (vals test-movements))))
      :training {:test training-movements

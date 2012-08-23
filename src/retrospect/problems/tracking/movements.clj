@@ -44,49 +44,43 @@
        (= (:time det) (:time det2))
        (match-color? (:color det) (:color det2))))
 
+(defn dist
+  [x1 y1 x2 y2]
+  (double (math/sqrt (+ (* (- x1 x2) (- x1 x2))
+                        (* (- y1 y2) (- y1 y2))))))
+
+(defn loc-distances
+  [x y width height]
+  (for [nx (range width) ny (range height)]
+    [[nx ny] (dist x y nx ny)]))
+
 (defn walk-rand
-  [[x y]]
-  (my-rand-nth [[x y] ;; don't move
-                [(dec x) y]
-                [(inc x) y]
-                [x (inc y)]
-                [x (dec y)]
-                [(dec x) (dec y)]
-                [(dec x) (inc y)]
-                [(inc x) (dec y)]
-                [(inc x) (inc y)]]))
+  [x y mean variance dists]
+  (let [d (my-rand-gauss mean variance)
+        dists-sorted (sort-by #(Math/abs (- d (second %))) dists)
+        closest-dist (second (first dists-sorted))
+        loc-choices (map first (take-while #(= closest-dist (second %)) dists-sorted))]
+    (my-rand-nth loc-choices)))
 
 (defn walk
   "Move an entity maxwalk steps in random directions, respecting angle
    constraints. Also avoid landing in an occupied space."
-  [movements entity time maxwalk]
+  [movements entity time mean variance]
   (let [width (:width (meta movements))
         height (:height (meta movements))
         movs (reverse (get movements entity))
-        last-last-pos (second movs)
         last-pos (first movs)
-        [oox ooy] [(:x last-last-pos) (:y last-last-pos)]
-        [ox oy] [(:x last-pos) (:y last-pos)]]
+        [ox oy] [(:x last-pos) (:y last-pos)]
+        dists (loc-distances ox oy width height)]
     (loop [attempts 0]
-      (let [[x y] (loop [i (my-rand-int (inc maxwalk))
-                         loc [ox oy]]
-                    (let [[x y] loc
-                          [nx ny] (walk-rand loc)]
-                      (cond
-                       ;; we're done
-                       (= i 0) loc
-                       ;; if we land in an occupied space, don't update pos
-                       (or (not-empty (entities-at movements nx ny time))
-                           (not-empty (entities-at movements nx ny (dec time))))
-                       (recur (dec i) [x y])
-                       ;; if we go out of bounds, don't update pos
-                       (or (> nx width) (> ny height) (< nx 0) (< ny 0))
-                       (recur (dec i) [x y])
-                       ;; more to go
-                       :else (recur (dec i) [nx ny]))))]
-        (cond (= attempts 50) (move-entity movements entity ox oy time)
-              (and (< x (:width (meta movements))) (>= x 0)
-                   (< y (:height (meta movements))) (>= y 0))
+      (let [[x y] (walk-rand ox oy mean variance dists)]
+        (cond (= attempts 50)
+              ;; ran out of attempts to move to an empty space; just
+              ;; stay where we are
+              (move-entity movements entity ox oy time)
+              ;; make sure we didn't land on an occupied space
+              (and (empty? (entities-at movements x y time))
+                   (empty? (entities-at movements x y (dec time))))
               (move-entity movements entity x y time)
               :else (recur (inc attempts)))))))
 
@@ -98,8 +92,3 @@
 (defn entities
   [movements]
   (keys movements))
-
-(defn dist
-  [x1 y1 x2 y2]
-  (double (math/sqrt (+ (* (- x1 x2) (- x1 x2))
-                        (* (- y1 y2) (- y1 y2))))))

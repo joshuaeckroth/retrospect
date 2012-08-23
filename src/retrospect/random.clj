@@ -19,6 +19,10 @@
   [coll]
   (nth coll (my-rand-int (count coll))))
 
+(defn my-rand-gauss
+  [mean variance]
+  (+ mean (* variance (.nextGaussian rgen))))
+
 (defn my-shuffle
   [coll]
   (let [al (java.util.ArrayList. coll)]
