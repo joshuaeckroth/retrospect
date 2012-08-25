@@ -52,6 +52,19 @@
              (avg (get (get aprioris t) false)))))
        {} (keys true-false))))
 
+(defn calc-true-false-deltas
+  "Find average delta for true and false acceptances."
+  [workspace true-false]
+  (let [delta-tf (for [b (:best (:log workspace))]
+                   [(get-in true-false [:individual (:id (:best b))])
+                    (:delta b)])
+        delta-true (map second (filter first delta-tf))
+        delta-false (map second (filter (comp not first) delta-tf))]
+    {:true-delta-avg (/ (reduce + delta-true) (double (let [c (count delta-true)]
+                                                   (if (= 0 c) 1 c))))
+     :false-delta-avg (/ (reduce + delta-false) (double (let [c (count delta-false)]
+                                                     (if (= 0 c) 1 c))))}))
+
 (defn evaluate
   [truedata est]
   (let [ep (cur-ep est)
@@ -59,7 +72,8 @@
         workspace (:workspace ep)
         true-false (group-hyps-by-true-false (vals (:hyp-ids workspace))
                     :type truedata (:time ep) (:true-hyp?-fn (:abduction @problem)))
-        true-false-scores (calc-true-false-scores workspace true-false)]
+        true-false-scores (calc-true-false-scores workspace true-false)
+        delta-avgs (calc-true-false-deltas workspace true-false)]
     (merge {:Problem (:name @problem)}
            params
            ((:evaluate-fn (:abduction @problem)) truedata est)
@@ -67,6 +81,8 @@
            {:Step (:time ep)
             :UnexplainedPct (get-unexp-pct (:workspace ep))
             :NoExplainersPct (get-noexp-pct (:workspace ep))
+            :TrueDeltaAvg (:true-delta-avg delta-avgs)
+            :FalseDeltaAvg (:false-delta-avg delta-avgs)
             :Doubt (calc-doubt (:workspace ep))
             :Coverage (calc-coverage (:workspace ep))
             :ExplainCycles (reduce + (map (comp :cycle :workspace) eps))
@@ -90,6 +106,7 @@
                     control-params comparison-params)
                    (map #(calc-increase control comparison %)
                       (concat [:UnexplainedPct :NoExplainersPct
+                               :TrueDeltaAvg :FalseDeltaAvg
                                :Doubt :Coverage :ExplainCycles :HypothesisCount
                                :MetaConsidered :MetaAccepted]
                               (mapcat
