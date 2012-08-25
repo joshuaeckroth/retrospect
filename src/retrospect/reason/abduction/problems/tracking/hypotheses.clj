@@ -119,7 +119,7 @@
 
 (defn move-prob
   [dist moves-dist]
-  (cumprob (:mean moves-dist) (:variance moves-dist) (- dist 1.0) (+ dist 1.0)))
+  (cumprob (:mean moves-dist) (:variance moves-dist) (- dist 2.0) (+ dist 2.0)))
 
 (defn new-mov-hyp
   [to from det-color det2-color moves-dist gray-count]
