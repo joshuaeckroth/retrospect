@@ -8,9 +8,14 @@
 
 (defn true-hyp?
   [truedata _ hyp]
-  (if (= :movement (:type hyp))
-    (if ((:all-moves truedata) (:mov hyp)) true false)
-    true))
+  (cond (= :movement (:type hyp))
+        (if ((:all-moves truedata) (:mov hyp))
+          true false)
+        ;; check for sensor noise
+        (= :observation (:type hyp))
+        (if ((:all-xys truedata) {:x (:x (:det hyp)) :y (:y (:det hyp))
+                                  :time (:time (:det hyp))})
+          true false)))
 
 (defn hyps-equal?
   [hyp1 hyp2]

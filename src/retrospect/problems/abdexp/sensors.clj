@@ -35,5 +35,5 @@
                                (distortion-noise)))))
 
 (defn generate-sensors
-  []
+  [_]
   [(init-sensor "expgraph" sense {})])

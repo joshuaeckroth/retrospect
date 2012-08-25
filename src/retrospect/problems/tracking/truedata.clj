@@ -30,12 +30,15 @@
                                            (:Steps params))
         training-movements (generate-movements (:BelMoveMean params)
                                                (:BelMoveVariance params)
-                                               (:TrainingSteps params))]
+                                               (:TrainingSteps params))
+        movs (apply concat (vals test-movements))]
     {:test test-movements
-     :all-moves (set (filter :ot (apply concat (vals test-movements))))
+     :all-moves (set (filter :ot movs))
+     :all-xys (set (concat (map (fn [mov] {:x (:x mov) :y (:y mov) :time (:time mov)}) movs)
+                           (map (fn [mov] {:x (:ox mov) :y (:oy mov) :time (:ot mov)}) movs)))
      :training {:moves (filter :ot (apply concat (vals training-movements)))
                 ;; give all true seen colors (for now)
-                :seen-colors (set (map :color (apply concat (vals test-movements))))}}))
+                :seen-colors (set (map :color movs))}}))
 
 (defn format-movements-comparative
   [true-movements believed-movements mintime maxtime]

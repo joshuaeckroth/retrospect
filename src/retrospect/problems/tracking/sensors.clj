@@ -47,12 +47,12 @@
   [sensor time]
   (let [x (my-rand-int (:GridWidth params))
         y (my-rand-int (:GridHeight params))
-        color (if (sees sensor x y) (rand-color) gray)]
+        color (if (sees sensor x y) (my-rand-nth (:colors (meta sensor))) gray)]
     {:x x :y y :time time :color color}))
 
 (defn insertion-noise
   [observations sensor time]
-  ;; each observation has the form {:x # :y # :time # :color ""}
+  ;; each observation has the form {:x # :y # :time # :color (object)}
   (let [noise (repeatedly
                (my-rand-int (int (* (/ (:SensorInsertionNoise params) 100)
                                     (:Steps params))))
@@ -98,43 +98,49 @@
 
 (defn new-sensor
   "Generate a new sensor with provided values and an empty 'spotted' vector."
-  [id left right bottom top sees-color]
+  [id left right bottom top sees-color colors]
   (init-sensor id sense {:left left :right right :bottom bottom :top top
-                         :sees-color sees-color}))
+                         :sees-color sees-color :colors (sort-by str colors)}))
 
 (defn generate-sensors
-  []
+  [truedata]
   (let [width-height (math/ceil
                       (math/sqrt (* (:GridHeight params)
                                     (:GridWidth params)
                                     (- 1.0 (* 0.01 (:SensorSeesColor params))))))
         left-right (math/ceil (/ (- (:GridWidth params) width-height) 2))
-        top-bottom (math/ceil (/ (- (:GridHeight params) width-height) 2))]
+        top-bottom (math/ceil (/ (- (:GridHeight params) width-height) 2))
+        colors (:seen-colors (:training truedata))]
     [(new-sensor (keyword "middle-gray")
                  left-right (- (:GridWidth params) left-right)
                  top-bottom (- (:GridHeight params) top-bottom)
-                 false)
+                 false
+                 colors)
      (new-sensor (keyword "left")
                  0 (dec left-right) 0 (dec (:GridHeight params))
-                 true)
+                 true
+                 colors)
      (new-sensor (keyword "right")
                  (inc (- (:GridWidth params) left-right))
                  (dec (:GridWidth params))
                  0
                  (dec (:GridHeight params))
-                 true)
+                 true
+                 colors)
      (new-sensor (keyword "bottom")
                  left-right
                  (- (:GridWidth params) left-right)
                  (inc (- (:GridHeight params) top-bottom))
                  (dec (:GridHeight params))
-                 true)
+                 true
+                 colors)
      (new-sensor (keyword "top")
                  left-right
                  (- (:GridWidth params) left-right)
                  0
                  (dec top-bottom)
-                 true)]))
+                 true
+                 colors)]))
 
 (comment [(new-sensor (keyword "1") 0 4 0 15 true)
           (new-sensor (keyword "2g") 0 4 16 20 false)
