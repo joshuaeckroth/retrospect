@@ -31,9 +31,9 @@
 (def grid-cell-width (ref nil))
 (def grid-cell-height (ref nil))
 
-(def tpr-label (label ""))
-(def fpr-label (label ""))
-(def f1-label (label ""))
+(def tpratio-label (label ""))
+(def prec-label (label ""))
+(def unexp-label (label ""))
 (def noexp-label (label ""))
 (def mouse-xy (label "Grid ?, ?"))
 
@@ -157,17 +157,17 @@
          :constrains (java.awt.GridBagConstraints.)
          [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
-          _ (label "TPR:")
+          _ (label "TPRatio:")
           :gridx 1
-          _ tpr-label
+          _ tpratio-label
           :gridx 0 :gridy 1
-          _ (label "FPR:")
+          _ (label "Prec:")
           :gridx 1
-          _ fpr-label
+          _ prec-label
           :gridx 0 :gridy 2
-          _ (label "F1:")
+          _ (label "Unexplained:")
           :gridx 1
-          _ f1-label
+          _ unexp-label
           :gridx 0 :gridy 3
           _ (label "NoExplainers:")
           :gridx 1
@@ -179,14 +179,14 @@
   []
   (if-let [results (last (:results (cur-ep (:est @or-state))))]
     (do
-      (. tpr-label (setText (format "%.2f" (:TPR results))))
-      (. fpr-label (setText (format "%.2f" (:FPR results))))
-      (. f1-label (setText (format "%.2f" (:F1 results))))
+      (. tpratio-label (setText (format "%.2f" (:TPRatio results))))
+      (. prec-label (setText (format "%.2f" (:Prec results))))
+      (. unexp-label (setText (format "%.2f" (:UnexplainedPct results))))
       (. noexp-label (setText (format "%.2f" (:NoExplainersPct results)))))
     (do
-      (. tpr-label (setText "N/A"))
-      (. fpr-label (setText "N/A"))
-      (. f1-label (setText "N/A"))
+      (. tpratio-label (setText "N/A"))
+      (. prec-label (setText "N/A"))
+      (. unexp-label (setText "N/A"))
       (. noexp-label (setText "N/A")))))
 
 (defn player-get-truedata-log
