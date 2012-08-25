@@ -53,16 +53,14 @@
 (defn insertion-noise
   [observations sensor time]
   ;; each observation has the form {:x # :y # :time # :color (object)}
-  (let [noise (repeatedly
-               (my-rand-int (int (* (/ (:SensorInsertionNoise params) 100)
-                                    (:Steps params))))
-               #(make-random-det sensor time))]
-    (concat observations
-            ;; don't allow noise to occupy same space as other detections
-            (filter (fn [{:keys [x y]}]
-                 (not-any? (fn [{xx :x yy :y}] (and (= x xx) (= y yy)))
-                           observations))
-               noise))))
+  (let [noise (make-random-det sensor time)]
+    (if (and (< (my-rand) (/ (double (:SensorInsertionNoise params)) 100.0))
+             (not-any? (fn [{x :x y :y}] (and (= (:x noise) x)
+                                             (= (:y noise) y)))
+                       observations))
+      (conj observations noise)
+      ;; no noise
+      observations)))
 
 (defn deletion-noise
   [observations sensor time]
