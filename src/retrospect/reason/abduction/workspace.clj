@@ -127,7 +127,8 @@
         (let [delta-fn (fn [hyps]
                          (let [normalized-aprioris (let [aprioris (map :apriori hyps)
                                                          s (reduce + aprioris)]
-                                                     (map #(/ % s) aprioris))]
+                                                     (if (= 0 s) aprioris
+                                                         (map #(/ % s) aprioris)))]
                            (if (second normalized-aprioris)
                              (- (first normalized-aprioris) (second normalized-aprioris))
                              1.0)))
@@ -431,7 +432,8 @@
                       nbest (second choices)
                       normalized-aprioris (let [aprioris (map :apriori choices)
                                                 s (reduce + aprioris)]
-                                            (map #(/ % s) aprioris))
+                                            (if (= 0 s) aprioris
+                                                (map #(/ % s) aprioris)))
                       delta (- (first normalized-aprioris) (second normalized-aprioris))
                       comparison (hyp-better-than? workspace best nbest)]
                   (log "best:" best "nbest:" nbest "delta:" delta)
