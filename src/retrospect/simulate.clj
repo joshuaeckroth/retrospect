@@ -69,6 +69,15 @@
         ;; give sensors value as nil to prevent resensing
         (meta-apply-and-evaluate truedata est new-est time-prev time-now nil)))))
 
+(defn meta-batch-lower-threshold
+  [n truedata est time-prev time-now sensors]
+  (let [batch-result (meta-batch n truedata est time-prev time-now sensors)]
+    (if (or (= 0 (:Threshold params)) (:accepted-branch? batch-result))
+      batch-result
+      ;; how much to lower threshold?
+      (binding [params (assoc params :Threshold 0)]
+        (meta-batch n truedata est time-prev time-now sensors)))))
+
 (defn metareason
   "Activate the appropriate metareasoning strategy (as given by
    the parameter :Metareasoning)"
@@ -90,6 +99,8 @@
                   (partial meta-batch 5)
                   (= "lowerthresh" m)
                   meta-lower-threshold
+                  (= "batchlower1" m)
+                  (partial meta-batch-lower-threshold 1)
                   ;; did not recognize the metareasoning strategy;
                   ;; hand-off to the reasoning engine
                   :else
@@ -155,7 +166,7 @@
      :sensors sensors :est est}))
 
 (def global-default-params
-  {:Metareasoning ["none" ["none" "learn"]]
+  {:Metareasoning ["none" ["none"]]
    :Knowledge [80 [80]]
    :UpdateKB [true [true false]]
    :Oracle ["none" ["none"]]

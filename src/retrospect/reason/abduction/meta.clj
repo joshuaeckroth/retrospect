@@ -5,7 +5,7 @@
           update-est nth-previous-ep print-est goto-ep
           get-init-workspace]])
   (:use [retrospect.reason.abduction.workspace :only
-         [get-no-explainers new-hyp init-workspace calc-doubt
+         [get-no-explainers get-unexplained new-hyp init-workspace calc-doubt
           explain add-kb add-observation add lookup-hyp
           reset-workspace revert-workspace workspace-depth
           update-kb explain update-hypotheses add-sensor-hyps]])
@@ -30,12 +30,12 @@
   "Check if any of the metareasoning activation conditions are met."
   [est]
   (let [workspace (:workspace (cur-ep est))]
-    (not-empty (get-no-explainers workspace))))
+    (not-empty (get-unexplained workspace))))
 
 (defn workspace-better?
   [ws-new ws-old]
   ;; we wanted to fix "no explainers"; so, did we?
-  (empty? (get-no-explainers ws-new)))
+  (empty? (get-unexplained ws-new)))
 
 (defn belief-revision
   [noexp-hyp depth workspace]
