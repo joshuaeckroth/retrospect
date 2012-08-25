@@ -95,9 +95,11 @@
   [workspace hyp1 hyp2]
   (let [conf (> (double (- (:apriori hyp1) (:apriori hyp2))) 0.001)
         ;; TODO: Fix for transitive explanation
-        expl (> (count (filter (fn [hyp-id] (some #(= % hyp-id) (:sorted-explainers-explained workspace)))
+        expl (> (count (filter (fn [hyp-id] (some #(= % hyp-id)
+                                         (:sorted-explainers-explained workspace)))
                           (get (:explains workspace) (:id hyp1))))
-                (count (filter (fn [hyp-id] (some #(= % hyp-id) (:sorted-explainers-explained workspace)))
+                (count (filter (fn [hyp-id] (some #(= % hyp-id)
+                                         (:sorted-explainers-explained workspace)))
                           (get (:explains workspace) (:id hyp2)))))
         explainers (> (count (get-in workspace [:explainers (:id hyp1)] []))
                       (count (get-in workspace [:explainers (:id hyp2)] [])))]
@@ -145,13 +147,14 @@
                                #(sort (partial compare-hyps workspace) %)
                                (= (:HypPreference params) "arbitrary")
                                #(my-shuffle %))
+              combined-sorter (fn [expl1 expl2]
+                                (let [hyp-apriori (- (compare (:apriori (:hyp expl1))
+                                                              (:apriori (:hyp expl2))))]
+                                  (if (= 0 hyp-apriori)
+                                    (compare-by-delta workspace expl1 expl2)
+                                    hyp-apriori)))
               expl-sorter (cond (= (:ContrastPreference params) "apriori,delta")
-                                (fn [hs] (sort #(let [hyp-apriori (- (compare (:apriori (:hyp %1))
-                                                                             (:apriori (:hyp %2))))]
-                                                 (if (= 0 hyp-apriori)
-                                                   (compare-by-delta workspace %1 %2)
-                                                   hyp-apriori))
-                                              hs))
+                                (fn [hs] (sort combined-sorter hs))
                                 (= (:ContrastPreference params) "delta")
                                 (fn [hs] (sort #(compare-by-delta workspace %1 %2) hs))
                                 (= (:ContrastPreference params) "arbitrary")
@@ -334,9 +337,10 @@
                                  (prof :accept-reject-many
                                        (reject-many ws-expl conflicts))
                                  ws-expl)
-                  ws-needs-exp (if-not ((:needs-explanation ws-conflicts) (:id hyp)) ws-conflicts
-                                       (prof :accept-needs-exp
-                                             (assoc-needing-explanation ws-conflicts hyp)))]
+                  ws-needs-exp (if-not ((:needs-explanation ws-conflicts) (:id hyp))
+                                 ws-conflicts
+                                 (prof :accept-needs-exp
+                                       (assoc-needing-explanation ws-conflicts hyp)))]
               (prof :accept-final
                     (update-in ws-needs-exp [:log :accrej (:cycle ws-needs-exp)] conj
                                {:acc hyp :rej conflicts}))))))
@@ -404,8 +408,9 @@
         (let [not-empty-explained (filter #(not-empty (get (:sorted-explainers workspace) %))
                                      (:sorted-explainers-explained workspace))]
           (when (not-empty not-empty-explained)
-            (let [essentialid (first (filter #(nil? (second (get (:sorted-explainers workspace) %)))
-                                        not-empty-explained))]
+            (let [essentialid
+                  (first (filter #(nil? (second (get (:sorted-explainers workspace) %)))
+                            not-empty-explained))]
               (if essentialid
                 (let [essential (lookup-hyp workspace essentialid) 
                       bestid (first (get (:sorted-explainers workspace) essentialid))
