@@ -124,21 +124,26 @@
 (defn compare-by-delta
   [workspace {hyp1 :hyp expl1 :expl} {hyp2 :hyp expl2 :expl}]
   (prof :compare-by-delta
-        (let [delta-fn (fn [hyps] (if (second hyps)
-                                   (- (:apriori (first hyps)) (:apriori (second hyps)))
-                                   (:apriori (first hyps))))
+        (let [delta-fn (fn [hyps]
+                         (let [normalized-aprioris (let [aprioris (map :apriori hyps)
+                                                         s (reduce + aprioris)]
+                                                     (map #(/ % s) aprioris))]
+                           (if (second normalized-aprioris)
+                             (- (first normalized-aprioris) (second normalized-aprioris))
+                             1.0)))
               expl1-delta (delta-fn expl1)
               expl2-delta (delta-fn expl2)]
-          ;; prefer explained hyps (hyp1/hyp2) with higher apriori values
-          (if (= 0 (compare (:apriori hyp1) (:apriori hyp2)))
-            (if (= 0 (compare expl1-delta expl2-delta))
-              (if (= 0 (compare (:apriori (first expl1))
-                                (:apriori (first expl2))))
-                (compare (:id (first expl1)) (:id (first expl2)))
-                (- (compare (:apriori (first expl1))
-                            (:apriori (first expl2)))))
-              (- (compare expl1-delta expl2-delta)))
-            (- (compare (:apriori hyp1) (:apriori hyp2)))))))
+          (comment
+            (println (:id hyp1) (map :id expl1) (delta-fn expl1))
+            (println (:id hyp2) (map :id expl2) (delta-fn expl2))
+            (println "--"))
+          (if (= 0 (compare expl1-delta expl2-delta))
+            (if (= 0 (compare (:apriori (first expl1))
+                              (:apriori (first expl2))))
+              (compare (:id (first expl1)) (:id (first expl2)))
+              (- (compare (:apriori (first expl1))
+                          (:apriori (first expl2)))))
+            (- (compare expl1-delta expl2-delta))))))
 
 (defn sort-explainers
   [workspace explainers]
@@ -424,7 +429,10 @@
                                         (get (:sorted-explainers workspace) explid)))
                       best (first choices)
                       nbest (second choices)
-                      delta (- (:apriori best) (:apriori nbest))
+                      normalized-aprioris (let [aprioris (map :apriori choices)
+                                                s (reduce + aprioris)]
+                                            (map #(/ % s) aprioris))
+                      delta (- (first normalized-aprioris) (second normalized-aprioris))
                       comparison (hyp-better-than? workspace best nbest)]
                   (log "best:" best "nbest:" nbest "delta:" delta)
                   (when (or (= 0 (:Threshold params))
@@ -432,9 +440,10 @@
                             ;; if threshold is not good enough,
                             ;; see if one hyp is better purely by
                             ;; other factors such as explanatory power
-                            (and (= true (:ConsiderExplPower params))
+                            (and (:ConsiderExplPower params)
                                  (or (:expl comparison) (:explainers comparison))))
                     {:best best :nbest nbest :delta delta
+                     :normalized-aprioris normalized-aprioris
                      :explained expl :alts (rest choices)
                      :comparison comparison}))))))))
 
@@ -505,7 +514,7 @@
                                              :acc-deltas [])
                             (update-graph))]
           (log "Explaining again...")
-          (let [ws-explainers (if (:dirty workspace)
+          (let [ws-explainers (if true #_(:dirty workspace)
                                 (update-sorted-explainers workspace)
                                 workspace)]
             (log "Explainers:" (:sorted-explainers ws-explainers)

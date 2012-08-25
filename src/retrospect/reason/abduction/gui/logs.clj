@@ -45,12 +45,18 @@
         ;; seq of {:acc :rej} pairs (maps)
         ars (get (:accrej wslog) (inc i))]
     [(format "Cycle %d %s" (inc i) (if (:essential? b) "essential"
-                                       (format "delta %.2f" (:delta b))))
+                                  (format "delta %.2f" (:delta b))))
      {"Best" {(:name (:best b)) nil}
       "Explained" {(:name (:explained b)) nil}
       "Alternatives" (list-hyps (:alts b))
+      "Normalized Aprioris" (apply hash-map
+                                   (apply concat
+                                          (map (fn [i]
+                                               (let [a (nth (:normalized-aprioris b) i)]
+                                                 [(format "%d: %.2f" i a) nil]))
+                                             (range (count (:normalized-aprioris b))))))
       "Accepted" (list-hyps (disj (set (map :acc ars)) (:best b)))
-      "Rejected" (list-hyps (mapcat :rej ars))}]))
+      "Rejected" (list-hyps (:rej ars))}]))
 
 (defn build-abduction-tree-map
   [or-state]
