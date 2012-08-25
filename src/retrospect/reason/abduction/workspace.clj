@@ -199,6 +199,7 @@
   [workspace hyps]
   (prof :dissoc-needing-explanation
         (reduce (fn [ws h]
+             (log "Dissociating" h "as needing explanation.")
              (-> ws (assoc :sorted-explainers-explained
                      (filter #(not= (:id h) %)
                         (:sorted-explainers-explained ws)))
@@ -351,7 +352,7 @@
 
 (defn get-unexplained
   [workspace]
-  (keys (:sorted-explainers workspace)))
+  (:sorted-explainers-explained workspace))
 
 (defn get-unexp-pct
   [workspace]
