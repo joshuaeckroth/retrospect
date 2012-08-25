@@ -38,23 +38,23 @@
 (def mouse-xy (label "Grid ?, ?"))
 
 (defn draw-move
-  [#^Graphics2D g oldx oldy newx newy color width]
+  [#^Graphics2D g oldx oldy newx newy color end-point?]
   (let [oldpx (+ (* oldx @grid-cell-width) (/ @grid-cell-width 2))
 	oldpy (+ (* oldy @grid-cell-height) (/ @grid-cell-height 2))
 	newpx (+ (* newx @grid-cell-width) (/ @grid-cell-width 2))
 	newpy (+ (* newy @grid-cell-height) (/ @grid-cell-height 2))]
     (doto g
       (.setColor (Color. (.getRed color) (.getGreen color) (.getBlue color) 150))
-      (.setStroke (BasicStroke. width))
-      (.drawLine oldpx oldpy newpx newpy))))
+      (.setStroke (BasicStroke. 1))
+      (.drawLine oldpx oldpy newpx newpy))
+    (when end-point?
+      (.drawOval g newpx newpy 3 3))))
 
 (defn draw-movements
   [#^Graphics2D g movs]
   (doseq [{:keys [x y ox oy time color]}
           (filter #(and (<= @time-prev (:ot %)) (>= @time-now (:time %))) movs)]
-    (let [degree (- @time-now time)
-          width (double (+ 2 degree))]
-      (draw-move g ox oy x y (var-color color degree) width))))
+    (draw-move g ox oy x y color (= @time-now time))))
 
 (defn fill-cell
   [#^Graphics2D g x y color]
