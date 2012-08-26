@@ -23,22 +23,40 @@
       (if (> time steps) m
           (recur (inc time) (random-walks m time mean variance))))))
 
+(defn random-movements
+  [steps]
+  (let [movements (add-new-entities
+                   (new-movements (:GridWidth params) (:GridHeight params))
+                   (:NumberEntities params))
+        grid-length-avg (/ (double (+ (:GridWidth params) (:GridHeight params))) 2.0)]
+    (loop [time 1
+           m movements]
+      (if (> time steps) m
+          (recur (inc time)
+                 (random-walks m time (* grid-length-avg (my-rand))
+                               (* (/ grid-length-avg 4.0) (my-rand))))))))
+
 (defn generate-truedata
   []
   (let [test-movements (generate-movements (:TrueMoveMean params)
                                            (:TrueMoveVariance params)
                                            (:Steps params))
-        training-movements (generate-movements (:BelMoveMean params)
-                                               (:BelMoveVariance params)
-                                               (:TrainingSteps params))
-        movs (apply concat (vals test-movements))]
+        testing-movs (apply concat (vals test-movements))
+        training-movs (filter :ot (concat (apply concat (vals (random-movements
+                                                          (:TrainingRandom params))))
+                                     (apply concat (vals (generate-movements
+                                                          (:BelMoveMean params)
+                                                          (:BelMoveVariance params)
+                                                          (:TrainingSteps params))))))]
     {:test test-movements
-     :all-moves (set (filter :ot movs))
-     :all-xys (set (concat (map (fn [mov] {:x (:x mov) :y (:y mov) :time (:time mov)}) movs)
-                           (map (fn [mov] {:x (:ox mov) :y (:oy mov) :time (:ot mov)}) movs)))
-     :training {:moves (filter :ot (apply concat (vals training-movements)))
+     :all-moves (set (filter :ot testing-movs))
+     :all-xys (set (concat (map (fn [mov] {:x (:x mov) :y (:y mov) :time (:time mov)})
+                              testing-movs)
+                           (map (fn [mov] {:x (:ox mov) :y (:oy mov) :time (:ot mov)})
+                              testing-movs)))
+     :training {:moves training-movs
                 ;; give all true seen colors (for now)
-                :seen-colors (set (map :color movs))}}))
+                :seen-colors (set (map :color testing-movs))}}))
 
 (defn format-movements-comparative
   [true-movements believed-movements mintime maxtime]
