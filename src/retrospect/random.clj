@@ -26,7 +26,8 @@
 
 (defn cumprob
   [mean variance lower upper]
-  (.cumulativeProbability (NormalDistribution. mean (Math/sqrt variance)) lower upper))
+  (if (= 0 variance) 0.0
+      (.cumulativeProbability (NormalDistribution. mean (Math/sqrt variance)) lower upper)))
 
 (defn my-shuffle
   [coll]
