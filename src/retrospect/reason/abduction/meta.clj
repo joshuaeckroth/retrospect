@@ -60,7 +60,6 @@
 
 (defn apply-resolutions
   [accepted est time-prev time-now sensors]
-  (println "trying" accepted)
   (if (empty? accepted)
     {:est est :considered? false :accepted-branch? false}
     (let [new-est (new-branch-ep est (cur-ep est))
@@ -75,14 +74,12 @@
                           time-now sensors)
           new-expl-est (update-est new-est (assoc new-ep :workspace ws-expl))]
       (if (workspace-better? ws-expl ws-old)
-        (do (println "good")
-            {:est new-expl-est
-             :considered? true
-             :accepted-branch? true})
-        (do (println "bad")
-            {:est (goto-ep new-expl-est (:id (cur-ep est)))
-             :considered? true
-             :accepted-branch? false})))))
+        {:est new-expl-est
+         :considered? true
+         :accepted-branch? true}
+        {:est (goto-ep new-expl-est (:id (cur-ep est)))
+         :considered? true
+         :accepted-branch? false}))))
 
 (defn make-noexp-hyps
   [noexp]
@@ -153,7 +150,8 @@
         noexp-hyps (make-noexp-hyps noexp)
         meta-hyps (sort-by :apriori (make-meta-hyps workspace noexp-hyps
                                                     ws-depth time-now))]
-    (loop [hyps (filter #(and (= :anomaly (:type %))
+    (loop [est-meta est
+           hyps (filter #(and (= :anomaly (:type %))
                          (not= 0 (:depth %)))
                    meta-hyps) ;; try non-batchbeg first
            attempts 0]
@@ -166,10 +164,10 @@
             (let [result (apply-resolutions (filter #(= 0 (:depth %)) meta-hyps)
                                             est time-prev time-now sensors)]
               (if (:accepted-branch? result) result
-                  (recur (rest hyps) (inc attempts))))
+                  (recur (:est result) (rest hyps) (inc attempts))))
             :else
             (let [result (apply-resolutions [(first hyps)]
                                             est time-prev time-now sensors)]
               (if (:accepted-branch? result) result
-                  (recur (rest hyps) (inc attempts))))))))
+                  (recur (:est result) (rest hyps) (inc attempts))))))))
 
