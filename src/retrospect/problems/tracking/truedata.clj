@@ -10,18 +10,18 @@
   (reduce (fn [m _] (new-entity m 0)) movements (range numes)))
 
 (defn random-walks
-  [movements time mean variance max-walk]
-  (reduce #(walk %1 %2 time mean variance max-walk) movements (my-shuffle (entities movements))))
+  [movements time mean max-walk]
+  (reduce #(walk %1 %2 time mean max-walk) movements (my-shuffle (entities movements))))
 
 (defn generate-movements
-  [mean variance steps]
+  [mean steps]
   (let [movements (add-new-entities
                    (new-movements (:GridWidth params) (:GridHeight params))
                    (:NumberEntities params))]
     (loop [time 1
            m movements]
       (if (> time steps) m
-          (recur (inc time) (random-walks m time mean variance (:MaxWalk params)))))))
+          (recur (inc time) (random-walks m time mean (:MaxWalk params)))))))
 
 (defn random-movements
   [steps]
@@ -33,21 +33,17 @@
            m movements]
       (if (> time steps) m
           (recur (inc time)
-                 (random-walks m time (* grid-length-avg (my-rand))
-                               (* (/ grid-length-avg 4.0) (my-rand))
-                               (:MaxWalk params)))))))
+                 (random-walks m time (* grid-length-avg (my-rand)) (:MaxWalk params)))))))
 
 (defn generate-truedata
   []
   (let [test-movements (generate-movements (:TrueMoveMean params)
-                                           (:TrueMoveVariance params)
                                            (:Steps params))
         testing-movs (apply concat (vals test-movements))
         training-movs (filter :ot (concat (apply concat (vals (random-movements
                                                           (:TrainingRandom params))))
                                      (apply concat (vals (generate-movements
                                                           (:BelMoveMean params)
-                                                          (:BelMoveVariance params)
                                                           (:TrainingSteps params))))))]
     {:test test-movements
      :all-moves (set (filter :ot testing-movs))

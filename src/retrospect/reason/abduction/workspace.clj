@@ -278,44 +278,50 @@
   (prof :add
         (do
           (log "Adding" hyp)
-          (if (and (:conflicts?-fn hyp)
-                   (some (fn [hyp2] ((:conflicts?-fn hyp) hyp hyp2))
-                      (map #(lookup-hyp workspace %)
-                         (:all (:accepted workspace)))))
-            ;; hyp is in conflict; don't add it
-            (do
-              (log "Not adding hyp because it has conflicts")
-              workspace)
-            (if-let [prior-hyp-id (get (:hyp-contents workspace) (:contents hyp))]
-              ;; hyp already present; update explains in case it changed,
-              ;; and whether it needs explanation or not
-              (let [prior-hyp (lookup-hyp workspace prior-hyp-id)]
-                (log hyp "already in workspace as" prior-hyp "-- updating what it explains")
-                (-> workspace 
-                   (update-in [:explains prior-hyp-id]
-                              set/union (set (map #(get (:hyp-contents workspace) %)
-                                                (:explains hyp))))
-                   (record-if-needs-explanation (assoc prior-hyp :needs-explainer?
-                                                       (:needs-explainer? hyp)))
-                   (assoc-explainer (assoc prior-hyp :explains (:explains hyp)))))
-              ;; otherwise, add the new hyp
-              (let [hyp-apriori (if ((:oracle-types workspace) (:type hyp))
-                                  (if ((:oracle workspace) hyp)
-                                    (assoc hyp :apriori 1.0)
-                                    (assoc hyp :apriori 0.0))
-                                  (if (:UseScores params) hyp (assoc hyp :apriori 1.0)))]
-                (prof :add-ws-update
-                      (-> workspace
-                         (assoc-in [:hyp-ids (:id hyp-apriori)] hyp-apriori)
-                         (assoc-in [:hyp-contents (:contents hyp-apriori)]
-                                   (:id hyp-apriori))
-                         (assoc-in [:explains (:id hyp-apriori)]
-                                   (set (map #(get (:hyp-contents workspace) %)
-                                           (:explains hyp-apriori))))
-                         (record-if-needs-explanation hyp-apriori)
-                         (assoc-explainer hyp-apriori)
-                         (update-in [:hypotheses (:type hyp-apriori)]
-                                    conj (:id hyp-apriori))))))))))
+          (cond (and (:conflicts?-fn hyp)
+                     (some (fn [hyp2] ((:conflicts?-fn hyp) hyp hyp2))
+                        (map #(lookup-hyp workspace %)
+                           (:all (:accepted workspace)))))
+                ;; hyp is in conflict; don't add it
+                (do
+                  (log "Not adding hyp because it has conflicts")
+                  workspace)
+                (< (:apriori hyp) (/ (double (:MinApriori params)) 100.0))
+                (do (log "Not adding hyp because" (:apriori hyp)
+                         "is below :MinApriori" (/ (double (:MinApriori params)) 100.0))
+                    workspace)
+                :else
+                (if-let [prior-hyp-id (get (:hyp-contents workspace) (:contents hyp))]
+                  ;; hyp already present; update explains in case it changed,
+                  ;; and whether it needs explanation or not
+                  (let [prior-hyp (lookup-hyp workspace prior-hyp-id)]
+                    (log hyp "already in workspace as" prior-hyp
+                         "-- updating what it explains")
+                    (-> workspace 
+                       (update-in [:explains prior-hyp-id]
+                                  set/union (set (map #(get (:hyp-contents workspace) %)
+                                                    (:explains hyp))))
+                       (record-if-needs-explanation (assoc prior-hyp :needs-explainer?
+                                                           (:needs-explainer? hyp)))
+                       (assoc-explainer (assoc prior-hyp :explains (:explains hyp)))))
+                  ;; otherwise, add the new hyp
+                  (let [hyp-apriori (if ((:oracle-types workspace) (:type hyp))
+                                      (if ((:oracle workspace) hyp)
+                                        (assoc hyp :apriori 1.0)
+                                        (assoc hyp :apriori 0.0))
+                                      (if (:UseScores params) hyp (assoc hyp :apriori 1.0)))]
+                    (prof :add-ws-update
+                          (-> workspace
+                             (assoc-in [:hyp-ids (:id hyp-apriori)] hyp-apriori)
+                             (assoc-in [:hyp-contents (:contents hyp-apriori)]
+                                       (:id hyp-apriori))
+                             (assoc-in [:explains (:id hyp-apriori)]
+                                       (set (map #(get (:hyp-contents workspace) %)
+                                               (:explains hyp-apriori))))
+                             (record-if-needs-explanation hyp-apriori)
+                             (assoc-explainer hyp-apriori)
+                             (update-in [:hypotheses (:type hyp-apriori)]
+                                        conj (:id hyp-apriori))))))))))
 
 (defn accept
   [workspace hyp nbest explained delta comparison]

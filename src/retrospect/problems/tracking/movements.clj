@@ -97,8 +97,8 @@
         (my-rand-nth loc-choices)))))
 
 (defn walk-rand
-  [x y mean variance dists]
-  (let [radius (max 0.0 (my-rand-gauss mean variance))
+  [x y mean dists]
+  (let [radius (max 0.0 (my-rand-gauss mean 2.0))
         dists2 (map (fn [[xy d]] [xy (Math/abs (- radius d))]) dists)
         closest-dist (apply min (map second dists2))
         loc-choices (map first (filter #(= closest-dist (second %)) dists2))]
@@ -108,7 +108,7 @@
 (defn walk
   "Move an entity maxwalk steps in random directions, respecting angle
    constraints. Also avoid landing in an occupied space."
-  [movements entity time mean variance max-walk]
+  [movements entity time mean max-walk]
   (let [width (:width (meta movements))
         height (:height (meta movements))
         movs (reverse (get movements entity))
@@ -116,7 +116,7 @@
         [ox oy] [(:x last-pos) (:y last-pos)]
         dists (loc-distances ox oy width height)]
     (loop [attempts 0]
-      (let [[x y] (walk-rand ox oy mean variance dists)]
+      (let [[x y] (walk-rand ox oy mean dists)]
         (cond (= attempts 50)
               ;; ran out of attempts to move to an empty space; just
               ;; stay where we are

@@ -30,12 +30,12 @@
   "Check if any of the metareasoning activation conditions are met."
   [est]
   (let [workspace (:workspace (cur-ep est))]
-    (not-empty (get-unexplained workspace))))
+    (not-empty (get-no-explainers workspace))))
 
 (defn workspace-better?
   [ws-new ws-old]
   ;; we wanted to fix "no explainers"; so, did we?
-  (empty? (get-unexplained ws-new)))
+  (empty? (get-no-explainers ws-new)))
 
 (defn belief-revision
   [noexp-hyp depth workspace]
@@ -58,14 +58,9 @@
                     (format "Ignore %s" (:hyp noexp-hyp))
                     (:data (:hyp noexp-hyp)))]))
 
-(defn learn-hyp
-  [noexp-hyp workspace]
-  ;; ask problem domain to create new kb hyps that take into account
-  ;; this noexp hyp is "true" (i.e., should be learned)
-  workspace)
-
 (defn apply-resolutions
   [accepted est time-prev time-now sensors]
+  (println "trying" accepted)
   (if (empty? accepted)
     {:est est :considered? false :accepted-branch? false}
     (let [new-est (new-branch-ep est (cur-ep est))
@@ -80,12 +75,14 @@
                           time-now sensors)
           new-expl-est (update-est new-est (assoc new-ep :workspace ws-expl))]
       (if (workspace-better? ws-expl ws-old)
-        {:est new-expl-est
-         :considered? true
-         :accepted-branch? true}
-        {:est (goto-ep new-expl-est (:id (cur-ep est)))
-         :considered? true
-         :accepted-branch? false}))))
+        (do (println "good")
+            {:est new-expl-est
+             :considered? true
+             :accepted-branch? true})
+        (do (println "bad")
+            {:est (goto-ep new-expl-est (:id (cur-ep est)))
+             :considered? true
+             :accepted-branch? false})))))
 
 (defn make-noexp-hyps
   [noexp]
@@ -102,48 +99,51 @@
 (defn make-meta-hyps
   "Create explanations, and associated actions, for noexp."
   [ws-original noexp-hyps ws-depth time-now]
-  (let [know-pct (/ (double (+ time-now (:TrainingSteps params)))
-                    (double (+ (:Steps params) (:TrainingSteps params))))]
-    (concat
-     ;; anomaly hyps
-     (if (= "abd-no-anomaly" (:Metareasoning params))
-       []
-       (mapcat (fn [ne] (for [i (range (dec ws-depth) 0 -1)]
-                         (new-hyp "Anomaly" :anomaly :anomaly
-                                  (calc-doubt (revert-workspace ws-original i))
-                                  false conflicts? [(:contents ne)]
-                                  (format "%s is an anomaly from depth %d" ne i)
-                                  (format "%s is an anomaly from depth %d" ne i)
-                                  {:action (partial belief-revision ne i) :noexp-hyp ne})))
-               noexp-hyps))
-     ;; noise hyps
-     (if (or (= "abd-no-noise" (:Metareasoning params))
-             (and (= 0 (:SensorInsertionNoise params))
-                  (= 0 (:SensorDistortionNoise params))
-                  (= 0 (:SensorDeletionNoise params))))
-       []
-       (mapcat (fn [ne]
-                 [(new-hyp "Noise" :noise :insertion-noise
-                           (+ 0.5 (* 0.5 (/ (double (:SensorInsertionNoise params)) 100.0)))
-                           false conflicts? [(:contents ne)]
-                           (format "%s is insertion noise" ne) (format "%s is insertion noise" ne)
-                           {:action (partial ignore-hyp ne) :noexp-hyp ne})
-                  (new-hyp "Noise" :noise :distortion-noise
-                           (+ 0.5 (* 0.5 (/ (double (:SensorDistortionNoise params)) 100.0)))
-                           false conflicts? [(:contents ne)]
-                           (format "%s is distortion noise" ne) (format "%s is distortion noise" ne)
-                           {:action (partial ignore-hyp ne) :noexp-hyp ne})])
-               (filter #(= :observation (:type (:hyp %))) noexp-hyps)))
-     ;; learn hyps
-     [])))
+  ;; anomaly hyps
+  (concat
+   (mapcat (fn [ne] (for [i (range (dec ws-depth) 0 -1)]
+                     (new-hyp "Anomaly" :anomaly :anomaly
+                              (calc-doubt (revert-workspace ws-original i))
+                              false conflicts? [(:contents ne)]
+                              (format "%s is an anomaly from depth %d" ne i)
+                              (format "%s is an anomaly from depth %d" ne i)
+                              {:action (partial belief-revision ne i) :noexp-hyp ne
+                               :depth i})))
+           noexp-hyps)
+   (mapcat (fn [ne]
+             [(new-hyp "Noise" :noise :insertion-noise
+                       (+ 0.5 (* 0.5 (/ (double (:SensorInsertionNoise params)) 100.0)))
+                       false conflicts? [(:contents ne)]
+                       (format "%s is insertion noise" ne) (format "%s is insertion noise" ne)
+                       {:action (partial ignore-hyp ne) :noexp-hyp ne})])
+           (filter #(= :observation (:type (:hyp %))) noexp-hyps))))
 
-(comment (map (fn [ne] (new-hyp "Learn" :learn :learn
-                             (- 1.0 (/ (double (:Knowledge params)) 100.0))
-                             false conflicts? [(:contents ne)]
-                             (format "%s should be learned" ne)
-                             (format "%s should be learned" ne)
-                             {:action (partial learn-hyp ne) :noexp-hyp ne}))
-            noexp-hyps))
+(comment
+  ;; noise hyps
+  (if (or (= "abd-no-noise" (:Metareasoning params))
+          (and (= 0 (:SensorInsertionNoise params))
+               (= 0 (:SensorDistortionNoise params))
+               (= 0 (:SensorDeletionNoise params))))
+    []
+    ))
+
+(comment
+  (defn metareason
+    [truedata est time-prev time-now sensors]
+    (let [workspace (:workspace (cur-ep est))
+          ws-depth (workspace-depth workspace)
+          noexp (map (partial lookup-hyp workspace) (get-no-explainers workspace))
+          noexp-hyps (make-noexp-hyps noexp)
+          meta-hyps (make-meta-hyps workspace noexp-hyps ws-depth time-now)
+          meta-ws (reduce add (reduce add-observation (init-workspace) noexp-hyps) meta-hyps)
+          meta-ws-explained (explain meta-ws)
+          ep-meta (assoc (cur-ep est) :meta-workspace meta-ws-explained)
+          est-meta (update-est est ep-meta)
+          accepted (map (partial lookup-hyp meta-ws-explained)
+                      (concat (:anomaly (:accepted meta-ws-explained))
+                              (:noise (:accepted meta-ws-explained))
+                              (:learn (:accepted meta-ws-explained))))]
+      (apply-resolutions accepted est-meta time-prev time-now sensors))))
 
 (defn metareason
   [truedata est time-prev time-now sensors]
@@ -151,13 +151,25 @@
         ws-depth (workspace-depth workspace)
         noexp (map (partial lookup-hyp workspace) (get-no-explainers workspace))
         noexp-hyps (make-noexp-hyps noexp)
-        meta-hyps (make-meta-hyps workspace noexp-hyps ws-depth time-now)
-        meta-ws (reduce add (reduce add-observation (init-workspace) noexp-hyps) meta-hyps)
-        meta-ws-explained (explain meta-ws)
-        ep-meta (assoc (cur-ep est) :meta-workspace meta-ws-explained)
-        est-meta (update-est est ep-meta)
-        accepted (map (partial lookup-hyp meta-ws-explained)
-                    (concat (:anomaly (:accepted meta-ws-explained))
-                            (:noise (:accepted meta-ws-explained))
-                            (:learn (:accepted meta-ws-explained))))]
-    (apply-resolutions accepted est-meta time-prev time-now sensors)))
+        meta-hyps (sort-by :apriori (make-meta-hyps workspace noexp-hyps
+                                                    ws-depth time-now))]
+    (loop [hyps (filter #(and (= :anomaly (:type %))
+                         (not= 0 (:depth %)))
+                   meta-hyps) ;; try non-batchbeg first
+           attempts 0]
+      (cond (= attempts 3)
+            ;; apply noise hyps (give up)
+            (apply-resolutions (filter #(= :noise (:type %)) meta-hyps)
+                               est time-prev time-now sensors)
+            (or (empty? hyps) (= attempts 2))
+            ;; try batchbeg now
+            (let [result (apply-resolutions (filter #(= 0 (:depth %)) meta-hyps)
+                                            est time-prev time-now sensors)]
+              (if (:accepted-branch? result) result
+                  (recur (rest hyps) (inc attempts))))
+            :else
+            (let [result (apply-resolutions [(first hyps)]
+                                            est time-prev time-now sensors)]
+              (if (:accepted-branch? result) result
+                  (recur (rest hyps) (inc attempts))))))))
+

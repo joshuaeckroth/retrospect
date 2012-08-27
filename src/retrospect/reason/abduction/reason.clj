@@ -30,6 +30,7 @@
    :calc-coverage-fn calc-coverage
    :default-params-fn (fn []
                         (merge {:Threshold [0 [0]]
+                                :MinApriori [10 [10]]
                                 :UseScores [true [true]]
                                 :ContrastPreference ["delta" ["delta" "arbitrary" "apriori,delta"]]
                                 :HypPreference ["abd" ["abd" "arbitrary"]]
