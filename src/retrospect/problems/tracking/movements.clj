@@ -49,18 +49,42 @@
   (double (math/sqrt (+ (* (- x1 x2) (- x1 x2))
                         (* (- y1 y2) (- y1 y2))))))
 
-(defn loc-distances
-  [x y width height]
-  (for [nx (range width) ny (range height)]
-    [[nx ny] (dist x y nx ny)]))
+(defn calc-circle-points
+  "From: http://en.wikipedia.org/wiki/Midpoint_circle_algorithm"
+  [x0 y0 radius width height]
+  (loop [f (- 1.0 radius)
+         ddF_x 1
+         ddF_y (* -2.0 radius)
+         x 0
+         y radius
+         points [[x0 (+ y0 radius)]
+                 [x0 (- y0 radius)]
+                 [(+ x0 radius) y0]
+                 [(- x0 radius) y0]]]
+    (if (>= x y) (filter (fn [[x y]] (and (>= x 0) (>= y 0) (<= x width) (<= y height)))
+                   points)
+        (let [new-y (if (>= f 0) (dec y) y)
+              new-ddF_y (if (>= f 0) (+ 2 ddF_y) ddF_y)
+              new-f-tmp (if (>= f 0) (+ f new-ddF_y) f)
+              new-x (inc x)
+              new-ddF_x (+ 2 ddF_x)
+              new-f (+ new-ddF_x new-f-tmp)]
+          (recur new-f new-ddF_x new-ddF_y new-x new-y
+                 (concat points [[(+ x0 x) (+ y0 y)]
+                                 [(- x0 x) (+ y0 y)]
+                                 [(+ x0 x) (- y0 y)]
+                                 [(- x0 x) (- y0 y)]
+                                 [(+ x0 y) (+ y0 x)]
+                                 [(- x0 y) (+ y0 x)]
+                                 [(+ x0 y) (- y0 x)]
+                                 [(- x0 y) (- y0 x)]]))))))
 
 (defn walk-rand
-  [x y mean variance dists]
-  (let [d (my-rand-gauss mean variance)
-        dists-sorted (sort-by #(Math/abs (- d (second %))) dists)
-        closest-dist (second (first dists-sorted))
-        loc-choices (map first (take-while #(= closest-dist (second %)) dists-sorted))]
-    (my-rand-nth loc-choices)))
+  [x y mean variance width height]
+  (let [d (int (my-rand-gauss mean variance))
+        loc-choices (calc-circle-points x y d width height)]
+    (if (empty? loc-choices) [x y]
+        (my-rand-nth loc-choices))))
 
 (defn walk
   "Move an entity maxwalk steps in random directions, respecting angle
@@ -70,10 +94,9 @@
         height (:height (meta movements))
         movs (reverse (get movements entity))
         last-pos (first movs)
-        [ox oy] [(:x last-pos) (:y last-pos)]
-        dists (loc-distances ox oy width height)]
+        [ox oy] [(:x last-pos) (:y last-pos)]]
     (loop [attempts 0]
-      (let [[x y] (walk-rand ox oy mean variance dists)]
+      (let [[x y] (walk-rand ox oy mean variance width height)]
         (cond (= attempts 50)
               ;; ran out of attempts to move to an empty space; just
               ;; stay where we are
