@@ -81,10 +81,13 @@
 
 (defn walk-rand
   [x y mean variance width height]
-  (let [d (int (my-rand-gauss mean variance))
-        loc-choices (calc-circle-points x y d width height)]
-    (if (empty? loc-choices) [x y]
-        (my-rand-nth loc-choices))))
+  (let [d (my-rand-gauss mean variance)
+        points (calc-circle-points x y (int d) width height)
+        loc-choices (filter (fn [[xx yy]] (and (<= (dist x y xx yy) (+ d 0.25))
+                                         (>= (dist x y xx yy) (- d 0.25))))
+                       points)]
+    (when (not-empty loc-choices)
+      (my-rand-nth loc-choices))))
 
 (defn walk
   "Move an entity maxwalk steps in random directions, respecting angle
@@ -103,7 +106,8 @@
               (move-entity movements entity ox oy time)
               ;; make sure we didn't land on an occupied space and did
               ;; not exceed max-walk
-              (and (empty? (entities-at movements x y time))
+              (and x y
+                   (empty? (entities-at movements x y time))
                    (empty? (entities-at movements x y (dec time)))
                    (<= (dist ox oy x y) max-walk))
               (move-entity movements entity x y time)
