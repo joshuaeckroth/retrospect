@@ -158,16 +158,16 @@
       (cond (= attempts 3)
             ;; apply noise hyps (give up)
             (apply-resolutions (filter #(= :noise (:type %)) meta-hyps)
-                               est time-prev time-now sensors)
+                               est-meta time-prev time-now sensors)
             (or (empty? hyps) (= attempts 2))
             ;; try batchbeg now
             (let [result (apply-resolutions (filter #(= 0 (:depth %)) meta-hyps)
-                                            est time-prev time-now sensors)]
+                                            est-meta time-prev time-now sensors)]
               (if (:accepted-branch? result) result
                   (recur (:est result) (rest hyps) (inc attempts))))
             :else
             (let [result (apply-resolutions [(first hyps)]
-                                            est time-prev time-now sensors)]
+                                            est-meta time-prev time-now sensors)]
               (if (:accepted-branch? result) result
                   (recur (:est result) (rest hyps) (inc attempts))))))))
 
