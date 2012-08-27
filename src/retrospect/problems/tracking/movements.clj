@@ -81,10 +81,10 @@
 
 (defn walk-rand
   [x y mean variance width height]
-  (let [d (my-rand-gauss mean variance)
-        points (calc-circle-points x y (int d) width height)
-        loc-choices (filter (fn [[xx yy]] (and (<= (dist x y xx yy) (+ d 0.25))
-                                         (>= (dist x y xx yy) (- d 0.25))))
+  (let [d (max 0.0 (my-rand-gauss mean variance))
+        points (calc-circle-points x y (Math/ceil d) width height)
+        loc-choices (filter (fn [[xx yy]] (and (<= (dist x y xx yy) (+ d 0.1))
+                                         (>= (dist x y xx yy) (- d 0.1))))
                        points)]
     (when (not-empty loc-choices)
       (my-rand-nth loc-choices))))
