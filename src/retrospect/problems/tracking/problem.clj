@@ -45,6 +45,7 @@
     :StepsBetween [3 [1 2 3]]
     :GridWidth [20 [20]]
     :GridHeight [20 [20]]
+    :MaxWalk [8 [8]]
     :TrainingSteps [100 [100]]
     :TrainingRandom [200 [200]]
     :TrueMoveMean [4 [4]]

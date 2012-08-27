@@ -10,8 +10,8 @@
   (reduce (fn [m _] (new-entity m 0)) movements (range numes)))
 
 (defn random-walks
-  [movements time mean variance]
-  (reduce #(walk %1 %2 time mean variance) movements (my-shuffle (entities movements))))
+  [movements time mean variance max-walk]
+  (reduce #(walk %1 %2 time mean variance max-walk) movements (my-shuffle (entities movements))))
 
 (defn generate-movements
   [mean variance steps]
@@ -21,7 +21,7 @@
     (loop [time 1
            m movements]
       (if (> time steps) m
-          (recur (inc time) (random-walks m time mean variance))))))
+          (recur (inc time) (random-walks m time mean variance (:MaxWalk params)))))))
 
 (defn random-movements
   [steps]
@@ -34,7 +34,8 @@
       (if (> time steps) m
           (recur (inc time)
                  (random-walks m time (* grid-length-avg (my-rand))
-                               (* (/ grid-length-avg 4.0) (my-rand))))))))
+                               (* (/ grid-length-avg 4.0) (my-rand))
+                               (:MaxWalk params)))))))
 
 (defn generate-truedata
   []

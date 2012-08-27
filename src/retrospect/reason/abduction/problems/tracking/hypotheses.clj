@@ -187,7 +187,11 @@
 
 (defn dets-connected?
   [to from]
-  (= (:time (:det to)) (inc (:time (:det from)))))
+  (let [{x1 :x y1 :y} (:det to)
+        {x2 :x y2 :y} (:det from)
+        d (dist x1 y1 x2 y2)]
+    (and (<= d (:MaxWalk params))
+         (= (:time (:det to)) (inc (:time (:det from)))))))
 
 (defn hypothesize
   [sensor-hyps accepted lookup-hyp time-now]

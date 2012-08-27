@@ -65,7 +65,7 @@
 (defn walk
   "Move an entity maxwalk steps in random directions, respecting angle
    constraints. Also avoid landing in an occupied space."
-  [movements entity time mean variance]
+  [movements entity time mean variance max-walk]
   (let [width (:width (meta movements))
         height (:height (meta movements))
         movs (reverse (get movements entity))
@@ -78,9 +78,11 @@
               ;; ran out of attempts to move to an empty space; just
               ;; stay where we are
               (move-entity movements entity ox oy time)
-              ;; make sure we didn't land on an occupied space
+              ;; make sure we didn't land on an occupied space and did
+              ;; not exceed max-walk
               (and (empty? (entities-at movements x y time))
-                   (empty? (entities-at movements x y (dec time))))
+                   (empty? (entities-at movements x y (dec time)))
+                   (<= (dist ox oy x y) max-walk))
               (move-entity movements entity x y time)
               :else (recur (inc attempts)))))))
 
