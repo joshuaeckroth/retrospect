@@ -79,13 +79,29 @@
                                  [(+ x0 y) (- y0 x)]
                                  [(- x0 y) (- y0 x)]]))))))
 
+(def loc-distances
+  (memoize
+   (fn [x y width height]
+     (for [nx (range width) ny (range height)]
+       [[nx ny] (dist x y nx ny)]))))
+
+(comment
+  (defn walk-rand
+    [x y mean variance width height]
+    (let [d (max 0.0 (my-rand-gauss mean variance))
+          points (calc-circle-points x y (int (Math/ceil d)) width height)
+          loc-choices (filter (fn [[xx yy]] (and (<= (dist x y xx yy) (+ d 0.1))
+                                           (>= (dist x y xx yy) (- d 0.1))))
+                         points)]
+      (when (not-empty loc-choices)
+        (my-rand-nth loc-choices)))))
+
 (defn walk-rand
-  [x y mean variance width height]
-  (let [d (max 0.0 (my-rand-gauss mean variance))
-        points (calc-circle-points x y (int (Math/ceil d)) width height)
-        loc-choices (filter (fn [[xx yy]] (and (<= (dist x y xx yy) (+ d 0.1))
-                                         (>= (dist x y xx yy) (- d 0.1))))
-                       points)]
+  [x y mean variance dists]
+  (let [radius (max 0.0 (my-rand-gauss mean variance))
+        dists2 (map (fn [[xy d]] [xy (Math/abs (- radius d))]) dists)
+        closest-dist (apply min (map second dists2))
+        loc-choices (map first (filter #(= closest-dist (second %)) dists2))]
     (when (not-empty loc-choices)
       (my-rand-nth loc-choices))))
 
@@ -97,9 +113,10 @@
         height (:height (meta movements))
         movs (reverse (get movements entity))
         last-pos (first movs)
-        [ox oy] [(:x last-pos) (:y last-pos)]]
+        [ox oy] [(:x last-pos) (:y last-pos)]
+        dists (loc-distances ox oy width height)]
     (loop [attempts 0]
-      (let [[x y] (walk-rand ox oy mean variance width height)]
+      (let [[x y] (walk-rand ox oy mean variance dists)]
         (cond (= attempts 50)
               ;; ran out of attempts to move to an empty space; just
               ;; stay where we are
