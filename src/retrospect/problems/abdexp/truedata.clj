@@ -43,20 +43,35 @@
         observations (set (filter #(not-empty (incoming eg %)) (last vs-levels)))
         true-vertices (set (apply concat (for [v observations]
                                            (arbitrary-path-up eg v))))
+        essentials (set (filter #(= 1 (count (neighbors eg %))) true-vertices))
+        false-vertices (set/difference (nodes eg) true-vertices)
         non-data (set (apply concat (butlast vs-levels)))
-        conflict-links (let [vs (sort (set/difference
-                                       (nodes eg)
-                                       observations
-                                       true-vertices))]
-                         (take (:MaxConflictLinks params)
-                               (my-shuffle
-                                (sort #(let [c (compare (first %1) (first %2))]
-                                         (if (= 0 c) (compare (second %1) (second %2)) c))
-                                      (set (filter (fn [[v1 v2]]
-                                                (and (not= v1 v2)
-                                                     (not (has-edge? eg v1 v2))
-                                                     (not (has-edge? eg v2 v1))))
-                                              (combinations vs 2)))))))
+        conflict-links (concat
+                        (let [vs (sort (set/difference
+                                        (nodes eg)
+                                        observations
+                                        true-vertices))]
+                          (take (:MaxConflictLinks params)
+                                (my-shuffle
+                                 (sort #(let [c (compare (first %1) (first %2))]
+                                          (if (= 0 c) (compare (second %1) (second %2)) c))
+                                       (set (filter (fn [[v1 v2]]
+                                                 (and (not= v1 v2)
+                                                      (not (has-edge? eg v1 v2))
+                                                      (not (has-edge? eg v2 v1))))
+                                               (combinations vs 2)))))))
+                        ;; throw in some conflicts among true essentials and false stuff
+                        (sort #(let [c (compare (first %1) (first %2))]
+                                 (if (= 0 c) (compare (second %1) (second %2)) c))
+                              (set (filter (fn [[v1 v2]]
+                                        (and (not= v1 v2)
+                                             (not (has-edge? eg v1 v2))
+                                             (not (has-edge? eg v2 v1))))
+                                      (for [t (take (my-rand-int (count essentials))
+                                                    (sort essentials))
+                                            f (take (my-rand-int (count false-vertices))
+                                                    (sort false-vertices))]
+                                        [t f])))))
         eg-conflicts (reduce set-conflicts eg conflict-links)
         eg-scores (reduce (fn [eg v]
                        (add-attr eg v :score
