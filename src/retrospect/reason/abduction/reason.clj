@@ -4,7 +4,7 @@
   (:use [retrospect.reason.abduction.workspace
          :only [reset-workspace init-workspace init-kb calc-doubt calc-coverage]])
   (:use [retrospect.reason.abduction.meta
-         :only [reason metareason metareasoning-activated? workspace-better?]])
+         :only [reason metareason]])
   (:use [retrospect.reason.abduction.evaluate
          :only [evaluate evaluate-comp]])
   (:use [retrospect.reason.abduction.gui.hypgraph
@@ -18,12 +18,7 @@
    :reason-fn reason
    :stats-fn (fn [truedata ors time-now]
                ((:stats-fn (:abduction @problem)) truedata ors time-now))
-   :metareasoning-activated?-fn metareasoning-activated?
-   :metareason-fn (fn [truedata est time-prev time-now sensors]
-                    (if (not= "abd" (subs (:Metareasoning params) 0 3))
-                      {:est est :considered? false :accepted-branch? false}
-                      (metareason truedata est time-prev time-now sensors)))
-   :workspace-better?-fn workspace-better?
+   :metareason-fn metareason
    :evaluate-fn evaluate
    :evaluate-comp-fn evaluate-comp
    :calc-doubt-fn calc-doubt

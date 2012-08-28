@@ -37,6 +37,24 @@
   ;; we wanted to fix "no explainers"; so, did we?
   (empty? (get-no-explainers ws-new)))
 
+(defn meta-apply-and-evaluate
+  [truedata est new-est time-prev time-now sensors]
+  (let [new-ep (cur-ep new-est)
+        ws-old (:workspace new-ep)
+        ws-new (reason
+                (when (:Oracle params) truedata)
+                (if (or (nil? sensors) (not (:ResetEachStep params))) ws-old
+                    (reset-workspace ws-old))
+                time-prev time-now sensors)
+        new-expl-est (update-est new-est (assoc new-ep :workspace ws-new))]
+    (if (workspace-better? ws-new ws-old)
+      {:est new-expl-est
+       :considered? true
+       :accepted-branch? true}
+      {:est (goto-ep new-expl-est (:id (cur-ep est)))
+       :considered? true
+       :accepted-branch? false})))
+
 (defn belief-revision
   [noexp-hyp depth workspace]
   ;; go back "before" this depth in order to repair
@@ -116,15 +134,6 @@
            (filter #(= :observation (:type (:hyp %))) noexp-hyps))))
 
 (comment
-  ;; noise hyps
-  (if (or (= "abd-no-noise" (:Metareasoning params))
-          (and (= 0 (:SensorInsertionNoise params))
-               (= 0 (:SensorDistortionNoise params))
-               (= 0 (:SensorDeletionNoise params))))
-    []
-    ))
-
-(comment
   (defn metareason
     [truedata est time-prev time-now sensors]
     (let [workspace (:workspace (cur-ep est))
@@ -142,7 +151,7 @@
                               (:learn (:accepted meta-ws-explained))))]
       (apply-resolutions accepted est-meta time-prev time-now sensors))))
 
-(defn metareason
+(defn abductive-metareason
   [truedata est time-prev time-now sensors]
   (let [workspace (:workspace (cur-ep est))
         ws-depth (workspace-depth workspace)
@@ -172,3 +181,75 @@
             :else
             (recur est-meta (rest hyps) attempted-depths attempts)))))
 
+(defn meta-batch
+  [n truedata est _ time-now sensors]
+  (let [branch-root? (or (nil? n) (>= n (ep-state-depth est)))
+        branch-ep (nth-previous-ep est n)
+        new-est (new-branch-ep est branch-ep)
+        new-est-time (update-est new-est
+                                 (assoc (cur-ep new-est) :time time-now
+                                        :workspace (if branch-root?
+                                                     (get-init-workspace est)
+                                                     (:workspace (cur-ep new-est)))))]
+    (meta-apply-and-evaluate truedata est new-est-time
+                             (if branch-root? 0 (:time branch-ep))
+                             time-now sensors)))
+
+(defn meta-lower-threshold
+  [truedata est time-prev time-now sensors]
+  (if (= 0 (:Threshold params))
+    {:est est :considered? false :accepted-branch? false}
+    (let [new-est (new-branch-ep est (cur-ep est))]
+      ;; drop threshold to 0
+      (binding [params (assoc params :Threshold 0)]
+        ;; give sensors value as nil to prevent resensing
+        (meta-apply-and-evaluate truedata est new-est time-prev time-now nil)))))
+
+(defn meta-batch-lower-threshold
+  [n truedata est time-prev time-now sensors]
+  (let [batch-result (meta-batch n truedata est time-prev time-now sensors)]
+    (if (or (= 0 (:Threshold params)) (:accepted-branch? batch-result))
+      batch-result
+      ;; how much to lower threshold?
+      (binding [params (assoc params :Threshold 0)]
+        (meta-batch n truedata est time-prev time-now sensors)))))
+
+(defn meta-batch-lower-min-apriori
+  [n truedata est time-prev time-now sensors]
+  (let [batch-result (meta-batch n truedata est time-prev time-now sensors)]
+    (if (or (= 0 (:MinApriori params)) (:accepted-branch? batch-result))
+      batch-result
+      ;; how much to lower threshold?
+      (binding [params (assoc params :MinApriori 0)]
+        (meta-batch n truedata est time-prev time-now sensors)))))
+
+(defn metareason
+  "Activate the appropriate metareasoning strategy (as given by
+   the parameter :Metareasoning)"
+  [truedata est time-prev time-now sensors]
+  (if (not (metareasoning-activated? est))
+    {:est est :considered? false :accepted-branch? false}
+    (let [m (:Metareasoning params)
+          f (cond (= "batchbeg" m)
+                  (partial meta-batch nil)
+                  (= "batch1" m)
+                  (partial meta-batch 1)
+                  (= "batch2" m)
+                  (partial meta-batch 2)
+                  (= "batch3" m)
+                  (partial meta-batch 3)
+                  (= "batch4" m)
+                  (partial meta-batch 4)
+                  (= "batch5" m)
+                  (partial meta-batch 5)
+                  (= "lowerthresh" m)
+                  meta-lower-threshold
+                  (= "batch1-lowerthresh" m)
+                  (partial meta-batch-lower-threshold 1)
+                  (= "batch1-lowermin" m)
+                  (partial meta-batch-lower-min-apriori 1)
+                  ;; did not recognize the metareasoning strategy;
+                  ;; hand-off to the reasoning engine
+                  :else
+                  abductive-metareason)]
+      (f truedata est time-prev time-now sensors))))
