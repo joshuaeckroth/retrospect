@@ -22,9 +22,8 @@
 
 (defn new-explainers
   [vertices]
-  (repeatedly
-   (:NumExplainers params)
-   #(format "E%d" (my-rand-int 10000))))
+  (filter #(not (vertices %))
+     (repeatedly 2 #(format "E%d" (my-rand-int 10000)))))
 
 (defn reuse-explainers
   [vertices n]
@@ -43,17 +42,18 @@
   (loop [attempts 0]
     (let [obs (new-observations)
           expl-links (loop [unexp (set obs)
-                            vertices (set obs)
+                            vertices #{}
                             expl-links []]
                        (if (>= (count expl-links) (:NumExplainsLinks params))
-                         expl-links
+                         (take (:NumExplainsLinks params) (my-shuffle expl-links))
                          ;; make some explainers for some of the unexplained
                          (let [to-be-explained (take (count unexp)
                                                      (my-shuffle (sort unexp)))
                                new-expl-links (mapcat
                                                (fn [v1] (make-explainers
                                                         vertices v1
-                                                        (if (< attempts 10) 1 0)))
+                                                        (if (< attempts 10)
+                                                          (:NumExplainers params) 0)))
                                                to-be-explained)
                                newly-explained (set (map second new-expl-links))
                                newly-unexplained (set (map first new-expl-links))
