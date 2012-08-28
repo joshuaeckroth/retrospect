@@ -394,9 +394,16 @@
 (defn calc-doubt
   [workspace]
   (prof :calc-doubt
-        (if (empty? (:acc-deltas workspace)) 0.0
+        (let [acc (set/difference (:all (:accepted workspace))
+                                  (:observation (:accepted workspace)))]
+          (if (empty? acc) 0.0
+              (/ (reduce + (map #(- 1.0 (:apriori (lookup-hyp workspace %))) acc))
+                 (double (count acc)))))))
+
+(comment
+  (if (empty? (:acc-deltas workspace)) 0.0
             (/ (reduce + (map #(- 1.0 %) (:acc-deltas workspace)))
-               (count (:acc-deltas workspace))))))
+               (count (:acc-deltas workspace)))))
 
 (defn calc-coverage
   [workspace]
