@@ -82,9 +82,10 @@
                  [(vec observations)]
                  (vec (map (fn [[pos1 pos2]] (subvec vs pos1 pos2))
                          ;; ensure the splits start with 0 and reach the end
-                         (concat [[0 (second (first splits))]]
-                                 (butlast (rest splits))
-                                 [[(first (last splits)) (count vs)]]))))]
+                         (filter (fn [[pos1 pos2]] (and pos1 pos2))
+                            (concat [[0 (second (first splits))]]
+                                    (butlast (rest splits))
+                                    [[(first (last splits)) (count vs)]])))))]
     (if (>= (:Steps params) (count groups))
       (vec (concat groups (repeat (inc (- (:Steps params) (count groups))) [])))
       groups)))
