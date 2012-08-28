@@ -29,7 +29,7 @@
 
 (defn reuse-explainers
   [vertices]
-  (take 2 (my-shuffle (sort vertices))))
+  [(first (my-shuffle (sort vertices)))])
 
 (defn make-explainers
   [vertices v1]
