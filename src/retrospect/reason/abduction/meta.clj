@@ -215,6 +215,25 @@
                              (if branch-root? 0 (:time branch-ep))
                              time-now sensors)))
 
+(defn meta-batch-weakest
+  [truedata est _ time-now sensors]
+  (let [workspace (:workspace (cur-ep est))
+        ws-depth (workspace-depth workspace)
+        depth-doubts (for [i (range (dec ws-depth) -1 -1)]
+                       [i (calc-doubt (revert-workspace workspace i))])
+        n (- ws-depth (ffirst (reverse (sort-by second depth-doubts))))
+        branch-root? (>= n (ep-state-depth est))
+        branch-ep (nth-previous-ep est n)
+        new-est (new-branch-ep est branch-ep)
+        new-est-time (update-est new-est
+                                 (assoc (cur-ep new-est) :time time-now
+                                        :workspace (if branch-root?
+                                                     (get-init-workspace est)
+                                                     (:workspace (cur-ep new-est)))))]
+    (meta-apply-and-evaluate truedata est new-est-time
+                             (if branch-root? 0 (:time branch-ep))
+                             time-now sensors)))
+
 (defn meta-lower-threshold
   [truedata est time-prev time-now sensors]
   (if (= 0 (:Threshold params))
@@ -247,7 +266,8 @@
   "Activate the appropriate metareasoning strategy (as given by
    the parameter :Metareasoning)"
   [truedata est time-prev time-now sensors]
-  (if (not (metareasoning-activated? est))
+  (if (or (not (metareasoning-activated? est))
+          (= "none" (:Metareasoning params)))
     {:est est :considered? false :accepted-branch? false}
     (let [m (:Metareasoning params)
           f (cond (= "batchbeg" m)
@@ -262,6 +282,8 @@
                   (partial meta-batch 4)
                   (= "batch5" m)
                   (partial meta-batch 5)
+                  (= "batchweak" m)
+                  meta-batch-weakest
                   (= "lowerthresh" m)
                   meta-lower-threshold
                   (= "batch1-lowerthresh" m)
