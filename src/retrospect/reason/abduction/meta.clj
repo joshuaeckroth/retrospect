@@ -282,7 +282,7 @@
                   (partial meta-batch 4)
                   (= "batch5" m)
                   (partial meta-batch 5)
-                  (= "batchweak" m)
+                  (= "batchweakest" m)
                   meta-batch-weakest
                   (= "lowerthresh" m)
                   meta-lower-threshold
