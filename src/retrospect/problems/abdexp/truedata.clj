@@ -18,7 +18,7 @@
 
 (defn new-observations
   []
-  (repeatedly (* (:Steps params) 3) #(format "O%d" (my-rand-int 10000))))
+  (set (repeatedly (* (:Steps params) 3) #(format "O%d" (my-rand-int 10000)))))
 
 (defn new-explainers
   [vertices]
@@ -41,7 +41,7 @@
   []
   (loop [attempts 0]
     (let [obs (new-observations)
-          expl-links (loop [unexp (set obs)
+          expl-links (loop [unexp obs
                             vertices #{}
                             expl-links []]
                        (if (>= (count expl-links) (:NumExplainsLinks params))
@@ -63,7 +63,8 @@
                            (recur new-unexp new-vertices
                                   (concat expl-links new-expl-links)))))
           eg (apply add-edges (digraph) expl-links)
-          observations (set (filter #(and (empty? (neighbors eg %)) (not-empty (incoming eg %)))
+          observations (set (filter #(and (obs %) (empty? (neighbors eg %))
+                                     (not-empty (incoming eg %)))
                                (nodes eg)))
           true-vertices (if (not (dag? eg)) #{}
                             (set (apply concat (for [v observations]
