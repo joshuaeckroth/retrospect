@@ -78,6 +78,15 @@
       (binding [params (assoc params :Threshold 0)]
         (meta-batch n truedata est time-prev time-now sensors)))))
 
+(defn meta-batch-lower-min-apriori
+  [n truedata est time-prev time-now sensors]
+  (let [batch-result (meta-batch n truedata est time-prev time-now sensors)]
+    (if (or (= 0 (:MinApriori params)) (:accepted-branch? batch-result))
+      batch-result
+      ;; how much to lower threshold?
+      (binding [params (assoc params :MinApriori 0)]
+        (meta-batch n truedata est time-prev time-now sensors)))))
+
 (defn metareason
   "Activate the appropriate metareasoning strategy (as given by
    the parameter :Metareasoning)"
@@ -99,8 +108,10 @@
                   (partial meta-batch 5)
                   (= "lowerthresh" m)
                   meta-lower-threshold
-                  (= "batchlower1" m)
+                  (= "batch1-lowerthresh" m)
                   (partial meta-batch-lower-threshold 1)
+                  (= "batch1-lowermin" m)
+                  (partial meta-batch-lower-min-apriori 1)
                   ;; did not recognize the metareasoning strategy;
                   ;; hand-off to the reasoning engine
                   :else
