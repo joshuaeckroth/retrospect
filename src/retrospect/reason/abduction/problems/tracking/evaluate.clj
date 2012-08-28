@@ -58,14 +58,6 @@
           acc-movs (map :mov accepted)
           not-acc-movs (map :mov not-accepted)
           [tp tn fp fn] (tp-tn-fp-fn true-movs acc-movs not-acc-movs)]
-      (println {:TP tp :TN tn :FP fp :FN fn
-                :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
-                :FPR (if (= 0 (+ fp tn)) 1.0 (/ (double fp) (double (+ fp tn))))
-                :F1 (if (= 0 (+ tp fp fn)) 1.0 (/ (double (* 2.0 tp))
-                                                  (double (+ (* 2.0 tp) fp fn))))
-                :TPRatio (if (empty? true-movs) 1.0
-                             (/ (double tp) (double (count true-movs))))
-                :Prec (if (= 0 (+ tp fp)) 1.0 (/ (double tp) (double (+ tp fp))))})
       ;; http://en.wikipedia.org/wiki/Receiver_operating_characteristic
       {:TP tp :TN tn :FP fp :FN fn
        :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
