@@ -41,4 +41,8 @@
                     :NumVertices [40 [40]]
                     :NumLevels [3 [3]]
                     :MaxExplainLinks [10 [10]]
-                    :MaxConflictLinks [10 [10]]}})
+                    :MaxConflictLinks [10 [10]]
+                    :FalseAprioriMean [0.4 [0.4]]
+                    :FalseAprioriVariance [0.3 [0.3]]
+                    :TrueAprioriMean [0.6 [0.6]]
+                    :TrueAprioriVariance [0.3 [0.3]]}})

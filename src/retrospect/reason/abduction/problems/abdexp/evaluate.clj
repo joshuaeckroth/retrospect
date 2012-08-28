@@ -6,16 +6,10 @@
   (:use [retrospect.problems.abdexp.expgraph])
   (:use [retrospect.state]))
 
-(defn true-vertices-now
-  [truedata time-now]
-  (let [true-vertices (:true-vertices truedata)
-        expgraph (get (:test truedata) time-now)]
-    (set/intersection true-vertices (vertices expgraph))))
-
 (defn true-hyp?
   [truedata time-now hyp]
   (if (= :kb (:type hyp)) true
-      (if ((true-vertices-now truedata time-now) (:vertex hyp)) true false)))
+      (if ((:true-vertices truedata) (:vertex hyp)) true false)))
 
 (defn count-matches
   [true-vertices vertices]
@@ -34,21 +28,24 @@
   [truedata est]
   (let [time-now (:time (cur-ep est))
         ws (:workspace (cur-ep est))
-        true-vertices-now (true-vertices-now truedata time-now)
         acc-vertices (set (map #(:vertex (lookup-hyp ws %))
-                             (get (:accepted ws) :expl)))
+                             (concat
+                              (get (:hypotheses ws) :expl)
+                              (get (:hypotheses ws) :observation))))
         not-acc-vertices (set/difference (set (map #(:vertex (lookup-hyp ws %))
-                                                 (get (:hypotheses ws) :expl)))
+                                                 (concat
+                                                  (get (:hypotheses ws) :expl)
+                                                  (get (:hypotheses ws) :observation))))
                                          acc-vertices)
-        [tp tn fp fn] (tp-tn-fp-fn true-vertices-now acc-vertices not-acc-vertices)]
+        [tp tn fp fn] (tp-tn-fp-fn (:true-vertices truedata) acc-vertices not-acc-vertices)]
     ;; http://en.wikipedia.org/wiki/Receiver_operating_characteristic
     {:TP tp :TN tn :FP fp :FN fn
      :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
      :FPR (if (= 0 (+ fp tn)) 1.0 (/ (double fp) (double (+ fp tn))))
      :F1 (if (= 0 (+ tp fp fn)) 1.0 (/ (double (* 2.0 tp))
                                        (double (+ (* 2.0 tp) fp fn))))
-     :TPRatio (if (empty? true-vertices-now) 1.0
-                  (/ (double tp) (double (count true-vertices-now))))
+     :TPRatio (if (empty? (:true-vertices truedata)) 1.0
+                  (/ (double tp) (double (count (:true-vertices truedata)))))
      :Prec (if (= 0 (+ tp fp)) 1.0 (/ (double tp) (double (+ tp fp))))}))
 
 (defn evaluate-comp

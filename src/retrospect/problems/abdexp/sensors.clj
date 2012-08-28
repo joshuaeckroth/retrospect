@@ -8,11 +8,9 @@
 
 (defn insertion-noise
   [observations]
-  (set/union observations
-         (set (repeatedly
-               (my-rand-int (int (* (/ (:SensorInsertionNoise params) 100)
-                                    (:Steps params))))
-               #(format "O%d" (my-rand-int 1000))))))
+  (if (< (my-rand) (/ (double (:SensorInsertionNoise params)) 100.0))
+    (conj observations (format "O%d" (my-rand-int 1000)))
+    observations))
 
 (defn deletion-noise
   [observations]
@@ -28,7 +26,7 @@
 
 (defn sense
   [sensor test time]
-  (let [observations (forced-nodes (or (get test time) (digraph)))]
+  (let [observations (get test time)]
     (add-sensed sensor time (-> observations
                                (insertion-noise)
                                (deletion-noise)

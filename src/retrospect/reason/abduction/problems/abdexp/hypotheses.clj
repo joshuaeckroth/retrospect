@@ -7,12 +7,15 @@
 
 (defn generate-kb
   [training]
-  [(new-hyp "KB" :kb :kb 1.0 false nil [] "" "" {:expgraphs (:test training)})])
+  [(new-hyp "KB" :kb :kb 1.0 false nil [] "" "" {:expgraph (:expgraph training)})])
 
 (defn get-kb
   [accepted lookup-hyp]
-  (first (filter :expgraphs (map lookup-hyp (get accepted :kb)))))
+  (first (filter :expgraph (map lookup-hyp (get accepted :kb)))))
 
+;; hyps are identified by their # (or category?); update-kb thinks the
+;; accepted ones are more common; adjusts the apriori scores; maybe
+;; even decides the apriori scores
 (defn update-kb
   [accepted unexplained hypotheses lookup-hyp]
   (map lookup-hyp (get accepted :kb)))
@@ -31,7 +34,7 @@
 (defn make-sensor-hyps
   [sensors time-prev time-now accepted lookup-hyp]
   (let [kb (get-kb accepted lookup-hyp)
-        expgraph (get (:expgraphs kb) time-now)
+        expgraph (:expgraph kb)
         prev-hyps (map lookup-hyp (:all accepted))
         observed (reduce set/union (map #(sensed-at (first sensors) %)
                                  (range (inc time-now))))]
@@ -51,7 +54,7 @@
 (defn hypothesize
   [unexp-hyps accepted lookup-hyp time-now]
   (let [kb (get-kb accepted lookup-hyp)
-        expgraph (get (:expgraphs kb) time-now)
+        expgraph (:expgraph kb)
         sensor-hyps (filter #(= :observation (:type %)) unexp-hyps)]
     (loop [hyps (zipmap (map :vertex sensor-hyps) sensor-hyps)
            vertices (filter #(not (observation? %)) (sorted-by-dep expgraph))]

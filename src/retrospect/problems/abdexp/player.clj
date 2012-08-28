@@ -7,8 +7,7 @@
   (:use [clj-swing.panel])
   (:use [clj-swing.label])
   (:use [retrospect.gui.graphs])
-  (:use [retrospect.problems.abdexp.expgraph :only [format-dot-expgraph]])
-  (:use [retrospect.reason.abduction.problems.abdexp.evaluate :only [true-vertices-now]])
+  (:use [retrospect.problems.abdexp.expgraph :only [format-dot-expgraph fill]])
   (:use [retrospect.epistemicstates :only [cur-ep]])
   (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
   (:use [retrospect.state]))
@@ -18,9 +17,9 @@
 (def current-expgraph-dot (ref ""))
 (def current-expgraph-svg (ref ""))
 
-(def tpr-label (label ""))
-(def fpr-label (label ""))
-(def f1-label (label ""))
+(def tpratio-label (label ""))
+(def prec-label (label ""))
+(def unexp-label (label ""))
 (def noexp-label (label ""))
 
 (defn listener
@@ -32,17 +31,17 @@
          :constrains (java.awt.GridBagConstraints.)
          [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
-          _ (label "TPR:")
+          _ (label "TPRatio:")
           :gridx 1
-          _ tpr-label
+          _ tpratio-label
           :gridx 0 :gridy 1
-          _ (label "FPR:")
+          _ (label "Prec:")
           :gridx 1
-          _ fpr-label
+          _ prec-label
           :gridx 0 :gridy 2
-          _ (label "F1:")
+          _ (label "Unexplained:")
           :gridx 1
-          _ f1-label
+          _ unexp-label
           :gridx 0 :gridy 3
           _ (label "NoExplainers:")
           :gridx 1
@@ -52,20 +51,22 @@
   []
   (if-let [results (last (:results (cur-ep (:est @or-state))))]
     (do
-      (. tpr-label (setText (format "%.2f" (:TPR results))))
-      (. fpr-label (setText (format "%.2f" (:FPR results))))
-      (. f1-label (setText (format "%.2f" (:F1 results))))
+      (. tpratio-label (setText (format "%.2f" (:TPRatio results))))
+      (. prec-label (setText (format "%.2f" (:Prec results))))
+      (. unexp-label (setText (format "%.2f" (:UnexplainedPct results))))
       (. noexp-label (setText (format "%.2f" (:NoExplainersPct results)))))
     (do
-      (. tpr-label (setText "N/A"))
-      (. fpr-label (setText "N/A"))
-      (. f1-label (setText "N/A"))
+      (. tpratio-label (setText "N/A"))
+      (. prec-label (setText "N/A"))
+      (. unexp-label (setText "N/A"))
       (. noexp-label (setText "N/A")))))
 
 (defn player-update-diagram
   []
   (if (< 0 @time-now)
-    (generate-graph (format-dot-expgraph (get (:test @truedata) @time-now))
+    (generate-graph (format-dot-expgraph
+                     (apply fill (:expgraph @truedata)
+                            (apply concat (subvec (:test @truedata) 0 (inc @time-now)))))
                     @canvas listener false
                     current-expgraph-dot current-expgraph-svg)
     (generate-graph (digraph) @canvas listener false
@@ -92,9 +93,8 @@
   []
   ;; TODO: fix so it's not specific to abduction
   (if (<= @time-now 0) ""
-      (let [true-vertices (true-vertices-now @truedata @time-now)]
-        (str "True vertices: "
-             (str/join ", " (sort true-vertices))))))
+      (str "True vertices: "
+           (str/join ", " (sort (:true-vertices @truedata))))))
 
 (defn player-get-problem-log
   []
