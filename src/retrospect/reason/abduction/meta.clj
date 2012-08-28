@@ -47,18 +47,6 @@
                     (format "Ignore %s" noexp)
                     (:data noexp))]))
 
-(defn force-resolve-trigger
-  [truedata est time-prev time-now sensors]
-  (let [new-est (new-branch-ep est (cur-ep est))
-        new-ep (cur-ep new-est)
-        ws-old (:workspace new-ep)
-        noexp (map #(lookup-hyp ws-old %) (get-no-explainers ws-old))
-        ws-new (reduce (fn [ws h] (ignore-hyp h ws))
-                  (revert-workspace ws-old) noexp)
-        ws-expl (reason (when (:Oracle params) truedata) ws-new
-                        time-prev time-now sensors)]
-    (update-est new-est (assoc new-ep :workspace ws-expl))))
-
 (defn meta-apply-and-evaluate
   [truedata est new-est time-prev time-now sensors]
   (let [new-ep (cur-ep new-est)
@@ -74,9 +62,7 @@
        :considered? true
        :accepted-branch? true}
       ;; trigger for metareasoning not resolved; ignore the 'noexp' hyps
-      {:est (force-resolve-trigger
-             truedata (goto-ep new-expl-est (:id (cur-ep est)))
-             time-prev time-now sensors)
+      {:est (goto-ep new-expl-est (:id (cur-ep est)))
        :considered? true
        :accepted-branch? false})))
 
@@ -167,39 +153,40 @@
                               (:learn (:accepted meta-ws-explained))))]
       (apply-resolutions accepted est-meta time-prev time-now sensors))))
 
-(defn abductive-metareason
-  [truedata est time-prev time-now sensors]
-  (let [workspace (:workspace (cur-ep est))
-        ws-depth (workspace-depth workspace)
-        noexp (map (partial lookup-hyp workspace) (get-no-explainers workspace))
-        noexp-hyps (make-noexp-hyps noexp)
-        meta-hyps (reverse (sort-by :apriori
-                                    (filter #(>= (:apriori %)
-                                           (/ (double (:MetaMinApriori params)) 100.0))
-                                       (make-meta-hyps workspace noexp-hyps
-                                                       ws-depth time-now))))]
-    (loop [est-meta est
-           hyps meta-hyps
-           attempted-depths #{}
-           attempts 0]
-      (cond (or (empty? hyps) (= attempts (:MetaBatchAttempts params)))
-            ;; give up, force noexp hyps to be ignored
-            {:est (force-resolve-trigger
-                   truedata (goto-ep est-meta (:id (cur-ep est)))
-                   time-prev time-now sensors)
-             :considered? true
-             :accepted-branch? false}
-            ;; if we haven't attempted anything this deep
-            (every? #(> (:depth (first hyps)) %) attempted-depths)
-            (let [result (apply-resolutions [(first hyps)]
-                                            est-meta time-prev time-now sensors)]
-              (if (:accepted-branch? result) result
-                  (recur (:est result) (rest hyps)
-                         (conj attempted-depths (:depth (first hyps))) (inc attempts))))
-            ;; else, already have attempted something this deep or
-            ;; more; move on to next hyp
-            :else
-            (recur est-meta (rest hyps) attempted-depths attempts)))))
+(comment
+  (defn abductive-metareason
+    [truedata est time-prev time-now sensors]
+    (let [workspace (:workspace (cur-ep est))
+          ws-depth (workspace-depth workspace)
+          noexp (map (partial lookup-hyp workspace) (get-no-explainers workspace))
+          noexp-hyps (make-noexp-hyps noexp)
+          meta-hyps (reverse (sort-by :apriori
+                                      (filter #(>= (:apriori %)
+                                             (/ (double (:MetaMinApriori params)) 100.0))
+                                         (make-meta-hyps workspace noexp-hyps
+                                                         ws-depth time-now))))]
+      (loop [est-meta est
+             hyps meta-hyps
+             attempted-depths #{}
+             attempts 0]
+        (cond (or (empty? hyps) (= attempts (:MetaBatchAttempts params)))
+              ;; give up, force noexp hyps to be ignored
+              {:est (force-resolve-trigger
+                     truedata (goto-ep est-meta (:id (cur-ep est)))
+                     time-prev time-now sensors)
+               :considered? true
+               :accepted-branch? false}
+              ;; if we haven't attempted anything this deep
+              (every? #(> (:depth (first hyps)) %) attempted-depths)
+              (let [result (apply-resolutions [(first hyps)]
+                                              est-meta time-prev time-now sensors)]
+                (if (:accepted-branch? result) result
+                    (recur (:est result) (rest hyps)
+                           (conj attempted-depths (:depth (first hyps))) (inc attempts))))
+              ;; else, already have attempted something this deep or
+              ;; more; move on to next hyp
+              :else
+              (recur est-meta (rest hyps) attempted-depths attempts))))))
 
 (defn meta-batch
   [n truedata est _ time-now sensors]
@@ -262,6 +249,28 @@
       (binding [params (assoc params :MinApriori 0)]
         (meta-batch n truedata est time-prev time-now sensors)))))
 
+(defn meta-abductive
+  [truedata est time-prev time-now sensors]
+  (let [batch1 (meta-batch 1 truedata est time-prev time-now sensors)]
+    (if (:accepted-branch? batch1) batch1
+        (let [batch-weakest (meta-batch-weakest truedata (:est batch1)
+                                                time-prev time-now sensors)]
+          (if (:accepted-branch? batch-weakest) batch-weakest
+              (meta-batch nil truedata (:est batch-weakest)
+                          time-prev time-now sensors))))))
+
+(defn force-resolve-trigger
+  [truedata est time-prev time-now sensors]
+  (let [new-est (new-branch-ep est (cur-ep est))
+        new-ep (cur-ep new-est)
+        ws-old (:workspace new-ep)
+        noexp (map #(lookup-hyp ws-old %) (get-no-explainers ws-old))
+        ws-new (reduce (fn [ws h] (ignore-hyp h ws))
+                  (revert-workspace ws-old) noexp)
+        ws-expl (reason (when (:Oracle params) truedata) ws-new
+                        time-prev time-now sensors)]
+    (update-est new-est (assoc new-ep :workspace ws-expl))))
+
 (defn metareason
   "Activate the appropriate metareasoning strategy (as given by
    the parameter :Metareasoning)"
@@ -293,5 +302,9 @@
                   ;; did not recognize the metareasoning strategy;
                   ;; hand-off to the reasoning engine
                   :else
-                  abductive-metareason)]
-      (f truedata est time-prev time-now sensors))))
+                  meta-abductive)
+          result (f truedata est time-prev time-now sensors)]
+      (if (:accepted-branch? result) result
+          (assoc result :est
+                 (force-resolve-trigger truedata (:est result)
+                                        time-prev time-now sensors))))))
