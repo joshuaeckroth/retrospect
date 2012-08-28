@@ -30,8 +30,8 @@
         ws (:workspace (cur-ep est))
         acc-vertices (set (map #(:vertex (lookup-hyp ws %))
                              (concat
-                              (get (:hypotheses ws) :expl)
-                              (get (:hypotheses ws) :observation))))
+                              (get (:accepted ws) :expl)
+                              (get (:accepted ws) :observation))))
         not-acc-vertices (set/difference (set (map #(:vertex (lookup-hyp ws %))
                                                  (concat
                                                   (get (:hypotheses ws) :expl)

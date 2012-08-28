@@ -102,4 +102,5 @@
       (let [ws (:workspace (cur-ep (:est @or-state)))]
         (str "Believed vertices: "
              (str/join ", " (sort (set (map #(:vertex (lookup-hyp ws %))
-                                          (get (:accepted ws) :expl)))))))))
+                                          (concat (get (:accepted ws) :expl)
+                                                  (get (:accepted ws) :observation))))))))))
