@@ -28,15 +28,18 @@
    :evaluate-comp-fn evaluate-comp
    :calc-doubt-fn calc-doubt
    :calc-coverage-fn calc-coverage
-   :default-params-fn (fn []
-                        (merge {:Threshold [0 [0]]
-                                :MinApriori [10 [10]]
-                                :UseScores [true [true]]
-                                :ContrastPreference ["delta" ["delta" "arbitrary" "apriori,delta"]]
-                                :HypPreference ["abd" ["abd" "arbitrary"]]
-                                :ConsiderExplPower [false [true false]]
-                                :TransitiveExplanation [false [true false]]}
-                               (:default-params (:abduction @problem))))
+   :default-params-fn
+   (fn []
+     (merge {:Threshold [0 [0]]
+             :MinApriori [10 [10]]
+             :UseScores [true [true]]
+             :MetaMinApriori [20 [20]]
+             :MetaBatchAttempts [3 [3]]
+             :ContrastPreference ["delta" ["delta" "arbitrary" "apriori,delta"]]
+             :HypPreference ["abd" ["abd" "arbitrary"]]
+             :ConsiderExplPower [false [true false]]
+             :TransitiveExplanation [false [true false]]}
+            (:default-params (:abduction @problem))))
    :init-workspace-fn init-workspace
    :reset-workspace-fn reset-workspace
    :init-kb-fn init-kb

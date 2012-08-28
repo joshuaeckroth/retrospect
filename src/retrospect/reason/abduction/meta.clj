@@ -148,26 +148,27 @@
         ws-depth (workspace-depth workspace)
         noexp (map (partial lookup-hyp workspace) (get-no-explainers workspace))
         noexp-hyps (make-noexp-hyps noexp)
-        meta-hyps (sort-by :apriori (make-meta-hyps workspace noexp-hyps
-                                                    ws-depth time-now))]
+        meta-hyps (reverse (sort-by :apriori
+                                    (filter #(>= (:apriori %)
+                                           (/ (double (:MetaMinApriori params)) 100.0))
+                                       (make-meta-hyps workspace noexp-hyps
+                                                       ws-depth time-now))))]
     (loop [est-meta est
-           hyps (filter #(and (= :anomaly (:type %))
-                         (not= 0 (:depth %)))
-                   meta-hyps) ;; try non-batchbeg first
+           hyps meta-hyps
+           attempted-depths #{}
            attempts 0]
-      (cond (= attempts 3)
+      (cond (or (empty? hyps) (= attempts (:MetaBatchAttempts params)))
             ;; apply noise hyps (give up)
             (apply-resolutions (filter #(= :noise (:type %)) meta-hyps)
                                est-meta time-prev time-now sensors)
-            (or (empty? hyps) (= attempts 2))
-            ;; try batchbeg now
-            (let [result (apply-resolutions (filter #(= 0 (:depth %)) meta-hyps)
-                                            est-meta time-prev time-now sensors)]
-              (if (:accepted-branch? result) result
-                  (recur (:est result) (rest hyps) (inc attempts))))
-            :else
+            ;; if we haven't attempted this depth yet
+            (not (attempted-depths (:depth (first hyps))))
             (let [result (apply-resolutions [(first hyps)]
                                             est-meta time-prev time-now sensors)]
               (if (:accepted-branch? result) result
-                  (recur (:est result) (rest hyps) (inc attempts))))))))
+                  (recur (:est result) (rest hyps)
+                         (conj attempted-depths (:depth (first hyps))) (inc attempts))))
+            ;; else, already have attempted this depth; move on to next hyp
+            :else
+            (recur est-meta (rest hyps) attempted-depths attempts)))))
 

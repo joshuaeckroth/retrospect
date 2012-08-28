@@ -394,7 +394,7 @@
 (defn calc-doubt
   [workspace]
   (prof :calc-doubt
-        (if (empty? (:acc-deltas workspace)) 1.0
+        (if (empty? (:acc-deltas workspace)) 0.0
             (/ (reduce + (map #(- 1.0 %) (:acc-deltas workspace)))
                (count (:acc-deltas workspace))))))
 
