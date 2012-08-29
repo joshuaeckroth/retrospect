@@ -253,10 +253,10 @@
   [truedata est time-prev time-now sensors]
   (let [batch1 (meta-batch 1 truedata est time-prev time-now sensors)]
     (if (:accepted-branch? batch1) batch1
-        (let [batch-weakest (meta-batch-weakest truedata (:est batch1)
+        (let [batch-weakest (meta-batch-weakest 10 truedata (:est batch1)
                                                 time-prev time-now sensors)]
           (if (:accepted-branch? batch-weakest) batch-weakest
-              (meta-batch nil truedata (:est batch-weakest)
+              (meta-batch 10 truedata (:est batch-weakest)
                           time-prev time-now sensors))))))
 
 (defn force-resolve-trigger
