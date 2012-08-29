@@ -397,8 +397,7 @@
         (let [acc (set/difference (:all (:accepted workspace))
                                   (:observation (:accepted workspace)))]
           (if (empty? acc) 0.0
-              (/ (reduce + (map #(- 1.0 (:apriori (lookup-hyp workspace %))) acc))
-                 (double (count acc)))))))
+              (- 1.0 (apply min (map #(:apriori (lookup-hyp workspace %)) acc)))))))
 
 (comment
   (if (empty? (:acc-deltas workspace)) 0.0

@@ -203,12 +203,12 @@
                              time-now sensors)))
 
 (defn meta-batch-weakest
-  [truedata est _ time-now sensors]
+  [max-n truedata est _ time-now sensors]
   (let [workspace (:workspace (cur-ep est))
         ws-depth (workspace-depth workspace)
         depth-doubts (for [i (range (dec ws-depth) -1 -1)]
                        [i (calc-doubt (revert-workspace workspace i))])
-        n (- ws-depth (ffirst (reverse (sort-by second depth-doubts))))
+        n (max max-n (- ws-depth (ffirst (reverse (sort-by second depth-doubts)))))
         branch-root? (>= n (ep-state-depth est))
         branch-ep (nth-previous-ep est n)
         new-est (new-branch-ep est branch-ep)
@@ -291,8 +291,10 @@
                   (partial meta-batch 4)
                   (= "batch5" m)
                   (partial meta-batch 5)
-                  (= "batchweakest" m)
-                  meta-batch-weakest
+                  (= "batch10" m)
+                  (partial meta-batch 10)
+                  (= "batchweakest10" m)
+                  (partial meta-batch-weakest 10)
                   (= "lowerthresh" m)
                   meta-lower-threshold
                   (= "batch1-lowerthresh" m)
