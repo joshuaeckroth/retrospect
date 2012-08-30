@@ -76,9 +76,10 @@
                  (= (:y mov2) (:oy mov1))
                  (= (:time mov2) (:ot mov1))
                  (not (match-color? (:color mov2) (:color mov1))))
-            ;; same color (use =, not match-color?), same time,
-            ;; different paths
-            (and (= (:color mov1) (:color mov2))
+            ;; same color (not gray), same time, different paths
+            (and (or (not= gray (:color mov1))
+                     (not= gray (:color mov2)))
+                 (= (:color mov1) (:color mov2))
                  (or (= (:time mov1) (:time mov2))
                      (= (:ot mov1) (:ot mov2))))))))))
 
