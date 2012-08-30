@@ -44,7 +44,8 @@
   []
   (loop [attempts 0]
     (let [[true-obs false-obs] (new-observations)
-          expl-links (loop [unexp (set (concat true-obs false-obs))
+          all-obs (set (concat true-obs false-obs))
+          expl-links (loop [unexp all-obs
                             vertices #{}
                             expl-links []]
                        (if (>= (count expl-links) (:NumExplainsLinks params))
@@ -87,6 +88,8 @@
                                                   (and (not= v1 v2)
                                                        (or (not-any? #(% v1) true-sets)
                                                            (not-any? #(% v2) true-sets))
+                                                       (or (not (all-obs v1))
+                                                           (not (all-obs v2)))
                                                        (not (has-edge? eg v1 v2))
                                                        (not (has-edge? eg v2 v1))))
                                                 (combinations vs 2)))))))
