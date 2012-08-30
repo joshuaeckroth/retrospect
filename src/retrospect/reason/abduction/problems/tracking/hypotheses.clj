@@ -12,10 +12,14 @@
 
 (defn compute-moves-dist
   [moves]
-  (let [dists (map #(dist (:ox %) (:oy %) (:x %) (:y %)) moves)
-        mean (/ (reduce + dists) (count dists))
-        variance (/ (reduce + (map #(Math/pow (- mean %) 2.0) dists)) (count dists))]
-    {:mean mean :variance variance}))
+  (if (= "gaussian" (:WalkType params))
+    (let [dists (map #(dist (:ox %) (:oy %) (:x %) (:y %)) moves)
+          mean (/ (reduce + dists) (count dists))
+          variance (/ (reduce + (map #(Math/pow (- mean %) 2.0) dists)) (count dists))]
+      {:mean mean :variance variance})
+    ;; else, :WalkType = "random"
+    (let [dists (map #(dist (:ox %) (:oy %) (:x %) (:y %)) moves)]
+      {:dist-freqs (frequencies dists) :count (count moves)})))
 
 (defn generate-kb
   [training]
@@ -120,7 +124,11 @@
 
 (defn move-prob
   [dist moves-dist]
-  (cumprob (:mean moves-dist) (:variance moves-dist) (- dist 2.0) (+ dist 2.0)))
+  (if (= "gaussian" (:WalkType params))
+    (cumprob (:mean moves-dist) (:variance moves-dist) (- dist 2.0) (+ dist 2.0))
+    ;; else, :WalkType = "random"
+    (/ (double (+ 1 (get-in moves-dist [:dist-freqs dist] 0)))
+       (double (+ 2 (:count moves-dist))))))
 
 (defn new-mov-hyp
   "Returns nil if the colors don't match."

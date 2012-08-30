@@ -100,7 +100,32 @@
 (defn walk-random
   "Brownian motion"
   [walk-steps movements entity time]
-  movements)
+  (let [width (:width (meta movements))
+        height (:height (meta movements))
+        movs (reverse (get movements entity))
+        last-pos (first movs)
+        [ox oy] [(:x last-pos) (:y last-pos)]]
+    (loop [attempts 0]
+      (let [[x y] (loop [step 0
+                         [x y] [ox oy]]
+                    (if (= step walk-steps) [x y]
+                        (let [choices (filter (fn [[nx ny]]
+                                           (and (>= nx 0) (< nx width)
+                                                (>= ny 0) (< ny height)))
+                                         [[(dec x) y]
+                                          [(inc x) y]
+                                          [x (dec y)]
+                                          [x (inc y)]])]
+                          (if (empty? choices)
+                            (recur (inc step) [x y])
+                            (recur (inc step) (my-rand-nth choices))))))]
+        (cond (= attempts 1)
+              (move-entity movements entity ox oy time)
+              (and x y
+                   (empty? (entities-at movements x y time))
+                   (empty? (entities-at movements x y (dec time))))
+              (move-entity movements entity x y time)
+              :else (recur (inc attempts)))))))
 
 (defn get-walk-fn
   [truedata? random?]

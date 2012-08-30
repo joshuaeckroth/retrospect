@@ -212,7 +212,5 @@
                           (map #(lookup-hyp ws %) (get (:accepted ws) :movement)))
         lines (fn [ss] (apply str (interpose "\n" ss)))
         kb (get-kb (:accepted ws) #(lookup-hyp ws %))]
-    (format "Believed movements:\n%s\n\nBelieved mean, variance (%d moves): %.2f, %.2f"
-       (lines (map #(format "%s: %s" % (move-str (:mov %))) mov-hyps))
-       (count (:moves kb))
-       (:mean (:moves-dist kb)) (:variance (:moves-dist kb)))))
+    (format "Believed movements:\n%s"
+       (lines (map #(format "%s: %s" % (move-str (:mov %))) mov-hyps)))))
