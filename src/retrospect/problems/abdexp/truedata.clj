@@ -18,7 +18,10 @@
 
 (defn new-observations
   []
-  (set (repeatedly (* (:Steps params) 3) #(format "O%d" (my-rand-int 10000)))))
+  (let [[true-obs false-obs]
+        (split-at (* (:Steps params) 5)
+                  (repeatedly (* (:Steps params) 10) #(format "O%d" (my-rand-int 10000))))]
+    [(set true-obs) (set false-obs)]))
 
 (defn new-explainers
   [vertices]
@@ -40,8 +43,8 @@
 (defn random-expgraph
   []
   (loop [attempts 0]
-    (let [obs (new-observations)
-          expl-links (loop [unexp obs
+    (let [[true-obs false-obs] (new-observations)
+          expl-links (loop [unexp (set (concat true-obs false-obs))
                             vertices #{}
                             expl-links []]
                        (if (>= (count expl-links) (:NumExplainsLinks params))
@@ -63,12 +66,18 @@
                            (recur new-unexp new-vertices
                                   (concat expl-links new-expl-links)))))
           eg (apply add-edges (digraph) expl-links)
-          observations (set (filter #(and (obs %) (empty? (neighbors eg %))
-                                     (not-empty (incoming eg %)))
-                               (nodes eg)))
-          true-vertices (if (not (dag? eg)) #{}
-                            (set (apply concat (for [v observations]
-                                                 (arbitrary-path-up eg v)))))
+          observation-sets (repeatedly
+                            (:UniqueTrueSets params)
+                            #(set (take (* 2 (:Steps params))
+                                        (my-shuffle
+                                         (sort
+                                          (filter (fn [n] (and (true-obs n)
+                                                         (empty? (neighbors eg n))
+                                                         (not-empty (incoming eg n))))
+                                             (nodes eg)))))))
+          true-sets (if (not (dag? eg)) []
+                        (for [os observation-sets]
+                          (set (apply concat (for [v os] (arbitrary-path-up eg v))))))
           conflict-links (let [vs (sort (nodes eg))]
                            (take (:NumConflictLinks params)
                                  (my-shuffle
@@ -76,8 +85,8 @@
                                            (if (= 0 c) (compare (second %1) (second %2)) c))
                                         (set (filter (fn [[v1 v2]]
                                                   (and (not= v1 v2)
-                                                       (or (not (true-vertices v1))
-                                                           (not (true-vertices v2)))
+                                                       (or (not-any? #(% v1) true-sets)
+                                                           (not-any? #(% v2) true-sets))
                                                        (not (has-edge? eg v1 v2))
                                                        (not (has-edge? eg v2 v1))))
                                                 (combinations vs 2)))))))
@@ -85,8 +94,8 @@
           eg-scores (reduce (fn [eg v]
                          (add-attr eg v :score
                                    (cond
-                                    (observations v) 1.0
-                                    (true-vertices v)
+                                    ((set (concat true-obs false-obs)) v) 1.0
+                                    (some #(% v) true-sets)
                                     (max 0.0 (min 1.0 (my-rand-gauss
                                                        (:TrueAprioriMean params)
                                                        (:TrueAprioriVariance params))))
@@ -95,8 +104,11 @@
                                                        (:FalseAprioriMean params)
                                                        (:FalseAprioriVariance params)))))))
                        eg-conflicts (sort (nodes eg-conflicts)))]
-      (if (empty? true-vertices) (recur (inc attempts))
-          {:expgraph eg-scores :true-vertices true-vertices :observations observations}))))
+      (if (empty? true-sets) (recur (inc attempts))
+          {:expgraph eg-scores
+           :false-obs (filter false-obs (nodes eg-scores))
+           :observation-sets observation-sets
+           :true-sets true-sets}))))
 
 (defn observation-groups
   [observations]
@@ -117,9 +129,17 @@
 
 (defn generate-truedata
   []
-  (let [{:keys [expgraph true-vertices observations]} (random-expgraph)
-        obs-groups (observation-groups observations)]
-    {:training {:expgraph expgraph}
-     :test obs-groups
-     :expgraph expgraph
-     :true-vertices true-vertices}))
+  ;; restrict the number of possible graphs
+  (let [[truedata observation-sets true-sets]
+        (binding [rgen (new-seed (my-rand-int (:UniqueGraphs params)))]
+          (let [{:keys [expgraph false-obs observation-sets true-sets]} (random-expgraph)]
+            [{:training {:expgraph expgraph
+                         :false-obs false-obs}
+              :expgraph expgraph}
+             observation-sets
+             true-sets]))]
+    ;; use the original random generator again
+    (let [i (my-rand-int (count observation-sets))]
+      (assoc truedata
+        :true-explainers (set (filter (comp not (nth observation-sets i)) (nth true-sets i)))
+        :test (observation-groups (nth observation-sets i))))))

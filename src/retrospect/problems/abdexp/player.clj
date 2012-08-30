@@ -91,16 +91,14 @@
 
 (defn player-get-truedata-log
   []
-  ;; TODO: fix so it's not specific to abduction
   (if (<= @time-now 0) ""
-      (str "True vertices: "
-           (str/join ", " (sort (:true-vertices @truedata))))))
+      (str "True explainers: "
+           (str/join ", " (sort (:true-explainers @truedata))))))
 
 (defn player-get-problem-log
   []
   (if (<= @time-now 0) ""
       (let [ws (:workspace (cur-ep (:est @or-state)))]
-        (str "Believed vertices: "
+        (str "Believed explainers: "
              (str/join ", " (sort (set (map #(:vertex (lookup-hyp ws %))
-                                          (concat (get (:accepted ws) :expl)
-                                                  (get (:accepted ws) :observation))))))))))
+                                          (get (:accepted ws) :expl)))))))))

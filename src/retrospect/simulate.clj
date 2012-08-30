@@ -125,7 +125,8 @@
                     last-id 0
                     params control-params]
             (let [control-truedata (profile ((:generate-truedata-fn @problem)))
-                  control-sensors ((:generate-sensors-fn @problem) control-truedata)
+                  control-sensors ((:generate-sensors-fn @problem)
+                                   (:training control-truedata))
                   control-ors (profile (init-ors control-sensors
                                                  (:training control-truedata)))]
               (when (not (:Stats params))
@@ -139,7 +140,8 @@
                     last-id 0
                     params comparison-params]
             (let [comparison-truedata (profile ((:generate-truedata-fn @problem)))
-                  comparison-sensors ((:generate-sensors-fn @problem) comparison-truedata)
+                  comparison-sensors ((:generate-sensors-fn @problem)
+                                      (:training comparison-truedata))
                   comparison-ors (profile (init-ors comparison-sensors
                                                     (:training comparison-truedata)))]
               (when (not (:Stats params))
@@ -161,7 +163,7 @@
                 last-id 0
                 params params]
         (let [truedata (profile ((:generate-truedata-fn @problem)))
-              sensors ((:generate-sensors-fn @problem) truedata)
+              sensors ((:generate-sensors-fn @problem) (:training truedata))
               ors (profile (init-ors sensors (:training truedata)))]
           (when (not (:Stats params))
             (println "Params:" (pr-str params)))

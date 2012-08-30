@@ -93,14 +93,14 @@
                          :sees-color sees-color :colors (sort-by str colors)}))
 
 (defn generate-sensors
-  [truedata]
+  [training]
   (let [width-height (math/ceil
                       (math/sqrt (* (:GridHeight params)
                                     (:GridWidth params)
                                     (- 1.0 (* 0.01 (:SensorSeesColor params))))))
         left-right (math/ceil (/ (- (:GridWidth params) width-height) 2))
         top-bottom (math/ceil (/ (- (:GridHeight params) width-height) 2))
-        colors (:seen-colors (:training truedata))]
+        colors (:seen-colors training)]
     [(new-sensor (keyword "middle-gray")
                  left-right (- (:GridWidth params) left-right)
                  top-bottom (- (:GridHeight params) top-bottom)

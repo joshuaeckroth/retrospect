@@ -115,7 +115,8 @@
         (set-last-id 0)
         (dosync
          (alter truedata (constantly (profile ((:generate-truedata-fn @problem)))))
-         (alter sensors (constantly ((:generate-sensors-fn @problem) @truedata))))))
+         (alter sensors (constantly ((:generate-sensors-fn @problem)
+                                     (:training @truedata)))))))
     (dosync
      (alter results (constantly []))
      (alter or-state (constantly (profile (init-ors @sensors (:training @truedata))))))

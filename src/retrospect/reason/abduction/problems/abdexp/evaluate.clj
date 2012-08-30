@@ -9,7 +9,7 @@
 (defn true-hyp?
   [truedata time-now hyp]
   (if (= :kb (:type hyp)) true
-      (if ((:true-vertices truedata) (:vertex hyp)) true false)))
+      (if ((:true-explainers truedata) (:vertex hyp)) true false)))
 
 (defn count-matches
   [true-vertices vertices]
@@ -28,24 +28,20 @@
   [truedata est]
   (let [time-now (:time (cur-ep est))
         ws (:workspace (cur-ep est))
-        acc-vertices (set (map #(:vertex (lookup-hyp ws %))
-                             (concat
-                              (get (:accepted ws) :expl)
-                              (get (:accepted ws) :observation))))
-        not-acc-vertices (set/difference (set (map #(:vertex (lookup-hyp ws %))
-                                                 (concat
-                                                  (get (:hypotheses ws) :expl)
-                                                  (get (:hypotheses ws) :observation))))
-                                         acc-vertices)
-        [tp tn fp fn] (tp-tn-fp-fn (:true-vertices truedata) acc-vertices not-acc-vertices)]
+        acc-explainers (set (map #(:vertex (lookup-hyp ws %)) (get (:accepted ws) :expl)))
+        not-acc-explainers (set/difference (set (map #(:vertex (lookup-hyp ws %))
+                                                   (get (:hypotheses ws) :expl)))
+                                           acc-explainers)
+        [tp tn fp fn] (tp-tn-fp-fn (:true-explainers truedata)
+                                   acc-explainers not-acc-explainers)]
     ;; http://en.wikipedia.org/wiki/Receiver_operating_characteristic
     {:TP tp :TN tn :FP fp :FN fn
      :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
      :FPR (if (= 0 (+ fp tn)) 1.0 (/ (double fp) (double (+ fp tn))))
      :F1 (if (= 0 (+ tp fp fn)) 1.0 (/ (double (* 2.0 tp))
                                        (double (+ (* 2.0 tp) fp fn))))
-     :TPRatio (if (empty? (:true-vertices truedata)) 1.0
-                  (/ (double tp) (double (count (:true-vertices truedata)))))
+     :TPRatio (if (empty? (:true-explainers truedata)) 1.0
+                  (/ (double tp) (double (count (:true-explainers truedata)))))
      :Prec (if (= 0 (+ tp fp)) 1.0 (/ (double tp) (double (+ tp fp))))}))
 
 (defn evaluate-comp

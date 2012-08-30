@@ -41,6 +41,8 @@
                     :NumExplainers [3 [3]]
                     :NumExplainsLinks [20 [20]]
                     :NumConflictLinks [10 [10]]
+                    :UniqueGraphs [100 [100]]
+                    :UniqueTrueSets [5 [5]]
                     :FalseAprioriMean [0.4 [0.4]]
                     :FalseAprioriVariance [0.3 [0.3]]
                     :TrueAprioriMean [0.6 [0.6]]
