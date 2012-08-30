@@ -56,8 +56,12 @@
 
 (defn dist
   [x1 y1 x2 y2]
-  (double (math/sqrt (+ (* (- x1 x2) (- x1 x2))
-                        (* (- y1 y2) (- y1 y2))))))
+  (if (= "gaussian" (:WalkType params))
+    (double (math/sqrt (+ (* (- x1 x2) (- x1 x2))
+                          (* (- y1 y2) (- y1 y2)))))
+    ;; else, :WalkType = "random"
+    ;; use manhattan distance
+    (double (+ (Math/abs (- x1 x2)) (Math/abs (- y1 y2))))))
 
 (def loc-distances
   (memoize
