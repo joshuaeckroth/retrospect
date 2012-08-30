@@ -72,7 +72,8 @@
                  (= (:y mov2) (:oy mov1))
                  (= (:time mov2) (:ot mov1))
                  (not (match-color? (:color mov2) (:color mov1))))
-            ;; same color, same time, different paths
+            ;; same color (use =, not match-color?), same time,
+            ;; different paths
             (and (= (:color mov1) (:color mov2))
                  (or (= (:time mov1) (:time mov2))
                      (= (:ot mov1) (:ot mov2))))))))))
@@ -122,38 +123,9 @@
   (cumprob (:mean moves-dist) (:variance moves-dist) (- dist 2.0) (+ dist 2.0)))
 
 (defn new-mov-hyp
-  [to from det-color det2-color moves-dist gray-count]
-  (let [d (dist (:x det-color) (:y det-color)
-                (:x det2-color) (:y det2-color))]
-    (new-hyp "Mov" :movement :movement
-             (let [walk-prob (move-prob d moves-dist)]
-               (cond (= 0 gray-count) walk-prob
-                     (= 1 gray-count) (* 0.75 walk-prob)
-                     (= 2 gray-count) (* 0.5 walk-prob)))
-             false conflicts? (map :contents [to from])
-             (format "%d,%d->%d,%d @ %d->%d (%s->%s)"
-                (:x det-color) (:y det-color)
-                (:x det2-color) (:y det2-color)
-                (:time det-color) (:time det2-color)
-                (color-str (:color det-color))
-                (color-str (:color det2-color)))
-             (format "%d,%d -> %d,%d (dist=%.2f) at time %d->%d (%s->%s)\n%d gray"
-                (:x det-color) (:y det-color)
-                (:x det2-color) (:y det2-color)
-                (dist (:x det-color) (:y det-color)
-                      (:x det2-color) (:y det2-color))
-                (:time det-color) (:time det2-color)
-                (color-str (:color det-color))
-                (color-str (:color det2-color))
-                gray-count)
-             {:det det-color :det2 det2-color
-              :mov {:x (:x det2-color) :y (:y det2-color) :time (:time det2-color)
-                    :ox (:x det-color) :oy (:y det-color) :ot (:time det-color)
-                    :color (:color det-color)}})))
-
-(defn new-mov-hyps
+  "Returns nil if the colors don't match."
   [to from acc-mov-hyps moves-dist seen-colors]
-  (prof :new-mov-hyps
+  (prof :new-mov-hyp
         (let [det (:det to) det2 (:det from)
               colors-in (set (map (comp :color :det2)
                                 (connecting-movs {:det det :det2 det2} acc-mov-hyps)))
@@ -172,18 +144,29 @@
                                (and (= gray (:color det2))
                                     (= 1 (count colors-in)))
                                (assoc det2 :color (first colors-in))
-                               :else det2)]
-          (cond (= gray (:color det-color) (:color det2-color))
-                (map #(new-mov-hyp to from
-                                 (assoc det-color :color %)
-                                 (assoc det2-color :color %)
-                                 moves-dist 2)
-                   seen-colors)
-                (match-color? (:color det-color) (:color det2-color))
-                [(new-mov-hyp to from det-color det2-color moves-dist
-                              (if (or (= gray (:color det)) (= gray (:color det2)))
-                                1 0))]
-                :else []))))
+                               :else det2)
+              d (dist (:x det-color) (:y det-color)
+                      (:x det2-color) (:y det2-color))]
+          (when (match-color? (:color det-color) (:color det2-color))
+            (new-hyp "Mov" :movement :movement
+                     (move-prob d moves-dist)
+                     false conflicts? (map :contents [to from])
+                     (format "%d,%d->%d,%d @ %d->%d (%s->%s)"
+                        (:x det-color) (:y det-color)
+                        (:x det2-color) (:y det2-color)
+                        (:time det-color) (:time det2-color)
+                        (color-str (:color det-color))
+                        (color-str (:color det2-color)))
+                     (format "%d,%d -> %d,%d (dist=%.2f) at time %d->%d (%s->%s)"
+                        (:x det-color) (:y det-color)
+                        (:x det2-color) (:y det2-color)
+                        d (:time det-color) (:time det2-color)
+                        (color-str (:color det-color))
+                        (color-str (:color det2-color)))
+                     {:det det-color :det2 det2-color
+                      :mov {:x (:x det2-color) :y (:y det2-color) :time (:time det2-color)
+                            :ox (:x det-color) :oy (:y det-color) :ot (:time det-color)
+                            :color (:color det-color)}})))))
 
 (defn dets-connected?
   [to from]
@@ -206,9 +189,10 @@
                     (let [acc-mov-hyps (sort-by (comp :time :mov)
                                                 (map lookup-hyp (get accepted :movement)))
                           nearby (filter #(dets-connected? evidence %) to-hyps)
-                          mov-hyps (mapcat #(new-mov-hyps % evidence acc-mov-hyps
-                                                          (:moves-dist kb) (:seen-colors kb))
-                                           nearby)]
+                          mov-hyps (doall
+                                    (filter identity
+                                       (map #(new-mov-hyp % evidence acc-mov-hyps
+                                                        (:moves-dist kb) (:seen-colors kb))
+                                          nearby)))]
                       (filter-valid-movs mov-hyps acc-mov-hyps)))
                   from-hyps)))))
-

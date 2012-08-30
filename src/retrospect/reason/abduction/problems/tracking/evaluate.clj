@@ -26,7 +26,9 @@
 
 (defn count-matches
   [true-movs movs]
-  (count (filter true-movs movs)))
+  (let [true-movs-no-color (set (map #(dissoc % :color) true-movs))
+        movs-no-color (map #(dissoc % :color) movs)]
+    (count (filter true-movs-no-color movs-no-color))))
 
 (defn tp-tn-fp-fn
   [true-movs acc-movs not-acc-movs]
