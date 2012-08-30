@@ -9,42 +9,31 @@
   [movements numes]
   (reduce (fn [m _] (new-entity m 0)) movements (range numes)))
 
-(defn random-walks
-  [movements time mean max-walk]
-  (reduce #(walk %1 %2 time mean max-walk) movements (my-shuffle (entities movements))))
-
-(defn generate-movements
-  [mean steps]
-  (let [movements (add-new-entities
-                   (new-movements (:GridWidth params) (:GridHeight params))
-                   (:NumberEntities params))]
-    (loop [time 1
-           m movements]
-      (if (> time steps) m
-          (recur (inc time) (random-walks m time mean (:MaxWalk params)))))))
-
-(defn random-movements
-  [steps]
-  (let [movements (add-new-entities
-                   (new-movements (:GridWidth params) (:GridHeight params))
-                   (:NumberEntities params))
-        grid-length-avg (/ (double (+ (:GridWidth params) (:GridHeight params))) 2.0)]
-    (loop [time 1
-           m movements]
-      (if (> time steps) m
-          (recur (inc time)
-                 (random-walks m time (* grid-length-avg (my-rand)) (:MaxWalk params)))))))
-
 (defn generate-truedata
   []
-  (let [test-movements (generate-movements (:TrueMoveMean params)
-                                           (:Steps params))
+  (let [test-starting-movements (add-new-entities
+                                 (new-movements (:GridWidth params) (:GridHeight params))
+                                 (:NumberEntities params))
+        test-movements (generate-movements
+                        test-starting-movements
+                        (:Steps params) true false)
         testing-movs (apply concat (vals test-movements))
-        training-movs (filter :ot (concat (apply concat (vals (random-movements
-                                                          (:TrainingRandom params))))
-                                     (apply concat (vals (generate-movements
-                                                          (:BelMoveMean params)
-                                                          (:TrainingSteps params))))))]
+        training-starting-r (add-new-entities
+                             (new-movements (:GridWidth params) (:GridHeight params))
+                             (:NumberEntities params))
+        training-starting-t (add-new-entities
+                             (new-movements (:GridWidth params) (:GridHeight params))
+                             (:NumberEntities params))
+        training-movs (filter :ot (concat (apply concat
+                                            (vals (generate-movements
+                                                   training-starting-r
+                                                   (:TrainingRandom params)
+                                                   false true)))
+                                     (apply concat
+                                            (vals (generate-movements
+                                                   training-starting-t
+                                                   (:TrainingSteps params)
+                                                   false false)))))]
     {:test test-movements
      :all-moves (set (filter :ot testing-movs))
      :all-xys (set (concat (map (fn [mov] {:x (:x mov) :y (:y mov) :time (:time mov)})
