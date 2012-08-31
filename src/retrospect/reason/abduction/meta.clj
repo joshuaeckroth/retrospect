@@ -251,16 +251,21 @@
 
 (defn meta-abductive
   [truedata est time-prev time-now sensors]
-  (let [batch1 (meta-batch 1 truedata est time-prev time-now sensors)]
-    (if (empty? (problem-cases (:est-new batch1))) batch1
-        (let [batch1-lowermin (meta-batch-lower-min-apriori 1 truedata (:est-old batch1)
-                                                            time-prev time-now sensors)]
-          (if (empty? (problem-cases (:est-new batch1-lowermin))) batch1-lowermin
-              (let [batch-weakest (meta-batch-weakest nil truedata (:est-old batch1-lowermin)
-                                                      time-prev time-now sensors)]
-                (if (empty? (problem-cases (:est-new batch-weakest))) batch-weakest
-                    (meta-batch nil truedata (:est-old batch-weakest)
-                                time-prev time-now sensors))))))))
+  (if (not= 0 (:SensorInsertionNoise params))
+    {:est-old est
+     :est-new est}
+    (let [batch1 (meta-batch 1 truedata est time-prev time-now sensors)]
+      (if (empty? (problem-cases (:est-new batch1))) batch1
+          (let [batch1-lowermin (meta-batch-lower-min-apriori
+                                 1 truedata (:est-old batch1)
+                                 time-prev time-now sensors)]
+            (if (empty? (problem-cases (:est-new batch1-lowermin))) batch1-lowermin
+                (let [batch-weakest (meta-batch-weakest
+                                     nil truedata (:est-old batch1-lowermin)
+                                     time-prev time-now sensors)]
+                  (if (empty? (problem-cases (:est-new batch-weakest))) batch-weakest
+                      (meta-batch nil truedata (:est-old batch-weakest)
+                                  time-prev time-now sensors)))))))))
 
 (defn force-resolve
   [problem-cases truedata est time-prev time-now sensors]
