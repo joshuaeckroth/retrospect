@@ -290,6 +290,8 @@
                   (partial meta-batch 10)
                   (= "batchweakest10" m)
                   (partial meta-batch-weakest 10)
+                  (= "batchweakest" m)
+                  (partial meta-batch-weakest nil)
                   (= "lowerthresh" m)
                   meta-lower-threshold
                   (= "batch1-lowerthresh" m)
