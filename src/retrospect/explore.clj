@@ -92,7 +92,7 @@
                          retrospect.state/params (assoc params :Seed seed)]
                  #_(dosync (alter log-box str (format "\nSeed: %d" seed)))
                  (let [truedata ((:generate-truedata-fn @problem))
-                       sensors ((:generate-sensors-fn @problem))
+                       sensors ((:generate-sensors-fn @problem) (:training truedata))
                        ors (init-ors sensors (:training truedata))
                        results (:results (cur-ep (:est (run-simulation truedata ors))))]
                    (dosync (alter retrospect.state/results conj (last results)))
