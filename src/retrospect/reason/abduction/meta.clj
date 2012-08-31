@@ -26,16 +26,15 @@
                            time-now)))
       (update-kb (explain (update-hypotheses ws time-now))))))
 
+(defn problem-cases
+  [est]
+  (let [workspace (:workspace (cur-ep est))]
+    (set (get-no-explainers workspace))))
+
 (defn metareasoning-activated?
   "Check if any of the metareasoning activation conditions are met."
   [est]
-  (let [workspace (:workspace (cur-ep est))]
-    (not-empty (get-no-explainers workspace))))
-
-(defn workspace-better?
-  [ws-new ws-old]
-  ;; we wanted to fix "no explainers"; so, did we?
-  (empty? (get-no-explainers ws-new)))
+  (not-empty (problem-cases est)))
 
 (defn ignore-hyp
   [noexp workspace]
@@ -57,37 +56,32 @@
                     (reset-workspace ws-old))
                 time-prev time-now sensors)
         new-expl-est (update-est new-est (assoc new-ep :workspace ws-new))]
-    (if (workspace-better? ws-new ws-old)
-      {:est new-expl-est
-       :considered? true
-       :accepted-branch? true}
-      ;; trigger for metareasoning not resolved; ignore the 'noexp' hyps
-      {:est (goto-ep new-expl-est (:id (cur-ep est)))
-       :considered? true
-       :accepted-branch? false})))
+    {:est-old (goto-ep new-expl-est (:id (cur-ep est)))
+     :est-new new-expl-est}))
 
-(defn apply-resolutions
-  [accepted est time-prev time-now sensors]
-  (if (empty? accepted)
-    {:est est :considered? false :accepted-branch? false}
-    (let [new-est (new-branch-ep est (cur-ep est))
-          new-ep (cur-ep new-est)
-          ws-old (:workspace new-ep)
-          ;; apply all the actions specified by the accepted meta-hyps;
-          ;; always revert workspace first
-          ws-new (reduce (fn [ws h] ((:action h) ws))
-                    (revert-workspace ws-old) accepted)
-          ws-expl (reason (when (:Oracle params) truedata) ws-new
-                          (if (some #{:anomaly} (map :type accepted)) 0 time-prev)
-                          time-now sensors)
-          new-expl-est (update-est new-est (assoc new-ep :workspace ws-expl))]
-      (if (workspace-better? ws-expl ws-old)
-        {:est new-expl-est
-         :considered? true
-         :accepted-branch? true}
-        {:est (goto-ep new-expl-est (:id (cur-ep est)))
-         :considered? true
-         :accepted-branch? false}))))
+(comment
+  (defn apply-resolutions
+    [accepted est time-prev time-now sensors]
+    (if (empty? accepted)
+      {:est est :considered? false :accepted-branch? false}
+      (let [new-est (new-branch-ep est (cur-ep est))
+            new-ep (cur-ep new-est)
+            ws-old (:workspace new-ep)
+            ;; apply all the actions specified by the accepted meta-hyps;
+            ;; always revert workspace first
+            ws-new (reduce (fn [ws h] ((:action h) ws))
+                      (revert-workspace ws-old) accepted)
+            ws-expl (reason (when (:Oracle params) truedata) ws-new
+                            (if (some #{:anomaly} (map :type accepted)) 0 time-prev)
+                            time-now sensors)
+            new-expl-est (update-est new-est (assoc new-ep :workspace ws-expl))]
+        (if (workspace-better? ws-expl ws-old)
+          {:est new-expl-est
+           :considered? true
+           :accepted-branch? true}
+          {:est (goto-ep new-expl-est (:id (cur-ep est)))
+           :considered? true
+           :accepted-branch? false})))))
 
 (defn belief-revision
   [noexp-hyp depth workspace]
@@ -208,7 +202,8 @@
         ws-depth (workspace-depth workspace)
         depth-doubts (for [i (range (dec ws-depth) -1 -1)]
                        [i (calc-doubt (revert-workspace workspace i))])
-        n (max max-n (- ws-depth (ffirst (reverse (sort-by second depth-doubts)))))
+        n (max (or max-n 0)
+               (- ws-depth (ffirst (reverse (sort-by second depth-doubts)))))
         branch-root? (>= n (ep-state-depth est))
         branch-ep (nth-previous-ep est n)
         new-est (new-branch-ep est branch-ep)
@@ -252,19 +247,19 @@
 (defn meta-abductive
   [truedata est time-prev time-now sensors]
   (let [batch1 (meta-batch 1 truedata est time-prev time-now sensors)]
-    (if (:accepted-branch? batch1) batch1
-        (let [batch-weakest (meta-batch-weakest 10 truedata (:est batch1)
+    (if (empty? (problem-cases (:est-new batch1))) batch1
+        (let [batch-weakest (meta-batch-weakest nil truedata (:est-old batch1)
                                                 time-prev time-now sensors)]
-          (if (:accepted-branch? batch-weakest) batch-weakest
-              (meta-batch 10 truedata (:est batch-weakest)
+          (if (empty? (problem-cases (:est-new batch-weakest))) batch-weakest
+              (meta-batch nil truedata (:est-old batch-weakest)
                           time-prev time-now sensors))))))
 
-(defn force-resolve-trigger
-  [truedata est time-prev time-now sensors]
+(defn force-resolve
+  [problem-cases truedata est time-prev time-now sensors]
   (let [new-est (new-branch-ep est (cur-ep est))
         new-ep (cur-ep new-est)
         ws-old (:workspace new-ep)
-        noexp (map #(lookup-hyp ws-old %) (get-no-explainers ws-old))
+        noexp (map #(lookup-hyp ws-old %) problem-cases)
         ws-new (reduce (fn [ws h] (ignore-hyp h ws))
                   (revert-workspace ws-old) noexp)
         ws-expl (reason (when (:Oracle params) truedata) ws-new
@@ -305,8 +300,18 @@
                   ;; hand-off to the reasoning engine
                   :else
                   meta-abductive)
-          result (f truedata est time-prev time-now sensors)]
-      (if (:accepted-branch? result) result
-          (assoc result :est
-                 (force-resolve-trigger truedata (:est result)
-                                        time-prev time-now sensors))))))
+          result (f truedata est time-prev time-now sensors)
+          problem-cases-old (problem-cases (:est-old result))
+          problem-cases-new (problem-cases (:est-new result))]
+      (cond (empty? problem-cases-new)
+            {:est (:est-new result) :considered? true :accepted? true}
+            (< (count problem-cases-new) (count problem-cases-old))
+            {:est (force-resolve problem-cases-new truedata (:est-new result)
+                                 time-prev time-now sensors)
+             :considered? true
+             :accepted? true}
+            :else
+            {:est (force-resolve problem-cases-old truedata (:est-old result)
+                                 time-prev time-now sensors)
+             :considered? true
+             :accepted? false}))))
