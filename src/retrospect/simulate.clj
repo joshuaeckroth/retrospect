@@ -11,7 +11,7 @@
   (:use [retrospect.state]))
 
 (defn evaluate
-  [truedata est meta-considered? meta-accepted-branch?]
+  [truedata est meta-considered? meta-accepted?]
   ;; TODO: grab MetaConsidered/MetaAccepted from prior results, not current results
   (let [results ((:evaluate-fn @reasoner) truedata est)
         prior-considered (get (last (:results (cur-ep est))) :MetaConsidered 0)
@@ -21,7 +21,7 @@
                                   (if meta-considered?
                                     (inc prior-considered) prior-considered))
                         (assoc-in [:MetaAccepted]
-                                  (if meta-accepted-branch?
+                                  (if meta-accepted?
                                     (inc prior-accepted) prior-accepted)))]
     (update-est est (update-in (cur-ep est) [:results] conj meta-results))))
 
@@ -53,12 +53,12 @@
                             (when (:Oracle params) truedata)
                             workspace time-prev time-now sensors)
         ep-reason (assoc ep :workspace workspace-reasoned)
-        {meta-est :est considered? :considered? accepted-branch? :accepted-branch?}
+        {meta-est :est meta-considered? :considered? meta-accepted? :accepted?}
         ((:metareason-fn @reasoner) truedata (update-est (:est ors-new) ep-reason)
          time-prev time-now sensors)
         ;; stop the clock
         ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
-        meta-est-eval (evaluate truedata meta-est considered? accepted-branch?)
+        meta-est-eval (evaluate truedata meta-est meta-considered? meta-accepted?)
         ors-est (assoc ors-new :est meta-est-eval :sensors sensors)
         ors-results (update-in ors-est [:resources :milliseconds] + ms)]
     (when (:Stats params)

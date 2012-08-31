@@ -83,42 +83,47 @@
            :considered? true
            :accepted-branch? false})))))
 
-(defn belief-revision
-  [noexp-hyp depth workspace]
-  ;; go back "before" this depth in order to repair
-  (revert-workspace workspace (dec depth)))
+(comment
+  (defn belief-revision
+    [noexp-hyp depth workspace]
+    ;; go back "before" this depth in order to repair
+    (revert-workspace workspace (dec depth))))
 
-(defn transitive-explanation
-  [noexp-hyp workspace]
-  ;; how to do this? this will explain unexplained-impasses, not
-  ;; noexp-impasses
-  workspace)
+(comment
+  (defn transitive-explanation
+    [noexp-hyp workspace]
+    ;; how to do this? this will explain unexplained-impasses, not
+    ;; noexp-impasses
+    workspace))
 
-(defn make-noexp-hyps
-  [noexp]
-  (for [ne noexp]
-    (new-hyp "NoExp" :noexp :noexp 1.0 true nil []
-             (format "NoExp: %s" ne)
-             (format "%s has no explainer but needs an explanation." ne)
-             {:hyp ne})))
+(comment
+  (defn make-noexp-hyps
+    [noexp]
+    (for [ne noexp]
+      (new-hyp "NoExp" :noexp :noexp 1.0 true nil []
+               (format "NoExp: %s" ne)
+               (format "%s has no explainer but needs an explanation." ne)
+               {:hyp ne}))))
 
-(defn conflicts?
-  [hyp1 hyp2]
-  (= (:explains hyp1) (:explains hyp2)))
+(comment
+  (defn conflicts?
+    [hyp1 hyp2]
+    (= (:explains hyp1) (:explains hyp2))))
 
-(defn make-meta-hyps
-  "Create explanations, and associated actions, for noexp."
-  [ws-original noexp-hyps ws-depth time-now]
-  ;; anomaly hyps
-  (mapcat (fn [ne] (for [i (range (dec ws-depth) 0 -1)]
-                    (new-hyp "Anomaly" :anomaly :anomaly
-                             (calc-doubt (revert-workspace ws-original i))
-                             false conflicts? [(:contents ne)]
-                             (format "%s is an anomaly from depth %d" ne i)
-                             (format "%s is an anomaly from depth %d" ne i)
-                             {:action (partial belief-revision ne i) :noexp-hyp ne
-                              :depth i})))
-          noexp-hyps))
+(comment
+  (defn make-meta-hyps
+    "Create explanations, and associated actions, for noexp."
+    [ws-original noexp-hyps ws-depth time-now]
+    ;; anomaly hyps
+    (mapcat (fn [ne] (for [i (range (dec ws-depth) 0 -1)]
+                      (new-hyp "Anomaly" :anomaly :anomaly
+                               (calc-doubt (revert-workspace ws-original i))
+                               false conflicts? [(:contents ne)]
+                               (format "%s is an anomaly from depth %d" ne i)
+                               (format "%s is an anomaly from depth %d" ne i)
+                               {:action (partial belief-revision ne i) :noexp-hyp ne
+                                :depth i})))
+            noexp-hyps)))
 
 (comment
   (mapcat (fn [ne]
@@ -219,7 +224,7 @@
 (defn meta-lower-threshold
   [truedata est time-prev time-now sensors]
   (if (= 0 (:Threshold params))
-    {:est est :considered? false :accepted-branch? false}
+    {:est est :considered? false :accepted? false}
     (let [new-est (new-branch-ep est (cur-ep est))]
       ;; drop threshold to 0
       (binding [params (assoc params :Threshold 0)]
@@ -229,7 +234,7 @@
 (defn meta-batch-lower-threshold
   [n truedata est time-prev time-now sensors]
   (let [batch-result (meta-batch n truedata est time-prev time-now sensors)]
-    (if (or (= 0 (:Threshold params)) (:accepted-branch? batch-result))
+    (if (or (= 0 (:Threshold params)) (:accepted? batch-result))
       batch-result
       ;; how much to lower threshold?
       (binding [params (assoc params :Threshold 0)]
@@ -238,7 +243,7 @@
 (defn meta-batch-lower-min-apriori
   [n truedata est time-prev time-now sensors]
   (let [batch-result (meta-batch n truedata est time-prev time-now sensors)]
-    (if (or (= 0 (:MinApriori params)) (:accepted-branch? batch-result))
+    (if (or (= 0 (:MinApriori params)) (:accepted? batch-result))
       batch-result
       ;; how much to lower threshold?
       (binding [params (assoc params :MinApriori 0)]
@@ -272,7 +277,7 @@
   [truedata est time-prev time-now sensors]
   (if (or (not (metareasoning-activated? est))
           (= "none" (:Metareasoning params)))
-    {:est est :considered? false :accepted-branch? false}
+    {:est est :considered? false :accepted? false}
     (let [m (:Metareasoning params)
           f (cond (= "batchbeg" m)
                   (partial meta-batch nil)
@@ -308,12 +313,15 @@
       (cond (empty? problem-cases-new)
             {:est (:est-new result) :considered? true :accepted? true}
             (< (count problem-cases-new) (count problem-cases-old))
-            {:est (force-resolve problem-cases-new truedata (:est-new result)
-                                 time-prev time-now sensors)
+            {:est (if (= 0 (:SensorInsertionNoise params))
+                    (:est-new result)
+                    (force-resolve problem-cases-new truedata (:est-new result)
+                                   time-prev time-now sensors))
              :considered? true
              :accepted? true}
             :else
-            {:est (force-resolve problem-cases-old truedata (:est-old result)
-                                 time-prev time-now sensors)
+            {:est (if (= 0 (:SensorInsertionNoise params)) (:est-old result)
+                      (force-resolve problem-cases-old truedata (:est-old result)
+                                     time-prev time-now sensors))
              :considered? true
              :accepted? false}))))
