@@ -63,19 +63,19 @@
         ors-results (update-in ors-est [:resources :milliseconds] + ms)]
     (when (:Stats params)
       ((:stats-fn @reasoner) truedata ors-results time-now))
-    (when (and (not player?) (not (:Stats params)))
-      (.write System/out (int \.))
-      (when (= 0 (mod time-now 1000)) (.print System/out (str time-now)))
-      (.flush System/out))
+    (comment
+      (when (and (not player?) (not (:Stats params)))
+        (.write System/out (int \.))
+        (when (= 0 (mod time-now 1000)) (.print System/out (str time-now)))
+        (.flush System/out)))
     ors-results))
 
 (defn run-simulation
   [truedata or-state]
   (loop [ors or-state]
     (when (not @batch) (dosync (alter retrospect.state/or-state (constantly ors))))
-    (if (>= (:time (cur-ep (:est ors))) (:Steps params))
-      (do (println "") ors)
-      (recur (run-simulation-step truedata ors false)))))
+    (if (>= (:time (cur-ep (:est ors))) (:Steps params)) ors
+        (recur (run-simulation-step truedata ors false)))))
 
 (defn init-ors
   [sensors training]
@@ -129,8 +129,8 @@
                                    (:training control-truedata))
                   control-ors (profile (init-ors control-sensors
                                                  (:training control-truedata)))]
-              (when (not (:Stats params))
-                (println "Control:" (pr-str control-params)))
+              (comment (when (not (:Stats params))
+                         (println "Control:" (pr-str control-params))))
               (map (fn [rs] (assoc rs :control-params (pr-str control-params)
                                    :comparison-params (pr-str comparison-params)))
                    (let [ors-final (run-simulation control-truedata control-ors)]
@@ -144,8 +144,8 @@
                                       (:training comparison-truedata))
                   comparison-ors (profile (init-ors comparison-sensors
                                                     (:training comparison-truedata)))]
-              (when (not (:Stats params))
-                (println "Comparison:" (pr-str comparison-params)))
+              (comment (when (not (:Stats params))
+                         (println "Comparison:" (pr-str comparison-params))))
               (map (fn [rs] (assoc rs
                               :control-params (pr-str control-params)
                               :comparison-params (pr-str comparison-params)))
@@ -165,8 +165,8 @@
         (let [truedata (profile ((:generate-truedata-fn @problem)))
               sensors ((:generate-sensors-fn @problem) (:training truedata))
               ors (profile (init-ors sensors (:training truedata)))]
-          (when (not (:Stats params))
-            (println "Params:" (pr-str params)))
+          (comment (when (not (:Stats params))
+                     (println "Params:" (pr-str params))))
           (map (fn [rs] (assoc rs :params (pr-str params)))
                (let [ors-final (run-simulation truedata ors)]
                  (:results (cur-ep (:est ors-final))))))))))
