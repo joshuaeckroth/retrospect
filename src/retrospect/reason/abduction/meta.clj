@@ -2,11 +2,12 @@
   (:require [clojure.set :as set])
   (:use [retrospect.epistemicstates :only
          [cur-ep new-child-ep new-branch-ep init-est ep-state-depth
-          update-est nth-previous-ep print-est goto-ep ep-path]])
+          update-est nth-previous-ep print-est goto-ep ep-path goto-cycle]])
   (:use [retrospect.reason.abduction.workspace :only
          [get-no-explainers get-unexplained new-hyp init-workspace calc-doubt
           explain add-kb add-observation add lookup-hyp explainers
-          update-kb explain update-hypotheses add-sensor-hyps]])
+          update-kb explain update-hypotheses add-sensor-hyps conflicts?
+          reject-many]])
   (:use [retrospect.state]))
 
 (defn reason
@@ -40,7 +41,7 @@
   (let [reason-est (reason (when (:Oracle params) truedata) new-est
                            time-prev time-now sensors)]
     {:est-old (goto-ep reason-est (:id (cur-ep est)))
-     :est-new reason-est}))
+     :est-new (update-est reason-est (assoc (cur-ep reason-est) :time time-now))}))
 
 (comment
   (defn apply-resolutions
@@ -170,28 +171,59 @@
               :else
               (recur est-meta (rest hyps) attempted-depths attempts))))))
 
+(defn preemptively-reject
+  [est hyp]
+  (let [ep (cur-ep est)
+        ws-rejected (reject-many (:workspace ep) [hyp])
+        ep-rejected (assoc ep :workspace ws-rejected)]
+    (update-est est ep-rejected)))
+
 (defn find-rejected-explainers
-  "Only makes sense when the problem case given to this function is
-   a noexp case."
+  "For one problem case (noexp), there is a set of explainers (which
+   may be empty). All of these (if any exist) must have been rejected
+   at some time. (If they just weren't accepted due to a
+   delta-threshold, they would not appear as noexp.) They were each
+   rejected when something else was accepted. Maybe some of those
+   accepted hyps were not essential, and had alternatives, some or all
+   of which do not conflict with the explainers of the noexp. This
+   meta-strategy chooses to branch back to the acceptance point of the
+   accepted hyp (which rejected an explainer of the noexp) that had
+   the lowest normalized-delta, and pre-emptively reject it, thus
+   favoring its next-best. Only makes sense when the problem case
+   given to this function is a noexp case."
   [est noexp]
   (let [expl (set (explainers (:workspace (cur-ep est))
                               (lookup-hyp (:workspace (cur-ep est)) noexp)))
-        ;; which ep-states rejected these expl?  for now, only
-        ;; consider those ep-states that match the current time so we
-        ;; can be sure that the noexp are still in the earliest ep (we
-        ;; can be sure of this because sensor reports and their
-        ;; corresponding explainers are added at distinct times
+        ;; which ep-states rejected these expl? for now, only consider
+        ;; those ep-states that match the current time so we can be
+        ;; sure that the noexp are still in the earliest ep (we can be
+        ;; sure of this because sensor reports and their corresponding
+        ;; explainers are added at distinct times)
         ep-rejs (filter (fn [ep] (some expl (:rej (:accrej (:workspace ep)))))
                    (filter #(= (:time (cur-ep est)) (:time %)) (ep-path est)))
-        earliest-cycle (apply min (map :cycle ep-rejs))
-        next-bests (sort-by second
-                            (set (map (fn [ep] [(get-in ep [:workspace :accrej :nbest])
-                                             (get-in ep [:workspace :accrej :delta])])
-                                    ep-rejs)))]
+        bad-bests (sort-by first
+                           ;; don't consider a next-best that still
+                           ;; conflicts with what can explain the
+                           ;; noexp; note, the next-best may conflict
+                           ;; but a different alternative may not --
+                           ;; we are not finding that other
+                           ;; alternative
+                           (filter (fn [h] (not-any? (fn [e] (conflicts? h e)) expl))
+                              (set (map (fn [ep] [(get-in ep [:workspace :accrej :delta])
+                                               (:cycle ep)
+                                               (get-in ep [:workspace :accrej :best])])
+                                      ep-rejs))))
+        smallest-delta (ffirst bad-bests)
+        [_ cycle best] (first (sort-by second (filter #(= smallest-delta (first %)) bad-bests)))]
+    ;; TODO: consider the delta; if it's too large, perhaps the noexp is just noise
     (println "noexp" noexp "has these explainers:" expl)
-    (println "these eps" (map str ep-rejs))
-    (println "they were rejected when these were next-best:" next-bests)
-    (println "earliest cycle:" earliest-cycle)))
+    (println "these eps:" (map str ep-rejs))
+    (println "they were rejected when these were bad-bests:" bad-bests)
+    (println cycle best)
+    (if cycle
+      (let [new-est (new-branch-ep est (cur-ep (goto-cycle est (dec cycle))))]
+        (preemptively-reject new-est best))
+      est)))
 
 (defn meta-batch
   [n truedata est _ time-now sensors]
@@ -254,21 +286,26 @@
 
 (defn meta-abductive
   [truedata est time-prev time-now sensors]
-  (if (not= 0 (:SensorInsertionNoise params))
-    {:est-old est
-     :est-new est}
-    (let [batch1 (meta-batch 1 truedata est time-prev time-now sensors)]
-      (if (empty? (problem-cases (:est-new batch1))) batch1
-          (let [batch1-lowermin (meta-batch-lower-min-apriori
-                                 1 truedata (:est-old batch1)
-                                 time-prev time-now sensors)]
-            (if (empty? (problem-cases (:est-new batch1-lowermin))) batch1-lowermin
-                (let [batch-weakest (meta-batch-weakest
-                                     nil truedata (:est-old batch1-lowermin)
-                                     time-prev time-now sensors)]
-                  (if (empty? (problem-cases (:est-new batch-weakest))) batch-weakest
-                      (meta-batch nil truedata (:est-old batch-weakest)
-                                  time-prev time-now sensors)))))))))
+  (comment (if (not= 0 (:SensorInsertionNoise params))
+             {:est-old est
+              :est-new est}
+             (let [batch1 (meta-batch 1 truedata est time-prev time-now sensors)]
+               (if (empty? (problem-cases (:est-new batch1))) batch1
+                   (let [batch1-lowermin (meta-batch-lower-min-apriori
+                                          1 truedata (:est-old batch1)
+                                          time-prev time-now sensors)]
+                     (if (empty? (problem-cases (:est-new batch1-lowermin))) batch1-lowermin
+                         (let [batch-weakest (meta-batch-weakest
+                                              nil truedata (:est-old batch1-lowermin)
+                                              time-prev time-now sensors)]
+                           (if (empty? (problem-cases (:est-new batch-weakest))) batch-weakest
+                               (meta-batch nil truedata (:est-old batch-weakest)
+                                           time-prev time-now sensors)))))))))
+  (let [problem-cases (problem-cases est)
+        est-rej (if (empty? problem-cases) est
+                    (find-rejected-explainers est (first problem-cases)))]
+    (meta-apply-and-evaluate truedata est est-rej
+                             (:time (cur-ep est-rej)) time-now sensors)))
 
 (defn ignore-hyp
   [workspace hypid]
@@ -327,8 +364,8 @@
           result (f truedata est time-prev time-now sensors)
           problem-cases-old (problem-cases (:est-old result))
           problem-cases-new (problem-cases (:est-new result))]
-      (println "problem cases" problem-cases-old)
-      (find-rejected-explainers (:est-old result) (first problem-cases-old))
+      (println "problem-cases-old" problem-cases-old)
+      (println "problem-cases-new" problem-cases-new)
       (cond (empty? problem-cases-new)
             (:est-new result)
             (< (count problem-cases-new) (count problem-cases-old))

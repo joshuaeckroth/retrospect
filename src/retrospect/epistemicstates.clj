@@ -107,6 +107,14 @@
           (= id (:id (zip/node loc))) loc
           :else (recur (zip/next loc)))))
 
+(defn goto-cycle
+  [est cycle]
+  (loop [loc est]
+    (if (or (= cycle (:cycle (zip/node loc)))
+            (root-ep? (zip/node (zip/up loc))))
+      loc
+      (recur (zip/up loc)))))
+
 (defn update-est
   [est ep]
   (zip/replace est ep))
