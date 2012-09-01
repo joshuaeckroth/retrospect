@@ -2,7 +2,7 @@
   (:require [clojure.set :as set])
   (:require [clojure.string :as str])
   (:use [retrospect.reason.abduction.workspace
-         :only [reset-workspace init-workspace init-kb calc-doubt calc-coverage]])
+         :only [init-workspace init-kb calc-doubt calc-coverage]])
   (:use [retrospect.reason.abduction.meta
          :only [reason metareason]])
   (:use [retrospect.reason.abduction.evaluate
@@ -29,14 +29,11 @@
              :MinApriori [10 [10]]
              :UseScores [true [true]]
              :MetaMinApriori [20 [20]]
-             :MetaBatchAttempts [3 [3]]
              :ContrastPreference ["delta" ["delta" "arbitrary" "apriori,delta"]]
              :HypPreference ["abd" ["abd" "arbitrary"]]
-             :ConsiderExplPower [false [true false]]
-             :TransitiveExplanation [false [true false]]}
+             :ConsiderExplPower [false [true false]]}
             (:default-params (:abduction @problem))))
    :init-workspace-fn init-workspace
-   :reset-workspace-fn reset-workspace
    :init-kb-fn init-kb
    :player-fns
    {:get-tabs-fn (fn [] [["Logs" (logs-tab)]

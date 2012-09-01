@@ -40,57 +40,57 @@
   (apply sorted-map-by anc (mapcat (fn [h] [(:name h) nil]) hyps)))
 
 (defn build-cycle
-  [wslog i]
-  (let [b (nth (:best wslog) i)
-        ;; seq of {:acc :rej} pairs (maps)
-        ars (get (:accrej wslog) (inc i))]
-    [(format "Cycle %d %s" (inc i) (if (:essential? b) "essential"
-                                  (format "delta %.2f" (:delta b))))
-     {"Best" {(:name (:best b)) nil}
-      "Explained" {(:name (:explained b)) nil}
-      "Alternatives" (list-hyps (:alts b))
-      "Normalized Aprioris" (apply hash-map
-                                   (apply concat
-                                          (map (fn [i]
-                                               (let [a (nth (:normalized-aprioris b) i)]
-                                                 [(format "%d: %.2f" i a) nil]))
-                                             (range (count (:normalized-aprioris b))))))
-      "Accepted" (list-hyps (disj (set (map :acc ars)) (:best b)))
-      "Rejected" (list-hyps (:rej ars))}]))
+  [workspace]
+  (let [accrej (:accrej workspace)]
+    {(format "Best %s" (if (:essential? accrej) "essential"
+                      (format "delta %.2f" (:delta accrej))))
+     {(:name (:best accrej)) nil}
+     "Explained" {(:name (:explained accrej)) nil}
+     "Alternatives" (list-hyps (:alts accrej))
+     "Normalized Aprioris" (apply hash-map
+                                  (apply concat
+                                         (map (fn [i]
+                                              (let [a (nth (:normalized-aprioris accrej) i)]
+                                                [(format "%d: %.2f" i a) nil]))
+                                            (range (count (:normalized-aprioris accrej))))))
+     "Accepted" (list-hyps [(:acc accrej)])
+     "Rejected" (list-hyps (:rej accrej))}))
 
 (defn build-abduction-tree-map
   [or-state]
   (let [est (:est or-state)
         ep-states (flatten-est est)        
         ws-fn (fn [ws time]
-                (let [wslog (:log ws)
-                      tf-fn (fn [hyp] ((:true-hyp?-fn (:abduction @problem))
+                (let [tf-fn (fn [hyp] ((:true-hyp?-fn (:abduction @problem))
                                       @truedata time hyp))]
                   {"Hypotheses"
                    (apply merge
                           (for [t (keys (:hypotheses ws))]
-                            (let [acc-hyps (map #(ws/lookup-hyp ws %)
+                            (let [all-hyps (map #(ws/lookup-hyp ws %)
+                                              (get (:hypotheses ws) t))
+                                  acc-hyps (map #(ws/lookup-hyp ws %)
                                               (get (:accepted ws) t))
                                   not-acc-hyps (set/difference
                                                 (set (map #(ws/lookup-hyp ws %)
                                                         (get (:hypotheses ws) t)))
                                                 acc-hyps)
+                                  all-tf-hyps (group-by tf-fn all-hyps)
                                   acc-tf-hyps (group-by tf-fn acc-hyps)
                                   not-acc-tf-hyps (group-by tf-fn not-acc-hyps)]
                               {(name t)
-                               {"All" (list-hyps (map #(ws/lookup-hyp ws %)
-                                                    (get (:hypotheses ws) t)))
+                               {"All" 
+                                {"All" (list-hyps all-hyps)
+                                 "True" (list-hyps (get all-tf-hyps true))
+                                 "False" (list-hyps (get all-tf-hyps false))}
                                 "Accepted"
-                                {"True" (list-hyps (get acc-tf-hyps true))
+                                {"All" (list-hyps acc-hyps)
+                                 "True" (list-hyps (get acc-tf-hyps true))
                                  "False" (list-hyps (get acc-tf-hyps false))}
                                 "Not accepted"
-                                {"True" (list-hyps (get not-acc-tf-hyps true))
+                                {"All" (list-hyps not-acc-hyps)
+                                 "True" (list-hyps (get not-acc-tf-hyps true))
                                  "False" (list-hyps (get not-acc-tf-hyps false))}}})))
-                   "Cycles" (apply sorted-map-by anc
-                                   (mapcat #(build-cycle wslog %)
-                                           (range (count (:best wslog)))))
-                   "Accepted" (list-hyps (map #(ws/lookup-hyp ws %)
-                                            (apply concat (vals (:accepted ws)))))
+                   "Cycle" (build-cycle ws)
                    "No explainers" (list-hyps (map #(ws/lookup-hyp ws %)
                                                  (ws/get-no-explainers ws)))
                    "Unexplained" (list-hyps (map #(ws/lookup-hyp ws %)
@@ -99,7 +99,7 @@
                                               (ws/find-unaccepted ws)))}))]
     (apply sorted-map-by anc
            (mapcat (fn [ep] [(str ep)
-                            {(format "Workspace-%d" (:depth (:workspace ep)))
+                            {"Workspace"
                              (assoc (ws-fn (:workspace ep) (:time ep)) "Log" nil)
                              "Meta-workspace"
                              (if-not (:meta-workspace ep) {}

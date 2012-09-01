@@ -52,8 +52,5 @@
     :GaussianTrueWalkMean [4 [4]]
     :GaussianBelWalkMean [4 [4]]
     :NumberEntities [4 [2 4 6]]
-    :ResetEachStep [false [false]]
-    :ResetSensors [false [false]]
-    :GrowEst [true [true]]
     :SensorSeesColor [60 [0 20 40 60 80 100]]
     :SensorCoverage [100 [100]]}})

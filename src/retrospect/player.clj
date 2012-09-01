@@ -9,14 +9,15 @@
   (:use [clj-swing.combo-box])
   (:use [clj-swing.text-field])
   (:use [retrospect.simulate
-         :only [run-simulation-step merge-default-params get-default-params init-ors]])
+         :only [run-simulation-step merge-default-params get-default-params init-ors
+                evaluate]])
   (:use [retrospect.state])
   (:use [retrospect.profile :only [profile]])
   (:use [retrospect.gui.eptree :only [ep-tree-tab update-ep-tree]])
   (:use [retrospect.gui.results :only [update-results results-tab]])
   (:use [retrospect.gui.repl :only [update-repl-tab repl-tab]])
   (:use [retrospect.epistemicstates
-         :only [list-ep-states cur-ep prev-ep goto-ep]])
+         :only [list-ep-states cur-ep prev-ep goto-ep ep-path]])
   (:use [retrospect.random :only [rgen new-seed]]))
 
 (def prepared-selected (atom "None"))
@@ -62,7 +63,9 @@
 (defn update-everything
   []
   (let [time-n (:time (cur-ep (:est @or-state)))
-        time-p (or (:time (prev-ep (:est @or-state))) -1)]
+        time-p (or (first (filter #(not= time-n %)
+                             (reverse (sort (map :time (ep-path (:est @or-state)))))))
+                   -1)]
     (dosync
      (alter time-now (constantly time-n))
      (alter time-prev (constantly time-p)))
@@ -83,8 +86,9 @@
 
 (defn step
   []
-  (let [ors (run-simulation-step @truedata @or-state true)]
-    (dosync (alter or-state (constantly ors)))
+  (let [ors (run-simulation-step @truedata @or-state true)
+        ors-results (assoc ors :est (evaluate @truedata (:est ors)))]
+    (dosync (alter or-state (constantly ors-results)))
     (update-everything)))
 
 (defn next-step

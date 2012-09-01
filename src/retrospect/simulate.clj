@@ -10,21 +10,6 @@
   (:use [retrospect.logging])
   (:use [retrospect.state]))
 
-(defn evaluate
-  [truedata est meta-considered? meta-accepted?]
-  ;; TODO: grab MetaConsidered/MetaAccepted from prior results, not current results
-  (let [results ((:evaluate-fn @reasoner) truedata est)
-        prior-considered (get (last (:results (cur-ep est))) :MetaConsidered 0)
-        prior-accepted (get (last (:results (cur-ep est))) :MetaAccepted 0)
-        meta-results (-> results
-                        (assoc-in [:MetaConsidered]
-                                  (if meta-considered?
-                                    (inc prior-considered) prior-considered))
-                        (assoc-in [:MetaAccepted]
-                                  (if meta-accepted?
-                                    (inc prior-accepted) prior-accepted)))]
-    (update-est est (update-in (cur-ep est) [:results] conj meta-results))))
-
 (defn update-sensors-from-to
   [time-prev time-now truedata sensors]
   (loop [t time-prev
@@ -40,26 +25,15 @@
         sensors (update-sensors-from-to time-prev time-now truedata (:sensors ors))
         ;; start the clock
         start-time (. System (nanoTime))
-        ors-new (if-not (:GrowEst params)
-                  (update-in ors [:est] update-est
-                             (assoc (cur-ep (:est ors)) :time time-now))
-                  (update-in ors [:est] new-child-ep time-now))
-        ep (cur-ep (:est ors-new))
-        workspace (if (and (not= 0 time-prev) (:ResetEachStep params))
-                    (do (log "Resetting workspace...")
-                        ((:reset-workspace-fn @reasoner) (:workspace ep)))
-                    (:workspace ep))
-        workspace-reasoned ((:reason-fn @reasoner)
-                            (when (:Oracle params) truedata)
-                            workspace time-prev time-now sensors)
-        ep-reason (assoc ep :workspace workspace-reasoned)
-        {meta-est :est meta-considered? :considered? meta-accepted? :accepted?}
-        ((:metareason-fn @reasoner) truedata (update-est (:est ors-new) ep-reason)
-         time-prev time-now sensors)
+        est-child (new-child-ep (:est ors))
+        est-time (update-est est-child (assoc (cur-ep est-child) :time time-now))
+        reason-est ((:reason-fn @reasoner) (when (:Oracle params) truedata)
+                    est-time time-prev time-now sensors)
+        meta-est ((:metareason-fn @reasoner) truedata reason-est
+                  time-prev time-now sensors)
         ;; stop the clock
         ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
-        meta-est-eval (evaluate truedata meta-est meta-considered? meta-accepted?)
-        ors-est (assoc ors-new :est meta-est-eval :sensors sensors)
+        ors-est (assoc ors :est meta-est :sensors sensors)
         ors-results (update-in ors-est [:resources :milliseconds] + ms)]
     (when (:Stats params)
       ((:stats-fn @reasoner) truedata ors-results time-now))
@@ -70,12 +44,18 @@
         (.flush System/out)))
     ors-results))
 
+(defn evaluate
+  [truedata est]
+  (update-est est (update-in (cur-ep est) [:results] conj
+                             ((:evaluate-fn @reasoner) truedata est))))
+
 (defn run-simulation
   [truedata or-state]
   (loop [ors or-state]
     (when (not @batch) (dosync (alter retrospect.state/or-state (constantly ors))))
-    (if (>= (:time (cur-ep (:est ors))) (:Steps params)) ors
-        (recur (run-simulation-step truedata ors false)))))
+    (if (>= (:time (cur-ep (:est ors))) (:Steps params))
+      (assoc ors :est (evaluate truedata (:est ors)))
+      (recur (run-simulation-step truedata ors false)))))
 
 (defn init-ors
   [sensors training]
@@ -85,7 +65,6 @@
 
 (def global-default-params
   {:Metareasoning ["none" ["none"]]
-   :Knowledge [80 [80]]
    :UpdateKB [true [true false]]
    :Oracle ["none" ["none"]]
    :Steps [10 [10]]

@@ -6,25 +6,25 @@
           get-init-workspace]])
   (:use [retrospect.reason.abduction.workspace :only
          [get-no-explainers get-unexplained new-hyp init-workspace calc-doubt
-          explain add-kb add-observation add lookup-hyp
-          reset-workspace revert-workspace workspace-depth
+          explain add-kb add-observation add lookup-hyp          
           update-kb explain update-hypotheses add-sensor-hyps]])
   (:use [retrospect.state]))
 
 (defn reason
-  [truedata workspace time-prev time-now sensors]
-  (let [ws (assoc (if (= "none" (:Oracle params))
-                    workspace
-                    (assoc workspace :oracle
-                           (partial (:true-hyp?-fn (:abduction @problem))
-                                    truedata time-now)))
-             :prior-workspace workspace
-             :depth (inc (:depth workspace)))]
-    (if sensors
-      (update-kb (explain (update-hypotheses
-                           (add-sensor-hyps ws time-prev time-now sensors)
-                           time-now)))
-      (update-kb (explain (update-hypotheses ws time-now))))))
+  "We assume some other code has created the child ep-state with the right time."
+  [truedata est time-prev time-now sensors]
+  (let [workspace (:workspace (cur-ep est))
+        ws (if (= "none" (:Oracle params))
+             workspace
+             (assoc workspace :oracle
+                    (partial (:true-hyp?-fn (:abduction @problem))
+                             truedata time-now)))
+        ws-sensors (if sensors
+                     (update-hypotheses
+                      (add-sensor-hyps ws time-prev time-now sensors) time-now)
+                     (update-hypotheses ws time-now))
+        est-ws (update-est est (assoc (cur-ep est) :workspace ws-sensors))]
+    (explain est-ws)))
 
 (defn problem-cases
   [est]
@@ -52,8 +52,7 @@
         ws-old (:workspace new-ep)
         ws-new (reason
                 (when (:Oracle params) truedata)
-                (if (or (nil? sensors) (not (:ResetEachStep params))) ws-old
-                    (reset-workspace ws-old))
+                ws-old
                 time-prev time-now sensors)
         new-expl-est (update-est new-est (assoc new-ep :workspace ws-new))]
     {:est-old (goto-ep new-expl-est (:id (cur-ep est)))
@@ -204,9 +203,9 @@
 (defn meta-batch-weakest
   [max-n truedata est _ time-now sensors]
   (let [workspace (:workspace (cur-ep est))
-        ws-depth (workspace-depth workspace)
+        ws-depth 1 ;; TODO
         depth-doubts (for [i (range (dec ws-depth) -1 -1)]
-                       [i (calc-doubt (revert-workspace workspace i))])
+                       [i (calc-doubt workspace)])
         n (max (or max-n 0)
                (- ws-depth (ffirst (reverse (sort-by second depth-doubts)))))
         branch-root? (>= n (ep-state-depth est))
@@ -274,7 +273,7 @@
         ws-old (:workspace new-ep)
         noexp (map #(lookup-hyp ws-old %) problem-cases)
         ws-new (reduce (fn [ws h] (ignore-hyp h ws))
-                  (revert-workspace ws-old) noexp)
+                  ws-old noexp)
         ws-expl (reason (when (:Oracle params) truedata) ws-new
                         time-prev time-now sensors)]
     (update-est new-est (assoc new-ep :workspace ws-expl))))
@@ -285,7 +284,7 @@
   [truedata est time-prev time-now sensors]
   (if (or (not (metareasoning-activated? est))
           (= "none" (:Metareasoning params)))
-    {:est est :considered? false :accepted? false}
+    est
     (let [m (:Metareasoning params)
           f (cond (= "batchbeg" m)
                   (partial meta-batch nil)
@@ -319,17 +318,13 @@
           problem-cases-old (problem-cases (:est-old result))
           problem-cases-new (problem-cases (:est-new result))]
       (cond (empty? problem-cases-new)
-            {:est (:est-new result) :considered? true :accepted? true}
+            (:est-new result)
             (< (count problem-cases-new) (count problem-cases-old))
-            {:est (if (= 0 (:SensorInsertionNoise params))
-                    (:est-new result)
-                    (force-resolve problem-cases-new truedata (:est-new result)
-                                   time-prev time-now sensors))
-             :considered? true
-             :accepted? true}
+            (if (= 0 (:SensorInsertionNoise params))
+              (:est-new result)
+              (force-resolve problem-cases-new truedata (:est-new result)
+                             time-prev time-now sensors))
             :else
-            {:est (if (= 0 (:SensorInsertionNoise params)) (:est-old result)
-                      (force-resolve problem-cases-old truedata (:est-old result)
-                                     time-prev time-now sensors))
-             :considered? true
-             :accepted? false}))))
+            (if (= 0 (:SensorInsertionNoise params)) (:est-old result)
+                (force-resolve problem-cases-old truedata (:est-old result)
+                               time-prev time-now sensors))))))

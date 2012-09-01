@@ -55,15 +55,19 @@
 (defn calc-true-false-deltas
   "Find average delta for true and false acceptances."
   [workspace true-false]
-  (let [delta-tf (for [b (:best (:log workspace))]
-                   [(get-in true-false [:individual (:id (:best b))])
-                    (:delta b)])
-        delta-true (map second (filter first delta-tf))
-        delta-false (map second (filter (comp not first) delta-tf))]
-    {:true-delta-avg (/ (reduce + delta-true) (double (let [c (count delta-true)]
-                                                   (if (= 0 c) 1 c))))
-     :false-delta-avg (/ (reduce + delta-false) (double (let [c (count delta-false)]
-                                                     (if (= 0 c) 1 c))))}))
+  ;; TODO: fix
+  (comment
+    (let [delta-tf (let [b (:best (:log workspace))]
+                     [(get-in true-false [:individual (:id (:best b))])
+                      (:delta b)])
+          delta-true (map second (filter first delta-tf))
+          delta-false (map second (filter (comp not first) delta-tf))]
+      {:true-delta-avg (/ (reduce + delta-true) (double (let [c (count delta-true)]
+                                                     (if (= 0 c) 1 c))))
+       :false-delta-avg (/ (reduce + delta-false) (double (let [c (count delta-false)]
+                                                       (if (= 0 c) 1 c))))}))
+  {:true-delta-avg 0.0
+   :false-delta-avg 0.0})
 
 (defn evaluate
   [truedata est]
@@ -85,7 +89,6 @@
             :FalseDeltaAvg (:false-delta-avg delta-avgs)
             :Doubt (calc-doubt (:workspace ep))
             :Coverage (calc-coverage (:workspace ep))
-            :ExplainCycles (reduce + (map (comp :cycle :workspace) eps))
             :HypothesisCount ((comp count :hyp-ids :workspace) ep)})))
 
 (defn prefix-params

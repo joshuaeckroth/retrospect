@@ -7,6 +7,7 @@
           add-nodes add-edges remove-nodes edges has-edge?]])
   (:use [loom.alg :only [pre-traverse]])
   (:use [loom.attr :only [add-attr remove-attr]])
+  (:use [retrospect.epistemicstates :only [cur-ep new-child-ep update-est]])
   (:use [retrospect.profile :only [prof]])
   (:use [retrospect.logging])
   (:use [retrospect.random])
@@ -17,7 +18,7 @@
     [id name type subtype apriori needs-explainer? conflicts?-fn
      explains short-str desc data]
   Object
-  (toString [self] (format "%s(%s)" name short-str))
+  (toString [self] (format "%s(%s)/%.2f" name short-str apriori))
   Comparable
   (compareTo [self other] (compare (hash self) (hash other))))
 
@@ -40,15 +41,12 @@
   (print-simple (format "%s(%s)/%.2f" (:name h) (:short-str h) (:apriori h)) w))
 
 (def empty-workspace
-  {:prior-workspace nil
-   ;; workspace depth
-   :depth 0
-   ;; on every acceptance, save the delta; this is used to calculate doubt
+  {;; on every acceptance, save the delta; this (may) be used to calculate doubt
    :acc-deltas []
    :graph (digraph)
    :oracle nil
-   :cycle 0
-   :log {:best [] :accrej {}}
+   ;; what was accepted, rejected, merged with the 'best' map
+   :accrej {}
    ;; keyed by hypid
    :hyp-log {}
    ;; keyed by hyp-id, records what each hyp explains
@@ -87,14 +85,12 @@
   (get (:hyp-log workspace) (:id hyp)))
 
 (defn explains
-  "TODO: Fix for transitive explanation"
   [workspace hyp]
   (doall (filter identity (map #(lookup-hyp workspace %) (get (:explains workspace) (:id hyp))))))
 
 (defn hyp-better-than?
   [workspace hyp1 hyp2]
   (let [conf (> (double (- (:apriori hyp1) (:apriori hyp2))) 0.001)
-        ;; TODO: Fix for transitive explanation
         expl (> (count (filter (fn [hyp-id] (some #(= % hyp-id)
                                          (:sorted-explainers-explained workspace)))
                           (get (:explains workspace) (:id hyp1))))
@@ -134,10 +130,6 @@
                              1.0)))
               expl1-delta (delta-fn expl1)
               expl2-delta (delta-fn expl2)]
-          (comment
-            (println (:id hyp1) (map :id expl1) (delta-fn expl1))
-            (println (:id hyp2) (map :id expl2) (delta-fn expl2))
-            (println "--"))
           (if (= 0 (compare expl1-delta expl2-delta))
             (if (= 0 (compare (:apriori (first expl1))
                               (:apriori (first expl2))))
@@ -261,8 +253,7 @@
            (let [ws2 (-> (dissoc-in ws [:sorted-explainers (:id hyp)])
                         (dissoc-explainer hyp))]
              (if @batch ws2
-                 (update-in ws2 [:hyp-log (:id hyp)] conj
-                            (format "Rejected in cycle %d" (:cycle workspace))))))
+                 (update-in ws2 [:hyp-log (:id hyp)] conj "Rejected"))))
          workspace hyps)))
 
 (defn record-if-needs-explanation
@@ -335,11 +326,9 @@
                                   (update-in [:accepted :all] conj (:id hyp))))
                   ws-hyplog (if @batch ws-acc
                                 (update-in ws-acc [:hyp-log (:id hyp)] conj
-                                           (format (str "Accepted in cycle %d "
-                                                   "to explain %s with delta %.2f "
+                                           (format (str "Accepted to explain %s with delta %.2f "
                                                    "(essential? %s; next-best: %s); "
                                                    "comparison: %s")
-                                              (:cycle workspace)
                                               explained delta (nil? nbest) nbest
                                               comparison)))
                   ws-expl (dissoc-needing-explanation ws-hyplog (explains workspace hyp))
@@ -354,9 +343,7 @@
                                  ws-conflicts
                                  (prof :accept-needs-exp
                                        (assoc-needing-explanation ws-conflicts hyp)))]
-              (prof :accept-final
-                    (update-in ws-needs-exp [:log :accrej (:cycle ws-needs-exp)] conj
-                               {:acc hyp :rej conflicts}))))))
+              (update-in ws-needs-exp [:accrej] merge {:acc hyp :rej conflicts})))))
 
 (defn add-observation
   [workspace hyp]
@@ -434,7 +421,9 @@
                 (let [essential (lookup-hyp workspace essentialid) 
                       bestid (first (get (:sorted-explainers workspace) essentialid))
                       best (lookup-hyp workspace bestid)]
-                  {:best best :explained essential :alts [] :comparison {} :delta 1.0})
+                  {:best best :explained essential :alts []
+                   :comparison {} :delta 1.0
+                   :normalized-aprioris [1.0]})
                 ;; otherwise, choose highest-delta non-essential
                 (let [explid (first not-empty-explained)
                       expl (lookup-hyp workspace explid)
@@ -475,14 +464,6 @@
                      (assoc-in [:accepted :kb] (doall (map :id new-kb-hyps)))
                      (update-in [:accepted :all] set/union (set (map :id new-kb-hyps))))))))
 
-(defn get-explaining-hypotheses
-  [workspace time-now]
-  (prof :get-explaining-hypotheses
-        ((:hypothesize-fn (:abduction @problem))
-         (map #(lookup-hyp workspace %) (:sorted-explainers-explained workspace))
-         (:accepted workspace)
-         (partial lookup-hyp workspace) time-now)))
-
 (defn update-graph
   "Need to run this before evaluation in order to calculate coverage."
   [workspace]
@@ -519,43 +500,57 @@
                           g-conflicts (:all (:accepted workspace)))]
           (assoc workspace :graph g-accepted))))
 
+(defn update-est-ws
+  [est workspace]
+  (new-child-ep
+   (update-est est (assoc (cur-ep est) :workspace workspace))))
+
 (defn explain
-  [workspace]
+  [est]
   (prof :explain
         ;; need (loop) because we are using (recur) which isn't going
         ;; to work when profiling is on
-        (loop [workspace (-> workspace (assoc :log (:log empty-workspace)
-                                             :acc-deltas [])
-                            (update-graph))]
-          (log "Explaining again...")
-          (let [ws-explainers (if true #_(:dirty workspace)
-                                (update-sorted-explainers workspace)
-                                workspace)]
+        (loop [est est]
+          (let [workspace (:workspace (cur-ep est))
+                ws-explainers (if true #_(:dirty workspace)
+                                  (update-sorted-explainers workspace)
+                                  workspace)]
+            (log "Explaining at cycle" (:cycle (cur-ep est)))
             (log "Explainers:" (:sorted-explainers ws-explainers)
                  (:sorted-explainers-explained ws-explainers))
             (if (empty? (:sorted-explainers-explained ws-explainers))
               (do (log "No explainers. Done.")
-                  ws-explainers)
+                  (update-est-ws est ws-explainers))
               (let [{:keys [best nbest explained delta comparison] :as b}
                     (find-best ws-explainers)]
                 (if-not best
-                  (do (log "No best. Done.") ws-explainers)
+                  (do (log "No best. Done.")
+                      (update-est-ws est ws-explainers))
                   (do (log "Best is" (:id best) (:apriori best))
-                      (let [ws-accepted
-                            (let [ws-logged (-> ws-explainers
-                                               (update-in [:acc-deltas] conj delta)
-                                               (update-in [:cycle] inc)
-                                               (update-in [:log :best] conj b))]
-                              (accept ws-logged best nbest explained delta comparison))]
-                        (recur ws-accepted))))))))))
+                      (let [ws-accepted (-> ws-explainers
+                                           (update-in [:acc-deltas] conj delta)
+                                           (update-in [:accrej] merge b)
+                                           (accept best nbest explained delta comparison))]
+                        (recur (update-est-ws est ws-accepted)))))))))))
+
+(defn get-explaining-hypotheses
+  "Ask problem domain to get explainers."
+  [workspace time-now]
+  (prof :get-explaining-hypotheses
+        ((:hypothesize-fn (:abduction @problem))
+         (map #(lookup-hyp workspace %) (:sorted-explainers-explained workspace))
+         (:accepted workspace)
+         (partial lookup-hyp workspace) time-now)))
 
 (defn update-hypotheses
+  "Put explainers from problem domain into workspace."
   [workspace time-now]
   (prof :update-hypotheses
         (let [hyps (get-explaining-hypotheses workspace time-now)]
           (reduce add workspace hyps))))
 
 (defn add-sensor-hyps
+  "Ask problem domain to make sensor hyps; then put them into workspace."
   [workspace time-prev time-now sensors]
   (prof :add-sensor-hyps
         (let [hs ((:make-sensor-hyps-fn (:abduction @problem))
@@ -593,29 +588,3 @@
         (assoc empty-workspace
           :oracle-types
           (set (map keyword (str/split (:Oracle params) #","))))))
-
-(defn reset-workspace
-  [workspace]
-  (prof :reset-workspace
-        (add-kb (assoc empty-workspace :oracle (:oracle workspace)
-                       :oracle-types (:oracle-types workspace)
-                       :cycle (:cycle workspace))
-                (doall (map #(lookup-hyp workspace %)
-                          (get-in workspace [:accepted :kb]))))))
-
-(defn revert-workspace
-  ([workspace depth]
-     (if (> depth (:depth workspace)) workspace
-         (loop [ws workspace]
-           (cond (= depth (:depth ws)) ws
-                 (nil? (:prior-workspace ws)) (reset-workspace workspace)
-                 :else
-                 (recur (:prior-workspace ws))))))
-  ([workspace] (revert-workspace workspace (dec (:depth workspace)))))
-
-(defn workspace-depth
-  [workspace]
-  (loop [ws workspace i 0]
-    (if-let [p (:prior-workspace ws)]
-      (recur p (inc i)) i)))
-

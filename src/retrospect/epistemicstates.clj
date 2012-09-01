@@ -16,10 +16,10 @@
   (make-node [ep children] "Makes new node from existing node and new children."))
 
 (defrecord EpistemicState
-    [id children time results workspace meta-workspace]
+    [id children cycle time results workspace meta-workspace]
   Object
   (toString [_]
-    (format "%s %d %.2f/%.2f" id time
+    (format "%s %d/%d %.2f/%.2f" id cycle time
        ((:calc-doubt-fn @reasoner) workspace)
        ((:calc-coverage-fn @reasoner) workspace))))
 
@@ -27,7 +27,7 @@
 
 (defn clone-ep
   [ep id children]
-  (EpistemicState. id children (:time ep) (:results ep) (:workspace ep) nil))
+  (EpistemicState. id children (:cycle ep) (:time ep) (:results ep) (:workspace ep) nil))
 
 (extend-protocol EpistemicStateTree
   EpistemicState
@@ -64,7 +64,8 @@
 
 (defn init-est
   [workspace]
-  (zip/down (zip-est [(EpistemicState. (make-ep-id) [] 0 [] workspace nil)] workspace nil)))
+  (zip/down (zip-est [(EpistemicState. (make-ep-id) [] 0 0 [] workspace nil)]
+                     workspace nil)))
 
 (defn get-init-workspace
   [est]
@@ -160,6 +161,7 @@
     (zip/right (zip/insert-right (goto-ep est (:id branch)) ep))))
 
 (defn new-child-ep
-  [est time-now]
-  (let [ep-child (clone-ep (cur-ep est) (make-ep-id est) [])]
-    (zip/down (zip/append-child est (assoc ep-child :time time-now)))))
+  [est]
+  (let [ep-child (clone-ep (cur-ep est) (make-ep-id est) [])
+        cycle-child (inc (:cycle (cur-ep est)))]
+    (zip/down (zip/append-child est (assoc ep-child :cycle cycle-child)))))
