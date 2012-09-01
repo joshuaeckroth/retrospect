@@ -37,9 +37,9 @@
 ;; random color, if outside the gray
 (defn make-random-det
   [sensor time]
-  (let [x (my-rand-int (:GridWidth params))
-        y (my-rand-int (:GridHeight params))
-        color (if (sees sensor x y) (my-rand-nth (:colors (meta sensor))) gray)]
+  (let [x (my-rand-nth (range (:left (meta sensor)) (inc (:right (meta sensor)))))
+        y (my-rand-nth (range (:bottom (meta sensor)) (inc (:top (meta sensor)))))
+        color (if (:sees-color (meta sensor)) (my-rand-nth (:colors (meta sensor))) gray)]
     {:x x :y y :time time :color color}))
 
 (defn insertion-noise
@@ -98,8 +98,8 @@
                       (math/sqrt (* (:GridHeight params)
                                     (:GridWidth params)
                                     (- 1.0 (* 0.01 (:SensorSeesColor params))))))
-        left-right (math/ceil (/ (- (:GridWidth params) width-height) 2))
-        top-bottom (math/ceil (/ (- (:GridHeight params) width-height) 2))
+        left-right (int (math/ceil (/ (- (:GridWidth params) width-height) 2)))
+        top-bottom (int (math/ceil (/ (- (:GridHeight params) width-height) 2)))
         colors (:seen-colors training)]
     [(new-sensor (keyword "middle-gray")
                  left-right (- (:GridWidth params) left-right)
