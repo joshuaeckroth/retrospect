@@ -2,11 +2,10 @@
   (:require [clojure.set :as set])
   (:use [retrospect.epistemicstates :only
          [cur-ep new-child-ep new-branch-ep init-est ep-state-depth
-          update-est nth-previous-ep print-est goto-ep
-          get-init-workspace]])
+          update-est nth-previous-ep print-est goto-ep ep-path]])
   (:use [retrospect.reason.abduction.workspace :only
          [get-no-explainers get-unexplained new-hyp init-workspace calc-doubt
-          explain add-kb add-observation add lookup-hyp          
+          explain add-kb add-observation add lookup-hyp explainers
           update-kb explain update-hypotheses add-sensor-hyps]])
   (:use [retrospect.state]))
 
@@ -171,6 +170,29 @@
               :else
               (recur est-meta (rest hyps) attempted-depths attempts))))))
 
+(defn find-rejected-explainers
+  "Only makes sense when the problem case given to this function is
+   a noexp case."
+  [est noexp]
+  (let [expl (set (explainers (:workspace (cur-ep est))
+                              (lookup-hyp (:workspace (cur-ep est)) noexp)))
+        ;; which ep-states rejected these expl?  for now, only
+        ;; consider those ep-states that match the current time so we
+        ;; can be sure that the noexp are still in the earliest ep (we
+        ;; can be sure of this because sensor reports and their
+        ;; corresponding explainers are added at distinct times
+        ep-rejs (filter (fn [ep] (some expl (:rej (:accrej (:workspace ep)))))
+                   (filter #(= (:time (cur-ep est)) (:time %)) (ep-path est)))
+        earliest-cycle (apply min (map :cycle ep-rejs))
+        next-bests (sort-by second
+                            (set (map (fn [ep] [(get-in ep [:workspace :accrej :nbest])
+                                             (get-in ep [:workspace :accrej :delta])])
+                                    ep-rejs)))]
+    (println "noexp" noexp "has these explainers:" expl)
+    (println "these eps" (map str ep-rejs))
+    (println "they were rejected when these were next-best:" next-bests)
+    (println "earliest cycle:" earliest-cycle)))
+
 (defn meta-batch
   [n truedata est _ time-now sensors]
   (let [branch-root? (or (nil? n) (>= n (ep-state-depth est)))
@@ -183,23 +205,24 @@
 
 (defn meta-batch-weakest
   [max-n truedata est _ time-now sensors]
-  (let [workspace (:workspace (cur-ep est))
-        ws-depth 1 ;; TODO
-        depth-doubts (for [i (range (dec ws-depth) -1 -1)]
-                       [i (calc-doubt workspace)])
-        n (max (or max-n 0)
-               (- ws-depth (ffirst (reverse (sort-by second depth-doubts)))))
-        branch-root? (>= n (ep-state-depth est))
-        branch-ep (nth-previous-ep est n)
-        new-est (new-branch-ep est branch-ep)
-        new-est-time (update-est new-est
-                                 (assoc (cur-ep new-est) :time time-now
-                                        :workspace (if branch-root?
-                                                     (get-init-workspace est)
-                                                     (:workspace (cur-ep new-est)))))]
-    (meta-apply-and-evaluate truedata est new-est-time
-                             (if branch-root? 0 (:time branch-ep))
-                             time-now sensors)))
+  (comment
+    (let [workspace (:workspace (cur-ep est))
+          ws-depth 1 ;; TODO
+          depth-doubts (for [i (range (dec ws-depth) -1 -1)]
+                         [i (calc-doubt workspace)])
+          n (max (or max-n 0)
+                 (- ws-depth (ffirst (reverse (sort-by second depth-doubts)))))
+          branch-root? (>= n (ep-state-depth est))
+          branch-ep (nth-previous-ep est n)
+          new-est (new-branch-ep est branch-ep)
+          new-est-time (update-est new-est
+                                   (assoc (cur-ep new-est) :time time-now
+                                          :workspace (if branch-root?
+                                                       (get-init-workspace est)
+                                                       (:workspace (cur-ep new-est)))))]
+      (meta-apply-and-evaluate truedata est new-est-time
+                               (if branch-root? 0 (:time branch-ep))
+                               time-now sensors))))
 
 (defn meta-lower-threshold
   [truedata est time-prev time-now sensors]
@@ -248,20 +271,19 @@
                                   time-prev time-now sensors)))))))))
 
 (defn ignore-hyp
-  [noexp workspace]
-  (add workspace (new-hyp "Ignore" :ignore :ignore 1.0 false (:conflicts?-fn noexp)
-                          [(:contents noexp)]
-                          (format "Ignore %s" noexp) (format "Ignore %s" noexp)
-                          (:data noexp))))
+  [workspace hypid]
+  (let [hyp (lookup-hyp workspace hypid)]
+    (add workspace (new-hyp "Ignore" :ignore :ignore 1.0 false (:conflicts?-fn hyp)
+                            [(:contents hyp)]
+                            (format "Ignore %s" hyp) (format "Ignore %s" hyp)
+                            (:data hyp)))))
 
 (defn resolve-by-ignoring
   [problem-cases truedata est time-prev time-now sensors]
   (let [new-est (new-branch-ep est (cur-ep est))
         new-ep (cur-ep new-est)
         ws-old (:workspace new-ep)
-        noexp (map #(lookup-hyp ws-old %) problem-cases)
-        ws-ignored (reduce (fn [ws h] (ignore-hyp h ws))
-                      ws-old noexp)
+        ws-ignored (reduce ignore-hyp ws-old problem-cases)
         new-est-ignored (update-est new-est (assoc new-ep :workspace ws-ignored))]
     (reason (when (:Oracle params) truedata) new-est-ignored
             time-prev time-now sensors)))
@@ -305,6 +327,8 @@
           result (f truedata est time-prev time-now sensors)
           problem-cases-old (problem-cases (:est-old result))
           problem-cases-new (problem-cases (:est-new result))]
+      (println "problem cases" problem-cases-old)
+      (find-rejected-explainers (:est-old result) (first problem-cases-old))
       (cond (empty? problem-cases-new)
             (:est-new result)
             (< (count problem-cases-new) (count problem-cases-old))

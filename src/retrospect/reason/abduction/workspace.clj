@@ -86,7 +86,13 @@
 
 (defn explains
   [workspace hyp]
-  (doall (filter identity (map #(lookup-hyp workspace %) (get (:explains workspace) (:id hyp))))))
+  (doall (filter identity (map #(lookup-hyp workspace %)
+                        (get (:explains workspace) (:id hyp))))))
+
+(defn explainers
+  [workspace hyp]
+  (doall (filter identity (map #(lookup-hyp workspace %)
+                        (get (:explainers workspace) (:id hyp))))))
 
 (defn hyp-better-than?
   [workspace hyp1 hyp2]
@@ -397,9 +403,8 @@
                 (let [essential (lookup-hyp workspace essentialid) 
                       bestid (first (get (:sorted-explainers workspace) essentialid))
                       best (lookup-hyp workspace bestid)]
-                  {:best best :explained essential :alts []
-                   :comparison {} :delta 1.0
-                   :normalized-aprioris [1.0]})
+                  {:best best :nbest nil :explained essential :alts []
+                   :comparison {} :delta 1.0 :normalized-aprioris [1.0]})
                 ;; otherwise, choose highest-delta non-essential
                 (let [explid (first not-empty-explained)
                       expl (lookup-hyp workspace explid)
