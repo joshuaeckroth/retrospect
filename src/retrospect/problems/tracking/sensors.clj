@@ -33,8 +33,6 @@
                              (entity-movements movements e time time)))
                    (entities-at movements x y time)))))
 
-;; TODO: randomly choose an existing entity's color, not a purely
-;; random color, if outside the gray
 (defn make-random-det
   [sensor time]
   (let [x (my-rand-nth (range (:left (meta sensor)) (inc (:right (meta sensor)))))
