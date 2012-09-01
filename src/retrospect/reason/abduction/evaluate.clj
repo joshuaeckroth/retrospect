@@ -77,7 +77,8 @@
         true-false (group-hyps-by-true-false (vals (:hyp-ids workspace))
                     :type truedata (:time ep) (:true-hyp?-fn (:abduction @problem)))
         true-false-scores (calc-true-false-scores workspace true-false)
-        delta-avgs (calc-true-false-deltas workspace true-false)]
+        delta-avgs (calc-true-false-deltas workspace true-false)
+        ep-states (flatten-est est)]
     (merge {:Problem (:name @problem)}
            params
            ((:evaluate-fn (:abduction @problem)) truedata est)
@@ -89,7 +90,8 @@
             :FalseDeltaAvg (:false-delta-avg delta-avgs)
             :Doubt (calc-doubt (:workspace ep))
             :Coverage (calc-coverage (:workspace ep))
-            :ExplainCycles (count (flatten-est est))
+            :ExplainCycles (count ep-states)
+            :MetaBranches (count (filter #(second (:children %)) ep-states))
             :HypothesisCount ((comp count :hyp-ids :workspace) ep)})))
 
 (defn prefix-params
@@ -112,7 +114,7 @@
                       (concat [:UnexplainedPct :NoExplainersPct
                                :TrueDeltaAvg :FalseDeltaAvg
                                :Doubt :Coverage :ExplainCycles :HypothesisCount
-                               :MetaConsidered :MetaAccepted]
+                               :MetaBranches]
                               (mapcat
                                (fn [tf]
                                  (map #(keyword
