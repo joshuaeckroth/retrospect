@@ -36,27 +36,12 @@
   [est]
   (not-empty (problem-cases est)))
 
-(defn ignore-hyp
-  [noexp workspace]
-  (add-kb workspace
-          [(new-hyp "Ignore" :kb :ignore 1.0 false
-                    (:conflicts?-fn noexp)
-                    []
-                    (format "Ignore %s" noexp)
-                    (format "Ignore %s" noexp)
-                    (:data noexp))]))
-
 (defn meta-apply-and-evaluate
   [truedata est new-est time-prev time-now sensors]
-  (let [new-ep (cur-ep new-est)
-        ws-old (:workspace new-ep)
-        ws-new (reason
-                (when (:Oracle params) truedata)
-                ws-old
-                time-prev time-now sensors)
-        new-expl-est (update-est new-est (assoc new-ep :workspace ws-new))]
-    {:est-old (goto-ep new-expl-est (:id (cur-ep est)))
-     :est-new new-expl-est}))
+  (let [reason-est (reason (when (:Oracle params) truedata) new-est
+                           time-prev time-now sensors)]
+    {:est-old (goto-ep reason-est (:id (cur-ep est)))
+     :est-new reason-est}))
 
 (comment
   (defn apply-resolutions
@@ -191,11 +176,7 @@
   (let [branch-root? (or (nil? n) (>= n (ep-state-depth est)))
         branch-ep (nth-previous-ep est n)
         new-est (new-branch-ep est branch-ep)
-        new-est-time (update-est new-est
-                                 (assoc (cur-ep new-est) :time time-now
-                                        :workspace (if branch-root?
-                                                     (get-init-workspace est)
-                                                     (:workspace (cur-ep new-est)))))]
+        new-est-time (update-est new-est (assoc (cur-ep new-est) :time time-now))]
     (meta-apply-and-evaluate truedata est new-est-time
                              (if branch-root? 0 (:time branch-ep))
                              time-now sensors)))
@@ -266,17 +247,27 @@
                       (meta-batch nil truedata (:est-old batch-weakest)
                                   time-prev time-now sensors)))))))))
 
+(defn ignore-hyp
+  [noexp workspace]
+  (add-kb workspace
+          [(new-hyp "Ignore" :kb :ignore 1.0 false
+                    (:conflicts?-fn noexp)
+                    []
+                    (format "Ignore %s" noexp)
+                    (format "Ignore %s" noexp)
+                    (:data noexp))]))
+
 (defn force-resolve
   [problem-cases truedata est time-prev time-now sensors]
   (let [new-est (new-branch-ep est (cur-ep est))
         new-ep (cur-ep new-est)
         ws-old (:workspace new-ep)
         noexp (map #(lookup-hyp ws-old %) problem-cases)
-        ws-new (reduce (fn [ws h] (ignore-hyp h ws))
-                  ws-old noexp)
-        ws-expl (reason (when (:Oracle params) truedata) ws-new
-                        time-prev time-now sensors)]
-    (update-est new-est (assoc new-ep :workspace ws-expl))))
+        ws-ignored (reduce (fn [ws h] (ignore-hyp h ws))
+                      ws-old noexp)
+        new-est-ignored (update-est new-est (assoc new-ep :workspace ws-ignored))]
+    (reason (when (:Oracle params) truedata) new-est-ignored
+            time-prev time-now sensors)))
 
 (defn metareason
   "Activate the appropriate metareasoning strategy (as given by

@@ -93,7 +93,7 @@
 
 (defn nth-previous-ep
   [est n]
-  (loop [i (or n (ep-state-depth est))
+  (loop [i (or n (dec (ep-state-depth est)))
          loc est]
     (if (or (> 0 i) (root-ep? (zip/node (zip/up loc))))
       (zip/node loc) (recur (dec i) (zip/up loc)))))

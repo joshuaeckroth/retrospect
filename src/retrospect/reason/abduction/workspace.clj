@@ -269,15 +269,7 @@
   (prof :add
         (do
           (log "Adding" hyp)
-          (cond (and (:conflicts?-fn hyp)
-                     (some (fn [hyp2] ((:conflicts?-fn hyp) hyp hyp2))
-                        (map #(lookup-hyp workspace %)
-                           (:all (:accepted workspace)))))
-                ;; hyp is in conflict; don't add it
-                (do
-                  (log "Not adding hyp because it has conflicts")
-                  workspace)
-                (< (:apriori hyp) (/ (double (:MinApriori params)) 100.0))
+          (cond (< (:apriori hyp) (/ (double (:MinApriori params)) 100.0))
                 (do (log "Not adding hyp because" (:apriori hyp)
                          "is below :MinApriori" (/ (double (:MinApriori params)) 100.0))
                     workspace)
