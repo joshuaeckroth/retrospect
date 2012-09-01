@@ -84,20 +84,6 @@
   (let [up (zip/up est)]
     (when-not (root-ep? (zip/node up)) (zip/node up))))
 
-(defn ep-state-depth
-  [est]
-  (loop [i 1
-         loc est]
-    (if (root-ep? (zip/node loc)) i
-        (recur (inc i) (zip/up loc)))))
-
-(defn nth-previous-ep
-  [est n]
-  (loop [i (or n (dec (ep-state-depth est)))
-         loc est]
-    (if (or (> 0 i) (root-ep? (zip/node (zip/up loc))))
-      (zip/node loc) (recur (dec i) (zip/up loc)))))
-
 (defn goto-ep
   [est id]
   (loop [loc (zip/down (zip-est (:children (zip/root est))
@@ -114,6 +100,15 @@
             (root-ep? (zip/node (zip/up loc))))
       loc
       (recur (zip/up loc)))))
+
+(defn goto-start-of-time
+  [est time]
+  (let [t (max 0 time)]
+    (loop [loc est]
+      (if (or (root-ep? (zip/node (zip/up loc)))
+              (= (dec time) (:time (zip/node (zip/up loc)))))
+        loc
+        (recur (zip/up loc))))))
 
 (defn update-est
   [est ep]

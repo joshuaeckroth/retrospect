@@ -1,8 +1,8 @@
 (ns retrospect.reason.abduction.meta
   (:require [clojure.set :as set])
   (:use [retrospect.epistemicstates :only
-         [cur-ep new-child-ep new-branch-ep init-est ep-state-depth
-          update-est nth-previous-ep print-est goto-ep ep-path goto-cycle]])
+         [cur-ep new-child-ep new-branch-ep init-est
+          update-est goto-start-of-time print-est goto-ep ep-path goto-cycle]])
   (:use [retrospect.reason.abduction.workspace :only
          [get-no-explainers get-unexplained new-hyp init-workspace calc-doubt
           explain add-kb add-observation add lookup-hyp explainers
@@ -227,62 +227,29 @@
 
 (defn meta-batch
   [n truedata est _ time-now sensors]
-  (let [branch-root? (or (nil? n) (>= n (ep-state-depth est)))
-        branch-ep (nth-previous-ep est n)
-        new-est (new-branch-ep est branch-ep)
-        new-est-time (update-est new-est (assoc (cur-ep new-est) :time time-now))]
-    (meta-apply-and-evaluate truedata est new-est-time
-                             (if branch-root? 0 (:time branch-ep))
+  (let [time (if n (- time-now n) 0)
+        new-est (new-branch-ep est (cur-ep (goto-start-of-time est time)))]
+    (meta-apply-and-evaluate truedata est new-est (:time (cur-ep new-est))
                              time-now sensors)))
 
 (defn meta-batch-weakest
-  [max-n truedata est _ time-now sensors]
-  (comment
-    (let [workspace (:workspace (cur-ep est))
-          ws-depth 1 ;; TODO
-          depth-doubts (for [i (range (dec ws-depth) -1 -1)]
-                         [i (calc-doubt workspace)])
-          n (max (or max-n 0)
-                 (- ws-depth (ffirst (reverse (sort-by second depth-doubts)))))
-          branch-root? (>= n (ep-state-depth est))
-          branch-ep (nth-previous-ep est n)
-          new-est (new-branch-ep est branch-ep)
-          new-est-time (update-est new-est
-                                   (assoc (cur-ep new-est) :time time-now
-                                          :workspace (if branch-root?
-                                                       (get-init-workspace est)
-                                                       (:workspace (cur-ep new-est)))))]
-      (meta-apply-and-evaluate truedata est new-est-time
-                               (if branch-root? 0 (:time branch-ep))
-                               time-now sensors))))
+  [truedata est _ time-now sensors]
+  (let [eps-doubts (reverse (sort-by first (map (fn [ep] [(calc-doubt (:workspace ep)) ep])
+                                              (ep-path est))))
+        prior-cycle (dec (:cycle (second (first eps-doubts))))
+        new-est (new-branch-ep est (cur-ep (goto-cycle est prior-cycle)))]
+    (meta-apply-and-evaluate truedata est new-est (:time (cur-ep new-est))
+                             time-now sensors)))
 
-(defn meta-lower-threshold
+(defn meta-lower-minapriori
   [truedata est time-prev time-now sensors]
-  (if (= 0 (:Threshold params))
-    {:est est :considered? false :accepted? false}
+  (if (= 0 (:MinApriori params))
+    est
     (let [new-est (new-branch-ep est (cur-ep est))]
-      ;; drop threshold to 0
-      (binding [params (assoc params :Threshold 0)]
+      ;; drop min-apriori to 0
+      (binding [params (assoc params :MinApriori 0)]
         ;; give sensors value as nil to prevent resensing
         (meta-apply-and-evaluate truedata est new-est time-prev time-now nil)))))
-
-(defn meta-batch-lower-threshold
-  [n truedata est time-prev time-now sensors]
-  (let [batch-result (meta-batch n truedata est time-prev time-now sensors)]
-    (if (or (= 0 (:Threshold params)) (:accepted? batch-result))
-      batch-result
-      ;; how much to lower threshold?
-      (binding [params (assoc params :Threshold 0)]
-        (meta-batch n truedata est time-prev time-now sensors)))))
-
-(defn meta-batch-lower-min-apriori
-  [n truedata est time-prev time-now sensors]
-  (let [batch-result (meta-batch n truedata est time-prev time-now sensors)]
-    (if (or (= 0 (:MinApriori params)) (:accepted? batch-result))
-      batch-result
-      ;; how much to lower threshold?
-      (binding [params (assoc params :MinApriori 0)]
-        (meta-batch n truedata est time-prev time-now sensors)))))
 
 (defn meta-abductive
   [truedata est time-prev time-now sensors]
@@ -322,8 +289,7 @@
         ws-old (:workspace new-ep)
         ws-ignored (reduce ignore-hyp ws-old problem-cases)
         new-est-ignored (update-est new-est (assoc new-ep :workspace ws-ignored))]
-    (reason (when (:Oracle params) truedata) new-est-ignored
-            time-prev time-now sensors)))
+    (reason (when (:Oracle params) truedata) new-est-ignored time-prev time-now sensors)))
 
 (defn metareason
   "Activate the appropriate metareasoning strategy (as given by
@@ -345,21 +311,11 @@
                   (partial meta-batch 4)
                   (= "batch5" m)
                   (partial meta-batch 5)
-                  (= "batch10" m)
-                  (partial meta-batch 10)
-                  (= "batchweakest10" m)
-                  (partial meta-batch-weakest 10)
-                  (= "batchweakest" m)
-                  (partial meta-batch-weakest nil)
-                  (= "lowerthresh" m)
-                  meta-lower-threshold
-                  (= "batch1-lowerthresh" m)
-                  (partial meta-batch-lower-threshold 1)
-                  (= "batch1-lowermin" m)
-                  (partial meta-batch-lower-min-apriori 1)
-                  ;; did not recognize the metareasoning strategy;
-                  ;; hand-off to the reasoning engine
-                  :else
+                  (= "batch-weakest" m)
+                  meta-batch-weakest
+                  (= "lower-minapriori" m)
+                  meta-lower-minapriori
+                  (= "abd" m)
                   meta-abductive)
           result (f truedata est time-prev time-now sensors)
           problem-cases-old (problem-cases (:est-old result))
@@ -369,11 +325,8 @@
       (cond (empty? problem-cases-new)
             (:est-new result)
             (< (count problem-cases-new) (count problem-cases-old))
-            (if (= 0 (:SensorInsertionNoise params))
-              (:est-new result)
-              (resolve-by-ignoring problem-cases-new truedata (:est-new result)
-                                   time-prev time-now sensors))
+            (resolve-by-ignoring problem-cases-new truedata (:est-new result)
+                                 time-prev time-now sensors)
             :else
-            (if (= 0 (:SensorInsertionNoise params)) (:est-old result)
-                (resolve-by-ignoring problem-cases-old truedata (:est-old result)
-                                     time-prev time-now sensors))))))
+            (resolve-by-ignoring problem-cases-old truedata (:est-old result)
+                                 time-prev time-now sensors)))))
