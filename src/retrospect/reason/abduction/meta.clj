@@ -249,15 +249,12 @@
 
 (defn ignore-hyp
   [noexp workspace]
-  (add-kb workspace
-          [(new-hyp "Ignore" :kb :ignore 1.0 false
-                    (:conflicts?-fn noexp)
-                    []
-                    (format "Ignore %s" noexp)
-                    (format "Ignore %s" noexp)
-                    (:data noexp))]))
+  (add workspace (new-hyp "Ignore" :ignore :ignore 1.0 false (:conflicts?-fn noexp)
+                          [(:contents noexp)]
+                          (format "Ignore %s" noexp) (format "Ignore %s" noexp)
+                          (:data noexp))))
 
-(defn force-resolve
+(defn resolve-by-ignoring
   [problem-cases truedata est time-prev time-now sensors]
   (let [new-est (new-branch-ep est (cur-ep est))
         new-ep (cur-ep new-est)
@@ -313,9 +310,9 @@
             (< (count problem-cases-new) (count problem-cases-old))
             (if (= 0 (:SensorInsertionNoise params))
               (:est-new result)
-              (force-resolve problem-cases-new truedata (:est-new result)
-                             time-prev time-now sensors))
+              (resolve-by-ignoring problem-cases-new truedata (:est-new result)
+                                   time-prev time-now sensors))
             :else
             (if (= 0 (:SensorInsertionNoise params)) (:est-old result)
-                (force-resolve problem-cases-old truedata (:est-old result)
-                               time-prev time-now sensors))))))
+                (resolve-by-ignoring problem-cases-old truedata (:est-old result)
+                                     time-prev time-now sensors))))))

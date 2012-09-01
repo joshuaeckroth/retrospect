@@ -165,13 +165,12 @@
         (do
           (log "Updating sorted explainers.")
           (let [expls (doall
-                       (filter (comp first :expl)
-                          (map (fn [hypid]
-                               {:hyp (lookup-hyp workspace hypid)
-                                :expl (doall
-                                       (map #(lookup-hyp workspace %)
-                                          (get-in workspace [:sorted-explainers hypid])))})
-                             (:sorted-explainers-explained workspace))))
+                       (map (fn [hypid]
+                            {:hyp (lookup-hyp workspace hypid)
+                             :expl (doall
+                                    (map #(lookup-hyp workspace %)
+                                       (get-in workspace [:sorted-explainers hypid])))})
+                          (:sorted-explainers-explained workspace)))
                 expls-sorted (sort-explainers workspace expls)]
             (reduce (fn [ws {h :hyp expl :expl}]
                  (assoc-in ws [:sorted-explainers (:id h)] (doall (map :id expl))))
@@ -267,44 +266,32 @@
 (defn add
   [workspace hyp]
   (prof :add
-        (do
-          (log "Adding" hyp)
-          (cond (< (:apriori hyp) (/ (double (:MinApriori params)) 100.0))
-                (do (log "Not adding hyp because" (:apriori hyp)
-                         "is below :MinApriori" (/ (double (:MinApriori params)) 100.0))
-                    workspace)
-                :else
-                (if-let [prior-hyp-id (get (:hyp-contents workspace) (:contents hyp))]
-                  ;; hyp already present; update explains in case it changed,
-                  ;; and whether it needs explanation or not
-                  (let [prior-hyp (lookup-hyp workspace prior-hyp-id)]
-                    (log hyp "already in workspace as" prior-hyp
-                         "-- updating what it explains")
-                    (-> workspace 
-                       (update-in [:explains prior-hyp-id]
-                                  set/union (set (map #(get (:hyp-contents workspace) %)
-                                                    (:explains hyp))))
-                       (record-if-needs-explanation (assoc prior-hyp :needs-explainer?
-                                                           (:needs-explainer? hyp)))
-                       (assoc-explainer (assoc prior-hyp :explains (:explains hyp)))))
-                  ;; otherwise, add the new hyp
-                  (let [hyp-apriori (if ((:oracle-types workspace) (:type hyp))
-                                      (if ((:oracle workspace) hyp)
-                                        (assoc hyp :apriori 1.0)
-                                        (assoc hyp :apriori 0.0))
-                                      (if (:UseScores params) hyp (assoc hyp :apriori 1.0)))]
-                    (prof :add-ws-update
-                          (-> workspace
-                             (assoc-in [:hyp-ids (:id hyp-apriori)] hyp-apriori)
-                             (assoc-in [:hyp-contents (:contents hyp-apriori)]
-                                       (:id hyp-apriori))
-                             (assoc-in [:explains (:id hyp-apriori)]
-                                       (set (map #(get (:hyp-contents workspace) %)
-                                               (:explains hyp-apriori))))
-                             (record-if-needs-explanation hyp-apriori)
-                             (assoc-explainer hyp-apriori)
-                             (update-in [:hypotheses (:type hyp-apriori)]
-                                        conj (:id hyp-apriori))))))))))
+        (let [explains (set (map #(get (:hyp-contents workspace) %) (:explains hyp)))]
+          (log "Adding" hyp "which explains" explains)
+          (if-let [prior-hyp-id (get (:hyp-contents workspace) (:contents hyp))]
+            ;; hyp already present; update explains in case it changed,
+            ;; and whether it needs explanation or not
+            (let [prior-hyp (lookup-hyp workspace prior-hyp-id)]
+              (log hyp "already in workspace as" prior-hyp
+                   "-- updating what it explains")
+              (-> workspace 
+                 (update-in [:explains prior-hyp-id] set/union explains)
+                 (record-if-needs-explanation (assoc prior-hyp :needs-explainer?
+                                                     (:needs-explainer? hyp)))
+                 (assoc-explainer (assoc prior-hyp :explains (:explains hyp)))))
+            ;; otherwise, add the new hyp
+            (let [hyp-apriori (if ((:oracle-types workspace) (:type hyp))
+                                (if ((:oracle workspace) hyp)
+                                  (assoc hyp :apriori 1.0)
+                                  (assoc hyp :apriori 0.0))
+                                (if (:UseScores params) hyp (assoc hyp :apriori 1.0)))]
+              (-> workspace
+                 (assoc-in [:hyp-ids (:id hyp-apriori)] hyp-apriori)
+                 (assoc-in [:hyp-contents (:contents hyp-apriori)] (:id hyp-apriori))
+                 (assoc-in [:explains (:id hyp-apriori)] explains)
+                 (record-if-needs-explanation hyp-apriori)
+                 (assoc-explainer hyp-apriori)
+                 (update-in [:hypotheses (:type hyp-apriori)] conj (:id hyp-apriori))))))))
 
 (defn accept
   [workspace hyp nbest explained delta comparison]
@@ -356,10 +343,8 @@
 
 (defn get-no-explainers
   [workspace]
-  (prof :find-no-explainers
-        (filter (fn [hyp-id] (empty? (get (:explainers workspace) hyp-id)))
-           (filter (:needs-explanation workspace)
-              (:all (:accepted workspace))))))
+  (filter #(empty? (get (:sorted-explainers workspace) %))
+     (:sorted-explainers-explained workspace)))
 
 (defn get-noexp-pct
   [workspace]
@@ -385,14 +370,13 @@
 
 (defn calc-coverage
   [workspace]
-  (prof :calc-coverage
-        (let [acc-needs-exp (set (filter (:needs-explanation workspace)
-                                    (:all (:accepted workspace))))]
-          (if (empty? acc-needs-exp) 1.0
-              (let [accessible (mapcat (fn [hyp-id] (pre-traverse (:graph workspace) hyp-id))
-                                       acc-needs-exp)]
-                (/ (double (count (set/intersection acc-needs-exp (set accessible))))
-                   (double (count acc-needs-exp))))))))
+  (let [acc-needs-exp (set (filter (:needs-explanation workspace)
+                              (:all (:accepted workspace))))]
+    (if (empty? acc-needs-exp) 1.0
+        (let [accessible (mapcat (fn [hyp-id] (pre-traverse (:graph workspace) hyp-id))
+                                 acc-needs-exp)]
+          (/ (double (count (set/intersection acc-needs-exp (set accessible))))
+             (double (count acc-needs-exp)))))))
 
 (defn find-unaccepted
   [workspace]
@@ -492,6 +476,25 @@
                           g-conflicts (:all (:accepted workspace)))]
           (assoc workspace :graph g-accepted))))
 
+(defn clean-up-workspace
+  "Find & reject pending rejections due to conflicts or too-low apriori values."
+  [workspace]
+  (loop [ws workspace
+         hyps (map #(lookup-hyp ws %) (:all (:hypotheses ws)))]
+    (if (empty? hyps) ws
+        (let [hyp (first hyps)]
+          (cond (< (:apriori hyp) (/ (double (:MinApriori params)) 100.0))
+                (do (log "Rejecting because apriori" (:apriori hyp)
+                         "is lower than MinApriori.")
+                    (let [ws-next (reject-many ws [hyp])]
+                      (recur ws-next (map #(lookup-hyp ws %) (:all (:hypotheses ws))))))
+                (and (:conflicts?-fn hyp) (find-conflicts ws hyp))
+                (do (log "Rejecting because of conflicts.")
+                    (let [ws-next (reject-many ws [hyp])]
+                      (recur ws-next (map #(lookup-hyp ws %) (:all (:hypotheses ws))))))
+                :else
+                (recur ws (rest hyps)))))))
+
 (defn update-est-ws
   [est workspace]
   (new-child-ep
@@ -506,20 +509,21 @@
           (let [workspace (:workspace (cur-ep est))
                 ws-explainers (if true #_(:dirty workspace)
                                   (update-sorted-explainers workspace)
-                                  workspace)]
+                                  workspace)
+                ws (clean-up-workspace ws-explainers)]
             (log "Explaining at cycle" (:cycle (cur-ep est)))
-            (log "Explainers:" (:sorted-explainers ws-explainers)
-                 (:sorted-explainers-explained ws-explainers))
-            (if (empty? (:sorted-explainers-explained ws-explainers))
+            (log "Explainers:" (:sorted-explainers ws)
+                 (:sorted-explainers-explained ws))
+            (if (empty? (:sorted-explainers-explained ws))
               (do (log "No explainers. Done.")
-                  (update-est-ws est ws-explainers))
+                  (update-est-ws est ws))
               (let [{:keys [best nbest explained delta comparison] :as b}
-                    (find-best ws-explainers)]
+                    (find-best ws)]
                 (if-not best
                   (do (log "No best. Done.")
-                      (update-est-ws est ws-explainers))
+                      (update-est-ws est ws))
                   (do (log "Best is" (:id best) (:apriori best))
-                      (let [ws-accepted (-> ws-explainers
+                      (let [ws-accepted (-> ws
                                            (update-in [:acc-deltas] conj delta)
                                            (update-in [:accrej] merge b)
                                            (accept best nbest explained delta comparison))]
