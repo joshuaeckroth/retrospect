@@ -171,6 +171,31 @@
               :else
               (recur est-meta (rest hyps) attempted-depths attempts))))))
 
+(defn meta-batch
+  [n truedata est _ time-now sensors]
+  (let [time (if n (- time-now n) 0)
+        new-est (new-branch-ep est (cur-ep (goto-start-of-time est time)))]
+    (meta-apply-and-evaluate truedata est new-est (:time (cur-ep new-est))
+                             time-now sensors)))
+
+(defn meta-batch-weakest
+  [truedata est _ time-now sensors]
+  (let [eps-doubts (reverse (sort-by first (map (fn [ep] [(calc-doubt (:workspace ep)) ep])
+                                              (ep-path est))))
+        prior-cycle (dec (:cycle (second (first eps-doubts))))
+        new-est (new-branch-ep est (cur-ep (goto-cycle est prior-cycle)))]
+    (meta-apply-and-evaluate truedata est new-est (:time (cur-ep new-est))
+                             time-now sensors)))
+
+(defn meta-lower-minapriori
+  [truedata est time-prev time-now sensors]
+  (when (not= 0 (:MinApriori params))
+    (let [new-est (new-branch-ep est (cur-ep est))]
+      ;; drop min-apriori to 0
+      (binding [params (assoc params :MinApriori 0)]
+        ;; give sensors value as nil to prevent resensing
+        (meta-apply-and-evaluate truedata est new-est time-prev time-now nil)))))
+
 (defn preemptively-reject
   [est hyp]
   (let [ep (cur-ep est)
@@ -216,63 +241,37 @@
         smallest-delta (ffirst bad-bests)
         [_ cycle best] (first (sort-by second (filter #(= smallest-delta (first %)) bad-bests)))]
     ;; TODO: consider the delta; if it's too large, perhaps the noexp is just noise
-    (println "noexp" noexp "has these explainers:" expl)
-    (println "these eps:" (map str ep-rejs))
-    (println "they were rejected when these were bad-bests:" bad-bests)
-    (println cycle best)
-    (if cycle
+    (when cycle
       (let [new-est (new-branch-ep est (cur-ep (goto-cycle est (dec cycle))))]
-        (preemptively-reject new-est best))
-      est)))
+        (preemptively-reject new-est best)))))
 
-(defn meta-batch
-  [n truedata est _ time-now sensors]
-  (let [time (if n (- time-now n) 0)
-        new-est (new-branch-ep est (cur-ep (goto-start-of-time est time)))]
-    (meta-apply-and-evaluate truedata est new-est (:time (cur-ep new-est))
-                             time-now sensors)))
-
-(defn meta-batch-weakest
-  [truedata est _ time-now sensors]
-  (let [eps-doubts (reverse (sort-by first (map (fn [ep] [(calc-doubt (:workspace ep)) ep])
-                                              (ep-path est))))
-        prior-cycle (dec (:cycle (second (first eps-doubts))))
-        new-est (new-branch-ep est (cur-ep (goto-cycle est prior-cycle)))]
-    (meta-apply-and-evaluate truedata est new-est (:time (cur-ep new-est))
-                             time-now sensors)))
-
-(defn meta-lower-minapriori
+(defn meta-reject-conflicting
   [truedata est time-prev time-now sensors]
-  (if (= 0 (:MinApriori params))
-    est
-    (let [new-est (new-branch-ep est (cur-ep est))]
-      ;; drop min-apriori to 0
-      (binding [params (assoc params :MinApriori 0)]
-        ;; give sensors value as nil to prevent resensing
-        (meta-apply-and-evaluate truedata est new-est time-prev time-now nil)))))
+  (let [problem-cases (problem-cases est)
+        est-rej (when (not-empty problem-cases)
+                  (find-rejected-explainers est (first problem-cases)))]
+    (when est-rej
+      (meta-apply-and-evaluate truedata est est-rej
+                               (:time (cur-ep est-rej)) time-now sensors))))
 
 (defn meta-abductive
   [truedata est time-prev time-now sensors]
-  (comment (if (not= 0 (:SensorInsertionNoise params))
-             {:est-old est
-              :est-new est}
-             (let [batch1 (meta-batch 1 truedata est time-prev time-now sensors)]
-               (if (empty? (problem-cases (:est-new batch1))) batch1
-                   (let [batch1-lowermin (meta-batch-lower-min-apriori
-                                          1 truedata (:est-old batch1)
-                                          time-prev time-now sensors)]
-                     (if (empty? (problem-cases (:est-new batch1-lowermin))) batch1-lowermin
-                         (let [batch-weakest (meta-batch-weakest
-                                              nil truedata (:est-old batch1-lowermin)
-                                              time-prev time-now sensors)]
-                           (if (empty? (problem-cases (:est-new batch-weakest))) batch-weakest
-                               (meta-batch nil truedata (:est-old batch-weakest)
-                                           time-prev time-now sensors)))))))))
-  (let [problem-cases (problem-cases est)
-        est-rej (if (empty? problem-cases) est
-                    (find-rejected-explainers est (first problem-cases)))]
-    (meta-apply-and-evaluate truedata est est-rej
-                             (:time (cur-ep est-rej)) time-now sensors)))
+  (comment
+    (if (not= 0 (:SensorInsertionNoise params))
+      {:est-old est
+       :est-new est}
+      (let [batch1 (meta-batch 1 truedata est time-prev time-now sensors)]
+        (if (empty? (problem-cases (:est-new batch1))) batch1
+            (let [batch1-lowermin (meta-batch-lower-min-apriori
+                                   1 truedata (:est-old batch1)
+                                   time-prev time-now sensors)]
+              (if (empty? (problem-cases (:est-new batch1-lowermin))) batch1-lowermin
+                  (let [batch-weakest (meta-batch-weakest
+                                       nil truedata (:est-old batch1-lowermin)
+                                       time-prev time-now sensors)]
+                    (if (empty? (problem-cases (:est-new batch-weakest))) batch-weakest
+                        (meta-batch nil truedata (:est-old batch-weakest)
+                                    time-prev time-now sensors))))))))))
 
 (defn ignore-hyp
   [workspace hypid]
@@ -315,14 +314,17 @@
                   meta-batch-weakest
                   (= "lower-minapriori" m)
                   meta-lower-minapriori
+                  (= "reject-conflicting" m)
+                  meta-reject-conflicting
                   (= "abd" m)
                   meta-abductive)
           result (f truedata est time-prev time-now sensors)
-          problem-cases-old (problem-cases (:est-old result))
-          problem-cases-new (problem-cases (:est-new result))]
-      (println "problem-cases-old" problem-cases-old)
-      (println "problem-cases-new" problem-cases-new)
-      (cond (empty? problem-cases-new)
+          problem-cases-old (when result (problem-cases (:est-old result)))
+          problem-cases-new (when result (problem-cases (:est-new result)))]
+      (cond (nil? result)
+            (resolve-by-ignoring problem-cases-old truedata est
+                                 time-prev time-now sensors)
+            (empty? problem-cases-new)
             (:est-new result)
             (< (count problem-cases-new) (count problem-cases-old))
             (resolve-by-ignoring problem-cases-new truedata (:est-new result)
