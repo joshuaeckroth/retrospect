@@ -89,6 +89,7 @@
             :FalseDeltaAvg (:false-delta-avg delta-avgs)
             :Doubt (calc-doubt (:workspace ep))
             :Coverage (calc-coverage (:workspace ep))
+            :ExplainCycles (count (flatten-est est))
             :HypothesisCount ((comp count :hyp-ids :workspace) ep)})))
 
 (defn prefix-params
