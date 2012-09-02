@@ -253,23 +253,29 @@
                                     (get-in ws [:sorted-explainers (:id h)]))))
              workspace (explains workspace hyp)))))
 
+;; forward declaration so (reject-many) can refer to (add) and vice versa
+(declare add)
+
 (defn reject-many
   "Each 'rejected' hypothesis will be removed from the list of hyps
    that need to be explained, and any other hyps a rejected hyp
    explains will be marked as no longer potentially explained by the
    rejected hyp."
   [workspace hyps]
-  (prof :reject-many
-        (reduce
-         (fn [ws hyp]
-           (log "Rejecting" hyp)
-           (let [ws2 (-> (dissoc-in ws [:sorted-explainers (:id hyp)])
-                        (update-in [:rejected (:type hyp)] conj (:id hyp))
-                        (update-in [:rejected :all] conj (:id hyp))
-                        (dissoc-explainer hyp))]
-             (if @batch ws2
-                 (update-in ws2 [:hyp-log (:id hyp)] conj "Rejected"))))
-         workspace hyps)))
+  (reduce
+   (fn [ws hyp]
+     (log "Rejecting" hyp)
+     (let [ws-added (if (nil? (get (:hyp-contents workspace) (:contents hyp)))
+                      ;; hyp not known yet (rejecting preemptively); add first
+                      (add ws hyp)
+                      ws)
+           ws2 (-> (dissoc-in ws-added [:sorted-explainers (:id hyp)])
+                  (update-in [:rejected (:type hyp)] conj (:id hyp))
+                  (update-in [:rejected :all] conj (:id hyp))
+                  (dissoc-explainer hyp))]
+       (if @batch ws2
+           (update-in ws2 [:hyp-log (:id hyp)] conj "Rejected"))))
+   workspace hyps))
 
 (defn record-if-needs-explanation
   [workspace hyp]
@@ -287,18 +293,24 @@
           (if-let [prior-hyp-id (get (:hyp-contents workspace) (:contents hyp))]
             ;; hyp already present; update explains in case it changed,
             ;; and whether it needs explanation or not
-            (let [prior-hyp (lookup-hyp workspace prior-hyp-id)]
-              (log hyp "is already in the workspace as" prior-hyp)
-              (if ((get-in workspace [:rejected :all]) prior-hyp-id)
-                (do
-                  (log "...but" prior-hyp "was rejected, so not adding.")
-                  workspace)
-                (do (log "...and updating what it explains.")
-                    (-> workspace 
-                       (update-in [:explains prior-hyp-id] set/union explains)
-                       (record-if-needs-explanation (assoc prior-hyp :needs-explainer?
-                                                           (:needs-explainer? hyp)))
-                       (assoc-explainer (assoc prior-hyp :explains (:explains hyp)))))))
+            (let [prior-hyp (lookup-hyp workspace prior-hyp-id)
+                  prior-hyp-updated (assoc prior-hyp
+                                      :needs-explainer? (:needs-explainer? hyp)
+                                      :explains (:explains hyp))
+                  new-explains (set (map #(get (:hyp-contents workspace) %)
+                                       (:explains prior-hyp-updated)))]
+              (log hyp "is already in the workspace as" prior-hyp-updated
+                   ", so updating what it explains:" new-explains)
+              (let [ws (-> workspace 
+                          (update-in [:explains prior-hyp-id] set/union explains)
+                          (record-if-needs-explanation prior-hyp-updated)
+                          (assoc-explainer prior-hyp-updated))]
+                (if ((get-in ws [:rejected :all]) prior-hyp-id)
+                  (do
+                    (log "...yet" prior-hyp "was rejected, so not adding.")
+                    (-> (dissoc-in ws [:sorted-explainers prior-hyp-id])
+                       (dissoc-explainer prior-hyp-updated)))
+                  ws)))
             ;; otherwise, add the new hyp
             (let [hyp-apriori (if ((:oracle-types workspace) (:type hyp))
                                 (if ((:oracle workspace) hyp)
