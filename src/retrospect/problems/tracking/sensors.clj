@@ -96,8 +96,8 @@
                       (math/sqrt (* (:GridHeight params)
                                     (:GridWidth params)
                                     (- 1.0 (* 0.01 (:SensorSeesColor params))))))
-        left-right (int (math/ceil (/ (- (:GridWidth params) width-height) 2)))
-        top-bottom (int (math/ceil (/ (- (:GridHeight params) width-height) 2)))
+        left-right (max 2 (int (math/ceil (/ (- (:GridWidth params) width-height) 2))))
+        top-bottom (max 2 (int (math/ceil (/ (- (:GridHeight params) width-height) 2))))
         colors (:seen-colors training)]
     [(new-sensor (keyword "middle-gray")
                  left-right (- (:GridWidth params) left-right)
