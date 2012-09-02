@@ -76,6 +76,16 @@
                  (= (:y mov2) (:oy mov1))
                  (= (:time mov2) (:ot mov1))
                  (not (match-color? (:color mov2) (:color mov1))))
+            ;; same color (not gray), start-end times but not start-end locations
+            (and (or (not= gray (:color mov1))
+                     (not= gray (:color mov2)))
+                 (= (:color mov1) (:color mov2))
+                 (or (and (= (:time mov1) (:ot mov2))
+                          (or (not= (:x mov1) (:ox mov2))
+                              (not= (:y mov1) (:oy mov2))))
+                     (and (= (:ot mov1) (:time mov2))
+                          (or (not= (:ox mov1) (:x mov2))
+                              (not= (:oy mov1) (:y mov2))))))
             ;; same color (not gray), same time, different paths
             (and (or (not= gray (:color mov1))
                      (not= gray (:color mov2)))
@@ -117,10 +127,24 @@
 (defn filter-valid-movs
   [mov-hyps acc-mov-hyps]
   (prof :filter-valid-movs
-        (letfn [(valid? ([h] (let [c (connecting-movs h acc-mov-hyps)]
-                               (or (empty? c)
-                                   (some #(dets-match? (:det h) (:det2 %)) c)
-                                   (some #(dets-match? (:det %) (:det2 h)) c)))))]
+        (letfn [(valid?
+                  ([h] (let [c (connecting-movs h acc-mov-hyps)
+                             prior-same-color
+                             (set (filter #(and (or (= (:time (:det h)) (:time (:det2 %)))
+                                               (= (:time (:det2 h)) (:time (:det %))))
+                                           (= (:color (:det h)) (:color (:det %))))
+                                     acc-mov-hyps))]
+                         ;; if this mov-hyp (h) has a color, and
+                         ;; we have already accepted a mov with
+                         ;; that color, and that prior-belief
+                         ;; does not match up as a connecting
+                         ;; mov, this mov-hyp is not valid
+                         (if (and (not= gray (:color (:det h)))
+                                  (not-empty prior-same-color))
+                           (some prior-same-color c)
+                           (or (empty? c)
+                               (some #(dets-match? (:det h) (:det2 %)) c)
+                               (some #(dets-match? (:det %) (:det2 h)) c))))))]
           (filter valid? mov-hyps))))
 
 (defn move-prob
