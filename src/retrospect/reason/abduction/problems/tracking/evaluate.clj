@@ -9,7 +9,7 @@
 (defn true-hyp?
   [truedata _ hyp]
   (cond (= :movement (:type hyp))
-        (if ((:all-moves truedata) (:mov hyp))
+        (if ((set (map #(dissoc % :color) (:all-moves truedata))) (dissoc (:mov hyp) :color))
           true false)
         ;; check for sensor noise
         (= :observation (:type hyp))
