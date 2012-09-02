@@ -180,9 +180,13 @@
 
 (defn meta-batch-weakest
   [truedata est _ time-now sensors]
-  (let [eps-doubts (reverse (sort-by first (map (fn [ep] [(calc-doubt (:workspace ep)) ep])
-                                              (ep-path est))))
-        prior-cycle (dec (:cycle (second (first eps-doubts))))
+  (let [doubts-cycles (reverse (sort-by first
+                                        (map (fn [ep]
+                                             [(calc-doubt (:workspace ep)) (:cycle ep)])
+                                           (ep-path est))))
+        highest-doubt (ffirst doubts-cycles)
+        prior-cycle (dec (second (first (sort-by second (filter #(= highest-doubt (first %))
+                                                           doubts-cycles)))))
         new-est (new-branch-ep est (cur-ep (goto-cycle est prior-cycle)))]
     (meta-apply-and-evaluate truedata est new-est (:time (cur-ep new-est))
                              time-now sensors)))
