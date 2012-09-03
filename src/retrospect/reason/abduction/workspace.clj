@@ -59,9 +59,9 @@
    :hypotheses {}
    ;; :data + :type map keys => hyp-id values (for dup searching)
    :hyp-contents {}
-   ;; a map of type => seq, with additional key :all
+   ;; a map of type => set, with additional key :all
    :accepted {:all #{}}
-   ;; a map of type => seq, with additional key :all
+   ;; a map of type => set, with additional key :all
    :rejected {:all #{}}
    ;; a map of hypid => set of hypids
    :sorted-explainers {}
@@ -268,9 +268,12 @@
                       (add ws hyp)
                       ws)
            ws2 (-> (dissoc-in ws-added [:sorted-explainers (:id hyp)])
+                  (update-in [:accepted :all] disj (:id hyp))
+                  (update-in [:accepted (:type hyp)] disj (:id hyp))
                   (update-in [:accrej :rej] conj hyp)
-                  (update-in [:rejected (:type hyp)] conj (:id hyp))
-                  (update-in [:rejected :all] conj (:id hyp))
+                  (update-in [:rejected (:type hyp)] conjs (:id hyp))
+                  (update-in [:rejected :all] conjs (:id hyp))
+                  (dissoc-needing-explanation [hyp])
                   (dissoc-explainer hyp))]
        (if @batch ws2
            (update-in ws2 [:hyp-log (:id hyp)] conj "Rejected"))))
@@ -333,8 +336,8 @@
         (if (nil? (get (:hyp-ids workspace) (:id hyp))) workspace
             (let [ws-acc (prof :accept-update
                                (-> workspace
-                                  (update-in [:accepted (:type hyp)] conj (:id hyp))
-                                  (update-in [:accepted :all] conj (:id hyp))))
+                                  (update-in [:accepted (:type hyp)] conjs (:id hyp))
+                                  (update-in [:accepted :all] conjs (:id hyp))))
                   ws-hyplog (if @batch ws-acc
                                 (update-in ws-acc [:hyp-log (:id hyp)] conj
                                            (format (str "Accepted to explain %s with delta %.2f "
@@ -459,7 +462,7 @@
                                    (partial lookup-hyp workspace))]
                   (-> (reduce (fn [ws h] (assoc-in ws [:hyp-ids (:id h)] h))
                         workspace new-kb-hyps)
-                     (assoc-in [:accepted :kb] (doall (map :id new-kb-hyps)))
+                     (assoc-in [:accepted :kb] (set (map :id new-kb-hyps)))
                      (update-in [:accepted :all] set/union (set (map :id new-kb-hyps))))))))
 
 (defn update-graph
@@ -588,8 +591,8 @@
   (prof :add-kb
         (reduce (fn [ws h]
              (-> ws (add h)
-                (update-in [:accepted (:type h)] conj (:id h))
-                (update-in [:accepted :all] conj (:id h))))
+                (update-in [:accepted (:type h)] conjs (:id h))
+                (update-in [:accepted :all] conjs (:id h))))
            workspace hyps)))
 
 (defn remove-kb
@@ -599,7 +602,7 @@
                                 (get-in workspace [:hypotheses :kb])))]
           (-> (reduce (fn [ws h] (dissoc-in ws [:hyp-contents (:contents h)]))
                 workspace kb-hyps)
-             (assoc-in [:accepted :kb] '())
+             (assoc-in [:accepted :kb] #{})
              (assoc-in [:hypotheses :kb] '())))))
 
 (defn init-kb

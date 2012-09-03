@@ -108,12 +108,13 @@
                                    (:training control-truedata))
                   control-ors (profile (init-ors control-sensors
                                                  (:training control-truedata)))]
-              (comment (when (not (:Stats params))
-                         (println "Control:" (pr-str control-params))))
+              (comment
+                (when (not (:Stats params))
+                  (println "Control:" (pr-str control-params))))
               (map (fn [rs] (assoc rs :control-params (pr-str control-params)
-                                   :comparison-params (pr-str comparison-params)))
-                   (let [ors-final (run-simulation control-truedata control-ors)]
-                     (:results (cur-ep (:est ors-final)))))))
+                                :comparison-params (pr-str comparison-params)))
+                 (let [ors-final (run-simulation control-truedata control-ors)]
+                   (:results (cur-ep (:est ors-final)))))))
           comparison-results
           (binding [rgen (new-seed (:Seed comparison-params))
                     last-id 0
@@ -123,19 +124,20 @@
                                       (:training comparison-truedata))
                   comparison-ors (profile (init-ors comparison-sensors
                                                     (:training comparison-truedata)))]
-              (comment (when (not (:Stats params))
-                         (println "Comparison:" (pr-str comparison-params))))
+              (comment
+                (when (not (:Stats params))
+                  (println "Comparison:" (pr-str comparison-params))))
               (map (fn [rs] (assoc rs
-                              :control-params (pr-str control-params)
-                              :comparison-params (pr-str comparison-params)))
-                   (let [ors-final (run-simulation comparison-truedata comparison-ors)]
-                     (:results (cur-ep (:est ors-final)))))))]
+                           :control-params (pr-str control-params)
+                           :comparison-params (pr-str comparison-params)))
+                 (let [ors-final (run-simulation comparison-truedata comparison-ors)]
+                   (:results (cur-ep (:est ors-final)))))))]
       [control-results comparison-results
        (map (fn [rs] (assoc rs
-                       :control-params (pr-str (first params))
-                       :comparison-params (pr-str (second params))))
-            ((:evaluate-comp-fn @reasoner) control-results comparison-results
-             control-params comparison-params))])
+                    :control-params (pr-str (first params))
+                    :comparison-params (pr-str (second params))))
+          ((:evaluate-comp-fn @reasoner) control-results comparison-results
+           control-params comparison-params))])
     ;; if non-comparative, just run the simulation
     (let [params (merge-default-params params)]
       (binding [rgen (new-seed (:Seed params))
@@ -147,6 +149,6 @@
           (comment (when (not (:Stats params))
                      (println "Params:" (pr-str params))))
           (map (fn [rs] (assoc rs :params (pr-str params)))
-               (let [ors-final (run-simulation truedata ors)]
-                 (:results (cur-ep (:est ors-final))))))))))
+             (let [ors-final (run-simulation truedata ors)]
+               (:results (cur-ep (:est ors-final))))))))))
 

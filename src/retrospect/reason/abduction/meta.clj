@@ -234,7 +234,9 @@
                            ;; but a different alternative may not --
                            ;; we are not finding that other
                            ;; alternative
-                           (filter (fn [h] (not-any? (fn [e] (conflicts? h e)) expl))
+                           (filter (fn [[_ _ h]]
+                                ;; also ignore any non-bests (no-acceptance) cases
+                                (and h (not-any? (fn [e] (conflicts? h e)) expl)))
                               (set (map (fn [ep] [(get-in ep [:workspace :accrej :delta])
                                                (:cycle ep)
                                                (get-in ep [:workspace :accrej :best])])
@@ -276,7 +278,7 @@
 
 (defn resolve-by-ignoring
   [problem-cases truedata est time-prev time-now sensors]
-  (let [new-est (new-branch-ep est (cur-ep (goto-start-of-time est time-prev)))
+  (let [new-est (new-branch-ep est (cur-ep est))
         new-ep (cur-ep new-est)
         ws-old (:workspace (cur-ep est))
         ws-ignored (reject-many (:workspace new-ep)
