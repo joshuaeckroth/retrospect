@@ -145,4 +145,5 @@
     (let [i (my-rand-int (count observation-sets))]
       (assoc truedata
         :true-explainers (set (filter (comp not (nth observation-sets i)) (nth true-sets i)))
+        :true-obs (set (apply concat observation-sets))
         :test (observation-groups (nth observation-sets i))))))

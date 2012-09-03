@@ -92,8 +92,10 @@
 (defn player-get-truedata-log
   []
   (if (<= @time-now 0) ""
-      (str "True explainers: "
-           (str/join ", " (sort (:true-explainers @truedata))))))
+      (format "True observations:\n%s\n\nFalse observations:\n%s\n\nTrue explainers:\n%s"
+         (str/join ", " (sort (:true-obs @truedata)))
+         (str/join ", " (sort (:false-obs @truedata)))
+         (str/join ", " (sort (:true-explainers @truedata))))))
 
 (defn player-get-problem-log
   []

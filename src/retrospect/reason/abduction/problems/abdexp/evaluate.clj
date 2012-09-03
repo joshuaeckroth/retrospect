@@ -8,8 +8,12 @@
 
 (defn true-hyp?
   [truedata time-now hyp]
-  (if (= :kb (:type hyp)) true
-      (if ((:true-explainers truedata) (:vertex hyp)) true false)))
+  (cond (= :kb (:type hyp)) true
+        (= :expl (:type hyp))
+        (if ((:true-explainers truedata) (:vertex hyp)) true false)
+        (= :observation (:type hyp))
+        (if ((:true-obs truedata) (:vertex hyp)) true false)
+        :else false))
 
 (defn count-matches
   [true-vertices vertices]
