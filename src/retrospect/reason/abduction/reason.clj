@@ -27,6 +27,7 @@
    (fn []
      (merge {:Threshold [0 [0]]
              :MinApriori [10 [10]]
+             :DoubtMeasure ["apriori" ["apriori" "delta"]]
              :UseScores [true [true]]
              :MetaMinApriori [20 [20]]
              :ContrastPreference ["delta" ["delta" "arbitrary" "apriori,delta"]]

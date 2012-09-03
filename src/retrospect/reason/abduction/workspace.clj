@@ -392,7 +392,10 @@
 
 (defn calc-doubt
   [workspace]
-  (- 1.0 (or (:apriori (:best (:accrej workspace))) 1.0)))
+  (if (= "apriori" (:DoubtMeasure params))
+    (- 1.0 (or (:apriori (:best (:accrej workspace))) 1.0))
+    ;; "delta"
+    (- 1.0 (or (:delta (:accrej workspace)) 1.0))))
 
 (defn calc-coverage
   [workspace]

@@ -74,11 +74,15 @@
   (let [ep (cur-ep est)
         eps (flatten-est est)
         workspace (:workspace ep)
-        true-false (group-hyps-by-true-false (vals (:hyp-ids workspace))
+        true-false (group-hyps-by-true-false
+                    (vals (:hyp-ids workspace))
                     :type truedata (:time ep) (:true-hyp?-fn (:abduction @problem)))
         true-false-scores (calc-true-false-scores workspace true-false)
         delta-avgs (calc-true-false-deltas workspace true-false)
-        ep-states (flatten-est est)]
+        ep-states (flatten-est est)
+        doubts (map #(calc-doubt %)
+                  (filter (comp :best :accrej) (map :workspace ep-states)))
+        coverages (map #(calc-coverage (:workspace %)) ep-states)]
     (merge {:Problem (:name @problem)}
            params
            ((:evaluate-fn (:abduction @problem)) truedata est)
@@ -88,8 +92,8 @@
             :NoExplainersPct (get-noexp-pct (:workspace ep))
             :TrueDeltaAvg (:true-delta-avg delta-avgs)
             :FalseDeltaAvg (:false-delta-avg delta-avgs)
-            :Doubt (calc-doubt (:workspace ep))
-            :Coverage (calc-coverage (:workspace ep))
+            :Doubt (if (empty? doubts) 0.0 (/ (reduce + doubts) (count doubts)))
+            :Coverage (if (empty? coverages) 0.0 (/ (reduce + coverages) (count coverages)))
             :ExplainCycles (count ep-states)
             :MetaBranches (count (filter #(second (:children %)) ep-states))
             :HypothesisCount ((comp count :hyp-ids :workspace) ep)})))
