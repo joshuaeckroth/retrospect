@@ -25,8 +25,7 @@
         sensors (update-sensors-from-to time-prev time-now truedata (:sensors ors))
         ;; start the clock
         start-time (. System (nanoTime))
-        est-child (new-child-ep (:est ors))
-        est-time (update-est est-child (assoc (cur-ep est-child) :time time-now))
+        est-time (update-est (:est ors) (assoc (cur-ep (:est ors)) :time time-now))
         reason-est ((:reason-fn @reasoner) (when (:Oracle params) truedata)
                     est-time time-prev time-now sensors)
         meta-est ((:metareason-fn @reasoner) truedata reason-est
@@ -59,7 +58,8 @@
 
 (defn init-ors
   [sensors training]
-  (let [est (init-est ((:init-kb-fn @reasoner) ((:init-workspace-fn @reasoner)) training))]
+  (let [est (new-child-ep (init-est ((:init-kb-fn @reasoner)
+                                     ((:init-workspace-fn @reasoner)) training)))]
     {:resources {:milliseconds 0 :meta-accepted 0 :meta-activations 0}
      :sensors sensors :est est}))
 

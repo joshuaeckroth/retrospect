@@ -42,19 +42,21 @@
 (defn build-cycle
   [workspace]
   (let [accrej (:accrej workspace)]
-    {(format "Best %s" (if (:essential? accrej) "essential"
-                      (format "delta %.2f" (:delta accrej))))
-     {(:name (:best accrej)) nil}
-     "Explained" {(:name (:explained accrej)) nil}
-     "Alternatives" (list-hyps (:alts accrej))
-     "Normalized Aprioris" (apply hash-map
-                                  (apply concat
-                                         (map (fn [i]
-                                              (let [a (nth (:normalized-aprioris accrej) i)]
-                                                [(format "%d: %.2f" i a) nil]))
-                                            (range (count (:normalized-aprioris accrej))))))
-     "Accepted" (list-hyps (:acc accrej))
-     "Rejected" (list-hyps (:rej accrej))}))
+    (if (empty? accrej) {}
+        {(format "Best %s" (if (:essential? accrej) "essential"
+                          (format "delta %.2f" (:delta accrej))))
+         {(:name (:best accrej)) nil}
+         "Explained" {(:name (:explained accrej)) nil}
+         "Alternatives" (list-hyps (:alts accrej))
+         "Normalized Aprioris"
+         (apply hash-map
+                (apply concat
+                       (map (fn [i]
+                            (let [a (nth (:normalized-aprioris accrej) i)]
+                              [(format "%d: %.2f" i a) nil]))
+                          (range (count (:normalized-aprioris accrej))))))
+         "Accepted" (list-hyps (:acc accrej))
+         "Rejected" (list-hyps (:rej accrej))})))
 
 (defn build-abduction-tree-map
   [or-state]

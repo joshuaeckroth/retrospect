@@ -162,13 +162,13 @@
     ;; is what makes (list-ep-states) possible, since depth-first search
     ;; looks left before looking right
     (zip/right (zip/insert-right (goto-ep est (:id branch))
-                                 (assoc ep :workspace ((:clear-workspace-log-fn @reasoner)
-                                                       (:workspace branch)))))))
+                                 (update-in ep [:workspace]
+                                            (:clear-workspace-log-fn @reasoner))))))
 
 (defn new-child-ep
   [est]
   (let [ep-child (clone-ep (cur-ep est) (make-ep-id est) [])
         cycle-child (inc (:cycle (cur-ep est)))]
-    (zip/down (zip/append-child est (assoc ep-child :cycle cycle-child
-                                           :workspace ((:clear-workspace-log-fn @reasoner)
-                                                       (:workspace ep-child)))))))
+    (zip/down (zip/append-child est (assoc (update-in ep-child [:workspace]
+                                                      (:clear-workspace-log-fn @reasoner))
+                                      :cycle cycle-child)))))

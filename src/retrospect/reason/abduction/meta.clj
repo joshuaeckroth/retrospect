@@ -23,7 +23,7 @@
                      (update-hypotheses
                       (add-sensor-hyps ws time-prev time-now sensors) time-now)
                      (update-hypotheses ws time-now))
-        est-ws (update-est est (assoc (cur-ep est) :workspace ws-sensors))]
+        est-ws (update-est est (assoc (cur-ep est) :workspace ws-sensors :time time-now))]
     (explain est-ws)))
 
 (defn problem-cases
@@ -41,7 +41,7 @@
   (let [reason-est (reason (when (:Oracle params) truedata) new-est
                            time-prev time-now sensors)]
     {:est-old (goto-ep reason-est (:id (cur-ep est)))
-     :est-new (update-est reason-est (assoc (cur-ep reason-est) :time time-now))}))
+     :est-new reason-est}))
 
 (comment
   (defn apply-resolutions
@@ -194,11 +194,11 @@
 (defn meta-lower-minapriori
   [truedata est time-prev time-now sensors]
   (when (not= 0 (:MinApriori params))
-    (let [new-est (new-branch-ep est (cur-ep est))]
+    (let [new-est (new-branch-ep est (cur-ep (goto-start-of-time est time-prev)))]
       ;; drop min-apriori to 0
       (binding [params (assoc params :MinApriori 0)]
         ;; give sensors value as nil to prevent resensing
-        (meta-apply-and-evaluate truedata est new-est time-prev time-now nil)))))
+        (meta-apply-and-evaluate truedata est new-est time-prev time-now sensors)))))
 
 (defn preemptively-reject
   [est hyp]
@@ -274,20 +274,13 @@
                         (meta-batch nil truedata (:est-old batch-weakest)
                                     time-prev time-now sensors))))))))))
 
-(defn ignore-hyp
-  [workspace hypid]
-  (let [hyp (lookup-hyp workspace hypid)]
-    (add workspace (new-hyp "Ignore" :ignore :ignore 1.0 false (:conflicts?-fn hyp)
-                            [(:contents hyp)]
-                            (format "Ignore %s" hyp) (format "Ignore %s" hyp)
-                            (:data hyp)))))
-
 (defn resolve-by-ignoring
   [problem-cases truedata est time-prev time-now sensors]
-  (let [new-est (new-branch-ep est (cur-ep est))
+  (let [new-est (new-branch-ep est (cur-ep (goto-start-of-time est time-prev)))
         new-ep (cur-ep new-est)
-        ws-old (:workspace new-ep)
-        ws-ignored (reduce ignore-hyp ws-old problem-cases)
+        ws-old (:workspace (cur-ep est))
+        ws-ignored (reject-many (:workspace new-ep)
+                                (map #(lookup-hyp ws-old %) problem-cases))
         new-est-ignored (update-est new-est (assoc new-ep :workspace ws-ignored))]
     (reason (when (:Oracle params) truedata) new-est-ignored time-prev time-now sensors)))
 
@@ -298,7 +291,8 @@
   (if (or (not (metareasoning-activated? est))
           (= "none" (:Metareasoning params)))
     est
-    (let [m (:Metareasoning params)
+    (let [problem-cases-old (problem-cases est)
+          m (:Metareasoning params)
           f (cond (= "batchbeg" m)
                   (partial meta-batch nil)
                   (= "batch1" m)
@@ -318,9 +312,10 @@
                   (= "reject-conflicting" m)
                   meta-reject-conflicting
                   (= "abd" m)
-                  meta-abductive)
+                  meta-abductive
+                  (= "ignore" m)
+                  (constantly {:est-old est :est-new est}))
           result (f truedata est time-prev time-now sensors)
-          problem-cases-old (when result (problem-cases (:est-old result)))
           problem-cases-new (when result (problem-cases (:est-new result)))]
       (cond (nil? result)
             (resolve-by-ignoring problem-cases-old truedata est

@@ -55,7 +55,7 @@
    :needs-explanation #{}
    ;; a map of hyp-id => set of hypids
    :hyp-ids {}
-   ;; a map of type => seq
+   ;; a map of type => seq, with additional key :all
    :hypotheses {}
    ;; :data + :type map keys => hyp-id values (for dup searching)
    :hyp-contents {}
@@ -322,7 +322,8 @@
                  (assoc-in [:explains (:id hyp-apriori)] explains)
                  (record-if-needs-explanation hyp-apriori)
                  (assoc-explainer hyp-apriori)
-                 (update-in [:hypotheses (:type hyp-apriori)] conj (:id hyp-apriori))))))))
+                 (update-in [:hypotheses (:type hyp-apriori)] conj (:id hyp-apriori))
+                 (update-in [:hypotheses :all] conj (:id hyp-apriori))))))))
 
 (defn accept
   [workspace hyp nbest explained delta comparison]
@@ -403,7 +404,7 @@
 (defn find-unaccepted
   [workspace]
   (set/difference
-   (set (apply concat (vals (:hypotheses workspace))))
+   (set (:all (:hypotheses workspace)))
    (set (:all (:accepted workspace)))))
 
 (defn find-best
@@ -489,7 +490,7 @@
                                                (add-attr h c :style "dotted")
                                                (add-attr h c :constraint false))))
                                       g (map :id conflicts))))
-                               g-expl (apply concat (vals (:hypotheses workspace)))))
+                               g-expl (:all (:hypotheses workspace))))
               g-accepted (reduce
                           (fn [g h]
                             (-> g (add-attr h :fontcolor "green")
@@ -504,19 +505,26 @@
          hyps (map #(lookup-hyp ws %) (:all (:hypotheses ws)))]
     (if (empty? hyps) ws
         (let [hyp (first hyps)]
+          (log "Checking whether" hyp "should be cleaned up...")
           (if ((get-in ws [:rejected :all]) (:id hyp))
-            (recur ws (rest hyps))
+            (do (log "...already rejected. Moving on.")
+                (recur ws (rest hyps)))
             (cond (and (< (:apriori hyp) (/ (double (:MinApriori params)) 100.0)))
-                  (do (log "Rejecting because apriori" (:apriori hyp)
+                  (do (log "...rejecting because apriori" (:apriori hyp)
                            "is lower than MinApriori.")
                       (let [ws-next (reject-many ws [hyp])]
-                        (recur ws-next (map #(lookup-hyp ws %) (:all (:hypotheses ws))))))
-                  (and (:conflicts?-fn hyp) (find-conflicts ws hyp))
-                  (do (log "Rejecting because of conflicts.")
+                        (recur ws-next (map #(lookup-hyp ws-next %)
+                                          (:all (:hypotheses ws-next))))))
+                  (and (:conflicts?-fn hyp)
+                       (some (fn [hyp2] ((:conflicts?-fn hyp) hyp hyp2))
+                          (map #(lookup-hyp ws %) (:all (:accepted ws)))))
+                  (do (log "...rejecting because of conflicts.")
                       (let [ws-next (reject-many ws [hyp])]
-                        (recur ws-next (map #(lookup-hyp ws %) (:all (:hypotheses ws))))))
+                        (recur ws-next (map #(lookup-hyp ws-next %)
+                                          (:all (:hypotheses ws-next))))))
                   :else
-                  (recur ws (rest hyps))))))))
+                  (do (log "...we'll keep this hyp.")
+                      (recur ws (rest hyps)))))))))
 
 (defn update-est-ws
   [est workspace]
