@@ -66,7 +66,12 @@
             (recur (assoc hyps v (new-hyp "Expl" :expl :expl (score expgraph v)
                                           (not-empty (explainers expgraph v))
                                           #(hyps-conflict? expgraph %1 %2)
-                                          (map #(:contents (get hyps %)) (explains expgraph v))
+                                          ;; use the filter because
+                                          ;; some observations that
+                                          ;; this hyp explains may not
+                                          ;; be observed yet
+                                          (set (filter identity (map #(:contents (get hyps %))
+                                                              (explains expgraph v))))
                                           (format "%s" v) (format "%s @ %d" v time-now)
                                           {:vertex v}))
                    (rest vertices))

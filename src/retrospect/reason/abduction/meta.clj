@@ -223,13 +223,10 @@
   [est noexp]
   (let [expl (set (explainers (:workspace (cur-ep est))
                               (lookup-hyp (:workspace (cur-ep est)) noexp)))
-        ;; which ep-states rejected these expl? for now, only consider
-        ;; those ep-states that match the current time so we can be
-        ;; sure that the noexp are still in the earliest ep (we can be
-        ;; sure of this because sensor reports and their corresponding
-        ;; explainers are added at distinct times)
-        ep-rejs (filter (fn [ep] (some expl (:rej (:accrej (:workspace ep)))))
-                   (filter #(= (:time (cur-ep est)) (:time %)) (ep-path est)))
+        ;; which ep-states rejected these expl?
+        ep-rejs (filter (fn [ep] (some (set (map :contents expl))
+                              (map :contents (:rej (:accrej (:workspace ep))))))
+                   (ep-path est))
         bad-bests (sort-by first
                            ;; don't consider a next-best that still
                            ;; conflicts with what can explain the

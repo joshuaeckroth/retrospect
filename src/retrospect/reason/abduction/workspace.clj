@@ -7,7 +7,7 @@
           add-nodes add-edges remove-nodes edges has-edge?]])
   (:use [loom.alg :only [pre-traverse]])
   (:use [loom.attr :only [add-attr remove-attr]])
-  (:use [retrospect.epistemicstates :only [cur-ep new-child-ep update-est]])
+  (:use [retrospect.epistemicstates :only [prev-ep cur-ep new-child-ep update-est]])
   (:use [retrospect.profile :only [prof]])
   (:use [retrospect.logging])
   (:use [retrospect.random])
@@ -41,9 +41,7 @@
   (print-simple (format "%s(%s)/%.2f" (:name h) (:short-str h) (:apriori h)) w))
 
 (def empty-workspace
-  {;; on every acceptance, save the delta; this (may) be used to calculate doubt
-   :acc-deltas []
-   :graph (digraph)
+  {:graph (digraph)
    :oracle nil
    ;; what was accepted, rejected, merged with the 'best' map
    :accrej {}
@@ -270,6 +268,7 @@
                       (add ws hyp)
                       ws)
            ws2 (-> (dissoc-in ws-added [:sorted-explainers (:id hyp)])
+                  (update-in [:accrej :rej] conj hyp)
                   (update-in [:rejected (:type hyp)] conj (:id hyp))
                   (update-in [:rejected :all] conj (:id hyp))
                   (dissoc-explainer hyp))]
@@ -354,7 +353,7 @@
                                  ws-conflicts
                                  (prof :accept-needs-exp
                                        (assoc-needing-explanation ws-conflicts hyp)))]
-              (update-in ws-needs-exp [:accrej] merge {:acc hyp :rej conflicts})))))
+              (update-in ws-needs-exp [:accrej :acc] conj hyp)))))
 
 (defn add-observation
   [workspace hyp]
@@ -505,22 +504,23 @@
          hyps (map #(lookup-hyp ws %) (:all (:hypotheses ws)))]
     (if (empty? hyps) ws
         (let [hyp (first hyps)]
-          (cond (< (:apriori hyp) (/ (double (:MinApriori params)) 100.0))
-                (do (log "Rejecting because apriori" (:apriori hyp)
-                         "is lower than MinApriori.")
-                    (let [ws-next (reject-many ws [hyp])]
-                      (recur ws-next (map #(lookup-hyp ws %) (:all (:hypotheses ws))))))
-                (and (:conflicts?-fn hyp) (find-conflicts ws hyp))
-                (do (log "Rejecting because of conflicts.")
-                    (let [ws-next (reject-many ws [hyp])]
-                      (recur ws-next (map #(lookup-hyp ws %) (:all (:hypotheses ws))))))
-                :else
-                (recur ws (rest hyps)))))))
+          (if ((get-in ws [:rejected :all]) (:id hyp))
+            (recur ws (rest hyps))
+            (cond (and (< (:apriori hyp) (/ (double (:MinApriori params)) 100.0)))
+                  (do (log "Rejecting because apriori" (:apriori hyp)
+                           "is lower than MinApriori.")
+                      (let [ws-next (reject-many ws [hyp])]
+                        (recur ws-next (map #(lookup-hyp ws %) (:all (:hypotheses ws))))))
+                  (and (:conflicts?-fn hyp) (find-conflicts ws hyp))
+                  (do (log "Rejecting because of conflicts.")
+                      (let [ws-next (reject-many ws [hyp])]
+                        (recur ws-next (map #(lookup-hyp ws %) (:all (:hypotheses ws))))))
+                  :else
+                  (recur ws (rest hyps))))))))
 
 (defn update-est-ws
   [est workspace]
-  (new-child-ep
-   (update-est est (assoc (cur-ep est) :workspace workspace))))
+  (new-child-ep (update-est est (assoc (cur-ep est) :workspace workspace))))
 
 (defn explain
   [est]
@@ -546,7 +546,6 @@
                       (update-est-ws est ws))
                   (do (log "Best is" (:id best) (:apriori best))
                       (let [ws-accepted (-> ws
-                                           (update-in [:acc-deltas] conj delta)
                                            (update-in [:accrej] merge b)
                                            (accept best nbest explained delta comparison))]
                         (recur (update-est-ws est ws-accepted)))))))))))
@@ -599,6 +598,11 @@
   [workspace training]
   (prof :init-kb
         (add-kb workspace ((:generate-kb-fn (:abduction @problem)) training))))
+
+(defn clear-workspace-log
+  "Prepare the workspace for a new cycle."
+  [workspace]
+  (assoc workspace :accrej {}))
 
 (defn init-workspace
   []

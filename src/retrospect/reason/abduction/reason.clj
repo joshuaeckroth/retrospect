@@ -2,7 +2,7 @@
   (:require [clojure.set :as set])
   (:require [clojure.string :as str])
   (:use [retrospect.reason.abduction.workspace
-         :only [init-workspace init-kb calc-doubt calc-coverage]])
+         :only [clear-workspace-log init-workspace init-kb calc-doubt calc-coverage]])
   (:use [retrospect.reason.abduction.meta
          :only [reason metareason]])
   (:use [retrospect.reason.abduction.evaluate
@@ -33,6 +33,7 @@
              :HypPreference ["abd" ["abd" "arbitrary"]]
              :ConsiderExplPower [false [true false]]}
             (:default-params (:abduction @problem))))
+   :clear-workspace-log-fn clear-workspace-log
    :init-workspace-fn init-workspace
    :init-kb-fn init-kb
    :player-fns

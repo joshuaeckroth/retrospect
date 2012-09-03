@@ -53,7 +53,7 @@
                                               (let [a (nth (:normalized-aprioris accrej) i)]
                                                 [(format "%d: %.2f" i a) nil]))
                                             (range (count (:normalized-aprioris accrej))))))
-     "Accepted" (list-hyps [(:acc accrej)])
+     "Accepted" (list-hyps (:acc accrej))
      "Rejected" (list-hyps (:rej accrej))}))
 
 (defn build-abduction-tree-map
