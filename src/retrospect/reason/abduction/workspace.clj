@@ -287,8 +287,8 @@
                   (dissoc-needing-explanation [hyp])
                   (dissoc-explainer hyp))]
        (if @batch ws2
-           (update-in ws2 [:hyp-log (:id hyp)] conj (format "Rejected with reason %s"
-                                                       (str reason-tag))))))
+           (assoc-in ws2 [:hyp-log (:id hyp)]
+                     (format "Rejected with reason %s" (str reason-tag))))))
    workspace hyps))
 
 (defn record-if-needs-explanation
@@ -351,12 +351,12 @@
                                   (update-in [:accepted (:type hyp)] conjs (:id hyp))
                                   (update-in [:accepted :all] conjs (:id hyp))))
                   ws-hyplog (if @batch ws-acc
-                                (update-in ws-acc [:hyp-log (:id hyp)] conj
-                                           (format (str "Accepted to explain %s with delta %.2f "
-                                                   "(essential? %s; next-best: %s); "
-                                                   "comparison: %s")
-                                              explained delta (nil? nbest) nbest
-                                              comparison)))
+                                (assoc-in ws-acc [:hyp-log (:id hyp)]
+                                          (format (str "Accepted to explain %s with delta %.2f "
+                                                  "(essential? %s; next-best: %s); "
+                                                  "comparison: %s")
+                                             explained delta (nil? nbest) nbest
+                                             comparison)))
                   ws-expl (dissoc-needing-explanation ws-hyplog (explains workspace hyp))
                   conflicts (prof :accept-conflicts
                                   (when (:conflicts?-fn hyp)

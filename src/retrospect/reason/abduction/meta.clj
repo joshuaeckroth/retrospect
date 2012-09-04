@@ -33,9 +33,9 @@
     (set (map #(lookup-hyp workspace %) (get-no-explainers workspace)))))
 
 (defn meta-apply-and-evaluate
-  [truedata est est-new time-prev time-now sensors]
+  [truedata est est-new time-now sensors]
   (let [reason-est (reason (when (:Oracle params) truedata) est-new
-                           time-prev time-now sensors)]
+                           (:time (cur-ep est-new)) time-now sensors)]
     {:est-old (goto-ep reason-est (:id (cur-ep est)))
      :est-new reason-est}))
 
@@ -151,8 +151,7 @@
   [n problem-caes truedata est _ time-now sensors]
   (let [time (if n (- time-now n) 0)
         new-est (new-branch-ep est (cur-ep (goto-start-of-time est time)))]
-    (meta-apply-and-evaluate truedata est new-est (:time (cur-ep new-est))
-                             time-now sensors)))
+    (meta-apply-and-evaluate truedata est new-est time-now sensors)))
 
 (defn meta-batch-weakest
   [problem-cases truedata est _ time-now sensors]
@@ -164,8 +163,7 @@
         prior-cycle (dec (second (first (sort-by second (filter #(= highest-doubt (first %))
                                                            doubts-cycles)))))
         new-est (new-branch-ep est (cur-ep (goto-cycle est prior-cycle)))]
-    (meta-apply-and-evaluate truedata est new-est (:time (cur-ep new-est))
-                             time-now sensors)))
+    (meta-apply-and-evaluate truedata est new-est time-now sensors)))
 
 (defn meta-lower-minapriori
   [problem-cases truedata est time-prev time-now sensors]
@@ -173,8 +171,7 @@
     (let [new-est (new-branch-ep est (cur-ep (goto-start-of-time est time-prev)))]
       ;; drop min-apriori to 0
       (binding [params (assoc params :MinApriori 0)]
-        ;; give sensors value as nil to prevent resensing
-        (meta-apply-and-evaluate truedata est new-est time-prev time-now sensors)))))
+        (meta-apply-and-evaluate truedata est new-est time-now sensors)))))
 
 (defn preemptively-reject
   [est hyp]
@@ -227,8 +224,7 @@
   [problem-cases truedata est time-prev time-now sensors]
   (let [est-rej (find-rejected-explainers est (first problem-cases))]
     (when est-rej
-      (meta-apply-and-evaluate truedata est est-rej
-                               (:time (cur-ep est-rej)) time-now sensors))))
+      (meta-apply-and-evaluate truedata est est-rej time-now sensors))))
 
 (defn action-batch
   [ep est]
@@ -237,7 +233,8 @@
 
 (defn action-flip-choice
   [ep est]
-  [est params])
+  [(new-branch-ep est ep)
+   params])
 
 (defn action-lower-minapriori
   [time-prev est]
@@ -265,9 +262,7 @@
 (defn meta-hyp-conflicts?
   [hyp1 hyp2]
   (and (not= hyp1 hyp2)
-       (or (not-empty (:explains hyp1))
-           (not-empty (:explains hyp2)))
-       (= (:explains hyp1) (:explains hyp2))))
+       (not-empty (set/intersection (set (:explains hyp1)) (set (:explains hyp2))))))
 
 (defn make-meta-hyps
   "Create explanations, and associated actions, for problem-cases."
@@ -347,15 +342,15 @@
 
 (defn score-meta-hyps
   [problem-cases meta-hyps truedata est time-prev time-now sensors]
-  (loop [est est
+  (loop [est-attempted est
          hyps meta-hyps
          new-hyps []]
-    (if (empty? hyps) [est new-hyps]
+    (if (empty? hyps) [(goto-ep est-attempted (:id (cur-ep est))) new-hyps]
         (let [hyp (first hyps)
-              [est-new params-new] ((:action hyp) est)
+              [est-new params-new] ((:action hyp) est-attempted)
               result (binding [params params-new]
-                       (meta-apply-and-evaluate truedata est est-new
-                                                (:time (cur-ep est-new)) time-now sensors))
+                       (meta-apply-and-evaluate truedata est-attempted est-new
+                                                time-now sensors))
               doubts-new (map #(calc-doubt %)
                             (filter (comp :best :accrej)
                                (map :workspace (ep-path (:est-new result)))))
@@ -384,28 +379,28 @@
         meta-accepted (filter (fn [hyp] (not ((set (map :contents problem-cases)) (:contents hyp))))
                          (map #(lookup-hyp meta-ws-explained %)
                             (:all (:accepted meta-ws-explained))))]
-    (println "problem cases:" (str/join ", " (map str problem-cases)))
-    (println (for [h meta-hyps-scored]
-               (format "%s explains %s\n\n" (str h)
-                  (str/join ", " (map str (filter (fn [pc] ((set (:explains h)) (:contents pc)))
-                                           problem-cases))))))
-    (println "accepted" meta-accepted))
-  (comment
-    (if (not= 0 (:SensorInsertionNoise params))
-      {:est-old est
-       :est-new est}
-      (let [batch1 (meta-batch 1 truedata est time-prev time-now sensors)]
-        (if (empty? (problem-cases (:est-new batch1))) batch1
-            (let [batch1-lowermin (meta-batch-lower-min-apriori
-                                   1 truedata (:est-old batch1)
-                                   time-prev time-now sensors)]
-              (if (empty? (problem-cases (:est-new batch1-lowermin))) batch1-lowermin
-                  (let [batch-weakest (meta-batch-weakest
-                                       nil truedata (:est-old batch1-lowermin)
-                                       time-prev time-now sensors)]
-                    (if (empty? (problem-cases (:est-new batch-weakest))) batch-weakest
-                        (meta-batch nil truedata (:est-old batch-weakest)
-                                    time-prev time-now sensors))))))))))
+    (comment
+      (println "problem cases:" (str/join ", " (map str problem-cases)))
+      (println (for [h meta-hyps-scored]
+                 (format "%s explains %s\n\n" (str h)
+                    (str/join ", " (map str (filter (fn [pc] ((set (:explains h)) (:contents pc)))
+                                             problem-cases))))))
+      (println "accepted" meta-accepted)
+      (println "ep:" (str (cur-ep est-new))))
+    ;; apply the accepted action (first ignoring noise hyps, then apply the noise hyps)
+    (if (not-empty meta-accepted)
+      (let [[est-applied params-applied]
+            (loop [est-applied est-new
+                   params-applied params
+                   acc (filter identity
+                          (concat [(first (filter #(not= :noise (:type %)) meta-accepted))]
+                                  (filter #(= :noise (:type %)) meta-accepted)))]
+              (if (empty? acc) [est-applied params-applied]
+                  (let [[est params] ((:action (first acc)) est-applied)]
+                    (recur est (merge params-applied params) (rest acc)))))]
+        (binding [params params-applied]
+          (meta-apply-and-evaluate truedata est-new est-applied time-now sensors)))
+      {:est-old (goto-ep est-new (:id (cur-ep est))) :est-new est-new})))
 
 (defn resolve-by-ignoring
   [problem-cases truedata est time-prev time-now sensors]

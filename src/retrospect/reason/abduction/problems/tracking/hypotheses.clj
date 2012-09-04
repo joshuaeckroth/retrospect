@@ -97,23 +97,24 @@
   [sensors time-prev time-now accepted lookup-hyp]
   (prof :make-sensor-hyps
         (doall
-         (mapcat (fn [{:keys [x y color time] :as det}]
-                   (let [desc (format (str "Sensor detection - color: %s, "
-                                      "x: %d, y: %d, time: %d")
-                                 (color-str color) x y time)
-                         from (new-hyp "SensFrom" :observation :from
-                                       1.0 true conflicts? []
-                                       (format "%d,%d@%d" x y time) desc
-                                       {:det det :from-to :from})
-                         to (new-hyp "SensTo" :observation :to
-                                     1.0 true conflicts? []
-                                     (format "%d,%d@%d" x y time) desc
-                                     {:det det :from-to :to})]
-                     (cond (= time time-prev) [to]
-                           (= time time-now) [from]
-                           :else [from to])))
-                 (sort-by :time (mapcat (fn [t] (mapcat (fn [s] (sensed-at s t)) sensors))
-                                        (range time-prev (inc time-now))))))))
+         (if (= time-prev time-now) []
+             (mapcat (fn [{:keys [x y color time] :as det}]
+                       (let [desc (format (str "Sensor detection - color: %s, "
+                                          "x: %d, y: %d, time: %d")
+                                     (color-str color) x y time)
+                             from (new-hyp "SensFrom" :observation :from
+                                           1.0 true conflicts? []
+                                           (format "%d,%d@%d" x y time) desc
+                                           {:det det :from-to :from})
+                             to (new-hyp "SensTo" :observation :to
+                                         1.0 true conflicts? []
+                                         (format "%d,%d@%d" x y time) desc
+                                         {:det det :from-to :to})]
+                         (cond (= time time-prev) [to]
+                               (= time time-now) [from]
+                               :else [from to])))
+                     (sort-by :time (mapcat (fn [t] (mapcat (fn [s] (sensed-at s t)) sensors))
+                                            (range time-prev (inc time-now)))))))))
 
 (defn connecting-movs
   [h acc-mov-hyps]

@@ -33,23 +33,24 @@
 
 (defn make-sensor-hyps
   [sensors time-prev time-now accepted lookup-hyp]
-  (let [kb (get-kb accepted lookup-hyp)
-        expgraph (:expgraph kb)
-        prev-hyps (map lookup-hyp (:all accepted))
-        observed (reduce set/union (map #(sensed-at (first sensors) %)
-                                 (range (inc time-now))))]
-    (loop [hyps (zipmap (map :vertex prev-hyps) prev-hyps)
-           vertices observed]
-      (if (empty? vertices)
-        (filter #(= :observation (:type %)) (vals hyps))
-        (let [v (first vertices)]
-          (recur
-           (assoc hyps v (new-hyp "Obs" :observation :observation (score expgraph v) true
-                                  #(hyps-conflict? expgraph %1 %2)
-                                  (map #(:contents (get hyps %)) (explains expgraph v))
-                                  (str v) (str v)
-                                  {:vertex v}))
-           (rest vertices)))))))
+  (if (= time-prev time-now) []
+      (let [kb (get-kb accepted lookup-hyp)
+            expgraph (:expgraph kb)
+            prev-hyps (map lookup-hyp (:all accepted))
+            observed (reduce set/union (map #(sensed-at (first sensors) %)
+                                     (range (inc time-now))))]
+        (loop [hyps (zipmap (map :vertex prev-hyps) prev-hyps)
+               vertices observed]
+          (if (empty? vertices)
+            (filter #(= :observation (:type %)) (vals hyps))
+            (let [v (first vertices)]
+              (recur
+               (assoc hyps v (new-hyp "Obs" :observation :observation (score expgraph v) true
+                                      #(hyps-conflict? expgraph %1 %2)
+                                      (map #(:contents (get hyps %)) (explains expgraph v))
+                                      (str v) (str v)
+                                      {:vertex v}))
+               (rest vertices))))))))
 
 (defn hypothesize
   [unexp-hyps accepted lookup-hyp time-now]
