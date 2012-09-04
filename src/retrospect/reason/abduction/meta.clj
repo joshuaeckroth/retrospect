@@ -295,7 +295,9 @@
           (recur (:est-old result) (rest hyps)
                  (conj new-hyps
                        (assoc hyp :explains (map :contents resolved-cases)
-                              :apriori (- 1.0 doubt-new))))))))
+                              :apriori (if (= :noise (:type hyp))
+                                         (* 0.5 (- 1.0 doubt-new))
+                                         (- 1.0 doubt-new)))))))))
 
 (defn meta-abductive
   [problem-cases est time-prev time-now sensors]
@@ -305,9 +307,11 @@
         meta-est (new-child-ep (init-est (init-workspace)))
         meta-ws (reduce add (reduce add-observation (:workspace (cur-ep meta-est)) problem-cases)
                    meta-hyps-scored)
-        meta-est-reasoned (reason (update-est meta-est (assoc (cur-ep meta-est)
-                                                         :workspace meta-ws))
-                                  0 1 nil :no-metareason)
+        meta-est-reasoned (binding [params (assoc params :MinApriori 0
+                                                  :Threshold 0)]
+                              (reason (update-est meta-est (assoc (cur-ep meta-est)
+                                                             :workspace meta-ws))
+                                      0 1 nil :no-metareason))
         meta-ws-reasoned (:workspace (cur-ep meta-est-reasoned))
         ;; take out the "observations"
         meta-accepted (filter (fn [hyp] (not ((set (map :contents problem-cases)) (:contents hyp))))
