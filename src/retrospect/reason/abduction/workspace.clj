@@ -530,15 +530,13 @@
                   (do (log "...rejecting because apriori" (:apriori hyp)
                            "is lower than MinApriori.")
                       (let [ws-next (reject-many ws [hyp] :minapriori)]
-                        (recur ws-next (map #(lookup-hyp ws-next %)
-                                          (:all (:hypotheses ws-next))))))
+                        (recur ws-next (rest hyps))))
                   (and (:conflicts?-fn hyp)
                        (some (fn [hyp2] ((:conflicts?-fn hyp) hyp hyp2))
                           (map #(lookup-hyp ws %) (:all (:accepted ws)))))
                   (do (log "...rejecting because of conflicts.")
                       (let [ws-next (reject-many ws [hyp] :conflict)]
-                        (recur ws-next (map #(lookup-hyp ws-next %)
-                                          (:all (:hypotheses ws-next))))))
+                        (recur ws-next (rest hyps))))
                   :else
                   (do (log "...we'll keep this hyp.")
                       (recur ws (rest hyps)))))))))
