@@ -63,6 +63,8 @@
    :accepted {:all #{}}
    ;; a map of type => set, with additional key :all
    :rejected {:all #{}}
+   ;; a map of hyp-id => reason-tag (e.g., :conflict)
+   :rejection-reasons {}
    ;; a map of hypid => set of hypids
    :sorted-explainers {}
    ;; a seq of hypids
@@ -79,6 +81,14 @@
   [workspace hyp]
   (prof :accepted?
         ((get-in workspace [:accepted :all] #{}) (:id hyp))))
+
+(defn rejected?
+  [workspace hyp]
+  ((get-in workspace [:rejected :all] #{}) (:id hyp)))
+
+(defn rejection-reason
+  [workspace hyp]
+  (get-in workspace [:rejection-reasons (:id hyp)]))
 
 (defn hyp-log
   [workspace hyp]
@@ -259,10 +269,10 @@
    that need to be explained, and any other hyps a rejected hyp
    explains will be marked as no longer potentially explained by the
    rejected hyp."
-  [workspace hyps]
+  [workspace hyps reason-tag]
   (reduce
    (fn [ws hyp]
-     (log "Rejecting" hyp)
+     (log "Rejecting" hyp "with reason" reason-tag)
      (let [ws-added (if (nil? (get (:hyp-contents workspace) (:contents hyp)))
                       ;; hyp not known yet (rejecting preemptively); add first
                       (add ws hyp)
@@ -273,10 +283,12 @@
                   (update-in [:accrej :rej] conj hyp)
                   (update-in [:rejected (:type hyp)] conjs (:id hyp))
                   (update-in [:rejected :all] conjs (:id hyp))
+                  (assoc-in [:rejection-reasons (:id hyp)] reason-tag)
                   (dissoc-needing-explanation [hyp])
                   (dissoc-explainer hyp))]
        (if @batch ws2
-           (update-in ws2 [:hyp-log (:id hyp)] conj "Rejected"))))
+           (update-in ws2 [:hyp-log (:id hyp)] conj (format "Rejected with reason %s"
+                                                       (str reason-tag))))))
    workspace hyps))
 
 (defn record-if-needs-explanation
@@ -351,7 +363,7 @@
                                     (find-conflicts ws-expl hyp)))
                   ws-conflicts (if conflicts
                                  (prof :accept-reject-many
-                                       (reject-many ws-expl conflicts))
+                                       (reject-many ws-expl conflicts :conflict))
                                  ws-expl)
                   ws-needs-exp (if-not ((:needs-explanation ws-conflicts) (:id hyp))
                                  ws-conflicts
@@ -518,14 +530,14 @@
             (cond (and (< (:apriori hyp) (/ (double (:MinApriori params)) 100.0)))
                   (do (log "...rejecting because apriori" (:apriori hyp)
                            "is lower than MinApriori.")
-                      (let [ws-next (reject-many ws [hyp])]
+                      (let [ws-next (reject-many ws [hyp] :minapriori)]
                         (recur ws-next (map #(lookup-hyp ws-next %)
                                           (:all (:hypotheses ws-next))))))
                   (and (:conflicts?-fn hyp)
                        (some (fn [hyp2] ((:conflicts?-fn hyp) hyp hyp2))
                           (map #(lookup-hyp ws %) (:all (:accepted ws)))))
                   (do (log "...rejecting because of conflicts.")
-                      (let [ws-next (reject-many ws [hyp])]
+                      (let [ws-next (reject-many ws [hyp] :conflict)]
                         (recur ws-next (map #(lookup-hyp ws-next %)
                                           (:all (:hypotheses ws-next))))))
                   :else

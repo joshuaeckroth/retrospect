@@ -1,5 +1,6 @@
 (ns retrospect.reason.abduction.meta
   (:require [clojure.set :as set])
+  (:require [clojure.string :as str])
   (:use [retrospect.epistemicstates :only
          [cur-ep new-child-ep new-branch-ep init-est
           update-est goto-start-of-time print-est goto-ep ep-path goto-cycle]])
@@ -7,7 +8,7 @@
          [get-no-explainers get-unexplained new-hyp init-workspace calc-doubt
           explain add-kb add-observation add lookup-hyp explainers
           update-kb explain update-hypotheses add-sensor-hyps conflicts?
-          reject-many]])
+          reject-many rejection-reason]])
   (:use [retrospect.state]))
 
 (defn reason
@@ -26,19 +27,14 @@
         est-ws (update-est est (assoc (cur-ep est) :workspace ws-sensors :time time-now))]
     (explain est-ws)))
 
-(defn problem-cases
+(defn find-problem-cases
   [est]
   (let [workspace (:workspace (cur-ep est))]
-    (set (get-no-explainers workspace))))
-
-(defn metareasoning-activated?
-  "Check if any of the metareasoning activation conditions are met."
-  [est]
-  (not-empty (problem-cases est)))
+    (set (map #(lookup-hyp workspace %) (get-no-explainers workspace)))))
 
 (defn meta-apply-and-evaluate
-  [truedata est new-est time-prev time-now sensors]
-  (let [reason-est (reason (when (:Oracle params) truedata) new-est
+  [truedata est est-new time-prev time-now sensors]
+  (let [reason-est (reason (when (:Oracle params) truedata) est-new
                            time-prev time-now sensors)]
     {:est-old (goto-ep reason-est (:id (cur-ep est)))
      :est-new reason-est}))
@@ -90,33 +86,13 @@
                {:hyp ne}))))
 
 (comment
-  (defn conflicts?
-    [hyp1 hyp2]
-    (= (:explains hyp1) (:explains hyp2))))
+  )
 
 (comment
-  (defn make-meta-hyps
-    "Create explanations, and associated actions, for noexp."
-    [ws-original noexp-hyps ws-depth time-now]
-    ;; anomaly hyps
-    (mapcat (fn [ne] (for [i (range (dec ws-depth) 0 -1)]
-                      (new-hyp "Anomaly" :anomaly :anomaly
-                               (calc-doubt (revert-workspace ws-original i))
-                               false conflicts? [(:contents ne)]
-                               (format "%s is an anomaly from depth %d" ne i)
-                               (format "%s is an anomaly from depth %d" ne i)
-                               {:action (partial belief-revision ne i) :noexp-hyp ne
-                                :depth i})))
-            noexp-hyps)))
+  )
 
 (comment
-  (mapcat (fn [ne]
-            [(new-hyp "Noise" :noise :insertion-noise
-                      (+ 0.5 (* 0.5 (/ (double (:SensorInsertionNoise params)) 100.0)))
-                      false conflicts? [(:contents ne)]
-                      (format "%s is insertion noise" ne) (format "%s is insertion noise" ne)
-                      {:action (partial ignore-hyp (:hyp ne)) :noexp-hyp ne})])
-          (filter #(= :observation (:type (:hyp %))) noexp-hyps)))
+  )
 
 (comment
   (defn metareason
@@ -172,14 +148,14 @@
               (recur est-meta (rest hyps) attempted-depths attempts))))))
 
 (defn meta-batch
-  [n truedata est _ time-now sensors]
+  [n problem-caes truedata est _ time-now sensors]
   (let [time (if n (- time-now n) 0)
         new-est (new-branch-ep est (cur-ep (goto-start-of-time est time)))]
     (meta-apply-and-evaluate truedata est new-est (:time (cur-ep new-est))
                              time-now sensors)))
 
 (defn meta-batch-weakest
-  [truedata est _ time-now sensors]
+  [problem-cases truedata est _ time-now sensors]
   (let [doubts-cycles (reverse (sort-by first
                                         (map (fn [ep]
                                              [(calc-doubt (:workspace ep)) (:cycle ep)])
@@ -192,7 +168,7 @@
                              time-now sensors)))
 
 (defn meta-lower-minapriori
-  [truedata est time-prev time-now sensors]
+  [problem-cases truedata est time-prev time-now sensors]
   (when (not= 0 (:MinApriori params))
     (let [new-est (new-branch-ep est (cur-ep (goto-start-of-time est time-prev)))]
       ;; drop min-apriori to 0
@@ -203,7 +179,7 @@
 (defn preemptively-reject
   [est hyp]
   (let [ep (cur-ep est)
-        ws-rejected (reject-many (:workspace ep) [hyp])
+        ws-rejected (reject-many (:workspace ep) [hyp] :preemptive)
         ep-rejected (assoc ep :workspace ws-rejected)]
     (update-est est ep-rejected)))
 
@@ -220,9 +196,8 @@
    the lowest normalized-delta, and pre-emptively reject it, thus
    favoring its next-best. Only makes sense when the problem case
    given to this function is a noexp case."
-  [est noexp]
-  (let [expl (set (explainers (:workspace (cur-ep est))
-                              (lookup-hyp (:workspace (cur-ep est)) noexp)))
+  [est problem-cases]
+  (let [expl (set (explainers (:workspace (cur-ep est)) problem-cases))
         ;; which ep-states rejected these expl?
         ep-rejs (filter (fn [ep] (some (set (map :contents expl))
                               (map :contents (:rej (:accrej (:workspace ep))))))
@@ -249,16 +224,172 @@
         (preemptively-reject new-est best)))))
 
 (defn meta-reject-conflicting
-  [truedata est time-prev time-now sensors]
-  (let [problem-cases (problem-cases est)
-        est-rej (when (not-empty problem-cases)
-                  (find-rejected-explainers est (first problem-cases)))]
+  [problem-cases truedata est time-prev time-now sensors]
+  (let [est-rej (find-rejected-explainers est (first problem-cases))]
     (when est-rej
       (meta-apply-and-evaluate truedata est est-rej
                                (:time (cur-ep est-rej)) time-now sensors))))
 
+(defn action-batch
+  [ep est]
+  [(new-branch-ep est ep)
+   params])
+
+(defn action-flip-choice
+  [ep est]
+  [est params])
+
+(defn action-lower-minapriori
+  [time-prev est]
+  [(new-branch-ep est (cur-ep (goto-start-of-time est time-prev)))
+   (assoc params :MinApriori 0)])
+
+(defn action-ignore
+  [hyp est]
+  (let [ws-old (:workspace (cur-ep est))
+        new-est (new-branch-ep est (cur-ep est))
+        new-ep (cur-ep new-est)
+        ws-ignored (reject-many (:workspace new-ep) [hyp] :ignoring)]
+    [(update-est new-est (assoc new-ep :workspace ws-ignored))
+     params]))
+
+(defn action-preemptively-reject
+  [hyp cycle est]
+  (let [new-est (new-branch-ep est (cur-ep (goto-cycle est (dec cycle))))
+        ep (cur-ep new-est)
+        ws-rejected (reject-many (:workspace ep) [hyp] :preemptive)
+        ep-rejected (assoc ep :workspace ws-rejected)]
+    [(update-est est ep-rejected)
+     params]))
+
+(defn meta-hyp-conflicts?
+  [hyp1 hyp2]
+  (and (not= hyp1 hyp2)
+       (or (not-empty (:explains hyp1))
+           (not-empty (:explains hyp2)))
+       (= (:explains hyp1) (:explains hyp2))))
+
+(defn make-meta-hyps
+  "Create explanations, and associated actions, for problem-cases."
+  [problem-cases truedata est time-prev time-now sensors]
+  (let [cur-ws (:workspace (cur-ep est))
+        expl (set (mapcat #(explainers cur-ws %) problem-cases))
+        eps (ep-path est)]
+    (concat
+     ;; order dependency among the observations
+     (if (not= 0 time-prev)
+       (for [ep (map (fn [t] (cur-ep (goto-start-of-time est t))) (range 1 time-now))]
+         (new-hyp "OrderDep" :order-dep :weakest
+                  1.0 false meta-hyp-conflicts? []
+                  (format "Order dependency at %s" (str ep))
+                  (format "Order dependency at %s" (str ep))
+                  {:action (partial action-batch ep)}))
+       ;; time-prev == 0, so this is a "static" case or we have not
+       ;; done much reasoning yet
+       [])
+     ;; wrong choice at a certain decision (batch + flip)
+     (for [ep (filter (comp :nbest :accrej :workspace) eps)]
+       (new-hyp "WrongChoice" :wrong-choice :wrong-choice
+                1.0 false meta-hyp-conflicts? []
+                (format "Wrong choice at %s" (str ep))
+                (format "%s was accepted at %s but %s should be instead."
+                   (str (:best (:accrej (:workspace ep)))) (str ep)
+                   (str (:nbest (:accrej (:workspace ep)))))
+                {:action (partial action-flip-choice ep)}))
+     ;; were some explainers omitted due to high min-apriori?
+     (let [expl-rejected-minapriori (filter (fn [h] (= :minapriori (rejection-reason cur-ws h)))
+                                       expl)]
+       (if (not-empty expl-rejected-minapriori)
+         [(new-hyp "TooHighMinApriori" :rejected :minapriori
+                   1.0 false meta-hyp-conflicts? []
+                   "Explainers rejected due to too-high min-apriori"
+                   (format "These explainers were rejected due to too-high min-apriori: %s"
+                      (str/join ", " (sort (map str expl-rejected-minapriori))))
+                   {:action (partial action-lower-minapriori time-prev)})]
+         []))
+     ;; noise hyps
+     (for [noexp (filter #(= :observation (:type %)) problem-cases)]
+       (new-hyp "Noise" :noise :insertion-noise
+                1.0 false meta-hyp-conflicts? []
+                (format "%s is insertion noise" noexp) (format "%s is insertion noise" noexp)
+                {:action (partial action-ignore noexp)}))
+     ;; correct explainer(s) were rejected due to conflicts; need to
+     ;; consider the various possibilities of rejected explainers and
+     ;; no-explainers combinations
+     (let [expl-rejected-conflicts (filter (fn [h] (= :conflict (rejection-reason cur-ws h)))
+                                      expl)
+           ;; which ep-states rejected these expl?
+           ep-rejs (filter (fn [ep] (some (set (map :contents expl-rejected-conflicts))
+                                 (map :contents (:rej (:accrej (:workspace ep))))))
+                      (ep-path est))
+           bad-bests (sort-by first
+                              ;; don't consider a next-best that still
+                              ;; conflicts with what can explain the
+                              ;; noexp; note, the next-best may conflict
+                              ;; but a different alternative may not --
+                              ;; we are not finding that other
+                              ;; alternative
+                              (filter (fn [[_ _ h]]
+                                   ;; also ignore any non-bests (no-acceptance) cases
+                                   (and h (not-any? (fn [e] (conflicts? h e))
+                                                    expl-rejected-conflicts)))
+                                 (set (map (fn [ep] [(get-in ep [:workspace :accrej :delta])
+                                                  (:cycle ep)
+                                                  (get-in ep [:workspace :accrej :best])])
+                                         ep-rejs))))]
+       (for [[delta cycle hyp] bad-bests]
+         (new-hyp "Rejected" :rejected :conflict
+                  (- 1.0 delta) false meta-hyp-conflicts? []
+                  (format "%s rejected some explainers")
+                  (format "%s rejected some explainers (cycle %d, delta %.2f"
+                     (str hyp) cycle delta)
+                  {:action (partial action-preemptively-reject hyp cycle)}))))))
+
+(defn score-meta-hyps
+  [problem-cases meta-hyps truedata est time-prev time-now sensors]
+  (loop [est est
+         hyps meta-hyps
+         new-hyps []]
+    (if (empty? hyps) [est new-hyps]
+        (let [hyp (first hyps)
+              [est-new params-new] ((:action hyp) est)
+              result (binding [params params-new]
+                       (meta-apply-and-evaluate truedata est est-new
+                                                (:time (cur-ep est-new)) time-now sensors))
+              doubts-new (map #(calc-doubt %)
+                            (filter (comp :best :accrej)
+                               (map :workspace (ep-path (:est-new result)))))
+              doubt-new (if (empty? doubts-new) 0.0 (/ (reduce + doubts-new) (count doubts-new)))
+              problem-cases-new (find-problem-cases (:est-new result))
+              resolved-cases (filter (fn [pc] (not ((set (map :contents problem-cases-new))
+                                              (:contents pc))))
+                                problem-cases)]
+          (recur (:est-old result) (rest hyps)
+                 (conj new-hyps
+                       (assoc hyp :explains (map :contents resolved-cases)
+                              :apriori (- 1.0 doubt-new))))))))
+
 (defn meta-abductive
-  [truedata est time-prev time-now sensors]
+  [problem-cases truedata est time-prev time-now sensors]
+  (let [meta-hyps (make-meta-hyps problem-cases truedata est time-prev time-now sensors)
+        [est-new meta-hyps-scored] (score-meta-hyps problem-cases meta-hyps
+                                                    truedata est time-prev time-now sensors)
+        meta-est (new-child-ep (init-est (init-workspace)))
+        meta-ws (reduce add (reduce add-observation (:workspace (cur-ep meta-est)) problem-cases)
+                   meta-hyps-scored)
+        meta-est-explained (explain (update-est meta-est (assoc (cur-ep meta-est)
+                                                           :workspace meta-ws)))
+        meta-ws-explained (:workspace (cur-ep meta-est-explained))
+        ;; take out the "observations"
+        meta-accepted (filter (fn [hyp] (not ((set (map :contents problem-cases)) (:contents hyp))))
+                         (map #(lookup-hyp meta-ws-explained %)
+                            (:all (:accepted meta-ws-explained))))]
+    (println "problem cases:" (str/join ", " (map str problem-cases)))
+    (println (for [h meta-hyps-scored]
+               (format "%s explains %s\n\n" (str h)
+                  (str/join ", " (map str (filter (fn [pc] ((set (:explains h)) (:contents pc)))
+                                           problem-cases))))))
+    (println "accepted" meta-accepted))
   (comment
     (if (not= 0 (:SensorInsertionNoise params))
       {:est-old est
@@ -281,8 +412,7 @@
   (let [new-est (new-branch-ep est (cur-ep est))
         new-ep (cur-ep new-est)
         ws-old (:workspace (cur-ep est))
-        ws-ignored (reject-many (:workspace new-ep)
-                                (map #(lookup-hyp ws-old %) problem-cases))
+        ws-ignored (reject-many (:workspace new-ep) problem-cases :ignoring)
         new-est-ignored (update-est new-est (assoc new-ep :workspace ws-ignored))]
     (reason (when (:Oracle params) truedata) new-est-ignored time-prev time-now sensors)))
 
@@ -290,43 +420,43 @@
   "Activate the appropriate metareasoning strategy (as given by
    the parameter :Metareasoning)"
   [truedata est time-prev time-now sensors]
-  (if (or (not (metareasoning-activated? est))
-          (= "none" (:Metareasoning params)))
-    est
-    (let [problem-cases-old (problem-cases est)
-          m (:Metareasoning params)
-          f (cond (= "batchbeg" m)
-                  (partial meta-batch nil)
-                  (= "batch1" m)
-                  (partial meta-batch 1)
-                  (= "batch2" m)
-                  (partial meta-batch 2)
-                  (= "batch3" m)
-                  (partial meta-batch 3)
-                  (= "batch4" m)
-                  (partial meta-batch 4)
-                  (= "batch5" m)
-                  (partial meta-batch 5)
-                  (= "batch-weakest" m)
-                  meta-batch-weakest
-                  (= "lower-minapriori" m)
-                  meta-lower-minapriori
-                  (= "reject-conflicting" m)
-                  meta-reject-conflicting
-                  (= "abd" m)
-                  meta-abductive
-                  (= "ignore" m)
-                  (constantly {:est-old est :est-new est}))
-          result (f truedata est time-prev time-now sensors)
-          problem-cases-new (when result (problem-cases (:est-new result)))]
-      (cond (nil? result)
-            (resolve-by-ignoring problem-cases-old truedata est
-                                 time-prev time-now sensors)
-            (empty? problem-cases-new)
-            (:est-new result)
-            (< (count problem-cases-new) (count problem-cases-old))
-            (resolve-by-ignoring problem-cases-new truedata (:est-new result)
-                                 time-prev time-now sensors)
-            :else
-            (resolve-by-ignoring problem-cases-old truedata (:est-old result)
-                                 time-prev time-now sensors)))))
+  (let [problem-cases (find-problem-cases est)]
+    (if (or (empty? problem-cases)
+            (= "none" (:Metareasoning params)))
+      est
+      (let [m (:Metareasoning params)
+            f (cond (= "batchbeg" m)
+                    (partial meta-batch nil)
+                    (= "batch1" m)
+                    (partial meta-batch 1)
+                    (= "batch2" m)
+                    (partial meta-batch 2)
+                    (= "batch3" m)
+                    (partial meta-batch 3)
+                    (= "batch4" m)
+                    (partial meta-batch 4)
+                    (= "batch5" m)
+                    (partial meta-batch 5)
+                    (= "batch-weakest" m)
+                    meta-batch-weakest
+                    (= "lower-minapriori" m)
+                    meta-lower-minapriori
+                    (= "reject-conflicting" m)
+                    meta-reject-conflicting
+                    (= "abd" m)
+                    meta-abductive
+                    (= "ignore" m)
+                    (constantly {:est-old est :est-new est}))
+            result (f problem-cases truedata est time-prev time-now sensors)
+            problem-cases-new (when result (find-problem-cases (:est-new result)))]
+        (cond (nil? result)
+              (resolve-by-ignoring problem-cases truedata est
+                                   time-prev time-now sensors)
+              (empty? problem-cases-new)
+              (:est-new result)
+              (< (count problem-cases-new) (count problem-cases))
+              (resolve-by-ignoring problem-cases-new truedata (:est-new result)
+                                   time-prev time-now sensors)
+              :else
+              (resolve-by-ignoring problem-cases truedata (:est-old result)
+                                   time-prev time-now sensors))))))
