@@ -7,7 +7,7 @@
   (:use [retrospect.state]))
 
 (defn true-hyp?
-  [truedata time-now hyp]
+  [truedata hyp]
   (cond (= :kb (:type hyp)) true
         (= :expl (:type hyp))
         (if ((:true-explainers truedata) (:vertex hyp)) true false)

@@ -2,16 +2,26 @@
   (:require [clojure.string :as str])
   (:use [retrospect.epistemicstates :only [cur-ep flatten-est]])
   (:use [retrospect.evaluate :only [calc-increase]])
+  (:use [retrospect.epistemicstates :only [ep-path]])
   (:use [retrospect.reason.abduction.workspace
          :only [get-unexp-pct get-noexp-pct calc-doubt calc-coverage
                 accepted? lookup-hyp]])
   (:use [retrospect.state]))
 
+(defn doubt-aggregate
+  [est]
+  (let [doubts (map #(calc-doubt %)
+                  (filter (comp :best :accrej) (map :workspace (ep-path est))))]
+    (cond (= "avg" (:DoubtAggregate params))
+          (if (empty? doubts) 0.0 (/ (reduce + doubts) (double (count doubts))))
+          (= "max" (:DoubtAggregate params))
+          (if (empty? doubts) 0.0 (apply max doubts)))))
+
 (defn group-hyps-by-true-false
-  [hyps type-key truedata time true-hyp?]
+  [hyps type-key truedata true-hyp?]
   (let [hs (group-by type-key hyps)
         tf (reduce (fn [m type]
-                (let [grouped (group-by (fn [h] (if (true-hyp? truedata time h)
+                (let [grouped (group-by (fn [h] (if (true-hyp? truedata h)
                                                  true false))
                                         (get hs type))
                       m-individual (reduce (fn [m2 [tf hs]]
@@ -76,12 +86,11 @@
         workspace (:workspace ep)
         true-false (group-hyps-by-true-false
                     (vals (:hyp-ids workspace))
-                    :type truedata (:time ep) (:true-hyp?-fn (:abduction @problem)))
+                    :type truedata (:oracle-fn @problem))
         true-false-scores (calc-true-false-scores workspace true-false)
         delta-avgs (calc-true-false-deltas workspace true-false)
         ep-states (flatten-est est)
-        doubts (map #(calc-doubt %)
-                  (filter (comp :best :accrej) (map :workspace ep-states)))
+        doubt (doubt-aggregate est)
         coverages (map #(calc-coverage (:workspace %)) ep-states)]
     (merge {:Problem (:name @problem)}
            params
@@ -92,7 +101,7 @@
             :NoExplainersPct (get-noexp-pct (:workspace ep))
             :TrueDeltaAvg (:true-delta-avg delta-avgs)
             :FalseDeltaAvg (:false-delta-avg delta-avgs)
-            :Doubt (if (empty? doubts) 0.0 (/ (reduce + doubts) (count doubts)))
+            :Doubt (doubt-aggregate est)
             :Coverage (if (empty? coverages) 0.0 (/ (reduce + coverages) (count coverages)))
             :ExplainCycles (count ep-states)
             :MetaBranches (count (filter #(second (:children %)) ep-states))

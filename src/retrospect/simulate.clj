@@ -26,13 +26,10 @@
         ;; start the clock
         start-time (. System (nanoTime))
         est-time (update-est (:est ors) (assoc (cur-ep (:est ors)) :time time-now))
-        reason-est ((:reason-fn @reasoner) (when (:Oracle params) truedata)
-                    est-time time-prev time-now sensors)
-        meta-est ((:metareason-fn @reasoner) truedata reason-est
-                  time-prev time-now sensors)
+        reason-est ((:reason-fn @reasoner) est-time time-prev time-now sensors)
         ;; stop the clock
         ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
-        ors-est (assoc ors :est meta-est :sensors sensors)
+        ors-est (assoc ors :est reason-est :sensors sensors)
         ors-results (update-in ors-est [:resources :milliseconds] + ms)]
     (when (:Stats params)
       ((:stats-fn @reasoner) truedata ors-results time-now))
@@ -58,8 +55,10 @@
 
 (defn init-ors
   [sensors training]
-  (let [est (new-child-ep (init-est ((:init-kb-fn @reasoner)
-                                     ((:init-workspace-fn @reasoner)) training)))]
+  (let [ws ((:init-workspace-fn @reasoner))
+        ws-oracle (if (= "none" (:Oracle params)) ws
+                      (assoc ws :oracle (partial (:oracle-fn @problem) truedata)))
+        est (new-child-ep (init-est ((:init-kb-fn @reasoner) ws-oracle training)))]
     {:resources {:milliseconds 0 :meta-accepted 0 :meta-activations 0}
      :sensors sensors :est est}))
 

@@ -7,7 +7,7 @@
   (:use [retrospect.state]))
 
 (defn true-hyp?
-  [truedata _ hyp]
+  [truedata hyp]
   (cond (= :movement (:type hyp))
         (if ((set (map #(dissoc % :color) (:all-moves truedata))) (dissoc (:mov hyp) :color))
           true false)

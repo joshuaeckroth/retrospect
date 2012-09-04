@@ -27,6 +27,10 @@
    :generate-sensors-fn generate-sensors
    :perturb-fn perturb
    :prepared-map prepared-map
+   :oracle-fn (fn [truedata hyp]
+                (if (= "Abduction" (:name @reasoner))
+                    (true-hyp? truedata hyp)
+                    false))
    :abduction {:generate-kb-fn generate-kb
                :make-sensor-hyps-fn make-sensor-hyps
                :hypothesize-fn hypothesize
@@ -35,7 +39,6 @@
                :update-kb-fn update-kb
                :stats-fn (constantly nil)
                :training-stats-fn training-stats
-               :true-hyp?-fn true-hyp?
                :learn-fn (constantly [])
                :hyp-types [:movement]
                :default-params

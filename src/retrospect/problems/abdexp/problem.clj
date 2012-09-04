@@ -9,7 +9,8 @@
          [generate-kb make-sensor-hyps hypothesize update-kb]])
   (:use [retrospect.reason.abduction.problems.abdexp.evaluate :only
          [evaluate evaluate-comp stats true-hyp?]])
-  (:use [retrospect.problems.abdexp.prepared :only [prepared-map]]))
+  (:use [retrospect.problems.abdexp.prepared :only [prepared-map]])
+  (:use [retrospect.state]))
 
 (def abdexp-problem
   {:name "AbdExp"
@@ -23,6 +24,10 @@
    :generate-sensors-fn generate-sensors
    :perturb-fn identity
    :prepared-map prepared-map
+   :oracle-fn (fn [truedata hyp]
+                (if (= "Abduction" (:name @reasoner))
+                    (true-hyp? truedata hyp)
+                    false))
    :abduction {:generate-kb-fn generate-kb
                :make-sensor-hyps-fn make-sensor-hyps
                :hypothesize-fn hypothesize
@@ -32,7 +37,6 @@
                :evaluate-comp-fn evaluate-comp
                :update-kb-fn update-kb
                :stats-fn stats
-               :true-hyp?-fn true-hyp?
                :hyp-types [:expl :observation]}
    :default-params
    {:Steps [100 [100]]

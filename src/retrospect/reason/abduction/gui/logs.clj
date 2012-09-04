@@ -59,9 +59,9 @@
 (defn build-abduction-tree-map
   [est]
   (let [ep-states (flatten-est est)        
-        ws-fn (fn [ws time]
-                (let [tf-fn (fn [hyp] ((:true-hyp?-fn (:abduction @problem))
-                                      @truedata time hyp))]
+        ws-fn (fn [ws]
+                (let [tf-fn (fn [hyp] ((:oracle-fn @problem)
+                                      @truedata hyp))]
                   {"Hypotheses"
                    (apply merge
                           (for [t (keys (:hypotheses ws))]
@@ -99,14 +99,14 @@
     (apply sorted-map-by anc
            (mapcat (fn [ep] [(str ep)
                             {"Workspace"
-                             (assoc (ws-fn (:workspace ep) (:time ep)) "Log" nil)
+                             (assoc (ws-fn (:workspace ep)) "Log" nil)
                              "Abductive Meta"
                              (if-not (:meta-est ep) {}
                                      (build-abduction-tree-map (:meta-est ep)))}])
                    ep-states))))
 
 (defn update-hyp-info
-  [workspace time hyp]
+  [workspace hyp]
   (let [alphanum (AlphanumComparator.)
         explains (str/join ", " (map str (sort-by :name alphanum (ws/explains workspace hyp))))
         explainers (str/join ", " (map #(format "[%s]" %)
@@ -121,7 +121,7 @@
     (. hyp-apriori-label setText
        (format "Apriori: %.2f" (:apriori hyp)))
     (. hyp-truefalse-label setText
-       (if ((:true-hyp?-fn (:abduction @problem)) @truedata time hyp)
+       (if ((:oracle-fn @problem) @truedata hyp)
          "TF: True" "TF: False"))
     (. hyp-accepted-label setText
        (if (ws/accepted? workspace hyp) "Acc: True" "Acc: False"))
@@ -150,9 +150,9 @@
           ep (or meta-ep-state ep-state)
           ws (if ep (:workspace ep))]
       (if (= "Log" last-comp)
-        (dosync (alter reason-log (constantly (:log ws))))
+        (dosync (alter reason-log (constantly (str/join "\n" (reverse (:log ws))))))
         (let [hyp (if ws (find-first #(= (:name %) last-comp) (vals (:hyp-ids ws))))]
-          (when hyp (update-hyp-info ws (:time ep) hyp)))))))
+          (when hyp (update-hyp-info ws hyp)))))))
 
 (defn update-logs
   []

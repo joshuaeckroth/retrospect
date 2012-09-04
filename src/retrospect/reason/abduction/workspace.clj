@@ -7,7 +7,6 @@
           add-nodes add-edges remove-nodes edges has-edge?]])
   (:use [loom.alg :only [pre-traverse]])
   (:use [loom.attr :only [add-attr remove-attr]])
-  (:use [retrospect.epistemicstates :only [prev-ep cur-ep new-child-ep update-est]])
   (:use [retrospect.profile :only [prof]])
   (:use [retrospect.logging])
   (:use [retrospect.random])
@@ -544,40 +543,24 @@
                   (do (log "...we'll keep this hyp.")
                       (recur ws (rest hyps)))))))))
 
-(defn update-est-ws
-  [est workspace reason-log]
-  (new-child-ep (update-est est (assoc (cur-ep est)
-                                  :workspace (assoc workspace :log
-                                                    (str/join "\n" (reverse reason-log)))))))
-
 (defn explain
-  [est]
+  [workspace]
   (prof :explain
-        ;; need (loop) because we are using (recur) which isn't going
-        ;; to work when profiling is on
-        (loop [est est]
-          (binding [reason-log (ref '())]
-            (let [workspace (:workspace (cur-ep est))
-                  ws-explainers (if true #_(:dirty workspace)
-                                    (update-sorted-explainers workspace)
-                                    workspace)
-                  ws (clean-up-workspace ws-explainers)]
-              (log "Explaining at cycle" (:cycle (cur-ep est)))
-              (log "Explainers:" (:sorted-explainers ws)
-                   (format "[%s]" (str/join ", " (map str (:sorted-explainers-explained ws)))))
-              (if (empty? (:sorted-explainers-explained ws))
-                (do (log "No explainers. Done.")
-                    (update-est-ws est ws @reason-log))
-                (let [{:keys [best nbest explained delta comparison] :as b}
-                      (find-best ws)]
-                  (if-not best
-                    (do (log "No best. Done.")
-                        (update-est-ws est ws @reason-log))
-                    (do (log "Best is" (:id best) (:apriori best))
-                        (let [ws-accepted (-> ws
-                                             (update-in [:accrej] merge b)
-                                             (accept best nbest explained delta comparison))]
-                          (recur (update-est-ws est ws-accepted @reason-log))))))))))))
+        (let [ws-explainers (if true #_(:dirty workspace)
+                                (update-sorted-explainers workspace)
+                                workspace)
+              ws (assoc (clean-up-workspace ws-explainers) :accrej {})]
+          (log "Explainers:" (:sorted-explainers ws)
+               (format "[%s]" (str/join ", " (map str (:sorted-explainers-explained ws)))))
+          (if (empty? (:sorted-explainers-explained ws))
+            (do (log "No explainers. Done.") ws)
+            (let [{:keys [best nbest explained delta comparison] :as b}
+                  (find-best ws)]
+              (if-not best
+                (do (log "No best. Done.") ws)
+                (do (log "Best is" (:id best) (:apriori best))
+                    (-> ws (update-in [:accrej] merge b)
+                       (accept best nbest explained delta comparison)))))))))
 
 (defn get-explaining-hypotheses
   "Ask problem domain to get explainers."
@@ -627,11 +610,6 @@
   [workspace training]
   (prof :init-kb
         (add-kb workspace ((:generate-kb-fn (:abduction @problem)) training))))
-
-(defn clear-workspace-log
-  "Prepare the workspace for a new cycle."
-  [workspace]
-  (assoc workspace :accrej {}))
 
 (defn init-workspace
   []

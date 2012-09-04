@@ -70,12 +70,12 @@
      (alter time-now (constantly time-n))
      (alter time-prev (constantly time-p)))
     (. steplabel (setText (format "Step: %d->%d" @time-prev @time-now))))
-  (let [ws (:workspace (cur-ep (:est @or-state)))]
-    (. coverage-label (setText (format "%.2f" ((:calc-coverage-fn @reasoner) ws))))
-    (. doubt-label (setText (format "%.2f" ((:calc-doubt-fn @reasoner) ws)))))
   (dosync
    (alter ep-list (constantly (sort (list-ep-states (:est @or-state)))))
    (alter results (constantly (:results (cur-ep (:est @or-state))))))
+  (let [ws (:workspace (cur-ep (:est @or-state)))]
+    (. coverage-label (setText (format "%.2f" (:Coverage (last @results)))))
+    (. doubt-label (setText (format "%.2f" (:Doubt (last @results))))))
   (update-ep-tree)
   ((:update-tabs-fn (:player-fns @reasoner)))
   (update-results)
