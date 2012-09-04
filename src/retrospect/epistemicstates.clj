@@ -16,14 +16,14 @@
   (make-node [ep children] "Makes new node from existing node and new children."))
 
 (defrecord EpistemicState
-    [id children cycle time results workspace meta-workspace]
+    [id children cycle time results workspace meta-est]
   Object
   (toString [_]
     (format "%s %d/%d %.2f/%.2f" id cycle time
        ((:calc-doubt-fn @reasoner) workspace)
        ((:calc-coverage-fn @reasoner) workspace))))
 
-(defrecord RootNode [children workspace meta-workspace])
+(defrecord RootNode [children workspace meta-est])
 
 (defn clone-ep
   [ep id children]
@@ -40,9 +40,9 @@
   (make-node [ep children] (assoc ep :children children)))
 
 (defn zip-est
-  [ep-states workspace meta-workspace]
+  [ep-states workspace meta-est]
   (zip/zipper branch? node-children make-node
-              (RootNode. ep-states workspace meta-workspace)))
+              (RootNode. ep-states workspace meta-est)))
 
 (defn make-ep-id
   ([]
@@ -52,7 +52,7 @@
            (loop [count 0
                   loc (zip/down (zip-est (:children (zip/root ep-state-tree))
                                          (:workspace (zip/root ep-state-tree))
-                                         (:meta-workspace (zip/root ep-state-tree))))]
+                                         (:meta-est (zip/root ep-state-tree))))]
              (if (zip/end? loc) count
                  (recur (inc count) (zip/next loc))))]
        (loop [i count
@@ -88,7 +88,7 @@
   [est id]
   (loop [loc (zip/down (zip-est (:children (zip/root est))
                                 (:workspace (zip/root est))
-                                (:meta-workspace (zip/root est))))]
+                                (:meta-est (zip/root est))))]
     (cond (zip/end? loc) nil
           (= id (:id (zip/node loc))) loc
           :else (recur (zip/next loc)))))
@@ -137,7 +137,7 @@
   (if (nil? est) []
       (loop [loc (zip/down (zip-est (:children (zip/root est))
                                     (:workspace (zip/root est))
-                                    (:meta-workspace (zip/root est))))
+                                    (:meta-est (zip/root est))))
              states []]
         (if (zip/end? loc) states
             (recur (zip/next loc) (conj states (zip/node loc)))))))

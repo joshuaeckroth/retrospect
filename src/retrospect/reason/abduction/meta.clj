@@ -378,7 +378,9 @@
         ;; take out the "observations"
         meta-accepted (filter (fn [hyp] (not ((set (map :contents problem-cases)) (:contents hyp))))
                          (map #(lookup-hyp meta-ws-explained %)
-                            (:all (:accepted meta-ws-explained))))]
+                            (:all (:accepted meta-ws-explained))))
+        est-new-meta-est (update-est est-new (assoc (cur-ep est)
+                                               :meta-est meta-est-explained))]
     (comment
       (println "problem cases:" (str/join ", " (map str problem-cases)))
       (println (for [h meta-hyps-scored]
@@ -390,7 +392,7 @@
     ;; apply the accepted action (first ignoring noise hyps, then apply the noise hyps)
     (if (not-empty meta-accepted)
       (let [[est-applied params-applied]
-            (loop [est-applied est-new
+            (loop [est-applied est-new-meta-est
                    params-applied params
                    acc (filter identity
                           (concat [(first (filter #(not= :noise (:type %)) meta-accepted))]
@@ -399,8 +401,8 @@
                   (let [[est params] ((:action (first acc)) est-applied)]
                     (recur est (merge params-applied params) (rest acc)))))]
         (binding [params params-applied]
-          (meta-apply-and-evaluate truedata est-new est-applied time-now sensors)))
-      {:est-old (goto-ep est-new (:id (cur-ep est))) :est-new est-new})))
+          (meta-apply-and-evaluate truedata est-new-meta-est est-applied time-now sensors)))
+      {:est-old (goto-ep est-new-meta-est (:id (cur-ep est))) :est-new est-new-meta-est})))
 
 (defn resolve-by-ignoring
   [problem-cases truedata est time-prev time-now sensors]

@@ -3,7 +3,7 @@
   (:use [retrospect.state :only [batch]])
   (:use [retrospect.profile :only [prof]]))
 
-(def reason-log '())
+(def reason-log (ref '()))
 
 (defn log
   [& objs]
@@ -11,4 +11,4 @@
         (do
           #_(apply println objs)
           (when (not @batch)
-            (def reason-log (conj reason-log (join " " (map str objs))))))))
+            (dosync (alter reason-log conj (join " " (map str objs))))))))
