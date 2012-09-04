@@ -76,9 +76,9 @@
                  (= (:y mov2) (:oy mov1))
                  (= (:time mov2) (:ot mov1))
                  (not (match-color? (:color mov2) (:color mov1))))
-            ;; same color (not gray), start-end times but not start-end locations
-            (and (or (not= gray (:color mov1))
-                     (not= gray (:color mov2)))
+            ;; same color (not gray), same start-end times but not start-end locations
+            (and (not= gray (:color mov1))
+                 (not= gray (:color mov2))
                  (= (:color mov1) (:color mov2))
                  (or (and (= (:time mov1) (:ot mov2))
                           (or (not= (:x mov1) (:ox mov2))
@@ -87,8 +87,8 @@
                           (or (not= (:ox mov1) (:x mov2))
                               (not= (:oy mov1) (:y mov2))))))
             ;; same color (not gray), same time, different paths
-            (and (or (not= gray (:color mov1))
-                     (not= gray (:color mov2)))
+            (and (not= gray (:color mov1))
+                 (not= gray (:color mov2))
                  (= (:color mov1) (:color mov2))
                  (or (= (:time mov1) (:time mov2))
                      (= (:ot mov1) (:ot mov2))))))))))
