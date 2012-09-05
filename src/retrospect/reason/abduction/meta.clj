@@ -105,7 +105,7 @@
 (defn meta-lower-minapriori
   [problem-cases est time-prev time-now sensors]
   (when (not= 0 (:MinApriori params))
-    (let [new-est (new-branch-ep est (cur-ep (goto-start-of-time est time-prev)))]
+    (let [new-est (new-branch-ep est (cur-ep (goto-start-of-time est time-now)))]
       ;; drop min-apriori to 0
       (binding [params (assoc params :MinApriori 0)]
         (meta-apply-and-evaluate est new-est time-now sensors)))))
@@ -174,8 +174,8 @@
    params])
 
 (defn action-lower-minapriori
-  [time-prev est]
-  [(new-branch-ep est (cur-ep (goto-start-of-time est time-prev)))
+  [time-now est]
+  [(new-branch-ep est (cur-ep (goto-start-of-time est time-now)))
    (assoc params :MinApriori 0)])
 
 (defn action-ignore
@@ -210,7 +210,10 @@
     (concat
      ;; order dependency among the observations
      (if (not= 0 time-prev)
-       (for [ep (map (fn [t] (cur-ep (goto-start-of-time est t))) (range 1 time-now))]
+       ;; create these in reverse order, since if they all score the
+       ;; same, we want to prefer the later one, which can be managed
+       ;; by having a lower hyp-id
+       (for [ep (map (fn [t] (cur-ep (goto-start-of-time est t))) (range (dec time-now) 0 -1))]
          (new-hyp "OrderDep" :order-dep :weakest
                   1.0 false meta-hyp-conflicts? []
                   (format "Order dependency at %s" (str ep))
@@ -237,7 +240,7 @@
                    "Explainers rejected due to too-high min-apriori"
                    (format "These explainers were rejected due to too-high min-apriori: %s"
                       (str/join ", " (sort (map str expl-rejected-minapriori))))
-                   {:action (partial action-lower-minapriori time-prev)})]
+                   {:action (partial action-lower-minapriori time-now)})]
          []))
      ;; noise hyps
      (for [noexp (filter #(= :observation (:type %)) problem-cases)]
@@ -295,9 +298,10 @@
           (recur (:est-old result) (rest hyps)
                  (conj new-hyps
                        (assoc hyp :explains (map :contents resolved-cases)
-                              :apriori (if (= :noise (:type hyp))
-                                         (* 0.5 (- 1.0 doubt-new))
-                                         (- 1.0 doubt-new)))))))))
+                              ;; always score noise as 0.0
+                              :apriori (if (= :noise (:type hyp)) 0.0 (- 1.0 doubt-new))
+                              :desc (format "%s\n\nEp-state start: %s"
+                                       (:desc hyp) (str (cur-ep est-new))))))))))
 
 (defn meta-abductive
   [problem-cases est time-prev time-now sensors]

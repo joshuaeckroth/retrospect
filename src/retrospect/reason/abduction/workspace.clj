@@ -227,13 +227,14 @@
 (defn assoc-needing-explanation
   [workspace hyp]
   (prof :assoc-needing-explanation
-        (let [expls (get-in workspace [:explainers (:id hyp)])]
+        (let [all-expls (get-in workspace [:explainers (:id hyp)])
+              avail-expls (filter #(not ((get-in workspace [:rejected :all]) %))
+                             all-expls)]
           (log "Associating" hyp "as now needing explanation.")
           (-> workspace
              (update-in [:sorted-explainers-explained] conj (:id hyp))
-             ;; put the key in even if expls is empty
-             (assoc-in [:explainers (:id hyp)] expls)
-             (assoc-in [:sorted-explainers (:id hyp)] expls)
+             (assoc-in [:explainers (:id hyp)] all-expls)
+             (assoc-in [:sorted-explainers (:id hyp)] avail-expls)
              (assoc :dirty true)))))
 
 (defn assoc-explainer
@@ -279,7 +280,7 @@
            ws2 (-> (dissoc-in ws-added [:sorted-explainers (:id hyp)])
                   (update-in [:accepted :all] disj (:id hyp))
                   (update-in [:accepted (:type hyp)] disj (:id hyp))
-                  (update-in [:accrej :rej] conj hyp)
+                  (update-in [:accrej :rej] conjs hyp)
                   (update-in [:rejected (:type hyp)] conjs (:id hyp))
                   (update-in [:rejected :all] conjs (:id hyp))
                   (assoc-in [:rejection-reasons (:id hyp)] reason-tag)
@@ -319,10 +320,23 @@
                           (record-if-needs-explanation prior-hyp-updated)
                           (assoc-explainer prior-hyp-updated))]
                 (if ((get-in ws [:rejected :all]) prior-hyp-id)
-                  (do
-                    (log "...yet" prior-hyp "was rejected, so not adding.")
-                    (-> (dissoc-in ws [:sorted-explainers prior-hyp-id])
-                       (dissoc-explainer prior-hyp-updated)))
+                  ;; if it was rejected due to :minapriori and it
+                  ;; would not again be rejected for the same reason,
+                  ;; unreject it
+                  (if (and (= :minapriori (get-in ws [:rejection-reasons prior-hyp-id]))
+                           (>= (:apriori prior-hyp) (:MinApriori params)))
+                    (do (log "...yet was rejected due to minapriori previously\n"
+                             "...but now satisfies minapriori, so unrejecting.")
+                        (-> ws (update-in [:rejected :all] disj prior-hyp-id)
+                           (update-in [:rejected (:type prior-hyp)] disj prior-hyp-id)
+                           (update-in [:accrej :rej] disj prior-hyp)
+                           (dissoc-in [:rejection-reasons prior-hyp-id])))
+                    (do (log "...yet" prior-hyp "was rejected, so not adding.")
+                        (-> ws (dissoc-in [:sorted-explainers prior-hyp-id])
+                           (dissoc-explainer prior-hyp-updated))))
+                  ;; otherwise, was not previously rejected, so just
+                  ;; leave it with its explainers updated, etc. (from
+                  ;; above)
                   ws)))
             ;; otherwise, add the new hyp
             (let [hyp-apriori (if ((:oracle-types workspace) (:type hyp))
