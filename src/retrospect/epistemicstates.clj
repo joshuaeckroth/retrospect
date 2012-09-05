@@ -44,23 +44,19 @@
   (zip/zipper branch? node-children make-node
               (RootNode. ep-states workspace meta-est)))
 
+(defn flatten-est
+  [est]
+  (if (nil? est) []
+      (loop [loc (zip/down (zip-est (:children (zip/root est))
+                                    (:workspace (zip/root est))
+                                    (:meta-est (zip/root est))))
+             states []]
+        (if (zip/end? loc) states
+            (recur (zip/next loc) (conj states (zip/node loc)))))))
+
 (defn make-ep-id
-  ([]
-     "A")
-  ([ep-state-tree]
-     (let [count
-           (loop [count 0
-                  loc (zip/down (zip-est (:children (zip/root ep-state-tree))
-                                         (:workspace (zip/root ep-state-tree))
-                                         (:meta-est (zip/root ep-state-tree))))]
-             (if (zip/end? loc) count
-                 (recur (inc count) (zip/next loc))))]
-       (loop [i count
-              id ""]
-         (if (<= i 25)
-           (str id (char (+ 65 i)))
-           (let [mult (int (/ i 26))]
-             (recur (- i (* mult 26)) (str id (char (+ 65 (dec mult)))))))))))
+  ([] "0001")
+  ([est] (format "%04d" (count (flatten-est est)))))
 
 (defn init-est
   [workspace]
@@ -132,19 +128,9 @@
   [est]
   (vijual/draw-tree-image [(est-to-nested est)]))
 
-(defn flatten-est
-  [est]
-  (if (nil? est) []
-      (loop [loc (zip/down (zip-est (:children (zip/root est))
-                                    (:workspace (zip/root est))
-                                    (:meta-est (zip/root est))))
-             states []]
-        (if (zip/end? loc) states
-            (recur (zip/next loc) (conj states (zip/node loc)))))))
-
 (defn ep-path
   [est]
-  (loop [loc est
+  (loop [loc (zip/up est) ;; skip leaf ep which is just a clone of the previous
          states []]
     (if (root-ep? (zip/node loc)) (reverse states)
         (recur (zip/up loc) (conj states (zip/node loc))))))
