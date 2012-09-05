@@ -61,7 +61,7 @@
       (. unexp-label (setText "N/A"))
       (. noexp-label (setText "N/A")))))
 
-(defn player-update-diagram
+(defn generate-expgraph
   []
   (if (< 0 @time-now)
     (generate-graph (format-dot-expgraph
@@ -72,12 +72,15 @@
     (generate-graph (digraph) @canvas listener false
                     current-expgraph-dot current-expgraph-svg)))
 
+(defn player-update-diagram
+  [])
+
 (defn player-setup-diagram
   []
   (dosync (alter canvas (constantly (create-canvas))))
   (panel :layout (GridBagLayout.)
          :constrains (java.awt.GridBagConstraints.)
-         [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0 :gridwidth 3 :fill :BOTH
+         [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0 :gridwidth 4 :fill :BOTH
           :insets (Insets. 5 5 5 5)
           _ @canvas
           :gridy 1 :gridx 0 :weightx 1.0 :weighty 0.0 :gridwidth 1
@@ -87,7 +90,10 @@
               (add-action-listener ([_] (save-dot @current-expgraph-dot))))
           :gridx 2
           _ (doto (button "Save SVG")
-              (add-action-listener ([_] (save-svg @current-expgraph-svg))))]))
+              (add-action-listener ([_] (save-svg @current-expgraph-svg))))
+          :gridx 3
+          _ (doto (button "Generate")
+              (add-action-listener ([_] (generate-expgraph))))]))
 
 (defn player-get-truedata-log
   []
