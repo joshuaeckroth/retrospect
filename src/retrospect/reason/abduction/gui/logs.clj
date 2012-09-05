@@ -139,11 +139,11 @@
     (let [last-comp (node (. path getLastPathComponent))
           ;; find top-most ep-state
           ep-state (if (> (. path getPathCount) 2)
-                     (if-let [ep-id (re-find #"^[A-Z]+" (str (. path getPathComponent 1)))]
+                     (if-let [ep-id (re-find #"^\d+" (str (. path getPathComponent 1)))]
                        (find-first #(= (:id %) ep-id) (flatten-est (:est @or-state)))))
           meta-ep-state (if (and (> (. path getPathCount) 3)
                                  (= "Abductive Meta" (str (. path getPathComponent 2))))
-                          (if-let [ep-id (re-find #"^[A-Z]+"
+                          (if-let [ep-id (re-find #"^\d+"
                                                   (str (. path getPathComponent 3)))]
                             (find-first #(= (:id %) ep-id)
                                         (flatten-est (:meta-est ep-state)))))
