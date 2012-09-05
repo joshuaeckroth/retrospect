@@ -54,11 +54,12 @@
       (recur (run-simulation-step truedata ors false)))))
 
 (defn init-ors
-  [sensors training]
+  [truedata sensors]
   (let [ws ((:init-workspace-fn @reasoner))
         ws-oracle (if (= "none" (:Oracle params)) ws
                       (assoc ws :oracle (partial (:oracle-fn @problem) truedata)))
-        est (new-child-ep (init-est ((:init-kb-fn @reasoner) ws-oracle training)))]
+        est (new-child-ep (init-est ((:init-kb-fn @reasoner) ws-oracle
+                                     (:training truedata))))]
     {:resources {:milliseconds 0 :meta-accepted 0 :meta-activations 0}
      :sensors sensors :est est}))
 
@@ -105,8 +106,8 @@
             (let [control-truedata (profile ((:generate-truedata-fn @problem)))
                   control-sensors ((:generate-sensors-fn @problem)
                                    (:training control-truedata))
-                  control-ors (profile (init-ors control-sensors
-                                                 (:training control-truedata)))]
+                  control-ors (profile (init-ors control-truedata
+                                                 control-sensors))]
               (comment
                 (when (not (:Stats params))
                   (println "Control:" (pr-str control-params))))
@@ -121,8 +122,8 @@
             (let [comparison-truedata (profile ((:generate-truedata-fn @problem)))
                   comparison-sensors ((:generate-sensors-fn @problem)
                                       (:training comparison-truedata))
-                  comparison-ors (profile (init-ors comparison-sensors
-                                                    (:training comparison-truedata)))]
+                  comparison-ors (profile (init-ors comparison-truedata
+                                                    comparison-sensors))]
               (comment
                 (when (not (:Stats params))
                   (println "Comparison:" (pr-str comparison-params))))
@@ -144,7 +145,7 @@
                 params params]
         (let [truedata (profile ((:generate-truedata-fn @problem)))
               sensors ((:generate-sensors-fn @problem) (:training truedata))
-              ors (profile (init-ors sensors (:training truedata)))]
+              ors (profile (init-ors truedata sensors))]
           (comment (when (not (:Stats params))
                      (println "Params:" (pr-str params))))
           (map (fn [rs] (assoc rs :params (pr-str params)))

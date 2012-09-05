@@ -223,14 +223,15 @@
        ;; done much reasoning yet
        [])
      ;; wrong choice at a certain decision (batch + flip)
-     (for [ep (filter (comp :nbest :accrej :workspace) eps)]
-       (new-hyp "WrongChoice" :wrong-choice :wrong-choice
-                1.0 false meta-hyp-conflicts? []
-                (format "Wrong choice at %s" (str ep))
-                (format "%s was accepted at %s but %s should be instead."
-                   (str (:best (:accrej (:workspace ep)))) (str ep)
-                   (str (:nbest (:accrej (:workspace ep)))))
-                {:action (partial action-flip-choice ep)}))
+     (comment
+       (for [ep (filter (comp :nbest :accrej :workspace) eps)]
+         (new-hyp "WrongChoice" :wrong-choice :wrong-choice
+                  1.0 false meta-hyp-conflicts? []
+                  (format "Wrong choice at %s" (str ep))
+                  (format "%s was accepted at %s but %s should be instead."
+                     (str (:best (:accrej (:workspace ep)))) (str ep)
+                     (str (:nbest (:accrej (:workspace ep)))))
+                  {:action (partial action-flip-choice ep)})))
      ;; were some explainers omitted due to high min-apriori?
      (let [expl-rejected-minapriori (filter (fn [h] (= :minapriori (rejection-reason cur-ws h)))
                                        expl)]

@@ -123,7 +123,7 @@
                                      (:training @truedata)))))))
     (dosync
      (alter results (constantly []))
-     (alter or-state (constantly (profile (init-ors @sensors (:training @truedata))))))
+     (alter or-state (constantly (profile (init-ors @truedata @sensors)))))
     (update-everything)))
 
 (defn set-prepared-action
@@ -145,7 +145,7 @@
        (alter truedata (constantly td))
        (alter sensors (constantly sens))
        (alter results (constantly []))
-       (alter or-state (constantly (profile (init-ors @sensors (:training @truedata))))))
+       (alter or-state (constantly (profile (init-ors @truedata @sensors)))))
       (.setEnabled next-button true)
       (update-everything))))
 

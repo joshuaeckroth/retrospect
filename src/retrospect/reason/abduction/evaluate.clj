@@ -5,7 +5,7 @@
   (:use [retrospect.epistemicstates :only [ep-path]])
   (:use [retrospect.reason.abduction.workspace
          :only [get-unexp-pct get-noexp-pct calc-doubt calc-coverage
-                accepted? lookup-hyp]])
+                accepted? lookup-hyp update-graph]])
   (:use [retrospect.state]))
 
 (defn doubt-aggregate
@@ -64,34 +64,30 @@
 
 (defn calc-true-false-deltas
   "Find average delta for true and false acceptances."
-  [workspace true-false]
-  ;; TODO: fix
-  (comment
-    (let [delta-tf (let [b (:best (:log workspace))]
-                     [(get-in true-false [:individual (:id (:best b))])
-                      (:delta b)])
-          delta-true (map second (filter first delta-tf))
-          delta-false (map second (filter (comp not first) delta-tf))]
-      {:true-delta-avg (/ (reduce + delta-true) (double (let [c (count delta-true)]
-                                                     (if (= 0 c) 1 c))))
-       :false-delta-avg (/ (reduce + delta-false) (double (let [c (count delta-false)]
-                                                       (if (= 0 c) 1 c))))}))
-  {:true-delta-avg 0.0
-   :false-delta-avg 0.0})
+  [est true-false]
+  (let [delta-tf (for [ep (filter (comp :best :accrej :workspace) (ep-path est))]
+                   (let [accrej (:accrej (:workspace ep))]
+                     [(get-in true-false [:individual (:id (:best accrej))])
+                      (:delta accrej)]))
+        delta-true (map second (filter first delta-tf))
+        delta-false (map second (filter (comp not first) delta-tf))]
+    {:true-delta-avg (/ (reduce + delta-true) (double (let [c (count delta-true)]
+                                                   (if (= 0 c) 1 c))))
+     :false-delta-avg (/ (reduce + delta-false) (double (let [c (count delta-false)]
+                                                     (if (= 0 c) 1 c))))}))
 
 (defn evaluate
   [truedata est]
   (let [ep (cur-ep est)
         eps (flatten-est est)
-        workspace (:workspace ep)
+        workspace (update-graph (:workspace ep))
         true-false (group-hyps-by-true-false
                     (vals (:hyp-ids workspace))
                     :type truedata (:oracle-fn @problem))
         true-false-scores (calc-true-false-scores workspace true-false)
-        delta-avgs (calc-true-false-deltas workspace true-false)
+        delta-avgs (calc-true-false-deltas est true-false)
         ep-states (flatten-est est)
-        doubt (doubt-aggregate est)
-        coverages (map #(calc-coverage (:workspace %)) ep-states)]
+        doubt (doubt-aggregate est)]
     (merge {:Problem (:name @problem)}
            params
            ((:evaluate-fn (:abduction @problem)) truedata est)
@@ -102,7 +98,7 @@
             :TrueDeltaAvg (:true-delta-avg delta-avgs)
             :FalseDeltaAvg (:false-delta-avg delta-avgs)
             :Doubt (doubt-aggregate est)
-            :Coverage (if (empty? coverages) 0.0 (/ (reduce + coverages) (count coverages)))
+            :Coverage (calc-coverage workspace)
             :ExplainCycles (count ep-states)
             :MetaBranches (count (filter #(second (:children %)) ep-states))
             :HypothesisCount ((comp count :hyp-ids :workspace) ep)})))
