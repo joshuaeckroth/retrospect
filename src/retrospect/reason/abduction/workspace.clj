@@ -289,7 +289,7 @@
        (if @batch ws2
            (assoc-in ws2 [:hyp-log (:id hyp)]
                      (format "Rejected with reason %s" (str reason-tag))))))
-   workspace hyps))
+   workspace (filter #(not (rejected? workspace %)) hyps)))
 
 (defn record-if-needs-explanation
   [workspace hyp]
