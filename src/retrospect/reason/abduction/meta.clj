@@ -249,12 +249,24 @@
        ;; create these in reverse order, since if they all score the
        ;; same, we want to prefer the later one, which can be managed
        ;; by having a lower hyp-id
-       (for [ep (map (fn [t] (cur-ep (goto-start-of-time est t))) (range (dec time-now) 0 -1))]
-         (new-hyp "OrderDep" :order-dep :weakest
-                  1.0 false meta-hyp-conflicts? []
-                  (format "Order dependency at %s" (str ep))
-                  (format "Order dependency at %s" (str ep))
-                  {:action (partial action-batch ep)}))
+       (let [doubts-times (reverse (sort-by first
+                                            (map (fn [ep]
+                                                 [(calc-doubt (:workspace ep)) (:time ep)])
+                                               (filter #((set (range 2 (dec time-now))) (:time %))
+                                                  (ep-path est)))))
+             highest-doubt (ffirst doubts-times)
+             prior-weakest (when highest-doubt
+                             (dec (second (first (sort-by second
+                                                          (filter #(= highest-doubt (first %))
+                                                             doubts-times))))))]
+         (for [ep (map (fn [t] (cur-ep (goto-start-of-time est t)))
+                     (if prior-weakest [(dec time-now) prior-weakest 1]
+                         [(dec time-now) 1]))]
+           (new-hyp "OrderDep" :order-dep :order-dep
+                    1.0 false meta-hyp-conflicts? []
+                    (format "Order dependency at %s" (str ep))
+                    (format "Order dependency at %s" (str ep))
+                    {:action (partial action-batch ep)})))
        ;; time-prev == 0, so this is a "static" case or we have not
        ;; done much reasoning yet
        [])
