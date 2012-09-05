@@ -136,12 +136,18 @@
         ep-rejs (filter (fn [ep] (some (set (map :contents expl))
                               (map :contents (:rej (:accrej (:workspace ep))))))
                    (ep-path est))
-        bad-bests (sort-by first (set (map (fn [ep] [(get-in ep [:workspace :accrej :delta])
-                                                  (:cycle ep)
-                                                  (get-in ep [:workspace :accrej :best])])
-                                         ep-rejs)))
+        bad-bests (sort-by first (set
+                                  (filter (fn [[delta _ best]] (and delta best))
+                                     (map (fn [ep] [(get-in ep [:workspace :accrej :delta])
+                                                 (:cycle ep)
+                                                 (get-in ep [:workspace :accrej :best])])
+                                        ep-rejs))))
         smallest-delta (ffirst bad-bests)
         [_ cycle best] (first (sort-by second (filter #(= smallest-delta (first %)) bad-bests)))]
+    (comment
+      (println "expl-rejected-conflicts" expl)
+      (println "ep-rejs:" (map str ep-rejs))
+      (println "bad-bests" bad-bests))
     ;; TODO: consider the delta; if it's too large, perhaps the noexp is just noise
     (when cycle
       (let [new-est (new-branch-ep est (cur-ep (goto-cycle est (dec cycle))))]
@@ -210,10 +216,12 @@
            ep-rejs (filter (fn [ep] (some (set (map :contents expl-rejected-conflicts))
                                  (map :contents (:rej (:accrej (:workspace ep))))))
                       (ep-path est))
-           bad-bests (sort-by first (set (map (fn [ep] [(get-in ep [:workspace :accrej :delta])
-                                                     (:cycle ep)
-                                                     (get-in ep [:workspace :accrej :best])])
-                                            ep-rejs)))]
+           bad-bests (sort-by first (set
+                                     (filter (fn [[delta _ best]] (and delta best))
+                                        (map (fn [ep] [(get-in ep [:workspace :accrej :delta])
+                                                    (:cycle ep)
+                                                    (get-in ep [:workspace :accrej :best])])
+                                           ep-rejs))))]
        (comment
          (println "expl-rejected-conflicts" expl-rejected-conflicts)
          (println "ep-rejs:" (map str ep-rejs))
