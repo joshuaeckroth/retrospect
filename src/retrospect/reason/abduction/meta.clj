@@ -136,20 +136,10 @@
         ep-rejs (filter (fn [ep] (some (set (map :contents expl))
                               (map :contents (:rej (:accrej (:workspace ep))))))
                    (ep-path est))
-        bad-bests (sort-by first
-                           ;; don't consider a next-best that still
-                           ;; conflicts with what can explain the
-                           ;; noexp; note, the next-best may conflict
-                           ;; but a different alternative may not --
-                           ;; we are not finding that other
-                           ;; alternative
-                           (filter (fn [[_ _ h]]
-                                ;; also ignore any non-bests (no-acceptance) cases
-                                (and h (not-any? (fn [e] (conflicts? h e)) expl)))
-                              (set (map (fn [ep] [(get-in ep [:workspace :accrej :delta])
-                                               (:cycle ep)
-                                               (get-in ep [:workspace :accrej :best])])
-                                      ep-rejs))))
+        bad-bests (sort-by first (set (map (fn [ep] [(get-in ep [:workspace :accrej :delta])
+                                                  (:cycle ep)
+                                                  (get-in ep [:workspace :accrej :best])])
+                                         ep-rejs)))
         smallest-delta (ffirst bad-bests)
         [_ cycle best] (first (sort-by second (filter #(= smallest-delta (first %)) bad-bests)))]
     ;; TODO: consider the delta; if it's too large, perhaps the noexp is just noise
@@ -193,7 +183,7 @@
         ep (cur-ep new-est)
         ws-rejected (reject-many (:workspace ep) [hyp] :preemptive)
         ep-rejected (assoc ep :workspace ws-rejected)]
-    [(update-est est ep-rejected)
+    [(update-est new-est ep-rejected)
      params]))
 
 (defn meta-hyp-conflicts?
@@ -207,7 +197,45 @@
   (let [cur-ws (:workspace (cur-ep est))
         expl (set (mapcat #(explainers cur-ws %) problem-cases))
         eps (ep-path est)]
+    ;; these are generated in order of cost (essentially, how far back
+    ;; they batch); except that "ignore" hyps are at the end since
+    ;; those should be a last resort
     (concat
+     ;; correct explainer(s) were rejected due to conflicts; need to
+     ;; consider the various possibilities of rejected explainers and
+     ;; no-explainers combinations
+     (let [expl-rejected-conflicts (filter (fn [h] (= :conflict (rejection-reason cur-ws h)))
+                                      expl)
+           ;; which ep-states rejected these expl?
+           ep-rejs (filter (fn [ep] (some (set (map :contents expl-rejected-conflicts))
+                                 (map :contents (:rej (:accrej (:workspace ep))))))
+                      (ep-path est))
+           bad-bests (sort-by first (set (map (fn [ep] [(get-in ep [:workspace :accrej :delta])
+                                                     (:cycle ep)
+                                                     (get-in ep [:workspace :accrej :best])])
+                                            ep-rejs)))]
+       (comment
+         (println "expl-rejected-conflicts" expl-rejected-conflicts)
+         (println "ep-rejs:" (map str ep-rejs))
+         (println "bad-bests" bad-bests))
+       (for [[delta cycle hyp] bad-bests]
+         (new-hyp "Rejected" :rejected :conflict
+                  1.0 false meta-hyp-conflicts? []
+                  (format "%s rejected some explainers" hyp)
+                  (format "%s rejected some explainers (cycle %d, delta %.2f"
+                     (str hyp) cycle delta)
+                  {:action (partial action-preemptively-reject hyp cycle)})))
+     ;; were some explainers omitted due to high min-apriori?
+     (let [expl-rejected-minapriori (filter (fn [h] (= :minapriori (rejection-reason cur-ws h)))
+                                       expl)]
+       (if (not-empty expl-rejected-minapriori)
+         [(new-hyp "TooHighMinApriori" :rejected :minapriori
+                   1.0 false meta-hyp-conflicts? []
+                   "Explainers rejected due to too-high min-apriori"
+                   (format "These explainers were rejected due to too-high min-apriori: %s"
+                      (str/join ", " (sort (map str expl-rejected-minapriori))))
+                   {:action (partial action-lower-minapriori time-now)})]
+         []))
      ;; order dependency among the observations
      (if (not= 0 time-prev)
        ;; create these in reverse order, since if they all score the
@@ -232,54 +260,12 @@
                      (str (:best (:accrej (:workspace ep)))) (str ep)
                      (str (:nbest (:accrej (:workspace ep)))))
                   {:action (partial action-flip-choice ep)})))
-     ;; were some explainers omitted due to high min-apriori?
-     (let [expl-rejected-minapriori (filter (fn [h] (= :minapriori (rejection-reason cur-ws h)))
-                                       expl)]
-       (if (not-empty expl-rejected-minapriori)
-         [(new-hyp "TooHighMinApriori" :rejected :minapriori
-                   1.0 false meta-hyp-conflicts? []
-                   "Explainers rejected due to too-high min-apriori"
-                   (format "These explainers were rejected due to too-high min-apriori: %s"
-                      (str/join ", " (sort (map str expl-rejected-minapriori))))
-                   {:action (partial action-lower-minapriori time-now)})]
-         []))
      ;; noise hyps
      (for [noexp (filter #(= :observation (:type %)) problem-cases)]
        (new-hyp "Noise" :noise :insertion-noise
                 1.0 false meta-hyp-conflicts? []
                 (format "%s is insertion noise" noexp) (format "%s is insertion noise" noexp)
-                {:action (partial action-ignore noexp)}))
-     ;; correct explainer(s) were rejected due to conflicts; need to
-     ;; consider the various possibilities of rejected explainers and
-     ;; no-explainers combinations
-     (let [expl-rejected-conflicts (filter (fn [h] (= :conflict (rejection-reason cur-ws h)))
-                                      expl)
-           ;; which ep-states rejected these expl?
-           ep-rejs (filter (fn [ep] (some (set (map :contents expl-rejected-conflicts))
-                                 (map :contents (:rej (:accrej (:workspace ep))))))
-                      (ep-path est))
-           bad-bests (sort-by first
-                              ;; don't consider a next-best that still
-                              ;; conflicts with what can explain the
-                              ;; noexp; note, the next-best may conflict
-                              ;; but a different alternative may not --
-                              ;; we are not finding that other
-                              ;; alternative
-                              (filter (fn [[_ _ h]]
-                                   ;; also ignore any non-bests (no-acceptance) cases
-                                   (and h (not-any? (fn [e] (conflicts? h e))
-                                                    expl-rejected-conflicts)))
-                                 (set (map (fn [ep] [(get-in ep [:workspace :accrej :delta])
-                                                  (:cycle ep)
-                                                  (get-in ep [:workspace :accrej :best])])
-                                         ep-rejs))))]
-       (for [[delta cycle hyp] bad-bests]
-         (new-hyp "Rejected" :rejected :conflict
-                  (- 1.0 delta) false meta-hyp-conflicts? []
-                  (format "%s rejected some explainers")
-                  (format "%s rejected some explainers (cycle %d, delta %.2f"
-                     (str hyp) cycle delta)
-                  {:action (partial action-preemptively-reject hyp cycle)}))))))
+                {:action (partial action-ignore noexp)})))))
 
 (defn score-meta-hyps
   [problem-cases meta-hyps est time-prev time-now sensors]
@@ -347,6 +333,26 @@
           (meta-apply-and-evaluate est-new-meta-est est-applied time-now sensors)))
       {:est-old (goto-ep est-new-meta-est (:id (cur-ep est))) :est-new est-new-meta-est})))
 
+(defn meta-abductive-serial
+  "Tries one abductive meta-hyp at a time until one works. Noise hyps
+   are skipped; that can be handled below (resolve-by-ignoring)."
+  [problem-cases est time-prev time-now sensors]
+  (let [meta-hyps (make-meta-hyps problem-cases est time-prev time-now sensors)]
+    ;; apply the accepted action (first ignoring noise hyps, then apply the noise hyps)
+    (loop [est-attempt est
+           hyps (filter #(not= :noise (:type %)) meta-hyps)]
+      (if (empty? hyps)
+        {:est-old (goto-ep est-attempt (:id (cur-ep est)))
+         :est-new est-attempt}
+        (let [[est-next params-applied] ((:action (first hyps)) est-attempt)
+              result (binding [params params-applied]
+                       (meta-apply-and-evaluate
+                        est-attempt est-next time-now sensors))
+              problem-cases-new (when result (find-problem-cases (:est-new result)))]
+          (if (empty? problem-cases-new)
+            result
+            (recur (:est-old result) (rest hyps))))))))
+
 (defn resolve-by-ignoring
   [problem-cases est time-prev time-now sensors]
   (let [new-est (new-branch-ep est (cur-ep est))
@@ -385,6 +391,8 @@
                     meta-reject-conflicting
                     (= "abd" m)
                     meta-abductive
+                    (= "abd-serial" m)
+                    meta-abductive-serial
                     (= "ignore" m)
                     (constantly {:est-old est :est-new est}))
             result (f problem-cases est time-prev time-now sensors)
