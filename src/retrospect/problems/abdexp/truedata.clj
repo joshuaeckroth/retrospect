@@ -10,11 +10,19 @@
   (:use [retrospect.state]))
 
 (defn arbitrary-path-up
-  [expgraph v]
-  (loop [path [v]]
+  [expgraph true-set v]
+  (loop [path [v]
+         ts (conj true-set v)]
     (let [ns (incoming expgraph (last path))]
-      (if (empty? ns) path
-          (recur (conj path (my-rand-nth (sort ns))))))))
+      (cond (empty? ns) ts
+            ;; choose an existing "on" explainer if there is one so
+            ;; that nothing is doubly explained
+            (some true-set ns)
+            (recur (my-rand-nth (sort (filter ts ns))) ts)
+            ;; no existing "on" explainer exists; make a new one
+            :else
+            (let [expl (my-rand-nth (sort ns))]
+              (recur (conj path expl) (conj ts expl)))))))
 
 (defn new-observations
   []
@@ -85,7 +93,7 @@
           ;; a true-set for each observation-set
           true-sets (if (not (dag? eg)) []
                         (for [os observation-sets]
-                          (set (apply concat (for [v os] (arbitrary-path-up eg v))))))
+                          (reduce (fn [ts v] (arbitrary-path-up eg ts v)) #{} os)))
           ;; different false-obs for each eg-score/true-set
           false-obs (for [true-set true-sets]
                       (filter #(not (true-set %)) observations))
