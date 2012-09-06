@@ -128,7 +128,7 @@
                           (if (empty? choices)
                             (recur (inc step) [x y])
                             (recur (inc step) (my-rand-nth choices))))))]
-        (cond (= attempts 1)
+        (cond (= attempts 50)
               (move-entity movements entity ox oy time)
               (and x y
                    (empty? (entities-at movements x y time))
