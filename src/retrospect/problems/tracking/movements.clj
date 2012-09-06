@@ -23,20 +23,22 @@
                {:ox (:x last-pos) :oy (:y last-pos) :ot (:time last-pos)
                 :x x :y y :time time :color (:color last-pos)})))
 
-(defn new-entity
-  [movements time]
-  (let [[x y] [(my-rand-int (:width (meta movements)))
-               (my-rand-int (:height (meta movements)))]
-        c (rand-color)
-        e (count (keys movements))]
-    (assoc movements e [{:x x :y y :time time :color c}])))
-
 (defn entities-at
   [movements x y time]
   (filter (fn [e] (and (< time (count (get movements e)))
                        (let [mov (nth (get movements e) time)]
                          (and (= x (:x mov)) (= y (:y mov))))))
      (keys movements)))
+
+(defn new-entity
+  [movements time]
+  (let [[x y] [(my-rand-int (:width (meta movements)))
+               (my-rand-int (:height (meta movements)))]
+        c (rand-color)
+        e (count (keys movements))]
+    (if (not-empty (entities-at movements x y time))
+      (recur movements time)
+      (assoc movements e [{:x x :y y :time time :color c}]))))
 
 (defn entity-movements
   [movements entity mintime maxtime]
