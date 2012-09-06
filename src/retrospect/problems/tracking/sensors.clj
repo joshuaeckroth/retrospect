@@ -92,43 +92,35 @@
 
 (defn generate-sensors
   [training]
-  (let [width-height (math/ceil
-                      (math/sqrt (* (:GridHeight params)
-                                    (:GridWidth params)
-                                    (- 1.0 (* 0.01 (:SensorSeesColor params))))))
-        left-right (max 2 (int (math/ceil (/ (- (:GridWidth params) width-height) 2))))
-        top-bottom (max 2 (int (math/ceil (/ (- (:GridHeight params) width-height) 2))))
-        colors (:seen-colors training)]
-    [(new-sensor (keyword "middle-gray")
-                 left-right (- (:GridWidth params) left-right)
-                 top-bottom (- (:GridHeight params) top-bottom)
-                 false
-                 colors)
-     (new-sensor (keyword "left")
-                 0 (dec left-right) 0 (dec (:GridHeight params))
+  (if (= 100 (:SensorSeesColor params))
+    [(new-sensor (keyword "main-sensor")
+                 0 (dec (:GridWidth params))
+                 0 (dec (:GridHeight params))
                  true
-                 colors)
-     (new-sensor (keyword "right")
-                 (inc (- (:GridWidth params) left-right))
-                 (dec (:GridWidth params))
-                 0
-                 (dec (:GridHeight params))
-                 true
-                 colors)
-     (new-sensor (keyword "bottom")
-                 left-right
-                 (- (:GridWidth params) left-right)
-                 (inc (- (:GridHeight params) top-bottom))
-                 (dec (:GridHeight params))
-                 true
-                 colors)
-     (new-sensor (keyword "top")
-                 left-right
-                 (- (:GridWidth params) left-right)
-                 0
-                 (dec top-bottom)
-                 true
-                 colors)]))
+                 (:seen-colors training))]
+    (let [width-height (* (:GridHeight params)
+                          (- 1.0 (* 0.01 (:SensorSeesColor params))))
+          top-bottom (int (math/ceil (/ (- (:GridHeight params) width-height) 2)))
+          colors (:seen-colors training)]
+      (filter identity
+         [(new-sensor (keyword "middle-gray")
+                      0 (dec (:GridWidth params))
+                      top-bottom (max 0 (min (dec (:GridHeight params)) (- (:GridHeight params) top-bottom)))
+                      false
+                      colors)
+          (when (> top-bottom 1)
+            (new-sensor (keyword "bottom")
+                        0 (dec (:GridWidth params))
+                        (max 0 (min (dec (:GridWidth params)) (inc (- (:GridHeight params) top-bottom))))
+                        (dec (:GridHeight params))
+                        true
+                        colors))
+          (when (> top-bottom 0)
+            (new-sensor (keyword "top")
+                        0 (dec (:GridWidth params))
+                        0 (max 0 (min (dec (:GridHeight params)) (dec top-bottom)))
+                        true
+                        colors))]))))
 
 (comment [(new-sensor (keyword "1") 0 4 0 15 true)
           (new-sensor (keyword "2g") 0 4 16 20 false)
