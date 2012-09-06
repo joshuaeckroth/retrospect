@@ -64,6 +64,8 @@
    :rejected {:all #{}}
    ;; a map of hyp-id => reason-tag (e.g., :conflict)
    :rejection-reasons {}
+   ;; a map of hyp-id => hyp what was explained when it was accepted
+   :accepted-explained {}
    ;; a map of hypid => set of hypids
    :sorted-explainers {}
    ;; a seq of hypids
@@ -80,6 +82,10 @@
   [workspace hyp]
   (prof :accepted?
         ((get-in workspace [:accepted :all] #{}) (:id hyp))))
+
+(defn accepted-explained
+  [workspace hyp]
+  (get-in workspace [:accepted-explained (:id hyp)]))
 
 (defn rejected?
   [workspace hyp]
@@ -362,7 +368,8 @@
             (let [ws-acc (prof :accept-update
                                (-> workspace
                                   (update-in [:accepted (:type hyp)] conjs (:id hyp))
-                                  (update-in [:accepted :all] conjs (:id hyp))))
+                                  (update-in [:accepted :all] conjs (:id hyp))
+                                  (assoc-in [:accepted-explained (:id hyp)] explained)))
                   ws-hyplog (if @batch ws-acc
                                 (assoc-in ws-acc [:hyp-log (:id hyp)]
                                           (format (str "Accepted to explain %s with delta %.2f "
