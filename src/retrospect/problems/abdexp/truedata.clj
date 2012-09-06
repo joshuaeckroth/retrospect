@@ -65,8 +65,8 @@
           eg (apply add-edges (digraph) expl-links)
           vs (sort (nodes eg))
           observations (sort ;; find the leaves (not just vertices
-                             ;; from all-obs; some may have been
-                             ;; linked in the graph
+                        ;; from all-obs; some may have been
+                        ;; linked in the graph
                         (filter (fn [v] (and (all-obs v)
                                        (empty? (neighbors eg v))
                                        (not-empty (incoming eg v))))
@@ -86,6 +86,9 @@
           true-sets (if (not (dag? eg)) []
                         (for [os observation-sets]
                           (set (apply concat (for [v os] (arbitrary-path-up eg v))))))
+          ;; different false-obs for each eg-score/true-set
+          false-obs (for [true-set true-sets]
+                      (filter #(not (true-set %)) observations))
           conflict-links (take (:NumConflictLinks params)
                                (my-shuffle
                                 (sort #(let [c (compare (first %1) (first %2))]
@@ -102,7 +105,7 @@
           eg-conflicts (reduce set-conflicts eg conflict-links)
           ;; a different eg-score for each true-set
           eg-scores (let [vs (sort (nodes eg-conflicts))]
-                      (for [true-set true-sets]
+                      (for [[true-set f-obs] (partition 2 (interleave true-sets false-obs))]
                         (reduce (fn [eg v]
                              (add-attr eg v :score
                                        (cond (all-obs v) 1.0
@@ -110,14 +113,18 @@
                                              (max 0.0 (min 1.0 (my-rand-gauss
                                                                 (:TrueAprioriMean params)
                                                                 (:TrueAprioriVariance params))))
+                                             ;; not true and explains
+                                             ;; a false observation;
+                                             ;; make it less likely
+                                             (not-empty (set/intersection (neighbors eg v) (set f-obs)))
+                                             (max 0.0 (min 1.0 (my-rand-gauss
+                                                                (/ (:FalseAprioriMean params) 2.0)
+                                                                (:FalseAprioriVariance params))))
                                              :else
                                              (max 0.0 (min 1.0 (my-rand-gauss
                                                                 (:FalseAprioriMean params)
                                                                 (:FalseAprioriVariance params)))))))
-                           eg-conflicts vs)))
-          ;; different false-obs for each eg-score/true-set
-          false-obs (for [true-set true-sets]
-                      (filter #(not (true-set %)) observations))]
+                           eg-conflicts vs)))]
       (if (empty? true-sets) (recur (inc attempts))
           {:expgraphs eg-scores
            :false-obs false-obs
