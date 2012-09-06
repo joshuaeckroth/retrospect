@@ -90,8 +90,8 @@
              (accepted? ws hyp)
              (not (get-in true-false [:individual (:id hyp)])))
         :noise
-        ;; rejection-error: a true thing was rejected (after accepting
-        ;; a false thing, necessarily)
+        ;; conflict-rejection: a true thing was rejected as a conflict
+        ;; (after accepting a false thing, necessarily)
         (and (rejected? ws hyp)
              (= :conflict (rejection-reason ws hyp))
              (get-in true-false [:individual (:id hyp)]))
@@ -179,6 +179,7 @@
             :ErrorsCount (reduce + (vals (dissoc errors :no-error)))
             :ErrorsNoise (:noise errors 0)
             :ErrorsConflictRejection (:conflict-rejection errors 0)
+            :ErrorsMinApriori (:minapriori errors 0)
             :ErrorsScoring (:scoring errors 0)
             :ErrorsUnknown (:unknown errors 0)
             :ErrorsNoError (:no-error errors 0)
@@ -209,7 +210,8 @@
                       (concat [:UnexplainedPct :NoExplainersPct
                                :TrueDeltaAvg :FalseDeltaAvg
                                :Doubt :Coverage :ExplainCycles :HypothesisCount
-                               :MetaBranches :ErrorsCount :ErrorsNoise :ErrorsConflictRejection
+                               :MetaBranches :ErrorsCount :ErrorsNoise
+                               :ErrorsConflictRejection :ErrorsMinApriori
                                :ErrorsScoring :ErrorsUnknown :ErrorsNoError :NoExpCount
                                :NoExpReasonNoise :NoExpReasonRejectedConflict
                                :NoExpReasonRejectedMinApriori :NoExpReasonNoExpl
