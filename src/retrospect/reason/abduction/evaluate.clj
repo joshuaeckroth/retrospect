@@ -1,6 +1,6 @@
 (ns retrospect.reason.abduction.evaluate
   (:require [clojure.string :as str])
-  (:use [retrospect.epistemicstates :only [cur-ep flatten-est]])
+  (:use [retrospect.epistemicstates :only [cur-ep flatten-est count-branches]])
   (:use [retrospect.evaluate :only [calc-increase]])
   (:use [retrospect.epistemicstates :only [ep-path]])
   (:use [retrospect.reason.abduction.workspace
@@ -173,7 +173,7 @@
             :Doubt (doubt-aggregate est)
             :Coverage (calc-coverage workspace)
             :ExplainCycles (count ep-states)
-            :MetaBranches (count (filter #(second (:children %)) ep-states))
+            :MetaBranches (count-branches est)
             :HypothesisCount ((comp count :hyp-ids :workspace) ep)
             :ErrorsCount (reduce + (vals (dissoc errors :no-error)))
             :ErrorsNoise (:noise errors 0)

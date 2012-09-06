@@ -106,6 +106,12 @@
         loc
         (recur (zip/up loc))))))
 
+(defn count-branches
+  [est]
+  (+ (count (filter #(second (:children %))
+               (flatten-est est)))
+     (dec (count (:children (zip/root est))))))
+
 (defn update-est
   [est ep]
   (zip/replace est ep))
