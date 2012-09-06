@@ -19,8 +19,8 @@
     [id children cycle time results workspace meta-est]
   Object
   (toString [_]
-    (format "%s %d/%d %.2f/%.2f" id cycle time
-       ((:calc-doubt-fn @reasoner) workspace)
+    (format "%s %d/%d %s/%.2f" id cycle time
+       (if-let [d ((:calc-doubt-fn @reasoner) workspace)] (format "%.2f" d) "?")
        ((:calc-coverage-fn @reasoner) workspace))))
 
 (defrecord RootNode [children workspace meta-est])

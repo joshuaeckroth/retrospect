@@ -10,12 +10,13 @@
 
 (defn doubt-aggregate
   [est]
-  (let [doubts (map #(calc-doubt %)
-                  (filter (comp :best :accrej) (map :workspace (ep-path est))))]
+  (let [doubts (filter identity (map #(calc-doubt %) (map :workspace (ep-path est))))]
     (cond (= "avg" (:DoubtAggregate params))
           (if (empty? doubts) 0.0 (/ (reduce + doubts) (double (count doubts))))
           (= "max" (:DoubtAggregate params))
-          (if (empty? doubts) 0.0 (apply max doubts)))))
+          (if (empty? doubts) 0.0 (apply max doubts))
+          (= "min" (:DoubtAggregate params))
+          (if (empty? doubts) 0.0 (apply min doubts)))))
 
 (defn group-hyps-by-true-false
   [hyps type-key truedata true-hyp?]

@@ -93,9 +93,10 @@
 (defn meta-batch-weakest
   [problem-cases est _ time-now sensors]
   (let [doubts-cycles (reverse (sort-by first
-                                        (map (fn [ep]
-                                             [(calc-doubt (:workspace ep)) (:cycle ep)])
-                                           (ep-path est))))
+                                        (filter first
+                                           (map (fn [ep]
+                                                [(calc-doubt (:workspace ep)) (:cycle ep)])
+                                              (ep-path est)))))
         highest-doubt (ffirst doubts-cycles)
         prior-cycle (dec (second (first (sort-by second (filter #(= highest-doubt (first %))
                                                            doubts-cycles)))))
@@ -250,10 +251,11 @@
        ;; same, we want to prefer the later one, which can be managed
        ;; by having a lower hyp-id
        (let [doubts-times (reverse (sort-by first
-                                            (map (fn [ep]
-                                                 [(calc-doubt (:workspace ep)) (:time ep)])
-                                               (filter #((set (range 2 (dec time-now))) (:time %))
-                                                  (ep-path est)))))
+                                            (filter first
+                                               (map (fn [ep]
+                                                    [(calc-doubt (:workspace ep)) (:time ep)])
+                                                  (filter #((set (range 2 (dec time-now))) (:time %))
+                                                     (ep-path est))))))
              highest-doubt (ffirst doubts-times)
              prior-weakest (when highest-doubt
                              (dec (second (first (sort-by second
