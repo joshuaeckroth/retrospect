@@ -234,17 +234,6 @@
                   (format "%s rejected some explainers (cycle %d, delta %.2f"
                      (str hyp) cycle delta)
                   {:action (partial action-preemptively-reject hyp cycle)})))
-     ;; were some explainers omitted due to high min-apriori?
-     (let [expl-rejected-minapriori (filter (fn [h] (= :minapriori (rejection-reason cur-ws h)))
-                                       expl)]
-       (if (not-empty expl-rejected-minapriori)
-         [(new-hyp "TooHighMinApriori" :rejected :minapriori
-                   1.0 false meta-hyp-conflicts? []
-                   "Explainers rejected due to too-high min-apriori"
-                   (format "These explainers were rejected due to too-high min-apriori: %s"
-                      (str/join ", " (sort (map str expl-rejected-minapriori))))
-                   {:action (partial action-lower-minapriori time-now)})]
-         []))
      ;; order dependency among the observations
      (if (not= 0 time-prev)
        ;; create these in reverse order, since if they all score the
@@ -282,6 +271,18 @@
                      (str (:best (:accrej (:workspace ep)))) (str ep)
                      (str (:nbest (:accrej (:workspace ep)))))
                   {:action (partial action-flip-choice ep)})))
+     ;; were some explainers omitted due to high min-apriori?
+     (let [expl-rejected-minapriori (filter (fn [h] (= :minapriori (rejection-reason cur-ws h)))
+                                       expl)]
+       (if (not-empty expl-rejected-minapriori)
+         [(new-hyp "TooHighMinApriori" :rejected :minapriori
+                   1.0 false meta-hyp-conflicts? []
+                   "Explainers rejected due to too-high min-apriori"
+                   (format "These explainers were rejected due to too-high min-apriori: %s"
+                      (str/join ", " (sort (map str expl-rejected-minapriori))))
+                   {:action (partial action-lower-minapriori time-now)})]
+         []))
+
      ;; noise hyps
      (for [noexp (filter #(= :observation (:type %)) problem-cases)]
        (new-hyp "Noise" :noise :insertion-noise
