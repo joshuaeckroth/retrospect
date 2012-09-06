@@ -126,24 +126,23 @@
         :no-error)))))
 
 ;; true reasons why something cannot be explained (a noexp requires it
-;; was accepted): noise, true explainer was rejected due to conflict;
-;; true explainer was rejected due to minapriori
+;; was accepted): noise, an explainer was rejected due to conflict; an
+;; explainer was rejected due to minapriori; no explainer was offered
 (defn find-noexp-reasons
   [est true-false]
   (let [ws (:workspace (cur-ep est))
         noexp (map #(lookup-hyp ws %) (get-no-explainers ws))]
     (frequencies
      (for [hyp noexp]
-       (let [true-expl (filter #(get-in true-false [:individual (:id %)])
-                          (explainers ws hyp))]
+       (let [expl (explainers ws hyp)]
          (cond (and (= :observation (:type hyp))
                     (not (get-in true-false [:individual (:id hyp)])))
                :noise
-               (some #(and (rejected? ws %) (= :conflict (rejection-reason ws %))) true-expl)
+               (some #(and (rejected? ws %) (= :conflict (rejection-reason ws %))) expl)
                :expl-rejected-conflict
-               (some #(and (rejected? ws %) (= :minapriori (rejection-reason ws %))) true-expl)
+               (some #(and (rejected? ws %) (= :minapriori (rejection-reason ws %))) expl)
                :expl-rejected-minapriori
-               (empty? true-expl)
+               (empty? expl)
                :no-expl-offered
                :else
                :unknown))))))
