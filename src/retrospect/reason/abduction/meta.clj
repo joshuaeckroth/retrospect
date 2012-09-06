@@ -15,6 +15,16 @@
 
 (declare metareason)
 
+(defn find-problem-cases
+  [est]
+  (let [workspace (:workspace (cur-ep est))]
+    (set (map #(lookup-hyp workspace %) (get-no-explainers workspace)))))
+
+(defn metareasoning-activated?
+  [est]
+  (and (not= "none" (:Metareasoning params))
+       (not-empty (find-problem-cases est))))
+
 (defn reason
   [est time-prev time-now sensors & opts]
   (let [ws (:workspace (cur-ep est))
@@ -32,16 +42,13 @@
                  (assoc (explain (:workspace (cur-ep est)))
                    :log @reason-log))
             est-new (new-child-ep (update-est est (assoc (cur-ep est) :workspace ws)))
-            est-meta (if (some #{:no-metareason} opts) est-new
+            meta? (and (not-any? #{:no-metareason} opts)
+                       (metareasoning-activated? est-new))
+            est-meta (if (not meta?) est-new
                          (metareason est-new time-prev time-now sensors))]
-        ;; if something was accepted last, repeat
-        (if (:best (:accrej (:workspace (cur-ep est-meta))))
+        ;; if something was accepted last or we did metareasoning, repeat
+        (if (or meta? (:best (:accrej (:workspace (cur-ep est-meta)))))
           (recur est-meta) est-meta)))))
-
-(defn find-problem-cases
-  [est]
-  (let [workspace (:workspace (cur-ep est))]
-    (set (map #(lookup-hyp workspace %) (get-no-explainers workspace)))))
 
 (defn meta-apply-and-evaluate
   [est est-new time-now sensors]
@@ -224,6 +231,7 @@
                                                     (get-in ep [:workspace :accrej :best])])
                                            ep-rejs))))]
        (comment
+         (println "expl" expl)
          (println "expl-rejected-conflicts" expl-rejected-conflicts)
          (println "ep-rejs:" (map str ep-rejs))
          (println "bad-bests" bad-bests))
@@ -361,7 +369,6 @@
    are skipped; that can be handled below (resolve-by-ignoring)."
   [problem-cases est time-prev time-now sensors]
   (let [meta-hyps (make-meta-hyps problem-cases est time-prev time-now sensors)]
-    ;; apply the accepted action (first ignoring noise hyps, then apply the noise hyps)
     (loop [est-attempt est
            hyps (filter #(not= :noise (:type %)) meta-hyps)]
       (if (empty? hyps)
@@ -376,6 +383,29 @@
             result
             (recur (:est-old result) (rest hyps))))))))
 
+(defn meta-abductive-recursive
+  "Tries one abductive meta-hyp at a time until one works,
+   recursively. Noise hyps are skipped; that can be handled
+   below (resolve-by-ignoring)."
+  [problem-cases est time-prev time-now sensors]
+  (let [meta-hyps (make-meta-hyps problem-cases est time-prev time-now sensors)]
+    (loop [est-attempt est
+           hyps (filter #(not= :noise (:type %)) meta-hyps)]
+      (if (empty? hyps)
+        (do (comment (println "no more meta-hyps to try."))
+            {:est-old (goto-ep est-attempt (:id (cur-ep est)))
+             :est-new est-attempt})
+        (do (comment (println "trying" (first hyps) "at" (str (cur-ep est-attempt))))
+            (let [[est-next params-applied] ((:action (first hyps)) est-attempt)
+                  result (binding [params params-applied]
+                           (meta-apply-and-evaluate
+                            est-attempt est-next time-now sensors))
+                  problem-cases-new (when result (find-problem-cases (:est-new result)))]
+              (if (empty? problem-cases-new)
+                (do (comment (println "done trying. no more problem cases."))
+                    result)
+                (recur (:est-new result) (rest hyps)))))))))
+
 (defn resolve-by-ignoring
   [problem-cases est time-prev time-now sensors]
   (let [new-est (new-branch-ep est (cur-ep est))
@@ -389,45 +419,45 @@
   "Activate the appropriate metareasoning strategy (as given by
    the parameter :Metareasoning)"
   [est time-prev time-now sensors]
-  (let [problem-cases (find-problem-cases est)]
-    (if (or (empty? problem-cases)
-            (= "none" (:Metareasoning params)))
-      est
-      (let [m (:Metareasoning params)
-            f (cond (= "batchbeg" m)
-                    (partial meta-batch nil)
-                    (= "batch1" m)
-                    (partial meta-batch 1)
-                    (= "batch2" m)
-                    (partial meta-batch 2)
-                    (= "batch3" m)
-                    (partial meta-batch 3)
-                    (= "batch4" m)
-                    (partial meta-batch 4)
-                    (= "batch5" m)
-                    (partial meta-batch 5)
-                    (= "batch-weakest" m)
-                    meta-batch-weakest
-                    (= "lower-minapriori" m)
-                    meta-lower-minapriori
-                    (= "reject-conflicting" m)
-                    meta-reject-conflicting
-                    (= "abd" m)
-                    meta-abductive
-                    (= "abd-serial" m)
-                    meta-abductive-serial
-                    (= "ignore" m)
-                    (constantly {:est-old est :est-new est}))
-            result (f problem-cases est time-prev time-now sensors)
-            problem-cases-new (when result (find-problem-cases (:est-new result)))]
-        (cond (nil? result)
-              (resolve-by-ignoring problem-cases est
-                                   time-prev time-now sensors)
-              (empty? problem-cases-new)
-              (:est-new result)
-              (< (count problem-cases-new) (count problem-cases))
-              (resolve-by-ignoring problem-cases-new (:est-new result)
-                                   time-prev time-now sensors)
-              :else
-              (resolve-by-ignoring problem-cases (:est-old result)
-                                   time-prev time-now sensors))))))
+  (let [problem-cases (find-problem-cases est)
+        m (:Metareasoning params)
+        f (cond (= "batchbeg" m)
+                (partial meta-batch nil)
+                (= "batch1" m)
+                (partial meta-batch 1)
+                (= "batch2" m)
+                (partial meta-batch 2)
+                (= "batch3" m)
+                (partial meta-batch 3)
+                (= "batch4" m)
+                (partial meta-batch 4)
+                (= "batch5" m)
+                (partial meta-batch 5)
+                (= "batch-weakest" m)
+                meta-batch-weakest
+                (= "lower-minapriori" m)
+                meta-lower-minapriori
+                (= "reject-conflicting" m)
+                meta-reject-conflicting
+                (= "abd" m)
+                meta-abductive
+                (= "abd-serial" m)
+                meta-abductive-serial
+                (= "abd-recursive" m)
+                meta-abductive-recursive
+                (= "ignore" m)
+                (constantly {:est-old est :est-new est}))
+        result (f problem-cases est time-prev time-now sensors)
+        problem-cases-new (when result (find-problem-cases (:est-new result)))]
+    (cond (nil? result)
+          (resolve-by-ignoring problem-cases est
+                               time-prev time-now sensors)
+          (empty? problem-cases-new)
+          (:est-new result)
+          ;; still have problem cases; but are we less doubtful?
+          (< (doubt-aggregate (:est-new result)) (doubt-aggregate (:est-old result)))
+          (resolve-by-ignoring problem-cases-new (:est-new result)
+                               time-prev time-now sensors)
+          :else
+          (resolve-by-ignoring problem-cases (:est-old result)
+                               time-prev time-now sensors))))
