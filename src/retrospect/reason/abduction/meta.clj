@@ -429,6 +429,8 @@
                 (partial meta-batch 4)
                 (= "batch5" m)
                 (partial meta-batch 5)
+                (= "batch-mid" m)
+                (partial meta-batch (int (/ (count (set (map :time (ep-path est)))) 2)))
                 (= "batch-weakest" m)
                 meta-batch-weakest
                 (= "lower-minapriori" m)
