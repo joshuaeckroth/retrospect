@@ -454,8 +454,7 @@
                                time-prev time-now sensors)
           (empty? problem-cases-new)
           (:est-new result)
-          ;; still have problem cases; but are we less doubtful?
-          (<= (doubt-aggregate (:est-new result)) (doubt-aggregate (:est-old result)))
+          (< (count problem-cases-new) (count problem-cases))
           (resolve-by-ignoring problem-cases-new (:est-new result)
                                time-prev time-now sensors)
           :else
