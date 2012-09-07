@@ -31,7 +31,9 @@
         ws-sensors (binding [reason-log (ref '())]
                      (assoc (if sensors
                               (update-hypotheses
-                               (add-sensor-hyps ws time-prev time-now sensors) time-now)
+                               (add-sensor-hyps ws time-prev time-now sensors
+                                                (:cycle (cur-ep est)))
+                               time-now)
                               ws)
                        :log @reason-log))
         est-ws (new-child-ep (update-est est (assoc (cur-ep est)
@@ -39,7 +41,7 @@
     (loop [est est-ws]
       (let [ws (binding [reason-log (ref '())]
                  (log "Explaining at cycle" (:cycle (cur-ep est)))
-                 (assoc (explain (:workspace (cur-ep est)))
+                 (assoc (explain (:workspace (cur-ep est)) (:cycle (cur-ep est)))
                    :log @reason-log))
             est-new (new-child-ep (update-est est (assoc (cur-ep est) :workspace ws)))
             meta? (and (not-any? #{:no-metareason} opts)
@@ -121,7 +123,7 @@
 (defn preemptively-reject
   [est hyp]
   (let [ep (cur-ep est)
-        ws-rejected (reject-many (:workspace ep) [hyp] :preemptive)
+        ws-rejected (reject-many (:workspace ep) [hyp] :preemptive (:cycle ep))
         ep-rejected (assoc ep :workspace ws-rejected)]
     (update-est est ep-rejected)))
 
@@ -187,7 +189,7 @@
   (let [ws-old (:workspace (cur-ep est))
         new-est (new-branch-ep est (cur-ep est))
         new-ep (cur-ep new-est)
-        ws-ignored (reject-many (:workspace new-ep) [hyp] :ignoring)]
+        ws-ignored (reject-many (:workspace new-ep) [hyp] :ignoring (:cycle new-ep))]
     [(update-est new-est (assoc new-ep :workspace ws-ignored))
      params]))
 
@@ -195,7 +197,7 @@
   [hyp cycle est]
   (let [new-est (new-branch-ep est (cur-ep (goto-cycle est (dec cycle))))
         ep (cur-ep new-est)
-        ws-rejected (reject-many (:workspace ep) [hyp] :preemptive)
+        ws-rejected (reject-many (:workspace ep) [hyp] :preemptive (:cycle ep))
         ep-rejected (assoc ep :workspace ws-rejected)]
     [(update-est new-est ep-rejected)
      params]))
@@ -205,98 +207,91 @@
   (and (not= hyp1 hyp2)
        (not-empty (set/intersection (set (:explains hyp1)) (set (:explains hyp2))))))
 
+(comment
+  (let [doubts-times
+        (reverse (sort-by first
+                          (filter first
+                             (map (fn [ep]
+                                  [(calc-doubt (:workspace ep)) (:time ep)])
+                                (filter #((set (range 2 (dec time-now))) (:time %))
+                                   (ep-path est))))))
+        highest-doubt (ffirst doubts-times)
+        prior-weakest (when highest-doubt
+                        (dec (second (first (sort-by second
+                                                     (filter #(= highest-doubt (first %))
+                                                        doubts-times))))))]))
+
 (defn make-meta-hyps
   "Create explanations, and associated actions, for problem-cases."
   [problem-cases est time-prev time-now sensors]
   (let [cur-ws (:workspace (cur-ep est))
         expl (set (mapcat #(explainers cur-ws %) problem-cases))
         eps (ep-path est)]
-    ;; these are generated in order of cost (essentially, how far back
-    ;; they batch); except that "ignore" hyps are at the end since
-    ;; those should be a last resort
-    (concat
-     ;; correct explainer(s) were rejected due to conflicts; need to
-     ;; consider the various possibilities of rejected explainers and
-     ;; no-explainers combinations
-     (let [expl-rejected-conflicts (filter (fn [h] (= :conflict (rejection-reason cur-ws h)))
-                                      expl)
-           ;; which ep-states rejected these expl?
-           ep-rejs (filter (fn [ep] (some (set (map :contents expl-rejected-conflicts))
-                                 (map :contents (:rej (:accrej (:workspace ep))))))
-                      (ep-path est))
-           bad-bests (sort-by first (set
-                                     (filter (fn [[delta _ best]] (and delta best))
-                                        (map (fn [ep] [(get-in ep [:workspace :accrej :delta])
-                                                    (:cycle ep)
-                                                    (get-in ep [:workspace :accrej :best])])
-                                           ep-rejs))))]
-       (comment
-         (println "expl" expl)
-         (println "expl-rejected-conflicts" expl-rejected-conflicts)
-         (println "ep-rejs:" (map str ep-rejs))
-         (println "bad-bests" bad-bests))
-       (for [[delta cycle hyp] bad-bests]
-         (new-hyp "Rejected" :rejected :conflict
-                  1.0 false meta-hyp-conflicts? []
-                  (format "%s rejected some explainers" hyp)
-                  (format "%s rejected some explainers (cycle %d, delta %.2f"
-                     (str hyp) cycle delta)
-                  {:action (partial action-preemptively-reject hyp cycle)})))
-     ;; order dependency among the observations
-     (if (not= 0 time-prev)
-       ;; create these in reverse order, since if they all score the
-       ;; same, we want to prefer the later one, which can be managed
-       ;; by having a lower hyp-id
-       (let [doubts-times (reverse (sort-by first
-                                            (filter first
-                                               (map (fn [ep]
-                                                    [(calc-doubt (:workspace ep)) (:time ep)])
-                                                  (filter #((set (range 2 (dec time-now))) (:time %))
-                                                     (ep-path est))))))
-             highest-doubt (ffirst doubts-times)
-             prior-weakest (when highest-doubt
-                             (dec (second (first (sort-by second
-                                                          (filter #(= highest-doubt (first %))
-                                                             doubts-times))))))]
-         (for [ep (map (fn [t] (cur-ep (goto-start-of-time est t)))
-                     (if prior-weakest [(dec time-now) prior-weakest 1]
-                         [(dec time-now) 1]))]
-           (new-hyp "OrderDep" :order-dep :order-dep
-                    1.0 false meta-hyp-conflicts? []
-                    (format "Order dependency at %s" (str ep))
-                    (format "Order dependency at %s" (str ep))
-                    {:action (partial action-batch ep)})))
-       ;; time-prev == 0, so this is a "static" case or we have not
-       ;; done much reasoning yet
-       [])
-     ;; wrong choice at a certain decision (batch + flip)
-     (comment
-       (for [ep (filter (comp :nbest :accrej :workspace) eps)]
-         (new-hyp "WrongChoice" :wrong-choice :wrong-choice
-                  1.0 false meta-hyp-conflicts? []
-                  (format "Wrong choice at %s" (str ep))
-                  (format "%s was accepted at %s but %s should be instead."
-                     (str (:best (:accrej (:workspace ep)))) (str ep)
-                     (str (:nbest (:accrej (:workspace ep)))))
-                  {:action (partial action-flip-choice ep)})))
-     ;; were some explainers omitted due to high min-apriori?
-     (let [expl-rejected-minapriori (filter (fn [h] (= :minapriori (rejection-reason cur-ws h)))
-                                       expl)]
-       (if (not-empty expl-rejected-minapriori)
-         [(new-hyp "TooHighMinApriori" :rejected :minapriori
-                   1.0 false meta-hyp-conflicts? []
-                   "Explainers rejected due to too-high min-apriori"
-                   (format "These explainers were rejected due to too-high min-apriori: %s"
-                      (str/join ", " (sort (map str expl-rejected-minapriori))))
-                   {:action (partial action-lower-minapriori time-now)})]
-         []))
-
-     ;; noise hyps
-     (for [noexp (filter #(= :observation (:type %)) problem-cases)]
-       (new-hyp "Noise" :noise :insertion-noise
-                1.0 false meta-hyp-conflicts? []
-                (format "%s is insertion noise" noexp) (format "%s is insertion noise" noexp)
-                {:action (partial action-ignore noexp)})))))
+    (reverse
+     (sort-by :cycle
+              (concat
+               ;; order dependency among the observations
+               (if (not= 0 time-prev)
+                 (for [ep (map (fn [t] (cur-ep (goto-start-of-time est t)))
+                             [(dec time-now) 1])]
+                   (new-hyp "OrderDep" :order-dep :order-dep
+                            1.0 false meta-hyp-conflicts? []
+                            (format "Order dependency at %s" (str ep))
+                            (format "Order dependency at %s" (str ep))
+                            {:action (partial action-batch ep) :cycle (:cycle ep)}))
+                 ;; time-prev == 0, so this is a "static" case or we have not
+                 ;; done much reasoning yet
+                 [])
+               ;; correct explainer(s) were rejected due to conflicts; need to
+               ;; consider the various possibilities of rejected explainers and
+               ;; no-explainers combinations
+               (let [expl-rejected-conflicts (filter (fn [h] (= :conflict (rejection-reason cur-ws h)))
+                                                expl)
+                     ;; which ep-states rejected these expl?
+                     ep-rejs (filter (fn [ep] (some (set (map :contents expl-rejected-conflicts))
+                                           (map :contents (:rej (:accrej (:workspace ep))))))
+                                (ep-path est))
+                     bad-bests (sort-by first (set
+                                               (filter (fn [[delta _ best]] (and delta best))
+                                                  (map (fn [ep] [(get-in ep [:workspace :accrej :delta])
+                                                              (:cycle ep)
+                                                              (get-in ep [:workspace :accrej :best])])
+                                                     ep-rejs))))]
+                 (comment
+                   (println "expl" expl)
+                   (println "expl-rejected-conflicts" expl-rejected-conflicts)
+                   (println "ep-rejs:" (map str ep-rejs))
+                   (println "bad-bests" bad-bests))
+                 (for [[delta cycle hyp] bad-bests]
+                   (new-hyp "Rejected" :rejected :conflict
+                            1.0 false meta-hyp-conflicts? []
+                            (format "%s rejected some explainers" hyp)
+                            (format "%s rejected some explainers (cycle %d, delta %.2f"
+                               (str hyp) cycle delta)
+                            {:action (partial action-preemptively-reject hyp cycle)
+                             :cycle cycle})))
+               ;; wrong choice at a certain decision (batch + flip)
+               (comment
+                 (for [ep (filter (comp :nbest :accrej :workspace) eps)]
+                   (new-hyp "WrongChoice" :wrong-choice :wrong-choice
+                            1.0 false meta-hyp-conflicts? []
+                            (format "Wrong choice at %s" (str ep))
+                            (format "%s was accepted at %s but %s should be instead."
+                               (str (:best (:accrej (:workspace ep)))) (str ep)
+                               (str (:nbest (:accrej (:workspace ep)))))
+                            {:action (partial action-flip-choice ep)})))
+               ;; were some explainers omitted due to high min-apriori?
+               (let [expl-rejected-minapriori (filter (fn [h] (= :minapriori (rejection-reason cur-ws h)))
+                                                 expl)]
+                 (if (not-empty expl-rejected-minapriori)
+                   [(new-hyp "TooHighMinApriori" :rejected :minapriori
+                             1.0 false meta-hyp-conflicts? []
+                             "Explainers rejected due to too-high min-apriori"
+                             (format "These explainers were rejected due to too-high min-apriori: %s"
+                                (str/join ", " (sort (map str expl-rejected-minapriori))))
+                             {:action (partial action-lower-minapriori time-now)
+                              :cycle (:cycle (cur-ep (goto-start-of-time est time-now)))})]
+                   [])))))))
 
 (defn score-meta-hyps
   [problem-cases meta-hyps est time-prev time-now sensors]
@@ -316,8 +311,7 @@
           (recur (:est-old result) (rest hyps)
                  (conj new-hyps
                        (assoc hyp :explains (map :contents resolved-cases)
-                              ;; always score noise as 0.0
-                              :apriori (if (= :noise (:type hyp)) 0.0 (- 1.0 doubt-new))
+                              :apriori (- 1.0 doubt-new)
                               :desc (format "%s\n\nEp-state start: %s"
                                        (:desc hyp) (str (cur-ep est-new))))))))))
 
@@ -364,54 +358,53 @@
           (meta-apply-and-evaluate est-new-meta-est est-applied time-now sensors)))
       {:est-old (goto-ep est-new-meta-est (:id (cur-ep est))) :est-new est-new-meta-est})))
 
-(defn meta-abductive-serial
-  "Tries one abductive meta-hyp at a time until one works. Noise hyps
-   are skipped; that can be handled below (resolve-by-ignoring)."
-  [problem-cases est time-prev time-now sensors]
-  (let [meta-hyps (make-meta-hyps problem-cases est time-prev time-now sensors)]
-    (loop [est-attempt est
-           hyps (filter #(not= :noise (:type %)) meta-hyps)]
-      (if (empty? hyps)
-        {:est-old (goto-ep est-attempt (:id (cur-ep est)))
-         :est-new est-attempt}
-        (let [[est-next params-applied] ((:action (first hyps)) est-attempt)
-              result (binding [params params-applied]
-                       (meta-apply-and-evaluate
-                        est-attempt est-next time-now sensors))
-              problem-cases-new (when result (find-problem-cases (:est-new result)))]
-          (if (empty? problem-cases-new)
-            result
-            (recur (:est-old result) (rest hyps))))))))
-
 (defn meta-abductive-recursive
   "Tries one abductive meta-hyp at a time until one works,
    recursively. Noise hyps are skipped; that can be handled
    below (resolve-by-ignoring)."
-  [problem-cases est time-prev time-now sensors]
+  [serial? use-doubt? problem-cases est time-prev time-now sensors]
+  (comment (println "problem-cases:" problem-cases))
   (let [meta-hyps (make-meta-hyps problem-cases est time-prev time-now sensors)]
+    (comment (println "meta-hyps:" meta-hyps))
     (loop [est-attempt est
-           hyps (filter #(not= :noise (:type %)) meta-hyps)]
-      (if (empty? hyps)
-        (do (comment (println "no more meta-hyps to try."))
-            {:est-old (goto-ep est-attempt (:id (cur-ep est)))
-             :est-new est-attempt})
-        (do (comment (println "trying" (first hyps) "at" (str (cur-ep est-attempt))))
-            (let [[est-next params-applied] ((:action (first hyps)) est-attempt)
-                  result (binding [params params-applied]
-                           (meta-apply-and-evaluate
-                            est-attempt est-next time-now sensors))
-                  problem-cases-new (when result (find-problem-cases (:est-new result)))]
-              (if (empty? problem-cases-new)
-                (do (comment (println "done trying. no more problem cases."))
-                    result)
-                (recur (:est-new result) (rest hyps)))))))))
+           earliest-cycle (:cycle (cur-ep est))
+           hyps meta-hyps]
+      (comment (println "earliest cycle:" earliest-cycle))
+      (cond (empty? hyps)
+            (do (comment (println "no more meta-hyps to try."))
+                {:est-old (goto-ep est-attempt (:id (cur-ep est)))
+                 :est-new est-attempt})
+            ;; don't try a cycle less-far back than what has already been tried
+            (and (= :order-dep (:type (first hyps)))
+                 (>= (:cycle (first hyps)) earliest-cycle))
+            (recur est-attempt earliest-cycle (rest hyps))
+            :else
+            (do (comment (println "trying" (first hyps) "at" (str (cur-ep est-attempt))))
+                (let [[est-next params-applied] ((:action (first hyps)) est-attempt)
+                      result (binding [params params-applied]
+                               (meta-apply-and-evaluate
+                                est-attempt est-next time-now sensors))
+                      problem-cases-new (when result (find-problem-cases (:est-new result)))]
+                  (if (empty? problem-cases-new)
+                    (do (comment (println "done trying. no more problem cases."))
+                        result)
+                    (recur (if (or serial?
+                                   (and use-doubt?
+                                        (> (doubt-aggregate (:est-new result))
+                                           (doubt-aggregate (:est-old result)))))
+                             (:est-old result)
+                             (:est-new result))
+                           (if (= :order-dep (:type (first hyps)))
+                             (:cycle (first hyps))
+                             earliest-cycle)
+                           (rest hyps)))))))))
 
 (defn resolve-by-ignoring
   [problem-cases est time-prev time-now sensors]
   (let [new-est (new-branch-ep est (cur-ep est))
         new-ep (cur-ep new-est)
         ws-old (:workspace (cur-ep est))
-        ws-ignored (reject-many (:workspace new-ep) problem-cases :ignoring)
+        ws-ignored (reject-many (:workspace new-ep) problem-cases :ignoring (:cycle new-ep))
         new-est-ignored (update-est new-est (assoc new-ep :workspace ws-ignored))]
     (reason new-est-ignored time-prev time-now sensors :no-metareason)))
 
@@ -442,9 +435,11 @@
                 (= "abd" m)
                 meta-abductive
                 (= "abd-serial" m)
-                meta-abductive-serial
+                (partial meta-abductive-recursive true false)
                 (= "abd-recursive" m)
-                meta-abductive-recursive
+                (partial meta-abductive-recursive false false)
+                (= "abd-recursive-doubt" m)
+                (partial meta-abductive-recursive false true)
                 (= "ignore" m)
                 (constantly {:est-old est :est-new est}))
         result (f problem-cases est time-prev time-now sensors)
@@ -455,7 +450,7 @@
           (empty? problem-cases-new)
           (:est-new result)
           ;; still have problem cases; but are we less doubtful?
-          (< (doubt-aggregate (:est-new result)) (doubt-aggregate (:est-old result)))
+          (<= (doubt-aggregate (:est-new result)) (doubt-aggregate (:est-old result)))
           (resolve-by-ignoring problem-cases-new (:est-new result)
                                time-prev time-now sensors)
           :else
