@@ -1,7 +1,7 @@
 (ns retrospect.reason.abduction.problems.tracking.evaluate
   (:require [clojure.set :as set])
   (:use [retrospect.evaluate :only [calc-increase]])
-  (:use [retrospect.epistemicstates :only [cur-ep ep-path]])
+  (:use [retrospect.epistemicstates :only [cur-ep flatten-est]])
   (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
   (:use [retrospect.profile :only [prof]])
   (:use [retrospect.state]))
@@ -48,33 +48,39 @@
   [truedata est]
   (if (or (and (not training?) (not @batch))
           (and (not training?) (= (:Steps params) (:time (cur-ep est)))))
-    (let [ep (cur-ep est)
-          ws (:workspace ep)
-          time-now (:time ep)
-          true-movs (get-true-movements truedata time-now)
-          accepted (map #(lookup-hyp ws %) (:movement (:accepted ws)))
-          not-accepted (set/difference
-                        (set (map #(lookup-hyp ws %)
-                                (:movement (:hypotheses ws))))
-                        accepted)
-          acc-movs (map :mov accepted)
-          not-acc-movs (map :mov not-accepted)
-          [tp tn fp fn] (tp-tn-fp-fn true-movs acc-movs not-acc-movs)]
-      ;; http://en.wikipedia.org/wiki/Receiver_operating_characteristic
-      {:TP tp :TN tn :FP fp :FN fn
-       :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
-       :FPR (if (= 0 (+ fp tn)) 1.0 (/ (double fp) (double (+ fp tn))))
-       :F1 (if (= 0 (+ tp fp fn)) 1.0 (/ (double (* 2.0 tp))
-                                         (double (+ (* 2.0 tp) fp fn))))
-       :TPRatio (if (empty? true-movs) 1.0
-                    (/ (double tp) (double (count true-movs))))
-       :Prec (if (= 0 (+ tp fp)) 1.0 (/ (double tp) (double (+ tp fp))))})
-    {:TP 0 :TN 0 :FP 0 :FN 0 :TPR 0.0 :FPR 0.0 :F1 0.0 :TPRatio 0.0 :Prec 0.0}))
+    (let [metrics
+          (for [ep (filter :decision-point (flatten-est est))]
+            (let [ws (:workspace ep)
+                  time-now (:time ep)
+                  true-movs (get-true-movements truedata time-now)
+                  accepted (map #(lookup-hyp ws %) (:movement (:accepted ws)))
+                  not-accepted (set/difference
+                                (set (map #(lookup-hyp ws %)
+                                        (:movement (:hypotheses ws))))
+                                accepted)
+                  acc-movs (map :mov accepted)
+                  not-acc-movs (map :mov not-accepted)
+                  [tp tn fp fn] (tp-tn-fp-fn true-movs acc-movs not-acc-movs)]
+              ;; http://en.wikipedia.org/wiki/Receiver_operating_characteristic
+              {:TP tp :TN tn :FP fp :FN fn
+               :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
+               :FPR (if (= 0 (+ fp tn)) 1.0 (/ (double fp) (double (+ fp tn))))
+               :F1 (if (= 0 (+ tp fp fn)) 1.0 (/ (double (* 2.0 tp))
+                                                 (double (+ (* 2.0 tp) fp fn))))
+               :TPRatio (if (empty? true-movs) 1.0
+                            (/ (double tp) (double (count true-movs))))
+               :Prec (if (= 0 (+ tp fp)) 1.0 (/ (double tp) (double (+ tp fp))))}))]
+      (merge (last metrics)
+             {:MinPrec (apply min (map :Prec metrics))
+              :MinTPRatio (apply min (map :TPRatio metrics))}))
+    {:TP 0 :TN 0 :FP 0 :FN 0 :TPR 0.0 :FPR 0.0 :F1 0.0 :TPRatio 0.0 :Prec 0.0
+     :MinPrec 0.0 :MinTPRatio 0.0}))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
-                    [:TP :TN :FP :FN :TPR :FPR :F1 :TPRatio :Prec])))
+                  [:TP :TN :FP :FN :TPR :FPR :F1 :TPRatio :Prec
+                   :MinPrec :MinTPRatio])))
 
 (defn training-stats
   [workspace false-accepted unexplained truedata time-now cycle])

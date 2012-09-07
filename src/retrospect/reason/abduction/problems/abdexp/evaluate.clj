@@ -1,7 +1,7 @@
 (ns retrospect.reason.abduction.problems.abdexp.evaluate
   (:require [clojure.set :as set])
   (:use [retrospect.evaluate :only [calc-increase]])
-  (:use [retrospect.epistemicstates :only [cur-ep]])
+  (:use [retrospect.epistemicstates :only [cur-ep flatten-est]])
   (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
   (:use [retrospect.problems.abdexp.expgraph])
   (:use [retrospect.state]))
@@ -30,28 +30,33 @@
 
 (defn evaluate
   [truedata est]
-  (let [time-now (:time (cur-ep est))
-        ws (:workspace (cur-ep est))
-        acc-explainers (set (map #(:vertex (lookup-hyp ws %)) (get (:accepted ws) :expl)))
-        not-acc-explainers (set/difference (set (map #(:vertex (lookup-hyp ws %))
-                                                   (get (:hypotheses ws) :expl)))
-                                           acc-explainers)
-        [tp tn fp fn] (tp-tn-fp-fn (:true-explainers truedata)
-                                   acc-explainers not-acc-explainers)]
-    ;; http://en.wikipedia.org/wiki/Receiver_operating_characteristic
-    {:TP tp :TN tn :FP fp :FN fn
-     :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
-     :FPR (if (= 0 (+ fp tn)) 1.0 (/ (double fp) (double (+ fp tn))))
-     :F1 (if (= 0 (+ tp fp fn)) 1.0 (/ (double (* 2.0 tp))
-                                       (double (+ (* 2.0 tp) fp fn))))
-     :TPRatio (if (empty? (:true-explainers truedata)) 1.0
-                  (/ (double tp) (double (count (:true-explainers truedata)))))
-     :Prec (if (= 0 (+ tp fp)) 1.0 (/ (double tp) (double (+ tp fp))))}))
+  (let [metrics
+        (for [ep (filter :decision-point (flatten-est est))]
+          (let [ws (:workspace ep)
+                acc-explainers (set (map #(:vertex (lookup-hyp ws %)) (get (:accepted ws) :expl)))
+                not-acc-explainers (set/difference (set (map #(:vertex (lookup-hyp ws %))
+                                                           (get (:hypotheses ws) :expl)))
+                                                   acc-explainers)
+                [tp tn fp fn] (tp-tn-fp-fn (:true-explainers truedata)
+                                           acc-explainers not-acc-explainers)]
+            ;; http://en.wikipedia.org/wiki/Receiver_operating_characteristic
+            {:TP tp :TN tn :FP fp :FN fn
+             :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
+             :FPR (if (= 0 (+ fp tn)) 1.0 (/ (double fp) (double (+ fp tn))))
+             :F1 (if (= 0 (+ tp fp fn)) 1.0 (/ (double (* 2.0 tp))
+                                               (double (+ (* 2.0 tp) fp fn))))
+             :TPRatio (if (empty? (:true-explainers truedata)) 1.0
+                          (/ (double tp) (double (count (:true-explainers truedata)))))
+             :Prec (if (= 0 (+ tp fp)) 1.0 (/ (double tp) (double (+ tp fp))))}))]
+    (merge (last metrics)
+           {:MinPrec (apply min (map :Prec metrics))
+            :MinTPRatio (apply min (map :TPRatio metrics))})))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
-                  [:TP :TN :FP :FN :TPR :FPR :F1 :TPRatio :Prec])))
+                  [:TP :TN :FP :FN :TPR :FPR :F1 :TPRatio :Prec
+                   :MinPrec :MinTPRatio])))
 
 (defn stats
   [truedata ors time-now])

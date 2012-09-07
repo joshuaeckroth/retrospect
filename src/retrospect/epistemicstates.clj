@@ -16,18 +16,20 @@
   (make-node [ep children] "Makes new node from existing node and new children."))
 
 (defrecord EpistemicState
-    [id children cycle time results workspace meta-est]
+    [id children cycle time decision-point results workspace meta-est]
   Object
   (toString [_]
-    (format "%s %d/%d %s/%.2f" id cycle time
+    (format "%s %d/%d %s/%.2f%s" id cycle time
        (if-let [d ((:calc-doubt-fn @reasoner) workspace)] (format "%.2f" d) "?")
-       ((:calc-coverage-fn @reasoner) workspace))))
+       ((:calc-coverage-fn @reasoner) workspace)
+       (if decision-point " *" ""))))
 
 (defrecord RootNode [children workspace meta-est])
 
 (defn clone-ep
   [ep id children]
-  (EpistemicState. id children (:cycle ep) (:time ep) (:results ep) (:workspace ep) nil))
+  (EpistemicState. id children (:cycle ep) (:time ep) (:decision-point ep)
+                   (:results ep) (:workspace ep) nil))
 
 (extend-protocol EpistemicStateTree
   EpistemicState
@@ -60,7 +62,7 @@
 
 (defn init-est
   [workspace]
-  (zip/down (zip-est [(EpistemicState. (make-ep-id) [] 0 0 [] workspace nil)]
+  (zip/down (zip-est [(EpistemicState. (make-ep-id) [] 0 0 false [] workspace nil)]
                      workspace nil)))
 
 (defn get-init-workspace
@@ -149,7 +151,8 @@
 
 (defn new-branch-ep
   [est branch]
-  (let [ep (clone-ep branch (make-ep-id est) [])]
+  (let [ep (assoc (clone-ep branch (make-ep-id est) [])
+             :decision-point false)]
     ;; make a branch; the choice of "insert-right" over "insert-left" here
     ;; is what makes (list-ep-states) possible, since depth-first search
     ;; looks left before looking right
@@ -157,6 +160,7 @@
 
 (defn new-child-ep
   [est]
-  (let [ep-child (clone-ep (cur-ep est) (make-ep-id est) [])
+  (let [ep-child (assoc (clone-ep (cur-ep est) (make-ep-id est) [])
+                   :decision-point false)
         cycle-child (inc (:cycle (cur-ep est)))]
     (zip/down (zip/append-child est (assoc ep-child :cycle cycle-child)))))
