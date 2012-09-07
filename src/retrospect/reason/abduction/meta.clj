@@ -311,6 +311,7 @@
           (recur (:est-old result) (rest hyps)
                  (conj new-hyps
                        (assoc hyp :explains (map :contents resolved-cases)
+                              :final-ep-id (:id (cur-ep (:est-new result)))
                               :apriori (- 1.0 doubt-new)
                               :desc (format "%s\n\nEp-state start: %s"
                                        (:desc hyp) (str (cur-ep est-new))))))))))
@@ -326,9 +327,9 @@
                    meta-hyps-scored)
         meta-est-reasoned (binding [params (assoc params :MinApriori 0
                                                   :Threshold 0)]
-                              (reason (update-est meta-est (assoc (cur-ep meta-est)
-                                                             :workspace meta-ws))
-                                      0 1 nil :no-metareason))
+                            (reason (update-est meta-est (assoc (cur-ep meta-est)
+                                                           :workspace meta-ws))
+                                    0 1 nil :no-metareason))
         meta-ws-reasoned (:workspace (cur-ep meta-est-reasoned))
         ;; take out the "observations"
         meta-accepted (filter (fn [hyp] (not ((set (map :contents problem-cases)) (:contents hyp))))
@@ -344,20 +345,23 @@
                                              problem-cases))))))
       (println "accepted" meta-accepted)
       (println "ep:" (str (cur-ep est-new))))
-    ;; apply the accepted action (first ignoring noise hyps, then apply the noise hyps)
-    (if (not-empty meta-accepted)
-      (let [[est-applied params-applied]
-            (loop [est-applied est-new-meta-est
-                   params-applied params
-                   acc (filter identity
-                          (concat [(first (filter #(not= :noise (:type %)) meta-accepted))]
-                                  (filter #(= :noise (:type %)) meta-accepted)))]
-              (if (empty? acc) [est-applied params-applied]
-                  (let [[est params] ((:action (first acc)) est-applied)]
-                    (recur est (merge params-applied params) (rest acc)))))]
-        (binding [params params-applied]
-          (meta-apply-and-evaluate est-new-meta-est est-applied time-now sensors)))
-      {:est-old (goto-ep est-new-meta-est (:id (cur-ep est))) :est-new est-new-meta-est})))
+    ;; optimization: if only one accepted hyp, just go back to the ep
+    ;; arrived at by testing/scoring the hyp
+    (cond (= 1 (count meta-accepted))
+          {:est-old (goto-ep est-new-meta-est (:id (cur-ep est)))
+           :est-new (goto-ep est-new-meta-est (:final-ep-id (first meta-accepted)))}
+          (not-empty meta-accepted)
+          (let [[est-applied params-applied]
+                (loop [est-applied est-new-meta-est
+                       params-applied params
+                       acc meta-accepted]
+                  (if (empty? acc) [est-applied params-applied]
+                      (let [[est params] ((:action (first acc)) est-applied)]
+                        (recur est (merge params-applied params) (rest acc)))))]
+            (binding [params params-applied]
+              (meta-apply-and-evaluate est-new-meta-est est-applied time-now sensors)))
+          :else
+          {:est-old (goto-ep est-new-meta-est (:id (cur-ep est))) :est-new est-new-meta-est})))
 
 (defn meta-abductive-recursive
   "Tries one abductive meta-hyp at a time until one works,
