@@ -321,7 +321,8 @@
         [est-new meta-hyps-scored] (score-meta-hyps problem-cases meta-hyps
                                                     est time-prev time-now sensors)
         meta-est (new-child-ep (init-est (init-workspace)))
-        meta-ws (reduce add (reduce add-observation (:workspace (cur-ep meta-est)) problem-cases)
+        meta-ws (reduce add (reduce #(add-observation %1 %2 0)
+                          (:workspace (cur-ep meta-est)) problem-cases)
                    meta-hyps-scored)
         meta-est-reasoned (binding [params (assoc params :MinApriori 0
                                                   :Threshold 0)]
