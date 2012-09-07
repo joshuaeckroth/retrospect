@@ -50,13 +50,15 @@
              :Prec (if (= 0 (+ tp fp)) 1.0 (/ (double tp) (double (+ tp fp))))}))]
     (merge (last metrics)
            {:MinPrec (apply min (map :Prec metrics))
-            :MinTPRatio (apply min (map :TPRatio metrics))})))
+            :MinTPRatio (apply min (map :TPRatio metrics))
+            :AvgPrec (/ (reduce + (map :Prec metrics)) (count metrics))
+            :AvgTPRatio (/ (reduce + (map :TPRatio metrics)) (count metrics))})))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
                   [:TP :TN :FP :FN :TPR :FPR :F1 :TPRatio :Prec
-                   :MinPrec :MinTPRatio])))
+                   :MinPrec :MinTPRatio :AvgPrec :AvgTPRatio])))
 
 (defn stats
   [truedata ors time-now])

@@ -87,7 +87,7 @@
 (defn step
   []
   (let [ors (run-simulation-step @truedata @or-state true)
-        ors-results (assoc ors :est (evaluate @truedata (:est ors)))]
+        ors-results (evaluate @truedata ors)]
     (dosync (alter or-state (constantly ors-results)))
     (update-everything)))
 

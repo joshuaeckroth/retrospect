@@ -43,16 +43,19 @@
     ors-results))
 
 (defn evaluate
-  [truedata est]
-  (update-est est (update-in (cur-ep est) [:results] conj
-                             ((:evaluate-fn @reasoner) truedata est))))
+  [truedata ors]
+  (let [est (update-est (:est ors)
+                        (update-in (cur-ep (:est ors)) [:results] conj
+                                   (merge ((:evaluate-fn @reasoner) truedata (:est ors))
+                                          {:Milliseconds (get-in ors [:resources :milliseconds])})))]
+    (assoc ors :est est)))
 
 (defn run-simulation
   [truedata or-state]
   (loop [ors or-state]
     (when (not @batch) (dosync (alter retrospect.state/or-state (constantly ors))))
     (if (>= (:time (cur-ep (:est ors))) (:Steps params))
-      (assoc ors :est (evaluate truedata (:est ors)))
+      (evaluate truedata ors)
       (recur (run-simulation-step truedata ors false)))))
 
 (defn init-ors
