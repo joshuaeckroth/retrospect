@@ -240,13 +240,19 @@
               (concat
                ;; order dependency among the observations
                (if (not= 0 time-prev)
-                 (for [ep (map (fn [t] (cur-ep (goto-start-of-time est (inc (- time-now t)))))
-                             (sort (set [2])))]
-                   (new-hyp "OrderDep" :order-dep :order-dep
-                            1.0 false meta-hyp-conflicts? []
-                            (format "Order dependency at %s" (str ep))
-                            (format "Order dependency at %s" (str ep))
-                            {:action (partial action-batch ep) :cycle (:cycle ep)}))
+                 (let [expl-rejected-conflicts (filter (fn [h] (= :conflict (rejection-reason cur-ws h)))
+                                                  expl)
+                       ep-rejs (filter (fn [ep] (some (set (map :contents expl-rejected-conflicts))
+                                             (map :contents (:rej (:accrej (:workspace ep))))))
+                                  (ep-path est))
+                       t (if (empty? ep-rejs) (dec time-now) (dec (apply min (map :time ep-rejs))))
+                       ep (cur-ep (goto-start-of-time est t))]
+                   (comment (println time-now t "count ep-rejs" (count ep-rejs) expl-rejected-conflicts))
+                   [(new-hyp "OrderDep" :order-dep :order-dep
+                             1.0 false meta-hyp-conflicts? []
+                             (format "Order dependency at %s" (str ep))
+                             (format "Order dependency at %s" (str ep))
+                             {:action (partial action-batch ep) :cycle (:cycle ep)})])
                  ;; time-prev == 0, so this is a "static" case or we have not
                  ;; done much reasoning yet
                  [])

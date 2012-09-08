@@ -571,7 +571,7 @@
         (let [ws-explainers (if true #_(:dirty workspace)
                                 (update-sorted-explainers workspace)
                                 workspace)
-              ws (assoc (clean-up-workspace ws-explainers cycle) :accrej {})]
+              ws (clean-up-workspace (assoc ws-explainers :accrej {}) cycle)]
           (log "Explainers:" (:sorted-explainers ws)
                (format "[%s]" (str/join ", " (map str (:sorted-explainers-explained ws)))))
           (if (empty? (:sorted-explainers-explained ws))
