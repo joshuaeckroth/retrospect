@@ -1,6 +1,6 @@
 (ns retrospect.logging
   (:use [clojure.string :only [join]])
-  (:use [retrospect.state :only [batch]])
+  (:use [retrospect.state :only [batch logging-enabled]])
   (:use [retrospect.profile :only [prof]]))
 
 (def reason-log (ref '()))
@@ -9,6 +9,7 @@
   [& objs]
   (prof :log
         (do
-          #_(apply println objs)
           (when (not @batch)
-            (dosync (alter reason-log conj (join " " (map str objs))))))))
+            (dosync (alter reason-log conj (join " " (map str objs)))))
+          (when logging-enabled
+            (apply println objs)))))

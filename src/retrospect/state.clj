@@ -9,6 +9,8 @@
 
 (def last-id 0)
 
+(def logging-enabled false)
+
 (defn set-last-id
   [n]
   (if (or (= "AWT-EventQueue-0" (. (Thread/currentThread) getName))

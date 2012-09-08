@@ -1,5 +1,6 @@
 (ns retrospect.reason.abduction.evaluate
   (:require [clojure.string :as str])
+  (:require [clojure.set :as set])
   (:use [retrospect.epistemicstates :only [cur-ep flatten-est count-branches]])
   (:use [retrospect.evaluate :only [calc-increase]])
   (:use [retrospect.epistemicstates :only [ep-path]])
@@ -160,7 +161,16 @@
         ep-states (flatten-est est)
         doubt (doubt-aggregate est)
         errors (find-errors est true-false)
-        noexp-reasons (find-noexp-reasons est true-false)]
+        noexp-reasons (find-noexp-reasons est true-false)
+        noise-obs (set (filter #(not (get-in true-false [:individual (:id %)]))
+                          (filter #(= :observation (:type %))
+                             (vals (:hyp-ids workspace)))))
+        noise-claims (set (filter #(= :ignoring (rejection-reason workspace %))
+                             (filter #(= :observation (:type %))
+                                (vals (:hyp-ids workspace)))))
+        noise-claims-true (set (filter #(not (get-in true-false [:individual (:id %)]))
+                                  noise-claims))
+        noise-claims-false (set/difference noise-claims noise-claims-true)]
     (merge {:Problem (:name @problem)}
            params
            ((:evaluate-fn (:abduction @problem)) truedata est)
@@ -187,7 +197,10 @@
             :NoExpReasonRejectedConflict (:expl-rejected-conflict noexp-reasons 0)
             :NoExpReasonRejectedMinApriori (:expl-rejected-minapriori noexp-reasons 0)
             :NoExpReasonNoExpl (:no-expl-offered noexp-reasons 0)
-            :NoExpReasonUnknown (:unknown noexp-reasons 0)})))
+            :NoExpReasonUnknown (:unknown noexp-reasons 0)
+            :NoiseTotal (count noise-obs)
+            :NoiseClaimsTrue (count noise-claims-true)
+            :NoiseClaimsFalse (count noise-claims-false)})))
 
 (defn prefix-params
   [prefix params]
@@ -214,7 +227,8 @@
                                :ErrorsScoring :ErrorsUnknown :ErrorsNoError :NoExpCount
                                :NoExpReasonNoise :NoExpReasonRejectedConflict
                                :NoExpReasonRejectedMinApriori :NoExpReasonNoExpl
-                               :NoExpReasonUnknown]
+                               :NoExpReasonUnknown :NoiseTotal
+                               :NoiseClaimsTrue :NoiseClaimsFalse]
                               (mapcat
                                (fn [tf]
                                  (map #(keyword
