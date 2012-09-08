@@ -206,7 +206,7 @@
         ep (cur-ep new-est)
         ws-rejected (reject-many (:workspace ep) [hyp] :preemptive (:cycle ep))
         ep-rejected (assoc ep :workspace ws-rejected)]
-    (println "rejected" hyp "at cycle" cycle)
+    (comment (println "rejected" hyp "at cycle" cycle))
     [(update-est new-est ep-rejected)
      params]))
 
@@ -385,7 +385,8 @@
   (comment (println "problem-cases:" problem-cases))
   (comment (println "meta-hyps:" meta-hyps))
   (loop [est-attempt est
-         hyps (make-meta-hyps problem-cases est time-prev time-now sensors)]
+         hyps (make-meta-hyps problem-cases est time-prev time-now sensors)
+         attempts 0]
     (if (empty? hyps)
       (do (comment (println "no more meta-hyps to try."))
           {:est-old (goto-ep est-attempt (:id (cur-ep est)))
@@ -398,7 +399,7 @@
                 problem-cases-new (when result (find-problem-cases (:est-new result)))]
             (comment (println "original problem cases:" problem-cases)
                      (println "new problem cases:" problem-cases-new))
-            (cond (empty? problem-cases-new)
+            (cond (or (empty? problem-cases-new) (= attempts 10))
                   (do (comment (println "problem cases now empty"))
                       result)
                   (< (count problem-cases-new)
@@ -406,10 +407,11 @@
                   (do (comment (println "problem cases reduced; recurring"))
                       (recur (:est-new result)
                              (make-meta-hyps problem-cases-new (:est-new result)
-                                             time-prev time-now sensors)))
+                                             time-prev time-now sensors)
+                             (inc attempts)))
                   :else
                   (do (comment (println "problem cases not reduced; trying rest of hyps"))
-                      (recur (:est-old result) (rest hyps)))))))))
+                      (recur (:est-old result) (rest hyps) (inc attempts)))))))))
 
 (defn resolve-by-ignoring
   [problem-cases est time-prev time-now sensors]
