@@ -30,7 +30,7 @@
              :DoubtMeasure ["apriori" ["apriori" "delta"]]
              :DoubtAggregate ["max" ["max" "avg"]]
              :UseScores [true [true]]
-             :MetaMinApriori [20 [20]]
+             :ScoreFidelity [100 [2 3 5 10 100]]
              :ContrastPreference ["delta" ["delta" "arbitrary" "apriori,delta"]]
              :HypPreference ["abd" ["abd" "arbitrary"]]
              :ConsiderExplPower [false [true false]]}

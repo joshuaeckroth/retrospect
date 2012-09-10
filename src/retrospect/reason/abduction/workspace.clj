@@ -306,6 +306,18 @@
       (update-in workspace [:needs-explanation] conj (:id hyp)))
     workspace))
 
+(defn update-hyp-apriori
+  [workspace hyp]
+  (if ((:oracle-types workspace) (:type hyp))
+    (if ((:oracle workspace) hyp)
+      (assoc hyp :apriori 1.0)
+      (assoc hyp :apriori 0.0))
+    (if (not (:UseScores params))
+      (assoc hyp :apriori 1.0)
+      (let [levels (range 0.0 1.01 (/ 1.0 (double (dec (:ScoreFidelity params)))))
+            apriori-new (first (sort-by #(Math/abs (- (:apriori hyp) %)) levels))]
+        (assoc hyp :apriori apriori-new)))))
+
 (defn add
   [workspace hyp]
   (prof :add
@@ -346,11 +358,7 @@
                   ;; above)
                   ws)))
             ;; otherwise, add the new hyp
-            (let [hyp-apriori (if ((:oracle-types workspace) (:type hyp))
-                                (if ((:oracle workspace) hyp)
-                                  (assoc hyp :apriori 1.0)
-                                  (assoc hyp :apriori 0.0))
-                                (if (:UseScores params) hyp (assoc hyp :apriori 1.0)))]
+            (let [hyp-apriori (update-hyp-apriori workspace hyp)]
               (-> workspace
                  (assoc-in [:hyp-ids (:id hyp-apriori)] hyp-apriori)
                  (assoc-in [:hyp-contents (:contents hyp-apriori)] (:id hyp-apriori))
