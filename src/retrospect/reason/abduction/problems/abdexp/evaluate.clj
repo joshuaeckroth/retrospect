@@ -10,22 +10,22 @@
   [truedata hyp]
   (cond (= :kb (:type hyp)) true
         (= :expl (:type hyp))
-        (if ((:true-explainers truedata) (:vertex hyp)) true false)
+        (if (= (:value hyp) ((:true-values-map truedata) (:vertex hyp))) true false)
         (= :observation (:type hyp))
         (if ((:true-obs truedata) (:vertex hyp)) true false)
         :else false))
 
 (defn count-matches
-  [true-vertices vertices]
-  (count (filter true-vertices vertices)))
+  [true-values-map hyps]
+  (count (filter #(= (:value %) (true-values-map (:vertex %))) hyps)))
 
 (defn tp-tn-fp-fn
-  [true-vertices acc-vertices not-acc-vertices]
-  (if (empty? true-vertices) [0 0 0 0]
-      (let [true-pos (count-matches true-vertices acc-vertices)
-            false-pos (- (count acc-vertices) true-pos)
-            false-neg (count-matches true-vertices not-acc-vertices)
-            true-neg (- (count not-acc-vertices) false-neg)]
+  [true-values-map acc not-acc]
+  (if (empty? true-values-map) [0 0 0 0]
+      (let [true-pos (count-matches true-values-map acc)
+            false-pos (- (count acc) true-pos)
+            false-neg (count-matches true-values-map not-acc)
+            true-neg (- (count not-acc) false-neg)]
         [true-pos true-neg false-pos false-neg])))
 
 (defn evaluate
@@ -33,20 +33,19 @@
   (let [metrics
         (for [ep (filter :decision-point (flatten-est est))]
           (let [ws (:workspace ep)
-                acc-explainers (set (map #(:vertex (lookup-hyp ws %)) (get (:accepted ws) :expl)))
-                not-acc-explainers (set/difference (set (map #(:vertex (lookup-hyp ws %))
-                                                           (get (:hypotheses ws) :expl)))
-                                                   acc-explainers)
-                [tp tn fp fn] (tp-tn-fp-fn (:true-explainers truedata)
-                                           acc-explainers not-acc-explainers)]
+                acc (set (map #(lookup-hyp ws %) (get (:accepted ws) :expl)))
+                not-acc (set/difference (set (map #(lookup-hyp ws %)
+                                                (get (:hypotheses ws) :expl)))
+                                        acc)
+                [tp tn fp fn] (tp-tn-fp-fn (:true-values-map truedata) acc not-acc)]
             ;; http://en.wikipedia.org/wiki/Receiver_operating_characteristic
             {:TP tp :TN tn :FP fp :FN fn
              :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
              :FPR (if (= 0 (+ fp tn)) 1.0 (/ (double fp) (double (+ fp tn))))
              :F1 (if (= 0 (+ tp fp fn)) 1.0 (/ (double (* 2.0 tp))
                                                (double (+ (* 2.0 tp) fp fn))))
-             :TPRatio (if (empty? (:true-explainers truedata)) 1.0
-                          (/ (double tp) (double (count (:true-explainers truedata)))))
+             :TPRatio (if (empty? (:true-values-map truedata)) 1.0
+                          (/ (double tp) (double (count (:true-values-map truedata)))))
              :Prec (if (= 0 (+ tp fp)) 1.0 (/ (double tp) (double (+ tp fp))))}))]
     (merge (last metrics)
            {:MinPrec (apply min (map :Prec metrics))

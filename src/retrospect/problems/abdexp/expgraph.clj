@@ -5,13 +5,29 @@
   (:use [loom.alg])
   (:use [loom.attr]))
 
-(defn score
+(defn vertex?
   [expgraph vertex]
-  (or (attr expgraph vertex :score) 1.0))
+  ((nodes expgraph) vertex))
 
-(defn filled?
+(defn score
+  [expgraph vertex value]
+  (or (get (attr expgraph vertex :scores) value 0.0) 0.0))
+
+(defn scores
   [expgraph vertex]
-  (= "filled" (attr expgraph vertex :style)))
+  (or (attr expgraph vertex :scores) []))
+
+(defn values
+  [expgraph vertex]
+  (or (attr expgraph vertex :values) []))
+
+(defn value
+  [expgraph vertex]
+  (or (attr expgraph vertex :value) "off"))
+
+(defn probs
+  [expgraph vertex]
+  (or (attr expgraph vertex :probs) []))
 
 (defn observation?
   [vertex]
@@ -36,23 +52,24 @@
 (defn unexplained?
   [expgraph vertex]
   (and (not-empty (explainers expgraph vertex))
-       (not-any? (fn [v] (filled? expgraph v)) (explainers expgraph vertex))))
+       (not-any? (fn [v] (= "on" (value expgraph v)))
+                 (explainers expgraph vertex))))
 
 (defn forced-nodes
   [expgraph]
   (set (filter #(forced? expgraph %) (nodes expgraph))))
 
-(defn filled-nodes
+(defn on-nodes
   [expgraph]
-  (set (filter #(filled? expgraph %) (nodes expgraph))))
+  (set (filter #(= "on" (value expgraph %)) (nodes expgraph))))
 
 (defn unexplained-nodes
   [expgraph]
-  (set (filter #(unexplained? expgraph %) (filled-nodes expgraph))))
+  (set (filter #(unexplained? expgraph %) (on-nodes expgraph))))
 
 (defn accepted-nodes
   [expgraph]
-  (difference (filled-nodes expgraph) (forced-nodes expgraph)))
+  (difference (on-nodes expgraph) (forced-nodes expgraph)))
 
 (defn bottom-nodes
   [expgraph]
@@ -70,19 +87,19 @@
   [expgraph]
   (let [eg-filled (apply remove-nodes expgraph
                          (difference (nodes expgraph)
-                                     (filled-nodes expgraph)))
+                                     (on-nodes expgraph)))
         explained-vs (set (mapcat #(pre-traverse eg-filled %)
                                   ;; be sure to refer back to original expgraph
                                   (top-nodes expgraph)))]
     (intersection explained-vs (forced-nodes expgraph))))
 
-(defn fill
+(defn turn-on
   [expgraph & vertices]
-  (reduce (fn [g v] (add-attr g v :style "filled")) expgraph vertices))
+  (reduce (fn [g v] (add-attr g v :value "on")) expgraph vertices))
 
-(defn force-fill
+(defn force-on
   [expgraph & vertices]
-  (reduce (fn [g v] (-> g (fill v) (add-attr v :forced true))) expgraph vertices))
+  (reduce (fn [g v] (-> g (turn-on v) (add-attr v :forced true))) expgraph vertices))
 
 (defn conflicts?
   [expgraph v1 v2]
@@ -91,7 +108,7 @@
 
 (defn conflicts-any?
   [expgraph vertex]
-  (some #(conflicts? expgraph vertex %) (filled-nodes expgraph)))
+  (some #(conflicts? expgraph vertex %) (on-nodes expgraph)))
 
 (defn set-conflicts
   [expgraph & pairs]
@@ -104,20 +121,21 @@
 
 (defn consistent?
   [expgraph]
-  (not-any? #(conflicts-any? expgraph %) (filled-nodes expgraph)))
+  (not-any? #(conflicts-any? expgraph %) (on-nodes expgraph)))
 
 (defn complete?
   [expgraph]
   (and (consistent? expgraph)
-       (every? (fn [v] (some (fn [p] (filled? expgraph p))
+       (every? (fn [v] (some (fn [p] (= "on" (value expgraph p)))
                          (explainers expgraph v)))
-               (filled-nodes expgraph))))
+               (on-nodes expgraph))))
 
 (defn need-explanation
   [expgraph]
   (filter (fn [v] (and (not-empty (explainers expgraph v))
-                 (not-any? #(filled? expgraph %) (explainers expgraph v))))
-     (filled-nodes expgraph)))
+                 (not-any? #(= "on" (value expgraph %))
+                           (explainers expgraph v))))
+     (on-nodes expgraph)))
 
 (defn sorted-by-dep
   ([expgraph]

@@ -12,7 +12,6 @@
   (:use [retrospect.problems.words.problem :only [words-problem]])
   (:use [retrospect.problems.classify.problem :only [classify-problem]])
   (:use [retrospect.problems.abdexp.problem :only [abdexp-problem]])
-  #_(:use [retrospect.reason.abduction.problems.causal.problem :only [causal-problem]])
   (:use [retrospect.records :only [run-with-new-record submit-archived-results]])
   (:use [retrospect.explore :only [start-explore]])
   (:use [retrospect.player :only [start-player]])
@@ -29,9 +28,7 @@
         (or (= "Classify" problem) (= "classify" problem))
         classify-problem
         (or (= "AbdExp" problem) (= "abdexp" problem))
-        abdexp-problem
-        (or (= "Causal" problem) (= "causal" problem))
-        causal-problem))
+        abdexp-problem))
 
 (defn choose-reasoner
   [reasoner]

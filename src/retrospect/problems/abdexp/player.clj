@@ -6,13 +6,16 @@
   (:use [clj-swing.button])
   (:use [clj-swing.panel])
   (:use [clj-swing.label])
+  (:use [clj-swing.text-field])
   (:use [retrospect.gui.graphs])
-  (:use [retrospect.problems.abdexp.expgraph :only [format-dot-expgraph fill]])
+  (:use [retrospect.problems.abdexp.expgraph])
   (:use [retrospect.epistemicstates :only [cur-ep]])
   (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
   (:use [retrospect.state]))
 
 (def canvas (ref nil))
+
+(def table-contents (ref "Click a node."))
 
 (def current-expgraph-dot (ref ""))
 (def current-expgraph-svg (ref ""))
@@ -22,8 +25,40 @@
 (def unexp-label (label ""))
 (def noexp-label (label ""))
 
+(defn gen-values
+  [vs]
+  (let [expgraph (:expgraph @truedata)
+        vertex (first vs)
+        vals (values expgraph vertex)]
+    (if (empty? (rest vs)) (map (fn [v] [v]) vals)
+        (let [other-vals (gen-values (rest vs))]
+          (mapcat (fn [v] (map (fn [ov] (concat [v] ov)) other-vals)) vals)))))
+
+(defn get-probs-table
+  [vertex]
+  (when (vertex? (:expgraph @truedata) vertex)
+    (let [expgraph (:expgraph @truedata)
+          vals (values expgraph vertex)
+          ps (probs expgraph vertex)
+          expl (sort (explainers expgraph vertex))
+          table (gen-values (concat [vertex] expl))]
+      {:vertices (concat [vertex] expl) :table table :probs ps})))
+
 (defn listener
-  [node])
+  [vertex]
+  (dosync (alter table-contents
+                 (constantly
+                  (format "Scores:\n\n%s\n\nProbs:\n\n%s"
+                     (str/join ", " (map (fn [[value score]] (format "%s: %.2f" value score))
+                                       (scores (:expgraph @truedata) vertex)))
+                     (if (empty? (probs (:expgraph @truedata) vertex)) ""
+                         (let [{:keys [vertices table probs]} (get-probs-table vertex)]
+                           (when vertices (format "%s\n\n%s" (str/join ", " vertices)
+                                             (str/join "\n"
+                                                       (for [i (range (count probs))]
+                                                         (format "%s %.2f" (str/join ", " (nth table i))
+                                                            (nth probs i)))))))))))))
+
 
 (defn player-get-stats-panel
   []
@@ -64,9 +99,7 @@
 (defn generate-expgraph
   []
   (if (< 0 @time-now)
-    (generate-graph (format-dot-expgraph
-                     (apply fill (:expgraph @truedata)
-                            (apply concat (subvec (:test @truedata) 0 (inc @time-now)))))
+    (generate-graph (format-dot-expgraph (:expgraph @truedata))
                     @canvas listener false
                     current-expgraph-dot current-expgraph-svg)
     (generate-graph (digraph) @canvas listener false
@@ -80,20 +113,26 @@
   (dosync (alter canvas (constantly (create-canvas))))
   (panel :layout (GridBagLayout.)
          :constrains (java.awt.GridBagConstraints.)
-         [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0 :gridwidth 4 :fill :BOTH
-          :insets (Insets. 5 5 5 5)
+         [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0 :gridwidth 1
+          :fill :BOTH :insets (Insets. 5 5 5 5)
           _ @canvas
-          :gridy 1 :gridx 0 :weightx 1.0 :weighty 0.0 :gridwidth 1
-          _ (panel)
-          :gridx 1 :weightx 0.0
-          _ (doto (button "Save Dot")
-              (add-action-listener ([_] (save-dot @current-expgraph-dot))))
-          :gridx 2
-          _ (doto (button "Save SVG")
-              (add-action-listener ([_] (save-svg @current-expgraph-svg))))
-          :gridx 3
-          _ (doto (button "Generate")
-              (add-action-listener ([_] (generate-expgraph))))]))
+          :gridx 1 :gridy 0 :weightx 0.3
+          _ (scroll-panel (text-area :str-ref table-contents
+                                     :editable false :wrap false))
+          :gridy 1 :gridx 0 :weightx 1.0 :weighty 0.0 :gridwidth 2
+          _ (panel :layout (GridBagLayout.)
+                   :constrains (java.awt.GridBagConstraints.)
+                   [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0
+                    _ (panel)
+                    :gridx 1 :weightx 0.0
+                    _ (doto (button "Save Dot")
+                        (add-action-listener ([_] (save-dot @current-expgraph-dot))))
+                    :gridx 2
+                    _ (doto (button "Save SVG")
+                        (add-action-listener ([_] (save-svg @current-expgraph-svg))))
+                    :gridx 3
+                    _ (doto (button "Generate")
+                        (add-action-listener ([_] (generate-expgraph))))])]))
 
 (defn player-get-truedata-log
   []
@@ -101,7 +140,8 @@
       (format "True observations:\n%s\n\nFalse observations:\n%s\n\nTrue explainers:\n%s"
          (str/join ", " (sort (:true-obs @truedata)))
          (str/join ", " (sort (:false-obs @truedata)))
-         (str/join ", " (sort (:true-explainers @truedata))))))
+         (str/join ", " (sort (map (fn [[vertex value]] (format "%s: %s" vertex value))
+                                 (:true-values-map @truedata)))))))
 
 (defn player-get-problem-log
   []

@@ -7,7 +7,8 @@
 
 (defn generate-kb
   [training]
-  [(new-hyp "KB" :kb :kb 1.0 false nil [] "" "" {:expgraph (:expgraph training)})])
+  [(new-hyp "KB" :kb :kb 1.0 false nil [] "" ""
+            {:expgraph (:expgraph training) :bayesnet (:bayesnet training)})])
 
 (defn get-kb
   [accepted lookup-hyp]
@@ -43,13 +44,13 @@
                vertices observed]
           (if (empty? vertices)
             (filter #(= :observation (:type %)) (vals hyps))
-            (let [v (first vertices)]
+            (let [[v value] (first vertices)]
               (recur
-               (assoc hyps v (new-hyp "Obs" :observation :observation (score expgraph v) true
+               (assoc hyps v (new-hyp "Obs" :observation :observation (score expgraph v "on") true
                                       #(hyps-conflict? expgraph %1 %2)
                                       (map #(:contents (get hyps %)) (explains expgraph v))
                                       (str v) (str v)
-                                      {:vertex v}))
+                                      {:vertex v :value value}))
                (rest vertices))))))))
 
 (defn hypothesize
@@ -57,23 +58,25 @@
   (let [kb (get-kb accepted lookup-hyp)
         expgraph (:expgraph kb)
         sensor-hyps (filter #(= :observation (:type %)) unexp-hyps)]
-    (loop [hyps (zipmap (map :vertex sensor-hyps) sensor-hyps)
+    (loop [hyps (zipmap (map :vertex sensor-hyps) (map (fn [hyp] [hyp]) sensor-hyps))
            vertices (filter #(not (observation? %)) (sorted-by-dep expgraph))]
       (if (empty? vertices)
         (filter #(not= :observation (:type %))
-           (filter identity (map #(get hyps %) (sorted-by-dep expgraph))))
+           (filter identity (mapcat #(get hyps %) (sorted-by-dep expgraph))))
         (let [v (first vertices)]
           (if (nil? (get hyps v))
-            (recur (assoc hyps v (new-hyp "Expl" :expl :expl (score expgraph v)
-                                          (not-empty (explainers expgraph v))
-                                          #(hyps-conflict? expgraph %1 %2)
-                                          ;; use the filter because
-                                          ;; some observations that
-                                          ;; this hyp explains may not
-                                          ;; be observed yet
-                                          (set (filter identity (map #(:contents (get hyps %))
-                                                              (explains expgraph v))))
-                                          (format "%s" v) (format "%s @ %d" v time-now)
-                                          {:vertex v}))
+            (recur (assoc hyps v
+                          (doall (for [value (values expgraph v)]
+                                   (new-hyp "Expl" :expl :expl (score expgraph v value)
+                                            (not-empty (explainers expgraph v))
+                                            #(hyps-conflict? expgraph %1 %2)
+                                            ;; use the filter because
+                                            ;; some observations that
+                                            ;; this hyp explains may not
+                                            ;; be observed yet
+                                            (set (filter identity (mapcat #(map :contents (get hyps %))
+                                                                   (explains expgraph v))))
+                                            (format "%s" v) (format "%s @ %d" v time-now)
+                                            {:vertex v :value value}))))
                    (rest vertices))
             (recur hyps (rest vertices))))))))

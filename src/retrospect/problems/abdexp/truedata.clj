@@ -10,19 +10,13 @@
   (:use [retrospect.state]))
 
 (defn arbitrary-path-up
-  [expgraph true-set v]
+  [expgraph true-values v]
   (loop [path [v]
-         ts (conj true-set v)]
+         tv (assoc true-values v "on")]
     (let [ns (incoming expgraph (last path))]
-      (cond (empty? ns) ts
-            ;; choose an existing "on" explainer if there is one so
-            ;; that nothing is doubly explained
-            (some true-set ns)
-            (recur (my-rand-nth (sort (filter ts ns))) ts)
-            ;; no existing "on" explainer exists; make a new one
-            :else
-            (let [expl (my-rand-nth (sort ns))]
-              (recur (conj path expl) (conj ts expl)))))))
+      (if (empty? ns) tv
+          (let [expl (my-rand-nth (sort ns))]
+            (recur (conj path expl) (assoc tv expl "on")))))))
 
 (defn new-observations
   []
@@ -90,21 +84,21 @@
                                (if (and (< attempts 20) (not= (:UniqueTrueSets params)
                                                               (count (set obs))))
                                  (recur (inc attempts)) obs)))
-          ;; a true-set for each observation-set
-          true-sets (if (not (dag? eg)) []
-                        (for [os observation-sets]
-                          (reduce (fn [ts v] (arbitrary-path-up eg ts v)) #{} os)))
+          ;; a true-values map for each observation-set; we're only putting "on" values in here
+          true-values-maps (if (not (dag? eg)) []
+                               (for [os observation-sets]
+                                 (reduce (fn [tv v] (arbitrary-path-up eg tv v)) {} os)))
           ;; different false-obs for each eg-score/true-set
-          false-obs (for [true-set true-sets]
-                      (filter #(not (true-set %)) observations))
+          false-obs (for [true-values true-values-maps]
+                      (filter #(not (true-values %)) observations))
           conflict-links (take (:NumConflictLinks params)
                                (my-shuffle
                                 (sort #(let [c (compare (first %1) (first %2))]
                                          (if (= 0 c) (compare (second %1) (second %2)) c))
                                       (set (filter (fn [[v1 v2]]
                                                 (and (not= v1 v2)
-                                                     (or (not-any? #(% v1) true-sets)
-                                                         (not-any? #(% v2) true-sets))
+                                                     (or (not-any? #(% v1) true-values-maps)
+                                                         (not-any? #(% v2) true-values-maps))
                                                      (and (not (all-obs v1))
                                                           (not (all-obs v2)))
                                                      (not (has-edge? eg v1 v2))
@@ -113,31 +107,37 @@
           eg-conflicts (reduce set-conflicts eg conflict-links)
           ;; a different eg-score for each true-set
           eg-scores (let [vs (sort (nodes eg-conflicts))]
-                      (for [[true-set f-obs] (partition 2 (interleave true-sets false-obs))]
+                      (for [[true-values f-obs] (partition 2 (interleave true-values-maps false-obs))]
                         (reduce (fn [eg v]
-                             (add-attr eg v :score
-                                       (cond (all-obs v) 1.0
-                                             (true-set v)
-                                             (max 0.0 (min 1.0 (my-rand-gauss
-                                                                (:TrueAprioriMean params)
-                                                                (:TrueAprioriVariance params))))
-                                             ;; not true and explains
-                                             ;; a false observation;
-                                             ;; make it less likely
-                                             (not-empty (set/intersection (neighbors eg v) (set f-obs)))
-                                             (max 0.0 (min 1.0 (my-rand-gauss
-                                                                (/ (:FalseAprioriMean params) 2.0)
-                                                                (:FalseAprioriVariance params))))
-                                             :else
-                                             (max 0.0 (min 1.0 (my-rand-gauss
-                                                                (:FalseAprioriMean params)
-                                                                (:FalseAprioriVariance params)))))))
+                             (-> eg
+                                (add-attr v :id v)
+                                (add-attr v :values ["on" "off"])
+                                (add-attr v :scores
+                                          (cond (all-obs v) {"on" 1.0 "off" 0.0}
+                                                (true-values v)
+                                                (let [p (max 0.0 (min 1.0 (my-rand-gauss
+                                                                           (:TrueAprioriMean params)
+                                                                           (:TrueAprioriVariance params))))]
+                                                  {"on" p "off" (- 1.0 p)})
+                                                ;; not true and explains
+                                                ;; a false observation;
+                                                ;; make it less likely
+                                                (not-empty (set/intersection (neighbors eg v) (set f-obs)))
+                                                (let [p (max 0.0 (min 1.0 (my-rand-gauss
+                                                                           (/ (:FalseAprioriMean params) 2.0)
+                                                                           (:FalseAprioriVariance params))))]
+                                                  {"on" p "off" (- 1.0 p)})
+                                                :else
+                                                (let [p (max 0.0 (min 1.0 (my-rand-gauss
+                                                                           (:FalseAprioriMean params)
+                                                                           (:FalseAprioriVariance params))))]
+                                                  {"on" p "off" (- 1.0 p)})))))
                            eg-conflicts vs)))]
-      (if (empty? true-sets) (recur (inc attempts))
+      (if (empty? true-values-maps) (recur (inc attempts))
           {:expgraphs eg-scores
            :false-obs false-obs
            :observation-sets observation-sets
-           :true-sets true-sets}))))
+           :true-values-maps true-values-maps}))))
 
 (defn observation-groups
   [observations]
@@ -146,7 +146,9 @@
         splits (partition-all 2 1 (sort (take (inc (:Steps params)) split-locs)))
         groups (if (empty? splits)
                  [(vec observations)]
-                 (vec (map (fn [[pos1 pos2]] (subvec vs pos1 pos2))
+                 (vec (map (fn [[pos1 pos2]]
+                           (vec (map (fn [v] [v "on"])
+                                   (subvec vs pos1 pos2))))
                          ;; ensure the splits start with 0 and reach the end
                          (filter (fn [[pos1 pos2]] (and pos1 pos2))
                             (concat [[0 (second (first splits))]]
@@ -158,7 +160,7 @@
 
 (defn generate-truedata
   []
-  (let [{:keys [expgraphs false-obs observation-sets true-sets]}
+  (let [{:keys [expgraphs false-obs observation-sets true-values-maps]}
         ;; restrict the number of possible graphs
         (binding [rgen (new-seed (my-rand-int (:UniqueGraphs params)))]
           (random-expgraph))]
@@ -167,7 +169,7 @@
       {:training {:expgraph (nth expgraphs i)
                   :false-obs (nth false-obs i)}
        :expgraph (nth expgraphs i)
-       :true-explainers (set (filter #(not ((set (nth observation-sets i)) %)) (nth true-sets i)))
+       :true-values-map (apply merge true-values-maps)
        :true-obs (set (nth observation-sets i))
        :false-obs (nth false-obs i)
-       :test (observation-groups (nth observation-sets i))})))
+       :test (doall (observation-groups (nth observation-sets i)))})))
