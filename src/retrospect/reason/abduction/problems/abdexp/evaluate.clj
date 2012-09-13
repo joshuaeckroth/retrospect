@@ -35,6 +35,7 @@
         (for [ep (filter :decision-point (flatten-est est))]
           (let [ws (:workspace ep)
                 acc (set (map #(lookup-hyp ws %) (get (:accepted ws) :expl)))
+                acc-vertex-values (set (map (fn [h] [(:vertex h) (:value h)]) acc))
                 not-acc (set/difference (set (map #(lookup-hyp ws %)
                                                 (get (:hypotheses ws) :expl)))
                                         acc)
@@ -45,13 +46,15 @@
                        (let [acc-probs (map #(get-posterior-marginal
                                             bn (:vertex %) (:value %)) acc)
                              not-acc-probs (map #(get-posterior-marginal
-                                                bn (:vertex %) (:value %)) not-acc)]
-                         (cond (empty? acc-probs) 0.0
-                               (empty? not-acc-probs) (/ (reduce + acc-probs)
-                                                         (count acc-probs))
-                               :else
+                                                bn (first %) (second %))
+                                              (filter #(not (acc-vertex-values %))
+                                                 (vertex-value-pairs (:expgraph truedata))))]
+                         (cond (and (empty? acc-probs) (not-empty not-acc-probs))
+                               (- (/ (reduce + not-acc-probs) (count not-acc-probs)))
+                               (and (not-empty acc-probs) (not-empty not-acc-probs))
                                (- (/ (reduce + acc-probs) (count acc-probs))
-                                  (/ (reduce + not-acc-probs) (count not-acc-probs))))))]
+                                  (/ (reduce + not-acc-probs) (count not-acc-probs)))
+                               :else 0.0)))]
             ;; http://en.wikipedia.org/wiki/Receiver_operating_characteristic
             {:TP tp :TN tn :FP fp :FN fn
              :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))

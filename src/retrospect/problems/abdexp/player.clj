@@ -9,6 +9,7 @@
   (:use [clj-swing.text-field])
   (:use [retrospect.gui.graphs])
   (:use [retrospect.problems.abdexp.expgraph])
+  (:use [retrospect.problems.abdexp.javabayes])
   (:use [retrospect.epistemicstates :only [cur-ep]])
   (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
   (:use [retrospect.state]))
@@ -48,9 +49,25 @@
   [vertex]
   (dosync (alter table-contents
                  (constantly
-                  (format "Scores:\n\n%s\n\nProbs:\n\n%s"
+                  (format "%s\n\nPrior: %s\n\nObserved: %s\n\nPosterior: %s\n\nProbs:\n\n%s"
+                     vertex
+                     ;; prior
                      (str/join ", " (map (fn [[value score]] (format "%s: %.2f" value score))
                                        (scores (:expgraph @truedata) vertex)))
+                     ;; observed
+                     (if-let [val (second (first (filter (fn [[n v]] (= n vertex))
+                                                    (apply concat (take (inc @time-now)
+                                                                        (:test @truedata))))))]
+                       val "(not observed)")
+                     ;; posterior
+                     (if-let [bn (:bayesnet @truedata)]
+                       (do (unobserve-all bn)
+                           (observe-seq bn (apply concat (take (inc @time-now) (:test @truedata))))
+                           (str/join ", " (for [v (sort (values (:expgraph @truedata) vertex))]
+                                            (format "%s=%.2f" v
+                                               (get-posterior-marginal bn vertex v)))))
+                       "(no bayes net)")
+                     ;; probs table
                      (if (empty? (probs (:expgraph @truedata) vertex)) ""
                          (let [{:keys [vertices table probs]} (get-probs-table vertex)]
                            (when vertices (format "%s\n\n%s" (str/join ", " vertices)
@@ -58,7 +75,6 @@
                                                        (for [i (range (count probs))]
                                                          (format "%s %.2f" (str/join ", " (nth table i))
                                                             (nth probs i)))))))))))))
-
 
 (defn player-get-stats-panel
   []
@@ -113,13 +129,13 @@
   (dosync (alter canvas (constantly (create-canvas))))
   (panel :layout (GridBagLayout.)
          :constrains (java.awt.GridBagConstraints.)
-         [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0 :gridwidth 1
+         [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
           _ @canvas
-          :gridx 1 :gridy 0 :weightx 0.3
+          :gridy 1 :weighty 0.3
           _ (scroll-panel (text-area :str-ref table-contents
                                      :editable false :wrap false))
-          :gridy 1 :gridx 0 :weightx 1.0 :weighty 0.0 :gridwidth 2
+          :gridy 2 :gridx 0 :weighty 0.0
           _ (panel :layout (GridBagLayout.)
                    :constrains (java.awt.GridBagConstraints.)
                    [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0

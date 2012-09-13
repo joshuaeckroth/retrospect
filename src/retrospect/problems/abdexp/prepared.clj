@@ -207,26 +207,9 @@
 
 (defn bn-alarm
   []
-  (binding [rgen (new-seed 10)]
-    (let [bn (load-bayesnet "ALARM.BIF")
-          expgraph (build-expgraph bn)
-          obs-nodes (take 5 (my-shuffle (nodes expgraph)))
-          obs-seq (for [n obs-nodes]
-                    [n (my-rand-nth (attr expgraph n :values))])]
-      {:params {:Steps 1}
-       :sensors (generate-sensors {})
-       :truedata {:training {:expgraph expgraph :bayesnet bn}
-                  :expgraph expgraph
-                  :bayesnet bn
-                  :true-obs #{}
-                  :true-values-map {}
-                  :test (vec (concat [[]] obs-seq))}})))
-
-(defn bn-john-mary-call
-  []
-  (let [bn (load-bayesnet "john-mary-call.bif")
+  (let [bn (load-bayesnet "ALARM.BIF")
         expgraph (build-expgraph bn)
-        obs-seq [["MaryCalls" "True"]]]
+        obs-seq [[] [["Intubation" "Normal"]]]]
     {:params {:Steps 1}
      :sensors (generate-sensors {})
      :truedata {:training {:expgraph expgraph :bayesnet bn}
@@ -234,7 +217,21 @@
                 :bayesnet bn
                 :true-obs #{}
                 :true-values-map {}
-                :test (vec (concat [[]] obs-seq))}}))
+                :test obs-seq}}))
+
+(defn bn-john-mary-call
+  []
+  (let [bn (load-bayesnet "john-mary-call.bif")
+        expgraph (build-expgraph bn)
+        obs-seq [[] [["MaryCalls" "True"]]]]
+    {:params {:Steps 1}
+     :sensors (generate-sensors {})
+     :truedata {:training {:expgraph expgraph :bayesnet bn}
+                :expgraph expgraph
+                :bayesnet bn
+                :true-obs #{}
+                :true-values-map {}
+                :test obs-seq}}))
 
 (defn bn-car-starts
   []

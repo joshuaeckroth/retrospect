@@ -25,6 +25,12 @@
   [expgraph vertex]
   (or (attr expgraph vertex :value) "off"))
 
+(defn vertex-value-pairs
+  [expgraph]
+  (apply concat (for [vertex (nodes expgraph)]
+                  (for [value (values expgraph vertex)]
+                    [vertex value]))))
+
 (defn probs
   [expgraph vertex]
   (or (attr expgraph vertex :probs) []))

@@ -55,8 +55,8 @@
                                       {:vertex v :value value}))
                (rest vertices))))))))
 
-(defn explanatory-delta
-  "Is P(node2=val2|node1=val2) > P(node2=val2)? If so, node1=val1 is
+(defn explanatory?-delta
+  "Is P(node2=val2|node1=val1) > P(node2=val2)? If so, node1=val1 is
    explanatory (according to Gardenfors)."
   [bn node1 val1 node2 val2 observed]
   (unobserve-all bn)
@@ -64,15 +64,19 @@
   (let [prior (get-posterior-marginal bn node2 val2)]
     (observe bn node1 val1)
     (let [posterior (get-posterior-marginal bn node2 val2)]
-      (- posterior prior))))
+      (< 0.0 (- posterior prior)))))
+
+(defn explanatory?
+  [bn node1 val1 node2 val2 observed]
+  (explanatory?-delta bn node1 val1 node2 val2 observed))
 
 (defn find-explanatory-assignments
   [bn expgraph implicated observed]
-  (filter #(< 0 (:delta %))
-     (map (fn [[[n1 v1] [n2 v2]]]
-          {:node1 n1 :val1 v1
-           :node2 n2 :val2 v2
-           :delta (explanatory-delta bn n1 v1 n2 v2 observed)})
+  (map (fn [[[n1 v1] [n2 v2]]]
+       {:node1 n1 :val1 v1
+        :node2 n2 :val2 v2})
+     (filter (fn [[[n1 v1] [n2 v2]]]
+          (explanatory? bn n1 v1 n2 v2 observed))
         (mapcat (fn [n]
                   (let [effects (set (explains expgraph n))
                         effects-no-obs (set/difference effects (set (map first observed)))
@@ -94,7 +98,7 @@
                               explanatory)))
         hyps-no-explains
         (reduce (fn [m {:keys [node1 val1 node2 val2 delta]}]
-             (let [h (new-hyp "Expl" :expl :expl delta
+             (let [h (new-hyp "Expl" :expl :expl (score expgraph node1 val1)
                               (not-empty (explainers expgraph node1))
                               #(hyps-conflict? expgraph %1 %2)
                               [] ;; explains -- filled in later
@@ -129,24 +133,17 @@
         ;; sensor hyps plus previously-accepted explanations are "observed"
         observed-hyps (reduce (fn [m hyp] (assoc m [(:vertex hyp) (:value hyp)] hyp))
                          {} (concat sensor-hyps (map lookup-hyp (get accepted :expl))))
+        ;; just the vertices of the observed
         observed-set (set (map first (keys observed-hyps)))
         observed-unexplained (filter (fn [[n val]]
-                                  ;; for each "observed" vertex/value:
-                                  ;; get explainers that are already observed
-                                  (let [obs-expls (filter observed-set (explainers expgraph n))]
-                                    ;; this "observed" node is unexplained if:
-                                    (or
-                                     ;; no explainers "observed"
-                                     (empty? obs-expls)
-                                     ;; this "observed" node is "on"
-                                     ;; but no explainer is "on"
-                                     (and (= val "on")
-                                          (not-any? #{"on"} (map second (keys observed-hyps))))
-                                     ;; or this "observed" node is
-                                     ;; "off" but every explainer is
-                                     ;; "on"
-                                     (and (= val "off")
-                                          (every? #{"on"} (map second (keys observed-hyps)))))))
+                                  (let [expl (set (explainers expgraph n))]
+                                    ;; an observed node/value is
+                                    ;; unexplained if none of its
+                                    ;; accepted immediate parents are
+                                    ;; explanatory
+                                    (not-any? (fn [[n2 val2]]
+                                                (and (expl n2)
+                                                     (explanatory? bn n2 val2 n val (keys observed-hyps)))))))
                                 (keys observed-hyps))
         implicated (filter (fn [v] (not (observed-set v)))
                       (sorted-by-dep expgraph observed-set))
