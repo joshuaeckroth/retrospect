@@ -4,6 +4,7 @@
   (:use [retrospect.epistemicstates :only [cur-ep flatten-est]])
   (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
   (:use [retrospect.problems.abdexp.expgraph])
+  (:use [retrospect.problems.abdexp.javabayes])
   (:use [retrospect.state]))
 
 (defn true-hyp?
@@ -37,7 +38,20 @@
                 not-acc (set/difference (set (map #(lookup-hyp ws %)
                                                 (get (:hypotheses ws) :expl)))
                                         acc)
-                [tp tn fp fn] (tp-tn-fp-fn (:true-values-map truedata) acc not-acc)]
+                [tp tn fp fn] (tp-tn-fp-fn (:true-values-map truedata) acc not-acc)
+                prob (when-let [bn (:bayesnet truedata)]
+                       (unobserve-all bn)
+                       (observe-seq bn (apply concat (:test truedata)))
+                       (let [acc-probs (map #(get-posterior-marginal
+                                            bn (:vertex %) (:value %)) acc)
+                             not-acc-probs (map #(get-posterior-marginal
+                                                bn (:vertex %) (:value %)) not-acc)]
+                         (cond (empty? acc-probs) 0.0
+                               (empty? not-acc-probs) (/ (reduce + acc-probs)
+                                                         (count acc-probs))
+                               :else
+                               (- (/ (reduce + acc-probs) (count acc-probs))
+                                  (/ (reduce + not-acc-probs) (count not-acc-probs))))))]
             ;; http://en.wikipedia.org/wiki/Receiver_operating_characteristic
             {:TP tp :TN tn :FP fp :FN fn
              :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
@@ -46,7 +60,8 @@
                                                (double (+ (* 2.0 tp) fp fn))))
              :TPRatio (if (empty? (:true-values-map truedata)) 1.0
                           (/ (double tp) (double (count (:true-values-map truedata)))))
-             :Prec (if (= 0 (+ tp fp)) 1.0 (/ (double tp) (double (+ tp fp))))}))]
+             :Prec (if (= 0 (+ tp fp)) 1.0 (/ (double tp) (double (+ tp fp))))
+             :Prob (or prob 0.0)}))]
     (merge (last metrics)
            {:MinPrec (apply min (map :Prec metrics))
             :MinTPRatio (apply min (map :TPRatio metrics))
@@ -57,7 +72,7 @@
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
                   [:TP :TN :FP :FN :TPR :FPR :F1 :TPRatio :Prec
-                   :MinPrec :MinTPRatio :AvgPrec :AvgTPRatio])))
+                   :MinPrec :MinTPRatio :AvgPrec :AvgTPRatio :Prob])))
 
 (defn stats
   [truedata ors time-now])

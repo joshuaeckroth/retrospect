@@ -140,7 +140,7 @@
       (format "True observations:\n%s\n\nFalse observations:\n%s\n\nTrue explainers:\n%s"
          (str/join ", " (sort (:true-obs @truedata)))
          (str/join ", " (sort (:false-obs @truedata)))
-         (str/join ", " (sort (map (fn [[vertex value]] (format "%s: %s" vertex value))
+         (str/join ", " (sort (map (fn [[vertex value]] (format "%s=%s" vertex value))
                                  (:true-values-map @truedata)))))))
 
 (defn player-get-problem-log
@@ -148,5 +148,6 @@
   (if (<= @time-now 0) ""
       (let [ws (:workspace (cur-ep (:est @or-state)))]
         (str "Believed explainers: "
-             (str/join ", " (sort (set (map #(:vertex (lookup-hyp ws %))
-                                          (get (:accepted ws) :expl)))))))))
+             (str/join ", " (sort (set (map (fn [h] (format "%s=%s" (:vertex h) (:value h)))
+                                          (map #(lookup-hyp ws %)
+                                             (get (:accepted ws) :expl))))))))))

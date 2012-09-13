@@ -212,13 +212,12 @@
           expgraph (build-expgraph bn)
           obs-nodes (take 5 (my-shuffle (nodes expgraph)))
           obs-seq (for [n obs-nodes]
-                    [n (my-rand-nth (attr expgraph n :values))])
-          bn2 (observe-seq bn obs-seq)]
+                    [n (my-rand-nth (attr expgraph n :values))])]
       {:params {:Steps 1}
        :sensors (generate-sensors {})
-       :truedata {:training {:expgraph expgraph :bayesnet bn2}
+       :truedata {:training {:expgraph expgraph :bayesnet bn}
                   :expgraph expgraph
-                  :bayesnet bn2
+                  :bayesnet bn
                   :true-obs #{}
                   :true-values-map {}
                   :test (vec (concat [[]] obs-seq))}})))
@@ -227,13 +226,12 @@
   []
   (let [bn (load-bayesnet "john-mary-call.bif")
         expgraph (build-expgraph bn)
-        obs-seq [["MaryCalls" "True"]]
-        bn2 (observe-seq bn obs-seq)]
+        obs-seq [["MaryCalls" "True"]]]
     {:params {:Steps 1}
      :sensors (generate-sensors {})
-     :truedata {:training {:expgraph expgraph :bayesnet bn2}
+     :truedata {:training {:expgraph expgraph :bayesnet bn}
                 :expgraph expgraph
-                :bayesnet bn2
+                :bayesnet bn
                 :true-obs #{}
                 :true-values-map {}
                 :test (vec (concat [[]] obs-seq))}}))
@@ -242,46 +240,43 @@
   []
   (let [bn (load-bayesnet "car-starts.bif")
         expgraph (build-expgraph bn)
-        obs-seq [["Starts" "No"] ["Leak" "NoLeak"]]
-        bn2 (observe-seq bn obs-seq)]
+        obs-seq [[] [["Starts" "No"]] [["Leak" "NoLeak"]]]]
     {:params {:Steps 2}
      :sensors (generate-sensors {})
-     :truedata {:training {:expgraph expgraph :bayesnet bn2}
+     :truedata {:training {:expgraph expgraph :bayesnet bn}
                 :expgraph expgraph
-                :bayesnet bn2
+                :bayesnet bn
                 :true-obs #{}
                 :true-values-map {}
-                :test (vec (concat [[]] obs-seq))}}))
+                :test obs-seq}}))
 
 (defn bn-cancer
   []
   (let [bn (load-bayesnet "CANCER.BIF")
         expgraph (build-expgraph bn)
-        obs-seq [["SevereHeadaches" "Present"]]
-        bn2 (observe-seq bn obs-seq)]
+        obs-seq [[] [["SevereHeadaches" "Present"]]]]
     {:params {:Steps 1}
      :sensors (generate-sensors {})
-     :truedata {:training {:expgraph expgraph :bayesnet bn2}
+     :truedata {:training {:expgraph expgraph :bayesnet bn}
                 :expgraph expgraph
-                :bayesnet bn2
+                :bayesnet bn
                 :true-obs #{}
                 :true-values-map {}
-                :test (vec (concat [[]] obs-seq))}}))
+                :test obs-seq}}))
 
 (defn bn-hail-finder
   []
   (let [bn (load-bayesnet "hailfinder25.bif")
         expgraph (build-expgraph bn)
-        obs-seq [["PlainsFcst" "SVR"]]
-        bn2 (observe-seq bn obs-seq)]
+        obs-seq [[] [["PlainsFcst" "SVR"]]]]
     {:params {:Step 1}
      :sensors (generate-sensors {})
-     :truedata {:training {:expgraph expgraph :bayesnet bn2}
+     :truedata {:training {:expgraph expgraph :bayesnet bn}
                 :expgraph expgraph
-                :bayesnet bn2
+                :bayesnet bn
                 :true-obs #{}
                 :true-values-map {}
-                :test (vec (concat [[]] obs-seq))}}))
+                :test obs-seq}}))
 
 (def prepared-map
   (sorted-map "peyer" peyer
