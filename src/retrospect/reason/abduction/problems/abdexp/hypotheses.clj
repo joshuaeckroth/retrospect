@@ -113,8 +113,8 @@
                              false ;; does not need to be explained
                              #(hyps-conflict? expgraph %1 %2)
                              [] ;; explains -- filled in later
-                             (format "%s=%s just happend" vertex value)
-                             (format "%s=%s just happend" vertex value)
+                             (format "%s=%s just happened" vertex value)
+                             (format "%s=%s just happened" vertex value)
                              {:vertex vertex :value value
                               :vertex2 vertex :value2 value}))
                   (vals observed-hyps))
