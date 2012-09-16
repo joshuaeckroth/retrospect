@@ -31,11 +31,17 @@
 
 (defn evaluate
   [truedata est]
-  (let [metrics
+  (let [expgraph (:expgraph truedata)
+        metrics
         (for [ep (filter :decision-point (flatten-est est))]
           (let [ws (:workspace ep)
                 acc (set (map #(lookup-hyp ws %) (get (:accepted ws) :expl)))
                 acc-vertex-values (set (map (fn [h] [(:vertex h) (:value h)]) acc))
+                acc-vertex-alt-values (set/difference
+                                       (set (mapcat (fn [h] (for [val (values expgraph (:vertex h))]
+                                                           [(:vertex h) val]))
+                                                  acc))
+                                       acc-vertex-values)
                 not-acc (set/difference (set (map #(lookup-hyp ws %)
                                                 (get (:hypotheses ws) :expl)))
                                         acc)
@@ -45,15 +51,14 @@
                        (observe-seq bn (apply concat (:test truedata)))
                        (let [acc-probs (map #(get-posterior-marginal
                                             bn (:vertex %) (:value %)) acc)
-                             not-acc-probs (map #(get-posterior-marginal
+                             acc-alt-probs (map #(get-posterior-marginal
                                                 bn (first %) (second %))
-                                              (filter #(not (acc-vertex-values %))
-                                                 (vertex-value-pairs (:expgraph truedata))))]
-                         (cond (and (empty? acc-probs) (not-empty not-acc-probs))
-                               (- (/ (reduce + not-acc-probs) (count not-acc-probs)))
-                               (and (not-empty acc-probs) (not-empty not-acc-probs))
+                                              acc-vertex-alt-values)]
+                         (cond (and (empty? acc-probs) (not-empty acc-alt-probs))
+                               (- (/ (reduce + acc-alt-probs) (count acc-alt-probs)))
+                               (and (not-empty acc-probs) (not-empty acc-alt-probs))
                                (- (/ (reduce + acc-probs) (count acc-probs))
-                                  (/ (reduce + not-acc-probs) (count not-acc-probs)))
+                                  (/ (reduce + acc-alt-probs) (count acc-alt-probs)))
                                :else 0.0)))]
             ;; http://en.wikipedia.org/wiki/Receiver_operating_characteristic
             {:TP tp :TN tn :FP fp :FN fn
