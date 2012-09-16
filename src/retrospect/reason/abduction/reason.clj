@@ -26,7 +26,7 @@
    :default-params-fn
    (fn []
      (merge {:Threshold [0 [0]]
-             :MinApriori [10 [10]]
+             :MinApriori [0 [0 10]]
              :DoubtMeasure ["apriori" ["apriori" "delta"]]
              :DoubtAggregate ["max" ["max" "avg"]]
              :UseScores [true [true]]
