@@ -1,6 +1,6 @@
 (ns retrospect.reason.abduction.problems.abdexp.evaluate
   (:require [clojure.set :as set])
-  (:use [retrospect.evaluate :only [calc-increase]])
+  (:use [retrospect.evaluate :only [calc-increase calc-prec-tpratio]])
   (:use [retrospect.epistemicstates :only [cur-ep flatten-est]])
   (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
   (:use [retrospect.problems.abdexp.expgraph])
@@ -46,30 +46,29 @@
                                                 (get (:hypotheses ws) :expl)))
                                         acc)
                 [tp tn fp fn] (tp-tn-fp-fn (:true-values-map truedata) acc not-acc)
-                prob (when-let [bn (:bayesnet truedata)]
-                       (unobserve-all bn)
-                       (observe-seq bn (apply concat (:test truedata)))
-                       (let [acc-probs (map #(get-posterior-marginal
-                                            bn (:vertex %) (:value %)) acc)
-                             acc-alt-probs (map #(get-posterior-marginal
-                                                bn (first %) (second %))
-                                              acc-vertex-alt-values)]
-                         (cond (and (empty? acc-probs) (not-empty acc-alt-probs))
-                               (- (/ (reduce + acc-alt-probs) (count acc-alt-probs)))
-                               (and (not-empty acc-probs) (not-empty acc-alt-probs))
-                               (- (/ (reduce + acc-probs) (count acc-probs))
-                                  (/ (reduce + acc-alt-probs) (count acc-alt-probs)))
-                               :else 0.0)))]
-            ;; http://en.wikipedia.org/wiki/Receiver_operating_characteristic
-            {:TP tp :TN tn :FP fp :FN fn
-             :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
-             :FPR (if (= 0 (+ fp tn)) 1.0 (/ (double fp) (double (+ fp tn))))
-             :F1 (if (= 0 (+ tp fp fn)) 1.0 (/ (double (* 2.0 tp))
-                                               (double (+ (* 2.0 tp) fp fn))))
-             :TPRatio (if (empty? (:true-values-map truedata)) 1.0
-                          (/ (double tp) (double (count (:true-values-map truedata)))))
-             :Prec (if (= 0 (+ tp fp)) 1.0 (/ (double tp) (double (+ tp fp))))
-             :Prob (or prob 0.0)}))]
+                prec-tpratio (calc-prec-tpratio tp tn fp fn (count (:true-values-map truedata)))
+                probs (when-let [bn (:bayesnet truedata)]
+                        (unobserve-all bn)
+                        (observe-seq bn (apply concat (:test truedata)))
+                        (let [acc-probs (map #(get-posterior-marginal
+                                             bn (:vertex %) (:value %)) acc)
+                              acc-alt-probs (map #(get-posterior-marginal
+                                                 bn (first %) (second %))
+                                               acc-vertex-alt-values)
+                              prob (cond (and (empty? acc-probs) (not-empty acc-alt-probs))
+                                         (- (/ (reduce + acc-alt-probs) (count acc-alt-probs)))
+                                         (and (not-empty acc-probs) (not-empty acc-alt-probs))
+                                         (- (/ (reduce + acc-probs) (count acc-probs))
+                                            (/ (reduce + acc-alt-probs) (count acc-alt-probs)))
+                                         :else 0.0)
+                              expl (get-explanation bn)
+                              [etp etn efp efn] (tp-tn-fp-fn expl acc not-acc)
+                              prec-tpratio (calc-prec-tpratio etp etn efp efn (count expl))]
+                          (println expl)
+                          {:Prob prob :ExplPrec (:Prec prec-tpratio) :ExplTPRatio (:TPRatio prec-tpratio)}))]
+            (println probs)
+            (println prec-tpratio)
+            (merge prec-tpratio (or probs {}))))]
     (merge (last metrics)
            {:MinPrec (apply min (map :Prec metrics))
             :MinTPRatio (apply min (map :TPRatio metrics))
