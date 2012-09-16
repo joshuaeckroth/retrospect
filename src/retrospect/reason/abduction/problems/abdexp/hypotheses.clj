@@ -93,23 +93,42 @@
 (defn make-explanation-hyps
   [expgraph explanatory observed-hyps]
   (let [get-hyps (fn [m] (map (fn [k] (get m k))
-                           (map (fn [{:keys [node1 val1 node2 val2]}]
-                                [node1 val1 node2 val2])
-                              explanatory)))
+                           (concat
+                            ;; for "self" hyps
+                            (map (fn [{:keys [vertex value]}]
+                                 [vertex value vertex value])
+                               (vals observed-hyps))
+                            ;; for normal hyps
+                            (map (fn [{:keys [node1 val1 node2 val2]}]
+                                 [node1 val1 node2 val2])
+                               explanatory))))
         hyps-no-explains
-        (reduce (fn [m {:keys [node1 val1 node2 val2 delta]}]
-             (let [h (new-hyp "Expl" :expl :expl (score expgraph node1 val1)
-                              (not-empty (explainers expgraph node1))
-                              #(hyps-conflict? expgraph %1 %2)
-                              [] ;; explains -- filled in later
-                              (format "%s=%s explains %s=%s" node1 val1 node2 val2)
-                              (format "%s=%s explains %s=%s" node1 val1 node2 val2)
-                              {:vertex node1 :value val1
-                               :vertex2 node2 :value2 val2})]
-               (-> m
-                  (update-in [[node1 val1]] conj h)
-                  (assoc [node1 val1 node2 val2] h))))
-           {} explanatory)
+        (reduce (fn [m h] (let [{:keys [vertex vertex2 value value2]} h]
+                      (-> m (update-in [[vertex value]] conj h)
+                         (assoc [vertex value vertex2 value2] h))))
+           {} (concat
+               ;; no-causal-commitment explainers: the event "just happened"
+               (map (fn [{:keys [vertex value]}]
+                    (new-hyp "ExplSelf" :expl :expl (score expgraph vertex value)
+                             false ;; does not need to be explained
+                             #(hyps-conflict? expgraph %1 %2)
+                             [] ;; explains -- filled in later
+                             (format "%s=%s just happend" vertex value)
+                             (format "%s=%s just happend" vertex value)
+                             {:vertex vertex :value value
+                              :vertex2 vertex :value2 value}))
+                  (vals observed-hyps))
+               ;; causal-commitment explainers: we can say why it happened
+               (map (fn [{:keys [node1 val1 node2 val2 delta]}]
+                    (new-hyp "Expl" :expl :expl (score expgraph node1 val1)
+                             (not-empty (explainers expgraph node1))
+                             #(hyps-conflict? expgraph %1 %2)
+                             [] ;; explains -- filled in later
+                             (format "%s=%s explains %s=%s" node1 val1 node2 val2)
+                             (format "%s=%s explains %s=%s" node1 val1 node2 val2)
+                             {:vertex node1 :value val1
+                              :vertex2 node2 :value2 val2}))
+                  explanatory)))
         hyps-explains
         (reduce (fn [m h]
              (let [{:keys [vertex value vertex2 value2]} h
