@@ -1,8 +1,9 @@
 (ns retrospect.reason.abduction.problems.abdexp.evaluate
   (:require [clojure.set :as set])
-  (:use [retrospect.evaluate :only [calc-increase calc-prec-tpratio]])
+  (:use [retrospect.evaluate :only [calc-increase calc-prec-tpratio avg]])
   (:use [retrospect.epistemicstates :only [cur-ep flatten-est]])
-  (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
+  (:use [retrospect.reason.abduction.workspace :only [lookup-hyp calc-doubt]])
+  (:use [retrospect.reason.abduction.evaluate :only [doubt-aggregate]])
   (:use [retrospect.problems.abdexp.expgraph])
   (:use [retrospect.problems.abdexp.javabayes])
   (:use [retrospect.state]))
@@ -32,6 +33,7 @@
 (defn evaluate
   [truedata est]
   (let [expgraph (:expgraph truedata)
+        confidence (- 1.0 (doubt-aggregate est))
         metrics
         (for [ep (filter :decision-point (flatten-est est))]
           (let [ws (:workspace ep)
@@ -56,24 +58,23 @@
                                                  bn (first %) (second %))
                                                acc-vertex-alt-values)
                               prob (cond (and (empty? acc-probs) (not-empty acc-alt-probs))
-                                         (- (/ (reduce + acc-alt-probs) (count acc-alt-probs)))
+                                         (- (avg acc-alt-probs))
                                          (and (not-empty acc-probs) (not-empty acc-alt-probs))
-                                         (- (/ (reduce + acc-probs) (count acc-probs))
-                                            (/ (reduce + acc-alt-probs) (count acc-alt-probs)))
+                                         (- (avg acc-probs) (avg acc-alt-probs))
                                          :else 0.0)
                               expl (get-explanation bn)
                               [etp etn efp efn] (tp-tn-fp-fn expl acc not-acc)
-                              prec-tpratio (calc-prec-tpratio etp etn efp efn (count expl))]
-                          (println expl)
-                          {:Prob prob :ExplPrec (:Prec prec-tpratio) :ExplTPRatio (:TPRatio prec-tpratio)}))]
-            (println probs)
-            (println prec-tpratio)
+                              prec-tpratio (calc-prec-tpratio etp etn efp efn (count expl))
+                              posteriors-acc (map #(get-posterior-marginal bn (first %) (second %))
+                                                acc-vertex-values)]
+                          {:Prob prob :ExplPrec (:Prec prec-tpratio) :ExplTPRatio (:TPRatio prec-tpratio)
+                           :AbsConfPostDiff (Math/abs (- confidence (avg posteriors-acc)))}))]
             (merge prec-tpratio (or probs {}))))]
     (merge (last metrics)
            {:MinPrec (apply min (map :Prec metrics))
             :MinTPRatio (apply min (map :TPRatio metrics))
-            :AvgPrec (/ (reduce + (map :Prec metrics)) (count metrics))
-            :AvgTPRatio (/ (reduce + (map :TPRatio metrics)) (count metrics))})))
+            :AvgPrec (avg (map :Prec metrics))
+            :AvgTPRatio (avg (map :TPRatio metrics))})))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
