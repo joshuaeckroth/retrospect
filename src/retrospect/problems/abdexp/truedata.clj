@@ -6,6 +6,7 @@
   (:use [clojure.contrib.combinatorics])
   (:require [clojure.set :as set])
   (:use [retrospect.problems.abdexp.expgraph])
+  (:use [retrospect.problems.abdexp.javabayes :only [build-bayesnet]])
   (:use [retrospect.random])
   (:use [retrospect.state]))
 
@@ -38,6 +39,27 @@
            (my-shuffle
             (concat (new-explainers vertices)
                     (reuse-explainers vertices reuse-n))))))
+
+(defn gen-parent-combinations
+  [parent-vals]
+  (if (empty? parent-vals) []
+      (for [val (first parent-vals)]
+        (conj (gen-parent-combinations (rest parent-vals)) val))))
+
+(defn add-prob-table
+  [expgraph vertex]
+  (let [vals (sort (values expgraph vertex))
+        parent-vals (map #(sort (values expgraph %)) (sort (explainers expgraph vertex)))
+        parent-combs (let [pc (gen-parent-combinations parent-vals)]
+                       (if (empty? pc) [[]] pc))
+        probs-parent-combs-map (reduce (fn [m pc]
+                                    (let [probs (repeatedly (count vals) my-rand)
+                                          probs-sum (reduce + probs)]
+                                      (assoc m pc (zipmap vals (map #(/ % probs-sum) probs)))))
+                                  {} parent-combs)
+        prob-table (for [v vals pc parent-combs]
+                     (get-in probs-parent-combs-map [pc v]))]
+    (add-attr expgraph vertex :probs prob-table)))
 
 (defn random-expgraph
   []
@@ -106,35 +128,37 @@
                                               (combinations vs 2))))))
           eg-conflicts (reduce set-conflicts eg conflict-links)
           ;; a different eg-score for each true-set
-          eg-scores (let [vs (sort (nodes eg-conflicts))]
-                      (for [[true-values f-obs] (partition 2 (interleave true-values-maps false-obs))]
-                        (reduce (fn [eg v]
-                             (-> eg
-                                (add-attr v :id v)
-                                (add-attr v :values ["on" "off"])
-                                (add-attr v :scores
-                                          (cond (all-obs v) {"on" 1.0 "off" 0.0}
-                                                (true-values v)
-                                                (let [p (max 0.0 (min 1.0 (my-rand-gauss
-                                                                           (:TrueAprioriMean params)
-                                                                           (:TrueAprioriVariance params))))]
-                                                  {"on" p "off" (- 1.0 p)})
-                                                ;; not true and explains
-                                                ;; a false observation;
-                                                ;; make it less likely
-                                                (not-empty (set/intersection (neighbors eg v) (set f-obs)))
-                                                (let [p (max 0.0 (min 1.0 (my-rand-gauss
-                                                                           (/ (:FalseAprioriMean params) 2.0)
-                                                                           (:FalseAprioriVariance params))))]
-                                                  {"on" p "off" (- 1.0 p)})
-                                                :else
-                                                (let [p (max 0.0 (min 1.0 (my-rand-gauss
-                                                                           (:FalseAprioriMean params)
-                                                                           (:FalseAprioriVariance params))))]
-                                                  {"on" p "off" (- 1.0 p)})))))
-                           eg-conflicts vs)))]
+          eg-scores (for [[true-values f-obs] (partition 2 (interleave true-values-maps false-obs))]
+                      (reduce (fn [eg v]
+                           (-> eg
+                              (add-attr v :id v)
+                              (add-attr v :values ["on" "off"])
+                              (add-attr v :scores
+                                        (cond (all-obs v) {"on" 1.0 "off" 0.0}
+                                              (true-values v)
+                                              (let [p (max 0.0 (min 1.0 (my-rand-gauss
+                                                                         (:TrueAprioriMean params)
+                                                                         (:TrueAprioriVariance params))))]
+                                                {"on" p "off" (- 1.0 p)})
+                                              ;; not true and explains
+                                              ;; a false observation;
+                                              ;; make it less likely
+                                              (not-empty (set/intersection (neighbors eg v) (set f-obs)))
+                                              (let [p (max 0.0 (min 1.0 (my-rand-gauss
+                                                                         (/ (:FalseAprioriMean params) 2.0)
+                                                                         (:FalseAprioriVariance params))))]
+                                                {"on" p "off" (- 1.0 p)})
+                                              :else
+                                              (let [p (max 0.0 (min 1.0 (my-rand-gauss
+                                                                         (:FalseAprioriMean params)
+                                                                         (:FalseAprioriVariance params))))]
+                                                {"on" p "off" (- 1.0 p)})))))
+                         eg-conflicts vs))
+          eg-probs (map (fn [eg] (reduce add-prob-table eg vs)) eg-scores)
+          bayesnets (map build-bayesnet eg-probs)]
       (if (empty? true-values-maps) (recur (inc attempts))
-          {:expgraphs eg-scores
+          {:expgraphs eg-probs
+           :bayesnets bayesnets
            :false-obs false-obs
            :observation-sets observation-sets
            :true-values-maps true-values-maps}))))
@@ -160,15 +184,17 @@
 
 (defn generate-truedata
   []
-  (let [{:keys [expgraphs false-obs observation-sets true-values-maps]}
+  (let [{:keys [expgraphs bayesnets false-obs observation-sets true-values-maps]}
         ;; restrict the number of possible graphs
         (binding [rgen (new-seed (my-rand-int (:UniqueGraphs params)))]
           (random-expgraph))]
     ;; use the original random generator again
     (let [i (my-rand-int (count observation-sets))]
       {:training {:expgraph (nth expgraphs i)
+                  :bayesnet (nth bayesnets i)
                   :false-obs (nth false-obs i)}
        :expgraph (nth expgraphs i)
+       :bayesnet (nth bayesnets i)
        :true-values-map (apply merge true-values-maps)
        :true-obs (set (nth observation-sets i))
        :false-obs (nth false-obs i)
