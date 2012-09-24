@@ -106,7 +106,8 @@
         (or (and (rejected? ws hyp)
                  (= :conflict (rejection-reason ws hyp))
                  (get-in true-false [:individual (:id hyp)]))
-            (and (not (get-in true-false [:individual (:id hyp)]))
+            (and (accepted? ws hyp)
+                 (not (get-in true-false [:individual (:id hyp)]))
                  (some #(and (rejected? ws %) (get-in true-false [:individual (:id %)]))
                     (find-conflicts-all ws hyp))))
         :conflict-rejection
