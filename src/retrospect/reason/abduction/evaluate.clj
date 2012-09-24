@@ -134,6 +134,7 @@
             parent-errors (map #(classify-error ws true-false % (conj checked hyp))
                              acc-conflicting)]
         (cond (some #{:noise} parent-errors) :noise
+              (some #{:minapriori} parent-errors) :minapriori
               (some #{:scoring} parent-errors) :scoring
               (some #{:no-expl-offered} parent-errors) :no-expl-offered
               :else :conflict-rejection))
@@ -148,6 +149,7 @@
             parent-errors (map #(classify-error ws true-false % (conj checked hyp))
                              rej-conflicting)]
         (cond (some #{:noise} parent-errors) :noise
+              (some #{:minapriori} parent-errors) :minapriori
               (some #{:scoring} parent-errors) :scoring
               (some #{:no-expl-offered} parent-errors) :no-expl-offered
               :else :conflict-rejection))
