@@ -66,6 +66,8 @@
    :rejection-reasons {}
    ;; a map of hyp-id => hyp what was explained when it was accepted
    :accepted-explained {}
+   ;; a map of hyp-id => seq of hyps of rival explainers when it was accepted
+   :accepted-rivals {}
    ;; a map of hypid => set of hypids
    :sorted-explainers {}
    ;; a seq of hypids
@@ -86,6 +88,10 @@
 (defn accepted-explained
   [workspace hyp]
   (get-in workspace [:accepted-explained (:id hyp)]))
+
+(defn accepted-rivals
+  [workspace hyp]
+  (get-in workspace [:accepted-rivals (:id hyp)]))
 
 (defn rejected?
   [workspace hyp]
@@ -369,7 +375,7 @@
                  (update-in [:hypotheses :all] conj (:id hyp-apriori))))))))
 
 (defn accept
-  [workspace hyp nbest explained delta comparison cycle]
+  [workspace hyp nbest alts explained delta comparison cycle]
   (prof :accept
         ;; don't "accept" a hyp that was never added (due to
         ;; conflicts); this probably only matters in (add-observation)
@@ -378,7 +384,8 @@
                                (-> workspace
                                   (update-in [:accepted (:type hyp)] conjs (:id hyp))
                                   (update-in [:accepted :all] conjs (:id hyp))
-                                  (assoc-in [:accepted-explained (:id hyp)] explained)))
+                                  (assoc-in [:accepted-explained (:id hyp)] explained)
+                                  (assoc-in [:accepted-rivals (:id hyp)] alts)))
                   ws-hyplog (if @batch ws-acc
                                 (assoc-in ws-acc [:hyp-log (:id hyp)]
                                           (format (str "Accepted at cycle %d to explain %s with delta %.2f "
@@ -402,7 +409,7 @@
 
 (defn add-observation
   [workspace hyp cycle]
-  (-> workspace (add hyp) (accept hyp nil [] 0.0 {} cycle)))
+  (-> workspace (add hyp) (accept hyp nil [] [] 0.0 {} cycle)))
 
 (defn get-unexplained
   [workspace]
@@ -584,13 +591,13 @@
                (format "[%s]" (str/join ", " (map str (:sorted-explainers-explained ws)))))
           (if (empty? (:sorted-explainers-explained ws))
             (do (log "No explainers. Done.") ws)
-            (let [{:keys [best nbest explained delta comparison] :as b}
+            (let [{:keys [best nbest alts explained delta comparison] :as b}
                   (find-best ws)]
               (if-not best
                 (do (log "No best. Done.") ws)
                 (do (log "Best is" (:id best) (:apriori best))
                     (-> ws (update-in [:accrej] merge b)
-                       (accept best nbest explained delta comparison cycle)))))))))
+                       (accept best nbest alts explained delta comparison cycle)))))))))
 
 (defn get-explaining-hypotheses
   "Ask problem domain to get explainers."
