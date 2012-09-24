@@ -133,8 +133,10 @@
                                (find-conflicts-all ws hyp))
             parent-errors (map #(classify-error ws true-false % (conj checked hyp))
                              acc-conflicting)]
-        (if (some #{:scoring} parent-errors) :scoring
-            :conflict-rejection))
+        (cond (some #{:noise} parent-errors) :noise
+              (some #{:scoring} parent-errors) :scoring
+              (some #{:no-expl-offered} parent-errors) :no-expl-offered
+              :else :conflict-rejection))
       (and (accepted? ws hyp)
            (not (get-in true-false [:individual (:id hyp)]))
            (some #(and (rejected? ws %) (get-in true-false [:individual (:id %)]))
@@ -145,8 +147,10 @@
                                (find-conflicts-all ws hyp))
             parent-errors (map #(classify-error ws true-false % (conj checked hyp))
                              rej-conflicting)]
-        (if (some #{:scoring} parent-errors) :scoring
-            :conflict-rejection))
+        (cond (some #{:noise} parent-errors) :noise
+              (some #{:scoring} parent-errors) :scoring
+              (some #{:no-expl-offered} parent-errors) :no-expl-offered
+              :else :conflict-rejection))
       ;; a false thing was accepted, or true thing not accepted (and
       ;; threshold = 0); must be an order-dependency error if none
       ;; of the above errors are the cause
