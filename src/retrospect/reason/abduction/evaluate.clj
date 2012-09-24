@@ -7,6 +7,7 @@
   (:use [retrospect.reason.abduction.workspace
          :only [get-unexp-pct get-noexp-pct calc-doubt calc-coverage
                 accepted? rejected? rejection-reason lookup-hyp update-graph
+                accepted-before? rejected-before?
                 accepted-explained accepted-rivals get-no-explainers
                 explainers explains find-conflicts-all]])
   (:use [retrospect.state]))
@@ -80,75 +81,86 @@
      :false-delta-avg (/ (reduce + delta-false) (double (let [c (count delta-false)]
                                                      (if (= 0 c) 1 c))))}))
 
+(defn classify-error
+  [ws true-false hyp]
+  (cond
+   ;; obs that's false yet was accepted, should have been
+   ;; ignored/rejected; or a false accepted that explained noise
+   (or (and (= :observation (:type hyp))
+            (accepted? ws hyp)
+            (not (get-in true-false [:individual (:id hyp)])))
+       (and (not= :observation (:type hyp))
+            (accepted? ws hyp)
+            (not (get-in true-false [:individual (:id hyp)]))
+            (= :observation (:type (accepted-explained ws hyp)))
+            (some #(not (get-in true-false [:individual (:id %)]))
+               (explains ws hyp))))
+   :noise
+   ;; true thing eliminated due to too-low minapriori
+   (and (rejected? ws hyp)
+        (= :minapriori (rejection-reason ws hyp))
+        (get-in true-false [:individual (:id hyp)]))
+   :minapriori
+   ;; scoring error: if you were accepted but are false, and one
+   ;; of your rivals is true; or you were not accepted but are
+   ;; true, and you were the rival when a false explainer was
+   ;; accepted
+   (or (and (accepted? ws hyp)
+            (not (get-in true-false [:individual (:id hyp)]))
+            (some #(get-in true-false [:individual (:id %)])
+               (accepted-rivals ws hyp)))
+       (and (not (accepted? ws hyp))
+            (get-in true-false [:individual (:id hyp)])
+            (let [accepted-instead-ids (map first
+                                          (filter (fn [[hypid rivals]] (#{hyp} rivals))
+                                             (seq (:accepted-rivals ws))))]
+              (some #(not (get-in true-false [:individual %])) accepted-instead-ids))))
+   :scoring
+   ;; false acceptance but true hyp (for what was explained) was never offered
+   (and (accepted? ws hyp)
+        (not (get-in true-false [:individual (:id hyp)]))
+        (not-any? #(get-in true-false [:individual (:id %)])
+                  (explainers ws (accepted-explained ws hyp))))
+   :no-expl-offered
+   ;; todo: explain this
+   (and (rejected? ws hyp)
+        (= :conflict (rejection-reason ws hyp))
+        (get-in true-false [:individual (:id hyp)]))
+   (let [acc-conflicting (filter #(accepted-before? ws % hyp)
+                            (find-conflicts-all ws hyp))
+         parent-errors (map #(classify-error ws true-false %) acc-conflicting)]
+     (if (some #{:scoring} parent-errors) :scoring
+         :conflict-rejection))
+   (and (accepted? ws hyp)
+        (not (get-in true-false [:individual (:id hyp)]))
+        (some #(and (rejected? ws %) (get-in true-false [:individual (:id %)]))
+           (find-conflicts-all ws hyp)))
+   (let [rej-conflicting (filter #(and (rejected-before? ws % hyp)
+                                  (get-in true-false [:individual (:id %)]))
+                            (find-conflicts-all ws hyp))
+         parent-errors (map #(classify-error ws true-false %) rej-conflicting)]
+     (if (some #{:scoring} parent-errors) :scoring
+         :conflict-rejection))
+   ;; a false thing was accepted, or true thing not accepted (and
+   ;; threshold = 0); must be an order-dependency error if none
+   ;; of the above errors are the cause
+   (or (and (accepted? ws hyp)
+            (not (get-in true-false [:individual (:id hyp)])))
+       (and (not (accepted? ws hyp))
+            (get-in true-false [:individual (:id hyp)])
+            (= 0 (:Threshold params))))   
+   :unknown
+   ;; else, there was no error
+   :else
+   :no-error))
+
 (defn find-errors
   [est true-false]
   ;; only need to look at last workspace; it contains all the history
   (let [ws (:workspace (cur-ep est))]
     (frequencies
      (for [hyp (filter #(not= :kb (:type %)) (vals (:hyp-ids ws)))]
-       (cond
-        ;; obs that's false yet was accepted, should have been
-        ;; ignored/rejected; or a false accepted that explained noise
-        (or (and (= :observation (:type hyp))
-                 (accepted? ws hyp)
-                 (not (get-in true-false [:individual (:id hyp)])))
-            (and (not= :observation (:type hyp))
-                 (accepted? ws hyp)
-                 (not (get-in true-false [:individual (:id hyp)]))
-                 (= :observation (:type (accepted-explained ws hyp)))
-                 (some #(not (get-in true-false [:individual (:id %)]))
-                    (explains ws hyp))))
-        :noise
-        ;; conflict-rejection: a true thing was rejected as a conflict
-        ;; (after accepting a false thing, necessarily); or a false
-        ;; thing was accepted and one of its conflicts is true but was
-        ;; rejected
-        (or (and (rejected? ws hyp)
-                 (= :conflict (rejection-reason ws hyp))
-                 (get-in true-false [:individual (:id hyp)]))
-            (and (accepted? ws hyp)
-                 (not (get-in true-false [:individual (:id hyp)]))
-                 (some #(and (rejected? ws %) (get-in true-false [:individual (:id %)]))
-                    (find-conflicts-all ws hyp))))
-        :conflict-rejection
-        ;; true thing eliminated due to too-low minapriori
-        (and (rejected? ws hyp)
-             (= :minapriori (rejection-reason ws hyp))
-             (get-in true-false [:individual (:id hyp)]))
-        :minapriori
-        ;; scoring error: if you were accepted but are false, and one
-        ;; of your rivals is true; or you were not accepted but are
-        ;; true, and you were the rival when a false explainer was
-        ;; accepted
-        (or (and (accepted? ws hyp)
-                 (not (get-in true-false [:individual (:id hyp)]))
-                 (some #(get-in true-false [:individual (:id %)])
-                    (accepted-rivals ws hyp)))
-            (and (not (accepted? ws hyp))
-                 (get-in true-false [:individual (:id hyp)])
-                 (let [accepted-instead-ids (map first
-                                               (filter (fn [[hypid rivals]] (#{hyp} rivals))
-                                                  (seq (:accepted-rivals ws))))]
-                   (some #(not (get-in true-false [:individual %])) accepted-instead-ids))))
-        :scoring
-        ;; false acceptance but true hyp (for what was explained) was never offered
-        (and (accepted? ws hyp)
-             (not (get-in true-false [:individual (:id hyp)]))
-             (not-any? #(get-in true-false [:individual (:id %)])
-                       (explainers ws (accepted-explained ws hyp))))
-        :no-expl-offered
-        ;; a false thing was accepted, or true thing not accepted (and
-        ;; threshold = 0); must be an order-dependency error if none
-        ;; of the above errors are the cause
-        (or (and (accepted? ws hyp)
-                 (not (get-in true-false [:individual (:id hyp)])))
-            (and (not (accepted? ws hyp))
-                 (get-in true-false [:individual (:id hyp)])
-                 (= 0 (:Threshold params))))
-        :unknown
-        ;; else, there was no error
-        :else
-        :no-error)))))
+       (classify-error ws true-false hyp)))))
 
 ;; true reasons why something cannot be explained (a noexp requires it
 ;; was accepted): noise, an explainer was rejected due to conflict; an

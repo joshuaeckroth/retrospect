@@ -3,14 +3,14 @@
   (:use [retrospect.evaluate :only [calc-increase calc-prec-tpratio]])
   (:use [retrospect.epistemicstates :only [cur-ep flatten-est]])
   (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
+  (:use [retrospect.problems.tracking.movements :only [moves-match?]])
   (:use [retrospect.profile :only [prof]])
   (:use [retrospect.state]))
 
 (defn true-hyp?
   [truedata hyp]
   (cond (= :movement (:type hyp))
-        (if ((set (map #(dissoc % :color) (:all-moves truedata))) (dissoc (:mov hyp) :color))
-          true false)
+        (if (some #(moves-match? (:mov hyp) %) (:all-moves truedata)) true false)
         ;; check for sensor noise
         (= :observation (:type hyp))
         (if ((:all-xys truedata) {:x (:x (:det hyp)) :y (:y (:det hyp))
@@ -26,9 +26,7 @@
 
 (defn count-matches
   [true-movs movs]
-  (let [true-movs-no-color (set (map #(dissoc % :color) true-movs))
-        movs-no-color (map #(dissoc % :color) movs)]
-    (count (filter true-movs-no-color movs-no-color))))
+  (count (filter (fn [m] (some #(moves-match? m %) true-movs)) movs)))
 
 (defn tp-tn-fp-fn
   [true-movs acc-movs not-acc-movs]

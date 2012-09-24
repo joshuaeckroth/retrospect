@@ -60,8 +60,12 @@
    :hyp-contents {}
    ;; a map of type => set, with additional key :all
    :accepted {:all #{}}
+   ;; a map of hyp-id => integer
+   :accepted-cycle {}
    ;; a map of type => set, with additional key :all
    :rejected {:all #{}}
+   ;; a map of hyp-id => integer
+   :rejected-cycle {}
    ;; a map of hyp-id => reason-tag (e.g., :conflict)
    :rejection-reasons {}
    ;; a map of hyp-id => hyp what was explained when it was accepted
@@ -85,6 +89,15 @@
   (prof :accepted?
         ((get-in workspace [:accepted :all] #{}) (:id hyp))))
 
+(defn accepted-before?
+  "Was hyp accepted at or before hyp2 was accepted/rejected?"
+  [workspace hyp hyp2]
+  (if-let [cycle (or (get-in workspace [:accepted-cycle (:id hyp2)])
+                     (get-in workspace [:rejected-cycle (:id hyp2)]))]
+    (and (accepted? workspace hyp)
+         (<= (get-in workspace [:accepted-cycle (:id hyp)]) cycle))
+    false))
+
 (defn accepted-explained
   [workspace hyp]
   (get-in workspace [:accepted-explained (:id hyp)]))
@@ -96,6 +109,15 @@
 (defn rejected?
   [workspace hyp]
   ((get-in workspace [:rejected :all] #{}) (:id hyp)))
+
+(defn rejected-before?
+  "Was hyp rejected at or before hyp2 was accepted/rejected?"
+  [workspace hyp hyp2]
+  (if-let [cycle (or (get-in workspace [:accepted-cycle (:id hyp2)])
+                     (get-in workspace [:rejected-cycle (:id hyp2)]))]
+    (and (rejected? workspace hyp)
+         (<= (get-in workspace [:rejected-cycle (:id hyp)]) cycle))
+    false))
 
 (defn rejection-reason
   [workspace hyp]
@@ -294,6 +316,7 @@
                   (update-in [:accepted (:type hyp)] disj (:id hyp))
                   (update-in [:accrej :rej] conjs hyp)
                   (update-in [:rejected (:type hyp)] conjs (:id hyp))
+                  (assoc-in [:rejected-cycle (:id hyp)] cycle)
                   (update-in [:rejected :all] conjs (:id hyp))
                   (assoc-in [:rejection-reasons (:id hyp)] reason-tag)
                   (dissoc-needing-explanation [hyp])
@@ -385,7 +408,8 @@
                                   (update-in [:accepted (:type hyp)] conjs (:id hyp))
                                   (update-in [:accepted :all] conjs (:id hyp))
                                   (assoc-in [:accepted-explained (:id hyp)] explained)
-                                  (assoc-in [:accepted-rivals (:id hyp)] alts)))
+                                  (assoc-in [:accepted-rivals (:id hyp)] alts)
+                                  (assoc-in [:accepted-cycle (:id hyp)] cycle)))
                   ws-hyplog (if @batch ws-acc
                                 (assoc-in ws-acc [:hyp-log (:id hyp)]
                                           (format (str "Accepted at cycle %d to explain %s with delta %.2f "
