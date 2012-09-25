@@ -1,7 +1,7 @@
 (ns retrospect.reason.abduction.problems.tracking.evaluate
   (:require [clojure.set :as set])
   (:use [retrospect.evaluate :only [calc-increase calc-prec-tpratio]])
-  (:use [retrospect.epistemicstates :only [cur-ep flatten-est]])
+  (:use [retrospect.epistemicstates :only [cur-ep goto-cycle flatten-est]])
   (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
   (:use [retrospect.problems.tracking.movements :only [moves-match?]])
   (:use [retrospect.profile :only [prof]])
@@ -49,7 +49,8 @@
     (let [metrics
           (for [ep (filter :decision-point (flatten-est est))]
             (let [ws (:workspace ep)
-                  time-now (:time ep)
+                  ;; a bit of a hack
+                  time-now (:time (cur-ep (goto-cycle est (dec (:cycle ep)))))
                   true-movs (get-true-movements truedata time-now)
                   accepted (map #(lookup-hyp ws %) (:movement (:accepted ws)))
                   not-accepted (set/difference
@@ -64,7 +65,7 @@
              {:MinPrec (apply min (map :Prec metrics))
               :MinTPRatio (apply min (map :TPRatio metrics))
               :AvgPrec (/ (reduce + (map :Prec metrics)) (count metrics))
-            :AvgTPRatio (/ (reduce + (map :TPRatio metrics)) (count metrics))}))
+              :AvgTPRatio (/ (reduce + (map :TPRatio metrics)) (count metrics))}))
     {:TP 0 :TN 0 :FP 0 :FN 0 :TPR 0.0 :FPR 0.0 :F1 0.0 :TPRatio 0.0 :Prec 0.0
      :MinPrec 0.0 :MinTPRatio 0.0 :AvgPrec 0.0 :AvgTPRatio 0.0}))
 
