@@ -174,27 +174,25 @@
      (for [hyp (filter #(not= :kb (:type %)) (vals (:hyp-ids ws)))]
        (classify-error ws true-false hyp)))))
 
-;; true reasons why something cannot be explained (a noexp requires it
-;; was accepted): noise, an explainer was rejected due to conflict; an
-;; explainer was rejected due to minapriori; no explainer was offered
+(defn classify-noexp-reason
+  [ws hyp]
+  (let [expl (explainers ws hyp)
+        rej-reasons (map #(rejection-reason ws %) expl)]
+    (cond
+     (empty? expl)
+     :no-expl-offered
+     (some #{:minapriori} rej-reasons)
+     :minapriori
+     :else
+     :conflict)))
+
 (defn find-noexp-reasons
-  [est true-false]
+  [est]
   (let [ws (:workspace (cur-ep est))
         noexp (map #(lookup-hyp ws %) (get-no-explainers ws))]
     (frequencies
      (for [hyp noexp]
-       (let [expl (explainers ws hyp)]
-         (cond (and (= :observation (:type hyp))
-                    (not (get-in true-false [:individual (:id hyp)])))
-               :noise
-               (some #(and (rejected? ws %) (= :conflict (rejection-reason ws %))) expl)
-               :expl-rejected-conflict
-               (some #(and (rejected? ws %) (= :minapriori (rejection-reason ws %))) expl)
-               :expl-rejected-minapriori
-               (empty? expl)
-               :no-expl-offered
-               :else
-               :unknown))))))
+       (classify-noexp-reason ws hyp)))))
 
 (defn evaluate
   [truedata est]
@@ -209,7 +207,7 @@
         ep-states (flatten-est est)
         doubt (doubt-aggregate est)
         errors (find-errors est true-false)
-        noexp-reasons (find-noexp-reasons est true-false)
+        noexp-reasons (find-noexp-reasons est)
         noise-obs (set (filter #(not (get-in true-false [:individual (:id %)]))
                           (filter #(= :observation (:type %))
                              (vals (:hyp-ids workspace)))))
@@ -242,9 +240,8 @@
             :ErrorsUnknown (:unknown errors 0)
             :ErrorsNoError (:no-error errors 0)
             :NoExpCount (reduce + (vals noexp-reasons))
-            :NoExpReasonNoise (:noise noexp-reasons 0)
-            :NoExpReasonRejectedConflict (:expl-rejected-conflict noexp-reasons 0)
-            :NoExpReasonRejectedMinApriori (:expl-rejected-minapriori noexp-reasons 0)
+            :NoExpReasonConflict (:conflict noexp-reasons 0)
+            :NoExpReasonMinApriori (:minapriori noexp-reasons 0)
             :NoExpReasonNoExpl (:no-expl-offered noexp-reasons 0)
             :NoExpReasonUnknown (:unknown noexp-reasons 0)
             :NoiseTotal (count noise-obs)
