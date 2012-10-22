@@ -12,6 +12,10 @@
                 explainers explains find-conflicts-all]])
   (:use [retrospect.state]))
 
+(defn keyword-to-metric
+  [kw]
+  (apply str (map str/capitalize (str/split (name kw) #"-"))))
+
 (defn doubt-aggregate
   [est]
   (let [doubts (filter identity (map #(calc-doubt %) (map :workspace (ep-path est))))]
@@ -51,7 +55,7 @@
                     {} (keys true-false))
         avg (fn [vals] (if (empty? vals) 0.0 (/ (reduce + vals) (count vals))))]
     (reduce (fn [m t]
-         (let [k (apply str (map str/capitalize (str/split (name t) #"-")))]
+         (let [k (keyword-to-metric t)]
            (assoc m
              (keyword (format "TrueCount%s" k))
              (count (get (get true-false t) true))
@@ -204,8 +208,10 @@
         meta-hyps (set (mapcat (fn [ep] (map #(lookup-hyp (:workspace ep) %)
                                           (:all (:accepted (:workspace ep)))))
                                meta-eps))
-        types (filter meta-hyp-types (map :type meta-hyps))]
-    (merge (zipmap meta-hyp-types (repeat (count meta-hyp-types) 0))
+        types (map (comp keyword keyword-to-metric)
+                 (filter meta-hyp-types (map :type meta-hyps)))]
+    (merge (zipmap (map (comp keyword keyword-to-metric) meta-hyp-types)
+                   (repeat (count meta-hyp-types) 0))
            (frequencies types))))
 
 (defn evaluate
@@ -294,10 +300,7 @@
                               (mapcat
                                (fn [tf]
                                  (map #(keyword
-                                      (format "%s%s" tf
-                                         (apply str
-                                                (map str/capitalize
-                                                   (str/split (name %) #"-")))))
+                                      (format "%s%s" tf (keyword-to-metric %)))
                                     (:hyp-subtypes @problem)))
                                ["AvgTrueConf" "AvgTrueApriori"
                                 "AvgFalseConf" "AvgFalseApriori"
