@@ -17,11 +17,11 @@
                  [junit/junit "4.10"]
                  [com.intellij/annotations "5.1"]
                  [clojure-csv/clojure-csv "2.0.0-alpha1"]
-                 [com.fifesoft/rsyntaxtextarea "2.0.2"]]
+                 [com.fifesoft/rsyntaxtextarea "2.0.2"]
+                 [com.github.insubstantial/substance "7.1"]]
   :dev-dependencies [[lein-marginalia "0.7.0"]]
   :main retrospect.core
   :keep-non-project-classes true
-  :java-source-path "src/jvm"
-  :radagast/ns-whitelist #"retrospect"
+  :java-source-paths ["src/jvm"]
   :warn-on-reflection false ;; Emit warnings on all reflection calls.
   :jvm-opts ["-Dawt.useSystemAAFontSettings=on" "-Xmx5000m"])

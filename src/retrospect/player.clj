@@ -234,7 +234,7 @@
 
 (defn start-player
   [& opts]
-
+  (javax.swing.UIManager/setLookAndFeel "org.pushingpixels.substance.api.skin.SubstanceBusinessLookAndFeel")
   (swap! prefs (constantly (.node (Preferences/userRoot) "/cc/artifice/retrospect/player")))
   (get-saved-params)
   (when (:Seed params) (set-seed-spinner (:Seed params)))
