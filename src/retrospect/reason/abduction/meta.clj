@@ -229,6 +229,7 @@
                                                      (filter #(= highest-doubt (first %))
                                                         doubts-times))))))]))
 
+
 (defn make-meta-hyps
   "Create explanations, and associated actions, for problem-cases."
   [problem-cases est time-prev time-now sensors]
@@ -283,7 +284,7 @@
                    (println "ep-rejs:" (map str ep-rejs) (map #(:nbest (:accrej (:workspace %))) ep-rejs))
                    (println "bad-bests" bad-bests))
                  (for [[delta cycle hyp] bad-bests]
-                   (new-hyp "Rejected" :rejected :conflict
+                   (new-hyp "Rejected" :rej-conflict :rej-conflict
                             1.0 false meta-hyp-conflicts? []
                             (format "%s rejected some explainers" hyp)
                             (format "%s rejected some explainers (cycle %d, delta %.2f"
@@ -304,7 +305,7 @@
                (let [expl-rejected-minapriori (filter (fn [h] (= :minapriori (rejection-reason cur-ws h)))
                                                  expl)]
                  (if (not-empty expl-rejected-minapriori)
-                   [(new-hyp "TooHighMinApriori" :rejected :minapriori
+                   [(new-hyp "TooHighMinApriori" :rej-minapriori :rej-minapriori
                              1.0 false meta-hyp-conflicts? []
                              "Explainers rejected due to too-high min-apriori"
                              (format "These explainers were rejected due to too-high min-apriori: %s"

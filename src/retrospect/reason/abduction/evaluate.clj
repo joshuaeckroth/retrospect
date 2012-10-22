@@ -194,6 +194,20 @@
      (for [hyp noexp]
        (classify-noexp-reason ws hyp)))))
 
+;; find a better place for this?
+(def meta-hyp-types #{:order-dep :rej-conflict :rej-minapriori})
+
+(defn count-meta-hyps
+  [est]
+  (let [eps (flatten-est est)
+        meta-eps (mapcat (comp flatten-est :meta-est) (filter :meta-est eps))
+        meta-hyps (set (mapcat (fn [ep] (map #(lookup-hyp (:workspace ep) %)
+                                          (:all (:accepted (:workspace ep)))))
+                               meta-eps))
+        types (filter meta-hyp-types (map :type meta-hyps))]
+    (merge (zipmap meta-hyp-types (repeat (count meta-hyp-types) 0))
+           (frequencies types))))
+
 (defn evaluate
   [truedata est]
   (let [ep (cur-ep est)
@@ -204,6 +218,7 @@
                     :type truedata (:oracle-fn @problem))
         true-false-scores (calc-true-false-scores workspace true-false)
         delta-avgs (calc-true-false-deltas est true-false)
+        meta-hyps (count-meta-hyps est)
         ep-states (flatten-est est)
         doubt (doubt-aggregate est)
         errors (find-errors est true-false)
@@ -221,6 +236,7 @@
            params
            ((:evaluate-fn (:abduction @problem)) truedata est)
            true-false-scores
+           meta-hyps
            {:Step (:time ep)
             :UnexplainedPct (get-unexp-pct (:workspace ep))
             :NoExplainersPct (get-noexp-pct (:workspace ep))
