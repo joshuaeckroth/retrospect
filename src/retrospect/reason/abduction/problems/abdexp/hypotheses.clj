@@ -56,54 +56,52 @@
                (rest vertices))))))))
 
 (defn explanatory?-delta
-  "Is P(node2=val2|node1=val1) > P(node2=val2)? If so, node1=val1 is
-   explanatory (according to Gardenfors)."
-  [bn node1 val1 node2 val2 observed]
+  "Is P(vertex2=val2|vertex1=val1) > P(vertex2=val2)? If so,
+   vertex1=val1 is explanatory (according to Gardenfors)."
+  [bn vertex1 val1 vertex2 val2 observed]
   (unobserve-all bn)
-  (observe-seq bn (filter #(not= node2 (first %)) observed))
-  (let [prior (get-posterior-marginal bn node2 val2)]
-    (observe bn node1 val1)
-    (let [posterior (get-posterior-marginal bn node2 val2)]
+  (observe-seq bn (filter #(not= vertex2 (first %)) observed))
+  (let [prior (get-posterior-marginal bn vertex2 val2)]
+    (observe bn vertex1 val1)
+    (let [posterior (get-posterior-marginal bn vertex2 val2)]
       (< 0.0 (- posterior prior)))))
 
 (defn explanatory?
-  [bn node1 val1 node2 val2 observed]
+  [bn vertex1 val1 vertex2 val2 observed]
   (cond (= "gardenfors-delta" (:ExplanatoryDef state/params))
-        (explanatory?-delta bn node1 val1 node2 val2 observed)
+        (explanatory?-delta bn vertex1 val1 vertex2 val2 observed)
         :else true))
 
 (defn find-explanatory-assignments
   [bn expgraph implicated observed]
-  (map (fn [[[n1 v1] [n2 v2]]]
-       {:node1 n1 :val1 v1
-        :node2 n2 :val2 v2})
-     (filter (fn [[[n1 v1] [n2 v2]]]
-          (explanatory? bn n1 v1 n2 v2 observed))
-        (mapcat (fn [n]
-                  (let [effects (set (explains expgraph n))
+  (map (fn [[[vertex1 val1] [vertex2 val2]]]
+       {:vertex1 vertex1 :val1 val1
+        :vertex2 vertex2 :val2 val2})
+     (filter (fn [[[vertex1 val1] [vertex2 val2]]]
+          (explanatory? bn vertex1 val1 vertex2 val2 observed))
+        (mapcat (fn [vertex]
+                  (let [effects (set (explains expgraph vertex))
                         effects-no-obs (set/difference effects (set (map first observed)))
                         effects-vals (mapcat (fn [e] (map (fn [v] [e v])
                                                        (values expgraph e)))
                                              effects-no-obs)
                         effects-obs-vals (concat effects-vals
                                                  (filter #(effects (first %)) observed))
-                        vals (values expgraph n)]
-                    (mapcat (fn [nv] (map (fn [ev] [nv ev]) effects-obs-vals))
-                            (map (fn [v] [n v]) vals))))
+                        vals (values expgraph vertex)]
+                    (mapcat (fn [v] (map (fn [ev] [v ev]) effects-obs-vals))
+                            (map (fn [val] [vertex val]) vals))))
                 implicated))))
 
 (defn make-explanation-hyps
   [expgraph explanatory observed-hyps]
-  (let [get-hyps (fn [m] (map (fn [k] (get m k))
-                           (concat
-                            ;; for "self" hyps
-                            (map (fn [{:keys [vertex value]}]
-                                 [vertex value vertex value])
-                               (vals observed-hyps))
-                            ;; for normal hyps
-                            (map (fn [{:keys [node1 val1 node2 val2]}]
-                                 [node1 val1 node2 val2])
-                               explanatory))))
+  (let [get-hyps (fn [m]
+                   (let [self-keys (map (fn [{:keys [vertex value]}]
+                                        [vertex value vertex value])
+                                      (vals observed-hyps))
+                         normal-keys (map (fn [{:keys [vertex1 val1 vertex2 val2]}]
+                                          [vertex1 val1 vertex2 val2])
+                                        explanatory)]
+                     (map #(get m %) (concat self-keys normal-keys))))
         hyps-no-explains
         (reduce (fn [m h] (let [{:keys [vertex vertex2 value value2]} h]
                       (-> m (update-in [[vertex value]] conj h)
@@ -111,39 +109,40 @@
            {} (concat
                ;; no-causal-commitment explainers: the event "just happened"
                (map (fn [{:keys [vertex value]}]
-                    (new-hyp "ExplSelf" :expl :expl (score expgraph vertex value)
-                             false ;; does not need to be explained
-                             #(hyps-conflict? expgraph %1 %2)
-                             [] ;; explains -- filled in later
-                             (format "%s=%s just happened" vertex value)
-                             (format "%s=%s just happened" vertex value)
-                             {:vertex vertex :value value
-                              :vertex2 vertex :value2 value}))
+                    {:vertex vertex :value value :vertex2 vertex :value2 value
+                     :hyp (new-hyp "ExplSelf" :expl :expl (score expgraph vertex value)
+                                   false ;; does not need to be explained
+                                   #(hyps-conflict? expgraph %1 %2)
+                                   [] ;; explains -- filled in later
+                                   (format "%s=%s just happened" vertex value)
+                                   (format "%s=%s just happened" vertex value)
+                                   {:vertex vertex :value value})})
                   (vals observed-hyps))
                ;; causal-commitment explainers: we can say why it happened
-               (map (fn [{:keys [node1 val1 node2 val2 delta]}]
-                    (new-hyp "Expl" :expl :expl (score expgraph node1 val1)
-                             (not-empty (explainers expgraph node1))
-                             #(hyps-conflict? expgraph %1 %2)
-                             [] ;; explains -- filled in later
-                             (format "%s=%s explains %s=%s" node1 val1 node2 val2)
-                             (format "%s=%s explains %s=%s" node1 val1 node2 val2)
-                             {:vertex node1 :value val1
-                              :vertex2 node2 :value2 val2}))
+               (map (fn [{:keys [vertex1 val1 vertex2 val2 delta]}]
+                    {:vertex vertex1 :value val1 :vertex2 vertex2 :value2 val2
+                     :hyp (new-hyp "Expl" :expl :expl (score expgraph vertex1 val1)
+                                   (not-empty (explainers expgraph vertex1))
+                                   #(hyps-conflict? expgraph %1 %2)
+                                   [] ;; explains -- filled in later
+                                   (format "%s=%s" vertex1 val1)
+                                   (format "%s=%s" vertex1 val1)
+                                   {:vertex vertex1 :value val1})})
                   explanatory)))
         hyps-explains
         (reduce (fn [m h]
-             (let [{:keys [vertex value vertex2 value2]} h
-                   obs-hyp (get observed-hyps [vertex2 value2])
-                   explains (or (get m [vertex2 value2]) [])
-                   obs-expl (if obs-hyp (conj explains obs-hyp)
-                                explains)
-                   h2 (assoc h :explains (map :contents obs-expl))]
+             (let [{:keys [vertex value vertex2 value2 hyp]} h
+                   obs (get observed-hyps [vertex2 value2])
+                   explains (map :hyp (or (get m [vertex2 value2]) []))
+                   obs-expl (if obs (conj explains obs) explains)
+                   hyp2 (assoc hyp :explains
+                               (filter #(not= (:contents hyp) %)
+                                  (map :contents obs-expl)))]
                (if (empty? obs-expl) m
-                   (-> m (update-in [[vertex value]] conj h2)
-                      (assoc [vertex value vertex2 value2] h2)))))
+                   (-> m (update-in [[vertex value]] conj (assoc h :hyp hyp2))
+                      (assoc [vertex value vertex2 value2] (assoc h :hyp hyp2))))))
            {} (get-hyps hyps-no-explains))]
-    (filter identity (get-hyps hyps-explains))))
+    (filter identity (map :hyp (get-hyps hyps-explains)))))
 
 (defn hypothesize
   [unexp-hyps accepted lookup-hyp time-now]
