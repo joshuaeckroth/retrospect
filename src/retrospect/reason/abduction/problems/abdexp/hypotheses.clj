@@ -68,7 +68,9 @@
 
 (defn explanatory?
   [bn node1 val1 node2 val2 observed]
-  (explanatory?-delta bn node1 val1 node2 val2 observed))
+  (cond (= "gardenfors-delta" (:ExplanatoryDef state/params))
+        (explanatory?-delta bn node1 val1 node2 val2 observed)
+        :else true))
 
 (defn find-explanatory-assignments
   [bn expgraph implicated observed]
