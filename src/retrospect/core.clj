@@ -52,17 +52,20 @@
      [database "Database identifier" "http://127.0.0.1:5984/retrospect"]
      [upload "Upload?" "true"]
      [save-record "Save in record directory?" "true"]
-     [recdir "Record directory" ""]]
+     [recdir "Record directory" ""]
+     [log "Show verbose logging?" "false"]]
     (let [seed (Integer/parseInt seed)
           reasoner (choose-reasoner reasoner)
           problem (choose-problem problem)
-          repetitions (Integer/parseInt repetitions)]
+          repetitions (Integer/parseInt repetitions)
+          logging-enabled (Boolean/parseBoolean log)]
       (alter-var-root (var rgen) (constantly (new-seed seed)))
       (dosync
        (alter state/datadir (constantly datadir))
        (alter state/database (constantly database))
        (alter state/reasoner (constantly reasoner))
-       (alter state/problem (constantly problem)))
+       (alter state/problem (constantly problem))
+       (alter state/logging-enabled (constantly logging-enabled)))
       (cond (and (= action "run") (= "" params))
             (println "--params identifier required.")
             

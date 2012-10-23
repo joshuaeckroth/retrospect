@@ -11,5 +11,5 @@
         (do
           (when (not @batch)
             (dosync (alter reason-log conj (join " " (map str objs)))))
-          (when logging-enabled
+          (when @logging-enabled
             (apply println objs)))))

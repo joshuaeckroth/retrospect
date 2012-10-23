@@ -9,7 +9,7 @@
 
 (def last-id 0)
 
-(def logging-enabled false)
+(def logging-enabled (ref false))
 
 (defn set-last-id
   [n]
