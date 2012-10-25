@@ -1,4 +1,5 @@
 (ns retrospect.problems.abdexp.expgraph
+  (:require [clojure.string :as str])
   (:use [clojure.set])
   (:use [loom.io])
   (:use [loom.graph])
@@ -45,15 +46,19 @@
 
 (defn explains
   [expgraph vertex]
-  (filter #(and (not= "none" (attr expgraph vertex % :dir))
-           (not= "none" (attr expgraph % vertex :dir)))
+  (filter #(and (nil? (attr expgraph vertex % :conflicts))
+           (nil? (attr expgraph % vertex :conflicts)))
      (neighbors expgraph vertex)))
 
 (defn explainers
-  [expgraph vertex]
-  (filter #(and (not= "none" (attr expgraph vertex % :dir))
-           (not= "none" (attr expgraph % vertex :dir)))
-     (incoming expgraph vertex)))
+  ([expgraph]
+     (filter #(and (nil? (attr expgraph (first %) (second %) :conflicts))
+              (nil? (attr expgraph (second %) (first %) :conflicts)))
+        (edges expgraph)))
+  ([expgraph vertex]
+     (filter #(and (nil? (attr expgraph vertex % :conflicts))
+              (nil? (attr expgraph % vertex :conflicts)))
+        (incoming expgraph vertex))))
 
 (defn unexplained?
   [expgraph vertex]
@@ -108,33 +113,28 @@
   (reduce (fn [g v] (-> g (turn-on v) (add-attr v :forced true))) expgraph vertices))
 
 (defn conflicts?
-  [expgraph v1 v2]
-  (or (= "dotted" (attr expgraph v1 v2 :style))
-      (= "dotted" (attr expgraph v2 v1 :style))))
+  [expgraph [v1 val1] [v2 val2]]
+  (or (= (attr expgraph v1 v2 :conflicts) [val1 val2])
+      (= (attr expgraph v2 v1 :conflicts) [val2 val1])))
 
 (defn conflicts-any?
-  [expgraph vertex]
-  (some #(conflicts? expgraph vertex %) (on-nodes expgraph)))
+  [expgraph v1 val1]
+  (some (fn [v2] (some (fn [val2] (conflicts? expgraph [v1 val1] [v2 val2]))
+                (values expgraph v2)))
+     (on-nodes expgraph)))
 
 (defn set-conflicts
   [expgraph & pairs]
-  (reduce (fn [g [v1 v2]]
+  (reduce (fn [g [[v1 val1] [v2 val2]]]
        (-> g (add-edges [v1 v2])
-          (add-attr v1 v2 :style "dotted")
-          (add-attr v1 v2 :dir "none")
-          (add-attr v1 v2 :constraint false)))
+          (add-attr v1 v2 :conflicts [val1 val2])))
      expgraph pairs))
 
-(defn consistent?
+(defn conflicts
   [expgraph]
-  (not-any? #(conflicts-any? expgraph %) (on-nodes expgraph)))
-
-(defn complete?
-  [expgraph]
-  (and (consistent? expgraph)
-       (every? (fn [v] (some (fn [p] (= "on" (value expgraph p)))
-                         (explainers expgraph v)))
-               (on-nodes expgraph))))
+  (filter #(or (attr expgraph (first %) (second %) :conflicts)
+          (attr expgraph (second %) (first %) :conflicts))
+     (edges expgraph)))
 
 (defn need-explanation
   [expgraph]
@@ -155,7 +155,29 @@
                     -1))))
 
 (defn format-dot-expgraph
-  [expgraph]
-  (reduce (fn [eg v]
-       (add-attr eg v :label (format "%s / %.2f" (str v) (or (attr eg v :score) 1.0))))
-     expgraph (nodes expgraph)))
+  [expgraph true-values-map]
+  (format "digraph g { node [shape=\"plaintext\"];\n %s\n %s\n %s\n }"
+     ;; explains edges
+     (str/join "\n" (map (fn [[v1 v2]] (format "%s -> %s;" v1 v2))
+                       (explainers expgraph)))
+     ;; conflicts edges
+     (str/join "\n" (map (fn [[v1 v2]]
+                         (let [[val1 val2] (or (attr expgraph v1 v2 :conflicts)
+                                               (attr expgraph v2 v1 :conflicts))]
+                           (format "%s:%s%s -> %s:%s%s [dir=\"none\", style=\"dotted\", constraint=false];"
+                              v1 v1 val1 v2 v2 val2)))
+                       (conflicts expgraph)))
+     ;; vertices
+     (str/join "\n"
+               (map (fn [v]
+                    (let [vals (values expgraph v)]
+                      (format "%s [label=<<table border=\"0\" cellborder=\"1\" cellspacing=\"0\" cellpadding=\"6\"><tr>%s</tr></table>>];"
+                         v (apply str (map (fn [val]
+                                           (format "<td port=\"%s_%s\" bgcolor=\"%s\">%s=%s</td>"
+                                              v val
+                                              (if (= val (true-values-map v))
+                                                "#eeeeee" "#ffffff")
+                                              v val))
+                                         vals)))))
+                  (vertices expgraph)))
+     ))

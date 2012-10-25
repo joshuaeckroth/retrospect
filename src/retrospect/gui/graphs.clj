@@ -25,9 +25,10 @@
 
 (defn generate-graph
   [graph canvas listener left-to-right? dot-ref svg-ref]
-  (if (and graph (not-empty (edges graph)))
-    (let [dot (dot-str graph :graph {:dpi 60 :rankdir (if left-to-right? "LR" "")}
-                       :node {:shape "plaintext" :fontname "sans"})
+  (if (and graph (or (string? graph) (not-empty (edges graph))))
+    (let [dot (if (string? graph) graph
+                  (dot-str graph :graph {:dpi 60 :rankdir (if left-to-right? "LR" "")}
+                           :node {:shape "plaintext" :fontname "sans"}))
           {svg :out} (sh "dot" "-Tsvg" :in dot)
           sr (StringReader. svg)
           parser (XMLResourceDescriptor/getXMLParserClassName)

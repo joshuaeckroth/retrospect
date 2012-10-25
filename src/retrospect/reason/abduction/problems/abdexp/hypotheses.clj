@@ -31,7 +31,9 @@
            (and (= :ignore (:subtype hyp2))
                 (= :observation (:subtype hyp1))
                 (= (:vertex hyp2) (:vertex hyp1)))
-           (conflicts? expgraph (:vertex hyp1) (:vertex hyp2)))))
+           (conflicts? expgraph
+                       [(:vertex hyp1) (:value hyp1)]
+                       [(:vertex hyp2) (:value hyp2)]))))
 
 (defn make-sensor-hyps
   [sensors time-prev time-now accepted lookup-hyp]
@@ -94,41 +96,24 @@
 
 (defn make-explanation-hyps
   [expgraph explanatory observed-hyps]
-  (let [get-hyps (fn [m]
-                   (let [self-keys (map (fn [{:keys [vertex value]}]
-                                        [vertex value vertex value])
-                                      (vals observed-hyps))
-                         normal-keys (map (fn [{:keys [vertex1 val1 vertex2 val2]}]
-                                          [vertex1 val1 vertex2 val2])
-                                        explanatory)]
-                     (map #(get m %) (concat self-keys normal-keys))))
+  (let [get-hyps (fn [m] (map #(get m %)
+                           (map (fn [{:keys [vertex1 val1 vertex2 val2]}]
+                                [vertex1 val1 vertex2 val2])
+                              explanatory)))
         hyps-no-explains
         (reduce (fn [m h] (let [{:keys [vertex vertex2 value value2]} h]
                       (-> m (update-in [[vertex value]] conj h)
                          (assoc [vertex value vertex2 value2] h))))
-           {} (concat
-               ;; no-causal-commitment explainers: the event "just happened"
-               (map (fn [{:keys [vertex value]}]
-                    {:vertex vertex :value value :vertex2 vertex :value2 value
-                     :hyp (new-hyp "ExplSelf" :expl :expl (score expgraph vertex value)
-                                   false ;; does not need to be explained
-                                   #(hyps-conflict? expgraph %1 %2)
-                                   [] ;; explains -- filled in later
-                                   (format "%s=%s just happened" vertex value)
-                                   (format "%s=%s just happened" vertex value)
-                                   {:vertex vertex :value value})})
-                  (vals observed-hyps))
-               ;; causal-commitment explainers: we can say why it happened
-               (map (fn [{:keys [vertex1 val1 vertex2 val2 delta]}]
-                    {:vertex vertex1 :value val1 :vertex2 vertex2 :value2 val2
-                     :hyp (new-hyp "Expl" :expl :expl (score expgraph vertex1 val1)
-                                   (not-empty (explainers expgraph vertex1))
-                                   #(hyps-conflict? expgraph %1 %2)
-                                   [] ;; explains -- filled in later
-                                   (format "%s=%s" vertex1 val1)
-                                   (format "%s=%s" vertex1 val1)
-                                   {:vertex vertex1 :value val1})})
-                  explanatory)))
+           {} (map (fn [{:keys [vertex1 val1 vertex2 val2 delta]}]
+                   {:vertex vertex1 :value val1 :vertex2 vertex2 :value2 val2
+                    :hyp (new-hyp "Expl" :expl :expl (score expgraph vertex1 val1)
+                                  (not-empty (explainers expgraph vertex1))
+                                  #(hyps-conflict? expgraph %1 %2)
+                                  [] ;; explains -- filled in later
+                                  (format "%s=%s" vertex1 val1)
+                                  (format "%s=%s" vertex1 val1)
+                                  {:vertex vertex1 :value val1})})
+                 explanatory))
         hyps-explains
         (reduce (fn [m h]
              (let [{:keys [vertex value vertex2 value2 hyp]} h

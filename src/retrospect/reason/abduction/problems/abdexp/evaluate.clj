@@ -11,10 +11,8 @@
 (defn true-hyp?
   [truedata hyp]
   (cond (= :kb (:type hyp)) true
-        (= :expl (:type hyp))
+        (or (= :expl (:type hyp)) (= :observation (:type hyp)))
         (if (= (:value hyp) ((:true-values-map truedata) (:vertex hyp))) true false)
-        (= :observation (:type hyp))
-        (if ((:true-obs truedata) (:vertex hyp)) true false)
         :else false))
 
 (defn count-matches

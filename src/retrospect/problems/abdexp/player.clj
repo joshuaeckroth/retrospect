@@ -114,12 +114,10 @@
 
 (defn generate-expgraph
   []
-  (if (< 0 @time-now)
-    (generate-graph (format-dot-expgraph (:expgraph @truedata))
-                    @canvas listener false
-                    current-expgraph-dot current-expgraph-svg)
-    (generate-graph (digraph) @canvas listener false
-                    current-expgraph-dot current-expgraph-svg)))
+  (generate-graph (format-dot-expgraph (:expgraph @truedata)
+                                       (:true-values-map @truedata))
+                  @canvas listener false
+                  current-expgraph-dot current-expgraph-svg))
 
 (defn player-update-diagram
   [])
@@ -153,11 +151,11 @@
 (defn player-get-truedata-log
   []
   (if (<= @time-now 0) ""
-      (format "True observations:\n%s\n\nFalse observations:\n%s\n\nTrue explainers:\n%s"
-         (str/join ", " (sort (:true-obs @truedata)))
-         (str/join ", " (sort (:false-obs @truedata)))
+      (format "True values:\n%s\n\nFalse values:\n%s"
          (str/join ", " (sort (map (fn [[vertex value]] (format "%s=%s" vertex value))
-                                 (:true-values-map @truedata)))))))
+                                 (:true-values-map @truedata))))
+         (str/join ", " (sort (map (fn [[vertex value]] (format "%s=%s" vertex value))
+                                 (:false-values-map @truedata)))))))
 
 (defn player-get-problem-log
   []

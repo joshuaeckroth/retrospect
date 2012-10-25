@@ -7,6 +7,7 @@
   (:use [clojure.contrib.seq :only [find-first]])
   (:use [loom.graph :only [digraph add-edges nodes incoming]])
   (:use [loom.attr :only [attr add-attr]])
+  (:use [retrospect.problems.abdexp.expgraph])
   (:use [retrospect.state]))
 
 (defn load-bayesnet
@@ -15,23 +16,21 @@
 
 (defn build-bayesnet
   [expgraph]
-  (let [ns (sort (nodes expgraph))
-        vars-str (fn [n]
-                   (let [values (attr expgraph n :values)]
-                     (format "variable \"%s\" { %s }\n" n
+  (let [vs (sort (vertices expgraph))
+        vars-str (fn [v]
+                   (let [vals (values expgraph v)]
+                     (format "variable \"%s\" { %s }\n" v
                              (format "type discrete[%d] { %s };"
-                                     (count values)
-                                     (apply str (map #(format "\"%s\" " %)
-                                                     values))))))
-        probs-str (fn [n]
-                    (let [probs (attr expgraph n :probs)
-                          vars (concat [n] (sort (incoming expgraph n)))]
+                                     (count vals)
+                                     (apply str (map #(format "\"%s\" " %) vals))))))
+        probs-str (fn [v]
+                    (let [vars (concat [v] (sort (explainers expgraph v)))]
                       (format "probability ( %s ) { table %s; }\n"
                               (apply str (map #(format "\"%s\" " %) vars))
-                              (apply str (map #(format "%f " %) probs)))))
+                              (apply str (map #(format "%f " %) (probs expgraph v))))))
         bif (format "network \"network\" {}\n %s %s"
-                    (apply str (map vars-str ns))
-                    (apply str (map probs-str ns)))]
+                    (apply str (map vars-str vs))
+                    (apply str (map probs-str vs)))]
     (BayesNet. (ByteArrayInputStream. (.getBytes bif)))))
 
 (defn get-posterior-marginal
@@ -66,8 +65,6 @@
                                           :values (vec (.get_values v))))
                               g-with-edges vars)]
          (-> g-with-values
-            (add-attr node :id node)
-            (add-attr node :label node)
             (add-attr node :probs
                       (vec (map (fn [i] (.get_value f i))
                               (range (.number_values f)))))
