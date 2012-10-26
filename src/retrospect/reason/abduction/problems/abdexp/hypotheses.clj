@@ -31,6 +31,8 @@
            (and (= :ignore (:subtype hyp2))
                 (= :observation (:subtype hyp1))
                 (= (:vertex hyp2) (:vertex hyp1)))
+           (and (= (:vertex hyp1) (:vertex hyp2))
+                (not= (:value hyp1) (:value hyp2)))
            (conflicts? expgraph
                        [(:vertex hyp1) (:value hyp1)]
                        [(:vertex hyp2) (:value hyp2)]))))
@@ -91,8 +93,10 @@
                          effects-obs-vals (concat effects-vals
                                                   (filter #(effects (first %)) observed))
                          vals (values expgraph vertex)]
-                     (mapcat (fn [v] (map (fn [ev] [v ev]) effects-obs-vals))
-                             (map (fn [val] [vertex val]) vals))))
+                     (mapcat (fn [[v1 val1]]
+                               (map (fn [[e val2]] [[v1 val1] [e val2]])
+                                  effects-obs-vals))
+                             (map (fn [val1] [vertex val1]) vals))))
                  implicated)))))
 
 (defn make-explanation-hyps
@@ -139,17 +143,22 @@
         ;; sensor hyps plus previously-accepted explanations are "observed"
         observed-hyps (reduce (fn [m hyp] (assoc m [(:vertex hyp) (:value hyp)] hyp))
                          {} (concat sensor-hyps (map lookup-hyp (get accepted :expl))))
+        accepted-expls (map (fn [hyp] [(:vertex hyp) (:value hyp)])
+                          (map lookup-hyp (get accepted :expl)))
         ;; just the vertices of the observed
         observed-set (set (map first (keys observed-hyps)))
-        observed-unexplained (doall (filter (fn [[v val]]
-                                         ;; an observed node/value is unexplained if none of its
-                                         ;; accepted immediate parents are explanatory
-                                         (not-any? (fn [[v2 val2]]
-                                                     (explanatory? bn v2 val2 v val (keys observed-hyps)))
-                                                   (mapcat (fn [v2] (values expgraph v2)) (explainers expgraph v))))
-                                       (keys observed-hyps)))
+        observed-unexplained (doall
+                              (filter (fn [[v val]]
+                                   ;; an observed node/value is unexplained if none of its
+                                   ;; accepted immediate parents are explanatory
+                                   (not-any? (fn [[v2 val2]]
+                                               (explanatory? bn v2 val2 v val (keys observed-hyps)))
+                                             (filter #((set (explainers expgraph v)) (first %))
+                                                accepted-expls)))
+                                 ;; keys give us [v val] pairs
+                                 (keys observed-hyps)))
         implicated (doall (filter (fn [v] (not (observed-set v)))
-                             (sorted-by-dep expgraph observed-set)))
+                             (sorted-by-dep expgraph (map first observed-unexplained))))
         explanatory (find-explanatory-assignments bn expgraph implicated (keys observed-hyps))]
     (make-explanation-hyps expgraph explanatory observed-hyps)))
 

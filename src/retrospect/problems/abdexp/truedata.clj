@@ -13,12 +13,12 @@
 (defn arbitrary-path-up
   [expgraph true-values v]
   (loop [path [v]
-         tv (assoc true-values v (rand-nth (sort (values expgraph v))))]
-    (let [ns (incoming expgraph (last path))]
-      (if (empty? ns) tv
-          (let [expl (my-rand-nth (sort ns))]
+         tv (assoc true-values v (my-rand-nth (sort (values expgraph v))))]
+    (let [vs (incoming expgraph (last path))]
+      (if (empty? vs) tv
+          (let [expl (my-rand-nth (sort vs))]
             (recur (conj path expl)
-                   (assoc tv expl (rand-nth (sort (values expgraph v))))))))))
+                   (assoc tv expl (my-rand-nth (sort (values expgraph v))))))))))
 
 (defn new-explainers
   [vertices]

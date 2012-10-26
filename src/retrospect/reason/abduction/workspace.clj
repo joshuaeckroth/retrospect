@@ -123,6 +123,10 @@
   [workspace hyp]
   (get-in workspace [:rejection-reasons (:id hyp)]))
 
+(defn unexplained?
+  [workspace hyp]
+  (#{(:id hyp)} (:sorted-explainers-explained workspace)))
+
 (defn hyp-log
   [workspace hyp]
   (get (:hyp-log workspace) (:id hyp)))

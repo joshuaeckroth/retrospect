@@ -7,7 +7,7 @@
   (:use [retrospect.reason.abduction.workspace
          :only [get-unexp-pct get-noexp-pct calc-doubt calc-coverage
                 accepted? rejected? rejection-reason lookup-hyp update-graph
-                accepted-before? rejected-before?
+                accepted-before? rejected-before? unexplained?
                 accepted-explained accepted-rivals get-no-explainers
                 explainers explains find-conflicts-all]])
   (:use [retrospect.state]))
@@ -157,6 +157,12 @@
               (some #{:scoring} parent-errors) :scoring
               (some #{:no-expl-offered} parent-errors) :no-expl-offered
               :else :conflict-rejection))
+      ;; a true thing was not accepted because it wasn't needed to explain
+      (and (not (accepted? ws hyp))
+           (get-in true-false [:individual (:id hyp)])
+           (= 0 (:Threshold params))
+           (not-any? (fn [e] (unexplained? ws e)) (explains ws hyp)))
+      :superfluous
       ;; a false thing was accepted, or true thing not accepted (and
       ;; threshold = 0); must be an order-dependency error if none
       ;; of the above errors are the cause
@@ -164,7 +170,7 @@
                (not (get-in true-false [:individual (:id hyp)])))
           (and (not (accepted? ws hyp))
                (get-in true-false [:individual (:id hyp)])
-               (= 0 (:Threshold params))))   
+               (= 0 (:Threshold params))))
       :unknown
       ;; else, there was no error
       :else
@@ -259,6 +265,7 @@
             :ErrorsMinApriori (:minapriori errors 0)
             :ErrorsScoring (:scoring errors 0)
             :ErrorsNoExpl (:no-expl-offered errors 0)
+            :ErrorsSuperfluous (:superfluous errors 0)
             :ErrorsUnknown (:unknown errors 0)
             :ErrorsNoError (:no-error errors 0)
             :NoExpCount (reduce + (vals noexp-reasons))
@@ -291,7 +298,7 @@
                                :TrueDeltaAvg :FalseDeltaAvg
                                :Doubt :Coverage :ExplainCycles :HypothesisCount
                                :MetaBranches :ErrorsCount :ErrorsNoise
-                               :ErrorsConflictRejection :ErrorsMinApriori
+                               :ErrorsConflictRejection :ErrorsMinApriori :ErrorsSuperfluous
                                :ErrorsScoring :ErrorsUnknown :ErrorsNoError :NoExpCount
                                :NoExpReasonNoise :NoExpReasonRejectedConflict
                                :NoExpReasonRejectedMinApriori :NoExpReasonNoExpl
