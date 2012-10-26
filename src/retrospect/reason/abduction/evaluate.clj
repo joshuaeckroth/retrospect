@@ -99,8 +99,7 @@
                (accepted? ws hyp)
                (not (get-in true-false [:individual (:id hyp)]))
                (= :observation (:type (accepted-explained ws hyp)))
-               (some #(not (get-in true-false [:individual (:id %)]))
-                  (explains ws hyp))))
+               (not (get-in true-false [:individual (:id (accepted-explained ws hyp))]))))
       :noise
       ;; true thing eliminated due to too-low minapriori
       (and (rejected? ws hyp)
