@@ -91,7 +91,6 @@
                          effects-obs-vals (concat effects-vals
                                                   (filter #(effects (first %)) observed))
                          vals (values expgraph vertex)]
-                     (println "vertex" vertex "effects" effects "effects-no-obs" effects-no-obs "effects-vals" effects-vals "effects-obs-vals" effects-obs-vals "vals" vals)
                      (mapcat (fn [v] (map (fn [ev] [v ev]) effects-obs-vals))
                              (map (fn [val] [vertex val]) vals))))
                  implicated)))))
