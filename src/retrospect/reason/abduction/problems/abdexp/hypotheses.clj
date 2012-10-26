@@ -76,23 +76,25 @@
 
 (defn find-explanatory-assignments
   [bn expgraph implicated observed]
-  (map (fn [[[vertex1 val1] [vertex2 val2]]]
-       {:vertex1 vertex1 :val1 val1
-        :vertex2 vertex2 :val2 val2})
-     (filter (fn [[[vertex1 val1] [vertex2 val2]]]
-          (explanatory? bn vertex1 val1 vertex2 val2 observed))
-        (mapcat (fn [vertex]
-                  (let [effects (set (explains expgraph vertex))
-                        effects-no-obs (set/difference effects (set (map first observed)))
-                        effects-vals (mapcat (fn [e] (map (fn [v] [e v])
-                                                       (values expgraph e)))
-                                             effects-no-obs)
-                        effects-obs-vals (concat effects-vals
-                                                 (filter #(effects (first %)) observed))
-                        vals (values expgraph vertex)]
-                    (mapcat (fn [v] (map (fn [ev] [v ev]) effects-obs-vals))
-                            (map (fn [val] [vertex val]) vals))))
-                implicated))))
+  (doall
+   (map (fn [[[vertex1 val1] [vertex2 val2]]]
+        {:vertex1 vertex1 :val1 val1
+         :vertex2 vertex2 :val2 val2})
+      (filter (fn [[[vertex1 val1] [vertex2 val2]]]
+           (explanatory? bn vertex1 val1 vertex2 val2 observed))
+         (mapcat (fn [vertex]
+                   (let [effects (set (explains expgraph vertex))
+                         effects-no-obs (set/difference effects (set (map first observed)))
+                         effects-vals (mapcat (fn [e] (map (fn [v] [e v])
+                                                        (values expgraph e)))
+                                              effects-no-obs)
+                         effects-obs-vals (concat effects-vals
+                                                  (filter #(effects (first %)) observed))
+                         vals (values expgraph vertex)]
+                     (println "vertex" vertex "effects" effects "effects-no-obs" effects-no-obs "effects-vals" effects-vals "effects-obs-vals" effects-obs-vals "vals" vals)
+                     (mapcat (fn [v] (map (fn [ev] [v ev]) effects-obs-vals))
+                             (map (fn [val] [vertex val]) vals))))
+                 implicated)))))
 
 (defn make-explanation-hyps
   [expgraph explanatory observed-hyps]
@@ -127,7 +129,7 @@
                    (-> m (update-in [[vertex value]] conj (assoc h :hyp hyp2))
                       (assoc [vertex value vertex2 value2] (assoc h :hyp hyp2))))))
            {} (get-hyps hyps-no-explains))]
-    (filter identity (map :hyp (get-hyps hyps-explains)))))
+    (doall (filter identity (map :hyp (get-hyps hyps-explains))))))
 
 (defn hypothesize
   [unexp-hyps accepted lookup-hyp time-now]
@@ -140,18 +142,15 @@
                          {} (concat sensor-hyps (map lookup-hyp (get accepted :expl))))
         ;; just the vertices of the observed
         observed-set (set (map first (keys observed-hyps)))
-        observed-unexplained (filter (fn [[n val]]
-                                  (let [expl (set (explainers expgraph n))]
-                                    ;; an observed node/value is
-                                    ;; unexplained if none of its
-                                    ;; accepted immediate parents are
-                                    ;; explanatory
-                                    (not-any? (fn [[n2 val2]]
-                                                (and (expl n2)
-                                                     (explanatory? bn n2 val2 n val (keys observed-hyps)))))))
-                                (keys observed-hyps))
-        implicated (filter (fn [v] (not (observed-set v)))
-                      (sorted-by-dep expgraph observed-set))
+        observed-unexplained (doall (filter (fn [[v val]]
+                                         ;; an observed node/value is unexplained if none of its
+                                         ;; accepted immediate parents are explanatory
+                                         (not-any? (fn [[v2 val2]]
+                                                     (explanatory? bn v2 val2 v val (keys observed-hyps)))
+                                                   (mapcat (fn [v2] (values expgraph v2)) (explainers expgraph v))))
+                                       (keys observed-hyps)))
+        implicated (doall (filter (fn [v] (not (observed-set v)))
+                             (sorted-by-dep expgraph observed-set)))
         explanatory (find-explanatory-assignments bn expgraph implicated (keys observed-hyps))]
     (make-explanation-hyps expgraph explanatory observed-hyps)))
 
