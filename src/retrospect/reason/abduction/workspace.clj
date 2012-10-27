@@ -649,16 +649,20 @@
   (prof :add-sensor-hyps
         (let [hs ((:make-sensor-hyps-fn (:abduction @problem))
                   sensors time-prev time-now
-                  (:accepted workspace) (partial lookup-hyp workspace))]
+                  (:accepted workspace) (:hypotheses workspace)
+                  (partial lookup-hyp workspace))]
           (reduce #(add-observation %1 %2 cycle) workspace hs))))
 
 (defn add-kb
   [workspace hyps]
   (prof :add-kb
         (reduce (fn [ws h]
-             (-> ws (add h)
-                (update-in [:accepted (:type h)] conjs (:id h))
-                (update-in [:accepted :all] conjs (:id h))))
+             (let [ws-added (add ws h)]
+               (if (= :kb (:type h))
+                 (-> ws-added
+                    (update-in [:accepted (:type h)] conjs (:id h))
+                    (update-in [:accepted :all] conjs (:id h)))
+                 ws-added)))
            workspace hyps)))
 
 (defn remove-kb

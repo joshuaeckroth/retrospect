@@ -94,7 +94,7 @@
                      (= (:ot mov1) (:ot mov2))))))))))
 
 (defn make-sensor-hyps
-  [sensors time-prev time-now accepted lookup-hyp]
+  [sensors time-prev time-now accepted all-hyps lookup-hyp]
   (prof :make-sensor-hyps
         (doall
          (if (= time-prev time-now) []

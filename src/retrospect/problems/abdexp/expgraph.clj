@@ -12,7 +12,7 @@
 
 (defn score
   [expgraph vertex value]
-  (or (get (attr expgraph vertex :scores) value 0.0) 0.0))
+  (get (attr expgraph vertex :scores) value 0.0))
 
 (defn scores
   [expgraph vertex]
@@ -112,6 +112,11 @@
   [expgraph & vertices]
   (reduce (fn [g v] (-> g (turn-on v) (add-attr v :forced true))) expgraph vertices))
 
+(defn conflicts-vertices?
+  [expgraph v1 v2]
+  (or (attr expgraph v1 v2 :conflicts)
+      (attr expgraph v2 v1 :conflicts)))
+
 (defn conflicts?
   [expgraph [v1 val1] [v2 val2]]
   (or (= (attr expgraph v1 v2 :conflicts) [val1 val2])
@@ -145,14 +150,14 @@
 
 (defn sorted-by-dep
   ([expgraph]
-     (sorted-by-dep expgraph (bottom-nodes expgraph)))
+     (sorted-by-dep expgraph nil))
   ([expgraph starts]
-     (rest (topsort (reduce (fn [g v] (add-edges g [-1 v]))
-                       (let [conflicts-edges (filter #(apply conflicts? expgraph %)
+     (let [eg (let [conflicts-edges (filter #(apply conflicts-vertices? expgraph %)
                                                 (edges expgraph))]
-                         (transpose (apply remove-edges expgraph conflicts-edges)))
-                       starts)
-                    -1))))
+                (apply remove-edges expgraph conflicts-edges))]
+       (rest (topsort (reduce (fn [g v] (add-edges g [-1 v])) (transpose eg)
+                         (or starts (bottom-nodes eg)))
+                      -1)))))
 
 (defn format-dot-expgraph
   [expgraph true-values-map]
