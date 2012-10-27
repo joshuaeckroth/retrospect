@@ -435,10 +435,10 @@
                                  (prof :accept-reject-many
                                        (reject-many ws-expl conflicts :conflict cycle))
                                  ws-expl)
-                  ws-needs-exp (if-not ((:needs-explanation ws-conflicts) (:id hyp))
+                  ws-needs-exp (if (or (not ((:needs-explanation ws-conflicts) (:id hyp)))
+                                       (some #(accepted? ws-conflicts %) (explainers ws-conflicts hyp)))
                                  ws-conflicts
-                                 (prof :accept-needs-exp
-                                       (assoc-needing-explanation ws-conflicts hyp)))]
+                                 (assoc-needing-explanation ws-conflicts hyp))]
               (update-in ws-needs-exp [:accrej :acc] conj hyp)))))
 
 (defn add-observation
