@@ -24,7 +24,7 @@
        ((:calc-coverage-fn @reasoner) workspace)
        (if decision-point " *" ""))))
 
-(defrecord RootNode [children workspace meta-est])
+(defrecord RootNode [children workspace meta-est last-id])
 
 (defn clone-ep
   [ep id children]
@@ -42,28 +42,31 @@
   (make-node [ep children] (assoc ep :children children)))
 
 (defn zip-est
-  [ep-states workspace meta-est]
+  [ep-states workspace meta-est last-id]
   (zip/zipper branch? node-children make-node
-              (RootNode. ep-states workspace meta-est)))
+              (RootNode. ep-states workspace meta-est last-id)))
 
 (defn flatten-est
   [est]
   (if (nil? est) []
-      (loop [loc (zip/down (zip-est (:children (zip/root est))
-                                    (:workspace (zip/root est))
-                                    (:meta-est (zip/root est))))
-             states []]
-        (if (zip/end? loc) states
-            (recur (zip/next loc) (conj states (zip/node loc)))))))
+      (let [root (zip/root est)]
+        (loop [loc (zip/down (zip-est (:children root)
+                                      (:workspace root)
+                                      (:meta-est root)
+                                      (:last-id root)))
+               states []]
+          (if (zip/end? loc) states
+              (recur (zip/next loc) (conj states (zip/node loc))))))))
 
 (defn make-ep-id
   ([] "0001")
-  ([est] (format "%04d" (count (flatten-est est)))))
+  ([est] (format "%04d" (+ 1 (Integer/parseInt (:last-id (zip/root est)))))))
 
 (defn init-est
   [workspace]
-  (zip/down (zip-est [(EpistemicState. (make-ep-id) [] 0 0 false [] workspace nil)]
-                     workspace nil)))
+  (let [ep-id (make-ep-id)]
+    (zip/down (zip-est [(EpistemicState. ep-id [] 0 0 false [] workspace nil)]
+                       workspace nil ep-id))))
 
 (defn get-init-workspace
   [est]
@@ -84,12 +87,14 @@
 
 (defn goto-ep
   [est id]
-  (loop [loc (zip/down (zip-est (:children (zip/root est))
-                                (:workspace (zip/root est))
-                                (:meta-est (zip/root est))))]
-    (cond (zip/end? loc) nil
-          (= id (:id (zip/node loc))) loc
-          :else (recur (zip/next loc)))))
+  (let [root (zip/root est)]
+    (loop [loc (zip/down (zip-est (:children root)
+                                  (:workspace root)
+                                  (:meta-est root)
+                                  (:last-id root)))]
+      (cond (zip/end? loc) nil
+            (= id (:id (zip/node loc))) loc
+            :else (recur (zip/next loc))))))
 
 (defn goto-cycle
   [est cycle]
@@ -151,16 +156,24 @@
 
 (defn new-branch-ep
   [est branch]
-  (let [ep (assoc (clone-ep branch (make-ep-id est) [])
-             :decision-point false)]
+  (let [ep-id (make-ep-id est)
+        ep (assoc (clone-ep branch ep-id []) :decision-point false)
+        new-root (assoc (zip/root est) :last-id ep-id)
+        new-root-est (zip-est (:children new-root) (:workspace new-root)
+                              (:meta-est new-root) (:last-id new-root))]
     ;; make a branch; the choice of "insert-right" over "insert-left" here
     ;; is what makes (list-ep-states) possible, since depth-first search
     ;; looks left before looking right
-    (zip/right (zip/insert-right (goto-ep est (:id branch)) ep))))
+    (zip/right (zip/insert-right (goto-ep new-root-est (:id branch)) ep))))
 
 (defn new-child-ep
   [est]
-  (let [ep-child (assoc (clone-ep (cur-ep est) (make-ep-id est) [])
-                   :decision-point false)
-        cycle-child (inc (:cycle (cur-ep est)))]
-    (zip/down (zip/append-child est (assoc ep-child :cycle cycle-child)))))
+  (let [cycle-child (inc (:cycle (cur-ep est)))
+        ep-id (make-ep-id est)
+        ep-child (assoc (clone-ep (cur-ep est) ep-id []) :decision-point false)
+        new-root (assoc (zip/root est) :last-id ep-id)
+        new-est (goto-ep
+                 (zip-est (:children new-root) (:workspace new-root)
+                          (:meta-est new-root) (:last-id new-root))
+                 (:id (cur-ep est)))]
+    (zip/down (zip/append-child new-est (assoc ep-child :cycle cycle-child)))))
