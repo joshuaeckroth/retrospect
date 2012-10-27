@@ -217,7 +217,7 @@
   (prof :update-sorted-explainers
         (do
           (log "Updating sorted explainers.")
-          (let [expls (doall
+          (let [expls (set
                        (map (fn [hypid]
                             {:hyp (lookup-hyp workspace hypid)
                              :expl (doall
@@ -386,10 +386,16 @@
                     (do (log "...yet" prior-hyp "was rejected, so not adding.")
                         (-> ws (dissoc-in [:sorted-explainers prior-hyp-id])
                            (dissoc-explainer prior-hyp-updated))))
-                  ;; otherwise, was not previously rejected, so just
-                  ;; leave it with its explainers updated, etc. (from
-                  ;; above)
-                  ws)))
+                  ;; otherwise, it may conflict with an accepted hyp
+                  (if (and (:conflicts?-fn hyp)
+                           (some (fn [hyp2] ((:conflicts?-fn hyp) hyp hyp2))
+                              (map #(lookup-hyp ws %) (:all (:accepted ws)))))
+                    (do (log "...yet it conflicts with an already accepted hyp, so not adding.")
+                        (-> ws (dissoc-in [:sorted-explainers prior-hyp-id])
+                           (dissoc-explainer prior-hyp-updated)))
+                    ;; otherwise, just leave it with its explainers
+                    ;; updated, etc. (from above)
+                    ws))))
             ;; otherwise, add the new hyp
             (let [hyp-apriori (update-hyp-apriori workspace hyp)]
               (-> workspace
@@ -424,7 +430,7 @@
                   ws-expl (dissoc-needing-explanation ws-hyplog (explains workspace hyp))
                   conflicts (prof :accept-conflicts
                                   (when (:conflicts?-fn hyp)
-                                    (find-conflicts ws-expl hyp)))
+                                    (find-conflicts-all ws-expl hyp)))
                   ws-conflicts (if conflicts
                                  (prof :accept-reject-many
                                        (reject-many ws-expl conflicts :conflict cycle))
