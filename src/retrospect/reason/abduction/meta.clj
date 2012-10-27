@@ -48,8 +48,8 @@
                        (metareasoning-activated? est-new))
             est-meta (if (not meta?) est-new
                          (metareason est-new time-prev time-now sensors))]
-        ;; if something was accepted last or we did metareasoning, repeat
-        (if (or meta? (:best (:accrej (:workspace (cur-ep est-meta)))))
+        ;; if something was accepted last, repeat
+        (if (:best (:accrej (:workspace (cur-ep est-meta))))
           (recur est-meta) est-meta)))))
 
 (defn meta-apply-and-evaluate
