@@ -9,11 +9,22 @@
 (defn hyps-conflict?
   [expgraph hyp1 hyp2]
   (and (not= (:id hyp1) (:id hyp2))
-       (or (and (= (:vertex hyp1) (:vertex hyp2))
+       (or (and (= (:type hyp1) (:type hyp2))
+                (= (:vertex hyp1) (:vertex hyp2))
                 (not= (:value hyp1) (:value hyp2)))
            (conflicts? expgraph
                        [(:vertex hyp1) (:value hyp1)]
                        [(:vertex hyp2) (:value hyp2)]))))
+
+(defn make-hyp
+  [expgraph hyps v val]
+  (new-hyp "Expl" :expl :expl (score expgraph v val)
+           (not-empty (explainers expgraph v)) #(hyps-conflict? expgraph %1 %2)
+           (map #(:contents (get hyps %))
+              (mapcat (fn [v2] (map (fn [val2] [v2 val2]) (values expgraph v2)))
+                      (explains expgraph v)))
+           (format "%s=%s" v val) (format "%s=%s" v val)
+           {:vertex v :value val}))
 
 (defn make-hyps
   [expgraph]
@@ -22,22 +33,11 @@
     (if (empty? vertices)
       (doall
        (mapcat (fn [v] (map (fn [val] (get hyps [v val])) (values expgraph v)))
-             (sorted-by-dep expgraph)))
+               (sorted-by-dep expgraph)))
       (let [v (first vertices)
             vals (values expgraph v)]
         (recur
-         (reduce (fn [m val]
-              (assoc m [v val]
-                     (new-hyp "Expl" :expl :expl
-                              (score expgraph v val)
-                              (not-empty (explainers expgraph v))
-                              #(hyps-conflict? expgraph %1 %2)
-                              (map #(:contents (get hyps %))
-                                 (mapcat (fn [v2] (map (fn [val2] [v2 val2])
-                                                  (values expgraph v2)))
-                                       (explains expgraph v)))
-                              (format "%s=%s" v val) (format "%s=%s" v val)
-                              {:vertex v :value val})))
+         (reduce (fn [m val] (assoc m [v val] (make-hyp expgraph hyps v val)))
             hyps (values expgraph v))
          (rest vertices))))))
 
@@ -64,10 +64,14 @@
   "Pick out the hyps that have been observed."
   [sensors time-prev time-now accepted all-hyps lookup-hyp]
   (if (= time-prev time-now) []
-      (let [observed (set (mapcat #(sensed-at (first sensors) %)
+      (let [expgraph (:expgraph (get-kb accepted lookup-hyp))
+            observed (set (mapcat #(sensed-at (first sensors) %)
                                   (range (inc time-now))))]
-        (filter (fn [hyp] (observed [(:vertex hyp) (:value hyp)]))
-           (map lookup-hyp (:all all-hyps))))))
+        (for [[v val] observed]
+          (new-hyp "Obs" :observation :observation
+                   1.0 true #(hyps-conflict? expgraph %1 %2)
+                   [] (format "Observed %s=%s" v val) (format "Observed %s=%s" v val)
+                   {:vertex v :value val})))))
 
 (defn explanatory?-delta
   "Is P(vertex2=val2|vertex1=val1) > P(vertex2=val2)? If so,
@@ -87,6 +91,11 @@
         :else true))
 
 (defn hypothesize
-  [unexp-hyps accepted lookup-hyp time-now]
-  [])
+  [unexp-hyps accepted all-hyps lookup-hyp time-now]
+  (let [obs-hyps (filter #(= :observation (:type %)) unexp-hyps)
+        hyp-map (reduce (fn [m h] (assoc m [(:vertex h) (:value h)] h))
+                   {} (map lookup-hyp (:expl all-hyps)))]
+    (for [obs-hyp obs-hyps]
+      (update-in (get hyp-map [(:vertex obs-hyp) (:value obs-hyp)])
+                 [:explains] conj (:contents obs-hyp)))))
 

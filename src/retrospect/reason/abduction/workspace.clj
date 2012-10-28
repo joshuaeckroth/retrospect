@@ -640,7 +640,7 @@
   (prof :get-explaining-hypotheses
         ((:hypothesize-fn (:abduction @problem))
          (map #(lookup-hyp workspace %) (:sorted-explainers-explained workspace))
-         (:accepted workspace)
+         (:accepted workspace) (:hypotheses workspace)
          (partial lookup-hyp workspace) time-now)))
 
 (defn update-hypotheses
