@@ -23,7 +23,8 @@
            (map #(:contents (get hyps %))
               (mapcat (fn [v2] (map (fn [val2] [v2 val2]) (values expgraph v2)))
                       (explains expgraph v)))
-           (format "%s=%s" v val) (format "%s=%s" v val)
+           (format "%s=%s" v val)
+           (format "%s=%s\ninitial score: %.2f" v val (score expgraph v val))
            {:vertex v :value val}))
 
 (defn make-hyps
@@ -53,9 +54,6 @@
   [accepted lookup-hyp]
   (first (filter :expgraph (map lookup-hyp (get accepted :kb)))))
 
-;; hyps are identified by their # (or category?); update-kb thinks the
-;; accepted ones are more common; adjusts the apriori scores; maybe
-;; even decides the apriori scores
 (defn update-kb
   [accepted unexplained hypotheses lookup-hyp]
   (map lookup-hyp (get accepted :kb)))
@@ -82,7 +80,7 @@
   (let [prior (get-posterior-marginal bn vertex2 val2)]
     (observe bn vertex1 val1)
     (let [posterior (get-posterior-marginal bn vertex2 val2)]
-      (< 0.0 (- posterior prior)))))
+      (> posterior prior))))
 
 (defn explanatory?
   [bn vertex1 val1 vertex2 val2 observed]
@@ -90,12 +88,49 @@
         (explanatory?-delta bn vertex1 val1 vertex2 val2 observed)
         :else true))
 
+(defn update-explanatory
+  "Returns a hyp map (keyed by [vertex value]) of all hyps in the
+   graph with their :explains info updated to respect
+   the :ExplanatoryDef parameter and the current accepted hyps, which
+   are taken to be observations."
+  [expgraph bn acc-hyps expl-hyps]
+  (let [observed (map (fn [h] [(:vertex h) (:value h)]) acc-hyps)
+        find-explains (fn [h] (let [vs-vals
+                                   (mapcat (fn [v2] (map (fn [val2] [v2 val2])
+                                                      (values expgraph v2)))
+                                           (explains expgraph (:vertex h)))]
+                               (filter (fn [[v2 val2]]
+                                    (explanatory? bn (:vertex h) (:value h)
+                                                  v2 val2 observed))
+                                  vs-vals)))]
+    ;; update hyps in hyp map with what they explain
+    (reduce (fn [m h] (assoc-in m [[(:vertex h) (:value h)] :explains]
+                          (map #(:contents (get m %)) (find-explains h))))
+       ;; initialize hyp map
+       (reduce (fn [m h] (assoc m [(:vertex h) (:value h)] h))
+          {} expl-hyps)
+       expl-hyps)))
+
 (defn hypothesize
   [unexp-hyps accepted all-hyps lookup-hyp time-now]
-  (let [obs-hyps (filter #(= :observation (:type %)) unexp-hyps)
-        hyp-map (reduce (fn [m h] (assoc m [(:vertex h) (:value h)] h))
-                   {} (map lookup-hyp (:expl all-hyps)))]
-    (for [obs-hyp obs-hyps]
-      (update-in (get hyp-map [(:vertex obs-hyp) (:value obs-hyp)])
-                 [:explains] conj (:contents obs-hyp)))))
+  (let [kb (get-kb accepted lookup-hyp)
+        bn (:bayesnet kb)
+        expgraph (:expgraph kb)
+        obs-hyps (filter #(= :observation (:type %)) unexp-hyps)
+        acc-hyps (map lookup-hyp (concat (:expl accepted) (:observation accepted)))
+        expl-hyps (map lookup-hyp (:expl all-hyps))
+        hyp-map (update-explanatory expgraph bn acc-hyps expl-hyps)]
+    ;; now update scores
+    (unobserve-all bn)
+    (observe-seq bn (map (fn [h] [(:vertex h) (:value h)]) acc-hyps))
+    (let [hyp-map-scores (reduce (fn [m [v val]]
+                              (assoc-in m [[v val] :apriori]
+                                        (get-posterior-marginal bn v val)))
+                            hyp-map (keys hyp-map))]
+      (vals (reduce (fn [m obs-hyp]
+                 ;; update existing expl hyps that are equivalent to obs hyps, so
+                 ;; that each expl hyp explains its corresponding obs hyp
+                 (update-in m [[(:vertex obs-hyp) (:value obs-hyp)] :explains]
+                            conj (:contents obs-hyp)))
+               hyp-map-scores obs-hyps)))))
 

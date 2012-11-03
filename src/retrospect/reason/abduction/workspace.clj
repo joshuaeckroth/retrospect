@@ -287,17 +287,28 @@
                 (update-in [:sorted-explainers (:id h)] conjs (:id hyp))))
            (assoc workspace :dirty true) (explains workspace hyp))))
 
+(defn forget-explainer
+  [workspace hyp]
+  (reduce (fn [ws h]
+       (log (format "Forgetting that %s explains %s" (str hyp) (str h)))
+       (-> ws
+          (update-in [:explainers (:id h)] disj (:id hyp))
+          (assoc-in [:sorted-explainers (:id h)]
+                    (filter #(not= (:id hyp) %)
+                       (get-in ws [:sorted-explainers (:id h)])))))
+     (assoc workspace :dirty true) (explains workspace hyp)))
+
 (defn dissoc-explainer
   "Given some hypothesis, dissociate it as a potential explainer for
    anything."
   [workspace hyp]
   (prof :dissoc-explainer
-        (do
-          (log (format "Dissociating %s as an explainer" (str hyp)))
-          (reduce (fn [ws h] (assoc-in ws [:sorted-explainers (:id h)]
-                                 (filter #(not= (:id hyp) %)
-                                    (get-in ws [:sorted-explainers (:id h)]))))
-             workspace (explains workspace hyp)))))
+        (reduce (fn [ws h]
+             (log (format "Dissociating %s as an explainer of %s" (str hyp) (str h)))
+             (assoc-in ws [:sorted-explainers (:id h)]
+                       (filter #(not= (:id hyp) %)
+                          (get-in ws [:sorted-explainers (:id h)]))))
+           workspace (explains workspace hyp))))
 
 ;; forward declaration so (reject-many) can refer to (add) and vice versa
 (declare add)
@@ -367,10 +378,11 @@
                                        (:explains prior-hyp-updated)))]
               (log hyp "is already in the workspace as" prior-hyp-updated
                    ", so updating what it explains:" new-explains)
-              (let [ws (-> workspace 
-                          (update-in [:explains prior-hyp-id] set/union explains)
-                          (record-if-needs-explanation prior-hyp-updated)
-                          (assoc-explainer prior-hyp-updated))]
+              (let [ws (-> workspace
+                          (forget-explainer prior-hyp-updated)
+                          (assoc-in [:explains prior-hyp-id] new-explains)
+                          (assoc-explainer prior-hyp-updated)
+                          (record-if-needs-explanation prior-hyp-updated))]
                 (if ((get-in ws [:rejected :all]) prior-hyp-id)
                   ;; if it was rejected due to :minapriori and it
                   ;; would not again be rejected for the same reason,
