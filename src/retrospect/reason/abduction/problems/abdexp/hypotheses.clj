@@ -71,21 +71,35 @@
                    [] (format "Observed %s=%s" v val) (format "Observed %s=%s" v val)
                    {:vertex v :value val})))))
 
-(defn explanatory?-delta
-  "Is P(vertex2=val2|vertex1=val1) > P(vertex2=val2)? If so,
-   vertex1=val1 is explanatory (according to Gardenfors)."
+(defn explanatory?-gardenfors-delta
+  "Is P(vertex2=val2|vertex1=val1) > P(vertex2=val2) and
+   P(vertex1=val1) < 1? If so, vertex1=val1 is explanatory
+   (according to Gardenfors)."
+  [bn vertex1 val1 vertex2 val2 observed]
+  (unobserve-all bn)
+  (let [prior (get-posterior-marginal bn vertex1 val2)]
+    (and (< prior 1.0)
+         (do (observe-seq bn (filter #(not= vertex2 (first %)) observed))
+             (let [prior (get-posterior-marginal bn vertex2 val2)]
+               (observe bn vertex1 val1)
+               (let [posterior (get-posterior-marginal bn vertex2 val2)]
+                 (> posterior prior)))))))
+
+(defn explanatory?-conditional
+  "Is P(vertex2=val2|vertex1=val1) > 0.5?"
   [bn vertex1 val1 vertex2 val2 observed]
   (unobserve-all bn)
   (observe-seq bn (filter #(not= vertex2 (first %)) observed))
-  (let [prior (get-posterior-marginal bn vertex2 val2)]
-    (observe bn vertex1 val1)
-    (let [posterior (get-posterior-marginal bn vertex2 val2)]
-      (> posterior prior))))
+  (observe bn vertex1 val1)
+  (let [posterior (get-posterior-marginal bn vertex2 val2)]
+    (> posterior 0.5)))
 
 (defn explanatory?
   [bn vertex1 val1 vertex2 val2 observed]
   (cond (= "gardenfors-delta" (:ExplanatoryDef state/params))
-        (explanatory?-delta bn vertex1 val1 vertex2 val2 observed)
+        (explanatory?-gardenfors-delta bn vertex1 val1 vertex2 val2 observed)
+        (= "conditional" (:ExplanatoryDef state/params))
+        (explanatory?-conditional bn vertex1 val1 vertex2 val2 observed)
         :else true))
 
 (defn update-explanatory
