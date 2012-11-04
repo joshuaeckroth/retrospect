@@ -151,8 +151,11 @@
                                  (reduce (fn [tv v] (arbitrary-path-up eg-values tv v)) {} os)))
           ;; different false-obs for each eg-score/true-set
           false-values-maps (for [true-values true-values-maps]
-                              (reduce (fn [m v] (assoc m v (my-rand-nth (sort (values eg-values v)))))
-                                 {} (filter #(not (true-values %)) vs)))
+                              (reduce (fn [m v]
+                                   (let [choices (filter #(not= (true-values v) %)
+                                                    (values eg-values v))]
+                                     (assoc m v (my-rand-nth (sort choices)))))
+                                 {} vs))
           conflict-links (gen-conflicts-links true-values-maps eg-values vs)
           eg-conflicts (reduce set-conflicts eg-values conflict-links)
           ;; a different eg-score for each true-set
