@@ -115,15 +115,16 @@
           p-true (max 0.0 (min 1.0 (my-rand-gauss
                                     (:TrueAprioriMean params)
                                     (:TrueAprioriVariance params))))
-          p-false1 (* (my-rand) (- 1.0 p-true))
-          p-false2 (- 1.0 p-true p-false1)]
-      (assoc (zipmap (filter #(not= val %) (values eg v))
-                     [p-false1 p-false2])
+          p-falses (repeatedly (dec (count (values eg v))) #(my-rand))
+          p-falses-sum (reduce + p-falses)
+          p-falses-normalized (map #(* (- 1.0 p-true) (/ % p-falses-sum)) p-falses)]
+      (assoc (zipmap (filter #(not= val %) (sort (values eg v)))
+                     p-falses-normalized)
         (true-values v) p-true))
-    (let [probs (repeatedly 3 #(my-rand))
+    (let [probs (repeatedly (count (values eg v)) #(my-rand))
           probs-sum (reduce + probs)
           probs-normalized (map #(/ % probs-sum) probs)]
-      (zipmap (values eg v) probs-normalized))))
+      (zipmap (sort (values eg v)) probs-normalized))))
 
 (defn gen-scores
   [expgraph vs true-values-maps]
@@ -132,6 +133,10 @@
          (let [scores (random-scores eg true-values v (neighbors eg v))]
            (add-attr eg v :scores scores)))
        expgraph vs)))
+
+(defn rand-vals
+  []
+  (map str (range 1 (inc (my-rand-nth (range 2 (inc (:MaxStates params))))))))
 
 (defn random-expgraph
   []
@@ -142,7 +147,7 @@
           ;; always three states ("values") for a vertex
           eg-values (reduce (fn [eg v]
                          (-> eg (add-attr v :id v)
-                            (add-attr v :values ["1" "2" "3"])))
+                            (add-attr v :values (rand-vals))))
                        eg vs)
           observation-sets (gen-observation-sets vs)
           ;; a true-values map for each observation-set

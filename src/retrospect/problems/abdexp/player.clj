@@ -53,7 +53,7 @@
                      vertex
                      ;; prior
                      (str/join ", " (map (fn [[value score]] (format "%s: %.2f" value score))
-                                       (scores (:expgraph @truedata) vertex)))
+                                       (sort-by first (scores (:expgraph @truedata) vertex))))
                      ;; observed
                      (if-let [val (second (first (filter (fn [[n v]] (= n vertex))
                                                     (apply concat (take (inc @time-now)
