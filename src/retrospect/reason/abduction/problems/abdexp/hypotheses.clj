@@ -96,7 +96,7 @@
 
 (defn explanatory?
   [bn vertex1 val1 vertex2 val2 observed]
-  (cond (= "gardenfors-delta" (:ExplanatoryDef state/params))
+  (cond (= "gardenfors" (:ExplanatoryDef state/params))
         (explanatory?-gardenfors-delta bn vertex1 val1 vertex2 val2 observed)
         (= "conditional" (:ExplanatoryDef state/params))
         (explanatory?-conditional bn vertex1 val1 vertex2 val2 observed)

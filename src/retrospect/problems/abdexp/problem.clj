@@ -50,4 +50,4 @@
     :FalseAprioriVariance [0.3 [0.3]]
     :TrueAprioriMean [0.6 [0.6]]
     :TrueAprioriVariance [0.3 [0.3]]
-    :ExplanatoryDef ["gardenfors-delta" "always-true"]}})
+    :ExplanatoryDef ["gardenfors" "always-true" "conditional"]}})
