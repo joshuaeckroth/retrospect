@@ -176,13 +176,13 @@
      (str/join "\n"
                (map (fn [v]
                     (let [vals (values expgraph v)]
-                      (format "%s [label=<<table border=\"0\" cellborder=\"1\" cellspacing=\"0\" cellpadding=\"6\"><tr>%s</tr></table>>];"
-                         v (apply str (map (fn [val]
-                                           (format "<td port=\"%s_%s\" bgcolor=\"%s\">%s=%s</td>"
-                                              v val
-                                              (if (= val (true-values-map v))
-                                                "#eeeeee" "#ffffff")
-                                              v val))
-                                         vals)))))
+                      (format "%s [id=\"%s\", label=<<table border=\"0\" cellborder=\"1\" cellspacing=\"0\" cellpadding=\"6\"><tr>%s</tr></table>>];"
+                         v v (apply str (map (fn [val]
+                                             (format "<td port=\"%s_%s\" bgcolor=\"%s\">%s=%s</td>"
+                                                v val
+                                                (if (= val (true-values-map v))
+                                                  "#eeeeee" "#ffffff")
+                                                v val))
+                                           vals)))))
                   (vertices expgraph)))
      ))
