@@ -10,14 +10,6 @@
   [expgraph vertex]
   ((nodes expgraph) vertex))
 
-(defn score
-  [expgraph vertex value]
-  (get (attr expgraph vertex :scores) value 0.0))
-
-(defn scores
-  [expgraph vertex]
-  (or (attr expgraph vertex :scores) []))
-
 (defn values
   [expgraph vertex]
   (or (attr expgraph vertex :values) []))
@@ -34,7 +26,11 @@
 
 (defn probs
   [expgraph vertex]
-  (or (attr expgraph vertex :probs) []))
+  (or (attr expgraph vertex :probs) {:table [] :map {}}))
+
+(defn prob
+  [expgraph vertex value parent-vals]
+  (get-in (:map (probs expgraph vertex)) [(set parent-vals) value]))
 
 (defn observation?
   [vertex]

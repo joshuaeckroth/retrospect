@@ -7,10 +7,11 @@
   (:use [retrospect.state]))
 
 (defn insertion-noise
-  [observations false-values-map]
+  [observations expgraph]
   (if (< (my-rand) (/ (double (:SensorInsertionNoise params)) 100.0))
-    (let [false-obs (my-rand-nth (sort (keys false-values-map)))]
-      (conj observations [false-obs (false-values-map false-obs)]))
+    ;; if we're adding noise, grab a random vertex and random value
+    (let [v (my-rand-nth (sort (vertices expgraph)))]
+      (conj observations [v (my-rand-nth (sort (values expgraph v)))]))
     observations))
 
 (defn deletion-noise
@@ -25,10 +26,10 @@
   [sensor test time]
   (let [observations (get test time)]
     (add-sensed sensor time (-> observations
-                               (insertion-noise (:false-values-map (meta sensor)))
+                               (insertion-noise (:expgraph (meta sensor)))
                                (deletion-noise)
                                (distortion-noise)))))
 
 (defn generate-sensors
   [training]
-  [(init-sensor "expgraph" sense {:false-values-map (:false-values-map training)})])
+  [(init-sensor "expgraph" sense {:expgraph (:expgraph training)})])

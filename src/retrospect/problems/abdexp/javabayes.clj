@@ -27,7 +27,7 @@
                     (let [vars (concat [v] (sort (explainers expgraph v)))]
                       (format "probability ( %s ) { table %s; }\n"
                               (apply str (map #(format "\"%s\" " %) vars))
-                              (apply str (map #(format "%f " %) (probs expgraph v))))))
+                              (apply str (map #(format "%f " %) (:table (probs expgraph v)))))))
         bif (format "network \"network\" {}\n %s %s"
                     (apply str (map vars-str vs))
                     (apply str (map probs-str vs)))]

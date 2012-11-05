@@ -17,18 +17,20 @@
                        [(:vertex hyp2) (:value hyp2)]))))
 
 (defn make-hyp
-  [expgraph hyps v val]
-  (new-hyp "Expl" :expl :expl (score expgraph v val)
-           (not-empty (explainers expgraph v)) #(hyps-conflict? expgraph %1 %2)
-           (map #(:contents (get hyps %))
-              (mapcat (fn [v2] (map (fn [val2] [v2 val2]) (values expgraph v2)))
-                      (explains expgraph v)))
-           (format "%s=%s" v val)
-           (format "%s=%s\ninitial score: %.2f" v val (score expgraph v val))
-           {:vertex v :value val}))
+  [expgraph bn hyps v val]
+  (let [score (get-posterior-marginal bn v val)]
+    (new-hyp "Expl" :expl :expl score
+             (not-empty (explainers expgraph v)) #(hyps-conflict? expgraph %1 %2)
+             (map #(:contents (get hyps %))
+                (mapcat (fn [v2] (map (fn [val2] [v2 val2]) (values expgraph v2)))
+                        (explains expgraph v)))
+             (format "%s=%s" v val)
+             (format "%s=%s\ninitial score: %.2f" v val score)
+             {:vertex v :value val})))
 
 (defn make-hyps
-  [expgraph]
+  [expgraph bn]
+  (unobserve-all bn)
   (loop [hyps {}
          vertices (sorted-by-dep expgraph)]
     (if (empty? vertices)
@@ -38,7 +40,7 @@
       (let [v (first vertices)
             vals (values expgraph v)]
         (recur
-         (reduce (fn [m val] (assoc m [v val] (make-hyp expgraph hyps v val)))
+         (reduce (fn [m val] (assoc m [v val] (make-hyp expgraph bn hyps v val)))
             hyps (values expgraph v))
          (rest vertices))))))
 
@@ -46,7 +48,7 @@
   "This function introduces the whole expgraph so that it is ready to
    use when reasoning starts."
   [training]
-  (conj (make-hyps (:expgraph training))
+  (conj (make-hyps (:expgraph training) (:bayesnet training))
         (new-hyp "KB" :kb :kb 1.0 false nil [] "" ""
                  {:expgraph (:expgraph training) :bayesnet (:bayesnet training)})))
 

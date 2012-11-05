@@ -1,5 +1,6 @@
 (ns retrospect.problems.abdexp.truedata
   (:use [clojure.set :only [difference]])
+  (:use [loom.io :only [view]])
   (:use [loom.graph])
   (:use [loom.alg])
   (:use [loom.attr])
@@ -9,16 +10,6 @@
   (:use [retrospect.problems.abdexp.javabayes :only [build-bayesnet]])
   (:use [retrospect.random])
   (:use [retrospect.state]))
-
-(defn arbitrary-path-up
-  [expgraph true-values v]
-  (loop [path [v]
-         tv (assoc true-values v (my-rand-nth (sort (values expgraph v))))]
-    (let [vs (incoming expgraph (last path))]
-      (if (empty? vs) tv
-          (let [expl (my-rand-nth (sort vs))]
-            (recur (conj path expl)
-                   (assoc tv expl (my-rand-nth (sort (values expgraph v))))))))))
 
 (defn new-explainers
   [vertices]
@@ -36,27 +27,6 @@
            (my-shuffle
             (concat (new-explainers vertices)
                     (reuse-explainers vertices reuse-n))))))
-
-(defn gen-parent-combinations
-  [parent-vals]
-  (if (empty? parent-vals) []
-      (for [val (first parent-vals)]
-        (conj (gen-parent-combinations (rest parent-vals)) val))))
-
-(defn add-prob-table
-  [expgraph vertex]
-  (let [vals (sort (values expgraph vertex))
-        parent-vals (map #(sort (values expgraph %)) (sort (explainers expgraph vertex)))
-        parent-combs (let [pc (gen-parent-combinations parent-vals)]
-                       (if (empty? pc) [[]] pc))
-        probs-parent-combs-map (reduce (fn [m pc]
-                                    (let [probs (repeatedly (count vals) my-rand)
-                                          probs-sum (reduce + probs)]
-                                      (assoc m pc (zipmap vals (map #(/ % probs-sum) probs)))))
-                                  {} parent-combs)
-        prob-table (for [v vals pc parent-combs]
-                     (get-in probs-parent-combs-map [pc v]))]
-    (add-attr expgraph vertex :probs prob-table)))
 
 (defn gen-explains-links
   [attempts]
@@ -78,22 +48,18 @@
               new-vs (set/union vs newly-unexplained)]
           (recur new-unexp new-vs (concat expl-links new-expl-links)))))))
 
-(defn gen-observation-sets
-  [vertices]
-  (loop [attempts 0]
-    (let [obs-choices (take (* 10 (:Steps params)) (my-shuffle (sort vertices)))
-          obs (repeatedly
-               (:UniqueTrueSets params)
-               ;; about 2 observations per step (have
-               ;; 10*steps to choose from, max)
-               #(take (* 2 (:Steps params)) obs-choices))]
-      ;; try 20 times to get :UniqueTrueSets number of different true sets
-      (if (and (< attempts 20) (not= (:UniqueTrueSets params)
-                                     (count (set obs))))
-        (recur (inc attempts)) obs))))
+(defn arbitrary-path-up
+  [expgraph true-values v]
+  (loop [path [v]
+         tv (assoc true-values v (my-rand-nth (sort (values expgraph v))))]
+    (let [vs (incoming expgraph (last path))]
+      (if (empty? vs) tv
+          (let [expl (my-rand-nth (sort vs))]
+            (recur (conj path expl)
+                   (assoc tv expl (my-rand-nth (sort (values expgraph v))))))))))
 
 (defn gen-conflicts-links
-  [true-values-maps eg vs]
+  [eg vs path]
   (let [vs-with-values (mapcat (fn [v] (map (fn [val] [v val]) (sort (values eg v)))) vs)]
     (take (:NumConflictLinks params)
           (my-shuffle
@@ -102,37 +68,50 @@
                      (if (= 0 c) (compare (format "%s %s" v3 val3) (format "%s %s" v4 val4)) c)))
                  (set (filter (fn [[[v1 val1] [v2 val2]]]
                            (and (not= v1 v2)
-                                (or (not-any? #(= (% v1) val1) true-values-maps)
-                                    (not-any? #(= (% v2) val2) true-values-maps))
+                                (or (not= (path v1) val1) (not= (path v2) val2))
                                 (not (has-edge? eg v1 v2))
                                 (not (has-edge? eg v2 v1))))
                          (combinations vs-with-values 2))))))))
 
-(defn random-scores
-  [eg true-values v outgoing]
-  (if (true-values v)
-    (let [val (true-values v)
-          p-true (max 0.0 (min 1.0 (my-rand-gauss
-                                    (:TrueAprioriMean params)
-                                    (:TrueAprioriVariance params))))
-          p-falses (repeatedly (dec (count (values eg v))) #(my-rand))
-          p-falses-sum (reduce + p-falses)
-          p-falses-normalized (map #(* (- 1.0 p-true) (/ % p-falses-sum)) p-falses)]
-      (assoc (zipmap (filter #(not= val %) (sort (values eg v)))
-                     p-falses-normalized)
-        (true-values v) p-true))
-    (let [probs (repeatedly (count (values eg v)) #(my-rand))
-          probs-sum (reduce + probs)
-          probs-normalized (map #(/ % probs-sum) probs)]
-      (zipmap (sort (values eg v)) probs-normalized))))
+(defn gen-parent-combinations
+  [parent-vals]
+  (if (empty? parent-vals) [#{}]
+      (apply concat
+             (for [pv (first parent-vals)]
+               (map #(conj % pv) (gen-parent-combinations (rest parent-vals)))))))
 
-(defn gen-scores
-  [expgraph vs true-values-maps]
-  (for [true-values true-values-maps]
-    (reduce (fn [eg v]
-         (let [scores (random-scores eg true-values v (neighbors eg v))]
-           (add-attr eg v :scores scores)))
-       expgraph vs)))
+(defn add-prob-table
+  [expgraph vertex]
+  (let [vals (sort (values expgraph vertex))
+        parent-vals (map (fn [v] (map (fn [val] [v val]) (sort (values expgraph v))))
+                       (sort (explainers expgraph vertex)))
+        parent-combs (let [pc (gen-parent-combinations parent-vals)]
+                       (if (empty? pc) [#{}] pc))
+        probs-parent-combs-map (reduce (fn [m pc]
+                                    (let [probs (repeatedly (count vals) my-rand)
+                                          probs-sum (reduce + probs)]
+                                      (assoc m pc (zipmap vals (map #(/ % probs-sum) probs)))))
+                                  {} parent-combs)
+        prob-table (for [v vals pc parent-combs]
+                     (get-in probs-parent-combs-map [pc v]))]
+    (add-attr expgraph vertex :probs {:table prob-table :map probs-parent-combs-map})))
+
+(defn sample-expgraph
+  "Generate a true-values map based on sampling from the network."
+  [expgraph]
+  (loop [vs (reverse (sorted-by-dep expgraph))
+         true-values-map {}]
+    (if (empty? vs) true-values-map
+        (let [v (first vs)
+              parents (explainers expgraph v)
+              parent-vals (set (map (fn [v] [v (get true-values-map v)]) parents))
+              val-probs (sort-by second (map (fn [val] [val (prob expgraph v val parent-vals)])
+                                           (values expgraph v)))
+              rand-prob (my-rand)
+              chosen-val (ffirst (drop-while #(< (second %) rand-prob)
+                                             (reductions (fn [[val1 prob1] [val2 prob2]]
+                                                           [val2 (+ prob1 prob2)]) val-probs)))]
+          (recur (rest vs) (conj true-values-map [v chosen-val]))))))
 
 (defn rand-vals
   []
@@ -142,71 +121,56 @@
   []
   (loop [attempts 0]
     (let [expl-links (gen-explains-links attempts)
-          eg (apply add-edges (digraph) expl-links)
-          vs (sort (nodes eg))
-          ;; always three states ("values") for a vertex
-          eg-values (reduce (fn [eg v]
-                         (-> eg (add-attr v :id v)
-                            (add-attr v :values (rand-vals))))
-                       eg vs)
-          observation-sets (gen-observation-sets vs)
-          ;; a true-values map for each observation-set
-          true-values-maps (if (not (dag? eg-values)) []
-                               (for [os observation-sets]
-                                 (reduce (fn [tv v] (arbitrary-path-up eg-values tv v)) {} os)))
-          ;; different false-obs for each eg-score/true-set
-          false-values-maps (for [true-values true-values-maps]
-                              (reduce (fn [m v]
-                                   (let [choices (filter #(not= (true-values v) %)
-                                                    (values eg-values v))]
-                                     (assoc m v (my-rand-nth (sort choices)))))
-                                 {} vs))
-          conflict-links (gen-conflicts-links true-values-maps eg-values vs)
-          eg-conflicts (reduce set-conflicts eg-values conflict-links)
-          ;; a different eg-score for each true-set
-          eg-scores (gen-scores eg-conflicts vs true-values-maps)
-          eg-probs (map (fn [eg] (reduce add-prob-table eg vs)) eg-scores)
-          bayesnets (map build-bayesnet eg-probs)]
-      (if (empty? true-values-maps) (recur (inc attempts))
-          {:expgraphs eg-probs
-           :bayesnets bayesnets
-           :observation-sets observation-sets
-           :false-values-maps false-values-maps
-           :true-values-maps true-values-maps}))))
+          eg (apply add-edges (digraph) expl-links)]
+      (if (not (dag? eg)) (recur (inc attempts))
+          (let [vs (sort (nodes eg))
+                eg-values (reduce (fn [eg v]
+                               (-> eg (add-attr v :id v)
+                                  (add-attr v :values (rand-vals))))
+                             eg vs)
+                ;; a path gives selects vertex-value pairs from all bottom
+                ;; vertices to the top to ensure that conflicts links do not
+                ;; disable all possible paths
+                path (reduce (fn [tv v] (arbitrary-path-up eg-values tv v))
+                        {} (bottom-nodes eg-values))
+                conflict-links (gen-conflicts-links eg-values vs path)
+                eg-conflicts (reduce set-conflicts eg-values conflict-links)
+                eg-probs (reduce add-prob-table eg-conflicts vs)
+                bayesnet (build-bayesnet eg-probs)
+                true-values-map (sample-expgraph eg-probs)
+                observations (take (:Steps params)
+                                   (my-shuffle (sort-by first (seq true-values-map))))]
+            {:expgraph eg-probs
+             :bayesnet bayesnet
+             :observations observations
+             :true-values-map true-values-map})))))
 
 (defn observation-groups
-  [observations true-values]
-  (let [vs (vec (my-shuffle (sort observations)))
-        split-locs (my-shuffle (range (count vs)))
+  [observations]
+  (let [obs-vec (vec (my-shuffle (sort observations)))
+        split-locs (my-shuffle (range (count obs-vec)))
         splits (partition-all 2 1 (sort (take (inc (:Steps params)) split-locs)))
         groups (if (empty? splits)
                  [(vec observations)]
-                 (vec (map (fn [[pos1 pos2]]
-                           (vec (map (fn [v] [v (true-values v)])
-                                   (subvec vs pos1 pos2))))
+                 (vec (map (fn [[pos1 pos2]] (subvec obs-vec pos1 pos2))
                          ;; ensure the splits start with 0 and reach the end
                          (filter (fn [[pos1 pos2]] (and pos1 pos2))
                             (concat [[0 (second (first splits))]]
                                     (butlast (rest splits))
-                                    [[(first (last splits)) (count vs)]])))))]
+                                    [[(first (last splits)) (count obs-vec)]])))))]
     (if (>= (:Steps params) (count groups))
       (vec (concat groups (repeat (inc (- (:Steps params) (count groups))) [])))
       groups)))
 
 (defn generate-truedata
   []
-  (let [{:keys [expgraphs bayesnets observation-sets false-values-maps true-values-maps]}
+  (let [{:keys [expgraph bayesnet observations true-values-map]}
         ;; restrict the number of possible graphs
         (binding [rgen (new-seed (my-rand-int (:UniqueGraphs params)))]
           (random-expgraph))]
-    ;; use the original random generator again
-    (let [i (my-rand-int (count observation-sets))]
-      {:training {:expgraph (nth expgraphs i)
-                  :bayesnet (nth bayesnets i)
-                  :false-values-map (nth false-values-maps i)}
-       :expgraph (nth expgraphs i)
-       :bayesnet (nth bayesnets i)
-       :true-values-map (nth true-values-maps i)
-       :false-values-map (nth false-values-maps i)
-       :test (doall (observation-groups (nth observation-sets i)
-                                        (nth true-values-maps i)))})))
+    {:training {:expgraph expgraph
+                :bayesnet bayesnet}
+     :expgraph expgraph
+     :bayesnet bayesnet
+     :true-values-map true-values-map
+     :test (doall (observation-groups observations))}))

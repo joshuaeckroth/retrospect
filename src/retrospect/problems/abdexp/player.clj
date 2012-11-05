@@ -40,7 +40,7 @@
   (when (vertex? (:expgraph @truedata) vertex)
     (let [expgraph (:expgraph @truedata)
           vals (values expgraph vertex)
-          ps (probs expgraph vertex)
+          ps (:table (probs expgraph vertex))
           expl (sort (explainers expgraph vertex))
           table (gen-values (concat [vertex] expl))]
       {:vertices (concat [vertex] expl) :table table :probs ps})))
@@ -49,17 +49,21 @@
   [vertex]
   (dosync (alter table-contents
                  (constantly
-                  (format "%s\n\nPrior: %s\n\nObserved: %s\n\nPosterior: %s\n\nProbs:\n\n%s"
+                  (format "%s\n\nPriors: %s\n\nObserved: %s\n\nPosteriors: %s\n\nProbs:\n\n%s"
                      vertex
-                     ;; prior
-                     (str/join ", " (map (fn [[value score]] (format "%s: %.2f" value score))
-                                       (sort-by first (scores (:expgraph @truedata) vertex))))
+                     ;; priors
+                     (if-let [bn (:bayesnet @truedata)]
+                       (do (unobserve-all bn)
+                           (str/join ", " (for [v (sort (values (:expgraph @truedata) vertex))]
+                                            (format "%s=%.2f" v
+                                               (get-posterior-marginal bn vertex v)))))
+                       "(no bayes net)")
                      ;; observed
                      (if-let [val (second (first (filter (fn [[n v]] (= n vertex))
                                                     (apply concat (take (inc @time-now)
                                                                         (:test @truedata))))))]
                        val "(not observed)")
-                     ;; posterior
+                     ;; posteriors
                      (if-let [bn (:bayesnet @truedata)]
                        (do (unobserve-all bn)
                            (observe-seq bn (apply concat (take (inc @time-now) (:test @truedata))))
@@ -68,7 +72,7 @@
                                                (get-posterior-marginal bn vertex v)))))
                        "(no bayes net)")
                      ;; probs table
-                     (if (empty? (probs (:expgraph @truedata) vertex)) ""
+                     (if (empty? (:table (probs (:expgraph @truedata) vertex))) ""
                          (let [{:keys [vertices table probs]} (get-probs-table vertex)]
                            (when vertices (format "%s\n\n%s" (str/join ", " vertices)
                                              (str/join "\n"
