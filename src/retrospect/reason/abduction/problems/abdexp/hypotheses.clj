@@ -79,7 +79,9 @@
    (according to Gardenfors)."
   [bn vertex1 val1 vertex2 val2 observed]
   (unobserve-all bn)
-  (let [prior (get-posterior-marginal bn vertex1 val2)]
+  (observe-seq bn (filter #(and (not= vertex1 (first %))
+                           (not= vertex2 (first %))) observed))
+  (let [prior (get-posterior-marginal bn vertex1 val1)]
     (and (< prior 1.0)
          (do (observe-seq bn (filter #(not= vertex2 (first %)) observed))
              (let [prior (get-posterior-marginal bn vertex2 val2)]
