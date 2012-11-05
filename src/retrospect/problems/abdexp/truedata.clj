@@ -99,19 +99,28 @@
 (defn sample-expgraph
   "Generate a true-values map based on sampling from the network."
   [expgraph]
-  (loop [vs (reverse (sorted-by-dep expgraph))
-         true-values-map {}]
-    (if (empty? vs) true-values-map
-        (let [v (first vs)
-              parents (explainers expgraph v)
-              parent-vals (set (map (fn [v] [v (get true-values-map v)]) parents))
-              val-probs (sort-by second (map (fn [val] [val (prob expgraph v val parent-vals)])
-                                           (values expgraph v)))
-              rand-prob (my-rand)
-              chosen-val (ffirst (drop-while #(< (second %) rand-prob)
-                                             (reductions (fn [[val1 prob1] [val2 prob2]]
-                                                           [val2 (+ prob1 prob2)]) val-probs)))]
-          (recur (rest vs) (conj true-values-map [v chosen-val]))))))
+  (letfn [(any-incompatible? [true-values-map]
+            (some (fn [[v1 val1]] (some (fn [[v2 val2]]
+                                   (conflicts? expgraph [v1 val1] [v2 val2]))
+                                 (seq true-values-map)))
+               (seq true-values-map)))]
+    (loop [vs (reverse (sorted-by-dep expgraph))
+           true-values-map {}]
+      (if (empty? vs) true-values-map
+          (let [v (first vs)
+                parents (explainers expgraph v)
+                parent-vals (set (map (fn [v] [v (get true-values-map v)]) parents))
+                val-probs (sort-by second (map (fn [val] [val (prob expgraph v val parent-vals)])
+                                             (values expgraph v)))
+                rand-prob (my-rand)
+                chosen-val (ffirst (drop-while #(< (second %) rand-prob)
+                                               (reductions (fn [[val1 prob1] [val2 prob2]]
+                                                             [val2 (+ prob1 prob2)]) val-probs)))
+                new-true-values-map (conj true-values-map [v chosen-val])]
+            ;; if an incompatibility has been introduced, start over
+            (if (any-incompatible? new-true-values-map)
+              (recur (reverse (sorted-by-dep expgraph)) {})
+              (recur (rest vs) new-true-values-map)))))))
 
 (defn rand-vals
   []
