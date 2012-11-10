@@ -24,16 +24,20 @@
 (defn new-hyp
   [prefix type subtype apriori needs-explainer? conflicts?-fn
    explains short-str desc data]
-  (prof :new-hyp
-        (let [id (inc last-id)]
-          (set-last-id id)
-          (assoc
-              (merge (Hypothesis.
-                      id (format "%s%d" prefix id)
-                      type subtype apriori needs-explainer? conflicts?-fn
-                      explains short-str desc data)
-                     data)
-            :contents (assoc data :type type :subtype subtype)))))
+  (let [id (inc last-id)]
+    (set-last-id id)
+    (assoc (merge (Hypothesis.
+                   id (format "%s%d" prefix id)
+                   type subtype apriori needs-explainer? conflicts?-fn
+                   explains short-str desc data)
+                  data)
+      :contents (assoc data :type type :subtype subtype))))
+
+(defn new-composite
+  [prefix type subtype apriori explains short-str desc hyps]
+  (let [hyp (new-hyp prefix type subtype apriori false nil
+                     explains short-str desc {:hyps hyps})]
+    (assoc hyp :composite? true)))
 
 (defmethod print-method Hypothesis
   [h w]
@@ -232,24 +236,26 @@
                       :dirty false)
                expls-sorted)))))
 
+(defn conflicts?
+  [h1 h2]
+  (cond (:composite? h1)
+        (some (fn [h] ((:conflicts?-fn h) h h1)) (:hyps h1))
+        (:composite? h2)
+        (some (fn [h] ((:conflicts?-fn h) h h2)) (:hyps h2))
+        (or (nil? (:conflicts?-fn h1)) (nil? (:conflicts?-fn h2)))
+        false
+        :else
+        ((:conflicts?-fn h1) h1 h2)))
+
 (defn find-conflicts-all
   [workspace hyp]
-  (prof :find-conflicts-all
-        (if (nil? (:conflicts?-fn hyp)) []
-            (doall (filter #((:conflicts?-fn hyp) hyp %) (vals (:hyp-ids workspace)))))))
+  (doall (filter #(conflicts? hyp %) (vals (:hyp-ids workspace)))))
 
 (defn find-conflicts
   [workspace hyp]
-  (prof :find-conflicts
-        (doall (filter #((:conflicts?-fn hyp) hyp %)
-                  (map #(lookup-hyp workspace %)
-                     (set (apply concat (vals (:sorted-explainers workspace)))))))))
-
-(defn conflicts?
-  [hyp1 hyp2]
-  (and (:conflicts?-fn hyp1) (:conflicts?-fn hyp2)
-       (or ((:conflicts?-fn hyp1) hyp1 hyp2)
-           ((:conflicts?-fn hyp2) hyp2 hyp1))))
+  (doall (filter #(conflicts? hyp %)
+            (map #(lookup-hyp workspace %)
+               (set (apply concat (vals (:sorted-explainers workspace))))))))
 
 (defn dissoc-needing-explanation
   [workspace hyps]
@@ -451,8 +457,15 @@
                 ws-needs-exp (if (or (not ((:needs-explanation ws-conflicts) (:id hyp)))
                                      (some #(accepted? ws-conflicts %) (explainers ws-conflicts hyp)))
                                ws-conflicts
-                               (assoc-needing-explanation ws-conflicts hyp))]
-            (update-in ws-needs-exp [:accrej :acc] conj hyp)))))
+                               (assoc-needing-explanation ws-conflicts hyp))
+                ws-composite (if (:composite? hyp)
+                               (reduce (fn [ws h]
+                                    (-> ws (add h)
+                                       (accept h nbest alts explained
+                                               delta comparison cycle)))
+                                  ws-needs-exp (:hyps hyp))
+                               ws-needs-exp)]
+            (update-in ws-composite [:accrej :acc] conj hyp)))))
 
 (defn add-observation
   [workspace hyp cycle]

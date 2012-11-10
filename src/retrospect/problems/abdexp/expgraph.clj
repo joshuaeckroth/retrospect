@@ -155,6 +155,13 @@
                          (or starts (bottom-nodes eg)))
                       -1)))))
 
+(defn gen-parent-combinations
+  [parent-vals]
+  (if (empty? parent-vals) [#{}]
+      (apply concat
+             (for [pv (first parent-vals)]
+               (map #(conj % pv) (gen-parent-combinations (rest parent-vals)))))))
+
 (defn format-dot-expgraph
   [expgraph true-values-map]
   (format "digraph g { node [shape=\"plaintext\"];\n %s\n %s\n %s\n }"

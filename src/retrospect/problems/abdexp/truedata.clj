@@ -73,13 +73,6 @@
                                 (not (has-edge? eg v2 v1))))
                          (combinations vs-with-values 2))))))))
 
-(defn gen-parent-combinations
-  [parent-vals]
-  (if (empty? parent-vals) [#{}]
-      (apply concat
-             (for [pv (first parent-vals)]
-               (map #(conj % pv) (gen-parent-combinations (rest parent-vals)))))))
-
 (defn add-prob-table
   [expgraph vertex]
   (let [vals (sort (values expgraph vertex))
