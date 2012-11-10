@@ -137,18 +137,21 @@
         obs-hyps (filter #(= :observation (:type %)) unexp-hyps)
         acc-hyps (map lookup-hyp (concat (:expl accepted) (:observation accepted)))
         expl-hyps (map lookup-hyp (:expl all-hyps))
-        hyp-map (update-explanatory expgraph bn acc-hyps expl-hyps)]
-    ;; now update scores
-    (unobserve-all bn)
-    (observe-seq bn (map (fn [h] [(:vertex h) (:value h)]) acc-hyps))
-    (let [hyp-map-scores (reduce (fn [m [v val]]
-                              (assoc-in m [[v val] :apriori]
-                                        (get-posterior-marginal bn v val)))
-                            hyp-map (keys hyp-map))]
-      (vals (reduce (fn [m obs-hyp]
-                 ;; update existing expl hyps that are equivalent to obs hyps, so
-                 ;; that each expl hyp explains its corresponding obs hyp
-                 (update-in m [[(:vertex obs-hyp) (:value obs-hyp)] :explains]
-                            conj (:contents obs-hyp)))
-               hyp-map-scores obs-hyps)))))
+        hyp-map (update-explanatory expgraph bn acc-hyps expl-hyps)
+        ;; possibly update scores
+        hyp-map-scores (if (:UpdatePosteriors state/params)
+                         (do
+                           (unobserve-all bn)
+                           (observe-seq bn (map (fn [h] [(:vertex h) (:value h)]) acc-hyps))
+                           (reduce (fn [m [v val]]
+                                (assoc-in m [[v val] :apriori]
+                                          (get-posterior-marginal bn v val)))
+                              hyp-map (keys hyp-map)))
+                         hyp-map)]
+    (vals (reduce (fn [m obs-hyp]
+               ;; update existing expl hyps that are equivalent to obs hyps, so
+               ;; that each expl hyp explains its corresponding obs hyp
+               (update-in m [[(:vertex obs-hyp) (:value obs-hyp)] :explains]
+                          conj (:contents obs-hyp)))
+             hyp-map-scores obs-hyps))))
 

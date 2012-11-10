@@ -37,11 +37,6 @@
           (let [ws (:workspace ep)
                 acc (set (map #(lookup-hyp ws %) (get (:accepted ws) :expl)))
                 acc-vertex-values (set (map (fn [h] [(:vertex h) (:value h)]) acc))
-                acc-vertex-alt-values (set/difference
-                                       (set (mapcat (fn [h] (for [val (values expgraph (:vertex h))]
-                                                           [(:vertex h) val]))
-                                                  acc))
-                                       acc-vertex-values)
                 not-acc (set/difference (set (map #(lookup-hyp ws %)
                                                 (get (:hypotheses ws) :expl)))
                                         acc)
@@ -50,22 +45,18 @@
                 probs (when-let [bn (:bayesnet truedata)]
                         (unobserve-all bn)
                         (observe-seq bn (apply concat (:test truedata)))
-                        (let [acc-probs (map #(get-posterior-marginal
-                                             bn (:vertex %) (:value %)) acc)
-                              acc-alt-probs (map #(get-posterior-marginal
-                                                 bn (first %) (second %))
-                                               acc-vertex-alt-values)
-                              prob (cond (and (empty? acc-probs) (not-empty acc-alt-probs))
-                                         (- (avg acc-alt-probs))
-                                         (and (not-empty acc-probs) (not-empty acc-alt-probs))
-                                         (- (avg acc-probs) (avg acc-alt-probs))
-                                         :else 0.0)
-                              expl (get-explanation bn)
+                        (let [expl (get-explanation bn)
+                              post-error (avg (for [h acc]
+                                                (let [v (:vertex h)
+                                                      vals (sort (values expgraph v))
+                                                      post-map (zipmap vals (map #(get-posterior-marginal bn v %) vals))]
+                                                  (- (post-map (:value h)) (apply max (map second (seq post-map)))))))
                               [etp etn efp efn] (tp-tn-fp-fn expl acc not-acc)
                               prec-tpratio (calc-prec-tpratio etp etn efp efn (count expl))
                               posteriors-acc (map #(get-posterior-marginal bn (first %) (second %))
                                                 acc-vertex-values)]
-                          {:Prob prob :ExplPrec (:Prec prec-tpratio) :ExplTPRatio (:TPRatio prec-tpratio)
+                          {:PostError post-error :ExplPrec (:Prec prec-tpratio)
+                           :ExplTPRatio (:TPRatio prec-tpratio)
                            :AbsConfPostDiff (Math/abs (- confidence (avg posteriors-acc)))}))]
             (merge prec-tpratio (or probs {}))))]
     (merge (last metrics)

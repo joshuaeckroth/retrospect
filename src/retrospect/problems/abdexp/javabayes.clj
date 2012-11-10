@@ -110,7 +110,20 @@
     (.full_explanation expl)
     (let [bp (.backward_pointers (.bucket_tree expl))]
       (reduce (fn [m i]
-                (if (= -1 (nth bp i)) m
-                    (let [v (.get_probability_variable bn i)]
-                      (assoc m (.get_name v) (.get_value v (nth bp i))))))
-              {} (range (count bp))))))
+           (if (= -1 (nth bp i)) m
+               (let [v (.get_probability_variable bn i)]
+                 (assoc m (.get_name v) (.get_value v (nth bp i))))))
+         {} (range (count bp))))))
+
+(defn get-partial-explanation
+  [bn vertices]
+  (doseq [v vertices]
+    (set-explanatory bn v))
+  (let [expl (Explanation. bn)]
+    (.full_explanation expl)
+    (let [bp (.backward_pointers (.bucket_tree expl))]
+      (reduce (fn [m i]
+           (if (= -1 (nth bp i)) m
+               (let [v (.get_probability_variable bn i)]
+                 (assoc m (.get_name v) (.get_value v (nth bp i))))))
+         {} (range (count bp))))))

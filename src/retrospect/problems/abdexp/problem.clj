@@ -45,7 +45,6 @@
     :NumExplainsLinks [20 [20]]
     :NumConflictLinks [10 [10]]
     :UniqueGraphs [100 [100]]
-    :TrueAprioriMean [0.6 [0.6]]
-    :TrueAprioriVariance [0.3 [0.3]]
+    :UpdatePosteriors [true [true false]]
     :MaxStates [3 [2 3 4]]
     :ExplanatoryDef ["gardenfors" "always-true" "conditional"]}})
