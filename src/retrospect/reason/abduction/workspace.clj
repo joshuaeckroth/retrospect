@@ -373,13 +373,15 @@
             (let [prior-hyp (lookup-hyp workspace prior-hyp-id)
                   prior-hyp-updated (assoc prior-hyp
                                       :needs-explainer? (:needs-explainer? hyp)
-                                      :explains (:explains hyp))
+                                      :explains (:explains hyp)
+                                      :apriori (:apriori hyp))
                   new-explains (set (map #(get (:hyp-contents workspace) %)
                                        (:explains prior-hyp-updated)))]
               (log hyp "is already in the workspace as" prior-hyp-updated
                    ", so updating what it explains:" new-explains)
               (let [ws (-> workspace
                           (forget-explainer prior-hyp-updated)
+                          (assoc-in [:hyp-ids prior-hyp-id] prior-hyp-updated)
                           (assoc-in [:explains prior-hyp-id] new-explains)
                           (assoc-explainer prior-hyp-updated)
                           (record-if-needs-explanation prior-hyp-updated))]
