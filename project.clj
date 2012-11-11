@@ -20,6 +20,7 @@
                  [com.fifesoft/rsyntaxtextarea "2.0.2"]
                  [com.github.insubstantial/substance "7.1"]
                  [org.openmarkov/org.openmarkov.inference.variableElimination "0.0.1-SNAPSHOT"]
+                 [org.openmarkov/org.openmarkov.inference.likelihoodWeighting "0.0.1-SNAPSHOT"]             
                  [org.openmarkov/org.openmarkov.io.probmodelxml "0.0.1-SNAPSHOT"]]
   :repositories [["Sonatype Nexus" "http://openmarkov.org:8081/nexus/content/groups/public/"]]
   :dev-dependencies [[lein-marginalia "0.7.0"]]

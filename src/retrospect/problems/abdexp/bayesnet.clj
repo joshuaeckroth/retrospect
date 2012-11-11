@@ -1,5 +1,6 @@
 (ns retrospect.problems.abdexp.bayesnet
   (:import (org.openmarkov.io.probmodel PGMXReader PGMXWriter))
+  (:import (org.openmarkov.inference.likelihoodWeighting LikelihoodWeighting))
   (:import (org.openmarkov.inference.variableElimination VariableElimination))
   (:import (org.openmarkov.core.model.network
             EvidenceCase NodeType ProbNet State Variable))
@@ -50,7 +51,7 @@
                                        (double-array (:table (probs expgraph v2))))]
         (.addPotential bn potential)))
     (let [evidence (EvidenceCase.)
-          inference (doto (VariableElimination. bn)
+          inference (doto (LikelihoodWeighting. bn)
                       (.setPreResolutionEvidence evidence))]
       {:bayesnet bn
        :inference inference
