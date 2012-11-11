@@ -86,10 +86,11 @@
 
 (defn step
   []
-  (let [ors (run-simulation-step @truedata @or-state true)
-        ors-results (evaluate @truedata ors)]
-    (dosync (alter or-state (constantly ors-results)))
-    (update-everything)))
+  (profile
+   (let [ors (run-simulation-step @truedata @or-state true)
+         ors-results (evaluate @truedata ors)]
+     (dosync (alter or-state (constantly ors-results)))
+     (update-everything))))
 
 (defn next-step
   []
@@ -123,7 +124,7 @@
                                      (:training @truedata)))))))
     (dosync
      (alter results (constantly []))
-     (alter or-state (constantly (profile (init-ors @truedata @sensors)))))
+     (alter or-state (constantly (init-ors @truedata @sensors))))
     (update-everything)))
 
 (defn set-prepared-action
@@ -145,7 +146,7 @@
        (alter truedata (constantly td))
        (alter sensors (constantly sens))
        (alter results (constantly []))
-       (alter or-state (constantly (profile (init-ors @truedata @sensors)))))
+       (alter or-state (constantly (init-ors @truedata @sensors))))
       (.setEnabled next-button true)
       (update-everything))))
 

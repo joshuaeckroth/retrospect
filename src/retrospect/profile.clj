@@ -81,7 +81,7 @@ profiling code."}  *enable-profiling* false)
   :mean, :min, and :max are how long the profiled section took to run,
   in milliseconds.  :count is the total number of times the profiled
   section was executed.  :sum is the total amount of time spent in the
-  profiled section, in nanoseconds."
+  profiled section, in milliseconds."
   [profile-data]
   (reduce (fn [m [k v]]
             (let [cnt (count v)
@@ -100,7 +100,7 @@ profiling code."}  *enable-profiling* false)
         fmt-string (str "%" name-width "s  %12.3f  %12.3f  %12.3f  %12d  %12.3f")]
     (println (format (-> fmt-string (str/replace "12.3f" "12s")
                          (str/replace "12d" "12s"))
-                     "Name" "mean" "min" "max" "count" "sum"))
+                     "Name" "mean" "min" "max" "count" "sum (ms)"))
     (doseq [k (sort (keys profile-summary))]
       (let [v (get profile-summary k)]
         (println (format fmt-string (name k) (:mean v) (:min v) (:max v) (:count v) (:sum v)))))))
@@ -111,5 +111,6 @@ profiling code."}  *enable-profiling* false)
   [& body]
   `(let [[result# profile-data#] (with-profile-data (do ~@body))]
      (when *enable-profiling*
-       (print-summary (summarize profile-data#)))
+       (print-summary (summarize profile-data#))
+       (println "--------"))
      result#))

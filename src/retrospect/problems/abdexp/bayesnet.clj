@@ -5,7 +5,8 @@
             EvidenceCase NodeType ProbNet State Variable))
   (:import (org.openmarkov.core.model.network.potential
             Potential PotentialRole TablePotential))
-  (:use [retrospect.problems.abdexp.expgraph]))
+  (:use [retrospect.problems.abdexp.expgraph])
+  (:use [retrospect.profile :only [prof]]))
 
 (defn load-pgmx
   [file]
@@ -63,13 +64,15 @@
 (defn get-posterior
   ([inf vertex])
   ([bn vertex value]
-     (let [var (.getVariable (:bayesnet bn) vertex)
-           state (.getStateIndex var value)]
-       (nth (.getValues (get (.getProbsAndUtilities (:inference bn)) var)) state))))
+     (prof :bn-get-posterior
+           (let [var (.getVariable (:bayesnet bn) vertex)
+                 state (.getStateIndex var value)]
+             (nth (.getValues (get (.getProbsAndUtilities (:inference bn)) var)) state)))))
 
 (defn observe
   [bn vertex value]
-  (.addFinding (:evidence bn) (:bayesnet bn) vertex value))
+  (prof :bn-observe
+        (.addFinding (:evidence bn) (:bayesnet bn) vertex value)))
 
 (defn observe-seq
   [bn obs-seq]
@@ -78,10 +81,12 @@
 
 (defn unobserve
   [bn vertex]
-  (.removeFinding (:evidence bn) vertex))
+  (prof :bn-unobserve
+        (.removeFinding (:evidence bn) vertex)))
 
 (defn unobserve-all
   [bn]
-  (doseq [var (.getVariables (:evidence bn))]
-    (.removeFinding (:evidence bn) var)))
+  (prof :bn-unobserve-all
+        (doseq [var (.getVariables (:evidence bn))]
+          (.removeFinding (:evidence bn) var))))
 
