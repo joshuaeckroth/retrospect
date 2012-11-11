@@ -37,7 +37,8 @@
                :evaluate-comp-fn evaluate-comp
                :update-kb-fn update-kb
                :stats-fn stats
-               :hyp-types [:expl :observation]}
+               :hyp-types [:expl :observation]
+               :default-params {:GetMoreHyps [true [true]]}}
    :default-params
    {:Steps [100 [100]]
     :StepsBetween [1 [1]]

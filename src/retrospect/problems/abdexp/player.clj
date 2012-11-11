@@ -9,7 +9,7 @@
   (:use [clj-swing.text-field])
   (:use [retrospect.gui.graphs])
   (:use [retrospect.problems.abdexp.expgraph])
-  (:use [retrospect.problems.abdexp.javabayes])
+  (:use [retrospect.problems.abdexp.bayesnet])
   (:use [retrospect.epistemicstates :only [cur-ep]])
   (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
   (:use [retrospect.state]))
@@ -47,38 +47,37 @@
 
 (defn listener
   [vertex]
-  (dosync (alter table-contents
-                 (constantly
-                  (format "%s\n\nPriors: %s\n\nObserved: %s\n\nPosteriors: %s\n\nProbs:\n\n%s"
-                     vertex
-                     ;; priors
-                     (if-let [bn (:bayesnet @truedata)]
+  (let [bn (:bayesnet @truedata)
+        expgraph (:expgraph @truedata)]
+    (dosync (alter table-contents
+                   (constantly
+                    (format "%s\n\nPriors: %s\n\nObserved: %s\n\nPosteriors: %s\n\nProbs:\n\n%s"
+                       vertex
+                       ;; priors
                        (do (unobserve-all bn)
-                           (str/join ", " (for [v (sort (values (:expgraph @truedata) vertex))]
+                           (str/join ", " (for [v (sort (values expgraph vertex))]
                                             (format "%s=%.2f" v
-                                               (get-posterior-marginal bn vertex v)))))
-                       "(no bayes net)")
-                     ;; observed
-                     (if-let [val (second (first (filter (fn [[n v]] (= n vertex))
-                                                    (apply concat (take (inc @time-now)
-                                                                        (:test @truedata))))))]
-                       val "(not observed)")
-                     ;; posteriors
-                     (if-let [bn (:bayesnet @truedata)]
+                                               (get-posterior bn vertex v)))))
+                       ;; observed
+                       (if-let [val (second (first (filter (fn [[n v]] (= n vertex))
+                                                      (apply concat (take (inc @time-now)
+                                                                          (:test @truedata))))))]
+                         val "(not observed)")
+                       ;; posteriors
                        (do (unobserve-all bn)
-                           (observe-seq bn (apply concat (take (inc @time-now) (:test @truedata))))
-                           (str/join ", " (for [v (sort (values (:expgraph @truedata) vertex))]
+                           (observe-seq bn (apply concat (take (inc @time-now)
+                                                               (:test @truedata))))
+                           (str/join ", " (for [v (sort (values expgraph vertex))]
                                             (format "%s=%.2f" v
-                                               (get-posterior-marginal bn vertex v)))))
-                       "(no bayes net)")
-                     ;; probs table
-                     (if (empty? (:table (probs (:expgraph @truedata) vertex))) ""
-                         (let [{:keys [vertices table probs]} (get-probs-table vertex)]
-                           (when vertices (format "%s\n\n%s" (str/join ", " vertices)
-                                             (str/join "\n"
-                                                       (for [i (range (count probs))]
-                                                         (format "%s %.2f" (str/join ", " (nth table i))
-                                                            (nth probs i)))))))))))))
+                                               (get-posterior bn vertex v)))))
+                       ;; probs table
+                       (if (empty? (:table (probs expgraph vertex))) ""
+                           (let [{:keys [vertices table probs]} (get-probs-table vertex)]
+                             (when vertices (format "%s\n\n%s" (str/join ", " vertices)
+                                               (str/join "\n"
+                                                         (for [i (range (count probs))]
+                                                           (format "%s %.2f" (str/join ", " (nth table i))
+                                                              (nth probs i))))))))))))))
 
 (defn player-get-stats-panel
   []

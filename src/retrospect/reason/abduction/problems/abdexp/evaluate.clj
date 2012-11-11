@@ -5,7 +5,7 @@
   (:use [retrospect.reason.abduction.workspace :only [lookup-hyp calc-doubt]])
   (:use [retrospect.reason.abduction.evaluate :only [doubt-aggregate]])
   (:use [retrospect.problems.abdexp.expgraph])
-  (:use [retrospect.problems.abdexp.javabayes])
+  (:use [retrospect.problems.abdexp.bayesnet])
   (:use [retrospect.state]))
 
 (defn true-hyp?
@@ -42,28 +42,32 @@
                                         acc)
                 [tp tn fp fn] (tp-tn-fp-fn (:true-values-map truedata) acc not-acc)
                 prec-tpratio (calc-prec-tpratio tp tn fp fn (count (:true-values-map truedata)))
-                probs (when-let [bn (:bayesnet truedata)]
+                probs (let [bn (:bayesnet truedata)]
                         (unobserve-all bn)
                         (observe-seq bn (apply concat (:test truedata)))
-                        (let [expl (get-explanation bn)
-                              post-error (avg (for [h acc]
+                        (let [post-error (avg (for [h acc]
                                                 (let [v (:vertex h)
                                                       vals (sort (values expgraph v))
-                                                      post-map (zipmap vals (map #(get-posterior-marginal bn v %) vals))]
+                                                      post-map (zipmap vals (map #(get-posterior bn v %) vals))]
                                                   (- (post-map (:value h)) (apply max (map second (seq post-map)))))))
-                              [etp etn efp efn] (tp-tn-fp-fn expl acc not-acc)
-                              prec-tpratio (calc-prec-tpratio etp etn efp efn (count expl))
-                              posteriors-acc (map #(get-posterior-marginal bn (first %) (second %))
+                              
+                              
+                              posteriors-acc (map #(get-posterior bn (first %) (second %))
                                                 acc-vertex-values)]
-                          {:PostError post-error :ExplPrec (:Prec prec-tpratio)
-                           :ExplTPRatio (:TPRatio prec-tpratio)
+                          {:PostError post-error
                            :AbsConfPostDiff (Math/abs (- confidence (avg posteriors-acc)))}))]
-            (merge prec-tpratio (or probs {}))))]
+            (merge prec-tpratio probs)))]
     (merge (last metrics)
            {:MinPrec (apply min (map :Prec metrics))
             :MinTPRatio (apply min (map :TPRatio metrics))
             :AvgPrec (avg (map :Prec metrics))
             :AvgTPRatio (avg (map :TPRatio metrics))})))
+
+(comment expl (get-explanation bn)
+         [etp etn efp efn] (tp-tn-fp-fn expl acc not-acc)
+         prec-tpratio (calc-prec-tpratio etp etn efp efn (count expl))
+          :ExplPrec (:Prec prec-tpratio)
+                           :ExplTPRatio (:TPRatio prec-tpratio))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]

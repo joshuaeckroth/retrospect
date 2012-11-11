@@ -2,7 +2,7 @@
   (:use [loom.graph :only [digraph add-edges nodes]])
   (:use [loom.attr :only [add-attr attr]])
   (:use [retrospect.problems.abdexp.expgraph])
-  (:use [retrospect.problems.abdexp.javabayes])
+  (:use [retrospect.problems.abdexp.bayesnet])
   (:use [retrospect.problems.abdexp.sensors :only [generate-sensors]])
   (:use [retrospect.random]))
 
@@ -81,81 +81,84 @@
                 :false-values-map {}
                 :test [[] ["G" "on"] ["F" "off"]]}}))
 
-(defn bn-alarm
-  []
-  (let [bn (load-bayesnet "ALARM.BIF")
-        expgraph (build-expgraph bn)
-        obs-seq [[] [["Intubation" "Normal"]]]]
-    {:params {:Steps 1}
-     :sensors (generate-sensors {})
-     :truedata {:training {:expgraph expgraph :bayesnet bn}
-                :expgraph expgraph
-                :bayesnet bn
-                :true-values-map {}
-                :false-values-map {}
-                :test obs-seq}}))
+(comment
+  (defn bn-alarm
+    []
+    (let [bn (load-bayesnet "ALARM.BIF")
+          expgraph (build-expgraph bn)
+          obs-seq [[] [["Intubation" "Normal"]]]]
+      {:params {:Steps 1}
+       :sensors (generate-sensors {})
+       :truedata {:training {:expgraph expgraph :bayesnet bn}
+                  :expgraph expgraph
+                  :bayesnet bn
+                  :true-values-map {}
+                  :false-values-map {}
+                  :test obs-seq}}))
 
-(defn bn-john-mary-call
-  []
-  (let [bn (load-bayesnet "john-mary-call.bif")
-        expgraph (build-expgraph bn)
-        obs-seq [[] [["MaryCalls" "True"]]]]
-    {:params {:Steps 1}
-     :sensors (generate-sensors {})
-     :truedata {:training {:expgraph expgraph :bayesnet bn}
-                :expgraph expgraph
-                :bayesnet bn
-                :true-values-map {}
-                :false-values-map {}
-                :test obs-seq}}))
+  (defn bn-john-mary-call
+    []
+    (let [bn (load-bayesnet "john-mary-call.bif")
+          expgraph (build-expgraph bn)
+          obs-seq [[] [["MaryCalls" "True"]]]]
+      {:params {:Steps 1}
+       :sensors (generate-sensors {})
+       :truedata {:training {:expgraph expgraph :bayesnet bn}
+                  :expgraph expgraph
+                  :bayesnet bn
+                  :true-values-map {}
+                  :false-values-map {}
+                  :test obs-seq}}))
 
-(defn bn-car-starts
-  []
-  (let [bn (load-bayesnet "car-starts.bif")
-        expgraph (build-expgraph bn)
-        obs-seq [[] [["Starts" "No"]] [["Leak" "NoLeak"]]]]
-    {:params {:Steps 2}
-     :sensors (generate-sensors {})
-     :truedata {:training {:expgraph expgraph :bayesnet bn}
-                :expgraph expgraph
-                :bayesnet bn
-                :true-values-map {}
-                :false-values-map {}
-                :test obs-seq}}))
+  (defn bn-car-starts
+    []
+    (let [bn (load-bayesnet "car-starts.bif")
+          expgraph (build-expgraph bn)
+          obs-seq [[] [["Starts" "No"]] [["Leak" "NoLeak"]]]]
+      {:params {:Steps 2}
+       :sensors (generate-sensors {})
+       :truedata {:training {:expgraph expgraph :bayesnet bn}
+                  :expgraph expgraph
+                  :bayesnet bn
+                  :true-values-map {}
+                  :false-values-map {}
+                  :test obs-seq}}))
 
-(defn bn-cancer
-  []
-  (let [bn (load-bayesnet "CANCER.BIF")
-        expgraph (build-expgraph bn)
-        obs-seq [[] [["SevereHeadaches" "Present"]]]]
-    {:params {:Steps 1}
-     :sensors (generate-sensors {})
-     :truedata {:training {:expgraph expgraph :bayesnet bn}
-                :expgraph expgraph
-                :bayesnet bn
-                :true-values-map {}
-                :false-values-map {}
-                :test obs-seq}}))
+  (defn bn-cancer
+    []
+    (let [bn (load-bayesnet "CANCER.BIF")
+          expgraph (build-expgraph bn)
+          obs-seq [[] [["SevereHeadaches" "Present"]]]]
+      {:params {:Steps 1}
+       :sensors (generate-sensors {})
+       :truedata {:training {:expgraph expgraph :bayesnet bn}
+                  :expgraph expgraph
+                  :bayesnet bn
+                  :true-values-map {}
+                  :false-values-map {}
+                  :test obs-seq}}))
 
-(defn bn-hail-finder
-  []
-  (let [bn (load-bayesnet "hailfinder25.bif")
-        expgraph (build-expgraph bn)
-        obs-seq [[] [["PlainsFcst" "SVR"]]]]
-    {:params {:Step 1}
-     :sensors (generate-sensors {})
-     :truedata {:training {:expgraph expgraph :bayesnet bn}
-                :expgraph expgraph
-                :bayesnet bn
-                :true-values-map {}
-                :false-values-map {}
-                :test obs-seq}}))
+  (defn bn-hail-finder
+    []
+    (let [bn (load-bayesnet "hailfinder25.bif")
+          expgraph (build-expgraph bn)
+          obs-seq [[] [["PlainsFcst" "SVR"]]]]
+      {:params {:Step 1}
+       :sensors (generate-sensors {})
+       :truedata {:training {:expgraph expgraph :bayesnet bn}
+                  :expgraph expgraph
+                  :bayesnet bn
+                  :true-values-map {}
+                  :false-values-map {}
+                  :test obs-seq}})))
 
 (def prepared-map
   (sorted-map "bn-abc" bn-abc
-              "bn-alarm" bn-alarm
-              "bn-cancer" bn-cancer
-              "bn-car-starts" bn-car-starts
-              "bn-hail-finder" bn-hail-finder
-              "bn-john-mary-call" bn-john-mary-call
               "bn-simple-medium" bn-simple-medium))
+
+(comment
+  "bn-alarm" bn-alarm
+  "bn-cancer" bn-cancer
+  "bn-car-starts" bn-car-starts
+  "bn-hail-finder" bn-hail-finder
+  "bn-john-mary-call" bn-john-mary-call)

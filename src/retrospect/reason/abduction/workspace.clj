@@ -642,62 +642,59 @@
                   (do (log "...we'll keep this hyp.")
                       (recur ws (rest hyps)))))))))
 
-(defn explain
-  [workspace cycle]
-  (prof :explain
-        (let [ws-explainers (if true #_(:dirty workspace)
-                                (update-sorted-explainers workspace)
-                                workspace)
-              ws (clean-up-workspace (assoc ws-explainers :accrej {}) cycle)]
-          (log "Explainers:" (:sorted-explainers ws)
-               (format "[%s]" (str/join ", " (map str (:sorted-explainers-explained ws)))))
-          (if (empty? (:sorted-explainers-explained ws))
-            (do (log "No explainers. Done.") ws)
-            (let [{:keys [best nbest alts explained delta comparison] :as b}
-                  (find-best ws)]
-              (if-not best
-                (do (log "No best. Done.") ws)
-                (do (log "Best is" (:id best) (:apriori best))
-                    (-> ws (update-in [:accrej] merge b)
-                       (accept best nbest alts explained delta comparison cycle)))))))))
-
 (defn get-explaining-hypotheses
   "Ask problem domain to get explainers."
   [workspace time-now]
-  (prof :get-explaining-hypotheses
-        ((:hypothesize-fn (:abduction @problem))
-         (map #(lookup-hyp workspace %) (:sorted-explainers-explained workspace))
-         (:accepted workspace) (:hypotheses workspace)
-         (partial lookup-hyp workspace) time-now)))
+  ((:hypothesize-fn (:abduction @problem))
+   (map #(lookup-hyp workspace %) (:sorted-explainers-explained workspace))
+   (:accepted workspace) (:hypotheses workspace)
+   (partial lookup-hyp workspace) time-now))
 
 (defn update-hypotheses
   "Put explainers from problem domain into workspace."
   [workspace time-now]
-  (prof :update-hypotheses
-        (let [hyps (get-explaining-hypotheses workspace time-now)]
-          (reduce add workspace hyps))))
+  (log "Updating hypotheses")
+  (let [hyps (get-explaining-hypotheses workspace time-now)]
+    (reduce add workspace hyps)))
+
+(defn explain
+  [workspace cycle time-now]
+  (let [ws-explainers (if true #_(:dirty workspace)
+                          (update-sorted-explainers workspace)
+                          workspace)
+        ws (clean-up-workspace (assoc ws-explainers :accrej {}) cycle)]
+    (log "Explainers:" (:sorted-explainers ws)
+         (format "[%s]" (str/join ", " (map str (:sorted-explainers-explained ws)))))
+    (if (empty? (:sorted-explainers-explained ws))
+      (do (log "No explainers.") ws)
+      (let [{:keys [best nbest alts explained delta comparison] :as b}
+            (find-best ws)]
+        (if-not best
+          (do (log "No best.") ws)
+          (do (log "Best is" (:id best) (:apriori best))
+              (-> ws (update-in [:accrej] merge b)
+                 (accept best nbest alts explained delta comparison cycle))))))))
 
 (defn add-sensor-hyps
   "Ask problem domain to make sensor hyps; then put them into workspace."
   [workspace time-prev time-now sensors cycle]
-  (prof :add-sensor-hyps
-        (let [hs ((:make-sensor-hyps-fn (:abduction @problem))
-                  sensors time-prev time-now
-                  (:accepted workspace) (:hypotheses workspace)
-                  (partial lookup-hyp workspace))]
-          (reduce #(add-observation %1 %2 cycle) workspace hs))))
+  (log "Adding sensor hyps")
+  (let [hs ((:make-sensor-hyps-fn (:abduction @problem))
+            sensors time-prev time-now
+            (:accepted workspace) (:hypotheses workspace)
+            (partial lookup-hyp workspace))]
+    (reduce #(add-observation %1 %2 cycle) workspace hs)))
 
 (defn add-kb
   [workspace hyps]
-  (prof :add-kb
-        (reduce (fn [ws h]
-             (let [ws-added (add ws h)]
-               (if (= :kb (:type h))
-                 (-> ws-added
-                    (update-in [:accepted (:type h)] conjs (:id h))
-                    (update-in [:accepted :all] conjs (:id h)))
-                 ws-added)))
-           workspace hyps)))
+  (reduce (fn [ws h]
+       (let [ws-added (add ws h)]
+         (if (= :kb (:type h))
+           (-> ws-added
+              (update-in [:accepted (:type h)] conjs (:id h))
+              (update-in [:accepted :all] conjs (:id h)))
+           ws-added)))
+     workspace hyps))
 
 (defn remove-kb
   [workspace]

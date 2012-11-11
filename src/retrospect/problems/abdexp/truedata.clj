@@ -7,7 +7,7 @@
   (:use [clojure.contrib.combinatorics])
   (:require [clojure.set :as set])
   (:use [retrospect.problems.abdexp.expgraph])
-  (:use [retrospect.problems.abdexp.javabayes :only [build-bayesnet]])
+  (:use [retrospect.problems.abdexp.bayesnet :only [build-bayesnet]])
   (:use [retrospect.random])
   (:use [retrospect.state]))
 

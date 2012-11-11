@@ -84,3 +84,4 @@
   [bn]
   (doseq [var (.getVariables (:evidence bn))]
     (.removeFinding (:evidence bn) var)))
+

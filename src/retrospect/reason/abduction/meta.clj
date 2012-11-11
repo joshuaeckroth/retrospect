@@ -25,36 +25,40 @@
   (and (not= "none" (:Metareasoning params))
        (not-empty (find-problem-cases est))))
 
+(defn explain-and-advance
+  [est time-prev time-now sensors]
+  (let [ws (:workspace (cur-ep est))
+        cycle (:cycle (cur-ep est))
+        ws-sensors (if sensors
+                     (-> ws
+                        (add-sensor-hyps time-prev time-now sensors cycle)
+                        (update-hypotheses time-now))
+                     ws)
+        ws-explained (binding [reason-log (ref '())]
+                       (log "Explaining at cycle" cycle)
+                       (assoc (explain ws-sensors cycle time-now)
+                         :log @reason-log))]
+    (new-child-ep (update-est est (assoc (cur-ep est) :workspace ws-explained)))))
+
 (defn reason
   [est time-prev time-now sensors & opts]
-  (let [ws (:workspace (cur-ep est))
-        ws-sensors (binding [reason-log (ref '())]
-                     (assoc (if sensors
-                              (update-hypotheses
-                               (add-sensor-hyps ws time-prev time-now sensors
-                                                (:cycle (cur-ep est)))
-                               time-now)
-                              ws)
-                       :log @reason-log))
-        est-ws (new-child-ep (update-est est (assoc (cur-ep est)
-                                               :workspace ws-sensors :time time-now)))]
-    (loop [est est-ws]
-      (let [ws (binding [reason-log (ref '())]
-                 (log "Explaining at cycle" (:cycle (cur-ep est)))
-                 (assoc (explain (:workspace (cur-ep est)) (:cycle (cur-ep est)))
-                   :log @reason-log))
-            est-new (new-child-ep (update-est est (assoc (cur-ep est) :workspace ws)))
-            meta? (and (not-any? #{:no-metareason} opts)
-                       (metareasoning-activated? est-new))
-            est-meta (if (not meta?) est-new
-                         (metareason est-new time-prev time-now sensors))]
-        ;; if something was accepted last, repeat
-        (if (:best (:accrej (:workspace (cur-ep est-meta))))
-          (recur est-meta) est-meta)))))
+  (loop [est est]
+    (let [est-new (explain-and-advance est time-prev time-now sensors)
+          est-new-more (if (:GetMoreExplainers params)
+                         (explain-and-advance est-new time-prev time-now sensors)
+                         est-new)
+          meta? (and (not-any? #{:no-metareason} opts)
+                     (metareasoning-activated? est-new-more))
+          est-meta (if (not meta?) est-new-more
+                       (metareason est-new-more time-prev time-now sensors))]
+      ;; if something was accepted last, repeat
+      (if (:best (:accrej (:workspace (cur-ep est-meta))))
+        (recur est-meta) est-meta))))
 
 (defn meta-apply-and-evaluate
   [est est-new time-now sensors]
-  (let [reason-est (reason est-new (:time (cur-ep est-new)) time-now sensors :no-metareason)]
+  (let [reason-est (reason est-new (:time (cur-ep est-new))
+                           time-now sensors :no-metareason)]
     {:est-old (goto-ep reason-est (:id (cur-ep est)))
      :est-new reason-est}))
 
