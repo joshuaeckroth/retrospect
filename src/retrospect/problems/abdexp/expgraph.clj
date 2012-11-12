@@ -4,7 +4,8 @@
   (:use [loom.io])
   (:use [loom.graph])
   (:use [loom.alg])
-  (:use [loom.attr]))
+  (:use [loom.attr])
+  (:use [clojure.java.shell :only [sh]]))
 
 (defn vertex?
   [expgraph vertex]
@@ -172,22 +173,41 @@
      ;; explains edges
      (str/join "\n" (map (fn [[v1 v2]] (format "%s -> %s;" v1 v2))
                        (explainers expgraph)))
-     ;; conflicts edges
-     (str/join "\n" (map (fn [[[v1 val1] [v2 val2]]]
-                         (format "%s:%s%s -> %s:%s%s [dir=\"none\", style=\"dotted\", constraint=false];"
-                            v1 v1 val1 v2 v2 val2))
-                       (conflicts expgraph)))
      ;; vertices
      (str/join "\n"
                (map (fn [v]
                     (let [vals (values expgraph v)]
                       (format "%s [id=\"%s\", label=<<table border=\"0\" cellborder=\"1\" cellspacing=\"0\" cellpadding=\"6\"><tr>%s</tr></table>>];"
                          v v (apply str (map (fn [val]
-                                             (format "<td port=\"%s_%s\" bgcolor=\"%s\">%s=%s</td>"
+                                             (format "<td port=\"%s%s\" bgcolor=\"%s\">%s=%s</td>"
                                                 v val
                                                 (if (= val (true-values-map v))
                                                   "#eeeeee" "#ffffff")
                                                 v val))
                                            vals)))))
                   (vertices expgraph)))
-     ))
+     ;; conflicts edges
+     (str/join "\n" (map (fn [[[v1 val1] [v2 val2]]]
+                         (format "%s:%s%s -> %s:%s%s [dir=\"none\", style=\"dotted\", constraint=false];"
+                            v1 v1 val1 v2 v2 val2))
+                       (conflicts expgraph)))))
+
+(defn gen-vertex-graph-positions
+  [expgraph]
+  (let [expgraph-no-conflicts (reduce (fn [eg [[v1 _] [v2 _]]] (remove-edges eg [v1 v2]))
+                                 expgraph (conflicts expgraph))
+        expgraph-conflicts-nodes (reduce (fn [eg [[v1 val1] [v2 val2]]]
+                                      (let [c-node (format "%s_%s_C_%s_%s"
+                                                      v1 val1 v2 val2)]
+                                        (-> eg
+                                           (add-attr c-node :id c-node)
+                                           (add-attr c-node :label c-node)
+                                           (add-edges [v1 c-node] [v2 c-node]))))
+                                    expgraph-no-conflicts (conflicts expgraph))
+        dot (dot-str expgraph-conflicts-nodes
+                     :node {:width 2 :height 1 :fixedsize true})
+        {cmapx :out} (sh "dot" "-Tcmapx_np" "-NURL=a" :in dot)]
+    (reduce (fn [m [_ v x1 y1 x2 y2]]
+         (assoc m v [(/ (+ (Double/parseDouble x1) (Double/parseDouble x2)) 2.0)
+                     (/ (+ (Double/parseDouble y1) (Double/parseDouble y2)) 2.0)]))
+       {} (re-seq #"id=\"(.*?)\".*coords=\"(\d+),(\d+),(\d+),(\d+)" cmapx))))

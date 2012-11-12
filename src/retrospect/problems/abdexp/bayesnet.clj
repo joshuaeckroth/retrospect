@@ -23,7 +23,8 @@
         nodes-map (reduce (fn [m v]
                        (let [states (str/join "," (sort (values expgraph v)))]
                          (assoc m v (Node. v states bn))))
-                     {} (vertices expgraph))]
+                     {} (vertices expgraph))
+        vertex-positions (gen-vertex-graph-positions expgraph)]
     (doseq [v (keys nodes-map)
             p (sort (explainers expgraph v))]
       (.addLink (nodes-map v) (nodes-map p)))
@@ -37,7 +38,9 @@
                        (float-array (vals (get (:map (probs expgraph v)) p-states)))))))
     ;; create a NAND node for each conflict pair
     (doseq [[[v1 val1] [v2 val2]] (conflicts expgraph)]
-      (let [nand (Node. (format "%s_%s_conflicts_%s_%s" v1 val1 v2 val2) "on,off" bn)]
+      (let [nand (Node. (format "%s_%s_C_%s_%s" v1 val1 v2 val2) "on,off" bn)]
+        (.setKind nand Node/CONSTANT_NODE)
+        (.enterState (.finding nand) "on")
         (.addLink nand (nodes-map v1))
         (.addLink nand (nodes-map v2))
         (doseq [val1-tmp (sort (values expgraph v1))
@@ -48,8 +51,12 @@
             (.setCPTable nand (format "%s,%s" val1-tmp val2-tmp) (float-array [0.0 1.0]))
             ;; otherwise NAND node "on" probability is 1.0
             (.setCPTable nand (format "%s,%s" val1-tmp val2-tmp) (float-array [1.0 0.0]))))))
+    (doseq [v (keys vertex-positions)]
+      (let [[x y] (vertex-positions v)]
+        (.setPosition (.visual (.getNode bn v)) x y)))
     ;; Netica crashes if nets are garbage collected; save them all
     (dosync (alter bns conj bn))
+    (.compile bn)
     bn))
 
 (defn get-posterior

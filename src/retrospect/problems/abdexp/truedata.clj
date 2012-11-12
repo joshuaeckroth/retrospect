@@ -119,7 +119,7 @@
 
 (defn rand-vals
   []
-  (map #(format "S%d" %) (range 1 (inc (my-rand-nth (range 2 (inc (:MaxStates params))))))))
+  (vec (map #(format "S%d" %) (range 1 (inc (my-rand-nth (range 2 (inc (:MaxStates params)))))))))
 
 (defn random-expgraph
   []
