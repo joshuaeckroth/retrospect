@@ -129,24 +129,26 @@
       (if (not (dag? eg))
         (recur (inc attempts))
         (let [vs-tmp (sort (nodes eg))
-              ;; netica restriction
-              eg-reduced (if (> (count vs-tmp) 30)
-                           (let [vs (set (take 30 (my-shuffle vs-tmp)))]
-                             (apply remove-nodes eg (filter #(not (vs %)) vs-tmp)))
-                           eg)
-              vs (sort (nodes eg-reduced))
               eg-values (reduce (fn [eg v]
                              (-> eg (add-attr v :id v)
                                 (add-attr v :values (rand-vals))))
-                           eg-reduced vs)
+                           eg vs-tmp)
               ;; a path gives selects vertex-value pairs from all bottom
               ;; vertices to the top to ensure that conflicts links do not
               ;; disable all possible paths
               path (reduce (fn [tv v] (arbitrary-path-up eg-values tv v))
                       {} (bottom-nodes eg-values))
-              conflict-links (gen-conflicts-links eg-values vs path)
+              conflict-links (gen-conflicts-links eg-values vs-tmp path)
               eg-conflicts (reduce set-conflicts eg-values conflict-links)
-              eg-probs (reduce add-prob-table eg-conflicts vs)
+              ;; netica restriction
+              nodes-with-conflicts (+ (count vs-tmp) (count conflict-links))
+              eg-reduced (if (> nodes-with-conflicts 30)
+                           (let [vs (set (take (- 30 (count conflict-links))
+                                               (my-shuffle vs-tmp)))]
+                             (apply remove-nodes eg-conflicts (filter #(not (vs %)) vs-tmp)))
+                           eg-conflicts)
+              vs (sort (nodes eg-reduced))
+              eg-probs (reduce add-prob-table eg-reduced vs)
               bayesnet (build-bayesnet eg-probs)
               true-values-map (sample-expgraph eg-probs)
               observations (take (:Steps params)
