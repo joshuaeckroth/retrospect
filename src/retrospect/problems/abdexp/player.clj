@@ -17,8 +17,8 @@
   (:use [retrospect.state]))
 
 (def canvas (ref nil))
-(def diagram-tabs (ref nil))
 (def net-panel (ref nil))
+(def net-panel-scrollpane (ref nil))
 
 (def table-contents (ref "Click a node."))
 
@@ -128,56 +128,50 @@
 
 (defn player-update-diagram
   []
-  (when (and @diagram-tabs (:bayesnet @truedata))
+  (when (:bayesnet @truedata)
     (if (or (nil? @net-panel) (not= (.getNet @net-panel) (:bayesnet @truedata)))
       (do
         (dosync (alter net-panel
                        (constantly (NetPanel. (:bayesnet @truedata)
                                               NodePanel/NODE_STYLE_AUTO_SELECT))))
         (.setLinkPolicy @net-panel NetPanel/LINK_POLICY_BELOW)
-        (.remove @diagram-tabs 1)
-        (.addTab @diagram-tabs "Bayes net" (JScrollPane. @net-panel)))
+        (.setView (.getViewport @net-panel-scrollpane) @net-panel))
       (.refreshDataDisplayed @net-panel))))
-
-(defn make-diagram-tabs
-  []
-  (let [tabs (JTabbedPane.)]
-    (doto tabs
-      (.addTab "Expgraph"
-               (panel :layout (GridBagLayout.)
-                      :constrains (java.awt.GridBagConstraints.)
-                      [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0
-                       :fill :BOTH :insets (Insets. 5 5 5 5)
-                       _ @canvas
-                       :gridy 1 :weighty 0.3
-                       _ (scroll-panel (text-area :str-ref table-contents
-                                                  :editable false :wrap false))
-                       :gridy 2 :gridx 0 :weighty 0.0
-                       _ (panel :layout (GridBagLayout.)
-                                :constrains (java.awt.GridBagConstraints.)
-                                [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0
-                                 _ (panel)
-                                 :gridx 1 :weightx 0.0
-                                 _ (doto (button "Save Dot")
-                                     (add-action-listener ([_] (save-dot @current-expgraph-dot))))
-                                 :gridx 2
-                                 _ (doto (button "Save SVG")
-                                     (add-action-listener ([_] (save-svg @current-expgraph-svg))))
-                                 :gridx 3
-                                 _ (doto (button "Generate")
-                                     (add-action-listener ([_] (generate-expgraph))))])]))
-      (.addTab "Bayes net" (panel)))
-    (dosync (alter diagram-tabs (constantly tabs)))))
 
 (defn player-setup-diagram
   []
   (dosync (alter canvas (constantly (create-canvas))))
-  (make-diagram-tabs)
+  (dosync (alter net-panel-scrollpane (constantly (JScrollPane.))))
   (panel :layout (GridBagLayout.)
          :constrains (java.awt.GridBagConstraints.)
          [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
-          _ @diagram-tabs]))
+          _ (let [tabs (JTabbedPane.)]
+              (doto tabs
+                (.addTab "Expgraph"
+                         (panel :layout (GridBagLayout.)
+                                :constrains (java.awt.GridBagConstraints.)
+                                [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0
+                                 :fill :BOTH :insets (Insets. 5 5 5 5)
+                                 _ @canvas
+                                 :gridy 1 :weighty 0.3
+                                 _ (scroll-panel (text-area :str-ref table-contents
+                                                            :editable false :wrap false))
+                                 :gridy 2 :gridx 0 :weighty 0.0
+                                 _ (panel :layout (GridBagLayout.)
+                                          :constrains (java.awt.GridBagConstraints.)
+                                          [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0
+                                           _ (panel)
+                                           :gridx 1 :weightx 0.0
+                                           _ (doto (button "Save Dot")
+                                               (add-action-listener ([_] (save-dot @current-expgraph-dot))))
+                                           :gridx 2
+                                           _ (doto (button "Save SVG")
+                                               (add-action-listener ([_] (save-svg @current-expgraph-svg))))
+                                           :gridx 3
+                                           _ (doto (button "Generate")
+                                               (add-action-listener ([_] (generate-expgraph))))])]))
+                (.addTab "Bayes net" @net-panel-scrollpane)))]))
 
 (defn player-get-truedata-log
   []
