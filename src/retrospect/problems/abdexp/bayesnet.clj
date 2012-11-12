@@ -77,22 +77,14 @@
     (observe-seq bn conditioning-pairs)
     (- (get-posterior bn pairs) prior)))
 
-(comment
-  (defn gen-parent-var-idxs
-    [var-idxs]
-    (if (empty? var-idxs) [[]]
-        (apply concat
-               (for [var-idx-seq (first var-idxs)]
-                 (map #(conj % var-idx-seq)
-                    (gen-parent-combinations (rest var-idxs)))))))
+(defn most-probable-explanation
+  [bn]
+  (.compile bn)
+  (let [nodelist (.getNodes bn)
+        ;; MPE in Netica does not support querying a subset
+        nodeidxs (.getMostProbableConfig bn nodelist)]
+    {:states
+     (reduce (fn [m [node idx]] (assoc m (.getName node) (.getName (.state node idx))))
+        {} (partition 2 (interleave nodelist nodeidxs)))
+     :prob (.getJointProbability bn nodelist nodeidxs)}))
 
-  ;; TODO: support conflicts
-
-
-  (defn save-bayesnet
-    [bn filename]
-    (let [writer (PGMXWriter.)]
-      (.writeProbNet writer filename bn)))
-
-
-  )

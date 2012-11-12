@@ -45,7 +45,10 @@
                 probs (let [bn (:bayesnet truedata)]
                         (unobserve-all bn)
                         (observe-seq bn (apply concat (:test truedata)))
-                        (let [post-error (avg (for [h acc]
+                        (let [{mpe :states mpe-prob :prob} (most-probable-explanation bn)
+                              [etp etn efp efn] (tp-tn-fp-fn mpe acc not-acc)
+                              prec-tpratio (calc-prec-tpratio etp etn efp efn (count mpe))
+                              post-error (avg (for [h acc]
                                                 (let [v (:vertex h)
                                                       vals (sort (values expgraph v))
                                                       post-map (zipmap vals (map #(get-posterior bn v %) vals))]
@@ -54,7 +57,10 @@
                               
                               posteriors-acc (map #(get-posterior bn (first %) (second %))
                                                 acc-vertex-values)]
-                          {:PostError post-error
+                          {:MPEPrec (:Prec prec-tpratio)
+                           :MPETPRatio (:TPRatio prec-tpratio)
+                           :MPEProb mpe-prob
+                           :PostError post-error
                            :AbsConfPostDiff (Math/abs (- confidence (avg posteriors-acc)))}))]
             (merge prec-tpratio probs)))]
     (merge (last metrics)
@@ -62,12 +68,6 @@
             :MinTPRatio (apply min (map :TPRatio metrics))
             :AvgPrec (avg (map :Prec metrics))
             :AvgTPRatio (avg (map :TPRatio metrics))})))
-
-(comment expl (get-explanation bn)
-         [etp etn efp efn] (tp-tn-fp-fn expl acc not-acc)
-         prec-tpratio (calc-prec-tpratio etp etn efp efn (count expl))
-          :ExplPrec (:Prec prec-tpratio)
-                           :ExplTPRatio (:TPRatio prec-tpratio))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
