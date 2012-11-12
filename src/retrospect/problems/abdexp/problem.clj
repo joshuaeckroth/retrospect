@@ -47,5 +47,4 @@
     :NumConflictLinks [10 [10]]
     :UniqueGraphs [100 [100]]
     :UpdatePosteriors [true [true false]]
-    :MaxStates [3 [2 3 4]]
-    :ExplanatoryDef ["gardenfors" ["gardenfors" "always-true"]]}})
+    :MaxStates [3 [2 3 4]]}})
