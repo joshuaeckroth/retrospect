@@ -6,6 +6,9 @@
 
 (def netica-env (Environ. nil))
 
+;; Netica crashes if nets are garbage collected; save them all
+(def bns (ref []))
+
 (defn load-dne
   [file]
   (Net. (Streamer. file)))
@@ -33,6 +36,8 @@
           (.setCPTable (nodes-map v)
                        (str/join "," (map second (sort-by first p-states)))
                        (float-array (vals (get (:map (probs expgraph v)) p-states)))))))
+    ;; Netica crashes if nets are garbage collected; save them all
+    (dosync (alter bns conj bn))
     bn))
 
 (defn get-posterior
