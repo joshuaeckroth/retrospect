@@ -116,6 +116,7 @@
   (let [kb (get-kb accepted lookup-hyp)
         bn (:bayesnet kb)
         expgraph (:expgraph kb)
-        observed (map (fn [h] [(:vertex h) (:value h)])
-                    (map lookup-hyp (concat (:expl accepted) (:observation accepted))))]
+        ;; only :expl are "observed" here because :observation types
+        ;; may not be believed, or may conflict with beliefs
+        observed (map (fn [h] [(:vertex h) (:value h)]) (map lookup-hyp (:expl accepted)))]
     (mapcat #(make-explainer-hyps bn expgraph observed %) unexp-hyps)))
