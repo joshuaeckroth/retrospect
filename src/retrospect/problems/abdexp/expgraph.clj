@@ -133,9 +133,13 @@
 
 (defn conflicts
   [expgraph]
-  (filter #(or (attr expgraph (first %) (second %) :conflicts)
-          (attr expgraph (second %) (first %) :conflicts))
-     (edges expgraph)))
+  (map (fn [[v1 v2]]
+       (let [[val1 val2] (or (attr expgraph v1 v2 :conflicts)
+                             (attr expgraph v2 v1 :conflicts))]
+         [[v1 val1] [v2 val2]]))
+     (filter #(or (attr expgraph (first %) (second %) :conflicts)
+             (attr expgraph (second %) (first %) :conflicts))
+        (edges expgraph))))
 
 (defn need-explanation
   [expgraph]
@@ -169,11 +173,9 @@
      (str/join "\n" (map (fn [[v1 v2]] (format "%s -> %s;" v1 v2))
                        (explainers expgraph)))
      ;; conflicts edges
-     (str/join "\n" (map (fn [[v1 v2]]
-                         (let [[val1 val2] (or (attr expgraph v1 v2 :conflicts)
-                                               (attr expgraph v2 v1 :conflicts))]
-                           (format "%s:%s%s -> %s:%s%s [dir=\"none\", style=\"dotted\", constraint=false];"
-                              v1 v1 val1 v2 v2 val2)))
+     (str/join "\n" (map (fn [[[v1 val1] [v2 val2]]]
+                         (format "%s:%s%s -> %s:%s%s [dir=\"none\", style=\"dotted\", constraint=false];"
+                            v1 v1 val1 v2 v2 val2))
                        (conflicts expgraph)))
      ;; vertices
      (str/join "\n"

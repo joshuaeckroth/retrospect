@@ -17,7 +17,6 @@
   [bn file]
   (.write bn (Streamer. file)))
 
-;; TODO: support conflicts
 (defn build-bayesnet
   [expgraph]
   (let [bn (Net.)
@@ -36,6 +35,19 @@
           (.setCPTable (nodes-map v)
                        (str/join "," (map second (sort-by first p-states)))
                        (float-array (vals (get (:map (probs expgraph v)) p-states)))))))
+    ;; create a NAND node for each conflict pair
+    (doseq [[[v1 val1] [v2 val2]] (conflicts expgraph)]
+      (let [nand (Node. (format "%s_%s_conflicts_%s_%s" v1 val1 v2 val2) "on,off" bn)]
+        (.addLink nand (nodes-map v1))
+        (.addLink nand (nodes-map v2))
+        (doseq [val1-tmp (sort (values expgraph v1))
+                val2-tmp (sort (values expgraph v2))]
+          (if (and (= val1-tmp val1) (= val2-tmp val2))
+            ;; NAND node "on" probability is 0.0 only if both parents
+            ;; take their conflicting state
+            (.setCPTable nand (format "%s,%s" val1-tmp val2-tmp) (float-array [0.0 1.0]))
+            ;; otherwise NAND node "on" probability is 1.0
+            (.setCPTable nand (format "%s,%s" val1-tmp val2-tmp) (float-array [1.0 0.0]))))))
     ;; Netica crashes if nets are garbage collected; save them all
     (dosync (alter bns conj bn))
     bn))
