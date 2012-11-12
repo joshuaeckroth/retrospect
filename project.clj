@@ -19,13 +19,12 @@
                  [clojure-csv/clojure-csv "2.0.0-alpha1"]
                  [com.fifesoft/rsyntaxtextarea "2.0.2"]
                  [com.github.insubstantial/substance "7.1"]
-                 [org.openmarkov/org.openmarkov.inference.variableElimination "0.0.1-SNAPSHOT"]
-                 [org.openmarkov/org.openmarkov.inference.likelihoodWeighting "0.0.1-SNAPSHOT"]             
-                 [org.openmarkov/org.openmarkov.io.probmodelxml "0.0.1-SNAPSHOT"]]
-  :repositories [["Sonatype Nexus" "http://openmarkov.org:8081/nexus/content/groups/public/"]]
+                 [norsys/netica "504"]]
   :dev-dependencies [[lein-marginalia "0.7.0"]]
+  :plugins [[lein-localrepo "0.4.1"]]
   :main retrospect.core
   :keep-non-project-classes true
   :java-source-paths ["src/jvm"]
   :warn-on-reflection false ;; Emit warnings on all reflection calls.
-  :jvm-opts ["-Dawt.useSystemAAFontSettings=on" "-Xmx5000m"])
+  :jvm-opts ["-Dawt.useSystemAAFontSettings=on" "-Xmx3000m"
+             "-Djava.library.path=/home/josh/research/retrospect/netica"])

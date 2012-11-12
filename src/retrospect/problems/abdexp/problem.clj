@@ -48,4 +48,4 @@
     :UniqueGraphs [100 [100]]
     :UpdatePosteriors [true [true false]]
     :MaxStates [3 [2 3 4]]
-    :ExplanatoryDef ["gardenfors" "always-true" "conditional"]}})
+    :ExplanatoryDef ["gardenfors" ["gardenfors" "always-true"]]}})

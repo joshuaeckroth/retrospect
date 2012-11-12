@@ -80,11 +80,13 @@
                        (sort (explainers expgraph vertex)))
         parent-combs (let [pc (gen-parent-combinations parent-vals)]
                        (if (empty? pc) [#{}] pc))
-        probs-parent-combs-map (reduce (fn [m pc]
-                                    (let [probs (repeatedly (count vals) my-rand)
-                                          probs-sum (reduce + probs)]
-                                      (assoc m pc (zipmap vals (map #(/ % probs-sum) probs)))))
-                                  {} parent-combs)
+        probs-parent-combs-map
+        (reduce (fn [m pc]
+             (let [probs (repeatedly (count vals) my-rand)
+                   probs-sum (reduce + probs)
+                   probs-pairs (interleave vals (map #(/ % probs-sum) probs))]
+               (assoc m pc (apply sorted-map probs-pairs))))
+           {} parent-combs)
         prob-table (for [v vals pc parent-combs]
                      (get-in probs-parent-combs-map [pc v]))]
     (add-attr expgraph vertex :probs {:table prob-table :map probs-parent-combs-map})))
@@ -117,35 +119,42 @@
 
 (defn rand-vals
   []
-  (map str (range 1 (inc (my-rand-nth (range 2 (inc (:MaxStates params))))))))
+  (map #(format "S%d" %) (range 1 (inc (my-rand-nth (range 2 (inc (:MaxStates params))))))))
 
 (defn random-expgraph
   []
   (loop [attempts 0]
     (let [expl-links (gen-explains-links attempts)
           eg (apply add-edges (digraph) expl-links)]
-      (if (not (dag? eg)) (recur (inc attempts))
-          (let [vs (sort (nodes eg))
-                eg-values (reduce (fn [eg v]
-                               (-> eg (add-attr v :id v)
-                                  (add-attr v :values (rand-vals))))
-                             eg vs)
-                ;; a path gives selects vertex-value pairs from all bottom
-                ;; vertices to the top to ensure that conflicts links do not
-                ;; disable all possible paths
-                path (reduce (fn [tv v] (arbitrary-path-up eg-values tv v))
-                        {} (bottom-nodes eg-values))
-                conflict-links (gen-conflicts-links eg-values vs path)
-                eg-conflicts (reduce set-conflicts eg-values conflict-links)
-                eg-probs (reduce add-prob-table eg-conflicts vs)
-                bayesnet (build-bayesnet eg-probs)
-                true-values-map (sample-expgraph eg-probs)
-                observations (take (:Steps params)
-                                   (my-shuffle (sort-by first (seq true-values-map))))]
-            {:expgraph eg-probs
-             :bayesnet bayesnet
-             :observations observations
-             :true-values-map true-values-map})))))
+      (if (not (dag? eg))
+        (recur (inc attempts))
+        (let [vs-tmp (sort (nodes eg))
+              ;; netica restriction
+              eg-reduced (if (> (count vs-tmp) 30)
+                           (let [vs (set (take 30 (my-shuffle vs-tmp)))]
+                             (apply remove-nodes eg (filter #(not (vs %)) vs-tmp)))
+                           eg)
+              vs (sort (nodes eg-reduced))
+              eg-values (reduce (fn [eg v]
+                             (-> eg (add-attr v :id v)
+                                (add-attr v :values (rand-vals))))
+                           eg-reduced vs)
+              ;; a path gives selects vertex-value pairs from all bottom
+              ;; vertices to the top to ensure that conflicts links do not
+              ;; disable all possible paths
+              path (reduce (fn [tv v] (arbitrary-path-up eg-values tv v))
+                      {} (bottom-nodes eg-values))
+              conflict-links (gen-conflicts-links eg-values vs path)
+              eg-conflicts (reduce set-conflicts eg-values conflict-links)
+              eg-probs (reduce add-prob-table eg-conflicts vs)
+              bayesnet (build-bayesnet eg-probs)
+              true-values-map (sample-expgraph eg-probs)
+              observations (take (:Steps params)
+                                 (my-shuffle (sort-by first (seq true-values-map))))]
+          {:expgraph eg-probs
+           :bayesnet bayesnet
+           :observations observations
+           :true-values-map true-values-map})))))
 
 (defn observation-groups
   [observations]

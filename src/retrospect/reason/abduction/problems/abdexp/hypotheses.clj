@@ -62,21 +62,10 @@
                (let [posterior (get-posterior bn vertex2 val2)]
                  (> posterior prior)))))))
 
-(defn explanatory?-conditional
-  "Is P(vertex2=val2|vertex1=val1) > 0.5?"
-  [bn vertex1 val1 vertex2 val2 observed]
-  (unobserve-all bn)
-  (observe-seq bn (filter #(not= vertex2 (first %)) observed))
-  (observe bn vertex1 val1)
-  (let [posterior (get-posterior bn vertex2 val2)]
-    (> posterior 0.5)))
-
 (defn explanatory?
   [bn vertex1 val1 vertex2 val2 observed]
   (cond (= "gardenfors" (:ExplanatoryDef state/params))
         (explanatory?-gardenfors-delta bn vertex1 val1 vertex2 val2 observed)
-        (= "conditional" (:ExplanatoryDef state/params))
-        (explanatory?-conditional bn vertex1 val1 vertex2 val2 observed)
         :else true))
 
 (defn make-explainer-hyps
@@ -108,9 +97,10 @@
                                                 (format "%s=%s" pv pval)
                                                 (format "%s=%s" pv pval)
                                                 {:vertex pv :value pval}))
-                                     parent-comb)]
+                                     parent-comb)
+                             score (conditional-delta bn parent-comb [[v val]])]
                          (new-composite "ExplComp" :expl-composite :expl
-                                        1.0 [(:contents unexp-hyp)]
+                                        score [(:contents unexp-hyp)]
                                         "" (str/join "\n" (map str hyps))
                                         hyps)))
                      parent-combs)))

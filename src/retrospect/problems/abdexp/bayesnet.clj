@@ -1,79 +1,59 @@
 (ns retrospect.problems.abdexp.bayesnet
-  (:import (org.openmarkov.io.probmodel PGMXReader PGMXWriter))
-  (:import (org.openmarkov.inference.likelihoodWeighting LikelihoodWeighting))
-  (:import (org.openmarkov.inference.variableElimination VariableElimination))
-  (:import (org.openmarkov.core.model.network
-            EvidenceCase NodeType ProbNet State Variable))
-  (:import (org.openmarkov.core.model.network.potential
-            Potential PotentialRole TablePotential))
+  (:require [clojure.string :as str])
+  (:import (norsys.netica Environ Net NetTester Node NodeList Streamer))
   (:use [retrospect.problems.abdexp.expgraph])
   (:use [retrospect.profile :only [prof]]))
 
-(defn load-pgmx
-  [file]
-  (let [reader (PGMXReader.)
-        bayesnet (.getProbNet (.loadProbNet reader file))
-        evidence (EvidenceCase.)
-        inference (doto (VariableElimination. bayesnet)
-                    (.setPreResolutionEvidence evidence))]
-    {:bayesnet bayesnet
-     :inference inference
-     :evidence evidence}))
+(def netica-env (Environ. nil))
 
-(defn gen-parent-var-idxs
-  [var-idxs]
-  (if (empty? var-idxs) [[]]
-      (apply concat
-             (for [var-idx-seq (first var-idxs)]
-               (map #(conj % var-idx-seq)
-                  (gen-parent-combinations (rest var-idxs)))))))
+(defn load-dne
+  [file]
+  (Net. (Streamer. file)))
+
+(defn save-dne
+  [bn file]
+  (.write bn (Streamer. file)))
 
 ;; TODO: support conflicts
 (defn build-bayesnet
   [expgraph]
-  (let [bn (ProbNet.)
-        vars (reduce (fn [m v]
-                  (let [vals (sort (values expgraph v))
-                        var (Variable. (str v) (into-array State (map #(State. %) vals)))]
-                    (assoc m v var)))
-                {} (sort (vertices expgraph)))]
-    (doseq [v (keys vars)]
-      (.addVariable bn (get vars v) NodeType/CHANCE))
-    (doseq [v2 (keys vars)]
-      (doseq [v1 (sort (explainers expgraph v2))]
-        (.addLink bn (get vars v1) (get vars v2) true)))
-    (doseq [v2 (keys vars)]
-      (let [parent-vars (java.util.ArrayList.
-                         (concat [(get vars v2)]
-                                 (map #(get vars %) (sort (explainers expgraph v2)))))
-            potential (TablePotential. parent-vars
-                                       PotentialRole/CONDITIONAL_PROBABILITY
-                                       (double-array (:table (probs expgraph v2))))]
-        (.addPotential bn potential)))
-    (let [evidence (EvidenceCase.)
-          inference (doto (LikelihoodWeighting. bn)
-                      (.setPreResolutionEvidence evidence))]
-      {:bayesnet bn
-       :inference inference
-       :evidence evidence})))
-
-(defn save-bayesnet
-  [bn filename]
-  (let [writer (PGMXWriter.)]
-    (.writeProbNet writer filename bn)))
+  (let [bn (Net.)
+        nodes-map (reduce (fn [m v]
+                       (let [states (str/join "," (sort (values expgraph v)))]
+                         (assoc m v (Node. v states bn))))
+                     {} (vertices expgraph))]
+    (doseq [v (keys nodes-map)
+            p (sort (explainers expgraph v))]
+      (.addLink (nodes-map v) (nodes-map p)))
+    (doseq [v (keys nodes-map)]
+      (if (empty? (explainers expgraph v))
+        (.setCPTable (nodes-map v) (int-array [])
+                     (float-array (vals (get (:map (probs expgraph v)) #{}))))
+        (doseq [p-states (keys (:map (probs expgraph v)))]
+          (.setCPTable (nodes-map v)
+                       (str/join "," (map second (sort-by first p-states)))
+                       (float-array (vals (get (:map (probs expgraph v)) p-states)))))))
+    bn))
 
 (defn get-posterior
-  ([inf vertex])
-  ([bn vertex value]
+  ([bn pairs]
      (prof :bn-get-posterior
-           (let [var (.getVariable (:bayesnet bn) vertex)
-                 state (.getStateIndex var value)]
-             (nth (.getValues (get (.getProbsAndUtilities (:inference bn)) var)) state)))))
+           (do
+             (.compile bn)
+             (let [nodes-vals (map (fn [[v val]] [(.getNode bn v) val]) pairs)
+                   nodelist (NodeList. bn)]
+               (doseq [[node _] nodes-vals]
+                 (.add nodelist node))
+               (let [nodeidxs (map (fn [[node val]] (.getIndex (.state node val)))
+                                 nodes-vals)]
+                 (.getJointProbability bn nodelist (int-array nodeidxs)))))))
+  ([bn vertex value]
+     (get-posterior bn [[vertex value]])))
 
 (defn observe
   [bn vertex value]
   (prof :bn-observe
-        (.addFinding (:evidence bn) (:bayesnet bn) vertex value)))
+        (.enterState (.finding (.getNode bn vertex)) value)))
 
 (defn observe-seq
   [bn obs-seq]
@@ -83,11 +63,36 @@
 (defn unobserve
   [bn vertex]
   (prof :bn-unobserve
-        (.removeFinding (:evidence bn) vertex)))
+        (.clear (.finding (.getNode bn vertex)))))
 
 (defn unobserve-all
   [bn]
   (prof :bn-unobserve-all
-        (doseq [var (.getVariables (:evidence bn))]
-          (.removeFinding (:evidence bn) var))))
+        (.retractFindings bn)))
 
+(defn conditional-delta
+  [bn pairs conditioning-pairs]
+  (unobserve-all bn)
+  (let [prior (get-posterior bn pairs)]
+    (observe-seq bn conditioning-pairs)
+    (- (get-posterior bn pairs) prior)))
+
+(comment
+  (defn gen-parent-var-idxs
+    [var-idxs]
+    (if (empty? var-idxs) [[]]
+        (apply concat
+               (for [var-idx-seq (first var-idxs)]
+                 (map #(conj % var-idx-seq)
+                    (gen-parent-combinations (rest var-idxs)))))))
+
+  ;; TODO: support conflicts
+
+
+  (defn save-bayesnet
+    [bn filename]
+    (let [writer (PGMXWriter.)]
+      (.writeProbNet writer filename bn)))
+
+
+  )
