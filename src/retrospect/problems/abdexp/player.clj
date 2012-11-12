@@ -1,5 +1,7 @@
 (ns retrospect.problems.abdexp.player
   (:import (java.awt GridBagLayout Insets))
+  (:import (javax.swing JScrollPane JTabbedPane))
+  (:import (norsys.netica.gui NetPanel NodePanel))
   (:require [clojure.string :as str])
   (:use [loom.graph :only [digraph]])
   (:use [clj-swing.core :only [add-action-listener]])
@@ -15,6 +17,8 @@
   (:use [retrospect.state]))
 
 (def canvas (ref nil))
+(def diagram-tabs (ref nil))
+(def net-panel (ref nil))
 
 (def table-contents (ref "Click a node."))
 
@@ -123,33 +127,57 @@
                   current-expgraph-dot current-expgraph-svg))
 
 (defn player-update-diagram
-  [])
+  []
+  (when (and @diagram-tabs (:bayesnet @truedata))
+    (if (or (nil? @net-panel) (not= (.getNet @net-panel) (:bayesnet @truedata)))
+      (do
+        (dosync (alter net-panel
+                       (constantly (NetPanel. (:bayesnet @truedata)
+                                              NodePanel/NODE_STYLE_AUTO_SELECT))))
+        (.setLinkPolicy @net-panel NetPanel/LINK_POLICY_BELOW)
+        (.remove @diagram-tabs 1)
+        (.addTab @diagram-tabs "Bayes net" (JScrollPane. @net-panel)))
+      (.refreshDataDisplayed @net-panel))))
+
+(defn make-diagram-tabs
+  []
+  (let [tabs (JTabbedPane.)]
+    (doto tabs
+      (.addTab "Expgraph"
+               (panel :layout (GridBagLayout.)
+                      :constrains (java.awt.GridBagConstraints.)
+                      [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0
+                       :fill :BOTH :insets (Insets. 5 5 5 5)
+                       _ @canvas
+                       :gridy 1 :weighty 0.3
+                       _ (scroll-panel (text-area :str-ref table-contents
+                                                  :editable false :wrap false))
+                       :gridy 2 :gridx 0 :weighty 0.0
+                       _ (panel :layout (GridBagLayout.)
+                                :constrains (java.awt.GridBagConstraints.)
+                                [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0
+                                 _ (panel)
+                                 :gridx 1 :weightx 0.0
+                                 _ (doto (button "Save Dot")
+                                     (add-action-listener ([_] (save-dot @current-expgraph-dot))))
+                                 :gridx 2
+                                 _ (doto (button "Save SVG")
+                                     (add-action-listener ([_] (save-svg @current-expgraph-svg))))
+                                 :gridx 3
+                                 _ (doto (button "Generate")
+                                     (add-action-listener ([_] (generate-expgraph))))])]))
+      (.addTab "Bayes net" (panel)))
+    (dosync (alter diagram-tabs (constantly tabs)))))
 
 (defn player-setup-diagram
   []
   (dosync (alter canvas (constantly (create-canvas))))
+  (make-diagram-tabs)
   (panel :layout (GridBagLayout.)
          :constrains (java.awt.GridBagConstraints.)
          [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
-          _ @canvas
-          :gridy 1 :weighty 0.3
-          _ (scroll-panel (text-area :str-ref table-contents
-                                     :editable false :wrap false))
-          :gridy 2 :gridx 0 :weighty 0.0
-          _ (panel :layout (GridBagLayout.)
-                   :constrains (java.awt.GridBagConstraints.)
-                   [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0
-                    _ (panel)
-                    :gridx 1 :weightx 0.0
-                    _ (doto (button "Save Dot")
-                        (add-action-listener ([_] (save-dot @current-expgraph-dot))))
-                    :gridx 2
-                    _ (doto (button "Save SVG")
-                        (add-action-listener ([_] (save-svg @current-expgraph-svg))))
-                    :gridx 3
-                    _ (doto (button "Generate")
-                        (add-action-listener ([_] (generate-expgraph))))])]))
+          _ @diagram-tabs]))
 
 (defn player-get-truedata-log
   []
