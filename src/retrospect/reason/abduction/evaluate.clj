@@ -101,10 +101,20 @@
                (= :observation (:type (accepted-explained ws hyp)))
                (not (get-in true-false [:individual (:id (accepted-explained ws hyp))]))))
       :noise
-      ;; true thing eliminated due to too-low minapriori
-      (and (rejected? ws hyp)
-           (= :minapriori (rejection-reason ws hyp))
-           (get-in true-false [:individual (:id hyp)]))
+      ;; this hyp is true and eliminated due to too-low minapriori;
+      ;; or, this hyp is false and true rival eliminated due to
+      ;; too-low minapriori
+      (or (and (rejected? ws hyp)
+               (= :minapriori (rejection-reason ws hyp))
+               (get-in true-false [:individual (:id hyp)]))
+          (and (accepted? ws hyp)
+               (not (get-in true-false [:individual (:id hyp)]))
+               ;; check that some true rival was rejected due to
+               ;; minapriori
+               (some (fn [h] (and (get-in true-false [:individual (:id h)])
+                              (rejected? ws h)
+                              (= :minapriori (rejection-reason ws h))))
+                  (explainers ws (accepted-explained ws hyp)))))
       :minapriori
       ;; scoring error: if you were accepted but are false, and one
       ;; of your rivals is true; or you were not accepted but are
@@ -140,7 +150,10 @@
               (some #{:minapriori} parent-errors) :minapriori
               (some #{:scoring} parent-errors) :scoring
               (some #{:no-expl-offered} parent-errors) :no-expl-offered
-              :else :conflict-rejection))
+              :else
+              :conflict-rejection))
+      ;; false but accepted, conflicting but true hyp was rejected,
+      ;; but why? check recursively
       (and (accepted? ws hyp)
            (not (get-in true-false [:individual (:id hyp)]))
            (some #(and (rejected? ws %) (get-in true-false [:individual (:id %)]))
@@ -155,7 +168,8 @@
               (some #{:minapriori} parent-errors) :minapriori
               (some #{:scoring} parent-errors) :scoring
               (some #{:no-expl-offered} parent-errors) :no-expl-offered
-              :else :conflict-rejection))
+              :else
+              :conflict-rejection))
       ;; a true thing was not accepted because it wasn't needed to explain
       (and (not (accepted? ws hyp))
            (get-in true-false [:individual (:id hyp)])

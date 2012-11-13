@@ -238,10 +238,10 @@
 
 (defn conflicts?
   [h1 h2]
-  (cond (:composite? h1)
-        (some (fn [h] ((:conflicts?-fn h) h h1)) (:hyps h1))
-        (:composite? h2)
-        (some (fn [h] ((:conflicts?-fn h) h h2)) (:hyps h2))
+  (cond (:composite? h2)
+        (some (fn [h] ((:conflicts?-fn h) h1 h)) (:hyps h2))
+        (:composite? h1)
+        (some (fn [h] ((:conflicts?-fn h) h h2)) (:hyps h1))
         (or (nil? (:conflicts?-fn h1)) (nil? (:conflicts?-fn h2)))
         false
         :else
@@ -632,9 +632,8 @@
                            "is lower than MinApriori.")
                       (let [ws-next (reject-many ws [hyp] :minapriori cycle)]
                         (recur ws-next (rest hyps))))
-                  (and (:conflicts?-fn hyp)
-                       (some (fn [hyp2] ((:conflicts?-fn hyp) hyp hyp2))
-                          (map #(lookup-hyp ws %) (:all (:accepted ws)))))
+                  (some (fn [hyp2] (conflicts? hyp hyp2))
+                     (map #(lookup-hyp ws %) (:all (:accepted ws))))
                   (do (log "...rejecting because of conflicts.")
                       (let [ws-next (reject-many ws [hyp] :conflict cycle)]
                         (recur ws-next (rest hyps))))
