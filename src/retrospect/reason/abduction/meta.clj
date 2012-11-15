@@ -40,20 +40,24 @@
         ws-explained (binding [reason-log (ref (:log ws-sensors))]
                        (log "Explaining at cycle" cycle)
                        (assoc (explain ws-sensors cycle time-now)
-                         :log @reason-log))]
-    (new-child-ep (update-est est (assoc (cur-ep est) :workspace ws-explained)))))
+                         :log @reason-log))
+        est-result (new-child-ep (update-est est (assoc (cur-ep est)
+                                                   :workspace ws-explained)))]
+    (if (or (and (:GetMoreHyps params)
+                 (not= (count (:hyp-ids ws-explained))
+                       (count (:hyp-ids ws))))
+            (:best (:accrej ws-explained)))
+      (recur est-result time-prev time-now sensors)
+      est-result)))
 
 (defn reason
   [est time-prev time-now sensors & opts]
   (loop [est est]
     (let [est-new (explain-and-advance est time-prev time-now sensors)
-          est-new-more (if (:GetMoreExplainers params)
-                         (explain-and-advance est-new time-prev time-now sensors)
-                         est-new)
           meta? (and (not-any? #{:no-metareason} opts)
-                     (metareasoning-activated? est-new-more))
-          est-meta (if (not meta?) est-new-more
-                       (metareason est-new-more time-prev time-now sensors))]
+                     (metareasoning-activated? est-new))
+          est-meta (if (not meta?) est-new
+                       (metareason est-new time-prev time-now sensors))]
       ;; if something was accepted last, repeat
       (if (:best (:accrej (:workspace (cur-ep est-meta))))
         (recur est-meta) est-meta))))
@@ -365,6 +369,7 @@
                             (:all (:accepted meta-ws-reasoned))))
         est-new-meta-est (update-est est-new (assoc (cur-ep est)
                                                :meta-est meta-est-reasoned))]
+
     (comment
       (println "problem cases:" (str/join ", " (map str problem-cases)))
       (println (for [h meta-hyps-scored]
