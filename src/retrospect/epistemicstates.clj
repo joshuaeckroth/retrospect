@@ -59,7 +59,7 @@
               (recur (zip/next loc) (conj states (zip/node loc))))))))
 
 (defn make-ep-id
-  ([] "0001")
+  ([] "0000")
   ([est] (format "%04d" (+ 1 (Integer/parseInt (:last-id (zip/root est)))))))
 
 (defn init-est

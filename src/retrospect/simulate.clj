@@ -25,7 +25,8 @@
         sensors (update-sensors-from-to time-prev time-now truedata (:sensors ors))
         ;; start the clock
         start-time (. System (nanoTime))
-        est-time (update-est (:est ors) (assoc (cur-ep (:est ors)) :time time-now))
+        est-next (new-child-ep (:est ors))
+        est-time (update-est est-next (assoc (cur-ep est-next) :time time-now))
         reason-est ((:reason-fn @reasoner) est-time time-prev time-now sensors)
         ;; record this ep as a decision point
         decision-est (update-est reason-est (assoc (cur-ep reason-est) :decision-point true))
