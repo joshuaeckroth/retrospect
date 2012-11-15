@@ -51,6 +51,7 @@
   (let [v (:vertex unexp-hyp)
         val (:value unexp-hyp)]
     (if (= :observation (:type unexp-hyp))
+      ;; todo, 1.0?
       [(new-hyp "Expl" :expl :expl 1.0
                 (not-empty (explainers expgraph v))
                 #(hyps-conflict? expgraph %1 %2)
@@ -68,6 +69,7 @@
                         parent-combs (gen-parent-combinations parent-vals)]
                     (map (fn [parent-comb]
                          (let [hyps (map (fn [[pv pval]]
+                                         ;; todo, 1.0?
                                          (new-hyp "Expl" :expl :expl 1.0
                                                   (not-empty (explainers expgraph pv))
                                                   #(hyps-conflict? expgraph %1 %2)
