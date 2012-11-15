@@ -29,12 +29,15 @@
   [est time-prev time-now sensors]
   (let [ws (:workspace (cur-ep est))
         cycle (:cycle (cur-ep est))
-        ws-sensors (if sensors
-                     (-> ws
-                        (add-sensor-hyps time-prev time-now sensors cycle)
-                        (update-hypotheses time-now))
-                     ws)
-        ws-explained (binding [reason-log (ref '())]
+        ws-sensors (binding [reason-log (ref '())]
+                     (assoc
+                         (if sensors
+                           (-> ws
+                              (add-sensor-hyps time-prev time-now sensors cycle)
+                              (update-hypotheses time-now))
+                           ws)
+                       :log @reason-log))
+        ws-explained (binding [reason-log (ref (:log ws-sensors))]
                        (log "Explaining at cycle" cycle)
                        (assoc (explain ws-sensors cycle time-now)
                          :log @reason-log))]
