@@ -62,28 +62,31 @@
       (let [expl (explainers expgraph v)
             expl-sets (filter not-empty (subsets expl))]
         (mapcat (fn [expl-set]
-                (let [parent-vals (map (fn [pv] (map (fn [pval] [pv pval])
-                                                (sort (values expgraph pv))))
-                                     (sort expl-set))
-                      parent-combs (gen-parent-combinations parent-vals)]
-                  (map (fn [parent-comb]
-                       (let [hyps (map (fn [[pv pval]]
-                                       (new-hyp "Expl" :expl :expl 1.0
-                                                (not-empty (explainers expgraph pv))
-                                                #(hyps-conflict? expgraph %1 %2)
-                                                [(:contents unexp-hyp)]
-                                                (format "%s=%s" pv pval)
-                                                (format "%s=%s" pv pval)
-                                                {:vertex pv :value pval}))
-                                     parent-comb)
-                             score (conditional-delta bn parent-comb [[v val]])]
-                         (new-composite "ExplComp" :expl-composite :expl-composite
-                                        score [(:contents unexp-hyp)]
-                                        "" (format "Composite of:\n%s"
-                                              (str/join "\n" (map str hyps)))
-                                        hyps)))
-                     parent-combs)))
-              expl-sets)))))
+                  (let [parent-vals (map (fn [pv] (map (fn [pval] [pv pval])
+                                                  (sort (values expgraph pv))))
+                                       (sort expl-set))
+                        parent-combs (gen-parent-combinations parent-vals)]
+                    (map (fn [parent-comb]
+                         (let [hyps (map (fn [[pv pval]]
+                                         (new-hyp "Expl" :expl :expl 1.0
+                                                  (not-empty (explainers expgraph pv))
+                                                  #(hyps-conflict? expgraph %1 %2)
+                                                  [(:contents unexp-hyp)]
+                                                  (format "%s=%s" pv pval)
+                                                  (format "%s=%s" pv pval)
+                                                  {:vertex pv :value pval}))
+                                       parent-comb)
+                               score (max 0.0 (conditional-delta bn parent-comb [[v val]]))]
+                           (new-composite "ExplComp" :expl-composite :expl-composite
+                                          score [(:contents unexp-hyp)]
+                                          (str/join "," (map (fn [[pv pval]]
+                                                             (format "%s=%s" pv pval))
+                                                           parent-comb))
+                                          (format "Composite of:\n%s"
+                                             (str/join "\n" (map str hyps)))
+                                          {:parent-comb parent-comb} hyps)))
+                       parent-combs)))
+                expl-sets)))))
 
 (defn hypothesize
   [unexp-hyps accepted all-hyps lookup-hyp time-now]

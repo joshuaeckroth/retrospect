@@ -34,10 +34,10 @@
       :contents (assoc data :type type :subtype subtype))))
 
 (defn new-composite
-  [prefix type subtype apriori explains short-str desc hyps]
+  [prefix type subtype apriori explains short-str desc data hyps]
   (let [hyp (new-hyp prefix type subtype apriori false nil
-                     explains short-str desc {:hyps hyps})]
-    (assoc hyp :composite? true)))
+                     explains short-str desc data)]
+    (assoc hyp :composite? true :hyps hyps)))
 
 (defmethod print-method Hypothesis
   [h w]
