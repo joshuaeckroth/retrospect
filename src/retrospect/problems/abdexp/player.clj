@@ -136,7 +136,13 @@
                                               NodePanel/NODE_STYLE_AUTO_SELECT))))
         (.setLinkPolicy @net-panel NetPanel/LINK_POLICY_BELOW)
         (.setView (.getViewport @net-panel-scrollpane) @net-panel))
-      (.refreshDataDisplayed @net-panel))))
+      (do
+        (unobserve-all (:bayesnet @truedata))
+        (observe-seq (:bayesnet @truedata)
+                     (apply concat (take (:time (cur-ep (:est @or-state)))
+                                         (:test @truedata))))
+        (.compile (:bayesnet @truedata))
+        (.refreshDataDisplayed @net-panel)))))
 
 (defn player-setup-diagram
   []
