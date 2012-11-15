@@ -46,8 +46,9 @@
                 prec-tpratio (calc-prec-tpratio tp tn fp fn (count (:true-values-map truedata)))
                 probs (let [bn (:bayesnet truedata)]
                         (unobserve-all bn)
-                        (observe-seq bn (apply concat (:test truedata)))
-                        (let [{mpe :states mpe-prob :prob} (most-probable-explanation bn)
+                        (observe-seq bn (apply concat (take (:time ep) (:test truedata))))
+                        (let [prob (get-posterior bn acc-vertex-values)
+                              {mpe :states mpe-prob :prob} (most-probable-explanation bn)
                               [etp etn efp efn] (tp-tn-fp-fn mpe acc not-acc)
                               prec-tpratio (calc-prec-tpratio etp etn efp efn (count mpe))
                               post-error (avg (for [h acc]
@@ -59,7 +60,8 @@
                               
                               posteriors-acc (map #(get-posterior bn (first %) (second %))
                                                 acc-vertex-values)]
-                          {:MPEPrec (:Prec prec-tpratio)
+                          {:Prob prob
+                           :MPEPrec (:Prec prec-tpratio)
                            :MPETPRatio (:TPRatio prec-tpratio)
                            :MPEProb mpe-prob
                            :PostError post-error
