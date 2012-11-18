@@ -4,11 +4,7 @@
   (:use [retrospect.epistemicstates :only
          [cur-ep new-child-ep new-branch-ep init-est
           update-est goto-start-of-time print-est goto-ep ep-path goto-cycle]])
-  (:use [retrospect.reason.abduction.workspace :only
-         [get-no-explainers get-unexplained new-hyp init-workspace calc-doubt
-          explain add-kb add-observation add lookup-hyp explainers
-          update-kb explain update-hypotheses add-sensor-hyps conflicts?
-          reject-many rejection-reason]])
+  (:use [retrospect.reason.abduction.workspace])
   (:use [retrospect.reason.abduction.evaluate :only [doubt-aggregate]])
   (:use [retrospect.logging])
   (:use [retrospect.state]))
@@ -273,11 +269,18 @@
                ;; no-explainers combinations
                (let [expl-rejected-conflicts (filter (fn [h] (= :conflict (rejection-reason cur-ws h)))
                                                 expl)
+                     acc-conflicting (set (mapcat
+                                           (fn [e] (filter (fn [c] (accepted-before? cur-ws c e))
+                                                     (find-conflicts-all cur-ws e)))
+                                           expl-rejected-conflicts))
+                     inner-hyps (set (map :id (mapcat :hyps acc-conflicting)))
+                     acc-conflicting-no-comps (filter #(not (inner-hyps (:id %)))
+                                                 acc-conflicting)
                      ;; which ep-states rejected these expl and are
                      ;; not states in which what was accepted was
                      ;; essential?
-                     ep-rejs (filter (fn [ep] (and (some (set (map :contents expl-rejected-conflicts))
-                                                (map :contents (:rej (:accrej (:workspace ep)))))
+                     ep-rejs (filter (fn [ep] (and (some (set (map :contents acc-conflicting-no-comps))
+                                                (map :contents (:acc (:accrej (:workspace ep)))))
                                              (:nbest (:accrej (:workspace ep)))
                                              ;; restrict to somewhat "ambiguous" decisions
                                              (<= (:delta (:accrej (:workspace ep))) 0.5)))
@@ -292,6 +295,9 @@
                  (comment
                    (println "expl" expl)
                    (println "expl-rejected-conflicts" expl-rejected-conflicts)
+                   (println "acc-conflicting" acc-conflicting)
+                   (println "inner-hyps" inner-hyps)
+                   (println "acc-conflicting-no-comps" acc-conflicting-no-comps)
                    (println "ep-rejs:" (map str ep-rejs) (map #(:nbest (:accrej (:workspace %))) ep-rejs))
                    (println "bad-bests" bad-bests))
                  (for [[delta cycle hyp] bad-bests]
