@@ -46,18 +46,25 @@
                    [] (format "Observed %s=%s" v val) (format "Observed %s=%s" v val)
                    {:vertex v :value val})))))
 
+(defn make-score
+  [expgraph bn observed parent-comb v val]
+  (cond (= "fixed" (:HypScores state/params))
+        1.0
+        (and parent-comb (= "prior" (:HypScores state/params)))
+        (prob expgraph v val parent-comb)
+        (= "posterior" (:HypScores state/params))
+        (do (unobserve-all bn)
+            (observe-seq bn observed)
+            (get-posterior bn v val))
+        (and parent-comb (= "cond-delta" (:HypScores state/params)))
+        (max 0.0 (conditional-delta bn parent-comb [[v val]]))
+        :else 1.0))
+
 (defn make-explainer-for-composite
   [bn expgraph observed unexp-hyp pv pval]
-  (let [score (cond (= "fixed" (:HypScores state/params))
-                    1.0
-                    (= "posterior" (:HypScores state/params))
-                    (do (unobserve-all bn)
-                        (observe-seq bn observed)
-                        (get-posterior bn pv pval))
-                    (= "cond-delta" (:HypScores state/params))
-                    (max 0.0 (conditional-delta
-                              bn [[(:vertex unexp-hyp) (:value unexp-hyp)]] [[pv pval]]))
-                    :else 1.0)]
+  (let [score (make-score expgraph bn observed
+                          [[(:vertex unexp-hyp) (:value unexp-hyp)]]
+                          pv pval)]
     (new-hyp "Expl" :expl :expl score
              (not-empty (explainers expgraph pv))
              #(hyps-conflict? expgraph %1 %2)
@@ -71,12 +78,7 @@
   (let [v (:vertex unexp-hyp)
         val (:value unexp-hyp)]
     (if (= :observation (:type unexp-hyp))
-      (let [score (cond (= "posterior" (:HypScores state/params))
-                        (do (unobserve-all bn)
-                            (observe-seq bn observed)
-                            (get-posterior bn v val))
-                        :else
-                        1.0)]
+      (let [score (make-score expgraph bn observed nil v val)]
         [(new-hyp "Expl" :expl :expl score
                   (not-empty (explainers expgraph v))
                   #(hyps-conflict? expgraph %1 %2)
@@ -97,16 +99,8 @@
                                          (make-explainer-for-composite
                                           bn expgraph observed unexp-hyp pv pval))
                                        parent-comb)
-                               score (cond (= "fixed" (:HypScores state/params))
-                                           1.0
-                                           (= "posterior" (:HypScores state/params))
-                                           (do (unobserve-all bn)
-                                               (observe-seq bn observed)
-                                               (get-posterior bn v val))
-                                           (= "cond-delta" (:HypScores state/params))
-                                           (max 0.0 (conditional-delta
-                                                     bn parent-comb [[v val]]))
-                                           :else 1.0)]
+                               score (make-score expgraph bn observed
+                                                 parent-comb v val)]
                            (new-composite "ExplComp" :expl-composite :expl-composite
                                           score [(:contents unexp-hyp)]
                                           (str/join "," (map (fn [[pv pval]]

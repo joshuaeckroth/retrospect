@@ -46,5 +46,5 @@
     :NumExplainsLinks [20 [20]]
     :NumConflictLinks [10 [10]]
     :UniqueGraphs [100 [100]]
-    :HypScores ["fixed" ["fixed" "posterior" "cond-delta"]]
+    :HypScores ["fixed" ["fixed" "prior" "posterior" "cond-delta"]]
     :MaxStates [3 [2 3 4]]}})
