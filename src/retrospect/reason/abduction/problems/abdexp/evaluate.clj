@@ -70,14 +70,17 @@
     (merge (last metrics)
            {:MinPrec (apply min (map :Prec metrics))
             :MinTPRatio (apply min (map :TPRatio metrics))
+            :MinProb (apply min (map :Prob metrics))
             :AvgPrec (avg (map :Prec metrics))
-            :AvgTPRatio (avg (map :TPRatio metrics))})))
+            :AvgTPRatio (avg (map :TPRatio metrics))
+            :AvgProb (avg (map :Prob metrics))})))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
                   [:TP :TN :FP :FN :TPR :FPR :F1 :TPRatio :Prec
-                   :MinPrec :MinTPRatio :AvgPrec :AvgTPRatio :Prob])))
+                   :MinPrec :MinTPRatio :AvgPrec :AvgTPRatio :Prob
+                   :MinProb :AvgProb])))
 
 (defn stats
   [truedata ors time-now])
