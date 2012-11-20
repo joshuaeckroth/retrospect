@@ -26,6 +26,7 @@
    :default-params-fn
    (fn []
      (merge {:Threshold [0 [0]]
+             :MetaTreshold [0 [0]]
              :MinApriori [0 [0 10]]
              :DoubtMeasure ["apriori" ["apriori" "delta"]]
              :DoubtAggregate ["max" ["max" "avg"]]

@@ -365,7 +365,7 @@
                           (:workspace (cur-ep meta-est)) problem-cases)
                    meta-hyps-scored)
         meta-est-reasoned (binding [params (assoc params :MinApriori 0
-                                                  :Threshold 0)]
+                                                  :Threshold (:MetaThreshold params))]
                             (reason (update-est meta-est (assoc (cur-ep meta-est)
                                                            :workspace meta-ws))
                                     0 1 nil :no-metareason))
