@@ -164,6 +164,11 @@
                          (or starts (bottom-nodes eg)))
                       -1)))))
 
+(defn expl-ancestors
+  [expgraph vertices]
+  (let [eg (transpose expgraph)]
+    (set (mapcat #(pre-traverse eg %) vertices))))
+
 (defn gen-parent-combinations
   [parent-vals]
   (if (empty? parent-vals) [#{}]

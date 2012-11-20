@@ -24,7 +24,7 @@
 
 (defn sense
   [sensor test time]
-  (let [observations (get test time)]
+  (let [observations (get test (dec time))]
     (add-sensed sensor time (-> observations
                                (insertion-noise (:expgraph (meta sensor)))
                                (deletion-noise)

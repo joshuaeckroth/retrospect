@@ -25,7 +25,7 @@
 (def current-expgraph-dot (ref ""))
 (def current-expgraph-svg (ref ""))
 
-(def tpratio-label (label ""))
+(def coverage-label (label ""))
 (def prec-label (label ""))
 (def unexp-label (label ""))
 (def noexp-label (label ""))
@@ -89,9 +89,9 @@
          :constrains (java.awt.GridBagConstraints.)
          [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
-          _ (label "TPRatio:")
+          _ (label "Coverage:")
           :gridx 1
-          _ tpratio-label
+          _ coverage-label
           :gridx 0 :gridy 1
           _ (label "Prec:")
           :gridx 1
@@ -109,22 +109,23 @@
   []
   (if-let [results (last (:results (cur-ep (:est @or-state))))]
     (do
-      (. tpratio-label (setText (format "%.2f" (:TPRatio results))))
+      (. coverage-label (setText (format "%.2f" (:Coverage results))))
       (. prec-label (setText (format "%.2f" (:Prec results))))
       (. unexp-label (setText (format "%.2f" (:UnexplainedPct results))))
       (. noexp-label (setText (format "%.2f" (:NoExplainersPct results)))))
     (do
-      (. tpratio-label (setText "N/A"))
+      (. coverage-label (setText "N/A"))
       (. prec-label (setText "N/A"))
       (. unexp-label (setText "N/A"))
       (. noexp-label (setText "N/A")))))
 
 (defn generate-expgraph
   []
-  (generate-graph (format-dot-expgraph (:expgraph @truedata)
-                                       (:true-values-map @truedata))
-                  @canvas listener false
-                  current-expgraph-dot current-expgraph-svg))
+  (when (:expgraph @truedata)
+    (generate-graph (format-dot-expgraph (:expgraph @truedata)
+                                         (:true-values-map @truedata))
+                    @canvas listener false
+                    current-expgraph-dot current-expgraph-svg)))
 
 (defn player-update-diagram
   []

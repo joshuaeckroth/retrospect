@@ -1,6 +1,6 @@
 (ns retrospect.reason.abduction.problems.tracking.evaluate
   (:require [clojure.set :as set])
-  (:use [retrospect.evaluate :only [calc-increase calc-prec-tpratio]])
+  (:use [retrospect.evaluate :only [calc-increase calc-prec-coverage]])
   (:use [retrospect.epistemicstates :only [cur-ep goto-cycle flatten-est]])
   (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
   (:use [retrospect.problems.tracking.movements :only [moves-match?]])
@@ -60,20 +60,20 @@
                   acc-movs (map :mov accepted)
                   not-acc-movs (map :mov not-accepted)
                   [tp tn fp fn] (tp-tn-fp-fn true-movs acc-movs not-acc-movs)]
-              (calc-prec-tpratio tp tn fp fn (count true-movs))))]
+              (calc-prec-coverage tp tn fp fn (count true-movs))))]
       (merge (last metrics)
              {:MinPrec (apply min (map :Prec metrics))
-              :MinTPRatio (apply min (map :TPRatio metrics))
+              :MinCoverage (apply min (map :Coverage metrics))
               :AvgPrec (/ (reduce + (map :Prec metrics)) (count metrics))
-              :AvgTPRatio (/ (reduce + (map :TPRatio metrics)) (count metrics))}))
-    {:TP 0 :TN 0 :FP 0 :FN 0 :TPR 0.0 :FPR 0.0 :F1 0.0 :TPRatio 0.0 :Prec 0.0
-     :MinPrec 0.0 :MinTPRatio 0.0 :AvgPrec 0.0 :AvgTPRatio 0.0}))
+              :AvgCoverage (/ (reduce + (map :Coverage metrics)) (count metrics))}))
+    {:TP 0 :TN 0 :FP 0 :FN 0 :TPR 0.0 :FPR 0.0 :F1 0.0 :Coverage 0.0 :Prec 0.0
+     :MinPrec 0.0 :MinCoverage 0.0 :AvgPrec 0.0 :AvgCoverage 0.0}))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
-                  [:TP :TN :FP :FN :TPR :FPR :F1 :TPRatio :Prec
-                   :MinPrec :MinTPRatio :AvgPrec :AvgTPRatio])))
+                  [:TP :TN :FP :FN :TPR :FPR :F1 :Coverage :Prec
+                   :MinPrec :MinCoverage :AvgPrec :AvgCoverage])))
 
 (defn training-stats
   [workspace false-accepted unexplained truedata time-now cycle])

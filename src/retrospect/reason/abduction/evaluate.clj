@@ -268,7 +268,6 @@
             :TrueDeltaAvg (:true-delta-avg delta-avgs)
             :FalseDeltaAvg (:false-delta-avg delta-avgs)
             :Doubt (doubt-aggregate est)
-            :Coverage (calc-coverage workspace)
             :ExplainCycles (count ep-states)
             :MetaBranches (count-branches est)
             :HypothesisCount ((comp count :hyp-ids :workspace) ep)
@@ -309,7 +308,7 @@
                    (map #(calc-increase control comparison %)
                       (concat [:UnexplainedPct :NoExplainersPct
                                :TrueDeltaAvg :FalseDeltaAvg
-                               :Doubt :Coverage :ExplainCycles :HypothesisCount
+                               :Doubt :ExplainCycles :HypothesisCount
                                :MetaBranches :ErrorsCount :ErrorsNoise
                                :ErrorsConflictRejection :ErrorsMinApriori :ErrorsSuperfluous
                                :ErrorsScoring :ErrorsUnknown :ErrorsNoError :NoExpCount

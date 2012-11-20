@@ -29,7 +29,9 @@
         est-time (update-est est-next (assoc (cur-ep est-next) :time time-now))
         reason-est ((:reason-fn @reasoner) est-time time-prev time-now sensors)
         ;; record this ep as a decision point
-        decision-est (update-est reason-est (assoc (cur-ep reason-est) :decision-point true))
+        decision-est (update-est reason-est (assoc (cur-ep reason-est)
+                                              :time time-now
+                                              :decision-point true))
         ;; stop the clock
         ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
         ors-est (assoc ors :est decision-est :sensors sensors)

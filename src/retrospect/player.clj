@@ -25,7 +25,6 @@
 (def ep-list (ref '[]))
 (def ep-selected (atom nil))
 (def steplabel (label ""))
-(def coverage-label (label ""))
 (def doubt-label (label ""))
 (def prefs (atom nil))
 
@@ -74,7 +73,6 @@
    (alter ep-list (constantly (sort (list-ep-states (:est @or-state)))))
    (alter results (constantly (:results (cur-ep (:est @or-state))))))
   (let [ws (:workspace (cur-ep (:est @or-state)))]
-    (. coverage-label (setText (format "%.2f" (:Coverage (last @results)))))
     (. doubt-label (setText (format "%.2f" (:Doubt (last @results))))))
   (update-ep-tree)
   ((:update-tabs-fn (:player-fns @reasoner)))
@@ -165,7 +163,7 @@
          :size [1000 700]
          :show true
          :on-close :exit
-         [:gridx 0 :gridy 0 :gridheight 13 :weightx 1.0 :weighty 1.0
+         [:gridx 0 :gridy 0 :gridheight 12 :weightx 1.0 :weighty 1.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
           _ (let [tabs (JTabbedPane.)]
               (when-let [f (:setup-diagram-fn (:player-fns @problem))]
@@ -218,19 +216,14 @@
           _ steplabel
 
           :gridx 1 :gridy 8
-          _ (label "Coverage:")
-          :gridx 2
-          _ coverage-label
-
-          :gridx 1 :gridy 9
           _ (label "Doubt:")
           :gridx 2
           _ doubt-label
 
-          :gridx 1 :gridy 10 :insets (Insets. 0 0 0 0)
+          :gridx 1 :gridy 9 :insets (Insets. 0 0 0 0)
           _ ((:get-stats-panel-fn (:player-fns @problem)))
 
-          :gridy 11 :weighty 1.0
+          :gridy 10 :weighty 1.0
           _ (panel)]))
 
 (defn start-player
