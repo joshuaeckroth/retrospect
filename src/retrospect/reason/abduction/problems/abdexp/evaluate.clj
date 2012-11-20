@@ -43,10 +43,13 @@
                 not-acc (set/difference (set (map #(lookup-hyp ws %)
                                                 (get (:hypotheses ws) :expl)))
                                         acc)
-                [tp tn fp fn] (tp-tn-fp-fn (select-keys (:true-values-map truedata)
-                                                        (expl-ancestors expgraph (map first observed)))
+                ancestors-true-values-map (select-keys (:true-values-map truedata)
+                                                       (expl-ancestors expgraph
+                                                                       (map first observed)))
+                [tp tn fp fn] (tp-tn-fp-fn ancestors-true-values-map
                                            acc not-acc)
-                prec-coverage (calc-prec-coverage tp tn fp fn (count (:true-values-map truedata)))
+                prec-coverage (calc-prec-coverage tp tn fp fn
+                                                  (count ancestors-true-values-map))
                 probs (let [bn (:bayesnet truedata)]
                         (unobserve-all bn)
                         (observe-seq bn observed)
