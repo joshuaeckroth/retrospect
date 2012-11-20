@@ -1,6 +1,6 @@
 (ns retrospect.reason.abduction.problems.tracking.evaluate
   (:require [clojure.set :as set])
-  (:use [retrospect.evaluate :only [calc-increase calc-prec-coverage]])
+  (:use [retrospect.evaluate :only [avg calc-increase calc-prec-coverage]])
   (:use [retrospect.epistemicstates :only [cur-ep goto-cycle flatten-est]])
   (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
   (:use [retrospect.problems.tracking.movements :only [moves-match?]])
@@ -64,16 +64,17 @@
       (merge (last metrics)
              {:MinPrec (apply min (map :Prec metrics))
               :MinCoverage (apply min (map :Coverage metrics))
-              :AvgPrec (/ (reduce + (map :Prec metrics)) (count metrics))
-              :AvgCoverage (/ (reduce + (map :Coverage metrics)) (count metrics))}))
+              :AvgPrec (avg (map :Prec metrics))
+              :AvgCoverage (avg (map :Coverage metrics))
+              :AvgF1 (avg (map :F1 metrics))}))
     {:TP 0 :TN 0 :FP 0 :FN 0 :TPR 0.0 :FPR 0.0 :F1 0.0 :Coverage 0.0 :Prec 0.0
-     :MinPrec 0.0 :MinCoverage 0.0 :AvgPrec 0.0 :AvgCoverage 0.0}))
+     :MinPrec 0.0 :MinCoverage 0.0 :AvgPrec 0.0 :AvgCoverage 0.0 :AvgF1 0.0}))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
                   [:TP :TN :FP :FN :TPR :FPR :F1 :Coverage :Prec
-                   :MinPrec :MinCoverage :AvgPrec :AvgCoverage])))
+                   :MinPrec :MinCoverage :AvgPrec :AvgCoverage :AvgF1])))
 
 (defn training-stats
   [workspace false-accepted unexplained truedata time-now cycle])

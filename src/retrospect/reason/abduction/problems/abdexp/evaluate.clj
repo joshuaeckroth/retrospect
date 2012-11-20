@@ -79,14 +79,15 @@
             :MinProb (apply min (map :Prob metrics))
             :AvgPrec (avg (map :Prec metrics))
             :AvgCoverage (avg (map :Coverage metrics))
+            :AvgF1 (avg (map :F1 metrics))
             :AvgProb (avg (map :Prob metrics))})))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
                   [:TP :TN :FP :FN :TPR :FPR :F1 :Coverage :Prec
-                   :MinPrec :MinCoverage :AvgPrec :AvgCoverage :Prob
-                   :MinProb :AvgProb])))
+                   :MinPrec :MinCoverage :AvgPrec :AvgCoverage :AvgF1
+                   :Prob :MinProb :AvgProb])))
 
 (defn stats
   [truedata ors time-now])
