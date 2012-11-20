@@ -34,16 +34,10 @@
   [truedata est]
   (let [expgraph (:expgraph truedata)
         confidence (- 1.0 (doubt-aggregate est))
-        _ (println "truedata:" (:test truedata))
         metrics
         (for [ep (filter :decision-point (flatten-est est))]
           (let [ws (:workspace ep)
                 observed (apply concat (take (:time ep) (:test truedata)))
-                _ (println "time:" (:time ep))
-                _ (println "observed:" observed)
-                _ (println "downstream all:" (expl-ancestors expgraph (map first observed)))
-                _ (println "downstream true:" (select-keys (:true-values-map truedata)
-                                                           (expl-ancestors expgraph (map first observed))))
                 acc (set (map #(lookup-hyp ws %) (get (:accepted ws) :expl)))
                 acc-vertex-values (set (map (fn [h] [(:vertex h) (:value h)]) acc))
                 not-acc (set/difference (set (map #(lookup-hyp ws %)
