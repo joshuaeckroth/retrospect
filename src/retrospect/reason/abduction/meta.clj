@@ -246,24 +246,25 @@
     (reverse
      (sort-by :cycle
               (concat
-               ;; order dependency among the observations
-               (if (not= 0 time-prev)
-                 (let [expl-rejected-conflicts (filter (fn [h] (= :conflict (rejection-reason cur-ws h)))
-                                                  expl)
-                       ep-rejs (filter (fn [ep] (some (set (map :contents expl-rejected-conflicts))
-                                             (map :contents (:rej (:accrej (:workspace ep))))))
-                                  (ep-path est))
-                       t (if (empty? ep-rejs) (dec time-now) (dec (apply min (map :time ep-rejs))))
-                       ep (cur-ep (goto-start-of-time est t))]
-                   (comment (println time-now t "count ep-rejs" (count ep-rejs) expl-rejected-conflicts))
-                   [(new-hyp "OrderDep" :order-dep :order-dep
-                             1.0 false meta-hyp-conflicts? []
-                             (format "Order dependency at %s" (str ep))
-                             (format "Order dependency at %s" (str ep))
-                             {:action (partial action-batch ep) :cycle (:cycle ep)})])
-                 ;; time-prev == 0, so this is a "static" case or we have not
-                 ;; done much reasoning yet
-                 [])
+               (comment
+                 ;; order dependency among the observations
+                 (if (not= 0 time-prev)
+                   (let [expl-rejected-conflicts (filter (fn [h] (= :conflict (rejection-reason cur-ws h)))
+                                                    expl)
+                         ep-rejs (filter (fn [ep] (some (set (map :contents expl-rejected-conflicts))
+                                               (map :contents (:rej (:accrej (:workspace ep))))))
+                                    (ep-path est))
+                         t (if (empty? ep-rejs) (dec time-now) (dec (apply min (map :time ep-rejs))))
+                         ep (cur-ep (goto-start-of-time est t))]
+                     (comment (println time-now t "count ep-rejs" (count ep-rejs) expl-rejected-conflicts))
+                     [(new-hyp "OrderDep" :order-dep :order-dep
+                               1.0 false meta-hyp-conflicts? []
+                               (format "Order dependency at %s" (str ep))
+                               (format "Order dependency at %s" (str ep))
+                               {:action (partial action-batch ep) :cycle (:cycle ep)})])
+                   ;; time-prev == 0, so this is a "static" case or we have not
+                   ;; done much reasoning yet
+                   []))
                ;; correct explainer(s) were rejected due to conflicts; need to
                ;; consider the various possibilities of rejected explainers and
                ;; no-explainers combinations
@@ -319,17 +320,18 @@
                                (str (:nbest (:accrej (:workspace ep)))))
                             {:action (partial action-flip-choice ep)})))
                ;; were some explainers omitted due to high min-apriori?
-               (let [expl-rejected-minapriori (filter (fn [h] (= :minapriori (rejection-reason cur-ws h)))
-                                                 expl)]
-                 (if (not-empty expl-rejected-minapriori)
-                   [(new-hyp "TooHighMinApriori" :rej-minapriori :rej-minapriori
-                             1.0 false meta-hyp-conflicts? []
-                             "Explainers rejected due to too-high min-apriori"
-                             (format "These explainers were rejected due to too-high min-apriori: %s"
-                                (str/join ", " (sort (map str expl-rejected-minapriori))))
-                             {:action (partial action-lower-minapriori time-now)
-                              :cycle (:cycle (cur-ep (goto-start-of-time est time-now)))})]
-                   [])))))))
+               (comment
+                 (let [expl-rejected-minapriori (filter (fn [h] (= :minapriori (rejection-reason cur-ws h)))
+                                                   expl)]
+                   (if (not-empty expl-rejected-minapriori)
+                     [(new-hyp "TooHighMinApriori" :rej-minapriori :rej-minapriori
+                               1.0 false meta-hyp-conflicts? []
+                               "Explainers rejected due to too-high min-apriori"
+                               (format "These explainers were rejected due to too-high min-apriori: %s"
+                                  (str/join ", " (sort (map str expl-rejected-minapriori))))
+                               {:action (partial action-lower-minapriori time-now)
+                                :cycle (:cycle (cur-ep (goto-start-of-time est time-now)))})]
+                     []))))))))
 
 (defn score-meta-hyps
   [problem-cases meta-hyps est time-prev time-now sensors]
