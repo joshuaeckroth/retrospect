@@ -27,6 +27,8 @@
    (fn []
      (merge {:Threshold [0 [0]]
              :MetaTreshold [0 [0]]
+             :MetaHyps ["rej-conflict,lower-minapriori,order-dep"
+                        ["rej-conflict,lower-minapriori,order-dep"]]
              :MinApriori [0 [0 10]]
              :DoubtMeasure ["apriori" ["apriori" "delta"]]
              :DoubtAggregate ["max" ["max" "avg"]]
