@@ -26,7 +26,7 @@
    :default-params-fn
    (fn []
      (merge {:Threshold [0 [0]]
-             :MetaTreshold [0 [0]]
+             :MetaThreshold [0 [0]]
              :MetaHyps ["rej-conflict,lower-minapriori,order-dep"
                         ["rej-conflict,lower-minapriori,order-dep"]]
              :MinApriori [0 [0 10]]
