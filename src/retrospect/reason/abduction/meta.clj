@@ -75,7 +75,7 @@
 
 (def seen-workspaces #{})
 
-(defn reason-exhaustive-recursively
+(defn reason-exhaustive-recursively-cycle
   [est time-now]
   (let [cycle (:cycle (cur-ep est))
         workspace (:workspace (cur-ep est))
@@ -88,26 +88,34 @@
                 (if (not (seen-workspaces (:accepted ws)))
                   (do (set! seen-workspaces
                             (conj seen-workspaces (:accepted ws)))
-                      (reason-exhaustive-recursively est-result time-now))
+                      (reason-exhaustive-recursively-cycle est-result time-now))
                   [])
                 ;; otherwise, that's the end of the line for this tree
                 [est-result])))
           ws-outcomes)))
 
+(defn reason-exhaustive-recursively
+  [est time-prev time-now sensors]
+  (let [cycle (:cycle (cur-ep est))
+        ws (:workspace (cur-ep est))
+        ws-sensors (workspace-update-sensors ws time-prev time-now sensors cycle)
+        est-sensors (est-workspace-child est ws-sensors)
+        est-results (reason-exhaustive-recursively-cycle est-sensors time-now)]
+    (mapcat
+     (fn [est-result]
+       (if (and (:GetMoreHyps params)
+                (not= (count (:hyp-ids (:workspace (cur-ep est-result))))
+                      (count (:hyp-ids ws))))
+         (reason-exhaustive-recursively est-result time-prev time-now sensors)
+         [est-result]))
+     est-results)))
+
 (defn reason-exhaustive
   [est time-prev time-now sensors]
   (binding [seen-workspaces #{}]
-    (let [cycle (:cycle (cur-ep est))
-          ws (:workspace (cur-ep est))
-          ws-sensors (workspace-update-sensors ws time-prev time-now sensors cycle)
-          est-sensors (est-workspace-child est ws-sensors)
-          est-results (reason-exhaustive-recursively est-sensors time-now)
+    (let [est-results (reason-exhaustive-recursively est time-prev time-now sensors)
           est-final (first (sort compare-est est-results))]
-      (if (and (:GetMoreHyps params)
-               (not= (count (:hyp-ids (:workspace (cur-ep est-final))))
-                     (count (:hyp-ids ws))))
-        (recur est-final time-prev time-now sensors)
-        est-final))))
+      est-final)))
 
 (defn reason
   [est time-prev time-now sensors & opts]
