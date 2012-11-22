@@ -57,20 +57,6 @@
       (recur est-result time-prev time-now sensors)
       est-result)))
 
-(defn reason-exhaustive-recursively
-  [est time-now]
-  (let [cycle (:cycle (cur-ep est))
-        workspace (:workspace (cur-ep est))
-        ws-outcomes (explain-exhaustive workspace cycle time-now)]
-    (mapcat (fn [ws]
-            (let [est-result (est-workspace-child est ws)]
-              (if (:best (:accrej ws))
-                ;; if something was last accepted, proceed recursively
-                (reason-exhaustive-recursively est-result time-now)
-                ;; otherwise, that's the end of the line for this tree
-                [est-result])))
-          ws-outcomes)))
-
 (defn compare-est
   [est1 est2]
   (let [ws1 (:workspace (cur-ep est1))
@@ -87,15 +73,41 @@
         (compare (count unexp1) (count unexp2)))
       (compare (count noexp1) (count noexp2)))))
 
+(def seen-workspaces #{})
+
+(defn reason-exhaustive-recursively
+  [est time-now]
+  (let [cycle (:cycle (cur-ep est))
+        workspace (:workspace (cur-ep est))
+        ws-outcomes (explain-exhaustive workspace cycle time-now)]
+    (mapcat (fn [ws]
+            (let [est-result (est-workspace-child est ws)]
+              (if (:best (:accrej ws))
+                ;; if something was last accepted, proceed
+                ;; recursively, but avoid repeating states
+                (if (not (seen-workspaces (:accepted ws)))
+                  (do (set! seen-workspaces
+                            (conj seen-workspaces (:accepted ws)))
+                      (reason-exhaustive-recursively est-result time-now))
+                  [])
+                ;; otherwise, that's the end of the line for this tree
+                [est-result])))
+          ws-outcomes)))
+
 (defn reason-exhaustive
   [est time-prev time-now sensors]
-  (let [cycle (:cycle (cur-ep est))
-        ws (:workspace (cur-ep est))
-        ws-sensors (workspace-update-sensors ws time-prev time-now sensors cycle)
-        est-sensors (est-workspace-child est ws-sensors)
-        est-results (reason-exhaustive-recursively est-sensors time-now)]
-    ;; find best outcome
-    (first (sort compare-est est-results))))
+  (binding [seen-workspaces #{}]
+    (let [cycle (:cycle (cur-ep est))
+          ws (:workspace (cur-ep est))
+          ws-sensors (workspace-update-sensors ws time-prev time-now sensors cycle)
+          est-sensors (est-workspace-child est ws-sensors)
+          est-results (reason-exhaustive-recursively est-sensors time-now)
+          est-final (first (sort compare-est est-results))]
+      (if (and (:GetMoreHyps params)
+               (not= (count (:hyp-ids (:workspace (cur-ep est-final))))
+                     (count (:hyp-ids ws))))
+        (recur est-final time-prev time-now sensors)
+        est-final))))
 
 (defn reason
   [est time-prev time-now sensors & opts]

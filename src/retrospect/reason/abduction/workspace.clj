@@ -430,43 +430,50 @@
 
 (defn accept
   [workspace hyp nbest alts explained delta comparison cycle]
+  (log "Accepting" hyp)
   ;; don't "accept" a hyp that was never added
-  (if (nil? (get (:hyp-ids workspace) (:id hyp))) workspace
-      (do (log "Accepting" hyp)
-          (let [ws-acc (prof :accept-update
-                             (-> workspace
-                                (update-in [:accepted (:type hyp)] conjs (:id hyp))
-                                (update-in [:accepted :all] conjs (:id hyp))
-                                (assoc-in [:accepted-explained (:id hyp)] explained)
-                                (assoc-in [:accepted-rivals (:id hyp)] alts)
-                                (assoc-in [:accepted-cycle (:id hyp)] cycle)))
-                ws-hyplog (if @batch ws-acc
-                              (assoc-in ws-acc [:hyp-log (:id hyp)]
-                                        (format (str "Accepted at cycle %d to explain %s with delta %.2f "
-                                                "(essential? %s; next-best: %s); "
-                                                "comparison: %s")
-                                           cycle explained delta (nil? nbest) nbest
-                                           comparison)))
-                ws-expl (dissoc-needing-explanation ws-hyplog (explains workspace hyp))
-                conflicts (prof :accept-conflicts
-                                (when (:conflicts?-fn hyp)
-                                  (find-conflicts-all ws-expl hyp)))
-                ws-conflicts (if conflicts
-                               (prof :accept-reject-many
-                                     (reject-many ws-expl conflicts :conflict cycle))
-                               ws-expl)
-                ws-needs-exp (if (or (not ((:needs-explanation ws-conflicts) (:id hyp)))
-                                     (some #(accepted? ws-conflicts %) (explainers ws-conflicts hyp)))
-                               ws-conflicts
-                               (assoc-needing-explanation ws-conflicts hyp))
-                ws-composite (if (:composite? hyp)
-                               (reduce (fn [ws h]
-                                    (-> ws (add h)
-                                       (accept h nbest alts explained
-                                               delta comparison cycle)))
-                                  ws-needs-exp (:hyps hyp))
-                               ws-needs-exp)]
-            (update-in ws-composite [:accrej :acc] conj hyp)))))
+  (if (nil? (get (:hyp-ids workspace) (:id hyp)))
+    (do (log "Cannot accept, never added.")
+        workspace)
+    (let [ws-acc (prof :accept-update
+                       (-> workspace
+                          (update-in [:accepted (:type hyp)] conjs (:id hyp))
+                          (update-in [:accepted :all] conjs (:id hyp))
+                          (assoc-in [:accepted-explained (:id hyp)] explained)
+                          (assoc-in [:accepted-rivals (:id hyp)] alts)
+                          (assoc-in [:accepted-cycle (:id hyp)] cycle)))
+          ws-hyplog (if @batch ws-acc
+                        (assoc-in ws-acc [:hyp-log (:id hyp)]
+                                  (format (str "Accepted at cycle %d to explain %s with delta %.2f "
+                                          "(essential? %s; next-best: %s); "
+                                          "comparison: %s")
+                                     cycle explained delta (nil? nbest) nbest
+                                     comparison)))
+          ws-expl (dissoc-needing-explanation ws-hyplog (explains workspace hyp))
+          conflicts (prof :accept-conflicts
+                          (when (:conflicts?-fn hyp)
+                            (find-conflicts-all ws-expl hyp)))
+          ws-conflicts (if conflicts
+                         (prof :accept-reject-many
+                               (reject-many ws-expl conflicts :conflict cycle))
+                         ws-expl)
+          ws-needs-exp (if (or (not ((:needs-explanation ws-conflicts) (:id hyp)))
+                               (some #(accepted? ws-conflicts %) (explainers ws-conflicts hyp)))
+                         ws-conflicts
+                         (assoc-needing-explanation ws-conflicts hyp))
+          ws-composite (if (:composite? hyp)
+                         (reduce (fn [ws h]
+                              (let [ws-added (add ws h)
+                                    ;; when added, hyp id may have
+                                    ;; changed; find the hyp again
+                                    h-updated (lookup-hyp ws-added
+                                                          (get (:hyp-contents ws-added)
+                                                               (:contents h)))]
+                                (accept ws-added h-updated nbest alts explained
+                                        delta comparison cycle)))
+                            ws-needs-exp (:hyps hyp))
+                         ws-needs-exp)]
+      (update-in ws-composite [:accrej :acc] conj hyp))))
 
 (defn add-observation
   [workspace hyp cycle]
@@ -697,7 +704,7 @@
   (let [ws-explainers (update-sorted-explainers workspace)
         ws (clean-up-workspace (assoc ws-explainers :accrej {}) cycle)
         possible-explainers (map #(lookup-hyp ws %)
-                               (apply concat (vals (:sorted-explainers ws))))]
+                               (sort (set (apply concat (vals (:sorted-explainers ws))))))]
     (if (empty? possible-explainers)
       [ws]
       (for [h possible-explainers]
