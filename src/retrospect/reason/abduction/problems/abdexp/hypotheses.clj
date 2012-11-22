@@ -42,7 +42,7 @@
                                   (range (inc time-now))))]
         (for [[v val] observed]
           (new-hyp "Obs" :observation :observation
-                   1.0 true #(hyps-conflict? expgraph %1 %2)
+                   1.0 true nil
                    [] (format "Observed %s=%s" v val) (format "Observed %s=%s" v val)
                    {:vertex v :value val})))))
 
