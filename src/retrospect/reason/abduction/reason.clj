@@ -25,7 +25,8 @@
    :calc-coverage-fn calc-coverage
    :default-params-fn
    (fn []
-     (merge {:Threshold [0 [0]]
+     (merge {:Exhaustive [false [false]]
+             :Threshold [0 [0]]
              :MetaThreshold [0 [0]]
              :MetaHyps ["rej-conflict,lower-minapriori,order-dep"
                         ["rej-conflict,lower-minapriori,order-dep"]]

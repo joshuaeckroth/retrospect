@@ -675,6 +675,38 @@
               (-> ws (update-in [:accrej] merge b)
                  (accept best nbest alts explained delta comparison cycle))))))))
 
+(defn hyp-max-delta
+  [ws hyp]
+  ;; figure out the delta for this hyp; the delta is the greatest
+  ;; delta we can find
+  (let [contrast-sets (filter (fn [contrast-set]
+                           (some #(= (:id hyp) %) contrast-set))
+                         (vals (:sorted-explainers ws)))]
+    (if (some #(= 1 (count %)) contrast-sets)
+      ;; this hyp is an essential somewhere
+      1.0
+      (apply max (map (fn [contrast-set]
+                      (- (:apriori (lookup-hyp ws (first contrast-set)))
+                         (:apriori hyp)))
+                    contrast-sets)))))
+
+(defn explain-exhaustive
+  "Returns a workspace for all the different ways to accept one hyp."
+  [workspace cycle time-now]
+  ;; still need to sort explainers so we find the right deltas
+  (let [ws-explainers (update-sorted-explainers workspace)
+        ws (clean-up-workspace (assoc ws-explainers :accrej {}) cycle)
+        possible-explainers (map #(lookup-hyp ws %)
+                               (apply concat (vals (:sorted-explainers ws))))]
+    (if (empty? possible-explainers)
+      [ws]
+      (for [h possible-explainers]
+        (let [delta (hyp-max-delta ws h)]
+          (-> ws (update-in [:accrej] merge
+                           {:best h :nbest nil :alts []
+                            :explained [] :delta delta :comparison {}})
+             (accept h nil [] [] delta {} cycle)))))))
+
 (defn add-sensor-hyps
   "Ask problem domain to make sensor hyps; then put them into workspace."
   [workspace time-prev time-now sensors cycle]
