@@ -75,49 +75,76 @@
 (def seen-workspaces #{})
 
 (defn reason-exhaustive-recursively-cycle
-  [est time-now]
+  [est time-now depth]
   (let [cycle (:cycle (cur-ep est))
         workspace (:workspace (cur-ep est))
         ws-outcomes (explain-exhaustive workspace cycle time-now)]
+    (comment
+      (println (apply str (repeat depth "\t"))
+               "depth" depth "count seen-workspaces" (count seen-workspaces)
+               "count ws-outcomes:" (count ws-outcomes)))
     (doall
      (mapcat (fn [ws]
              (let [est-result (est-workspace-child est ws)
-                   acc-contents (set (map #(:contents (lookup-hyp ws %))
-                                        (:all (:accepted ws))))]
+                   acc-path (map (fn [ep] (map #(:contents (lookup-hyp (:workspace ep) %))
+                                          (:all (:accepted (:workspace ep)))))
+                               (ep-path est-result))]
                (if (:best (:accrej ws))
                  ;; if something was last accepted, proceed
                  ;; recursively, but avoid repeating states
-                 (if (not (seen-workspaces acc-contents))
+                 (if (not (seen-workspaces acc-path))
                    (do (set! seen-workspaces
-                             (conj seen-workspaces acc-contents))
-                       (reason-exhaustive-recursively-cycle est-result time-now))
+                             (conj seen-workspaces acc-path))
+                       (reason-exhaustive-recursively-cycle est-result time-now (inc depth)))
                    [])
                  ;; otherwise, that's the end of the line for this tree
                  [est-result])))
            ws-outcomes))))
 
 (defn reason-exhaustive-recursively
-  [est time-prev time-now sensors]  
+  [est time-prev time-now sensors depth]
   (let [cycle (:cycle (cur-ep est))
         ws (:workspace (cur-ep est))
         ws-sensors (workspace-update-sensors ws time-prev time-now sensors cycle)
         est-sensors (est-workspace-child est ws-sensors)
-        est-results (reason-exhaustive-recursively-cycle est-sensors time-now)]
+        est-results (reason-exhaustive-recursively-cycle est-sensors time-now 0)]
     (if (empty? est-results) [est]
         (mapcat
          (fn [est-result]
+           (comment
+             (println "depth" depth
+                      "count result"
+                      (count (:hyp-ids (:workspace (cur-ep est-result))))
+                      "count before" (count (:hyp-ids ws))))
            (if (and (:GetMoreHyps params)
                     (not= (count (:hyp-ids (:workspace (cur-ep est-result))))
                           (count (:hyp-ids ws))))
-             (reason-exhaustive-recursively est-result time-prev time-now sensors)
+             (reason-exhaustive-recursively est-result time-prev time-now sensors
+                                            (inc depth))
              [est-result]))
          est-results))))
 
 (defn reason-exhaustive
   [est time-prev time-now sensors]
   (binding [seen-workspaces #{}]
-    (let [est-results (reason-exhaustive-recursively est time-prev time-now sensors)
+    (let [est-results (reason-exhaustive-recursively est time-prev time-now sensors 0)
           est-final (first (sort compare-est est-results))]
+      (comment
+        (doseq [est est-results]
+          (let [ws (:workspace (cur-ep est))]
+            (println "result:")
+            (println "\taccepted:" (map #(lookup-hyp ws %) (:all (:accepted ws))))
+            (println "\tbest-each:" )
+            (println "\tdoubts:" (filter identity (map #(calc-doubt %)
+                                                (map :workspace (ep-path est)))))
+            (println "\tnoexp:" (count (get-no-explainers ws)))
+            (println "\tunexp:" (count (get-unexplained ws)))
+            (println "\tdoubt:" (doubt-aggregate est)))))
+      (comment
+        (println "best:")
+        (println "\taccepted:" (map #(lookup-hyp (:workspace (cur-ep est-final)) %)
+                                  (:all (:accepted (:workspace (cur-ep est-final))))))
+        (println "\tdoubt:" (doubt-aggregate est-final)))
       est-final)))
 
 (defn reason
