@@ -29,12 +29,11 @@
 (defn workspace-update-sensors
   [workspace time-prev time-now sensors cycle]
   (binding [reason-log (ref '())]
-    (let [ws (if sensors
-               (-> workspace
-                  (add-sensor-hyps time-prev time-now sensors cycle)
-                  (update-hypotheses time-now))
-               workspace)]
-      (assoc ws :log @reason-log))))
+    (let [ws-sensors (if sensors
+                       (add-sensor-hyps workspace time-prev time-now sensors cycle)
+                       workspace)
+          ws-hyps (update-hypotheses ws-sensors time-now)]
+      (assoc ws-hyps :log @reason-log))))
 
 (defn workspace-explain
   [workspace cycle time-now]
@@ -80,42 +79,47 @@
   (let [cycle (:cycle (cur-ep est))
         workspace (:workspace (cur-ep est))
         ws-outcomes (explain-exhaustive workspace cycle time-now)]
-    (mapcat (fn [ws]
-            (let [est-result (est-workspace-child est ws)]
-              (if (:best (:accrej ws))
-                ;; if something was last accepted, proceed
-                ;; recursively, but avoid repeating states
-                (if (not (seen-workspaces (:accepted ws)))
-                  (do (set! seen-workspaces
-                            (conj seen-workspaces (:accepted ws)))
-                      (reason-exhaustive-recursively-cycle est-result time-now))
-                  [])
-                ;; otherwise, that's the end of the line for this tree
-                [est-result])))
-          ws-outcomes)))
+    (doall
+     (mapcat (fn [ws]
+             (let [est-result (est-workspace-child est ws)
+                   acc-contents (set (map #(:contents (lookup-hyp ws %))
+                                        (:all (:accepted ws))))]
+               (if (:best (:accrej ws))
+                 ;; if something was last accepted, proceed
+                 ;; recursively, but avoid repeating states
+                 (if (not (seen-workspaces acc-contents))
+                   (do (set! seen-workspaces
+                             (conj seen-workspaces acc-contents))
+                       (reason-exhaustive-recursively-cycle est-result time-now))
+                   [])
+                 ;; otherwise, that's the end of the line for this tree
+                 [est-result])))
+           ws-outcomes))))
 
 (defn reason-exhaustive-recursively
-  [est time-prev time-now sensors]
+  [est time-prev time-now sensors depth]  
   (let [cycle (:cycle (cur-ep est))
         ws (:workspace (cur-ep est))
         ws-sensors (workspace-update-sensors ws time-prev time-now sensors cycle)
         est-sensors (est-workspace-child est ws-sensors)
-        est-results (reason-exhaustive-recursively-cycle est-sensors time-now)]
-    (mapcat
-     (fn [est-result]
-       (if (and (:GetMoreHyps params)
-                (not= (count (:hyp-ids (:workspace (cur-ep est-result))))
-                      (count (:hyp-ids ws))))
-         (reason-exhaustive-recursively est-result time-prev time-now sensors)
-         [est-result]))
-     est-results)))
+        est-results (binding [seen-workspaces #{}]
+                      (reason-exhaustive-recursively-cycle est-sensors time-now))]
+    (if (empty? est-results) [est]
+        (mapcat
+         (fn [est-result]
+           (if (and (:GetMoreHyps params)
+                    (not= (count (:hyp-ids (:workspace (cur-ep est-result))))
+                          (count (:hyp-ids ws))))
+             (reason-exhaustive-recursively est-result time-prev time-now sensors
+                                            (inc depth))
+             [est-result]))
+         est-results))))
 
 (defn reason-exhaustive
-  [est time-prev time-now sensors]
-  (binding [seen-workspaces #{}]
-    (let [est-results (reason-exhaustive-recursively est time-prev time-now sensors)
-          est-final (first (sort compare-est est-results))]
-      est-final)))
+  [est time-prev time-now sensors]  
+  (let [est-results (reason-exhaustive-recursively est time-prev time-now sensors 0)
+        est-final (first (sort compare-est est-results))]
+    est-final))
 
 (defn reason
   [est time-prev time-now sensors & opts]
