@@ -97,29 +97,28 @@
            ws-outcomes))))
 
 (defn reason-exhaustive-recursively
-  [est time-prev time-now sensors depth]  
+  [est time-prev time-now sensors]  
   (let [cycle (:cycle (cur-ep est))
         ws (:workspace (cur-ep est))
         ws-sensors (workspace-update-sensors ws time-prev time-now sensors cycle)
         est-sensors (est-workspace-child est ws-sensors)
-        est-results (binding [seen-workspaces #{}]
-                      (reason-exhaustive-recursively-cycle est-sensors time-now))]
+        est-results (reason-exhaustive-recursively-cycle est-sensors time-now)]
     (if (empty? est-results) [est]
         (mapcat
          (fn [est-result]
            (if (and (:GetMoreHyps params)
                     (not= (count (:hyp-ids (:workspace (cur-ep est-result))))
                           (count (:hyp-ids ws))))
-             (reason-exhaustive-recursively est-result time-prev time-now sensors
-                                            (inc depth))
+             (reason-exhaustive-recursively est-result time-prev time-now sensors)
              [est-result]))
          est-results))))
 
 (defn reason-exhaustive
-  [est time-prev time-now sensors]  
-  (let [est-results (reason-exhaustive-recursively est time-prev time-now sensors 0)
-        est-final (first (sort compare-est est-results))]
-    est-final))
+  [est time-prev time-now sensors]
+  (binding [seen-workspaces #{}]
+    (let [est-results (reason-exhaustive-recursively est time-prev time-now sensors)
+          est-final (first (sort compare-est est-results))]
+      est-final)))
 
 (defn reason
   [est time-prev time-now sensors & opts]
