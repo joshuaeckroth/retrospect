@@ -693,8 +693,11 @@
       ;; this hyp is an essential somewhere
       1.0
       (apply max (map (fn [contrast-set]
-                      (- (:apriori (lookup-hyp ws (first contrast-set)))
-                         (:apriori hyp)))
+                      (if (= (:id hyp) (first contrast-set))
+                        (- (:apriori hyp)
+                           (:apriori (lookup-hyp ws (second contrast-set))))
+                        (- (:apriori (lookup-hyp ws (first contrast-set)))
+                           (:apriori hyp))))
                     contrast-sets)))))
 
 (defn explain-exhaustive
@@ -711,6 +714,9 @@
         (let [delta (hyp-max-delta ws h)]
           (-> ws (update-in [:accrej] merge
                            {:best h :nbest nil :alts []
+                            :contrast-sets (filter (fn [contrast-set]
+                                                (some #(= (:id h) %) contrast-set))
+                                              (vals (:sorted-explainers ws)))
                             :explained [] :delta delta :comparison {}})
              (accept h nil [] [] delta {} cycle)))))))
 
