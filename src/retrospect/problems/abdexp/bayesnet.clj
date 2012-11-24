@@ -97,7 +97,8 @@
 (defn conditional-delta
   [bn observed pairs conditioning-pairs]
   (unobserve-all bn)
-  (observe-seq bn observed)
+  (observe-seq bn (filter #(not ((set (concat pairs conditioning-pairs)) %))
+                     observed))
   (let [prior (get-posterior bn pairs)]
     (observe-seq bn conditioning-pairs)
     (- (get-posterior bn pairs) prior)))

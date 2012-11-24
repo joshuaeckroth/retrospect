@@ -55,7 +55,7 @@
         (or (prob expgraph v val parent-comb) 1.0)
         (= "posterior" (:HypScores state/params))
         (do (unobserve-all bn)
-            (observe-seq bn observed)
+            (observe-seq bn (filter #(not (#{[v val]} %)) observed))
             (get-posterior bn v val))
         (and parent-comb (= "cond-delta" (:HypScores state/params)))
         (max 0.0 (conditional-delta bn observed parent-comb [[v val]]))
