@@ -203,14 +203,24 @@
                                #(sort (partial compare-hyps workspace
                                                (set (str/split (:HypPreference params)
                                                                #","))) %))
-              combined-sorter (fn [expl1 expl2]
-                                (let [hyp-apriori (- (compare (:apriori (:hyp expl1))
-                                                              (:apriori (:hyp expl2))))]
-                                  (if (= 0 hyp-apriori)
-                                    (compare-by-delta workspace expl1 expl2)
-                                    hyp-apriori)))
+              apriori-delta-sorter (fn [expl1 expl2]
+                                     (let [hyp-apriori (- (compare (:apriori (:hyp expl1))
+                                                                   (:apriori (:hyp expl2))))
+                                           d (compare-by-delta workspace expl1 expl2)]
+                                       (if (= 0 hyp-apriori)
+                                         d
+                                         hyp-apriori)))
+              delta-apriori-sorter (fn [expl1 expl2]
+                                     (let [hyp-apriori (- (compare (:apriori (:hyp expl1))
+                                                                   (:apriori (:hyp expl2))))
+                                           d (compare-by-delta workspace expl1 expl2)]
+                                       (if (= 0 d)
+                                         hyp-apriori
+                                         d)))
               expl-sorter (cond (= (:ContrastPreference params) "apriori,delta")
-                                (fn [hs] (sort combined-sorter hs))
+                                (fn [hs] (sort apriori-delta-sorter hs))
+                                (= (:ContrastPreference params) "delta,apriori")
+                                (fn [hs] (sort delta-apriori-sorter hs))
                                 (= (:ContrastPreference params) "delta")
                                 (fn [hs] (sort #(compare-by-delta workspace %1 %2) hs))
                                 (= (:ContrastPreference params) "arbitrary")
