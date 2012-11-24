@@ -163,15 +163,15 @@
    confidence. We want most confident first. With equal confidences,
    we look for higher explanatory power (explains more). If all that
    fails, comparison is done by the :id's (to keep it deterministic)."
-  [workspace hyp1 hyp2]
+  [workspace comparisons hyp1 hyp2]
   (let [comp1 (hyp-better-than? workspace hyp1 hyp2)
         comp2 (hyp-better-than? workspace hyp2 hyp1)]
-    (cond (:conf comp1) -1
-          (:conf comp2) 1
-          (:expl comp1) -1
-          (:expl comp2) 1
-          (:explainers comp1) -1
-          (:explainers comp2) 1
+    (cond (and (comparisons "conf") (:conf comp1)) -1
+          (and (comparisons "conf") (:conf comp2)) 1
+          (and (comparisons "expl") (:expl comp1)) -1
+          (and (comparisons "expl") (:expl comp2)) 1
+          (and (comparisons "explainers") (:explainers comp1)) -1
+          (and (comparisons "explainers") (:explainers comp2)) 1
           :else (compare (:id hyp1) (:id hyp2)))))
 
 (defn compare-by-delta
@@ -188,20 +188,21 @@
               expl1-delta (delta-fn expl1)
               expl2-delta (delta-fn expl2)]
           (if (= 0 (compare expl1-delta expl2-delta))
-            (if (= 0 (compare (:apriori (first expl1))
-                              (:apriori (first expl2))))
-              (compare (:id (first expl1)) (:id (first expl2)))
-              (- (compare (:apriori (first expl1))
-                          (:apriori (first expl2)))))
+            (compare (:id (first expl1)) (:id (first expl2)))
             (- (compare expl1-delta expl2-delta))))))
 
 (defn sort-explainers
   [workspace explainers]
   (prof :sort-explainers
         (let [hyp-sorter (cond (= (:HypPreference params) "abd")
-                               #(sort (partial compare-hyps workspace) %)
+                               #(sort (partial compare-hyps workspace
+                                               #{"conf" "expl" "explainers"}) %)
                                (= (:HypPreference params) "arbitrary")
-                               #(my-shuffle %))
+                               #(my-shuffle %)
+                               :else
+                               #(sort (partial compare-hyps workspace
+                                               (set (str/split (:HypPreference params)
+                                                               #","))) %))
               combined-sorter (fn [expl1 expl2]
                                 (let [hyp-apriori (- (compare (:apriori (:hyp expl1))
                                                               (:apriori (:hyp expl2))))]
