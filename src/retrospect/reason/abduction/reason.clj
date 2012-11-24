@@ -31,8 +31,8 @@
              :MetaHyps ["rej-conflict,lower-minapriori,order-dep"
                         ["rej-conflict,lower-minapriori,order-dep"]]
              :MinApriori [0 [0 10]]
-             :DoubtMeasure ["apriori" ["apriori" "delta"]]
-             :DoubtAggregate ["max" ["max" "avg"]]
+             :DoubtMeasure ["delta" ["score" "delta"]]
+             :DoubtAggregate ["avg" ["max" "avg"]]
              :UseScores [true [true]]
              :ScoreFidelity [100 [2 3 5 10 100]]
              :ContrastPreference ["delta" ["arbitrary" "score,delta"

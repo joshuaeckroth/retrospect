@@ -527,7 +527,7 @@
 
 (defn calc-doubt
   [workspace]
-  (if (= "apriori" (:DoubtMeasure params))
+  (if (= "score" (:DoubtMeasure params))
     (when (:best (:accrej workspace))
       (- 1.0 (:apriori (:best (:accrej workspace)))))
     ;; "delta"
