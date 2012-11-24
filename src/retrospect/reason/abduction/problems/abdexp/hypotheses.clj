@@ -58,7 +58,7 @@
             (observe-seq bn observed)
             (get-posterior bn v val))
         (and parent-comb (= "cond-delta" (:HypScores state/params)))
-        (max 0.0 (conditional-delta bn parent-comb [[v val]]))
+        (max 0.0 (conditional-delta bn observed parent-comb [[v val]]))
         :else 1.0))
 
 (defn make-explainer-for-composite

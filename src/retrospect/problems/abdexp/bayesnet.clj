@@ -95,8 +95,9 @@
         (.retractFindings bn)))
 
 (defn conditional-delta
-  [bn pairs conditioning-pairs]
+  [bn observed pairs conditioning-pairs]
   (unobserve-all bn)
+  (observe-seq bn observed)
   (let [prior (get-posterior bn pairs)]
     (observe-seq bn conditioning-pairs)
     (- (get-posterior bn pairs) prior)))
