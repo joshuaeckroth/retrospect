@@ -147,7 +147,7 @@
 
 (defn hyp-better-than?
   [workspace hyp1 hyp2]
-  (let [conf (> (double (- (:apriori hyp1) (:apriori hyp2))) 0.001)
+  (let [score (> (double (- (:apriori hyp1) (:apriori hyp2))) 0.001)
         expl (> (count (filter (fn [hyp-id] (some #(= % hyp-id)
                                          (:sorted-explainers-explained workspace)))
                           (get (:explains workspace) (:id hyp1))))
@@ -156,7 +156,7 @@
                           (get (:explains workspace) (:id hyp2)))))
         explainers (> (count (get-in workspace [:explainers (:id hyp1)] []))
                       (count (get-in workspace [:explainers (:id hyp2)] [])))]
-    {:conf conf :expl expl :explainers explainers}))
+    {:score score :expl expl :explainers explainers}))
 
 (defn compare-hyps
   "Since we are using probabilities, smaller value = less
@@ -166,8 +166,8 @@
   [workspace comparisons hyp1 hyp2]
   (let [comp1 (hyp-better-than? workspace hyp1 hyp2)
         comp2 (hyp-better-than? workspace hyp2 hyp1)]
-    (cond (and (comparisons "conf") (:conf comp1)) -1
-          (and (comparisons "conf") (:conf comp2)) 1
+    (cond (and (comparisons "score") (:score comp1)) -1
+          (and (comparisons "score") (:score comp2)) 1
           (and (comparisons "expl") (:expl comp1)) -1
           (and (comparisons "expl") (:expl comp2)) 1
           (and (comparisons "explainers") (:explainers comp1)) -1
@@ -175,7 +175,7 @@
           :else (compare (:id hyp1) (:id hyp2)))))
 
 (defn compare-by-delta
-  [workspace {hyp1 :hyp expl1 :expl} {hyp2 :hyp expl2 :expl}]
+  [workspace expl1 expl2]
   (prof :compare-by-delta
         (let [delta-fn (fn [hyps]
                          (let [normalized-aprioris (let [aprioris (map :apriori hyps)
@@ -196,33 +196,39 @@
   (prof :sort-explainers
         (let [hyp-sorter (cond (= (:HypPreference params) "abd")
                                #(sort (partial compare-hyps workspace
-                                               #{"conf" "expl" "explainers"}) %)
+                                               #{"score" "expl" "explainers"}) %)
                                (= (:HypPreference params) "arbitrary")
                                #(my-shuffle %)
                                :else
                                #(sort (partial compare-hyps workspace
                                                (set (str/split (:HypPreference params)
                                                                #","))) %))
-              apriori-delta-sorter (fn [expl1 expl2]
-                                     (let [hyp-apriori (- (compare (:apriori (:hyp expl1))
-                                                                   (:apriori (:hyp expl2))))
+              apriori-sorter (fn [{hyp1 :hyp expl1 :expl} {hyp2 :hyp expl2 :expl}]
+                               (- (compare
+                                   (:apriori (first expl1))
+                                   (:apriori (first expl2)))))
+              apriori-delta-sorter (fn [{hyp1 :hyp expl1 :expl} {hyp2 :hyp expl2 :expl}]
+                                     (let [hyp-apriori (- (compare
+                                                           (:apriori (first expl1))
+                                                           (:apriori (first expl2))))
                                            d (compare-by-delta workspace expl1 expl2)]
-                                       (if (= 0 hyp-apriori)
-                                         d
-                                         hyp-apriori)))
-              delta-apriori-sorter (fn [expl1 expl2]
-                                     (let [hyp-apriori (- (compare (:apriori (:hyp expl1))
-                                                                   (:apriori (:hyp expl2))))
+                                       (if (= 0 hyp-apriori) d hyp-apriori)))
+              delta-apriori-sorter (fn [{hyp1 :hyp expl1 :expl} {hyp2 :hyp expl2 :expl}]
+                                     (let [hyp-apriori (- (compare
+                                                           (:apriori (first expl1))
+                                                           (:apriori (first expl2))))
                                            d (compare-by-delta workspace expl1 expl2)]
-                                       (if (= 0 d)
-                                         hyp-apriori
-                                         d)))
-              expl-sorter (cond (= (:ContrastPreference params) "apriori,delta")
+                                       (if (= 0 d) hyp-apriori d)))
+              delta-sorter (fn [{hyp1 :hyp expl1 :expl} {hyp2 :hyp expl2 :expl}]
+                             (compare-by-delta workspace expl1 expl2))
+              expl-sorter (cond (= (:ContrastPreference params) "score")
+                                (fn [hs] (sort apriori-sorter hs))
+                                (= (:ContrastPreference params) "score,delta")
                                 (fn [hs] (sort apriori-delta-sorter hs))
-                                (= (:ContrastPreference params) "delta,apriori")
+                                (= (:ContrastPreference params) "delta,score")
                                 (fn [hs] (sort delta-apriori-sorter hs))
                                 (= (:ContrastPreference params) "delta")
-                                (fn [hs] (sort #(compare-by-delta workspace %1 %2) hs))
+                                (fn [hs] (sort delta-sorter hs))
                                 (= (:ContrastPreference params) "arbitrary")
                                 #(my-shuffle %))]
           (expl-sorter (doall (map #(update-in % [:expl] hyp-sorter) explainers))))))

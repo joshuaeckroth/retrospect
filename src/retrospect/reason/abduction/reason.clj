@@ -35,8 +35,8 @@
              :DoubtAggregate ["max" ["max" "avg"]]
              :UseScores [true [true]]
              :ScoreFidelity [100 [2 3 5 10 100]]
-             :ContrastPreference ["delta" ["arbitrary" "apriori,delta"
-                                           "delta" "delta,apriori"]]
+             :ContrastPreference ["delta" ["arbitrary" "score,delta"
+                                           "score" "delta" "delta,score"]]
              :HypPreference ["abd" ["abd" "arbitrary"]]
              :ConsiderExplPower [false [true false]]}
             (:default-params (:abduction @problem))))
