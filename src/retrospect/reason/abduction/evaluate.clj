@@ -2,7 +2,7 @@
   (:require [clojure.string :as str])
   (:require [clojure.set :as set])
   (:use [retrospect.epistemicstates :only [cur-ep flatten-est count-branches]])
-  (:use [retrospect.evaluate :only [calc-increase]])
+  (:use [retrospect.evaluate :only [calc-increase calc-prec-coverage]])
   (:use [retrospect.epistemicstates :only [ep-path]])
   (:use [retrospect.reason.abduction.workspace
          :only [get-unexp-pct get-noexp-pct calc-doubt calc-coverage
@@ -256,7 +256,14 @@
                                 (vals (:hyp-ids workspace)))))
         noise-claims-true (set (filter #(not (get-in true-false [:individual (:id %)]))
                                   noise-claims))
-        noise-claims-false (set/difference noise-claims noise-claims-true)]
+        noise-claims-false (set/difference noise-claims noise-claims-true)
+        noise-prec-coverage (calc-prec-coverage
+                             (count noise-claims-true) ;; tp
+                             0 ;; tn
+                             (count noise-claims-false) ;; fp
+                             0 ;; fn
+                             ;; and event-count:
+                             (count noise-obs))]
     (merge {:Problem (:name @problem)}
            params
            ((:evaluate-fn (:abduction @problem)) truedata est)
@@ -287,7 +294,10 @@
             :NoExpReasonUnknown (:unknown noexp-reasons 0)
             :NoiseTotal (count noise-obs)
             :NoiseClaimsTrue (count noise-claims-true)
-            :NoiseClaimsFalse (count noise-claims-false)})))
+            :NoiseClaimsFalse (count noise-claims-false)
+            :NoiseClaimsPrec (:Prec noise-prec-coverage)
+            :NoiseClaimsCoverage (:Coverage noise-prec-coverage)
+            :NoiseClaimsF1 (:F1 noise-prec-coverage)})))
 
 (defn prefix-params
   [prefix params]
@@ -315,7 +325,8 @@
                                :NoExpReasonNoise :NoExpReasonRejectedConflict
                                :NoExpReasonRejectedMinApriori :NoExpReasonNoExpl
                                :NoExpReasonUnknown :NoiseTotal
-                               :NoiseClaimsTrue :NoiseClaimsFalse]
+                               :NoiseClaimsTrue :NoiseClaimsFalse
+                               :NoiseClaimsPrec :NoiseClaimsCoverage :NoiseClaimsF1]
                               (mapcat
                                (fn [tf]
                                  (map #(keyword
