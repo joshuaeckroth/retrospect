@@ -196,7 +196,7 @@
   (prof :sort-explainers
         (let [hyp-sorter (cond (= (:HypPreference params) "abd")
                                #(sort (partial compare-hyps workspace
-                                               #{"score" "expl" "explainers"}) %)
+                                               #{"score" "expl"}) %)
                                (= (:HypPreference params) "arbitrary")
                                #(my-shuffle %)
                                :else
