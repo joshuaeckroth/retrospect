@@ -18,16 +18,19 @@
           variance (/ (reduce + (map #(Math/pow (- mean %) 2.0) dists)) (count dists))]
       {:mean mean :variance variance})
     ;; else, :WalkType = "random"
-    (let [dists (map #(dist (:ox %) (:oy %) (:x %) (:y %)) moves)]
-      {:dist-freqs (frequencies dists) :count (count moves)})))
+    (let [dists (map #(dist (:ox %) (:oy %) (:x %) (:y %)) moves)
+          freqs (frequencies dists)
+          c (count moves)]
+      {:dist-freqs freqs :count c
+       :max-prob (apply max (map #(/ (double (+ 1 %)) (double (+ 2 c)))
+                               (vals freqs)))})))
 
 (defn generate-kb
   [training]
-  (let []
-    [(new-hyp "KB" :kb :kb 1.0 false nil [] "" ""
-              {:moves (:moves training)
-               :moves-dist (compute-moves-dist (:moves training))
-               :seen-colors (:seen-colors training)})]))
+  [(new-hyp "KB" :kb :kb 1.0 false nil [] "" ""
+            {:moves (:moves training)
+             :moves-dist (compute-moves-dist (:moves training))
+             :seen-colors (:seen-colors training)})])
 
 (defn get-kb
   [accepted lookup-hyp]
@@ -153,8 +156,9 @@
   (if (= "gaussian" (:WalkType params))
     (cumprob (:mean moves-dist) (:variance moves-dist) (- dist 2.0) (+ dist 2.0))
     ;; else, :WalkType = "random"
-    (/ (double (+ 1 (get-in moves-dist [:dist-freqs dist] 0)))
-       (double (+ 2 (:count moves-dist))))))
+    (/ (/ (double (+ 1 (get-in moves-dist [:dist-freqs dist] 0)))
+          (double (+ 2 (:count moves-dist))))
+       (:max-prob moves-dist))))
 
 (defn new-mov-hyp
   "Returns nil if the colors don't match."
