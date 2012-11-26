@@ -23,5 +23,5 @@
      :FPR (if (= 0 (+ fp tn)) 1.0 (/ (double fp) (double (+ fp tn))))
      :Coverage coverage
      :Prec prec
-     :F1 (if (= 0 (+ prec coverage)) 1.0
+     :F1 (if (= 0 (+ prec coverage)) 0.0
              (/ (* 2.0 prec coverage) (+ prec coverage)))}))
