@@ -16,7 +16,7 @@
   [tp tn fp fn event-count]
   (let [coverage (if (= 0 event-count) 1.0
                      (/ (double tp) (double event-count)))
-        prec (if (= 0 (+ tp fp)) 1.0 (/ (double tp) (double (+ tp fp))))]
+        prec (if (= 0 (+ tp fp)) 0.0 (/ (double tp) (double (+ tp fp))))]
     ;; http://en.wikipedia.org/wiki/Receiver_operating_characteristic
     {:TP tp :TN tn :FP fp :FN fn
      :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
