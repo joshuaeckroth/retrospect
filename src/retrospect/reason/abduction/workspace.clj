@@ -153,26 +153,36 @@
                           (get (:explains workspace) (:id hyp1))))
                 (count (filter (fn [hyp-id] (some #(= % hyp-id)
                                          (:sorted-explainers-explained workspace)))
-                          (get (:explains workspace) (:id hyp2)))))
-        explainers (> (count (get-in workspace [:explainers (:id hyp1)] []))
-                      (count (get-in workspace [:explainers (:id hyp2)] [])))]
-    {:score score :expl expl :explainers explainers}))
+                          (get (:explains workspace) (:id hyp2)))))]
+    {:score score :expl expl}))
 
 (defn compare-hyps
   "Since we are using probabilities, smaller value = less
    confidence. We want most confident first. With equal confidences,
    we look for higher explanatory power (explains more). If all that
    fails, comparison is done by the :id's (to keep it deterministic)."
-  [workspace comparisons hyp1 hyp2]
+  [workspace hyp1 hyp2]
   (let [comp1 (hyp-better-than? workspace hyp1 hyp2)
-        comp2 (hyp-better-than? workspace hyp2 hyp1)]
-    (cond (and (comparisons "score") (:score comp1)) -1
-          (and (comparisons "score") (:score comp2)) 1
-          (and (comparisons "expl") (:expl comp1)) -1
-          (and (comparisons "expl") (:expl comp2)) 1
-          (and (comparisons "explainers") (:explainers comp1)) -1
-          (and (comparisons "explainers") (:explainers comp2)) 1
-          :else (compare (:id hyp1) (:id hyp2)))))
+        comp2 (hyp-better-than? workspace hyp2 hyp1)
+        pref (:HypPreference params)
+        id-compare (compare (:id hyp1) (:id hyp2))]
+    (cond (= "score" pref) (cond (:score comp1) -1
+                                 (:score comp2) 1
+                                 :else id-compare)
+          (= "expl" pref) (cond (:expl comp1) -1
+                                (:expl comp2) 1
+                                :else id-compare)
+          (= "score,expl" pref) (cond (:score comp1) -1
+                                      (:score comp2) 1
+                                      (:expl comp1) -1
+                                      (:expl comp2) 1
+                                      :else id-compare)
+          (= "expl,score" pref) (cond (:expl comp1) -1
+                                      (:expl comp2) 1
+                                      (:score comp1) -1
+                                      (:score comp2) 1
+                                      :else id-compare)
+          :else id-compare)))
 
 (defn compare-by-delta
   [workspace expl1 expl2]
@@ -194,15 +204,9 @@
 (defn sort-explainers
   [workspace explainers]
   (prof :sort-explainers
-        (let [hyp-sorter (cond (= (:HypPreference params) "abd")
-                               #(sort (partial compare-hyps workspace
-                                               #{"score" "expl"}) %)
-                               (= (:HypPreference params) "arbitrary")
-                               #(my-shuffle %)
-                               :else
-                               #(sort (partial compare-hyps workspace
-                                               (set (str/split (:HypPreference params)
-                                                               #","))) %))
+        (let [hyp-sorter (if (= (:HypPreference params) "arbitrary")
+                           #(my-shuffle %)
+                           #(sort (partial compare-hyps workspace) %))
               apriori-sorter (fn [{hyp1 :hyp expl1 :expl} {hyp2 :hyp expl2 :expl}]
                                (- (compare
                                    (:apriori (first expl1))

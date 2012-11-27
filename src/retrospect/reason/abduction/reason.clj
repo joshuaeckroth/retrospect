@@ -37,7 +37,8 @@
              :ScoreFidelity [100 [2 3 5 10 100]]
              :ContrastPreference ["delta" ["arbitrary" "score,delta"
                                            "score" "delta" "delta,score"]]
-             :HypPreference ["abd" ["abd" "arbitrary"]]
+             :HypPreference ["score,expl" ["score" "expl" "score,expl"
+                                           "expl,score" "arbitrary"]]
              :ConsiderExplPower [false [true false]]}
             (:default-params (:abduction @problem))))
    :init-workspace-fn init-workspace
