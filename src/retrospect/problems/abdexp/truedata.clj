@@ -29,7 +29,7 @@
                     (reuse-explainers vertices reuse-n))))))
 
 (defn gen-explains-links
-  [attempts]
+  []
   (let [initial-vertices (set (repeatedly (* (:Steps params) 2)
                                           #(format "V%d" (my-rand-int 10000))))]
     (loop [unexp initial-vertices
@@ -39,7 +39,7 @@
         (take (:NumExplainsLinks params) (my-shuffle expl-links))
         ;; make some explainers for some of the unexplained
         (let [to-be-explained (take (count unexp) (my-shuffle (sort unexp)))
-              reuse-n (if (< attempts 10) (:NumExplainers params) 0)
+              reuse-n (:NumExplainers params)
               new-expl-links (mapcat (fn [v] (make-explainers vs v reuse-n))
                                      to-be-explained)
               newly-explained (set (map second new-expl-links))
@@ -123,40 +123,39 @@
 
 (defn random-expgraph
   []
-  (loop [attempts 0]
-    (let [expl-links (gen-explains-links attempts)
-          eg (apply add-edges (digraph) expl-links)]
-      (if (not (dag? eg))
-        (recur (inc attempts))
-        (let [vs-tmp (sort (nodes eg))
-              eg-values (reduce (fn [eg v]
-                             (-> eg (add-attr v :id v)
-                                (add-attr v :values (rand-vals))))
-                           eg vs-tmp)
-              ;; a path gives selects vertex-value pairs from all bottom
-              ;; vertices to the top to ensure that conflicts links do not
-              ;; disable all possible paths
-              path (reduce (fn [tv v] (arbitrary-path-up eg-values tv v))
-                      {} (bottom-nodes eg-values))
-              conflict-links (gen-conflicts-links eg-values vs-tmp path)
-              eg-conflicts (reduce set-conflicts eg-values conflict-links)
-              ;; netica restriction
-              nodes-with-conflicts (+ (count vs-tmp) (count conflict-links))
-              eg-reduced (if (> nodes-with-conflicts 30)
-                           (let [vs (set (take (- 30 (count conflict-links))
-                                               (my-shuffle vs-tmp)))]
-                             (apply remove-nodes eg-conflicts (filter #(not (vs %)) vs-tmp)))
-                           eg-conflicts)
-              vs (sort (nodes eg-reduced))
-              eg-probs (reduce add-prob-table eg-reduced vs)
-              bayesnet (build-bayesnet eg-probs)
-              true-values-map (sample-expgraph eg-probs)
-              observations (take (:Steps params)
-                                 (my-shuffle (sort-by first (seq true-values-map))))]
-          {:expgraph eg-probs
-           :bayesnet bayesnet
-           :observations observations
-           :true-values-map true-values-map})))))
+  (let [expl-links (gen-explains-links)
+        eg (reduce (fn [g el] (let [g2 (add-edges g el)]
+                          (if (dag? g2) g2 g)))
+              (digraph) expl-links)]
+    (let [vs-tmp (sort (nodes eg))
+          eg-values (reduce (fn [eg v]
+                         (-> eg (add-attr v :id v)
+                            (add-attr v :values (rand-vals))))
+                       eg vs-tmp)
+          ;; a path gives selects vertex-value pairs from all bottom
+          ;; vertices to the top to ensure that conflicts links do not
+          ;; disable all possible paths
+          path (reduce (fn [tv v] (arbitrary-path-up eg-values tv v))
+                  {} (bottom-nodes eg-values))
+          conflict-links (gen-conflicts-links eg-values vs-tmp path)
+          eg-conflicts (reduce set-conflicts eg-values conflict-links)
+          ;; netica restriction
+          nodes-with-conflicts (+ (count vs-tmp) (count conflict-links))
+          eg-reduced (if (> nodes-with-conflicts 30)
+                       (let [vs (set (take (- 30 (count conflict-links))
+                                           (my-shuffle vs-tmp)))]
+                         (apply remove-nodes eg-conflicts (filter #(not (vs %)) vs-tmp)))
+                       eg-conflicts)
+          vs (sort (nodes eg-reduced))
+          eg-probs (reduce add-prob-table eg-reduced vs)
+          bayesnet (build-bayesnet eg-probs)
+          true-values-map (sample-expgraph eg-probs)
+          observations (take (:Steps params)
+                             (my-shuffle (sort-by first (seq true-values-map))))]
+      {:expgraph eg-probs
+       :bayesnet bayesnet
+       :observations observations
+       :true-values-map true-values-map})))
 
 (defn observation-groups
   [observations]
