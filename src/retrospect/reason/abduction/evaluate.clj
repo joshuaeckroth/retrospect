@@ -270,6 +270,7 @@
            true-false-scores
            meta-hyps
            {:Step (:time ep)
+            :Unexplained (count (get-unexplained (:workspace ep)))
             :UnexplainedPct (get-unexp-pct (:workspace ep))
             :NoExplainersPct (get-noexp-pct (:workspace ep))
             :TrueDeltaAvg (:true-delta-avg delta-avgs)
