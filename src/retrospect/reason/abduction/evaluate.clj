@@ -9,7 +9,7 @@
                 accepted? rejected? rejection-reason lookup-hyp update-graph
                 accepted-before? rejected-before? unexplained?
                 accepted-explained accepted-rivals get-no-explainers
-                explainers explains find-conflicts-all]])
+                get-unexplained explainers explains find-conflicts-all]])
   (:use [retrospect.state]))
 
 (defn keyword-to-metric
