@@ -33,61 +33,36 @@
 (defn evaluate
   [truedata est]
   (let [expgraph (:expgraph truedata)
+        bn (:bayesnet truedata)
         confidence (- 1.0 (doubt-aggregate est))
         metrics
         (for [ep (filter :decision-point (flatten-est est))]
           (let [ws (:workspace ep)
                 observed (apply concat (take (:time ep) (:test truedata)))
+                _ (do (unobserve-all bn)
+                      (observe-seq bn observed))
                 acc (set (map #(lookup-hyp ws %) (get (:accepted ws) :expl)))
                 acc-vertex-values (set (map (fn [h] [(:vertex h) (:value h)]) acc))
                 not-acc (set/difference (set (map #(lookup-hyp ws %)
                                                 (get (:hypotheses ws) :expl)))
                                         acc)
-                ancestors-true-values-map (select-keys (:true-values-map truedata)
-                                                       (expl-ancestors expgraph
-                                                                       (map first observed)))
-                [tp tn fp fn] (tp-tn-fp-fn ancestors-true-values-map
-                                           acc not-acc)
+                [tp tn fp fn] (tp-tn-fp-fn (:true-values-map truedata) acc not-acc)
                 prec-coverage (calc-prec-coverage tp tn fp fn
-                                                  (count ancestors-true-values-map))
-                probs (let [bn (:bayesnet truedata)]
-                        (unobserve-all bn)
-                        (observe-seq bn observed)
-                        (let [prob (get-posterior bn acc-vertex-values)
-                              {mpe :states mpe-prob :prob} (most-probable-explanation bn)
-                              [etp etn efp efn] (tp-tn-fp-fn mpe acc not-acc)
-                              mpe-prec-coverage (calc-prec-coverage etp etn efp efn (count mpe))
-                              post-error (avg (for [h acc]
-                                                (let [v (:vertex h)
-                                                      vals (sort (values expgraph v))
-                                                      post-map (zipmap vals (map #(get-posterior bn v %) vals))]
-                                                  (- (post-map (:value h)) (apply max (map second (seq post-map)))))))
-                              
-                              
-                              posteriors-acc (map #(get-posterior bn (first %) (second %))
-                                                acc-vertex-values)]
-                          {:Prob prob
-                           :MPEPrec (:Prec mpe-prec-coverage)
-                           :MPECoverage (:Coverage mpe-prec-coverage)
-                           :MPEProb mpe-prob
-                           :PostError post-error
-                           :AbsConfPostDiff (Math/abs (- confidence (avg posteriors-acc)))}))]
-            (merge prec-coverage probs)))]
+                                                  (count (:true-values-map truedata)))
+                {mpe :states} (most-probable-explanation bn)
+                [etp etn efp efn] (tp-tn-fp-fn mpe acc not-acc)
+                mpe-prec-coverage (calc-prec-coverage etp etn efp efn (count mpe))]
+            {:MPEPrec (:Prec mpe-prec-coverage)
+             :MPECoverage (:Coverage mpe-prec-coverage)
+             :Prec (:Prec prec-coverage)}))]
     (merge (last metrics)
            {:MinPrec (apply min (map :Prec metrics))
-            :MinCoverage (apply min (map :Coverage metrics))
-            :MinProb (apply min (map :Prob metrics))
-            :AvgPrec (avg (map :Prec metrics))
-            :AvgCoverage (avg (map :Coverage metrics))
-            :AvgF1 (avg (map :F1 metrics))
-            :AvgProb (avg (map :Prob metrics))})))
+            :AvgPrec (avg (map :Prec metrics))})))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
-                  [:TP :TN :FP :FN :TPR :FPR :F1 :Coverage :Prec
-                   :MinPrec :MinCoverage :AvgPrec :AvgCoverage :AvgF1
-                   :Prob :MinProb :AvgProb])))
+                  [:Prec :MinPrec :AvgPrec])))
 
 (defn stats
   [truedata ors time-now])
