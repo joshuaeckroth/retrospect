@@ -51,7 +51,8 @@
   (cond (= "fixed" (:HypScores state/params))
         1.0
         (and parent-comb (= "prior" (:HypScores state/params)))
-        (prob expgraph v val parent-comb)
+        ;; parent-comb may not have all parents necessary to compute prior
+        (or (prob expgraph v val parent-comb) 1.0)
         (= "posterior" (:HypScores state/params))
         (do (unobserve-all bn)
             (observe-seq bn (filter #(not ((set parent-comb) %)) observed))
