@@ -35,7 +35,14 @@
 
 (defn prob
   [expgraph vertex value parent-vals]
-  (get-in (:map (probs expgraph vertex)) [(set parent-vals) value]))
+  (if-let [p (get-in (:map (probs expgraph vertex)) [(set parent-vals) value])]
+    p
+    ;; otherwise, not all parents are specified, so find the average
+    (let [p-vals (filter (fn [p-set] (subset? (set parent-vals) p-set))
+                    (keys (:map (probs expgraph vertex))))
+          probs (map #(prob expgraph vertex value %) p-vals)]
+      (if (empty? probs) 0.0
+          (/ (reduce + probs) (count probs))))))
 
 (defn observation?
   [vertex]
