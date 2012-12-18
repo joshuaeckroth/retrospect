@@ -4,7 +4,7 @@
   (:use [retrospect.problems.abdexp.expgraph])
   (:use [retrospect.profile :only [prof]]))
 
-(def netica-env (Environ. nil))
+(def netica-env (Environ. "+EckrothJ/OhioStateU/Ex14-06-30,121,310/48453"))
 
 ;; Netica crashes if nets are garbage collected; save them all
 (def bns (ref []))

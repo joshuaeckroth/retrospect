@@ -127,27 +127,19 @@
         eg (reduce (fn [g el] (let [g2 (add-edges g el)]
                           (if (dag? g2) g2 g)))
               (digraph) expl-links)]
-    (let [vs-tmp (sort (nodes eg))
+    (let [vs (sort (nodes eg))
           eg-values (reduce (fn [eg v]
                          (-> eg (add-attr v :id v)
                             (add-attr v :values (rand-vals))))
-                       eg vs-tmp)
+                       eg vs)
           ;; a path gives selects vertex-value pairs from all bottom
           ;; vertices to the top to ensure that conflicts links do not
           ;; disable all possible paths
           path (reduce (fn [tv v] (arbitrary-path-up eg-values tv v))
                   {} (bottom-nodes eg-values))
-          conflict-links (gen-conflicts-links eg-values vs-tmp path)
+          conflict-links (gen-conflicts-links eg-values vs path)
           eg-conflicts (reduce set-conflicts eg-values conflict-links)
-          ;; netica restriction
-          nodes-with-conflicts (+ (count vs-tmp) (count conflict-links))
-          eg-reduced (if (> nodes-with-conflicts 30)
-                       (let [vs (set (take (- 30 (count conflict-links))
-                                           (my-shuffle vs-tmp)))]
-                         (apply remove-nodes eg-conflicts (filter #(not (vs %)) vs-tmp)))
-                       eg-conflicts)
-          vs (sort (nodes eg-reduced))
-          eg-probs (reduce add-prob-table eg-reduced vs)
+          eg-probs (reduce add-prob-table eg-conflicts vs)
           bayesnet (build-bayesnet eg-probs)
           true-values-map (sample-expgraph eg-probs)
           observations (take (:Steps params)
