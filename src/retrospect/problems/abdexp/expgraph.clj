@@ -63,7 +63,7 @@
 
 (defn compute-complexity
   [expgraph]
-  (count (edges expgraph)))
+  (double (density expgraph)))
 
 (defn unexplained?
   [expgraph vertex]
