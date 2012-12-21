@@ -2,6 +2,7 @@
   (:require [clojure.string :as str])
   (:import (norsys.netica Environ Net NetTester Node NodeList Streamer))
   (:use [retrospect.problems.abdexp.expgraph])
+  (:use [retrospect.state :only [batch]])
   (:use [retrospect.profile :only [prof]]))
 
 (def netica-env (Environ. "+EckrothJ/OhioStateU/Ex14-06-30,121,310/48453"))
@@ -24,7 +25,7 @@
                        (let [states (str/join "," (sort (values expgraph v)))]
                          (assoc m v (Node. v states bn))))
                      {} (vertices expgraph))
-        vertex-positions (gen-vertex-graph-positions expgraph)]
+        vertex-positions (if @batch {} (gen-vertex-graph-positions expgraph))]
     (doseq [v (keys nodes-map)
             p (sort (explainers expgraph v))]
       (.addLink (nodes-map v) (nodes-map p)))
