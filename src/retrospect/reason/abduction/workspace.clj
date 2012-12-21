@@ -356,7 +356,7 @@
            ws2 (-> (dissoc-in ws-added [:sorted-explainers (:id hyp)])
                   (update-in [:accepted :all] disj (:id hyp))
                   (update-in [:accepted (:type hyp)] disj (:id hyp))
-                  (update-in [:accrej :rej] conjs hyp)
+                  (update-in [:accrej :rej] conjs (:id hyp))
                   (update-in [:rejected (:type hyp)] conjs (:id hyp))
                   (assoc-in [:rejected-cycle (:id hyp)] cycle)
                   (update-in [:rejected :all] conjs (:id hyp))
@@ -423,7 +423,7 @@
                              "...but now satisfies minapriori, so unrejecting.")
                         (-> ws (update-in [:rejected :all] disj prior-hyp-id)
                            (update-in [:rejected (:type prior-hyp)] disj prior-hyp-id)
-                           (update-in [:accrej :rej] disj prior-hyp)
+                           (update-in [:accrej :rej] disj prior-hyp-id)
                            (dissoc-in [:rejection-reasons prior-hyp-id])))
                     (do (log "...yet" prior-hyp "was rejected, so not adding.")
                         (-> ws (dissoc-in [:sorted-explainers prior-hyp-id])
@@ -494,7 +494,7 @@
                                         delta comparison cycle)))
                             ws-needs-exp (:hyps hyp))
                          ws-needs-exp)]
-      (update-in ws-composite [:accrej :acc] conj hyp))))
+      (update-in ws-composite [:accrej :acc] conj (:id hyp)))))
 
 (defn add-observation
   [workspace hyp cycle]
