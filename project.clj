@@ -27,4 +27,4 @@
   :java-source-paths ["src/jvm"]
   :warn-on-reflection false ;; Emit warnings on all reflection calls.
   :jvm-opts ["-Dawt.useSystemAAFontSettings=on" "-Xmx5000m"
-             "-Djava.library.path=/home/josh/research/retrospect/netica"])
+             "-Djava.library.path=/home/josh/git/research/retrospect/netica"])
