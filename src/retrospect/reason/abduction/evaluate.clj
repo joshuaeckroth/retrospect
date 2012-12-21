@@ -2,7 +2,7 @@
   (:require [clojure.string :as str])
   (:require [clojure.set :as set])
   (:use [retrospect.epistemicstates :only [cur-ep flatten-est count-branches]])
-  (:use [retrospect.evaluate :only [calc-increase calc-prec-coverage]])
+  (:use [retrospect.evaluate :only [calc-increase calc-prec-coverage avg]])
   (:use [retrospect.epistemicstates :only [ep-path]])
   (:use [retrospect.reason.abduction.workspace
          :only [get-unexp-pct get-noexp-pct calc-doubt calc-coverage
@@ -248,31 +248,46 @@
         doubt (doubt-aggregate est)
         errors (find-errors est true-false)
         noexp-reasons (find-noexp-reasons est)
-        noise-obs (set (filter #(not (get-in true-false [:individual (:id %)]))
-                          (filter #(= :observation (:type %))
-                             (vals (:hyp-ids workspace)))))
-        noise-claims (set (filter #(= :ignoring (rejection-reason workspace %))
-                             (filter #(= :observation (:type %))
-                                (vals (:hyp-ids workspace)))))
-        noise-claims-true (set (filter #(not (get-in true-false [:individual (:id %)]))
-                                  noise-claims))
-        noise-claims-false (set/difference noise-claims noise-claims-true)
-        noise-prec-coverage (calc-prec-coverage
-                             (count noise-claims-true) ;; tp
-                             0 ;; tn
-                             (count noise-claims-false) ;; fp
-                             0 ;; fn
-                             ;; and event-count:
-                             (count noise-obs))]
+        decision-metrics
+        (for [ep (filter :decision-point ep-states)]
+          (let [ws (:workspace ep)
+                noise-obs (set (filter #(not (get-in true-false [:individual (:id %)]))
+                                  (filter #(= :observation (:type %))
+                                     (vals (:hyp-ids ws)))))
+                noise-claims (set (filter #(= :ignoring (rejection-reason ws %))
+                                     (filter #(= :observation (:type %))
+                                        (vals (:hyp-ids ws)))))
+                noise-claims-true (set (filter #(not (get-in true-false [:individual (:id %)]))
+                                          noise-claims))
+                noise-claims-false (set/difference noise-claims noise-claims-true)
+                noise-prec-coverage (calc-prec-coverage
+                                     (count noise-claims-true)  ;; tp
+                                     0                          ;; tn
+                                     (count noise-claims-false) ;; fp
+                                     0                          ;; fn
+                                     ;; and event-count:
+                                     (count noise-obs))]
+            {:Unexplained (count (get-unexplained ws))
+             :UnexplainedPct (get-unexp-pct ws)
+             :NoExplainersPct (get-noexp-pct ws)
+             :NoiseTotal (count noise-obs)
+             :NoiseClaimsTrue (count noise-claims-true)
+             :NoiseClaimsFalse (count noise-claims-false)
+             :NoiseClaimsPrec (:Prec noise-prec-coverage)
+             :NoiseClaimsCoverage (:Coverage noise-prec-coverage)
+             :NoiseClaimsF1 (:F1 noise-prec-coverage)}))]
     (merge {:Problem (:name @problem)}
            params
            ((:evaluate-fn (:abduction @problem)) truedata est)
            true-false-scores
            meta-hyps
+           (last decision-metrics)
            {:Step (:time ep)
-            :Unexplained (count (get-unexplained (:workspace ep)))
-            :UnexplainedPct (get-unexp-pct (:workspace ep))
-            :NoExplainersPct (get-noexp-pct (:workspace ep))
+            :AvgUnexplainedPct (avg (map :UnexplainedPct decision-metrics))
+            :AvgNoExplainersPct (avg (map :NoExplainersPct decision-metrics))
+            :AvgNoiseClaimsPrec (avg (map :NoiseClaimsPrec decision-metrics))
+            :AvgNoiseClaimsCoverage (avg (map :NoiseClaimsCoverage decision-metrics))
+            :AvgNoiseClaimsF1 (avg (map :NoiseClaimsF1 decision-metrics))
             :TrueDeltaAvg (:true-delta-avg delta-avgs)
             :FalseDeltaAvg (:false-delta-avg delta-avgs)
             :Doubt (doubt-aggregate est)
@@ -292,13 +307,7 @@
             :NoExpReasonConflict (:conflict noexp-reasons 0)
             :NoExpReasonMinApriori (:minapriori noexp-reasons 0)
             :NoExpReasonNoExpl (:no-expl-offered noexp-reasons 0)
-            :NoExpReasonUnknown (:unknown noexp-reasons 0)
-            :NoiseTotal (count noise-obs)
-            :NoiseClaimsTrue (count noise-claims-true)
-            :NoiseClaimsFalse (count noise-claims-false)
-            :NoiseClaimsPrec (:Prec noise-prec-coverage)
-            :NoiseClaimsCoverage (:Coverage noise-prec-coverage)
-            :NoiseClaimsF1 (:F1 noise-prec-coverage)})))
+            :NoExpReasonUnknown (:unknown noexp-reasons 0)})))
 
 (defn prefix-params
   [prefix params]

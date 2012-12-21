@@ -61,6 +61,10 @@
               (nil? (attr expgraph % vertex :conflicts)))
         (incoming expgraph vertex))))
 
+(defn compute-complexity
+  [expgraph]
+  (count (edges expgraph)))
+
 (defn unexplained?
   [expgraph vertex]
   (and (not-empty (explainers expgraph vertex))
@@ -215,3 +219,4 @@
          (assoc m v [(/ (+ (Double/parseDouble x1) (Double/parseDouble x2)) 2.0)
                      (/ (+ (Double/parseDouble y1) (Double/parseDouble y2)) 2.0)]))
        {} (re-seq #"id=\"(.*?)\".*coords=\"(\d+),(\d+),(\d+),(\d+)" cmapx))))
+
