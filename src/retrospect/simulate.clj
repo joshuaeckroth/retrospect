@@ -116,9 +116,8 @@
                                    (:training control-truedata))
                   control-ors (profile (init-ors control-truedata
                                                  control-sensors))]
-              (comment
-                (when (not (:Stats params))
-                  (println "Control:" (pr-str control-params))))
+              (when (not (:Stats params))
+                (println "Control:" (pr-str control-params)))
               (map (fn [rs] (assoc rs :control-params (pr-str control-params)
                                 :comparison-params (pr-str comparison-params)))
                  (let [ors-final (run-simulation control-truedata control-ors)]
@@ -132,9 +131,8 @@
                                       (:training comparison-truedata))
                   comparison-ors (profile (init-ors comparison-truedata
                                                     comparison-sensors))]
-              (comment
-                (when (not (:Stats params))
-                  (println "Comparison:" (pr-str comparison-params))))
+              (when (not (:Stats params))
+                (println "Comparison:" (pr-str comparison-params)))
               (map (fn [rs] (assoc rs
                            :control-params (pr-str control-params)
                            :comparison-params (pr-str comparison-params)))
@@ -154,8 +152,8 @@
         (let [truedata (profile ((:generate-truedata-fn @problem)))
               sensors ((:generate-sensors-fn @problem) (:training truedata))
               ors (profile (init-ors truedata sensors))]
-          (comment (when (not (:Stats params))
-                     (println "Params:" (pr-str params))))
+          (when (not (:Stats params))
+            (println "Params:" (pr-str params)))
           (map (fn [rs] (assoc rs :params (pr-str params)))
              (let [ors-final (run-simulation truedata ors)]
                (:results (cur-ep (:est ors-final))))))))))
