@@ -177,7 +177,7 @@
           noexp-hyps (make-noexp-hyps noexp)
           meta-hyps (reverse (sort-by :apriori
                                       (filter #(>= (:apriori %)
-                                             (/ (double (:MetaMinApriori params)) 100.0))
+                                             (/ (double (:MetaMinScore params)) 100.0))
                                          (make-meta-hyps workspace noexp-hyps
                                                          ws-depth time-now))))]
       (loop [est-meta est
@@ -222,12 +222,12 @@
         new-est (new-branch-ep est (cur-ep (goto-cycle est prior-cycle)))]
     (meta-apply-and-evaluate est new-est time-now sensors)))
 
-(defn meta-lower-minapriori
+(defn meta-lower-minscore
   [problem-cases est time-prev time-now sensors]
-  (when (not= 0 (:MinApriori params))
+  (when (not= 0 (:MinScore params))
     (let [new-est (new-branch-ep est (cur-ep (goto-start-of-time est time-now)))]
-      ;; drop min-apriori to 0
-      (binding [params (assoc params :MinApriori 0)]
+      ;; drop min-score to 0
+      (binding [params (assoc params :MinScore 0)]
         (meta-apply-and-evaluate est new-est time-now sensors)))))
 
 (defn preemptively-reject
@@ -296,10 +296,10 @@
   [(new-branch-ep est ep)
    params])
 
-(defn action-lower-minapriori
+(defn action-lower-minscore
   [time-now est]
   [(new-branch-ep est (cur-ep (goto-start-of-time est time-now)))
-   (assoc params :MinApriori 0)])
+   (assoc params :MinScore 0)])
 
 (defn action-ignore
   [hyp est]
@@ -424,17 +424,17 @@
                                (str (:best (:accrej (:workspace ep)))) (str ep)
                                (str (:nbest (:accrej (:workspace ep)))))
                             {:action (partial action-flip-choice ep)})))
-               ;; were some explainers omitted due to high min-apriori?
-               (if (not (available-meta-hyps "lower-minapriori")) []
-                   (let [expl-rejected-minapriori (filter (fn [h] (= :minapriori (rejection-reason cur-ws h)))
+               ;; were some explainers omitted due to high min-score?
+               (if (not (available-meta-hyps "lower-minscore")) []
+                   (let [expl-rejected-minscore (filter (fn [h] (= :minscore (rejection-reason cur-ws h)))
                                                      expl)]
-                     (if (not-empty expl-rejected-minapriori)
-                       [(new-hyp "TooHighMinApriori" :lower-minapriori :lower-minapriori
+                     (if (not-empty expl-rejected-minscore)
+                       [(new-hyp "TooHighMinScore" :lower-minscore :lower-minscore
                                  1.0 false meta-hyp-conflicts? []
-                                 "Explainers rejected due to too-high min-apriori"
-                                 (format "These explainers were rejected due to too-high min-apriori: %s"
-                                    (str/join ", " (sort (map str expl-rejected-minapriori))))
-                                 {:action (partial action-lower-minapriori time-now)
+                                 "Explainers rejected due to too-high min-score"
+                                 (format "These explainers were rejected due to too-high min-score: %s"
+                                    (str/join ", " (sort (map str expl-rejected-minscore))))
+                                 {:action (partial action-lower-minscore time-now)
                                   :cycle (:cycle (cur-ep (goto-start-of-time est time-now)))})]
                        []))))))))
 
@@ -470,7 +470,7 @@
         meta-ws (reduce add (reduce #(add-observation %1 %2 0)
                           (:workspace (cur-ep meta-est)) problem-cases)
                    meta-hyps-scored)
-        meta-est-reasoned (binding [params (assoc params :MinApriori 0
+        meta-est-reasoned (binding [params (assoc params :MinScore 0
                                                   :Threshold (:MetaThreshold params))]
                             (reason (update-est meta-est (assoc (cur-ep meta-est)
                                                            :workspace meta-ws))
@@ -576,8 +576,8 @@
                 (partial meta-batch (int (/ (count (set (map :time (ep-path est)))) 2)))
                 (= "batch-weakest" m)
                 meta-batch-weakest
-                (= "lower-minapriori" m)
-                meta-lower-minapriori
+                (= "lower-minscore" m)
+                meta-lower-minscore
                 (= "reject-conflicting" m)
                 meta-reject-conflicting
                 (= "abd" m)

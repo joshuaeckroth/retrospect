@@ -414,13 +414,13 @@
                           (assoc-explainer prior-hyp-updated)
                           (record-if-needs-explanation prior-hyp-updated))]
                 (if ((get-in ws [:rejected :all]) prior-hyp-id)
-                  ;; if it was rejected due to :minapriori and it
+                  ;; if it was rejected due to :minscore and it
                   ;; would not again be rejected for the same reason,
                   ;; unreject it
-                  (if (and (= :minapriori (get-in ws [:rejection-reasons prior-hyp-id]))
-                           (>= (:apriori prior-hyp) (:MinApriori params)))
-                    (do (log "...yet was rejected due to minapriori previously\n"
-                             "...but now satisfies minapriori, so unrejecting.")
+                  (if (and (= :minscore (get-in ws [:rejection-reasons prior-hyp-id]))
+                           (>= (:apriori prior-hyp) (:MinScore params)))
+                    (do (log "...yet was rejected due to minscore previously\n"
+                             "...but now satisfies minscore, so unrejecting.")
                         (-> ws (update-in [:rejected :all] disj prior-hyp-id)
                            (update-in [:rejected (:type prior-hyp)] disj prior-hyp-id)
                            (update-in [:accrej :rej] disj prior-hyp-id)
@@ -656,10 +656,10 @@
           (if ((get-in ws [:rejected :all]) (:id hyp))
             (do (log "...already rejected. Moving on.")
                 (recur ws (rest hyps)))
-            (cond (and (< (:apriori hyp) (/ (double (:MinApriori params)) 100.0)))
-                  (do (log "...rejecting because apriori" (:apriori hyp)
-                           "is lower than MinApriori.")
-                      (let [ws-next (reject-many ws [hyp] :minapriori cycle)]
+            (cond (and (< (:apriori hyp) (/ (double (:MinScore params)) 100.0)))
+                  (do (log "...rejecting because score" (:apriori hyp)
+                           "is lower than MinScore.")
+                      (let [ws-next (reject-many ws [hyp] :minscore cycle)]
                         (recur ws-next (rest hyps))))
                   (some (fn [hyp2] (conflicts? hyp hyp2))
                      (map #(lookup-hyp ws %) (:all (:accepted ws))))

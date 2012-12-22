@@ -101,21 +101,21 @@
                (= :observation (:type (accepted-explained ws hyp)))
                (not (get-in true-false [:individual (:id (accepted-explained ws hyp))]))))
       :noise
-      ;; this hyp is true and eliminated due to too-low minapriori;
+      ;; this hyp is true and eliminated due to too-low minscore;
       ;; or, this hyp is false and true rival eliminated due to
-      ;; too-low minapriori
+      ;; too-low minscore
       (or (and (rejected? ws hyp)
-               (= :minapriori (rejection-reason ws hyp))
+               (= :minscore (rejection-reason ws hyp))
                (get-in true-false [:individual (:id hyp)]))
           (and (accepted? ws hyp)
                (not (get-in true-false [:individual (:id hyp)]))
                ;; check that some true rival was rejected due to
-               ;; minapriori
+               ;; minscore
                (some (fn [h] (and (get-in true-false [:individual (:id h)])
                               (rejected? ws h)
-                              (= :minapriori (rejection-reason ws h))))
+                              (= :minscore (rejection-reason ws h))))
                   (explainers ws (accepted-explained ws hyp)))))
-      :minapriori
+      :minscore
       ;; scoring error: if you were accepted but are false, and one
       ;; of your rivals is true; or you were not accepted but are
       ;; true, and you were the rival when a false explainer was
@@ -147,7 +147,7 @@
             parent-errors (map #(classify-error ws true-false % (conj checked hyp))
                              acc-conflicting)]
         (cond (some #{:noise} parent-errors) :noise
-              (some #{:minapriori} parent-errors) :minapriori
+              (some #{:minscore} parent-errors) :minscore
               (some #{:scoring} parent-errors) :scoring
               (some #{:no-expl-offered} parent-errors) :no-expl-offered
               :else
@@ -165,7 +165,7 @@
             parent-errors (map #(classify-error ws true-false % (conj checked hyp))
                              rej-conflicting)]
         (cond (some #{:noise} parent-errors) :noise
-              (some #{:minapriori} parent-errors) :minapriori
+              (some #{:minscore} parent-errors) :minscore
               (some #{:scoring} parent-errors) :scoring
               (some #{:no-expl-offered} parent-errors) :no-expl-offered
               :else
@@ -204,8 +204,8 @@
     (cond
      (empty? expl)
      :no-expl-offered
-     (some #{:minapriori} rej-reasons)
-     :minapriori
+     (some #{:minscore} rej-reasons)
+     :minscore
      :else
      :conflict)))
 
@@ -218,7 +218,7 @@
        (classify-noexp-reason ws hyp)))))
 
 ;; find a better place for this?
-(def meta-hyp-types #{:order-dep :rej-conflict :rej-minapriori})
+(def meta-hyp-types #{:order-dep :rej-conflict :rej-minscore})
 
 (defn count-meta-hyps
   [est]
@@ -297,7 +297,7 @@
             :ErrorsCount (reduce + (vals (dissoc errors :no-error)))
             :ErrorsNoise (:noise errors 0)
             :ErrorsConflictRejection (:conflict-rejection errors 0)
-            :ErrorsMinApriori (:minapriori errors 0)
+            :ErrorsMinScore (:minscore errors 0)
             :ErrorsScoring (:scoring errors 0)
             :ErrorsNoExpl (:no-expl-offered errors 0)
             :ErrorsSuperfluous (:superfluous errors 0)
@@ -305,7 +305,7 @@
             :ErrorsNoError (:no-error errors 0)
             :NoExpCount (reduce + (vals noexp-reasons))
             :NoExpReasonConflict (:conflict noexp-reasons 0)
-            :NoExpReasonMinApriori (:minapriori noexp-reasons 0)
+            :NoExpReasonMinScore (:minscore noexp-reasons 0)
             :NoExpReasonNoExpl (:no-expl-offered noexp-reasons 0)
             :NoExpReasonUnknown (:unknown noexp-reasons 0)})))
 
@@ -330,10 +330,10 @@
                                :TrueDeltaAvg :FalseDeltaAvg
                                :Doubt :ExplainCycles :HypothesisCount
                                :MetaBranches :ErrorsCount :ErrorsNoise
-                               :ErrorsConflictRejection :ErrorsMinApriori :ErrorsSuperfluous
+                               :ErrorsConflictRejection :ErrorsMinScore :ErrorsSuperfluous
                                :ErrorsScoring :ErrorsUnknown :ErrorsNoError :NoExpCount
                                :NoExpReasonNoise :NoExpReasonRejectedConflict
-                               :NoExpReasonRejectedMinApriori :NoExpReasonNoExpl
+                               :NoExpReasonRejectedMinScore :NoExpReasonNoExpl
                                :NoExpReasonUnknown :NoiseTotal
                                :NoiseClaimsTrue :NoiseClaimsFalse
                                :NoiseClaimsPrec :NoiseClaimsCoverage :NoiseClaimsF1]
