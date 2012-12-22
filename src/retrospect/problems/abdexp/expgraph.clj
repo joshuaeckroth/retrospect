@@ -159,7 +159,7 @@
                                      (edges expgraph)))
                            "root")))
         conflict-count (count (conflicts expgraph))]
-    (double (* depth exp-avg conflict-count))))
+    (double (/ (* depth exp-avg) (inc conflict-count)))))
 
 (defn need-explanation
   [expgraph]
