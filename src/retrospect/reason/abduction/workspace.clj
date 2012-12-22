@@ -398,11 +398,13 @@
             ;; hyp already present; update explains in case it changed,
             ;; and whether it needs explanation or not
             (let [prior-hyp (lookup-hyp workspace prior-hyp-id)
+                  new-hyp-apriori (:apriori (update-hyp-apriori workspace hyp))
                   prior-hyp-updated (assoc prior-hyp
                                       :needs-explainer? (:needs-explainer? hyp)
                                       :explains (set/union (set (:explains prior-hyp))
                                                        (set (:explains hyp)))
-                                      :apriori (min (:apriori prior-hyp) (:apriori hyp)))
+                                      :apriori (min (:apriori prior-hyp)
+                                                    new-hyp-apriori))
                   new-explains (set (map #(get (:hyp-contents workspace) %)
                                        (:explains prior-hyp-updated)))]
               (log hyp "is already in the workspace as" prior-hyp-updated
