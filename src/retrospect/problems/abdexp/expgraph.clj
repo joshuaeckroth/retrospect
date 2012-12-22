@@ -61,10 +61,6 @@
               (nil? (attr expgraph % vertex :conflicts)))
         (incoming expgraph vertex))))
 
-(defn compute-complexity
-  [expgraph]
-  (double (density expgraph)))
-
 (defn unexplained?
   [expgraph vertex]
   (and (not-empty (explainers expgraph vertex))
@@ -98,6 +94,20 @@
 (defn vertices
   [expgraph]
   (nodes expgraph))
+
+(defn compute-complexity
+  [expgraph]
+  (let [exp-counts (map #(count (explainers expgraph %)) (nodes expgraph))
+        exp-avg (double (/ (reduce + exp-counts) (count exp-counts)))
+        depth (dec (count (longest-shortest-path
+                           (apply remove-edges
+                                  (apply add-edges expgraph
+                                         (map (fn [v] ["root" v]) (top-nodes expgraph)))
+                                  (filter #(or (attr expgraph (first %) (second %) :conflicts)
+                                          (attr expgraph (second %) (first %) :conflicts))
+                                     (edges expgraph)))
+                           "root")))]
+    (double (* depth exp-avg))))
 
 (defn data-explained-by-top
   [expgraph]
