@@ -34,15 +34,16 @@
           parser (XMLResourceDescriptor/getXMLParserClassName)
           doc (try (.createDocument (SAXSVGDocumentFactory. parser)
                                     "file:///graph" sr)
-                   (catch Exception e (println e)))]
-      (dosync (alter dot-ref (constantly dot)))
-      (dosync (alter svg-ref (constantly svg)))
-      (doto canvas
-        (.setDocumentState JSVGCanvas/ALWAYS_DYNAMIC)
-        (.setDocument doc))
-      (let [nodes (.getElementsByTagName doc "g")]
-        (doseq [i (range (.getLength nodes))]
-          (.addEventListener (.item nodes i) "click" (node-listener listener) false))))))
+                   (catch Exception e (do (println e))))]
+      (when doc
+        (dosync (alter dot-ref (constantly dot)))
+        (dosync (alter svg-ref (constantly svg)))
+        (doto canvas
+          (.setDocumentState JSVGCanvas/ALWAYS_DYNAMIC)
+          (.setDocument doc))
+        (let [nodes (.getElementsByTagName doc "g")]
+          (doseq [i (range (.getLength nodes))]
+            (.addEventListener (.item nodes i) "click" (node-listener listener) false)))))))
 
 (defn save-dot
   [dot]
