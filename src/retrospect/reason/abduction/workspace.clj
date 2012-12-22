@@ -385,7 +385,7 @@
       (assoc hyp :apriori 0.0))
     (if (not (:UseScores params))
       (assoc hyp :apriori 1.0)
-      (let [levels (range 0.0 1.01 (/ 1.0 (double (dec (:ScoreFidelity params)))))
+      (let [levels (range 0.0 1.01 (/ 1.0 (double (dec (:ScoreLevels params)))))
             apriori-new (first (sort-by #(Math/abs (- (:apriori hyp) %)) levels))]
         (assoc hyp :apriori apriori-new)))))
 

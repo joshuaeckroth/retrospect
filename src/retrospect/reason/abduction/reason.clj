@@ -34,7 +34,7 @@
              :DoubtMeasure ["delta" ["score" "delta"]]
              :DoubtAggregate ["avg" ["max" "avg"]]
              :UseScores [true [true]]
-             :ScoreFidelity [100 [2 3 5 10 100]]
+             :ScoreLevels [100 [2 3 5 10 100]]
              :ContrastPreference ["score,delta" ["arbitrary" "score,delta"
                                                  "score" "delta" "delta,score"]]
              :HypPreference ["expl,score" ["score" "expl" "score,expl"
