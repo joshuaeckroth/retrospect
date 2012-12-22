@@ -418,7 +418,7 @@
                   ;; would not again be rejected for the same reason,
                   ;; unreject it
                   (if (and (= :minscore (get-in ws [:rejection-reasons prior-hyp-id]))
-                           (>= (:apriori prior-hyp) (:MinScore params)))
+                           (>= (:apriori prior-hyp) (double (/ (:MinScore params) 100.0))))
                     (do (log "...yet was rejected due to minscore previously\n"
                              "...but now satisfies minscore, so unrejecting.")
                         (-> ws (update-in [:rejected :all] disj prior-hyp-id)
