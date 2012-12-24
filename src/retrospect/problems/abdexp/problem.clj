@@ -40,11 +40,11 @@
                :hyp-types [:expl :expl-composite :observation]
                :default-params {:GetMoreHyps [true [true]]}}
    :default-params
-   {:Steps [100 [100]]
+   {:Steps [5 [5]]
     :StepsBetween [1 [1]]
     :NumExplainers [3 [3]]
-    :NumExplainsLinks [20 [20]]
-    :NumConflictLinks [10 [10]]
-    :UniqueGraphs [100 [100]]
-    :HypScores ["fixed" ["fixed" "prior" "posterior" "cond-delta"]]
+    :NumExplainsLinks [30 [30]]
+    :NumConflictLinks [5 [5]]
+    :UniqueGraphs [1000 [1000]]
+    :HypScores ["prior" ["fixed" "prior" "posterior" "cond-delta"]]
     :MaxStates [3 [2 3 4]]}})
