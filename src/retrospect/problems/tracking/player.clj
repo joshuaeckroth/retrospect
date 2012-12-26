@@ -45,7 +45,7 @@
 	newpy (+ (* newy @grid-cell-height) (/ @grid-cell-height 2))]
     (doto g
       (.setColor (Color. (.getRed color) (.getGreen color) (.getBlue color) 150))
-      (.setStroke (BasicStroke. 1))
+      (.setStroke (BasicStroke. 2))
       (.drawLine oldpx oldpy newpx newpy))
     (when end-point?
       (.drawOval g newpx newpy 3 3))))
