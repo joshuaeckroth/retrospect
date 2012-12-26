@@ -49,8 +49,7 @@
     (let [metrics
           (for [ep (filter :decision-point (flatten-est est))]
             (let [ws (:workspace ep)
-                  ;; a bit of a hack
-                  time-now (:time (cur-ep (goto-cycle est (dec (:cycle ep)))))
+                  time-now (:time ep)
                   true-movs (get-true-movements truedata time-now)
                   accepted (map #(lookup-hyp ws %) (:movement (:accepted ws)))
                   not-accepted (set/difference
