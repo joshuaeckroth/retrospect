@@ -349,96 +349,89 @@
         expl (set (mapcat #(explainers cur-ws %) problem-cases))
         eps (ep-path est)
         available-meta-hyps (set (str/split (:MetaHyps params) #","))]
-    (reverse
-     (sort-by :cycle
-              (concat
-               (if (not (available-meta-hyps "order-dep")) []
-                   ;; order dependency among the observations
-                   (if (not= 0 time-prev)
-                     (let [expl-rejected-conflicts (filter (fn [h] (= :conflict (rejection-reason cur-ws h)))
-                                                      expl)
-                           ep-rejs (filter (fn [ep] (some (set (map :contents expl-rejected-conflicts))
-                                                 (map :contents (:rej (:accrej (:workspace ep))))))
-                                      (ep-path est))
-                           t (if (empty? ep-rejs) (dec time-now) (dec (apply min (map :time ep-rejs))))
-                           ep (cur-ep (goto-start-of-time est t))]
-                       (comment (println time-now t "count ep-rejs" (count ep-rejs) expl-rejected-conflicts))
-                       [(new-hyp "OrderDep" :order-dep :order-dep
-                                 1.0 false meta-hyp-conflicts? []
-                                 (format "Order dependency at %s" (str ep))
-                                 (format "Order dependency at %s" (str ep))
-                                 {:action (partial action-batch ep) :cycle (:cycle ep)})])
-                     ;; time-prev == 0, so this is a "static" case or we have not
-                     ;; done much reasoning yet
-                     []))
-               ;; correct explainer(s) were rejected due to conflicts; need to
-               ;; consider the various possibilities of rejected explainers and
-               ;; no-explainers combinations
-               (if (not (available-meta-hyps "rej-conflict")) []
-                   (let [expl-rejected-conflicts (filter (fn [h] (= :conflict (rejection-reason cur-ws h)))
-                                                    expl)
-                         acc-conflicting (set (mapcat
-                                               (fn [e] (filter (fn [c] (accepted-before? cur-ws c e))
-                                                         (find-conflicts-all cur-ws e)))
-                                               expl-rejected-conflicts))
-                         inner-hyps (set (map :id (mapcat :hyps acc-conflicting)))
-                         acc-conflicting-no-comps (filter #(not (inner-hyps (:id %)))
-                                                     acc-conflicting)
-                         ;; which ep-states rejected these expl and are
-                         ;; not states in which what was accepted was
-                         ;; essential?
-                         ep-rejs (filter (fn [ep] (and (some (set (map :contents acc-conflicting-no-comps))
-                                                    (map :contents (:acc (:accrej (:workspace ep)))))
-                                                 (:nbest (:accrej (:workspace ep)))
-                                                 ;; restrict to somewhat "ambiguous" decisions
-                                                 (<= (:delta (:accrej (:workspace ep))) 0.5)))
-                                    (ep-path est))
-                         bad-bests (reverse
-                                    (sort-by first (set
-                                                    (filter (fn [[delta _ best]] (and delta best))
-                                                       (map (fn [ep] [(get-in ep [:workspace :accrej :delta])
-                                                                   (:cycle ep)
-                                                                   (get-in ep [:workspace :accrej :best])])
-                                                          ep-rejs)))))]
-                     (comment
-                       (println "expl" expl)
-                       (println "expl-rejected-conflicts" expl-rejected-conflicts)
-                       (println "acc-conflicting" acc-conflicting)
-                       (println "inner-hyps" inner-hyps)
-                       (println "acc-conflicting-no-comps" acc-conflicting-no-comps)
-                       (println "ep-rejs:" (map str ep-rejs) (map #(:nbest (:accrej (:workspace %))) ep-rejs))
-                       (println "bad-bests" bad-bests))
-                     (for [[delta cycle hyp] bad-bests]
-                       (new-hyp "Rejected" :rej-conflict :rej-conflict
-                                1.0 false meta-hyp-conflicts? []
-                                (format "%s rejected some explainers" hyp)
-                                (format "%s rejected some explainers (cycle %d, delta %.2f"
-                                   (str hyp) cycle delta)
-                                {:action (partial action-preemptively-reject hyp cycle)
-                                 :cycle cycle}))))
-               ;; wrong choice at a certain decision (batch + flip)
-               (comment
-                 (for [ep (filter (comp :nbest :accrej :workspace) eps)]
-                   (new-hyp "WrongChoice" :wrong-choice :wrong-choice
-                            1.0 false meta-hyp-conflicts? []
-                            (format "Wrong choice at %s" (str ep))
-                            (format "%s was accepted at %s but %s should be instead."
-                               (str (:best (:accrej (:workspace ep)))) (str ep)
-                               (str (:nbest (:accrej (:workspace ep)))))
-                            {:action (partial action-flip-choice ep)})))
-               ;; were some explainers omitted due to high min-score?
-               (if (not (available-meta-hyps "rej-minscore")) []
-                   (let [expl-rejected-minscore (filter (fn [h] (= :minscore (rejection-reason cur-ws h)))
-                                                     expl)]
-                     (if (not-empty expl-rejected-minscore)
-                       [(new-hyp "TooHighMinScore" :rej-minscore :rej-minscore
-                                 1.0 false meta-hyp-conflicts? []
-                                 "Explainers rejected due to too-high min-score"
-                                 (format "These explainers were rejected due to too-high min-score: %s"
-                                    (str/join ", " (sort (map str expl-rejected-minscore))))
-                                 {:action (partial action-lower-minscore time-now)
-                                  :cycle (:cycle (cur-ep (goto-start-of-time est time-now)))})]
-                       []))))))))
+    (concat
+     (if (not (available-meta-hyps "order-dep")) []
+         ;; order dependency among the observations; a no-expl-offered situation
+         (if (not= 0 time-prev)
+           (for [h (filter #(empty? (explainers cur-ws %)) problem-cases)]
+             (let [t (:time (cur-ep (goto-cycle (accepted-cycle cur-ws h))))
+                   ep (cur-ep (goto-start-of-time est t))]
+               (new-hyp "OrderDep" :order-dep :order-dep
+                        1.0 false meta-hyp-conflicts? []
+                        (format "Order dependency at %s" (str ep))
+                        (format "Order dependency at %s" (str ep))
+                        {:action (partial action-batch ep) :cycle (:cycle ep)})))
+           ;; time-prev == 0, so this is a "static" case or we have not
+           ;; done much reasoning yet
+           []))
+     ;; correct explainer(s) were rejected due to conflicts; need to
+     ;; consider the various possibilities of rejected explainers and
+     ;; no-explainers combinations
+     (if (not (available-meta-hyps "rej-conflict")) []
+         (let [expl-rejected-conflicts (filter (fn [h] (= :conflict (rejection-reason cur-ws h)))
+                                          expl)
+               acc-conflicting (set (mapcat
+                                     (fn [e] (filter (fn [c] (accepted-before? cur-ws c e))
+                                               (find-conflicts-all cur-ws e)))
+                                     expl-rejected-conflicts))
+               inner-hyps (set (map :id (mapcat :hyps acc-conflicting)))
+               acc-conflicting-no-comps (filter #(not (inner-hyps (:id %)))
+                                           acc-conflicting)
+               ;; which ep-states rejected these expl and are
+               ;; not states in which what was accepted was
+               ;; essential?
+               ep-rejs (filter (fn [ep] (and (some (set (map :contents acc-conflicting-no-comps))
+                                          (map :contents (:acc (:accrej (:workspace ep)))))
+                                       (:nbest (:accrej (:workspace ep)))
+                                       ;; restrict to somewhat "ambiguous" decisions
+                                       (<= (:delta (:accrej (:workspace ep))) 0.5)))
+                          (ep-path est))
+               bad-bests (reverse
+                          (sort-by first (set
+                                          (filter (fn [[delta _ best]] (and delta best))
+                                             (map (fn [ep] [(get-in ep [:workspace :accrej :delta])
+                                                         (:cycle ep)
+                                                         (get-in ep [:workspace :accrej :best])])
+                                                ep-rejs)))))]
+           (comment
+             (println "expl" expl)
+             (println "expl-rejected-conflicts" expl-rejected-conflicts)
+             (println "acc-conflicting" acc-conflicting)
+             (println "inner-hyps" inner-hyps)
+             (println "acc-conflicting-no-comps" acc-conflicting-no-comps)
+             (println "ep-rejs:" (map str ep-rejs) (map #(:nbest (:accrej (:workspace %))) ep-rejs))
+             (println "bad-bests" bad-bests))
+           (for [[delta cycle hyp] bad-bests]
+             (new-hyp "Rejected" :rej-conflict :rej-conflict
+                      0.5 false meta-hyp-conflicts? []
+                      (format "%s rejected some explainers" hyp)
+                      (format "%s rejected some explainers (cycle %d, delta %.2f"
+                         (str hyp) cycle delta)
+                      {:action (partial action-preemptively-reject hyp cycle)
+                       :cycle cycle}))))
+     ;; wrong choice at a certain decision (batch + flip)
+     (comment
+       (for [ep (filter (comp :nbest :accrej :workspace) eps)]
+         (new-hyp "WrongChoice" :wrong-choice :wrong-choice
+                  1.0 false meta-hyp-conflicts? []
+                  (format "Wrong choice at %s" (str ep))
+                  (format "%s was accepted at %s but %s should be instead."
+                     (str (:best (:accrej (:workspace ep)))) (str ep)
+                     (str (:nbest (:accrej (:workspace ep)))))
+                  {:action (partial action-flip-choice ep)})))
+     ;; were some explainers omitted due to high min-score?
+     (if (not (available-meta-hyps "rej-minscore")) []
+         (let [expl-rejected-minscore (filter (fn [h] (= :minscore (rejection-reason cur-ws h)))
+                                         expl)]
+           (if (not-empty expl-rejected-minscore)
+             [(new-hyp "TooHighMinScore" :rej-minscore :rej-minscore
+                       0.25 false meta-hyp-conflicts? []
+                       "Explainers rejected due to too-high min-score"
+                       (format "These explainers were rejected due to too-high min-score: %s"
+                          (str/join ", " (sort (map str expl-rejected-minscore))))
+                       {:action (partial action-lower-minscore time-now)
+                        :cycle (:cycle (cur-ep (goto-start-of-time est time-now)))})]
+             []))))))
 
 (defn score-meta-hyps
   [problem-cases meta-hyps est time-prev time-now sensors]
@@ -522,7 +515,8 @@
   (comment (println "problem-cases:" problem-cases))
   (comment (println "meta-hyps:" meta-hyps))
   (loop [est-attempt est
-         hyps (make-meta-hyps problem-cases est time-prev time-now sensors)
+         hyps (sort-by :apriori (make-meta-hyps problem-cases est
+                                                time-prev time-now sensors))
          attempts 0]
     (if (empty? hyps)
       (do (comment (println "no more meta-hyps to try."))
@@ -543,8 +537,9 @@
                      (count problem-cases))
                   (do (comment (println "problem cases reduced; recurring"))
                       (recur (:est-new result)
-                             (make-meta-hyps problem-cases-new (:est-new result)
-                                             time-prev time-now sensors)
+                             (sort-by :apriori (make-meta-hyps problem-cases-new
+                                                               (:est-new result)
+                                                               time-prev time-now sensors))
                              (inc attempts)))
                   :else
                   (do (comment (println "problem cases not reduced; trying rest of hyps"))

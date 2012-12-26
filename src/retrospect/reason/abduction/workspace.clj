@@ -102,6 +102,10 @@
          (<= (get-in workspace [:accepted-cycle (:id hyp)]) cycle))
     false))
 
+(defn accepted-cycle
+  [workspace hyp]
+  (get-in workspace [:accepted-cycle (:id hyp)]))
+
 (defn accepted-explained
   [workspace hyp]
   (get-in workspace [:accepted-explained (:id hyp)]))
