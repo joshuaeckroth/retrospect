@@ -590,7 +590,7 @@
                 (= "abd-recursive" m)
                 meta-abductive-recursive
                 (= "ignore" m)
-                (constantly {:est-old est :est-new est}))
+                (constantly nil))
         result (f problem-cases est time-prev time-now sensors)
         problem-cases-new (when result (find-problem-cases (:est-new result)))]
     (cond (nil? result)

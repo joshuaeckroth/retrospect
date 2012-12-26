@@ -664,6 +664,14 @@
                            "is lower than MinScore.")
                       (let [ws-next (reject-many ws [hyp] :minscore cycle)]
                         (recur ws-next (rest hyps))))
+                  (and (:composite? hyp)
+                       (some (fn [h] (rejected? ws h)) (:hyps hyp)))
+                  (do (log "...rejecting because this hyp is a composite of at least one rejected hyp.")
+                      (let [first-rej-hyp (some (fn [h] (rejected? ws h)) (:hyps hyp))
+                            ws-next (reject-many ws [hyp]
+                                                 (rejection-reason ws first-rej-hyp)
+                                                 cycle)]
+                        (recur ws-next (rest hyps))))
                   (some (fn [hyp2] (conflicts? hyp hyp2))
                      (map #(lookup-hyp ws %) (:all (:accepted ws))))
                   (do (log "...rejecting because of conflicts.")
