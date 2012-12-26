@@ -427,11 +427,11 @@
                                (str (:nbest (:accrej (:workspace ep)))))
                             {:action (partial action-flip-choice ep)})))
                ;; were some explainers omitted due to high min-score?
-               (if (not (available-meta-hyps "lower-minscore")) []
+               (if (not (available-meta-hyps "rej-minscore")) []
                    (let [expl-rejected-minscore (filter (fn [h] (= :minscore (rejection-reason cur-ws h)))
                                                      expl)]
                      (if (not-empty expl-rejected-minscore)
-                       [(new-hyp "TooHighMinScore" :lower-minscore :lower-minscore
+                       [(new-hyp "TooHighMinScore" :rej-minscore :rej-minscore
                                  1.0 false meta-hyp-conflicts? []
                                  "Explainers rejected due to too-high min-score"
                                  (format "These explainers were rejected due to too-high min-score: %s"
