@@ -32,7 +32,9 @@
     (let [ws-sensors (if sensors
                        (add-sensor-hyps workspace time-prev time-now sensors cycle)
                        workspace)
-          ws-hyps (update-hypotheses ws-sensors time-now)]
+          ws-hyps (if (or sensors (:GetMoreHyps params))
+                    (update-hypotheses ws-sensors time-now)
+                    ws-sensors)]
       (assoc ws-hyps :log @reason-log))))
 
 (defn workspace-explain
@@ -470,8 +472,10 @@
         meta-ws (reduce add (reduce #(add-observation %1 %2 0)
                           (:workspace (cur-ep meta-est)) problem-cases)
                    meta-hyps-scored)
-        meta-est-reasoned (binding [params (assoc params :MinScore 0
-                                                  :Threshold (:MetaThreshold params))]
+        meta-est-reasoned (binding [params (assoc params
+                                             :MinScore 0
+                                             :Threshold (:MetaThreshold params)
+                                             :GetMoreHyps false)]
                             (reason (update-est meta-est (assoc (cur-ep meta-est)
                                                            :workspace meta-ws))
                                     0 1 nil :no-metareason))
@@ -507,13 +511,14 @@
             (binding [params params-applied]
               (meta-apply-and-evaluate est-new-meta-est est-applied time-now sensors)))
           :else
-          {:est-old (goto-ep est-new-meta-est (:id (cur-ep est))) :est-new est-new-meta-est})))
+          {:est-old (goto-ep est-new-meta-est (:id (cur-ep est)))
+           :est-new est-new-meta-est})))
 
 (defn meta-abductive-recursive
   "Tries one abductive meta-hyp at a time until one works,
    recursively. Noise hyps are skipped; that can be handled
    below (resolve-by-ignoring)."
-  [serial? use-doubt? problem-cases est time-prev time-now sensors]
+  [problem-cases est time-prev time-now sensors]
   (comment (println "problem-cases:" problem-cases))
   (comment (println "meta-hyps:" meta-hyps))
   (loop [est-attempt est
@@ -582,12 +587,8 @@
                 meta-reject-conflicting
                 (= "abd" m)
                 meta-abductive
-                (= "abd-serial" m)
-                (partial meta-abductive-recursive true false)
                 (= "abd-recursive" m)
-                (partial meta-abductive-recursive false false)
-                (= "abd-recursive-doubt" m)
-                (partial meta-abductive-recursive false true)
+                meta-abductive-recursive
                 (= "ignore" m)
                 (constantly {:est-old est :est-new est}))
         result (f problem-cases est time-prev time-now sensors)
