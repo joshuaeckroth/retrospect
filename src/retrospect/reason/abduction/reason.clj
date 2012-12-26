@@ -28,8 +28,8 @@
      (merge {:Exhaustive [false [false]]
              :Threshold [0 [0]]
              :MetaThreshold [0 [0]]
-             :MetaHyps ["rej-conflict,lower-minscore,order-dep"
-                        ["rej-conflict,lower-minscore,order-dep"]]
+             :MetaHyps ["rej-conflict,rej-minscore,order-dep"
+                        ["rej-conflict,rej-minscore,order-dep"]]
              :MinScore [0 [0 10]]
              :DoubtMeasure ["delta" ["score" "delta"]]
              :DoubtAggregate ["avg" ["max" "avg"]]

@@ -217,9 +217,6 @@
      (for [hyp noexp]
        (classify-noexp-reason ws hyp)))))
 
-;; find a better place for this?
-(def meta-hyp-types #{:order-dep :rej-conflict :rej-minscore})
-
 (defn count-meta-hyps
   [est]
   (let [eps (flatten-est est)
@@ -227,11 +224,13 @@
         meta-hyps (set (mapcat (fn [ep] (map #(lookup-hyp (:workspace ep) %)
                                           (:all (:accepted (:workspace ep)))))
                                meta-eps))
+        meta-hyp-types (set (map keyword (str/split (:MetaHyps params) #",")))
         types (map (comp keyword keyword-to-metric)
                  (filter meta-hyp-types (map :type meta-hyps)))]
-    (merge (zipmap (map (comp keyword keyword-to-metric) meta-hyp-types)
-                   (repeat (count meta-hyp-types) 0))
-           (frequencies types))))
+    (reduce (fn [m [k v]] (assoc m (keyword (format "MetaHypAcc%s" (name k))) v)) {}
+       (seq (merge (zipmap (map (comp keyword keyword-to-metric) meta-hyp-types)
+                           (repeat (count meta-hyp-types) 0))
+                   (frequencies types))))))
 
 (defn evaluate
   [truedata est]
