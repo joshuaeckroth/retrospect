@@ -353,14 +353,24 @@
      (if (not (available-meta-hyps "order-dep")) []
          ;; order dependency among the observations; a no-expl-offered situation
          (if (not= 0 time-prev)
-           (for [h (filter #(empty? (explainers cur-ws %)) problem-cases)]
-             (let [t (:time (cur-ep (goto-cycle est (accepted-cycle cur-ws h))))
-                   ep (cur-ep (goto-start-of-time est t))]
-               (new-hyp "OrderDep" :order-dep :order-dep
-                        1.0 false meta-hyp-conflicts? []
-                        (format "Order dependency at %s" (str ep))
-                        (format "Order dependency at %s" (str ep))
-                        {:action (partial action-batch ep) :cycle (:cycle ep)})))
+           (conj
+            (for [h (filter #(empty? (explainers cur-ws %)) problem-cases)]
+              (let [t (:time (cur-ep (goto-cycle est (accepted-cycle cur-ws h))))
+                    ep (cur-ep (goto-start-of-time est t))]
+                (println "no-expl-offered for" h "t" t "ep" (str ep))
+                (new-hyp "OrderDep" :order-dep :order-dep
+                         1.0 false meta-hyp-conflicts? []
+                         (format "Order dependency at %s" (str ep))
+                         (format "Order dependency at %s" (str ep))
+                         {:action (partial action-batch ep) :cycle (:cycle ep)})))
+            ;; always offer a batch 1
+            (let [t (:time (cur-ep est))
+                  ep (cur-ep (goto-start-of-time est (dec t)))]
+              (new-hyp "OrderDep" :order-dep :order-dep
+                       1.0 false meta-hyp-conflicts? []
+                       (format "Order dependency at %s" (str ep))
+                       (format "Order dependency at %s" (str ep))
+                       {:action (partial action-batch ep) :cycle (:cycle ep)})))
            ;; time-prev == 0, so this is a "static" case or we have not
            ;; done much reasoning yet
            []))
