@@ -354,7 +354,7 @@
          ;; order dependency among the observations; a no-expl-offered situation
          (if (not= 0 time-prev)
            (for [h (filter #(empty? (explainers cur-ws %)) problem-cases)]
-             (let [t (:time (cur-ep (goto-cycle (accepted-cycle cur-ws h))))
+             (let [t (:time (cur-ep (goto-cycle est (accepted-cycle cur-ws h))))
                    ep (cur-ep (goto-start-of-time est t))]
                (new-hyp "OrderDep" :order-dep :order-dep
                         1.0 false meta-hyp-conflicts? []
