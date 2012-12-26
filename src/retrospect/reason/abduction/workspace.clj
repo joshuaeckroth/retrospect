@@ -393,22 +393,31 @@
 (defn add
   [workspace hyp]
   (prof :add
-        (let [explains (set (map #(get (:hyp-contents workspace) %) (:explains hyp)))]
-          (log "Adding" hyp "which explains" explains)
-          (if-let [prior-hyp-id (get (:hyp-contents workspace) (:contents hyp))]
+        (let [explains (set (map #(get (:hyp-contents workspace) %) (:explains hyp)))
+              ;; update a composite hyp so that pre-existing
+              ;; components are used instead of duplicate components
+              ;; in the new composite
+              hyp-c (if (:composite? hyp)
+                      (assoc hyp :hyps (map (fn [h] (if-let [h-id (get (:hyp-contents workspace)
+                                                                    (:contents h))]
+                                                   (lookup-hyp workspace h-id) h))
+                                          (:hyps hyp)))
+                      hyp)]
+          (log "Adding" hyp-c "which explains" explains)
+          (if-let [prior-hyp-id (get (:hyp-contents workspace) (:contents hyp-c))]
             ;; hyp already present; update explains in case it changed,
             ;; and whether it needs explanation or not
             (let [prior-hyp (lookup-hyp workspace prior-hyp-id)
-                  new-hyp-apriori (:apriori (update-hyp-apriori workspace hyp))
+                  new-hyp-apriori (:apriori (update-hyp-apriori workspace hyp-c))
                   prior-hyp-updated (assoc prior-hyp
-                                      :needs-explainer? (:needs-explainer? hyp)
+                                      :needs-explainer? (:needs-explainer? hyp-c)
                                       :explains (set/union (set (:explains prior-hyp))
-                                                       (set (:explains hyp)))
+                                                       (set (:explains hyp-c)))
                                       :apriori (min (:apriori prior-hyp)
                                                     new-hyp-apriori))
                   new-explains (set (map #(get (:hyp-contents workspace) %)
                                        (:explains prior-hyp-updated)))]
-              (log hyp "is already in the workspace as" prior-hyp-updated
+              (log hyp-c "is already in the workspace as" prior-hyp-updated
                    ", so merging what it explains to obtain:" new-explains)
               (let [ws (-> workspace
                           (forget-explainer prior-hyp)
@@ -432,8 +441,8 @@
                         (-> ws (dissoc-in [:sorted-explainers prior-hyp-id])
                            (dissoc-explainer prior-hyp-updated))))
                   ;; otherwise, it may conflict with an accepted hyp
-                  (if (and (:conflicts?-fn hyp)
-                           (some (fn [hyp2] ((:conflicts?-fn hyp) hyp hyp2))
+                  (if (and (:conflicts?-fn hyp-c)
+                           (some (fn [hyp2] ((:conflicts?-fn hyp-c) hyp-c hyp2))
                               (map #(lookup-hyp ws %) (:all (:accepted ws)))))
                     (do (log "...yet it conflicts with an already accepted hyp, so not adding.")
                         (-> ws (dissoc-in [:sorted-explainers prior-hyp-id])
@@ -442,7 +451,7 @@
                     ;; updated, etc. (from above)
                     ws))))
             ;; otherwise, add the new hyp
-            (let [hyp-apriori (update-hyp-apriori workspace hyp)]
+            (let [hyp-apriori (update-hyp-apriori workspace hyp-c)]
               (-> workspace
                  (assoc-in [:hyp-ids (:id hyp-apriori)] hyp-apriori)
                  (assoc-in [:hyp-contents (:contents hyp-apriori)] (:id hyp-apriori))
