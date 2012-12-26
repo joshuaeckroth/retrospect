@@ -4,7 +4,7 @@
   (:use [retrospect.reason.abduction.workspace
          :only [init-workspace init-kb calc-doubt calc-coverage]])
   (:use [retrospect.reason.abduction.meta
-         :only [reason metareason]])
+         :only [reason]])
   (:use [retrospect.reason.abduction.evaluate
          :only [evaluate evaluate-comp]])
   (:use [retrospect.reason.abduction.gui.hypgraph
@@ -18,7 +18,6 @@
    :reason-fn reason
    :stats-fn (fn [truedata ors time-now]
                ((:stats-fn (:abduction @problem)) truedata ors time-now))
-   :metareason-fn metareason
    :evaluate-fn evaluate
    :evaluate-comp-fn evaluate-comp
    :calc-doubt-fn calc-doubt
