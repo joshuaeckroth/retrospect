@@ -77,7 +77,7 @@
   (let [v (:vertex unexp-hyp)
         val (:value unexp-hyp)]
     (if (= :observation (:type unexp-hyp))
-      (let [score (make-score expgraph bn observed nil v val)]
+      (let [score (make-score expgraph bn observed [] v val)]
         [(new-hyp "Expl" :expl :expl score
                   (not-empty (explainers expgraph v))
                   #(hyps-conflict? expgraph %1 %2)
