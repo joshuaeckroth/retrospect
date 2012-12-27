@@ -318,7 +318,6 @@
         ep (cur-ep new-est)
         ws-rejected (reject-many (:workspace ep) [hyp] :preemptive (:cycle ep))
         ep-rejected (assoc ep :workspace ws-rejected)]
-    (comment (println "rejected" hyp "at cycle" cycle))
     [(update-est new-est ep-rejected)
      params]))
 
@@ -387,29 +386,25 @@
                inner-hyps (set (map :id (mapcat :hyps acc-conflicting)))
                acc-conflicting-no-comps (filter #(not (inner-hyps (:id %)))
                                            acc-conflicting)
-               ;; which ep-states rejected these expl and are
-               ;; not states in which what was accepted was
-               ;; essential?
-               ep-rejs (filter (fn [ep] (and (some (set (map :contents acc-conflicting-no-comps))
-                                          (map :contents (:acc (:accrej (:workspace ep)))))
-                                       (:nbest (:accrej (:workspace ep)))
-                                       ;; restrict to somewhat "ambiguous" decisions
-                                       (<= (:delta (:accrej (:workspace ep))) 0.5)))
+               ;; which ep-states rejected these expl (essentials are
+               ;; allowed; we may still want to reject an "essential"
+               ;; explainer
+               ep-rejs (filter (fn [ep] (some (set (map :id acc-conflicting-no-comps))
+                                     (:acc (:accrej (:workspace ep)))))
                           (ep-path est))
+               rejs-deltas (map (fn [ep] [(get-in ep [:workspace :accrej :delta])
+                                       (:cycle ep)
+                                       (get-in ep [:workspace :accrej :best])])
+                              ep-rejs)
                bad-bests (reverse
-                          (sort-by first (set
-                                          (filter (fn [[delta _ best]] (and delta best))
-                                             (map (fn [ep] [(get-in ep [:workspace :accrej :delta])
-                                                         (:cycle ep)
-                                                         (get-in ep [:workspace :accrej :best])])
-                                                ep-rejs)))))]
+                          (sort-by first (set (filter (fn [[delta _ best]] (and delta best))
+                                                 rejs-deltas))))]
            (comment
-             (println "expl" expl)
-             (println "expl-rejected-conflicts" expl-rejected-conflicts)
-             (println "acc-conflicting" acc-conflicting)
-             (println "inner-hyps" inner-hyps)
-             (println "acc-conflicting-no-comps" acc-conflicting-no-comps)
-             (println "ep-rejs:" (map str ep-rejs) (map #(:nbest (:accrej (:workspace %))) ep-rejs))
+             (println "explainers of problem cases:" expl)
+             (println "explainers rejected due to conflicts:" expl-rejected-conflicts)
+             (println "accepted that caused the rejections:" acc-conflicting-no-comps)
+             (println "eps where rejections happened:" (map str ep-rejs))
+             (println "rejs-deltas" rejs-deltas)
              (println "bad-bests" bad-bests))
            (for [[delta cycle hyp] bad-bests]
              (new-hyp "Rejected" :rej-conflict :rej-conflict
@@ -489,10 +484,10 @@
                             (:all (:accepted meta-ws-reasoned))))
         est-new-meta-est (update-est est-new (assoc (cur-ep est)
                                                :meta-est meta-est-reasoned))]
-
     (comment
       (println "problem cases:" (str/join ", " (map str problem-cases)))
-      (println (for [h meta-hyps-scored]
+      (println "meta-hyps:"
+               (for [h meta-hyps-scored]
                  (format "%s explains %s\n\n" (str h)
                     (str/join ", " (map str (filter (fn [pc] ((set (:explains h)) (:contents pc)))
                                              problem-cases))))))
