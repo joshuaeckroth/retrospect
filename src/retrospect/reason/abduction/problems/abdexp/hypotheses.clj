@@ -47,17 +47,25 @@
                    {:vertex v :value val})))))
 
 (defn make-score
+  "Figure out the (approximate) probability of v=val given
+   parents (parent-comb) and observed. Note that parent-comb may be
+   empty, indicating we want the probability of v=val without mention
+   of the parents."
   [expgraph bn observed parent-comb v val]
-  (cond (= "fixed" (:HypScores state/params))
-        1.0
-        (and parent-comb (= "prior" (:HypScores state/params)))
+  (cond (= "prior" (:HypScores state/params))
         (prob expgraph v val parent-comb)
-        (= "posterior" (:HypScores state/params))
-        (do (unobserve-all bn)
-            (observe-seq bn (filter #(not ((set parent-comb) %)) observed))
-            (get-posterior bn parent-comb))
-        (and parent-comb (= "cond-delta" (:HypScores state/params)))
-        (max 0.0 (conditional-delta bn observed parent-comb [[v val]]))
+        (and (= "posterior" (:HypScores state/params))
+             (not-empty parent-comb))
+        (let [background (conj (filter #(not ((set parent-comb) %)) observed) [v val])]
+          (unobserve-all bn)
+          (observe-seq bn background)
+          (get-posterior bn parent-comb))
+        (and (= "posterior" (:HypScores state/params))
+             (empty? parent-comb))
+        (do
+          (unobserve-all bn)
+          (observe-seq bn observed)
+          (get-posterior bn [[v val]]))
         :else 1.0))
 
 (defn make-explainer-for-composite

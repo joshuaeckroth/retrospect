@@ -5,7 +5,8 @@
   (:use [loom.graph])
   (:use [loom.alg])
   (:use [loom.attr])
-  (:use [clojure.java.shell :only [sh]]))
+  (:use [clojure.java.shell :only [sh]])
+  (:use [retrospect.state :only [params]]))
 
 (defn vertex?
   [expgraph vertex]
@@ -37,12 +38,20 @@
   [expgraph vertex value parent-vals]
   (if-let [p (get-in (:map (probs expgraph vertex)) [(set parent-vals) value])]
     p
-    ;; otherwise, not all parents are specified, so find the average
+    ;; otherwise, not all parents are specified, so find the
+    ;; min/max/avg (depending on :PriorFunc param)
     (let [p-vals (filter (fn [p-set] (subset? (set parent-vals) p-set))
                     (keys (:map (probs expgraph vertex))))
           probs (map #(prob expgraph vertex value %) p-vals)]
       (if (empty? probs) 0.0
-          (/ (reduce + probs) (count probs))))))
+          (cond (= "max" (:PriorFunc params))
+                (apply max probs)
+                (= "min" (:PriorFunc params))
+                (apply min probs)
+                (= "avg" (:PriorFunc params))
+                (/ (reduce + probs) (count probs))
+                :else
+                (/ (reduce + probs) (count probs)))))))
 
 (defn observation?
   [vertex]
@@ -153,6 +162,7 @@
              (attr expgraph (second %) (first %) :conflicts))
         (edges expgraph))))
 
+;; TODO: include the number of states? in parents count?
 (defn compute-complexity
   [expgraph]
   (let [exp-counts (map #(count (explainers expgraph %)) (nodes expgraph))
@@ -186,6 +196,7 @@
                          (or starts (bottom-nodes eg)))
                       -1)))))
 
+;; TODO: make sure no combination has a conflicting pair
 (defn gen-parent-combinations
   [parent-vals]
   (if (empty? parent-vals) [#{}]
