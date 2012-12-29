@@ -352,24 +352,15 @@
      (if (not (available-meta-hyps "order-dep")) []
          ;; order dependency among the observations; a no-expl-offered situation
          (if (not= 0 time-prev)
-           (conj
-            (for [h (filter #(empty? (explainers cur-ws %)) problem-cases)]
-              (let [t (:time (cur-ep (goto-cycle est (accepted-cycle cur-ws h))))
-                    ep (cur-ep (goto-start-of-time est t))]
-                (println "no-expl-offered for" h "t" t "ep" (str ep))
-                (new-hyp "OrderDep" :order-dep :order-dep
-                         1.0 false meta-hyp-conflicts? []
-                         (format "Order dependency at %s" (str ep))
-                         (format "Order dependency at %s" (str ep))
-                         {:action (partial action-batch ep) :cycle (:cycle ep)})))
-            ;; always offer a batch 1
-            (let [t (:time (cur-ep est))
-                  ep (cur-ep (goto-start-of-time est (dec t)))]
-              (new-hyp "OrderDep" :order-dep :order-dep
-                       1.0 false meta-hyp-conflicts? []
-                       (format "Order dependency at %s" (str ep))
-                       (format "Order dependency at %s" (str ep))
-                       {:action (partial action-batch ep) :cycle (:cycle ep)})))
+           (for [h (filter #(empty? (explainers cur-ws %)) problem-cases)]
+             (let [t (:time (cur-ep (goto-cycle est (accepted-cycle cur-ws h))))
+                   ep (cur-ep (goto-start-of-time est t))]
+               (new-hyp "OrderDep" :meta-order-dep :meta-order-dep
+                        1.0 false meta-hyp-conflicts? []
+                        (format "Order dependency at %s" (str ep))
+                        (format "Order dependency at %s" (str ep))
+                        {:action (partial action-batch ep)
+                         :cycle (:cycle ep)})))
            ;; time-prev == 0, so this is a "static" case or we have not
            ;; done much reasoning yet
            []))
@@ -407,13 +398,14 @@
              (println "rejs-deltas" rejs-deltas)
              (println "bad-bests" bad-bests))
            (for [[delta cycle hyp] bad-bests]
-             (new-hyp "Rejected" :rej-conflict :rej-conflict
+             (new-hyp "Rejected" :meta-rej-conflict :meta-rej-conflict
                       0.5 false meta-hyp-conflicts? []
                       (format "%s rejected some explainers" hyp)
                       (format "%s rejected some explainers (cycle %d, delta %.2f"
                          (str hyp) cycle delta)
                       {:action (partial action-preemptively-reject hyp cycle)
-                       :cycle cycle}))))
+                       :cycle cycle
+                       :implicated hyp}))))
      ;; wrong choice at a certain decision (batch + flip)
      (comment
        (for [ep (filter (comp :nbest :accrej :workspace) eps)]
@@ -429,13 +421,14 @@
          (let [expl-rejected-minscore (filter (fn [h] (= :minscore (rejection-reason cur-ws h)))
                                          expl)]
            (if (not-empty expl-rejected-minscore)
-             [(new-hyp "TooHighMinScore" :rej-minscore :rej-minscore
+             [(new-hyp "TooHighMinScore" :meta-rej-minscore :meta-rej-minscore
                        0.25 false meta-hyp-conflicts? []
                        "Explainers rejected due to too-high min-score"
                        (format "These explainers were rejected due to too-high min-score: %s"
                           (str/join ", " (sort (map str expl-rejected-minscore))))
                        {:action (partial action-lower-minscore time-now)
-                        :cycle (:cycle (cur-ep (goto-start-of-time est time-now)))})]
+                        :cycle (:cycle (cur-ep (goto-start-of-time est time-now)))
+                        :implicated expl-rejected-minscore})]
              []))))))
 
 (defn score-meta-hyps
@@ -456,6 +449,7 @@
           (recur (:est-old result) (rest hyps)
                  (conj new-hyps
                        (assoc hyp :explains (map :contents resolved-cases)
+                              :resolves resolved-cases
                               :final-ep-id (:id (cur-ep (:est-new result)))
                               :apriori (- 1.0 doubt-new)
                               :desc (format "%s\n\nEp-state start: %s"

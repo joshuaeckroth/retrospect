@@ -13,6 +13,7 @@
   (:require [retrospect.reason.abduction.workspace :as ws])
   (:use [retrospect.epistemicstates :only
          [cur-ep flatten-est]])
+  (:use [retrospect.reason.abduction.evaluate :only [true-meta-hyp?]])
   #_(:use [retrospect.reason.abduction.robustness :only [analyze-dependency]])
   (:use [retrospect.state]))
 
@@ -57,11 +58,12 @@
          "Rejected" (list-hyps (map #(ws/lookup-hyp workspace %) (:rej accrej)))})))
 
 (defn build-abduction-tree-map
-  [est]
+  [est meta?]
   (let [ep-states (flatten-est est)        
         ws-fn (fn [ws]
-                (let [tf-fn (fn [hyp] ((:oracle-fn @problem)
-                                      @truedata hyp))]
+                (let [tf-fn (fn [hyp] (if meta?
+                                       (true-meta-hyp? @truedata hyp)
+                                       ((:oracle-fn @problem) @truedata hyp)))]
                   {"Hypotheses"
                    (apply merge
                           (for [t (keys (:hypotheses ws))]
@@ -97,31 +99,33 @@
                    "Unaccepted" (list-hyps (map #(ws/lookup-hyp ws %)
                                               (ws/find-unaccepted ws)))}))]
     (apply sorted-map-by anc
-           (mapcat (fn [ep] [(str ep)
-                            {"Workspace"
-                             (assoc (ws-fn (:workspace ep)) "Log" nil)
-                             "Abductive Meta"
-                             (if-not (:meta-est ep) {}
-                                     (build-abduction-tree-map (:meta-est ep)))}])
+           (mapcat (fn [ep]
+                     (let [tree {"Workspace" (assoc (ws-fn (:workspace ep)) "Log" nil)}]
+                       [(str ep)
+                        (if-not (:meta-est ep) tree
+                                (assoc tree
+                                  "Abductive Meta"
+                                  (build-abduction-tree-map (:meta-est ep) true)))]))
                    ep-states))))
 
 (defn update-hyp-info
-  [workspace hyp]
+  [workspace hyp meta?]
   (let [alphanum (AlphanumComparator.)
         explains (str/join ", " (map str (sort-by :name alphanum (ws/explains workspace hyp))))
         explainers (str/join ", " (map #(format "[%s]" %)
-                                       (map #(str/join ", " (sort-by :name alphanum %))
-                                            (vals (group-by :type
-                                                            (map #(ws/lookup-hyp workspace %)
-                                                                 (get (:explainers workspace)
-                                                                      (:id hyp))))))))
+                                     (map #(str/join ", " (sort-by :name alphanum %))
+                                        (vals (group-by :type
+                                                        (map #(ws/lookup-hyp workspace %)
+                                                           (get (:explainers workspace)
+                                                                (:id hyp))))))))
         boosts (str/join ", " (map str (sort-by :name alphanum (:boosts hyp))))
         conflicts (str/join ", " (map str (sort-by :name alphanum
                                                  (ws/find-conflicts-all workspace hyp))))]
     (. hyp-apriori-label setText
        (format "Apriori: %.2f" (:apriori hyp)))
     (. hyp-truefalse-label setText
-       (if ((:oracle-fn @problem) @truedata hyp)
+       (if (or (and meta? (true-meta-hyp? @truedata hyp))
+               (and (not meta?) ((:oracle-fn @problem) @truedata hyp)))
          "TF: True" "TF: False"))
     (. hyp-accepted-label setText
        (if (ws/accepted? workspace hyp) "Acc: True" "Acc: False"))
@@ -152,14 +156,14 @@
       (if (= "Log" last-comp)
         (dosync (alter reason-log (constantly (str/join "\n" (reverse (:log ws))))))
         (let [hyp (if ws (find-first #(= (:name %) last-comp) (vals (:hyp-ids ws))))]
-          (when hyp (update-hyp-info ws hyp)))))))
+          (when hyp (update-hyp-info ws hyp (not (nil? meta-ep-state)))))))))
 
 (defn update-logs
   []
   (dosync
    (alter truedata-log (constantly ((:get-truedata-log (:player-fns @problem)))))
    (alter problem-log (constantly ((:get-problem-log (:player-fns @problem)))))
-   (alter abduction-tree-map (constantly (build-abduction-tree-map (:est @or-state)))))
+   (alter abduction-tree-map (constantly (build-abduction-tree-map (:est @or-state) false))))
   (. problem-log-label setText (format "Problem log for: %s" (str (cur-ep (:est @or-state))))))
 
 (defn log-box
