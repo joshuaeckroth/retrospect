@@ -18,13 +18,17 @@
 
 (defn doubt-aggregate
   [est]
-  (let [doubts (filter identity (map #(calc-doubt %) (map :workspace (ep-path est))))]
+  (let [doubts (filter identity (map #(calc-doubt %) (map :workspace (ep-path est))))
+        unexp (get-unexplained (:workspace (cur-ep est)))
+        ds (if (:DoubtUnexp params)
+             (concat (repeat (count unexp) 1.0) doubts)
+             doubts)]
     (cond (= "avg" (:DoubtAggregate params))
-          (if (empty? doubts) 0.0 (/ (reduce + doubts) (double (count doubts))))
+          (if (empty? ds) 0.0 (/ (reduce + ds) (double (count ds))))
           (= "max" (:DoubtAggregate params))
-          (if (empty? doubts) 0.0 (apply max doubts))
+          (if (empty? ds) 0.0 (apply max ds))
           (= "min" (:DoubtAggregate params))
-          (if (empty? doubts) 0.0 (apply min doubts)))))
+          (if (empty? ds) 0.0 (apply min ds)))))
 
 (defn tf-true?
   [true-false hyp]
@@ -247,13 +251,13 @@
 
 (defn count-meta-hyps
   [meta-hyps]
-  (let [meta-hyp-types (set (map keyword (str/split (:MetaHyps params) #",")))
-        types (map (comp keyword keyword-to-metric)
-                 (filter meta-hyp-types (map :type meta-hyps)))]
+  (let [types-seq (map (comp keyword keyword-to-metric)
+                     (filter (set (:meta-hyp-types @reasoner)) (map :type meta-hyps)))]
     (reduce (fn [m [k v]] (assoc m (keyword (format "MetaHypAcc%s" (name k))) v)) {}
-       (seq (merge (zipmap (map (comp keyword keyword-to-metric) meta-hyp-types)
-                           (repeat (count meta-hyp-types) 0))
-                   (frequencies types))))))
+       (seq (merge (zipmap (map (comp keyword keyword-to-metric)
+                              (:meta-hyp-types @reasoner))
+                           (repeat (count (:meta-hyp-types @reasoner)) 0))
+                   (frequencies types-seq))))))
 
 (defn evaluate
   [truedata est]

@@ -32,6 +32,7 @@
              :MinScore [0 [0 10]]
              :DoubtMeasure ["delta" ["score" "delta"]]
              :DoubtAggregate ["avg" ["max" "avg"]]
+             :DoubtUnexp [false [true false]]
              :UseScores [true [true]]
              :ScoreLevels [100 [2 3 5 10 100]]
              :ContrastPreference ["delta,score" ["arbitrary" "score,delta"
