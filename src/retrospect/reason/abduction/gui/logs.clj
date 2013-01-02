@@ -168,9 +168,7 @@
 
 (defn log-box
   [str-ref]
-  (scroll-panel
-   (doto (text-area :str-ref str-ref :editable false :wrap true)
-     (.setFont (Font. "WenQuanYi Micro Hei" Font/PLAIN 12)))))
+  (scroll-panel (text-area :str-ref str-ref :editable false :wrap true)))
 
 (defn logs-tab
   []
