@@ -745,26 +745,6 @@
                            (:apriori hyp))))
                     contrast-sets)))))
 
-(defn explain-exhaustive
-  "Returns a workspace for all the different ways to accept one hyp."
-  [workspace cycle time-now]
-  ;; still need to sort explainers so we find the right deltas
-  (let [ws-explainers (update-sorted-explainers workspace)
-        ws (clean-up-workspace (assoc ws-explainers :accrej {}) cycle)
-        possible-explainers (map #(lookup-hyp ws %)
-                               (sort (set (apply concat (vals (:sorted-explainers ws))))))]
-    (if (empty? possible-explainers)
-      [ws]
-      (for [h possible-explainers]
-        (let [delta (hyp-max-delta ws h)]
-          (-> ws (update-in [:accrej] merge
-                           {:best h :nbest nil :alts []
-                            :contrast-sets (filter (fn [contrast-set]
-                                                (some #(= (:id h) %) contrast-set))
-                                              (vals (:sorted-explainers ws)))
-                            :explained [] :delta delta :comparison {}})
-             (accept h nil [] [] delta {} cycle)))))))
-
 (defn add-sensor-hyps
   "Ask problem domain to make sensor hyps; then put them into workspace."
   [workspace time-prev time-now sensors cycle]
