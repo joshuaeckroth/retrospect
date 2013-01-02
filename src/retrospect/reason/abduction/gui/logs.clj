@@ -172,60 +172,63 @@
 
 (defn logs-tab
   []
-  (doto (split-vertical
-         (log-box truedata-log)
-         (doto (split-vertical
-                (panel :layout (GridBagLayout.)
-                       :constrains (java.awt.GridBagConstraints.)
-                       [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0
-                        :fill :BOTH :insets (Insets. 5 0 5 0)
-                        _ problem-log-label
-                        :gridy 1 :weighty 1.0
-                        _ (log-box problem-log)])
-                (doto (split-horizontal
-                       (doto (tree :name tr
-                                   :model (mapref-tree-model
-                                           abduction-tree-map "Epistemic states")
-                                   :action ([_ _] (show-log (.getSelectionPath tr))))
-                         (.setFont (Font. "Sans" Font/PLAIN 10)))
-                       (doto (JTabbedPane.)
-                         (.addTab
-                          "Hyp Info"
-                          (panel :layout (GridBagLayout.)
-                                 :constrains (java.awt.GridBagConstraints.)
-                                 [:gridx 0 :gridy 0 :gridwidth 3 :weightx 1.0 :weighty 1.0
-                                  :fill :BOTH :insets (Insets. 5 5 5 5)
-                                  _ (log-box hyp-id)
+  (doto
+      (split-horizontal
+       (doto (tree :name tr
+                   :model (mapref-tree-model
+                           abduction-tree-map "Epistemic states")
+                   :action ([_ _] (show-log (.getSelectionPath tr))))
+         (.setFont (Font. "Sans" Font/PLAIN 10)))
+       (doto
+           (split-vertical
+            (doto (JTabbedPane.)
+              (.addTab
+               "Hyp Info"
+               (panel :layout (GridBagLayout.)
+                      :constrains (java.awt.GridBagConstraints.)
+                      [:gridx 0 :gridy 0 :gridwidth 3 :weightx 1.0 :weighty 1.0
+                       :fill :BOTH :insets (Insets. 5 5 5 5)
+                       _ (log-box hyp-id)
 
-                                  :gridy 1 :gridwidth 1 :weighty 0.0
-                                  _ hyp-apriori-label
-                                  :gridx 1
-                                  _ hyp-truefalse-label
-                                  :gridx 2
-                                  _ hyp-accepted-label
+                       :gridy 1 :gridwidth 1 :weighty 0.0
+                       _ hyp-apriori-label
+                       :gridx 1
+                       _ hyp-truefalse-label
+                       :gridx 2
+                       _ hyp-accepted-label
 
-                                  :gridy 2 :gridx 0 :gridwidth 5 :weighty 1.0
-                                  _ (log-box hyp-explains)
+                       :gridy 2 :gridx 0 :gridwidth 5 :weighty 1.0
+                       _ (log-box hyp-explains)
 
-                                  :gridy 3
-                                  _ (log-box hyp-explainers)
+                       :gridy 3
+                       _ (log-box hyp-explainers)
 
-                                  :gridy 4
-                                  _ (log-box hyp-boosts)
+                       :gridy 4
+                       _ (log-box hyp-boosts)
 
-                                  :gridy 5
-                                  _ (log-box hyp-conflicts)
+                       :gridy 5
+                       _ (log-box hyp-conflicts)
 
-                                  :gridy 6
-                                  _ (log-box hyp-log)]))
-                         (.addTab
-                          "Reason Log"
-                          (panel :layout (GridBagLayout.)
-                                 :constrains (java.awt.GridBagConstraints.)
-                                 [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0
-                                  :fill :BOTH :insets (Insets. 5 5 5 5)
-                                  _ (log-box reason-log)]))
-                         (.setSelectedIndex 0)))
-                  (.setDividerLocation 200)))
-           (.setDividerLocation 100)))
-    (.setDividerLocation 100)))
+                       :gridy 6
+                       _ (log-box hyp-log)]))
+              (.addTab
+               "Reason Log"
+               (panel :layout (GridBagLayout.)
+                      :constrains (java.awt.GridBagConstraints.)
+                      [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0
+                       :fill :BOTH :insets (Insets. 5 5 5 5)
+                       _ (log-box reason-log)]))
+              (.setSelectedIndex 0))
+            (doto
+                (split-vertical
+                 (log-box truedata-log)
+                 (panel :layout (GridBagLayout.)
+                        :constrains (java.awt.GridBagConstraints.)
+                        [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0
+                         :fill :BOTH :insets (Insets. 5 0 5 0)
+                         _ problem-log-label
+                         :gridy 1 :weighty 1.0
+                         _ (log-box problem-log)]))
+              (.setDividerLocation 100)))
+         (.setDividerLocation 400)))
+    (.setDividerLocation 200)))
