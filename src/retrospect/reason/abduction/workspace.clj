@@ -454,16 +454,21 @@
                     ;; otherwise, just leave it with its explainers
                     ;; updated, etc. (from above)
                     ws))))
-            ;; otherwise, add the new hyp
-            (let [hyp-apriori (update-hyp-apriori workspace hyp-c)]
-              (-> workspace
-                 (assoc-in [:hyp-ids (:id hyp-apriori)] hyp-apriori)
-                 (assoc-in [:hyp-contents (:contents hyp-apriori)] (:id hyp-apriori))
-                 (assoc-in [:explains (:id hyp-apriori)] explains)
-                 (record-if-needs-explanation hyp-apriori)
-                 (assoc-explainer hyp-apriori)
-                 (update-in [:hypotheses (:type hyp-apriori)] conj (:id hyp-apriori))
-                 (update-in [:hypotheses :all] conj (:id hyp-apriori))))))))
+            ;; otherwise, check if conflicts, if not add it
+            (if (and (:conflicts?-fn hyp)
+                     (some (fn [hyp2] ((:conflicts?-fn hyp) hyp hyp2))
+                        (map #(lookup-hyp workspace %) (:all (:accepted workspace)))))
+              (do (log "...yet it conflicts with an already accepted hyp, so not adding.")
+                  workspace)
+              (let [hyp-apriori (update-hyp-apriori workspace hyp-c)]
+                (-> workspace
+                   (assoc-in [:hyp-ids (:id hyp-apriori)] hyp-apriori)
+                   (assoc-in [:hyp-contents (:contents hyp-apriori)] (:id hyp-apriori))
+                   (assoc-in [:explains (:id hyp-apriori)] explains)
+                   (record-if-needs-explanation hyp-apriori)
+                   (assoc-explainer hyp-apriori)
+                   (update-in [:hypotheses (:type hyp-apriori)] conj (:id hyp-apriori))
+                   (update-in [:hypotheses :all] conj (:id hyp-apriori)))))))))
 
 (defn accept
   [workspace hyp nbest alts explained delta comparison cycle]
@@ -687,7 +692,9 @@
                         (recur ws-next (rest hyps))))
                   (some (fn [hyp2] (conflicts? hyp hyp2))
                      (map #(lookup-hyp ws %) (:all (:accepted ws))))
-                  (do (log "...rejecting because of conflicts.")
+                  (do (log "...rejecting because of conflicts with:"
+                           (str/join ", " (map str (filter (fn [hyp2] (conflicts? hyp hyp2))
+                                                    (map #(lookup-hyp ws %) (:all (:accepted ws)))))))
                       (let [ws-next (reject-many ws [hyp] :conflict cycle)]
                         (recur ws-next (rest hyps))))
                   :else
