@@ -10,11 +10,13 @@
   [observations expgraph]
   (if (and (not-empty observations)
            (< (my-rand) (/ (double (:SensorInsertionNoise params)) 100.0)))
-    ;; "observe" a different state on one of the observations
-    (let [[v val] (my-rand-nth (sort-by first observations))
-          new-val (my-rand-nth (sort (filter (fn [new-val] (not (#{val} new-val)))
-                                        (values expgraph v))))]
-      (my-shuffle (conj observations [v new-val])))
+    ;; "observe" a different state on some of the observations
+    (my-shuffle
+     (concat observations
+             (for [[v val] (take (my-rand-int (inc (count observations)))
+                                 (my-shuffle (sort-by first observations)))]
+               [v (my-rand-nth (sort (filter (fn [new-val] (not (#{val} new-val)))
+                                        (values expgraph v))))])))
     observations))
 
 (defn deletion-noise

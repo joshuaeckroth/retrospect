@@ -143,7 +143,7 @@
           eg-probs (reduce add-prob-table eg-conflicts vs)
           bayesnet (build-bayesnet eg-probs)
           true-values-map (sample-expgraph eg-probs)
-          observations (take (:Steps params)
+          observations (take (* 3 (:Steps params))
                              (my-shuffle (sort-by first (seq true-values-map))))]
       {:expgraph eg-probs
        :bayesnet bayesnet
