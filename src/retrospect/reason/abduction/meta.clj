@@ -104,7 +104,7 @@
 (defn action-lower-minscore
   [time-now est]
   [(new-branch-ep est (cur-ep (goto-start-of-time est time-now)))
-   (assoc params :MinScore 0)])
+   (assoc params :MinScore (double (/ (:MinScore params) 2)))])
 
 (defn action-ignore
   [hyp est]
@@ -150,11 +150,11 @@
       (if (not= 0 time-prev)
         (for [h (filter #(empty? (explainers cur-ws %)) problem-cases)]
           (let [t (:time (cur-ep (goto-cycle est (accepted-cycle cur-ws h))))
-                ep (cur-ep (goto-start-of-time est t))]
+                ep (cur-ep (goto-start-of-time est (dec t)))]
             (new-hyp "OrderDep" :meta-order-dep :meta-order-dep
                      1.0 false meta-hyp-conflicts? []
-                     (format "Order dependency at %s" (str ep))
-                     (format "Order dependency at %s" (str ep))
+                     (format "Order dependency at time %d, ep %s" (dec t) (str ep))
+                     (format "Order dependency at time %d, ep %s" (dec t) (str ep))
                      {:action (partial action-batch ep)
                       :cycle (:cycle ep)})))
         ;; time-prev == 0, so this is a "static" case or we have not
@@ -193,8 +193,8 @@
           (new-hyp "RejConflict" :meta-rej-conflict :meta-rej-conflict
                    0.5 false meta-hyp-conflicts? []
                    (format "%s rejected some explainers" hyp)
-                   (format "%s rejected some explainers (cycle %d, delta %.2f"
-                      (str hyp) cycle delta)
+                   (format "%s rejected these explainers (cycle %d, delta %.2f):\n%s"
+                      (str hyp) cycle delta (str/join "\n" (map str expl-rejected-conflicts)))
                    {:action (partial action-preemptively-reject hyp cycle)
                     :cycle cycle
                     :implicated hyp})))))
@@ -203,7 +203,11 @@
   [problem-cases est time-prev time-now available-meta-hyps cur-ws expl]
   ;; were some explainers omitted due to high min-score?
   (if (not (available-meta-hyps "rej-minscore")) []
-      (let [expl-rejected-minscore (filter (fn [h] (= :minscore (rejection-reason cur-ws h)))
+      (let [expl-rejected-minscore (filter (fn [h]
+                                        (and (= :minscore (rejection-reason cur-ws h))
+                                             ;; require that hyp had a score at least
+                                             ;; half the minscore
+                                             (>= (:apriori h) (/ (double (:MinScore params)) 200.0))))
                                       expl)]
         (if (not-empty expl-rejected-minscore)
           [(new-hyp "TooHighMinScore" :meta-rej-minscore :meta-rej-minscore
@@ -218,7 +222,7 @@
 
 (defn make-meta-hyps
   "Create explanations, and associated actions, for problem-cases."
-  [problem-cases est time-prev time-now sensors]
+  [problem-cases est time-prev time-now]
   (let [available-meta-hyps (set (str/split (:MetaHyps params) #","))
         cur-ws (:workspace (cur-ep est))
         expl (set (mapcat #(explainers cur-ws %) problem-cases))]
@@ -256,7 +260,7 @@
 
 (defn meta-abductive
   [problem-cases est time-prev time-now sensors]
-  (let [meta-hyps (make-meta-hyps problem-cases est time-prev time-now sensors)
+  (let [meta-hyps (make-meta-hyps problem-cases est time-prev time-now)
         [est-new meta-hyps-scored] (score-meta-hyps problem-cases meta-hyps
                                                     est time-prev time-now sensors)
         meta-est (new-child-ep (init-est (init-workspace)))
@@ -277,36 +281,21 @@
                             (:all (:accepted meta-ws-reasoned))))
         est-new-meta-est (update-est est-new (assoc (cur-ep est)
                                                :meta-est meta-est-reasoned))]
-    (println "problem cases:" (str/join ", " (map str problem-cases)))
-    (println "meta-hyps:"
-             (for [h meta-hyps-scored]
-               (format "%s explains %s\n\n" (str h)
-                  (str/join ", " (map str (filter (fn [pc] ((set (:explains h)) (:contents pc)))
-                                           problem-cases))))))
-    (println "accepted" meta-accepted)
-    (println "ep:" (str (cur-ep est-new)))
-    ;; optimization: if only one accepted hyp, just go back to the ep
-    ;; arrived at by testing/scoring the hyp
-    (cond (= 1 (count meta-accepted))
-          {:est-old (goto-ep est-new-meta-est (:id (cur-ep est)))
-           :est-new (goto-ep est-new-meta-est (:final-ep-id (first meta-accepted)))}
-          ;; otherwise, more than one meta-hyp accepted; apply each
-          ;; (since they are compatible, it shouldn't matter the order
-          ;; that they are applied)
-          (not-empty meta-accepted)
-          (let [[est-applied params-applied]
-                (loop [est-applied est-new-meta-est
-                       params-applied params
-                       acc meta-accepted]
-                  (if (empty? acc) [est-applied params-applied]
-                      (let [[est params] ((:action (first acc)) est-applied)]
-                        (recur est (merge params-applied params) (rest acc)))))]
-            (binding [params params-applied]
-              (meta-apply-and-evaluate est-new-meta-est est-applied time-now sensors)))
-          ;; no meta-hyps accepted, so don't apply any changes
-          :else
-          {:est-old (goto-ep est-new-meta-est (:id (cur-ep est)))
-           :est-new est-new-meta-est})))
+    {:est-old (goto-ep est-new-meta-est (:id (cur-ep est)))
+     :est-new (if (empty? meta-accepted)
+                est-new-meta-est
+                ;; accept at most one hyp
+                (goto-ep est-new-meta-est
+                         (:final-ep-id (last (sort-by :apriori meta-accepted)))))
+     :accepted? (not-empty meta-accepted)}))
+
+(defn meta-abductive-recursive
+  [problem-cases est time-prev time-now sensors]
+  (let [{:keys [est-old est-new accepted?]}
+        (meta-abductive problem-cases est time-prev time-now sensors)]
+    (if accepted?
+      (recur (find-problem-cases est-new) est-new time-prev time-now sensors)
+      {:est-old est-old :est-new est-new})))
 
 (defn resolve-by-ignoring
   [problem-cases est time-prev time-now sensors]
@@ -341,19 +330,18 @@
                 meta-batch-weakest
                 (= "abd" m)
                 meta-abductive
+                (= "abd-recursive" m)
+                meta-abductive-recursive
                 (= "ignore" m)
                 (constantly nil))
         result (f problem-cases est time-prev time-now sensors)
         problem-cases-new (when result (find-problem-cases (:est-new result)))]
-    (println "problem cases prior:" problem-cases)
-    (println "problem-cases new:" problem-cases-new)
-    (println "\n\n")
     (cond (nil? result)
           (resolve-by-ignoring problem-cases est
                                time-prev time-now sensors)
           (empty? problem-cases-new)
           (:est-new result)
-          (< (count problem-cases-new) (count problem-cases))
+          (<= (count problem-cases-new) (count problem-cases))
           (resolve-by-ignoring problem-cases-new (:est-new result)
                                time-prev time-now sensors)
           :else
