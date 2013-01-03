@@ -280,22 +280,23 @@
                          (map #(lookup-hyp meta-ws-reasoned %)
                             (:all (:accepted meta-ws-reasoned))))
         est-new-meta-est (update-est est-new (assoc (cur-ep est)
-                                               :meta-est meta-est-reasoned))]
+                                               :meta-est meta-est-reasoned))
+        best (last (sort-by :apriori meta-accepted))]
     {:est-old (goto-ep est-new-meta-est (:id (cur-ep est)))
-     :est-new (if (empty? meta-accepted)
-                est-new-meta-est
-                ;; accept at most one hyp
-                (goto-ep est-new-meta-est
-                         (:final-ep-id (last (sort-by :apriori meta-accepted)))))
-     :accepted? (not-empty meta-accepted)}))
+     :est-new (if (nil? best) est-new-meta-est
+                  (goto-ep est-new-meta-est (:final-ep-id best)))
+     :best best}))
 
 (defn meta-abductive-recursive
   [problem-cases est time-prev time-now sensors]
-  (let [{:keys [est-old est-new accepted?]}
-        (meta-abductive problem-cases est time-prev time-now sensors)]
-    (if accepted?
-      (recur (find-problem-cases est-new) est-new time-prev time-now sensors)
-      {:est-old est-old :est-new est-new})))
+  (loop [problem-cases problem-cases
+         est est
+         attempted #{}]
+    (let [{:keys [est-old est-new best]}
+          (meta-abductive problem-cases est time-prev time-now sensors)]
+      (if (and best (not (attempted (:contents best))))
+        (recur (find-problem-cases est-new) est-new (conj attempted (:contents best)))
+        {:est-old est-old :est-new est-new}))))
 
 (defn resolve-by-ignoring
   [problem-cases est time-prev time-now sensors]
