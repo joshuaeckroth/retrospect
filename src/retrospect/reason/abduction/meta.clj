@@ -251,7 +251,11 @@
      (make-meta-hyps-rej-minscore
       problem-cases est time-prev time-now available-meta-hyps cur-ws expl))))
 
-(defn score-meta-hyps
+(defn score-meta-hyps-estimate
+  [problem-cases meta-hyps est time-prev time-now sensors]
+  meta-hyps)
+
+(defn score-meta-hyps-simulate
   [problem-cases meta-hyps est time-prev time-now sensors]
   (loop [est-attempted est
          hyps meta-hyps
@@ -274,6 +278,12 @@
                               :apriori (- 1.0 doubt-new)
                               :desc (format "%s\n\nEp-state start: %s"
                                        (:desc hyp) (str (cur-ep est-new))))))))))
+
+(defn score-meta-hyps
+  [problem-cases meta-hyps est time-prev time-now sensors]
+  (if (:EstimateMetaScores params)
+    (score-meta-hyps-estimate problem-cases meta-hyps est time-prev time-now sensors)
+    (score-meta-hyps-simulate problem-cases meta-hyps est time-prev time-now sensors)))
 
 (defn meta-abductive
   [problem-cases est time-prev time-now sensors]
