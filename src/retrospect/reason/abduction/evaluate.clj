@@ -95,7 +95,6 @@
               (ep-path est))
         delta-tf (for [ep (filter (comp :best :accrej :workspace) eps)]
                    (let [accrej (:accrej (:workspace ep))]
-                     (when meta? (println (str ep) accrej))
                      [(tf-true? true-false (:best accrej))
                       (:delta accrej)]))
         delta-true (map second (filter first delta-tf))
