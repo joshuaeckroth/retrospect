@@ -246,7 +246,7 @@
                (every? (fn [h] (t? h)) (:resolves hyp)))
           (= :meta-rej-conflict (:type hyp))
           (and (not-empty (:resolves hyp))
-               (not (t? (:implicated hyp)))
+               (not (t? (first (:implicated hyp))))
                (every? t? (:resolves hyp)))
           (= :meta-order-dep (:type hyp))
           (and (not-empty (:resolves hyp))

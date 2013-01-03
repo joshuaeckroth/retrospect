@@ -214,7 +214,7 @@
                       (str hyp) cycle delta (str/join "\n" (map str expl-rejected-conflicts)))
                    {:action (partial action-preemptively-reject hyp cycle)
                     :cycle cycle
-                    :implicated hyp})))))
+                    :implicated [hyp]})))))
 
 (defn make-meta-hyps-rej-minscore
   [problem-cases est time-prev time-now available-meta-hyps cur-ws expl]
@@ -331,16 +331,18 @@
          attempted #{}
          implicated #{}]
     (let [{:keys [est-old est-new best]}
-          (meta-abductive problem-cases est time-prev time-now sensors)]
+          (meta-abductive problem-cases est time-prev time-now sensors)
+          new-problem-cases (find-problem-cases est-new)]
       (if (and best
                (not (attempted (:contents best)))
                (or (nil? (:implicated best))
-                   (not (implicated (:contents (:implicated best))))))
-        (recur (find-problem-cases est-new)
+                   (not-every? implicated (map :contents (:implicated best))))
+               (not-empty new-problem-cases))
+        (recur new-problem-cases
                est-new
                (conj attempted (:contents best))
                (if (:implicated best)
-                 (conj implicated (:contents (:implicated best)))
+                 (set/union implicated (set (map :contents (:implicated best))))
                  implicated))
         {:est-old est-old :est-new est-new}))))
 
