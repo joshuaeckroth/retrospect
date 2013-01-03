@@ -275,9 +275,7 @@
                        (assoc hyp :explains (map :contents resolved-cases)
                               :resolves resolved-cases
                               :final-ep-id (:id (cur-ep (:est-new result)))
-                              :apriori (if (= :meta-rej-conflict (:type hyp))
-                                         (* 0.5 (- 1.0 doubt-new))
-                                         (- 1.0 doubt-new))
+                              :apriori (- 1.0 doubt-new)
                               :desc (format "%s\n\nEp-state start: %s"
                                        (:desc hyp) (str (cur-ep est-new))))))))))
 
