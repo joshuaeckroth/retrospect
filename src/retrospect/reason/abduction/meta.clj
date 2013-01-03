@@ -287,18 +287,20 @@
 
 (defn meta-abductive
   [problem-cases est time-prev time-now sensors]
-  (let [meta-hyps (make-meta-hyps problem-cases est time-prev time-now)
+  (let [meta-params (assoc params
+                      :MinScore (:MetaMinScore params)
+                      :Threshold (:MetaThreshold params)
+                      :GetMoreHyps false)
+        meta-hyps (make-meta-hyps problem-cases est time-prev time-now)
         [est-new meta-hyps-scored] (score-meta-hyps problem-cases meta-hyps
                                                     est time-prev time-now sensors)
         meta-est (new-child-ep (init-est (assoc (init-workspace)
                                            :meta-oracle (:meta-oracle (:workspace (cur-ep est))))))
-        meta-ws (reduce add (reduce #(add-observation %1 %2 0)
-                          (:workspace (cur-ep meta-est)) problem-cases)
-                   meta-hyps-scored)
-        meta-est-reasoned (binding [params (assoc params
-                                             :MinScore (:MetaMinScore params)
-                                             :Threshold (:MetaThreshold params)
-                                             :GetMoreHyps false)]
+        meta-ws (binding [params meta-params]
+                  (reduce add (reduce #(add-observation %1 %2 0)
+                            (:workspace (cur-ep meta-est)) problem-cases)
+                     meta-hyps-scored))
+        meta-est-reasoned (binding [params meta-params]
                             (reason (update-est meta-est (assoc (cur-ep meta-est)
                                                            :workspace meta-ws))
                                     0 1 nil :no-metareason))
