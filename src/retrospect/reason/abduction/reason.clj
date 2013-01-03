@@ -6,7 +6,7 @@
   (:use [retrospect.reason.abduction.meta
          :only [reason]])
   (:use [retrospect.reason.abduction.evaluate
-         :only [evaluate evaluate-comp]])
+         :only [evaluate evaluate-comp true-meta-hyp?]])
   (:use [retrospect.reason.abduction.gui.hypgraph
          :only [hypgraph-tab update-hypgraph]])
   (:use [retrospect.reason.abduction.gui.logs
@@ -22,9 +22,14 @@
    :evaluate-comp-fn evaluate-comp
    :calc-doubt-fn calc-doubt
    :calc-coverage-fn calc-coverage
+   :meta-oracle-fn (fn [truedata hyp]
+                     (if (= "Abduction" (:name @reasoner))
+                       (true-meta-hyp? truedata hyp)
+                       false))
    :default-params-fn
    (fn []
      (merge {:Threshold [0 [0]]
+             :MetaMinScore [0 [0]]
              :MetaThreshold [0 [0]]
              :MetaHyps ["rej-conflict,rej-minscore,order-dep"
                         ["rej-conflict,rej-minscore,order-dep"]]

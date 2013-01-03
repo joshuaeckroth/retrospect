@@ -145,7 +145,7 @@
 
 (defn make-meta-hyps-order-dep
   [problem-cases est time-prev time-now available-meta-hyps cur-ws expl]
-  (if (not (available-meta-hyps "order-dep")) []
+  (if (not (available-meta-hyps "meta-order-dep")) []
       ;; order dependency among the observations; a no-expl-offered situation
       (if (not= 0 time-prev)
         (for [h (filter #(empty? (explainers cur-ws %)) problem-cases)]
@@ -166,7 +166,7 @@
   ;; correct explainer(s) were rejected due to conflicts; need to
   ;; consider the various possibilities of rejected explainers and
   ;; no-explainers combinations
-  (if (not (available-meta-hyps "rej-conflict")) []
+  (if (not (available-meta-hyps "meta-rej-conflict")) []
       (let [expl-rejected-conflicts (filter (fn [h] (= :conflict (rejection-reason cur-ws h)))
                                        expl)
             acc-conflicting (set (mapcat
@@ -202,7 +202,7 @@
 (defn make-meta-hyps-rej-minscore
   [problem-cases est time-prev time-now available-meta-hyps cur-ws expl]
   ;; were some explainers omitted due to high min-score?
-  (if (not (available-meta-hyps "rej-minscore")) []
+  (if (not (available-meta-hyps "meta-rej-minscore")) []
       (let [expl-rejected-minscore (filter (fn [h]
                                         (and (= :minscore (rejection-reason cur-ws h))
                                              ;; require that hyp had a score at least
@@ -263,12 +263,13 @@
   (let [meta-hyps (make-meta-hyps problem-cases est time-prev time-now)
         [est-new meta-hyps-scored] (score-meta-hyps problem-cases meta-hyps
                                                     est time-prev time-now sensors)
-        meta-est (new-child-ep (init-est (init-workspace)))
+        meta-est (new-child-ep (init-est (assoc (init-workspace)
+                                           :meta-oracle (:meta-oracle (:workspace (cur-ep est))))))
         meta-ws (reduce add (reduce #(add-observation %1 %2 0)
                           (:workspace (cur-ep meta-est)) problem-cases)
                    meta-hyps-scored)
         meta-est-reasoned (binding [params (assoc params
-                                             :MinScore 0
+                                             :MinScore (:MetaMinScore params)
                                              :Threshold (:MetaThreshold params)
                                              :GetMoreHyps false)]
                             (reason (update-est meta-est (assoc (cur-ep meta-est)
@@ -281,7 +282,14 @@
                             (:all (:accepted meta-ws-reasoned))))
         est-new-meta-est (update-est est-new (assoc (cur-ep est)
                                                :meta-est meta-est-reasoned))
-        best (last (sort-by :apriori meta-accepted))]
+        meta-hyp-compare (fn [h1 h2] (if (= 0 (compare (:apriori h2) (:apriori h1)))
+                                      (cond (= :meta-order-dep (:type h1)) -1
+                                            (= :meta-order-dep (:type h2)) 1
+                                            (= :meta-rej-conflict (:type h1)) -1
+                                            (= :meta-rej-conflict (:type h2)) -1
+                                            :else 0)
+                                      (compare (:apriori h2) (:apriori h1))))
+        best (first (sort meta-hyp-compare meta-accepted))]
     {:est-old (goto-ep est-new-meta-est (:id (cur-ep est)))
      :est-new (if (nil? best) est-new-meta-est
                   (goto-ep est-new-meta-est (:final-ep-id best)))
@@ -336,15 +344,16 @@
                 (= "ignore" m)
                 (constantly nil))
         result (f problem-cases est time-prev time-now sensors)
+        problem-cases-old (if result (find-problem-cases (:est-old result)) problem-cases)
         problem-cases-new (when result (find-problem-cases (:est-new result)))]
     (cond (nil? result)
-          (resolve-by-ignoring problem-cases est
+          (resolve-by-ignoring problem-cases-old est
                                time-prev time-now sensors)
           (empty? problem-cases-new)
           (:est-new result)
-          (<= (count problem-cases-new) (count problem-cases))
+          (<= (count problem-cases-new) (count problem-cases-old))
           (resolve-by-ignoring problem-cases-new (:est-new result)
                                time-prev time-now sensors)
           :else
-          (resolve-by-ignoring problem-cases (:est-old result)
+          (resolve-by-ignoring problem-cases-old (:est-old result)
                                time-prev time-now sensors))))

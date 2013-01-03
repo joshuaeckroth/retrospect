@@ -46,6 +46,7 @@
 (def empty-workspace
   {:graph (digraph)
    :oracle nil
+   :meta-oracle nil
    ;; what was accepted, rejected, merged with the 'best' map
    :accrej {}
    ;; keyed by hypid
@@ -383,16 +384,24 @@
 
 (defn update-hyp-apriori
   [workspace hyp]
-  (if ((:oracle-types workspace) (:type hyp))
-    (if ((:oracle workspace) hyp)
-      (assoc hyp :apriori 1.0)
-      (assoc hyp :apriori 0.0))
-    (if (not (:UseScores params))
-      (assoc hyp :apriori 1.0)
-      (if (= 100 (:ScoreLevels params)) hyp
-          (let [levels (range 0.0 1.01 (/ 1.0 (double (dec (:ScoreLevels params)))))
-                apriori-new (first (sort-by #(Math/abs (- (:apriori hyp) %)) levels))]
-            (assoc hyp :apriori apriori-new))))))
+  (cond
+   ;; check oracle
+   ((:oracle-types workspace) (:type hyp))
+   (if ((:oracle workspace) hyp)
+     (assoc hyp :apriori 1.0)
+     (assoc hyp :apriori 0.0))
+   ;; check meta-oracle
+   ((:meta-oracle-types workspace) (:type hyp))
+   (if ((:meta-oracle workspace) hyp)
+     (assoc hyp :apriori 1.0)
+     (assoc hyp :apriori 0.0))
+   :else
+   (if (not (:UseScores params))
+     (assoc hyp :apriori 1.0)
+     (if (= 100 (:ScoreLevels params)) hyp
+         (let [levels (range 0.0 1.01 (/ 1.0 (double (dec (:ScoreLevels params)))))
+               apriori-new (first (sort-by #(Math/abs (- (:apriori hyp) %)) levels))]
+           (assoc hyp :apriori apriori-new))))))
 
 (defn add
   [workspace hyp]
@@ -793,4 +802,6 @@
   (prof :init-workspace
         (assoc empty-workspace
           :oracle-types
-          (set (map keyword (str/split (:Oracle params) #","))))))
+          (set (map keyword (str/split (:Oracle params) #",")))
+          :meta-oracle-types
+          (set (map keyword (str/split (:MetaOracle params) #","))))))
