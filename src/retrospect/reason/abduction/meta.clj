@@ -244,7 +244,6 @@
               [est-new params-new] ((:action hyp) est-attempted)
               result (binding [params params-new]
                        (meta-apply-and-evaluate est-attempted est-new time-now sensors))
-              doubt-old (doubt-aggregate (:est-old result))
               doubt-new (doubt-aggregate (:est-new result))
               problem-cases-new (find-problem-cases (:est-new result))
               resolved-cases (filter (fn [pc] (not ((set (map :contents problem-cases-new))
@@ -255,7 +254,7 @@
                        (assoc hyp :explains (map :contents resolved-cases)
                               :resolves resolved-cases
                               :final-ep-id (:id (cur-ep (:est-new result)))
-                              :apriori (max 0.0 (- doubt-old doubt-new))
+                              :apriori (- 1.0 doubt-new)
                               :desc (format "%s\n\nEp-state start: %s"
                                        (:desc hyp) (str (cur-ep est-new))))))))))
 
