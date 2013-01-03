@@ -56,8 +56,15 @@
 
 (defn calc-true-false-scores
   "Find average scores for true hyps, average scores for false hyps."
-  [workspace true-false]
-  (let [aprioris (reduce (fn [m t]
+  [est true-false]
+  (let [workspace (:workspace (cur-ep est))
+        eps (flatten-est est)
+        meta-eps (mapcat (comp flatten-est :meta-est) (filter :meta-est eps))
+        acc? (fn [h] (if ((set (:meta-hyp-types @reasoner)) (:type h))
+                      (some (fn [ep] ((:all (:accepted (:workspace ep))) (:id h)))
+                         meta-eps)
+                      (accepted? workspace h)))
+        aprioris (reduce (fn [m t]
                       (assoc m t
                              {true (map :apriori (get (get true-false t) true))
                               false (map :apriori (get (get true-false t) false))}))
@@ -71,9 +78,9 @@
              (keyword (format "FalseCount%s" k))
              (count (get (get true-false t) false))
              (keyword (format "TrueAcc%s" k))
-             (count (filter #(accepted? workspace %) (get (get true-false t) true)))
+             (count (filter acc? (get (get true-false t) true)))
              (keyword (format "FalseAcc%s" k))
-             (count (filter #(accepted? workspace %) (get (get true-false t) false)))
+             (count (filter acc? (get (get true-false t) false)))
              (keyword (format "AvgTrueApriori%s" k))
              (avg (get (get aprioris t) true))
              (keyword (format "AvgFalseApriori%s" k))
@@ -82,9 +89,13 @@
 
 (defn calc-true-false-deltas
   "Find average delta for true and false acceptances."
-  [est true-false]
-  (let [delta-tf (for [ep (filter (comp :best :accrej :workspace) (ep-path est))]
+  [est true-false meta?]
+  (let [eps (if meta?
+              (mapcat (comp flatten-est :meta-est) (filter :meta-est (flatten-est est)))
+              (ep-path est))
+        delta-tf (for [ep (filter (comp :best :accrej :workspace) eps)]
                    (let [accrej (:accrej (:workspace ep))]
+                     (when meta? (println (str ep) accrej))
                      [(tf-true? true-false (:best accrej))
                       (:delta accrej)]))
         delta-true (map second (filter first delta-tf))
@@ -249,16 +260,6 @@
                             (:all (:accepted (:workspace ep)))))
                  meta-eps))))
 
-(defn count-meta-hyps
-  [meta-hyps]
-  (let [types-seq (map (comp keyword keyword-to-metric)
-                     (filter (set (:meta-hyp-types @reasoner)) (map :type meta-hyps)))]
-    (reduce (fn [m [k v]] (assoc m (keyword (format "MetaHypAcc%s" (name k))) v)) {}
-       (seq (merge (zipmap (map (comp keyword keyword-to-metric)
-                              (:meta-hyp-types @reasoner))
-                           (repeat (count (:meta-hyp-types @reasoner)) 0))
-                   (frequencies types-seq))))))
-
 (defn evaluate
   [truedata est]
   (let [ep (cur-ep est)
@@ -266,14 +267,13 @@
         workspace (update-graph (:workspace ep))
         true-false (group-hyps-by-true-false (vals (:hyp-ids workspace))
                                              :type truedata (:oracle-fn @problem) false)
-        true-false-scores (calc-true-false-scores workspace true-false)
-        delta-avgs (calc-true-false-deltas est true-false)
+        true-false-scores (calc-true-false-scores est true-false)
+        delta-avgs (calc-true-false-deltas est true-false false)
         meta-hyps (find-meta-hyps est)
-        counted-meta-hyps (count-meta-hyps meta-hyps)
         meta-true-false (group-hyps-by-true-false meta-hyps :type
                                                   truedata true-meta-hyp? true)
-        ;; doesn't properly check for accepted/rejected in meta-workspace(s)
-        meta-true-false-scores (calc-true-false-scores workspace meta-true-false)
+        meta-true-false-scores (calc-true-false-scores est meta-true-false)
+        meta-delta-avgs (calc-true-false-deltas est meta-true-false true)
         ep-states (flatten-est est)
         doubt (doubt-aggregate est)
         errors (find-errors est true-false)
@@ -310,7 +310,6 @@
            params
            ((:evaluate-fn (:abduction @problem)) truedata est)
            true-false-scores
-           counted-meta-hyps
            meta-true-false-scores
            (last decision-metrics)
            {:Step (:time ep)
@@ -321,6 +320,8 @@
             :AvgNoiseClaimsF1 (avg (map :NoiseClaimsF1 decision-metrics))
             :TrueDeltaAvg (:true-delta-avg delta-avgs)
             :FalseDeltaAvg (:false-delta-avg delta-avgs)
+            :MetaTrueDeltaAvg (:true-delta-avg meta-delta-avgs)
+            :MetaFalseDeltaAvg (:false-delta-avg meta-delta-avgs)
             :Doubt (doubt-aggregate est)
             :ExplainCycles (count ep-states)
             :MetaBranches (count-branches est)
