@@ -326,11 +326,20 @@
   [problem-cases est time-prev time-now sensors]
   (loop [problem-cases problem-cases
          est est
-         attempted #{}]
+         attempted #{}
+         implicated #{}]
     (let [{:keys [est-old est-new best]}
           (meta-abductive problem-cases est time-prev time-now sensors)]
-      (if (and best (not (attempted (:contents best))))
-        (recur (find-problem-cases est-new) est-new (conj attempted (:contents best)))
+      (if (and best
+               (not (attempted (:contents best)))
+               (or (nil? (:implicated best))
+                   (not (implicated (:contents (:implicated best))))))
+        (recur (find-problem-cases est-new)
+               est-new
+               (conj attempted (:contents best))
+               (if (:implicated best)
+                 (conj implicated (:contents (:implicated best)))
+                 implicated))
         {:est-old est-old :est-new est-new}))))
 
 (defn resolve-by-ignoring
