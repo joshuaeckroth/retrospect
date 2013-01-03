@@ -148,15 +148,32 @@
   (if (not (available-meta-hyps "meta-order-dep")) []
       ;; order dependency among the observations; a no-expl-offered situation
       (if (not= 0 time-prev)
-        (for [h (filter #(empty? (explainers cur-ws %)) problem-cases)]
-          (let [t (:time (cur-ep (goto-cycle est (accepted-cycle cur-ws h))))
-                ep (cur-ep (goto-start-of-time est (dec t)))]
-            (new-hyp "OrderDep" :meta-order-dep :meta-order-dep
-                     1.0 false meta-hyp-conflicts? []
-                     (format "Order dependency at time %d, ep %s" (dec t) (str ep))
-                     (format "Order dependency at time %d, ep %s" (dec t) (str ep))
-                     {:action (partial action-batch ep)
-                      :cycle (:cycle ep)})))
+        (let [batchbeg-ep (cur-ep (goto-start-of-time est 0))
+              batchbeg-hyp (new-hyp "OrderDep" :meta-order-dep :meta-order-dep
+                                    1.0 false meta-hyp-conflicts? []
+                                    (format "Order dependency at time 0, ep %s" (str batchbeg-ep))
+                                    (format "Order dependency at time 0, ep %s" (str batchbeg-ep))
+                                    {:action (partial action-batch batchbeg-ep)
+                                     :cycle (:cycle batchbeg-ep)
+                                     :time 0})]
+          (loop [hs (filter #(empty? (explainers cur-ws %)) problem-cases)
+                 order-dep-hyps [batchbeg-hyp]]
+            (if (empty? hs) order-dep-hyps
+                (let [t (:time (cur-ep (goto-cycle est (accepted-cycle cur-ws (first hs)))))
+                      ep (cur-ep (goto-start-of-time est (dec t)))]
+                  ;; don't offer two order-dep hyps that go back to the same time
+                  (if (some #(= (dec t) (:time %)) order-dep-hyps)
+                    (recur (rest hs) order-dep-hyps)
+                    (recur (rest hs)
+                           (conj
+                            order-dep-hyps
+                            (new-hyp "OrderDep" :meta-order-dep :meta-order-dep
+                                     1.0 false meta-hyp-conflicts? []
+                                     (format "Order dependency at time %d, ep %s" (dec t) (str ep))
+                                     (format "Order dependency at time %d, ep %s" (dec t) (str ep))
+                                     {:action (partial action-batch ep)
+                                      :cycle (:cycle ep)
+                                      :time (dec t)}))))))))
         ;; time-prev == 0, so this is a "static" case or we have not
         ;; done much reasoning yet
         [])))

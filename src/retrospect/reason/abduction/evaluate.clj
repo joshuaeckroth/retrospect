@@ -241,13 +241,16 @@
   [truedata hyp]
   (let [t? (partial (:oracle-fn @problem) truedata)]
     (cond (= :meta-rej-minscore (:type hyp))
-          (and (some (fn [h] (t? h)) (:implicated hyp))
+          (and (not-empty (:resolves hyp))
+               (some (fn [h] (t? h)) (:implicated hyp))
                (every? (fn [h] (t? h)) (:resolves hyp)))
           (= :meta-rej-conflict (:type hyp))
-          (and (not (t? (:implicated hyp)))
+          (and (not-empty (:resolves hyp))
+               (not (t? (:implicated hyp)))
                (every? t? (:resolves hyp)))
           (= :meta-order-dep (:type hyp))
-          (every? t? (:resolves hyp))
+          (and (not-empty (:resolves hyp))
+               (every? t? (:resolves hyp)))
           :else
           (t? hyp))))
 
