@@ -31,8 +31,8 @@
      (merge {:Threshold [0 [0]]
              :MetaMinScore [0 [0]]
              :MetaThreshold [0 [0]]
-             :MetaHyps ["rej-conflict,rej-minscore,order-dep"
-                        ["rej-conflict,rej-minscore,order-dep"]]
+             :MetaHyps ["meta-rej-conflict,meta-rej-minscore,meta-order-dep"
+                        ["meta-rej-conflict,meta-rej-minscore,meta-order-dep"]]
              :MinScore [0 [0 10]]
              :DoubtMeasure ["delta" ["score" "delta"]]
              :DoubtAggregate ["avg" ["max" "avg"]]
