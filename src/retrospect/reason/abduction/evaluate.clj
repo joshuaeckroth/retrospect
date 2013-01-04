@@ -267,12 +267,17 @@
 (defn anomaly-reduction-meta-hyps
   [meta-true-false]
   (letfn [(ar-avg-count [type tf]
-            (let [vals (map (fn [h] (- (:count-problem-cases-prior h)
-                                    (:count-problem-cases-after h)))
+            (let [vals (map (fn [h] (- (count (:problem-cases-prior h))
+                                    (count (:problem-cases-after h))))
                           (get-in meta-true-false [type tf]))]
               (avg vals)))
           (ar-avg-apriori [type tf]
             (let [vals (map (fn [h] (avg (map :apriori (:resolves h))))
+                          (get-in meta-true-false [type tf]))]
+              (avg vals)))
+          (ar-avg-apriori-diff [type tf]
+            (let [vals (map (fn [h] (- (avg (map :apriori (:problem-cases-prior h)))
+                                    (avg (map :apriori (:problem-cases-after h)))))
                           (get-in meta-true-false [type tf]))]
               (avg vals)))]
     (reduce (fn [m t]
@@ -280,8 +285,10 @@
            (assoc m
              (keyword (format "TrueAnomalyReduction%s" k)) (ar-avg-count t true)
              (keyword (format "TrueAnomalyResolvedApriori%s" k)) (ar-avg-apriori t true)
+             (keyword (format "TrueAnomalyResolvedAprioriDiff%s" k)) (ar-avg-apriori-diff t true)
              (keyword (format "FalseAnomalyReduction%s" k)) (ar-avg-count t false)
-             (keyword (format "FalseAnomalyResolvedApriori%s" k)) (ar-avg-apriori t false))))
+             (keyword (format "FalseAnomalyResolvedApriori%s" k)) (ar-avg-apriori t false)
+             (keyword (format "FalseAnomalyResolvedAprioriDiff%s" k)) (ar-avg-apriori-diff t false))))
        {} (:meta-hyp-types @reasoner))))
 
 (defn evaluate

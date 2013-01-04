@@ -274,8 +274,8 @@
                  (conj new-hyps
                        (assoc hyp :explains (map :contents resolved-cases)
                               :resolves resolved-cases
-                              :count-problem-cases-prior (count problem-cases)
-                              :count-problem-cases-after (count problem-cases-new)
+                              :problem-cases-prior problem-cases
+                              :problem-cases-after problem-cases-new
                               :final-ep-id (:id (cur-ep (:est-new result)))
                               :apriori (- 1.0 doubt-new)
                               :desc (format "%s\n\nEp-state start: %s"
