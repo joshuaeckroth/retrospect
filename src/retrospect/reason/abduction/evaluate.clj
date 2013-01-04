@@ -279,9 +279,9 @@
          (let [k (keyword-to-metric t)]
            (assoc m
              (keyword (format "TrueAnomalyReduction%s" k)) (ar-avg-count t true)
-             (keyword (format "TrueAnomalyResolvedApriori%s" k)) (ar-avg-count t true)
-             (keyword (format "FalseAnomalyReduction%s" k)) (ar-avg-apriori t false)
-             (keyword (format "FalseAnomalyResolvedApriori%s" k)) (ar-avg-apriori t true))))
+             (keyword (format "TrueAnomalyResolvedApriori%s" k)) (ar-avg-apriori t true)
+             (keyword (format "FalseAnomalyReduction%s" k)) (ar-avg-count t false)
+             (keyword (format "FalseAnomalyResolvedApriori%s" k)) (ar-avg-apriori t false))))
        {} (:meta-hyp-types @reasoner))))
 
 (defn evaluate

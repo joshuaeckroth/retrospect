@@ -68,7 +68,7 @@
             ;; figure out what the sensor has observed
             sens-observed (set (mapcat #(sensed-at (first sensors) %)
                                   (range (inc time-now))))]
-        (for [[v val] observed]
+        (for [[v val] sens-observed]
           (new-hyp "Obs" :observation :observation
                    (make-score expgraph bn observed [] v val)
                    true nil
