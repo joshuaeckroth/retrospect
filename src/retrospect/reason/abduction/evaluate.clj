@@ -305,13 +305,32 @@
                                                        (not-empty (:resolves h))))
                                                (map #(lookup-hyp (:workspace ep) %)
                                                   (:all (:hypotheses (:workspace ep))))))))
-        best-tf-grouped (group-by #(tf-true? meta-true-false %) best-by-apriori-diff)]
-    {:MetaHypBestAprioriDiffPctTrue (if (empty? meta-eps-last) 0.0
-                                        (double (/ (count (get best-tf-grouped true))
-                                                   (count meta-eps-last))))
-     :MetaHypBestAprioriDiffPctFalse (if (empty? meta-eps-last) 0.0
-                                         (double (/ (count (get best-tf-grouped false))
-                                                    (count meta-eps-last))))}))
+        best-tf-grouped (group-by #(tf-true? meta-true-false %) best-by-apriori-diff)
+        choice-count (count meta-eps-last)]
+    (merge
+     {:MetaHypBestAprioriDiffPctTrue
+      (if (= 0 choice-count) 0.0
+          (double (/ (count (get best-tf-grouped true))
+                     choice-count)))
+      :MetaHypBestAprioriDiffPctFalse
+      (if (= 0 choice-count) 0.0
+          (double (/ (count (get best-tf-grouped false))
+                     choice-count)))}
+     (reduce (fn [m t]
+          (assoc m
+            (keyword (format "%sBestAprioriDiffPctTrue" (keyword-to-metric t)))
+            (if (= 0 choice-count) 0.0
+                (double (/ (count
+                            (filter #(= t (:type %))
+                               (get best-tf-grouped true)))
+                           choice-count)))
+            (keyword (format "%sBestAprioriDiffPctFalse" (keyword-to-metric t)))
+            (if (= 0 choice-count) 0.0
+                (double (/ (count
+                            (filter #(= t (:type %))
+                               (get best-tf-grouped false)))
+                           choice-count)))))
+        {} (:meta-hyp-types @reasoner)))))
 
 (defn evaluate
   [truedata est]
