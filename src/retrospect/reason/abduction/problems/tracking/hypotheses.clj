@@ -7,6 +7,7 @@
   (:use [retrospect.problems.tracking.movements
          :only [dist dets-match?]])
   (:use [retrospect.profile :only [prof]])
+  (:use [retrospect.evaluate :only [normalize]])
   (:use [retrospect.random])
   (:use [retrospect.state]))
 
@@ -96,28 +97,45 @@
                  (or (= (:time mov1) (:time mov2))
                      (= (:ot mov1) (:ot mov2))))))))))
 
+(defn move-prob
+  [dist moves-dist]
+  (if (= "gaussian" (:WalkType params))
+    (cumprob (:mean moves-dist) (:variance moves-dist) (- dist 2.0) (+ dist 2.0))
+    ;; else, :WalkType = "random"
+    (/ (/ (double (+ 1 (get-in moves-dist [:dist-freqs dist] 0)))
+          (double (+ 2 (:count moves-dist))))
+       (:max-prob moves-dist))))
+
 (defn make-sensor-hyps
   [sensors time-prev time-now accepted all-hyps lookup-hyp]
-  (prof :make-sensor-hyps
-        (doall
-         (if (= time-prev time-now) []
-             (mapcat (fn [{:keys [x y color time] :as det}]
-                       (let [desc (format (str "Sensor detection - color: %s, "
-                                          "x: %d, y: %d, time: %d")
-                                     (color-str color) x y time)
-                             from (new-hyp "SensFrom" :observation :from
-                                           0.5 true conflicts? []
-                                           (format "%d,%d@%d" x y time) desc
-                                           {:det det :from-to :from})
-                             to (new-hyp "SensTo" :observation :to
-                                         0.5 true conflicts? []
-                                         (format "%d,%d@%d" x y time) desc
-                                         {:det det :from-to :to})]
-                         (cond (= time time-prev) [to]
-                               (= time time-now) [from]
-                               :else [from to])))
-                     (sort-by :time (mapcat (fn [t] (mapcat (fn [s] (sensed-at s t)) sensors))
-                                            (range time-prev (inc time-now)))))))))
+  (let [kb (get-kb accepted lookup-hyp)
+        moves-dist (:moves-dist kb)
+        prior-dets (filter #(= (dec time-now) (:time %))
+                      (map :det2 (map lookup-hyp (get accepted :movement))))]
+    (doall
+     (if (= time-prev time-now) []
+         (mapcat (fn [{:keys [x y color time] :as det}]
+                   (let [desc (format (str "Sensor detection - color: %s, "
+                                      "x: %d, y: %d, time: %d")
+                                 (color-str color) x y time)
+                         move-probs (map (fn [det2] (let [d (dist (:x det2) (:y det2) x y)]
+                                                   (move-prob d moves-dist)))
+                                       (filter #(match-color? (:color %) (:color det)) prior-dets))
+                         apriori (or (last (sort (normalize move-probs)))
+                                     (if (= 0 time-prev) 1.0 0.0))
+                         from (new-hyp "SensFrom" :observation :from
+                                       apriori true conflicts? []
+                                       (format "%d,%d@%d" x y time) desc
+                                       {:det det :from-to :from})
+                         to (new-hyp "SensTo" :observation :to
+                                     apriori true conflicts? []
+                                     (format "%d,%d@%d" x y time) desc
+                                     {:det det :from-to :to})]
+                     (cond (= time time-prev) [to]
+                           (= time time-now) [from]
+                           :else [from to])))
+                 (sort-by :time (mapcat (fn [t] (mapcat (fn [s] (sensed-at s t)) sensors))
+                                        (range time-prev (inc time-now)))))))))
 
 (defn connecting-movs
   [h acc-mov-hyps]
@@ -150,15 +168,6 @@
                                (some #(dets-match? (:det h) (:det2 %)) c)
                                (some #(dets-match? (:det %) (:det2 h)) c))))))]
           (filter valid? mov-hyps))))
-
-(defn move-prob
-  [dist moves-dist]
-  (if (= "gaussian" (:WalkType params))
-    (cumprob (:mean moves-dist) (:variance moves-dist) (- dist 2.0) (+ dist 2.0))
-    ;; else, :WalkType = "random"
-    (/ (/ (double (+ 1 (get-in moves-dist [:dist-freqs dist] 0)))
-          (double (+ 2 (:count moves-dist))))
-       (:max-prob moves-dist))))
 
 (defn new-mov-hyp
   "Returns nil if the colors don't match."
