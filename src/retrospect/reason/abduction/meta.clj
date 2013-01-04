@@ -332,13 +332,13 @@
          implicated #{}]
     (let [{:keys [est-old est-new best]}
           (meta-abductive problem-cases est time-prev time-now sensors)
-          new-problem-cases (find-problem-cases est-new)]
+          problem-cases-new (find-problem-cases est-new)]
       (if (and best
                (not (attempted (:contents best)))
                (or (nil? (:implicated best))
                    (not-every? implicated (map :contents (:implicated best))))
-               (not-empty new-problem-cases))
-        (recur new-problem-cases
+               (not-empty problem-cases-new))
+        (recur problem-cases-new
                est-new
                (conj attempted (:contents best))
                (if (:implicated best)
