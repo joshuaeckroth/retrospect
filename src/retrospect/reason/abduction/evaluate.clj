@@ -261,7 +261,7 @@
         meta-eps (mapcat (comp flatten-est :meta-est) (filter :meta-est eps))]
     (set (mapcat (fn [ep] (filter (fn [h] ((:meta-hyp-types @reasoner) (:type h)))
                             (map #(lookup-hyp (:workspace ep) %)
-                               (:all (:accepted (:workspace ep))))))
+                               (:all (:hypotheses (:workspace ep))))))
                  meta-eps))))
 
 (defn anomaly-reduction-meta-hyps
@@ -290,6 +290,28 @@
              (keyword (format "FalseAnomalyResolvedApriori%s" k)) (ar-avg-apriori t false)
              (keyword (format "FalseAnomalyResolvedAprioriDiff%s" k)) (ar-avg-apriori-diff t false))))
        {} (:meta-hyp-types @reasoner))))
+
+(defn anomaly-reduction-indicator
+  [meta-true-false est]
+  (let [eps (flatten-est est)
+        meta-eps-last (map (comp last flatten-est :meta-est) (filter :meta-est eps))
+        apriori-diff (fn [h] (- (avg (map :apriori (:problem-cases-prior h)))
+                               (avg (map :apriori (:problem-cases-after h)))))
+        apriori-diff-compare (fn [h1 h2] (compare (apriori-diff h2) (apriori-diff h1)))
+        best-by-apriori-diff (for [ep meta-eps-last]
+                               (first (sort apriori-diff-compare
+                                            (filter (fn [h] (and
+                                                       ((:meta-hyp-types @reasoner) (:type h))
+                                                       (not-empty (:resolves h))))
+                                               (map #(lookup-hyp (:workspace ep) %)
+                                                  (:all (:hypotheses (:workspace ep))))))))
+        best-tf-grouped (group-by #(tf-true? meta-true-false %) best-by-apriori-diff)]
+    {:MetaHypBestAprioriDiffPctTrue (if (empty? meta-eps-last) 0.0
+                                        (double (/ (count (get best-tf-grouped true))
+                                                   (count meta-eps-last))))
+     :MetaHypBestAprioriDiffPctFalse (if (empty? meta-eps-last) 0.0
+                                         (double (/ (count (get best-tf-grouped false))
+                                                    (count meta-eps-last))))}))
 
 (defn evaluate
   [truedata est]
@@ -343,6 +365,7 @@
            true-false-scores
            meta-true-false-scores
            (anomaly-reduction-meta-hyps meta-true-false)
+           (anomaly-reduction-indicator meta-true-false est)
            (last decision-metrics)
            {:Step (:time ep)
             :AvgUnexplainedPct (avg (map :UnexplainedPct decision-metrics))
