@@ -265,14 +265,18 @@
                  meta-eps))))
 
 (defn anomaly-reduction-meta-hyps
-  [truedata meta-hyps]
-  (let [tf-grouped (group-by #(true-meta-hyp? truedata %) meta-hyps)
-        tf-reductions (for [tf [true false]]
-                        (map (fn [h] (- (:count-problem-cases-after h)
-                                     (:count-problem-cases-prior h)))
-                           (get tf-grouped tf)))]
-    {:MetaHypAnomalyReductionTrueAvg (avg (first tf-reductions))
-     :MetaHypAnomalyReductionFalseAvg (avg (second tf-reductions))}))
+  [meta-true-false]
+  (letfn [(ar-avg [type tf]
+            (let [vals (map (fn [h] (- (:count-problem-cases-prior h)
+                                    (:count-problem-cases-after h)))
+                          (get-in meta-true-false [type tf]))]
+              (avg vals)))]
+    (reduce (fn [m t]
+         (let [k (keyword-to-metric t)]
+           (assoc m
+             (keyword (format "TrueAnomalyReduction%s" k)) (ar-avg t true)
+             (keyword (format "FalseAnomalyReduction%s" k)) (ar-avg t false))))
+       {} (:meta-hyp-types @reasoner))))
 
 (defn evaluate
   [truedata est]
@@ -325,7 +329,7 @@
            ((:evaluate-fn (:abduction @problem)) truedata est)
            true-false-scores
            meta-true-false-scores
-           (anomaly-reduction-meta-hyps truedata meta-hyps)
+           (anomaly-reduction-meta-hyps meta-true-false)
            (last decision-metrics)
            {:Step (:time ep)
             :AvgUnexplainedPct (avg (map :UnexplainedPct decision-metrics))
