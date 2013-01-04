@@ -316,7 +316,7 @@
                                             (= :meta-order-dep (:type h2)) 1
                                             (= :meta-rej-conflict (:type h1)) -1
                                             (= :meta-rej-conflict (:type h2)) -1
-                                            :else 0)
+                                            :else (compare (:id h1) (:id h2)))
                                       (compare (:apriori h2) (:apriori h1))))
         best (first (sort meta-hyp-compare meta-accepted))]
     {:est-old (goto-ep est-new-meta-est (:id (cur-ep est)))
