@@ -5,6 +5,7 @@
          [cur-ep new-child-ep new-branch-ep init-est
           update-est goto-start-of-time print-est goto-ep ep-path goto-cycle]])
   (:use [retrospect.reason.abduction.workspace])
+  (:use [retrospect.evaluate :only [avg]])
   (:use [retrospect.reason.abduction.evaluate :only [doubt-aggregate]])
   (:use [retrospect.logging])
   (:use [retrospect.state]))
@@ -278,8 +279,19 @@
                               :problem-cases-after problem-cases-new
                               :final-ep-id (:id (cur-ep (:est-new result)))
                               :apriori (- 1.0 doubt-new)
-                              :desc (format "%s\n\nEp-state start: %s"
-                                       (:desc hyp) (str (cur-ep est-new))))))))))
+                              :desc (format (str "%s\n\nEp-state start: %s\n\n"
+                                            "Problem cases prior:\n%s\n\n"
+                                            "Problem cases after:\n%s\n\n"
+                                            "Avg apriori of problem cases prior: %.2f\n"
+                                            "Avg apriori of problem cases after: %.2f\n"
+                                            "Avg apriori diff: %.2f")
+                                       (:desc hyp) (str (cur-ep est-new))
+                                       (str/join "\n" (sort-by :id problem-cases))
+                                       (str/join "\n" (sort-by :id problem-cases-new))
+                                       (avg (map :apriori problem-cases))
+                                       (avg (map :apriori problem-cases-new))
+                                       (- (avg (map :apriori problem-cases))
+                                          (avg (map :apriori problem-cases-new)))))))))))
 
 (defn score-meta-hyps
   [problem-cases meta-hyps est time-prev time-now sensors]
