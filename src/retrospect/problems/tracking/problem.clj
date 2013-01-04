@@ -40,7 +40,7 @@
                :stats-fn (constantly nil)
                :training-stats-fn training-stats
                :learn-fn (constantly [])
-               :hyp-types [:movement]
+               :hyp-types #{:movement}
                :default-params
                {:ResensePrevTime [true [true]]}}
    :default-params

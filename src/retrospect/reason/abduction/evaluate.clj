@@ -48,8 +48,8 @@
                   (assoc m-individual type
                          (reduce (fn [g tf] (if (nil? (get g tf)) (assoc g tf []) g))
                             grouped [true false]))))
-              {} (set (if meta? (:meta-hyp-types @reasoner)
-                          (:hyp-types (:abduction @problem)))))
+              {} (if meta? (:meta-hyp-types @reasoner)
+                     (:hyp-types (:abduction @problem))))
         all-true (mapcat #(get % true) (vals tf))
         all-false (mapcat #(get % false) (vals tf))]
     (assoc tf :all {true all-true false all-false})))
@@ -60,7 +60,7 @@
   (let [workspace (:workspace (cur-ep est))
         eps (flatten-est est)
         meta-eps (mapcat (comp flatten-est :meta-est) (filter :meta-est eps))
-        acc? (fn [h] (if ((set (:meta-hyp-types @reasoner)) (:type h))
+        acc? (fn [h] (if ((:meta-hyp-types @reasoner) (:type h))
                       (some (fn [ep] ((:all (:accepted (:workspace ep))) (:id h)))
                          meta-eps)
                       (accepted? workspace h)))
@@ -240,27 +240,39 @@
   "Note that hyp may be a non-meta hyp if it's a problem case."
   [truedata hyp]
   (let [t? (partial (:oracle-fn @problem) truedata)]
-    (cond (= :meta-rej-minscore (:type hyp))
-          (and (not-empty (:resolves hyp))
-               (some (fn [h] (t? h)) (:implicated hyp))
-               (every? (fn [h] (t? h)) (:resolves hyp)))
-          (= :meta-rej-conflict (:type hyp))
-          (and (not-empty (:resolves hyp))
-               (not (t? (first (:implicated hyp))))
-               (every? t? (:resolves hyp)))
-          (= :meta-order-dep (:type hyp))
-          (and (not-empty (:resolves hyp))
-               (every? t? (:resolves hyp)))
-          :else
-          (t? hyp))))
+    (if (cond (= :meta-rej-minscore (:type hyp))
+              (and (not-empty (:resolves hyp))
+                   (some (fn [h] (t? h)) (:implicated hyp))
+                   (every? (fn [h] (t? h)) (:resolves hyp)))
+              (= :meta-rej-conflict (:type hyp))
+              (and (not-empty (:resolves hyp))
+                   (not (t? (first (:implicated hyp))))
+                   (every? t? (:resolves hyp)))
+              (= :meta-order-dep (:type hyp))
+              (and (not-empty (:resolves hyp))
+                   (every? t? (:resolves hyp)))
+              :else
+              (t? hyp))
+      true false)))
 
 (defn find-meta-hyps
   [est]
   (let [eps (flatten-est est)
         meta-eps (mapcat (comp flatten-est :meta-est) (filter :meta-est eps))]
-    (set (mapcat (fn [ep] (map #(lookup-hyp (:workspace ep) %)
-                            (:all (:accepted (:workspace ep)))))
+    (set (mapcat (fn [ep] (filter (fn [h] ((:meta-hyp-types @reasoner) (:type h)))
+                            (map #(lookup-hyp (:workspace ep) %)
+                               (:all (:accepted (:workspace ep))))))
                  meta-eps))))
+
+(defn anomaly-reduction-meta-hyps
+  [truedata meta-hyps]
+  (let [tf-grouped (group-by #(true-meta-hyp? truedata %) meta-hyps)
+        tf-reductions (for [tf [true false]]
+                        (map (fn [h] (- (:count-problem-cases-after h)
+                                     (:count-problem-cases-prior h)))
+                           (get tf-grouped tf)))]
+    {:MetaHypAnomalyReductionTrueAvg (avg (first tf-reductions))
+     :MetaHypAnomalyReductionFalseAvg (avg (second tf-reductions))}))
 
 (defn evaluate
   [truedata est]
@@ -313,6 +325,7 @@
            ((:evaluate-fn (:abduction @problem)) truedata est)
            true-false-scores
            meta-true-false-scores
+           (anomaly-reduction-meta-hyps truedata meta-hyps)
            (last decision-metrics)
            {:Step (:time ep)
             :AvgUnexplainedPct (avg (map :UnexplainedPct decision-metrics))

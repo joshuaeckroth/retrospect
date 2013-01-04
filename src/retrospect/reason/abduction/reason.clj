@@ -46,7 +46,7 @@
                                            "expl,score" "arbitrary"]]
              :ConsiderExplPower [false [true false]]}
             (:default-params (:abduction @problem))))
-   :meta-hyp-types [:meta-rej-minscore :meta-rej-conflict :meta-order-dep]
+   :meta-hyp-types #{:meta-rej-minscore :meta-rej-conflict :meta-order-dep}
    :init-workspace-fn init-workspace
    :init-kb-fn init-kb
    :player-fns
