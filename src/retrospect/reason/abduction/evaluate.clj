@@ -272,7 +272,7 @@
                           (get-in meta-true-false [type tf]))]
               (avg vals)))
           (ar-avg-apriori [type tf]
-            (let [vals (map (fn [h] (avg (map :apriori (:resolved h))))
+            (let [vals (map (fn [h] (avg (map :apriori (:resolves h))))
                           (get-in meta-true-false [type tf]))]
               (avg vals)))]
     (reduce (fn [m t]
