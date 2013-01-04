@@ -7,7 +7,7 @@
   (:use [retrospect.problems.tracking.movements
          :only [dist dets-match?]])
   (:use [retrospect.profile :only [prof]])
-  (:use [retrospect.evaluate :only [normalize]])
+  (:use [retrospect.evaluate :only [normalize avg]])
   (:use [retrospect.random])
   (:use [retrospect.state]))
 
@@ -121,7 +121,7 @@
                          move-probs (map (fn [det2] (let [d (dist (:x det2) (:y det2) x y)]
                                                    (move-prob d moves-dist)))
                                        (filter #(match-color? (:color %) (:color det)) prior-dets))
-                         apriori (or (last (sort (normalize move-probs)))
+                         apriori (if (not-empty move-probs) (avg move-probs)
                                      (if (= 0 time-prev) 1.0 0.0))
                          from (new-hyp "SensFrom" :observation :from
                                        apriori true conflicts? []
