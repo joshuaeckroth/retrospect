@@ -106,11 +106,11 @@
                                           "x: %d, y: %d, time: %d")
                                      (color-str color) x y time)
                              from (new-hyp "SensFrom" :observation :from
-                                           1.0 true conflicts? []
+                                           0.5 true conflicts? []
                                            (format "%d,%d@%d" x y time) desc
                                            {:det det :from-to :from})
                              to (new-hyp "SensTo" :observation :to
-                                         1.0 true conflicts? []
+                                         0.5 true conflicts? []
                                          (format "%d,%d@%d" x y time) desc
                                          {:det det :from-to :to})]
                          (cond (= time time-prev) [to]

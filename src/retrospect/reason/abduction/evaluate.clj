@@ -266,16 +266,22 @@
 
 (defn anomaly-reduction-meta-hyps
   [meta-true-false]
-  (letfn [(ar-avg [type tf]
+  (letfn [(ar-avg-count [type tf]
             (let [vals (map (fn [h] (- (:count-problem-cases-prior h)
                                     (:count-problem-cases-after h)))
+                          (get-in meta-true-false [type tf]))]
+              (avg vals)))
+          (ar-avg-apriori [type tf]
+            (let [vals (map (fn [h] (avg (map :apriori (:resolved h))))
                           (get-in meta-true-false [type tf]))]
               (avg vals)))]
     (reduce (fn [m t]
          (let [k (keyword-to-metric t)]
            (assoc m
-             (keyword (format "TrueAnomalyReduction%s" k)) (ar-avg t true)
-             (keyword (format "FalseAnomalyReduction%s" k)) (ar-avg t false))))
+             (keyword (format "TrueAnomalyReduction%s" k)) (ar-avg-count t true)
+             (keyword (format "TrueAnomalyResolvedApriori%s" k)) (ar-avg-count t true)
+             (keyword (format "FalseAnomalyReduction%s" k)) (ar-avg-apriori t false)
+             (keyword (format "FalseAnomalyResolvedApriori%s" k)) (ar-avg-apriori t true))))
        {} (:meta-hyp-types @reasoner))))
 
 (defn evaluate
