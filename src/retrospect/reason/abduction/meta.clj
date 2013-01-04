@@ -128,7 +128,8 @@
 (defn meta-hyp-conflicts?
   [hyp1 hyp2]
   (and (not= hyp1 hyp2)
-       (not-empty (set/intersection (set (:explains hyp1)) (set (:explains hyp2))))))
+       ((:meta-hyp-types @reasoner) (:type hyp1))
+       ((:meta-hyp-types @reasoner) (:type hyp2))))
 
 (comment
   (let [doubts-times
@@ -278,7 +279,8 @@
                               :problem-cases-prior problem-cases
                               :problem-cases-after problem-cases-new
                               :final-ep-id (:id (cur-ep (:est-new result)))
-                              :apriori (- 1.0 doubt-new)
+                              :apriori (max 0.0 (- (avg (map :apriori problem-cases))
+                                                   (avg (map :apriori problem-cases-new))))
                               :desc (format (str "%s\n\nEp-state start: %s\n\n"
                                             "Problem cases prior:\n%s\n\n"
                                             "Problem cases after:\n%s\n\n"
