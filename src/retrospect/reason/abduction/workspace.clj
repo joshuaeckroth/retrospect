@@ -686,7 +686,8 @@
           (if ((get-in ws [:rejected :all]) (:id hyp))
             (do (log "...already rejected. Moving on.")
                 (recur ws (rest hyps)))
-            (cond (and (< (:apriori hyp) (/ (double (:MinScore params)) 100.0)))
+            (cond (and (not= :observation (:type hyp))
+                       (< (:apriori hyp) (/ (double (:MinScore params)) 100.0)))
                   (do (log "...rejecting because score" (:apriori hyp)
                            "is lower than MinScore.")
                       (let [ws-next (reject-many ws [hyp] :minscore cycle)]
