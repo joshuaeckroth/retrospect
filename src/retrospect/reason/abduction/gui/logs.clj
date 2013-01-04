@@ -26,7 +26,6 @@
 (def hyp-accepted-label (label "Acc:"))
 (def hyp-explains (ref ""))
 (def hyp-explainers (ref ""))
-(def hyp-boosts (ref ""))
 (def hyp-conflicts (ref ""))
 (def hyp-log (ref ""))
 (def reason-log (ref ""))
@@ -118,7 +117,6 @@
                                                         (map #(ws/lookup-hyp workspace %)
                                                            (get (:explainers workspace)
                                                                 (:id hyp))))))))
-        boosts (str/join ", " (map str (sort-by :name alphanum (:boosts hyp))))
         conflicts (str/join ", " (map str (sort-by :name alphanum
                                                  (ws/find-conflicts-all workspace hyp))))]
     (. hyp-apriori-label setText
@@ -133,7 +131,6 @@
      (alter hyp-id (constantly (:desc hyp)))
      (alter hyp-explains (constantly (str "Explains: " explains)))
      (alter hyp-explainers (constantly (str "Explainers: " explainers)))
-     (alter hyp-boosts (constantly (str "Boosts: " boosts)))
      (alter hyp-conflicts (constantly (str "Conflicts: " conflicts)))
      (alter hyp-log (constantly (ws/hyp-log workspace hyp))))))
 
@@ -204,12 +201,9 @@
                        _ (log-box hyp-explainers)
 
                        :gridy 4
-                       _ (log-box hyp-boosts)
-
-                       :gridy 5
                        _ (log-box hyp-conflicts)
 
-                       :gridy 6
+                       :gridy 5
                        _ (log-box hyp-log)]))
               (.addTab
                "Reason Log"
