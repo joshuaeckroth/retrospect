@@ -121,7 +121,7 @@
                          move-probs (map (fn [det2] (let [d (dist (:x det2) (:y det2) x y)]
                                                    (move-prob d moves-dist)))
                                        (filter #(match-color? (:color %) (:color det)) prior-dets))
-                         apriori (if (not-empty move-probs) (avg move-probs)
+                         apriori (if (not-empty move-probs) (apply min move-probs)
                                      (if (= 0 time-prev) 1.0 0.0))
                          from (new-hyp "SensFrom" :observation :from
                                        apriori true conflicts? []
