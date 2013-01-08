@@ -127,9 +127,9 @@
        (if (ws/accepted? workspace hyp) "Acc: True" "Acc: False"))
     (dosync
      (alter hyp-id (constantly (:desc hyp)))
-     (alter hyp-explains (constantly (str "Explains: " explains)))
-     (alter hyp-explainers (constantly (str "Explainers: " explainers)))
-     (alter hyp-conflicts (constantly (str "Conflicts: " conflicts)))
+     (alter hyp-explains (constantly (str "Explains:\n" explains)))
+     (alter hyp-explainers (constantly (str "Explainers:\n" explainers)))
+     (alter hyp-conflicts (constantly (str "Conflicts:\n" conflicts)))
      (alter hyp-log (constantly (ws/hyp-log workspace hyp))))))
 
 (defn show-log
