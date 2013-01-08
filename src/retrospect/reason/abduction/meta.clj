@@ -439,10 +439,10 @@
                                                              meta-hyps-scored)))
           cheapest-rej-conflict-hyp (last (sort-by :cycle (filter #(= :meta-rej-conflict (:type %))
                                                              meta-hyps-scored)))
-          rule (cond (and (not (rules-applied :batch1)) batch1-hyp)
-                     :batch1
-                     (and (not (rules-applied :lower-minscore)) least-minscore-hyp)
+          rule (cond (and (not (rules-applied :lower-minscore)) least-minscore-hyp)
                      :lower-minscore
+                     (and (not (rules-applied :batch1)) batch1-hyp)
+                     :batch1
                      (and (not (rules-applied :reject-conflict)) cheapest-rej-conflict-hyp)
                      :reject-conflict)
           choice (cond (= :batch1 rule) batch1-hyp
