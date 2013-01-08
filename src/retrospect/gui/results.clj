@@ -37,7 +37,6 @@
         (doto p-left (.add (cb h))))
       (doseq [h (nth groups 1)]
         (doto p-right (.add (cb h))))))
-  (println @headers-on)
   (dosync (alter results-table-model
                  (constantly (table-model :columns
                                           (sort-by name (filter #(@headers-on %)

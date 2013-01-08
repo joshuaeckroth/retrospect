@@ -1,4 +1,4 @@
-(ns retrospect.reason.abduction.gui.logs
+(ns retrospect.reason.abduction.gui.abduction-log
   (:import (java.awt GridBagLayout Insets Dimension Font))
   (:import (javax.swing Box JScrollBar JTabbedPane))
   (:import (misc AlphanumComparator))
@@ -15,11 +15,9 @@
          [cur-ep flatten-est]])
   (:use [retrospect.reason.abduction.evaluate :only [true-meta-hyp?]])
   #_(:use [retrospect.reason.abduction.robustness :only [analyze-dependency]])
+  (:use [retrospect.gui.common])
   (:use [retrospect.state]))
 
-(def truedata-log (ref ""))
-(def problem-log (ref ""))
-(def problem-log-label (label ""))
 (def hyp-id (ref ""))
 (def hyp-apriori-label (label "Apriori:"))
 (def hyp-truefalse-label (label "T/F:"))
@@ -110,14 +108,14 @@
 (defn update-hyp-info
   [workspace hyp meta?]
   (let [alphanum (AlphanumComparator.)
-        explains (str/join ", " (map str (sort-by :name alphanum (ws/explains workspace hyp))))
-        explainers (str/join ", " (map #(format "[%s]" %)
+        explains (str/join "\n" (map str (sort-by :name alphanum (ws/explains workspace hyp))))
+        explainers (str/join "\n" (map #(format "[%s]" %)
                                      (map #(str/join ", " (sort-by :name alphanum %))
                                         (vals (group-by :type
                                                         (map #(ws/lookup-hyp workspace %)
                                                            (get (:explainers workspace)
                                                                 (:id hyp))))))))
-        conflicts (str/join ", " (map str (sort-by :name alphanum
+        conflicts (str/join "\n" (map str (sort-by :name alphanum
                                                  (ws/find-conflicts-all workspace hyp))))]
     (. hyp-apriori-label setText
        (format "Apriori: %.2f" (:apriori hyp)))
@@ -155,19 +153,12 @@
         (let [hyp (if ws (find-first #(= (:name %) last-comp) (vals (:hyp-ids ws))))]
           (when hyp (update-hyp-info ws hyp (not (nil? meta-ep-state)))))))))
 
-(defn update-logs
+(defn update-abduction-log
   []
   (dosync
-   (alter truedata-log (constantly ((:get-truedata-log (:player-fns @problem)))))
-   (alter problem-log (constantly ((:get-problem-log (:player-fns @problem)))))
-   (alter abduction-tree-map (constantly (build-abduction-tree-map (:est @or-state) false))))
-  (. problem-log-label setText (format "Problem log for: %s" (str (cur-ep (:est @or-state))))))
+   (alter abduction-tree-map (constantly (build-abduction-tree-map (:est @or-state) false)))))
 
-(defn log-box
-  [str-ref]
-  (scroll-panel (text-area :str-ref str-ref :editable false :wrap true)))
-
-(defn logs-tab
+(defn abduction-log-tab
   []
   (doto
       (split-horizontal
@@ -176,53 +167,39 @@
                            abduction-tree-map "Epistemic states")
                    :action ([_ _] (show-log (.getSelectionPath tr))))
          (.setFont (Font. "Sans" Font/PLAIN 10)))
-       (doto
-           (split-vertical
-            (doto (JTabbedPane.)
-              (.addTab
-               "Hyp Info"
-               (panel :layout (GridBagLayout.)
-                      :constrains (java.awt.GridBagConstraints.)
-                      [:gridx 0 :gridy 0 :gridwidth 3 :weightx 1.0 :weighty 1.0
-                       :fill :BOTH :insets (Insets. 5 5 5 5)
-                       _ (log-box hyp-id)
+       (doto (JTabbedPane.)
+         (.addTab
+          "Hyp Info"
+          (panel :layout (GridBagLayout.)
+                 :constrains (java.awt.GridBagConstraints.)
+                 [:gridx 0 :gridy 0 :gridwidth 3 :weightx 1.0 :weighty 1.0
+                  :fill :BOTH :insets (Insets. 5 5 5 5)
+                  _ (log-box hyp-id)
 
-                       :gridy 1 :gridwidth 1 :weighty 0.0
-                       _ hyp-apriori-label
-                       :gridx 1
-                       _ hyp-truefalse-label
-                       :gridx 2
-                       _ hyp-accepted-label
+                  :gridy 1 :gridwidth 1 :weighty 0.0
+                  _ hyp-apriori-label
+                  :gridx 1
+                  _ hyp-truefalse-label
+                  :gridx 2
+                  _ hyp-accepted-label
 
-                       :gridy 2 :gridx 0 :gridwidth 5 :weighty 1.0
-                       _ (log-box hyp-explains)
+                  :gridy 2 :gridx 0 :gridwidth 5 :weighty 1.0
+                  _ (log-box hyp-explains)
 
-                       :gridy 3
-                       _ (log-box hyp-explainers)
+                  :gridy 3
+                  _ (log-box hyp-explainers)
 
-                       :gridy 4
-                       _ (log-box hyp-conflicts)
+                  :gridy 4
+                  _ (log-box hyp-conflicts)
 
-                       :gridy 5
-                       _ (log-box hyp-log)]))
-              (.addTab
-               "Reason Log"
-               (panel :layout (GridBagLayout.)
-                      :constrains (java.awt.GridBagConstraints.)
-                      [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0
-                       :fill :BOTH :insets (Insets. 5 5 5 5)
-                       _ (log-box reason-log)]))
-              (.setSelectedIndex 0))
-            (doto
-                (split-vertical
-                 (log-box truedata-log)
-                 (panel :layout (GridBagLayout.)
-                        :constrains (java.awt.GridBagConstraints.)
-                        [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0
-                         :fill :BOTH :insets (Insets. 5 0 5 0)
-                         _ problem-log-label
-                         :gridy 1 :weighty 1.0
-                         _ (log-box problem-log)]))
-              (.setDividerLocation 100)))
-         (.setDividerLocation 400)))
+                  :gridy 5
+                  _ (log-box hyp-log)]))
+         (.addTab
+          "Reason Log"
+          (panel :layout (GridBagLayout.)
+                 :constrains (java.awt.GridBagConstraints.)
+                 [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0
+                  :fill :BOTH :insets (Insets. 5 5 5 5)
+                  _ (log-box reason-log)]))
+         (.setSelectedIndex 0)))
     (.setDividerLocation 200)))
