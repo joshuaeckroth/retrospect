@@ -103,9 +103,9 @@
    params])
 
 (defn action-lower-minscore
-  [time-now est]
+  [new-minscore time-now est]
   [(new-branch-ep est (cur-ep (goto-start-of-time est time-now)))
-   (assoc params :MinScore (double (/ (:MinScore params) 2)))])
+   (assoc params :MinScore new-minscore)])
 
 (defn action-ignore
   [hyp est]
@@ -225,21 +225,23 @@
   ;; were some explainers omitted due to high min-score?
   (if (not (available-meta-hyps "meta-rej-minscore")) []
       (let [minscore (/ (double (:MinScore params)) 100.0)
-            expl-rejected-minscore (filter (fn [h]
-                                        (and (= :minscore (rejection-reason cur-ws h))
-                                             ;; require that hyp had a score at least
-                                             ;; half the minscore
-                                             (>= (:apriori h) (/ minscore 2.0))))
+            expl-rejected-minscore (filter (fn [h] (= :minscore (rejection-reason cur-ws h)))
                                       expl)]
         (if (not-empty expl-rejected-minscore)
           [(new-hyp "TooHighMinScore" :meta-rej-minscore :meta-rej-minscore
                     0.25 false meta-hyp-conflicts? []
                     "Explainers rejected due to too-high min-score"
-                    (format "These explainers were rejected due to too-high min-score:\n%s"
-                       (str/join "\n" (sort (map str expl-rejected-minscore))))
-                    {:action (partial action-lower-minscore time-now)
+                    (format "These explainers were rejected due to too-high min-score:\n%s\n\nLowering to: %.2f"
+                       (str/join "\n" (sort (map str expl-rejected-minscore)))
+                       (* 100.0
+                          (- (apply min (map :apriori expl-rejected-minscore)) 0.01)))
+                    {:action (partial action-lower-minscore
+                                      (* 100.0
+                                         (- (apply min (map :apriori expl-rejected-minscore)) 0.01))
+                                      time-now)
                      :cycle (:cycle (cur-ep (goto-start-of-time est time-now)))
                      :implicated expl-rejected-minscore
+                     :penalty (* 2.0 (- minscore (apply min (map :apriori expl-rejected-minscore))))
                      :min-score-delta (- minscore (apply min (map :apriori expl-rejected-minscore)))
                      :max-score-delta (- minscore (apply max (map :apriori expl-rejected-minscore)))
                      :avg-score-delta (- minscore (avg (map :apriori expl-rejected-minscore)))})]
@@ -285,8 +287,11 @@
                               :problem-cases-prior problem-cases
                               :problem-cases-after problem-cases-new
                               :final-ep-id (:id (cur-ep (:est-new result)))
-                              :apriori (max 0.0 (- (avg (map :apriori problem-cases))
-                                                   (avg (map :apriori problem-cases-new))))
+                              :apriori (max 0.0
+                                            (- (avg (map :apriori problem-cases))
+                                               (avg (map :apriori problem-cases-new))
+                                               (if (nil? (:penalty hyp)) 0.0
+                                                   (:penalty hyp))))
                               :desc (format (str "%s\n\nEp-state start: %s\n\n"
                                             "Problem cases prior:\n%s\n\n"
                                             "Problem cases after:\n%s\n\n"
