@@ -228,23 +228,26 @@
             expl-rejected-minscore (filter (fn [h] (= :minscore (rejection-reason cur-ws h)))
                                       expl)]
         (if (not-empty expl-rejected-minscore)
-          [(new-hyp "TooHighMinScore" :meta-rej-minscore :meta-rej-minscore
-                    0.25 false meta-hyp-conflicts? []
-                    "Explainers rejected due to too-high min-score"
-                    (format "These explainers were rejected due to too-high min-score:\n%s\n\nLowering to: %.2f"
-                       (str/join "\n" (sort (map str expl-rejected-minscore)))
-                       (* 100.0
-                          (- (apply min (map :apriori expl-rejected-minscore)) 0.01)))
-                    {:action (partial action-lower-minscore
-                                      (* 100.0
-                                         (- (apply min (map :apriori expl-rejected-minscore)) 0.01))
-                                      time-now)
-                     :cycle (:cycle (cur-ep (goto-start-of-time est time-now)))
-                     :implicated expl-rejected-minscore
-                     :penalty (* 2.0 (- minscore (apply min (map :apriori expl-rejected-minscore))))
-                     :min-score-delta (- minscore (apply min (map :apriori expl-rejected-minscore)))
-                     :max-score-delta (- minscore (apply max (map :apriori expl-rejected-minscore)))
-                     :avg-score-delta (- minscore (avg (map :apriori expl-rejected-minscore)))})]
+          ;; don't bother if we'd have to lower minscore more than 0.02
+          (if (< 0.02 (- minscore (apply min (map :apriori expl-rejected-minscore))))
+            []
+            [(new-hyp "TooHighMinScore" :meta-rej-minscore :meta-rej-minscore
+                      0.25 false meta-hyp-conflicts? []
+                      "Explainers rejected due to too-high min-score"
+                      (format "These explainers were rejected due to too-high min-score:\n%s\n\nLowering to: %.2f"
+                         (str/join "\n" (sort (map str expl-rejected-minscore)))
+                         (* 100.0
+                            (- (apply min (map :apriori expl-rejected-minscore)) 0.01)))
+                      {:action (partial action-lower-minscore
+                                        (* 100.0
+                                           (- (apply min (map :apriori expl-rejected-minscore)) 0.01))
+                                        time-now)
+                       :cycle (:cycle (cur-ep (goto-start-of-time est time-now)))
+                       :implicated expl-rejected-minscore
+                       :penalty (* 2.0 (- minscore (apply min (map :apriori expl-rejected-minscore))))
+                       :min-score-delta (- minscore (apply min (map :apriori expl-rejected-minscore)))
+                       :max-score-delta (- minscore (apply max (map :apriori expl-rejected-minscore)))
+                       :avg-score-delta (- minscore (avg (map :apriori expl-rejected-minscore)))})])
           []))))
 
 (defn make-meta-hyps
