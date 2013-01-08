@@ -441,10 +441,10 @@
                                                              meta-hyps-scored)))
           rule (cond (and (not (rules-applied :lower-minscore)) least-minscore-hyp)
                      :lower-minscore
-                     (and (not (rules-applied :batch1)) batch1-hyp)
-                     :batch1
                      (and (not (rules-applied :reject-conflict)) cheapest-rej-conflict-hyp)
-                     :reject-conflict)
+                     :reject-conflict
+                     (and (not (rules-applied :batch1)) batch1-hyp)
+                     :batch1)
           choice (cond (= :batch1 rule) batch1-hyp
                        (= :lower-minscore rule) least-minscore-hyp
                        (= :reject-conflict rule) cheapest-rej-conflict-hyp)]
