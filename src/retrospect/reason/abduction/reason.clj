@@ -33,6 +33,7 @@
      (merge {:Threshold [0 [0]]
              :MetaMinScore [0 [0]]
              :MetaThreshold [0 [0]]
+             :MetaRuleSet ["a" ["a" "b" "c"]]
              :MetaHyps ["meta-rej-conflict,meta-rej-minscore,meta-order-dep"
                         ["meta-rej-conflict,meta-rej-minscore,meta-order-dep"]]
              :EstimateMetaScores [false [true false]]

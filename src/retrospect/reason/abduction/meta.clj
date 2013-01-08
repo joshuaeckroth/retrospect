@@ -414,60 +414,78 @@
          est-prior est
          attempted #{}
          rules-applied #{}]
-    (let [meta-hyps (make-meta-hyps problem-cases est-prior time-prev time-now)
-          [est-scored meta-hyps-scored] (score-meta-hyps problem-cases meta-hyps
-                                                         est-prior time-prev time-now sensors)
-          meta-est (new-child-ep (init-est (init-workspace)))
-          meta-ws (reduce add (reduce #(add-observation %1 %2 0)
-                            (:workspace (cur-ep meta-est)) problem-cases)
-                     meta-hyps-scored)
-          do-action (fn [h] (let [meta-ws-accepted (accept meta-ws h nil [] [] 0.0 {} 0) ;; a kludge
-                                 meta-est-accepted (update-est meta-est
-                                                               (assoc (cur-ep meta-est)
-                                                                 :workspace meta-ws-accepted))
-                                 est-with-meta-hyps (update-est est-scored
-                                                                (assoc (cur-ep est-scored)
-                                                                  :meta-est meta-est-accepted))
-                                 [est-action params-action] ((:action h) est-with-meta-hyps)]
-                             (binding [params params-action]
-                               (:est-new (meta-apply-and-evaluate
-                                          est-with-meta-hyps est-action time-now sensors)))))
-          batch1-hyp (first (filter #(and (= :meta-order-dep (:type %))
-                                     (= 1 (:time-delta %)))
-                               meta-hyps-scored))
-          least-minscore-hyp (last (sort-by :new-minscore (filter #(= :meta-rej-minscore (:type %))
-                                                             meta-hyps-scored)))
-          cheapest-rej-conflict-hyp (last (sort-by :cycle (filter #(= :meta-rej-conflict (:type %))
-                                                             meta-hyps-scored)))
-          rule (cond (and (not (rules-applied :lower-minscore)) least-minscore-hyp)
-                     :lower-minscore
-                     (and (not (rules-applied :reject-conflict)) cheapest-rej-conflict-hyp)
-                     :reject-conflict
-                     (and (not (rules-applied :batch1)) batch1-hyp)
-                     :batch1)
-          choice (cond (= :batch1 rule) batch1-hyp
-                       (= :lower-minscore rule) least-minscore-hyp
-                       (= :reject-conflict rule) cheapest-rej-conflict-hyp)]
-      (comment
-        (println "problem-cases:" problem-cases)
-        (println "batch1-hyp:" batch1-hyp)
-        (println "least-minscore-hyp:" least-minscore-hyp)
-        (println "cheapest-rej-conflict-hyp:" cheapest-rej-conflict-hyp)
-        (println "rule:" rule)
-        (println "choice:" choice)
-        (println "\n\n"))
-      (if choice
-        (let [est-result (do-action choice)
-              problem-cases-new (find-problem-cases est-result)]
-          (recur problem-cases-new est-result
-                 (conj attempted (dissoc (:contents choice) :action))
-                 (conj rules-applied rule)))
-        ;; no choice made; we're done
-        (let [meta-est-hyps (update-est meta-est (assoc (cur-ep meta-est) :workspace meta-ws))
-              est-with-meta-hyps (update-est est-scored (assoc (cur-ep est-scored)
-                                                         :meta-est meta-est-hyps))]
-          {:est-old (goto-ep est-with-meta-hyps (:id (cur-ep est)))
-           :est-new est-with-meta-hyps})))))
+    (if (empty? problem-cases)
+      {:est-old (goto-ep est-prior (:id (cur-ep est)))
+       :est-new est-prior}
+      (let [meta-hyps (make-meta-hyps problem-cases est-prior time-prev time-now)
+            [est-scored meta-hyps-scored] (score-meta-hyps problem-cases meta-hyps
+                                                           est-prior time-prev time-now sensors)
+            meta-est (new-child-ep (init-est (init-workspace)))
+            meta-ws (reduce add (reduce #(add-observation %1 %2 0)
+                              (:workspace (cur-ep meta-est)) problem-cases)
+                       meta-hyps-scored)
+            do-action (fn [h] (let [meta-ws-accepted (accept meta-ws h nil [] [] 0.0 {} 0) ;; a kludge
+                                   meta-est-accepted (update-est meta-est
+                                                                 (assoc (cur-ep meta-est)
+                                                                   :workspace meta-ws-accepted))
+                                   est-with-meta-hyps (update-est est-scored
+                                                                  (assoc (cur-ep est-scored)
+                                                                    :meta-est meta-est-accepted))
+                                   [est-action params-action] ((:action h) est-with-meta-hyps)]
+                               (binding [params params-action]
+                                 (:est-new (meta-apply-and-evaluate
+                                            est-with-meta-hyps est-action time-now sensors)))))
+            batch1-hyp (first (filter #(and (= :meta-order-dep (:type %))
+                                       (= 1 (:time-delta %)))
+                                 meta-hyps-scored))
+            least-minscore-hyp (last (sort-by :new-minscore (filter #(= :meta-rej-minscore (:type %))
+                                                               meta-hyps-scored)))
+            cheapest-rej-conflict-hyp (last (sort-by :cycle (filter #(= :meta-rej-conflict (:type %))
+                                                               meta-hyps-scored)))
+            rule (cond (= "a" (:MetaRuleSet params))
+                       (cond (and (not (rules-applied :batch1)) batch1-hyp)
+                             :batch1
+                             (and (not (rules-applied :lower-minscore)) least-minscore-hyp)
+                             :lower-minscore
+                             (and (not (rules-applied :reject-conflict)) cheapest-rej-conflict-hyp)
+                             :reject-conflict)
+                       (= "b" (:MetaRuleSet params))
+                       (cond (and (not (rules-applied :reject-conflict)) cheapest-rej-conflict-hyp)
+                             :reject-conflict
+                             (and (not (rules-applied :lower-minscore)) least-minscore-hyp)
+                             :lower-minscore
+                             (and (not (rules-applied :batch1)) batch1-hyp)
+                             :batch1)
+                       (= "c" (:MetaRuleSet params))
+                       (cond (and (not (rules-applied :lower-minscore)) least-minscore-hyp)
+                             :lower-minscore
+                             (and (not (rules-applied :reject-conflict)) cheapest-rej-conflict-hyp)
+                             :reject-conflict
+                             (and (not (rules-applied :batch1)) batch1-hyp)
+                             :batch1))
+            choice (cond (= :batch1 rule) batch1-hyp
+                         (= :lower-minscore rule) least-minscore-hyp
+                         (= :reject-conflict rule) cheapest-rej-conflict-hyp)]
+        (comment
+          (println "problem-cases:" problem-cases)
+          (println "batch1-hyp:" batch1-hyp)
+          (println "least-minscore-hyp:" least-minscore-hyp)
+          (println "cheapest-rej-conflict-hyp:" cheapest-rej-conflict-hyp)
+          (println "rule:" rule)
+          (println "choice:" choice)
+          (println "\n\n"))
+        (if choice
+          (let [est-result (do-action choice)
+                problem-cases-new (find-problem-cases est-result)]
+            (recur problem-cases-new est-result
+                   (conj attempted (dissoc (:contents choice) :action))
+                   (conj rules-applied rule)))
+          ;; no choice made; we're done
+          (let [meta-est-hyps (update-est meta-est (assoc (cur-ep meta-est) :workspace meta-ws))
+                est-with-meta-hyps (update-est est-scored (assoc (cur-ep est-scored)
+                                                            :meta-est meta-est-hyps))]
+            {:est-old (goto-ep est-with-meta-hyps (:id (cur-ep est)))
+             :est-new est-with-meta-hyps}))))))
 
 (defn resolve-by-ignoring
   [problem-cases est time-prev time-now sensors]
