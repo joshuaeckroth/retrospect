@@ -157,7 +157,8 @@
                                     (format "Order dependency at time 0, ep %s" (str batchbeg-ep))
                                     {:action (partial action-batch batchbeg-ep)
                                      :cycle (:cycle batchbeg-ep)
-                                     :time 0})]
+                                     :time 0
+                                     :time-delta time-now})]
           (loop [hs (filter #(empty? (explainers cur-ws %)) problem-cases)
                  order-dep-hyps [batchbeg-hyp]]
             (if (empty? hs) order-dep-hyps
@@ -175,7 +176,8 @@
                                      (format "Order dependency at time %d, ep %s" (dec t) (str ep))
                                      {:action (partial action-batch ep)
                                       :cycle (:cycle ep)
-                                      :time (dec t)}))))))))
+                                      :time (dec t)
+                                      :time-delta (- time-now (dec t))}))))))))
         ;; time-prev == 0, so this is a "static" case or we have not
         ;; done much reasoning yet
         [])))
@@ -222,21 +224,25 @@
   [problem-cases est time-prev time-now available-meta-hyps cur-ws expl]
   ;; were some explainers omitted due to high min-score?
   (if (not (available-meta-hyps "meta-rej-minscore")) []
-      (let [expl-rejected-minscore (filter (fn [h]
+      (let [minscore (/ (double (:MinScore params)) 100.0)
+            expl-rejected-minscore (filter (fn [h]
                                         (and (= :minscore (rejection-reason cur-ws h))
                                              ;; require that hyp had a score at least
                                              ;; half the minscore
-                                             (>= (:apriori h) (/ (double (:MinScore params)) 200.0))))
+                                             (>= (:apriori h) (/ minscore 2.0))))
                                       expl)]
         (if (not-empty expl-rejected-minscore)
           [(new-hyp "TooHighMinScore" :meta-rej-minscore :meta-rej-minscore
                     0.25 false meta-hyp-conflicts? []
                     "Explainers rejected due to too-high min-score"
-                    (format "These explainers were rejected due to too-high min-score: %s"
-                       (str/join ", " (sort (map str expl-rejected-minscore))))
+                    (format "These explainers were rejected due to too-high min-score:\n%s"
+                       (str/join "\n" (sort (map str expl-rejected-minscore))))
                     {:action (partial action-lower-minscore time-now)
                      :cycle (:cycle (cur-ep (goto-start-of-time est time-now)))
-                     :implicated expl-rejected-minscore})]
+                     :implicated expl-rejected-minscore
+                     :min-score-delta (- minscore (apply min (map :apriori expl-rejected-minscore)))
+                     :max-score-delta (- minscore (apply max (map :apriori expl-rejected-minscore)))
+                     :avg-score-delta (- minscore (avg (map :apriori expl-rejected-minscore)))})]
           []))))
 
 (defn make-meta-hyps

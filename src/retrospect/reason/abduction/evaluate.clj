@@ -289,7 +289,23 @@
              (keyword (format "FalseAnomalyReduction%s" k)) (ar-avg-count t false)
              (keyword (format "FalseAnomalyResolvedApriori%s" k)) (ar-avg-apriori t false)
              (keyword (format "FalseAnomalyResolvedAprioriDiff%s" k)) (ar-avg-apriori-diff t false))))
-       {} (:meta-hyp-types @reasoner))))
+       {:TrueMetaOrderDepTimeDeltaAvg
+        (avg (map :time-delta (get-in meta-true-false [:meta-order-dep true])))
+        :FalseMetaOrderDepTimeDeltaAvg
+        (avg (map :time-delta (get-in meta-true-false [:meta-order-dep false])))
+        :TrueMetaRejMinscoreMinScoreDeltaAvg
+        (avg (map :min-score-delta (get-in meta-true-false [:meta-rej-minscore true])))
+        :FalseMetaRejMinscoreMinScoreDeltaAvg
+        (avg (map :min-score-delta (get-in meta-true-false [:meta-rej-minscore false])))
+        :TrueMetaRejMinscoreMaxScoreDeltaAvg
+        (avg (map :max-score-delta (get-in meta-true-false [:meta-rej-minscore true])))
+        :FalseMetaRejMinscoreMaxScoreDeltaAvg
+        (avg (map :max-score-delta (get-in meta-true-false [:meta-rej-minscore false])))
+        :TrueMetaRejMinscoreAvgScoreDeltaAvg
+        (avg (map :avg-score-delta (get-in meta-true-false [:meta-rej-minscore true])))
+        :FalseMetaRejMinscoreAvgScoreDeltaAvg
+        (avg (map :avg-score-delta (get-in meta-true-false [:meta-rej-minscore false])))}
+       (:meta-hyp-types @reasoner))))
 
 (defn anomaly-reduction-indicator
   [meta-true-false est]
