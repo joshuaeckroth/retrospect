@@ -45,8 +45,8 @@
     :StepsBetween [1 [1]]
     :NumExplainers [3 [3]]
     :NumExplainsLinks [30 [30]]
-    :NumConflictLinks [5 [5]]
-    :UniqueGraphs [1000 [1000]]
+    :NumConflictLinks [10 [10]]
+    :UniqueGraphs [10 [10]]
     :HypScores ["prior" ["prior" "posterior"]]
     :PriorFunc ["max" ["min" "max" "avg"]]
     :MaxStates [3 [2 3 4]]}})
