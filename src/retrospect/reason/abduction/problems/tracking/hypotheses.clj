@@ -181,10 +181,23 @@
                                (assoc det2 :color (first colors-in))
                                :else det2)
               d (dist (:x det-color) (:y det-color)
-                      (:x det2-color) (:y det2-color))]
+                      (:x det2-color) (:y det2-color))
+              apriori (move-prob d moves-dist)
+              apriori-color-penalty (cond
+                                     ;; one det is gray
+                                     (or (and (= gray (:color det))
+                                              (not= gray (:color det2)))
+                                         (and (= gray (:color det2))
+                                              (not= gray (:color det))))
+                                     (* 0.75 apriori)
+                                     ;; two dets are gray
+                                     (and (= gray (:color det) (:color det2)))
+                                     (* 0.5 apriori)
+                                     ;; neither det is gray
+                                     :else apriori)]
           (when (match-color? (:color det-color) (:color det2-color))
             (new-hyp "Mov" :movement :movement
-                     (move-prob d moves-dist)
+                     apriori-color-penalty
                      false conflicts? (map :contents [to from])
                      (format "%d,%d->%d,%d @ %d->%d (%s->%s)"
                         (:x det-color) (:y det-color)
