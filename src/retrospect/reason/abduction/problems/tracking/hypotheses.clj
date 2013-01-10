@@ -48,15 +48,9 @@
 (defn conflicts?
   [h1 h2]
   (and (not= (:id h1) (:id h2))
+       (not= :observation (:type h1))
+       (not= :observation (:type h2))
        (or
-        (and (= :ignore (:subtype h1))
-             (= :observation (:type h2))
-             (= (:det h1) (:det h2))
-             (= (:from-to h1) (:from-to h2)))
-        (and (= :ignore (:subtype h2))
-             (= :observation (:type h1))
-             (= (:det h2) (:det h1))
-             (= (:from-to h1) (:from-to h2)))
         (and (= :object (:type h1) (:type h2))
              (= (:color (:det h1)) (:color (:det h2)))
              (not= gray (:color (:det h1))))
