@@ -453,15 +453,20 @@
                        "so leaving as is (not adding).")
                   (-> ws (dissoc-in [:sorted-explainers prior-hyp-id])
                      (dissoc-explainer prior-hyp-updated))))
-            ;; otherwise, it may conflict with an accepted hyp
-            (if (and (:conflicts?-fn hyp-c)
-                     (some (fn [hyp2] ((:conflicts?-fn hyp-c) hyp-c hyp2))
-                        (map #(lookup-hyp ws %) (:all (:accepted ws)))))
-              (do (log "...yet it conflicts with an already accepted hyp, so immediately rejecting.")
-                  (reject-many ws [prior-hyp] :conflict cycle))
-              ;; otherwise, just leave it with its explainers
-              ;; updated, etc. (from above)
-              ws))))
+            ;; it was already accepted
+            (if ((get-in ws [:accepted :all]) prior-hyp-id)
+              (do (log "...yet was already accepted.")
+                  (-> ws (dissoc-in [:sorted-explainers prior-hyp-id])
+                     (dissoc-explainer prior-hyp-updated)))
+              ;; it may conflict with an accepted hyp
+              (if (and (:conflicts?-fn hyp-c)
+                       (some (fn [hyp2] ((:conflicts?-fn hyp-c) hyp-c hyp2))
+                          (map #(lookup-hyp ws %) (:all (:accepted ws)))))
+                (do (log "...yet it conflicts with an already accepted hyp, so immediately rejecting.")
+                    (reject-many ws [prior-hyp] :conflict cycle))
+                ;; otherwise, just leave it with its explainers
+                ;; updated, etc. (from above)
+                ws)))))
       ;; otherwise, check if conflicts, if not add it
       (let [ws (let [hyp-apriori (update-hyp-apriori workspace hyp-c)]
                  (-> workspace
