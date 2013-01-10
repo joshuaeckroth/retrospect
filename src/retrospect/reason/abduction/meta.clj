@@ -172,7 +172,7 @@
                                    :cycle (:cycle batch1-ep)
                                    :time (dec time-now)
                                    :time-delta 1})]
-          (loop [hs (filter #(empty? (explainers cur-ws %)) problem-cases)
+          (loop [hs (sort-by :id (filter #(empty? (explainers cur-ws %)) problem-cases))
                  order-dep-hyps [batchbeg-hyp batch1-hyp]]
             (if (empty? hs) order-dep-hyps
                 (let [t (:time (cur-ep (goto-cycle est (accepted-cycle cur-ws (first hs)))))
@@ -202,18 +202,18 @@
   ;; consider the various possibilities of rejected explainers and
   ;; no-explainers combinations
   (if (not (available-meta-hyps "meta-rej-conflict")) []
-      (let [expl-rejected-conflicts (filter (fn [h] (= :conflict (rejection-reason cur-ws h)))
-                                       expl)
-            problem-cases-possibly-resolved (filter (fn [pc] ((set (mapcat :explains expl-rejected-conflicts))
-                                                        (:contents pc)))
-                                               problem-cases)
+      (let [expl-rejected-conflicts (sort-by :id (filter (fn [h] (= :conflict (rejection-reason cur-ws h)))
+                                                    expl))
+            problem-cases-possibly-resolved (sort-by :id (filter (fn [pc] ((set (mapcat :explains expl-rejected-conflicts))
+                                                                     (:contents pc)))
+                                                            problem-cases))
             acc-conflicting (set (mapcat
                                   (fn [e] (filter (fn [c] (accepted-before? cur-ws c e))
                                             (find-conflicts-all cur-ws e)))
                                   expl-rejected-conflicts))
             inner-hyps (set (map :id (mapcat :hyps acc-conflicting)))
-            acc-conflicting-no-comps (filter #(not (inner-hyps (:id %)))
-                                        acc-conflicting)
+            acc-conflicting-no-comps (sort-by :id (filter #(not (inner-hyps (:id %)))
+                                                     acc-conflicting))
             ;; which ep-states rejected these expl (essentials are
             ;; allowed; we may still want to reject an "essential"
             ;; explainer
@@ -243,11 +243,11 @@
   ;; were some explainers omitted due to high min-score?
   (if (not (available-meta-hyps "meta-rej-minscore")) []
       (let [minscore (/ (double (:MinScore params)) 100.0)
-            expl-rejected-minscore (filter (fn [h] (= :minscore (rejection-reason cur-ws h)))
-                                      expl)
-            relevant-problem-cases (filter (fn [pc] (some #{(:contents pc)}
-                                                 (mapcat :explains expl-rejected-minscore)))
-                                      problem-cases)]
+            expl-rejected-minscore (sort-by :id (filter (fn [h] (= :minscore (rejection-reason cur-ws h)))
+                                                   expl))
+            relevant-problem-cases (sort-by :id (filter (fn [pc] (some #{(:contents pc)}
+                                                              (mapcat :explains expl-rejected-minscore)))
+                                                   problem-cases))]
         (if (not-empty expl-rejected-minscore)
           (let [new-minscore (* 100.0 (- (apply min (map :apriori expl-rejected-minscore)) 0.01))]
             [(new-hyp "TooHighMinScore" :meta-rej-minscore :meta-rej-minscore
