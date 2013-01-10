@@ -12,7 +12,7 @@
   (cond (= :movement (:type hyp))
         (if (some #(moves-match? (:mov hyp) %) (:all-moves truedata)) true false)
         ;; check for sensor noise
-        (= :observation (:type hyp))
+        (or (= :observation (:type hyp)) (= :object (:type hyp)))
         (if ((:all-xys truedata) {:x (:x (:det hyp)) :y (:y (:det hyp))
                                   :time (:time (:det hyp))})
           true false)))
