@@ -44,7 +44,7 @@
                :ignore-doubt-types #{:object :observation}
                :default-params
                {:ResensePrevTime [true [true]]
-                :ObjectScore ["avg" ["min" "max" "avg"]]}}
+                :ObjectScore ["max" ["min" "max" "avg"]]}}
    :default-params
    {:Steps [20 [20]]
     :StepsBetween [1 [1]]
