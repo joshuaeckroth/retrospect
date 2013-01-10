@@ -216,10 +216,16 @@
                                               (:x det) (:y det))]
                                   (move-prob d moves-dist)))
                       (filter #(match-color? (:color %) (:color det)) prior-dets))
-        apriori (if (not-empty move-probs) (avg move-probs)
-                    (if (or (and (= :from (:subtype obs)) (= 1 (:time det)))
-                            (and (= :to (:subtype obs)) (= 0 (:time det))))
-                      1.0 0.0))]
+        apriori (if (not-empty move-probs)
+                  (cond (= "avg" (:ObjectScore params))
+                        (avg move-probs)
+                        (= "min" (:ObjectScore params))
+                        (apply min move-probs)
+                        (= "max" (:ObjectScore params))
+                        (apply max move-probs))
+                  (if (or (and (= :from (:subtype obs)) (= 1 (:time det)))
+                          (and (= :to (:subtype obs)) (= 0 (:time det))))
+                    1.0 0.0))]
     (new-hyp (format "Obj%s" (if (= :to (:subtype obs)) "To" "From"))
              :object (:subtype obs)
              apriori true conflicts?
