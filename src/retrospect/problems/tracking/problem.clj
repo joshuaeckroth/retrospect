@@ -41,6 +41,7 @@
                :training-stats-fn training-stats
                :learn-fn (constantly [])
                :hyp-types #{:movement :object :observation}
+               :ignore-doubt-types #{:object :observation}
                :default-params
                {:ResensePrevTime [true [true]]}}
    :default-params

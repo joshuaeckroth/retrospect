@@ -563,13 +563,13 @@
   [workspace]
   (if (= "score" (:DoubtMeasure params))
     (when (and (:best (:accrej workspace))
-               (not= :observation (:type (:best (:accrej workspace))))
-               (not= :object (:type (:best (:accrej workspace)))))
+               (not ((:ignore-doubt-types (:abduction @problem))
+                     (:type (:best (:accrej workspace))))))
       (- 1.0 (:apriori (:best (:accrej workspace)))))
     ;; "delta"
     (when (and (:delta (:accrej workspace))
-               (not= :observation (:type (:best (:accrej workspace))))
-               (not= :object (:type (:best (:accrej workspace)))))
+               (not ((:ignore-doubt-types (:abduction @problem))
+                     (:type (:best (:accrej workspace))))))
       (- 1.0 (:delta (:accrej workspace))))))
 
 (defn calc-coverage

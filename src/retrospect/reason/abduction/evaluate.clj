@@ -18,7 +18,7 @@
 
 (defn doubt-aggregate
   [est]
-  (let [doubts (filter identity (map #(calc-doubt %) (map :workspace (ep-path est))))
+  (let [doubts (doall (filter identity (map #(calc-doubt %) (map :workspace (ep-path est)))))
         unexp (get-unexplained (:workspace (cur-ep est)))
         ds (if (:DoubtUnexp params)
              (concat (repeat (count unexp) 1.0) doubts)
@@ -93,7 +93,10 @@
   (let [eps (if meta?
               (mapcat (comp flatten-est :meta-est) (filter :meta-est (flatten-est est)))
               (ep-path est))
-        delta-tf (for [ep (filter (comp :best :accrej :workspace) eps)]
+        delta-tf (for [ep (filter (fn [ep] (when-let [b (:best (:accrej (:workspace ep)))]
+                                       (not ((:ignore-doubt-types (:abduction @problem))
+                                             (:type b)))))
+                             eps)]
                    (let [accrej (:accrej (:workspace ep))]
                      [(tf-true? true-false (:best accrej))
                       (:delta accrej)]))

@@ -38,6 +38,7 @@
                :update-kb-fn update-kb
                :stats-fn stats
                :hyp-types #{:expl :expl-composite :observation}
+               :ignore-doubt-types #{:observation}
                :default-params {:GetMoreHyps [true [true]]}}
    :default-params
    {:Steps [5 [5]]
