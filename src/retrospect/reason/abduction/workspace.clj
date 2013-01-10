@@ -524,7 +524,7 @@
                              (assoc-needing-explanation ws-conflicts hyp))
               ws-composite (if (:composite? hyp)
                              (reduce (fn [ws h]
-                                  (let [ws-added (add ws h)
+                                  (let [ws-added (add ws h cycle)
                                         ;; when added, hyp id may have
                                         ;; changed; find the hyp again
                                         h-updated (lookup-hyp ws-added
