@@ -34,7 +34,7 @@
                        (add-sensor-hyps workspace time-prev time-now sensors cycle)
                        workspace)
           ws-hyps (if (or sensors (:GetMoreHyps params))
-                    (update-hypotheses ws-sensors time-now)
+                    (update-hypotheses ws-sensors cycle time-now)
                     ws-sensors)]
       (assoc ws-hyps :log @reason-log))))
 
@@ -345,8 +345,9 @@
         meta-est (new-child-ep (init-est (assoc (init-workspace)
                                            :meta-oracle (:meta-oracle (:workspace (cur-ep est))))))
         meta-ws (binding [params meta-params]
-                  (reduce add (reduce #(add-observation %1 %2 0)
-                            (:workspace (cur-ep meta-est)) problem-cases)
+                  (reduce #(add %1 %2 0)
+                     (reduce #(add-observation %1 %2 0)
+                        (:workspace (cur-ep meta-est)) problem-cases)
                      meta-hyps-scored))
         meta-est-reasoned (binding [params meta-params]
                             (reason (update-est meta-est (assoc (cur-ep meta-est)
@@ -418,8 +419,9 @@
             [est-scored meta-hyps-scored] (score-meta-hyps problem-cases meta-hyps
                                                            est-prior time-prev time-now sensors)
             meta-est (new-child-ep (init-est (init-workspace)))
-            meta-ws (reduce add (reduce #(add-observation %1 %2 0)
-                              (:workspace (cur-ep meta-est)) problem-cases)
+            meta-ws (reduce #(add %1 %2 0)
+                       (reduce #(add-observation %1 %2 0)
+                          (:workspace (cur-ep meta-est)) problem-cases)
                        meta-hyps-scored)
             do-action (fn [h] (let [meta-ws-accepted (accept meta-ws h nil [] [] 0.0 {} 0) ;; a kludge
                                    meta-est-accepted (update-est meta-est
