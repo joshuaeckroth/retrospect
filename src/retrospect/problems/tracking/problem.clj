@@ -46,16 +46,16 @@
                {:ResensePrevTime [true [true]]
                 :ObjectScore ["max" ["min" "max" "avg"]]}}
    :default-params
-   {:Steps [20 [20]]
+   {:Steps [5 [5]]
     :StepsBetween [1 [1]]
-    :GridWidth [20 [20]]
-    :GridHeight [20 [20]]
+    :GridWidth [10 [10]]
+    :GridHeight [10 [10]]
     :WalkType ["random" ["random" "gaussian"]]
-    :RandomWalkSteps [5 [5]]
-    :TrainingSteps [25 [25]]
-    :TrainingRandom [0 [0]]
+    :RandomWalkSteps [8 [8]]
+    :TrainingSteps [100 [100]]
+    :TrainingRandom [50 [50]]
     :GaussianTrueWalkMean [4 [4]]
     :GaussianBelWalkMean [4 [4]]
     :NumberEntities [4 [2 4 6]]
-    :SensorSeesColor [60 [0 20 40 60 80 100]]
+    :SensorSeesColor [40 [0 20 40 60 80 100]]
     :SensorCoverage [100 [100]]}})
