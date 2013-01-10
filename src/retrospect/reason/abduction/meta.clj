@@ -249,26 +249,23 @@
                                                  (mapcat :explains expl-rejected-minscore)))
                                       problem-cases)]
         (if (not-empty expl-rejected-minscore)
-          ;; don't bother if we'd have to lower minscore more than 0.02
-          (if (< 0.02 (- minscore (apply min (map :apriori expl-rejected-minscore))))
-            []
-            (let [new-minscore (* 100.0 (- (apply min (map :apriori expl-rejected-minscore)) 0.01))]
-              [(new-hyp "TooHighMinScore" :meta-rej-minscore :meta-rej-minscore
-                        0.25 false meta-hyp-conflicts?
-                        (map :contents relevant-problem-cases)
-                        "Explainers rejected due to too-high min-score"
-                        (format "These explainers were rejected due to too-high min-score:\n%s\n\nLowering to: %.2f\n\nRelevant problem cases:\n%s"
-                           (str/join "\n" (sort (map str expl-rejected-minscore)))
-                           new-minscore
-                           (str/join "\n" (sort (map str relevant-problem-cases))))
-                        {:action (partial action-lower-minscore new-minscore time-now)
-                         :cycle (:cycle (cur-ep (goto-start-of-time est time-now)))
-                         :implicated expl-rejected-minscore
-                         :new-minscore new-minscore
-                         :penalty (* 2.0 (- minscore (apply min (map :apriori expl-rejected-minscore))))
-                         :min-score-delta (- minscore (apply min (map :apriori expl-rejected-minscore)))
-                         :max-score-delta (- minscore (apply max (map :apriori expl-rejected-minscore)))
-                         :avg-score-delta (- minscore (avg (map :apriori expl-rejected-minscore)))})]))
+          (let [new-minscore (* 100.0 (- (apply min (map :apriori expl-rejected-minscore)) 0.01))]
+            [(new-hyp "TooHighMinScore" :meta-rej-minscore :meta-rej-minscore
+                      0.25 false meta-hyp-conflicts?
+                      (map :contents relevant-problem-cases)
+                      "Explainers rejected due to too-high min-score"
+                      (format "These explainers were rejected due to too-high min-score:\n%s\n\nLowering to: %.2f\n\nRelevant problem cases:\n%s"
+                         (str/join "\n" (sort (map str expl-rejected-minscore)))
+                         new-minscore
+                         (str/join "\n" (sort (map str relevant-problem-cases))))
+                      {:action (partial action-lower-minscore new-minscore time-now)
+                       :cycle (:cycle (cur-ep (goto-start-of-time est time-now)))
+                       :implicated expl-rejected-minscore
+                       :new-minscore new-minscore
+                       :penalty (* 2.0 (- minscore (apply min (map :apriori expl-rejected-minscore))))
+                       :min-score-delta (- minscore (apply min (map :apriori expl-rejected-minscore)))
+                       :max-score-delta (- minscore (apply max (map :apriori expl-rejected-minscore)))
+                       :avg-score-delta (- minscore (avg (map :apriori expl-rejected-minscore)))})])
           []))))
 
 (defn make-meta-hyps
