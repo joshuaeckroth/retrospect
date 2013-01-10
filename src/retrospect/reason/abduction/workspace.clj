@@ -562,10 +562,12 @@
 (defn calc-doubt
   [workspace]
   (if (= "score" (:DoubtMeasure params))
-    (when (:best (:accrej workspace))
+    (when (and (:best (:accrej workspace))
+               (not= :observation (:type (:best (:accrej workspace)))))
       (- 1.0 (:apriori (:best (:accrej workspace)))))
     ;; "delta"
-    (when (:delta (:accrej workspace))
+    (when (and (:delta (:accrej workspace))
+               (not= :observation (:type (:best (:accrej workspace)))))
       (- 1.0 (:delta (:accrej workspace))))))
 
 (defn calc-coverage
