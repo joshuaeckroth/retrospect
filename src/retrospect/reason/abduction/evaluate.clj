@@ -351,6 +351,22 @@
                            choice-count)))))
         {} (:meta-hyp-types @reasoner)))))
 
+(defn noexp-conflict-true-false
+  "How many conflict noexp anomalies are true (and should be explained)?"
+  [est true-false]
+  (let [ws (:workspace (cur-ep est))
+        noexp-conflict (filter (fn [h] (= :conflict (classify-noexp-reason ws h)))
+                          (map #(lookup-hyp ws %) (get-no-explainers ws)))
+        grouped (group-by #(tf-true? true-false %) noexp-conflict)]
+    (if (empty? noexp-conflict)
+      ;; todo: return nil maybe?
+      {:PctTrueNoExpConflict 0.0
+       :PctFalseNoExpConflict 0.0}
+      {:PctTrueNoExpConflict (double (/ (count (get grouped true))
+                                        (count noexp-conflict)))
+       :PctFalseNoExpConflict (double (/ (count (get grouped false))
+                                         (count noexp-conflict)))})))
+
 (defn evaluate
   [truedata est]
   (let [ep (cur-ep est)
@@ -404,6 +420,7 @@
            meta-true-false-scores
            (anomaly-reduction-meta-hyps meta-true-false)
            (anomaly-reduction-indicator meta-true-false est)
+           (noexp-conflict-true-false est true-false)
            (last decision-metrics)
            {:Step (:time ep)
             :AvgUnexplainedPct (avg (map :UnexplainedPct decision-metrics))
