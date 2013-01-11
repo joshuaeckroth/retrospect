@@ -224,9 +224,9 @@
                                     (:cycle ep)
                                     (get-in ep [:workspace :accrej :best])])
                            ep-rejs)
-            bad-bests (reverse
-                       (sort-by first (set (filter (fn [[delta _ best]] (and delta best))
-                                              rejs-deltas))))]
+            ;; this will sort by delta first, then cycle
+            bad-bests (reverse (sort (set (filter (fn [[delta _ best]] (and delta best))
+                                             rejs-deltas))))]
         (for [[delta cycle hyp] bad-bests]
           (new-hyp "RejConflict" :meta-rej-conflict :meta-rej-conflict
                    0.5 false meta-hyp-conflicts?
