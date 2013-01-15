@@ -19,8 +19,6 @@
                  [clojure-csv/clojure-csv "2.0.0-alpha1"]
                  [com.fifesoft/rsyntaxtextarea "2.0.2"]
                  [com.github.insubstantial/substance "7.1"]
-                 [korma "0.3.0-beta14"]
-                 [mysql/mysql-connector-java "5.1.6"]
                  [norsys/netica "504"]]
   :dev-dependencies [[lein-marginalia "0.7.0"]]
   :plugins [[lein-localrepo "0.4.1"]]

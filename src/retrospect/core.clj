@@ -6,7 +6,8 @@
   (:use [clojure.contrib.string :only [split-lines]])
   (:use [retrospect.random :only [rgen new-seed]])
   (:require [retrospect.state :as state])
-  (:use [retrospect.db :only [set-db read-params]])
+  (:use [granary.misc])
+  (:use [granary.parameters :only [read-params]])
   (:use [retrospect.reason.abduction.reason :only [reason-abduction]])
   (:use [retrospect.problems.tracking.problem :only [tracking-problem]])
   (:use [retrospect.problems.words.problem :only [words-problem]])
@@ -16,8 +17,6 @@
   (:use [retrospect.explore :only [start-explore]])
   (:use [retrospect.player :only [start-player]])
   (:use [retrospect.bugreport]))
-
-(def causal-problem)
 
 (defn choose-problem
   [problem]
@@ -50,7 +49,7 @@
      [git "Git path" "git"]
      [seed "Seed" "0"]
      [dbhost "MySQL database host" "localhost"]
-     [dbname "MySQL database name" "sisyphus_retrospect"]
+     [dbname "MySQL database name" "retrospect"]
      [dbuser "MySQL database user" "user"]
      [dbpassword "MySQL database password" "password"]
      [upload "Upload?" "true"]
@@ -92,7 +91,10 @@
                   [problem ps] (read-params params)
                   git-dirty? (not-empty
                               (filter #(not= "??" (if (>= 2 (count %)) "??" (subs % 0 2)))
-                                      (split-lines (sh git "status" "--porcelain"))))]
+                                 (split-lines (sh git "status" "--porcelain"))))]
+              (when (or (nil? problem) (nil? ps))
+                (println "No such parameters.")
+                (System/exit -1))
               (when (and upload? git-dirty?)
                 (println "Project has uncommitted changes. Commit with git before"
                          "running simulations.")

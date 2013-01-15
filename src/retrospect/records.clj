@@ -1,53 +1,15 @@
 (ns retrospect.records
   (:import [java.io File])
-  (:use [clojure.java.io :as io :only (writer copy file)])
-  (:import [java.util Date])
+  (:use [granary.misc :only [format-date-ms]])
+  (:use [granary.git :only [git-meta-info]])
+  (:use [granary.runs :only [commit-run]])
+  (:use [granary.parameters :only [explode-params vectorize-params]])
   (:require [clojure.string :as str])
-  (:use [clojure.contrib.prxml :only [prxml]])
-  (:use [clojure.xml :as xml :only [parse tag attrs]])
-  (:use [clojure.zip :as zip :only [xml-zip node children]])
-  (:use [clojure.contrib.zip-filter.xml :as zf :only [xml-> text attr=]])
-  (:use [clojure.contrib.shell :only [sh]])
+  (:use [clojure.java.io :only [file]])
   (:use [clojure.contrib.io :only [pwd]])
-  (:use [clojure.java.io :as io :only [writer reader copy]])
-  (:use [clojure.string :only [split-lines trim]])
   (:use [retrospect.local :only [run-partitions]])
-  (:require [retrospect.db :as db])
   (:use [clojure-csv.core :only [parse-csv]])
   (:use [retrospect.state]))
-
-(defn vectorize-params
-  [params]
-  (reduce (fn [m k] (let [v (k params)]
-                      (assoc m k (if (vector? v) v [v]))))
-          {} (keys params)))
-
-(defn explode-params
-  "Want {:Xyz [1 2 3], :Abc [3 4]} to become [{:Xyz 1, :Abc 3}, {:Xyz 2, :Abc 4}, ...]"
-  [params]
-  (when (not-empty params)
-    (if (= 1 (count params))
-      (for [v (second (first params))]
-        {(first (first params)) v})
-      (let [p (first params)
-            deeper (explode-params (rest params))]
-        (flatten (map (fn [v] (map #(assoc % (first p) v) deeper)) (second p)))))))
-
-(defn get-commit-date
-  [commit]
-  (let [git-output (sh "git" "show" "--format=raw" commit)
-        timestamp (second (re-find #"committer .* (\d+) -0[45]00" git-output))]
-    (sh "date" "+%Y-%m-%d %H:%M:%S" (format "--date=@%s" timestamp))))
-
-(defn git-meta-info
-  [git]
-  (let [[out _ _ _ & msg] (split-lines (sh git "log" "-n" "1"))
-        branch (trim (subs (sh git "branch" "--contains") 2))
-        commit (subs out 7)]
-    {:commit commit
-     :commitdate (get-commit-date commit)
-     :commitmsg (apply str (interpose "\n" (map (fn [s] (subs s 4)) (filter not-empty msg))))
-     :branch branch}))
 
 (defn read-csv
   [lines]
@@ -67,7 +29,7 @@
                                     (second (re-matches #".*\-(\d+)\.csv$"
                                                         (.getName %))))
                                   (filter #(re-find #"\.csv$" (.getName %))
-                                     (file-seq (clojure.java.io/file recdir))))))]
+                                     (file-seq (file recdir))))))]
     (doall
      (for [sim simulations]
        (let [control-file
@@ -87,7 +49,7 @@
   (let [run-meta (read-string (slurp (format "%s/meta.clj" recdir)))
         results (read-archived-results recdir)]
     (println "Writing results to database...")
-    (db/commit-run run-meta results)
+    (commit-run run-meta results)
     (println "Done.")))
 
 (defn run-with-new-record
@@ -101,13 +63,13 @@
                               (explode-params (vectorize-params (:comparison @db-params))))
           paired-params (when comparison-params
                           (partition 2 (interleave control-params comparison-params)))
-          run (merge {:starttime (db/format-date t)
+          run (merge {:starttime (format-date-ms t)
                       :paramid (:paramid @db-params)
                       :datadir @datadir :recorddir recdir :nthreads nthreads
                       :pwd (pwd) :repetitions repetitions :seed seed
                       :hostname (.getHostName (java.net.InetAddress/getLocalHost))
                       :username (System/getProperty "user.name")}
-                     (git-meta-info git))]
+                     (git-meta-info git (pwd)))]
       (when (and comparison-params (not= (count control-params) (count comparison-params)))
         (println "Control/comparison param counts are not equal.")
         (System/exit -1))

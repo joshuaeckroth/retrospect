@@ -1,12 +1,11 @@
 (ns retrospect.local
   (:import (java.util Date))
-  (:use [clojure.java.io :as io :only (writer copy file)])
-  (:use [clojure.stacktrace :only [print-cause-trace]])
+  (:use [clojure.java.io :as io :only (writer file)])
   (:require [clojure.string :as str])
   (:require [clojure.contrib.math :as math])
   (:use [retrospect.simulate :only [run]])
+  (:use [granary.misc])
   (:use [retrospect.random])
-  (:require [retrospect.db :as db])
   (:use [clojure-csv.core :only [write-csv]])
   (:use [retrospect.state]))
 
@@ -99,5 +98,5 @@
                                          start-time sim-count save-record?)))]
     (doall (pmap (fn [w] @w) workers))
     (let [run-meta-stopped (assoc run-meta :endtime
-                                  (db/format-date (. System (currentTimeMillis))))]
+                                  (format-date-ms (. System (currentTimeMillis))))]
       (when save-record? (spit (format "%s/meta.clj" recdir) (pr-str run-meta-stopped))))))
