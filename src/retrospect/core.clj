@@ -61,7 +61,7 @@
           problem (choose-problem problem)
           repetitions (Integer/parseInt repetitions)
           logging-enabled (Boolean/parseBoolean log)]
-      (set-db dbhost dbname dbuser dbpassword)
+      (set-granary-db dbhost dbname dbuser dbpassword)
       (alter-var-root (var rgen) (constantly (new-seed seed)))
       (dosync
        (alter state/datadir (constantly datadir))
