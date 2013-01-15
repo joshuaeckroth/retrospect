@@ -6,7 +6,7 @@
   (:use [clojure.contrib.string :only [split-lines]])
   (:use [retrospect.random :only [rgen new-seed]])
   (:require [retrospect.state :as state])
-  (:use [retrospect.database :only [read-params]])
+  (:use [retrospect.db :only [set-db read-params]])
   (:use [retrospect.reason.abduction.reason :only [reason-abduction]])
   (:use [retrospect.problems.tracking.problem :only [tracking-problem]])
   (:use [retrospect.problems.words.problem :only [words-problem]])
@@ -49,7 +49,10 @@
      [repetitions "Number of repetitions" "10"]
      [git "Git path" "git"]
      [seed "Seed" "0"]
-     [database "Database identifier" "http://127.0.0.1:5984/retrospect"]
+     [dbhost "MySQL database host" "localhost"]
+     [dbname "MySQL database name" "sisyphus_retrospect"]
+     [dbuser "MySQL database user" "user"]
+     [dbpassword "MySQL database password" "password"]
      [upload "Upload?" "true"]
      [save-record "Save in record directory?" "true"]
      [recdir "Record directory" ""]
@@ -59,10 +62,10 @@
           problem (choose-problem problem)
           repetitions (Integer/parseInt repetitions)
           logging-enabled (Boolean/parseBoolean log)]
+      (set-db dbhost dbname dbuser dbpassword)
       (alter-var-root (var rgen) (constantly (new-seed seed)))
       (dosync
        (alter state/datadir (constantly datadir))
-       (alter state/database (constantly database))
        (alter state/reasoner (constantly reasoner))
        (alter state/problem (constantly problem))
        (alter state/logging-enabled (constantly logging-enabled)))
@@ -90,12 +93,9 @@
                   git-dirty? (not-empty
                               (filter #(not= "??" (if (>= 2 (count %)) "??" (subs % 0 2)))
                                       (split-lines (sh git "status" "--porcelain"))))]
-              (when (and upload? git-dirty?
-                         (not (or (re-matches #".*127\.0\.0\.1.*" database)
-                                  (re-matches #".*localhost.*" database))))
+              (when (and upload? git-dirty?)
                 (println "Project has uncommitted changes. Commit with git before"
-                         "running simulations, or use the default (localhost)"
-                         "database connection.")
+                         "running simulations.")
                 (System/exit -1))
               (dosync
                (alter state/batch (constantly true))

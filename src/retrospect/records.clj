@@ -12,7 +12,7 @@
   (:use [clojure.java.io :as io :only [writer reader copy]])
   (:use [clojure.string :only [split-lines trim]])
   (:use [retrospect.local :only [run-partitions]])
-  (:require [retrospect.database :as db])
+  (:require [retrospect.db :as db])
   (:use [clojure-csv.core :only [parse-csv]])
   (:use [retrospect.state]))
 
@@ -33,12 +33,20 @@
             deeper (explode-params (rest params))]
         (flatten (map (fn [v] (map #(assoc % (first p) v) deeper)) (second p)))))))
 
+(defn get-commit-date
+  [commit]
+  (let [git-output (sh "git" "show" "--format=raw" commit)
+        timestamp (second (re-find #"committer .* (\d+) -0[45]00" git-output))]
+    (sh "date" "+%Y-%m-%d %H:%M:%S" (format "--date=@%s" timestamp))))
+
 (defn git-meta-info
   [git]
-  (let [[commit _ _ _ & msg] (split-lines (sh git "log" "-n" "1"))
-        branch (trim (subs (sh git "branch" "--contains") 2))]
-    {:commit (subs commit 7)
-     :commit-msg (apply str (interpose "\n" (map (fn [s] (subs s 4)) (filter not-empty msg))))
+  (let [[out _ _ _ & msg] (split-lines (sh git "log" "-n" "1"))
+        branch (trim (subs (sh git "branch" "--contains") 2))
+        commit (subs out 7)]
+    {:commit commit
+     :commitdate (get-commit-date commit)
+     :commitmsg (apply str (interpose "\n" (map (fn [s] (subs s 4)) (filter not-empty msg))))
      :branch branch}))
 
 (defn read-csv
@@ -88,25 +96,19 @@
   (try
     (let [t (. System (currentTimeMillis))
           recdir (str recordsdir "/" t)
-          comparative? (= "comparative" (:paramstype @db-params))
           control-params (explode-params (vectorize-params (:control @db-params)))
-          comparison-params (when comparative?
+          comparison-params (when (:comparison @db-params)
                               (explode-params (vectorize-params (:comparison @db-params))))
-          paired-params (when comparative?
+          paired-params (when comparison-params
                           (partition 2 (interleave control-params comparison-params)))
-          run (merge {:type "run" :time t :paramsid (:_id @db-params)
-                      :paramsrev (:_rev @db-params)
-                      :paramsname (format "%s/%s" (:name @problem) (:name @db-params))
-                      :paramstype (:paramstype @db-params)
-                      :database @database
+          run (merge {:starttime (db/format-date t)
+                      :paramid (:paramid @db-params)
                       :datadir @datadir :recorddir recdir :nthreads nthreads
-                      :pwd (pwd) :repetitions repetitions
+                      :pwd (pwd) :repetitions repetitions :seed seed
                       :hostname (.getHostName (java.net.InetAddress/getLocalHost))
-                      :username (System/getProperty "user.name")
-                      :problem (:name @problem) :seed seed
-                      :overview (slurp "overview.markdown")}
+                      :username (System/getProperty "user.name")}
                      (git-meta-info git))]
-      (when (and comparative? (not= (count control-params) (count comparison-params)))
+      (when (and comparison-params (not= (count control-params) (count comparison-params)))
         (println "Control/comparison param counts are not equal.")
         (System/exit -1))
       (when save-record?
@@ -116,9 +118,10 @@
       #_(println (format "Running %d parameters, %d repetitions = %d simulations..."
                        (count control-params) repetitions
                        (* (count control-params) repetitions)))
-      (doall (run-partitions run comparative? (if comparative? paired-params control-params)
+      (doall (run-partitions run (not (nil? comparison-params))
+                             (if comparison-params paired-params control-params)
                              recdir nthreads save-record? repetitions))
-      (when (and upload? (not= "" @database))
+      (when (and upload? (not= "" "localhost"))
         (submit-archived-results recdir))
       (System/exit 0))
     (catch java.util.concurrent.ExecutionException e
