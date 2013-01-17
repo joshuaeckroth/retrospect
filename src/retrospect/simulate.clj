@@ -106,8 +106,18 @@
   (let [default (get-default-params)]
     (merge default params)))
 
-(def run-single-memoize
-  (memoize
+(defn params-memoize
+  [f]
+  (let [mem (atom {})]
+    (fn [params]
+      (if-let [e (find @mem (dissoc params :simulation))]
+        (val e)
+        (let [ret (f params)]
+          (swap! mem assoc (dissoc params :simulation) ret)
+          ret)))))
+
+(def run-single
+  (params-memoize
    (fn [ps]
      (when (not (:Stats ps))
        (prn ps))
@@ -119,10 +129,6 @@
              ors (profile (init-ors truedata sensors))]
          (let [ors-final (run-simulation truedata ors)]
            (:results (cur-ep (:est ors-final)))))))))
-
-(defn run-single
-  [params]
-  (run-single-memoize (dissoc params :simulation)))
 
 (defn run
   [comparative? params]
