@@ -78,11 +78,13 @@
     {:est-old (goto-ep reason-est (:id (cur-ep est)))
      :est-new reason-est}))
 
-(defn meta-batch
-  [n problem-caes est _ time-now sensors]
-  (let [time (if n (- time-now n) 0)
-        new-est (new-branch-ep est (cur-ep (goto-start-of-time est time)))]
-    (meta-apply-and-evaluate est new-est time-now sensors)))
+(defn meta-batch1
+  [problem-caes est time-prev time-now sensors]
+  (when (not= time-prev 0)
+    (let [batch1-ep (cur-ep (goto-start-of-time est (dec time-now)))]
+      (when (= (:time batch1-ep) (- time-now 2))
+        (let [new-est (new-branch-ep est batch1-ep)]
+          (meta-apply-and-evaluate est new-est time-now sensors))))))
 
 (defn meta-batch-weakest
   [problem-cases est _ time-now sensors]
@@ -258,7 +260,10 @@
                                    :cycle (:cycle batch1-ep)
                                    :time (dec time-now)
                                    :time-delta 1})]
-          [batch1-hyp]
+          ;; don't allow batching more than once (accumulating batches)
+          (if (= (:time batch1-ep) (- time-now 2))
+            [batch1-hyp]
+            [])
           (comment
             (loop [hs (sort-by :id (filter #(empty? (explainers cur-ws %)) problem-cases))
                    order-dep-hyps [batchbeg-hyp batch1-hyp]]
@@ -561,29 +566,13 @@
   [est time-prev time-now sensors]
   (let [problem-cases (find-problem-cases est)
         m (:Metareasoning params)
-        f (cond (= "batchbeg" m)
-                (partial meta-batch nil)
-                (= "batch1" m)
-                (partial meta-batch 1)
-                (= "batch2" m)
-                (partial meta-batch 2)
-                (= "batch3" m)
-                (partial meta-batch 3)
-                (= "batch4" m)
-                (partial meta-batch 4)
-                (= "batch5" m)
-                (partial meta-batch 5)
-                (= "batch-mid" m)
-                (partial meta-batch (int (/ (count (set (map :time (ep-path est)))) 2)))
-                (= "batch-weakest" m)
-                meta-batch-weakest
+        f (cond (= "batch" m)
+                meta-batch1
                 (= "lower-minscore" m)
                 meta-lower-minscore
                 (= "rej-conflict" m)
                 meta-rej-conflict
                 (= "abd" m)
-                meta-abductive
-                (= "abd-recursive" m)
                 meta-abductive-recursive
                 (= "rule-based" m)
                 meta-rule-based
