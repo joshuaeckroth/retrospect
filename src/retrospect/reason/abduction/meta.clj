@@ -162,39 +162,68 @@
        :may-resolve problem-cases-possibly-resolved})))
 
 (defn meta-rej-conflict
-  [problem-cases est time-prev time-now sensors]
-  (let [cur-ws (:workspace (cur-ep est))
-        expl (set (mapcat #(explainers cur-ws %) problem-cases))
-        ;; take the earliest rej-conflict
-        {:keys [implicated cycle]}
-        (last (sort-by :cycle
-                       (find-rej-conflict-candidates problem-cases est cur-ws expl)))]
-    (when implicated
-      (let [[est-action params-action] (action-preemptively-reject implicated cycle est)]
-        (binding [params params-action]
-          (meta-apply-and-evaluate est est-action time-now sensors))))))
+  [problem-cases est-orig time-prev time-now sensors]
+  (loop [problem-cases problem-cases
+         est-prior est-orig
+         est est-orig
+         tried-implicated #{}]
+    (let [cur-ws (:workspace (cur-ep est))
+          expl (set (mapcat #(explainers cur-ws %) problem-cases))
+          ;; take the earliest rej-conflict
+          {:keys [implicated cycle]}
+          (last (sort-by :cycle (find-rej-conflict-candidates
+                                 problem-cases est cur-ws expl)))]
+      (if (and implicated (not (tried-implicated implicated)))
+        (let [[est-action params-action]
+              (action-preemptively-reject implicated cycle est)
+              {:keys [est-old est-new]}
+              (binding [params params-action]
+                (meta-apply-and-evaluate est est-action time-now sensors))
+              problem-cases-new (find-problem-cases est-new)]
+          (if (not-empty problem-cases-new)
+            (recur problem-cases-new
+                   est-old
+                   est-new
+                   (conj tried-implicated implicated))
+            {:est-old est-old :est-new est-new}))
+        {:est-old est-prior :est-new est}))))
 
 (defn find-rej-minscore-candidates
   [problem-cases cur-ws expl]
   (let [minscore (/ (double (:MinScore params)) 100.0)
-        expl-rejected-minscore (sort-by :id (filter (fn [h] (= :minscore (rejection-reason cur-ws h)))
-                                               expl))
-        relevant-problem-cases (sort-by :id (filter (fn [pc] (some #{(:contents pc)}
-                                                          (mapcat :explains expl-rejected-minscore)))
-                                               problem-cases))]
+        expl-rejected-minscore
+        (sort-by :id (filter (fn [h] (= :minscore (rejection-reason cur-ws h)))
+                        expl))
+        relevant-problem-cases
+        (sort-by :id (filter (fn [pc] (some #{(:contents pc)}
+                                   (mapcat :explains expl-rejected-minscore)))
+                        problem-cases))]
     {:implicated expl-rejected-minscore
      :may-resolve relevant-problem-cases}))
 
 (defn meta-lower-minscore
-  [problem-cases est time-prev time-now sensors]
-  (let [cur-ws (:workspace (cur-ep est))
-        expl (set (mapcat #(explainers cur-ws %) problem-cases))
-        {:keys [implicated may-resolve]} (find-rej-minscore-candidates problem-cases cur-ws expl)]
-    (when (not-empty implicated)
-      (let [new-minscore (* 100.0 (- (apply min (map :apriori implicated)) 0.01))
-            [est-action params-action] (action-lower-minscore new-minscore time-now est)]
-        (binding [params params-action]
-          (meta-apply-and-evaluate est est-action time-now sensors))))))
+  [problem-cases est-orig time-prev time-now sensors]
+  (loop [problem-cases problem-cases
+         est-prior est-orig
+         est est-orig]
+    (let [cur-ws (:workspace (cur-ep est))
+          expl (set (mapcat #(explainers cur-ws %) problem-cases))
+          {:keys [implicated may-resolve]}
+          (find-rej-minscore-candidates problem-cases cur-ws expl)]
+      (if (not-empty implicated)
+        (let [new-minscore (* 100.0 (- (apply min (map :apriori implicated)) 0.01))
+              [est-action params-action] (action-lower-minscore
+                                          new-minscore time-now est)
+              {:keys [est-old est-new]}
+              (binding [params params-action]
+                (meta-apply-and-evaluate est est-action time-now sensors))
+              problem-cases-new (find-problem-cases est-new)]
+          (if (not-empty problem-cases-new)
+            (recur problem-cases-new
+                   est-old
+                   est-new)
+            {:est-old est-old :est-new est-new}))
+        {:est-old est-prior :est-new est}))))
 
 (defn meta-hyp-conflicts?
   [hyp1 hyp2]
