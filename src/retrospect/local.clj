@@ -79,7 +79,7 @@
   [run-meta comparative? params recdir nthreads save-record? repetitions]
   (when save-record? (spit (format "%s/meta.clj" recdir) (pr-str run-meta)))
   (let [start-time (.getTime (Date.))
-        sim-count (* repetitions (count params))
+        sim-count (* repetitions (count (set params)))
         seeds (repeatedly repetitions #(my-rand-int 10000000))
         seeded-params (mapcat (fn [pp] (for [s seeds]
                                         (if comparative?
