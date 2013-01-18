@@ -111,7 +111,7 @@
   (let [mem (atom {})]
     (fn [params]
       (if-let [e (find @mem (dissoc params :simulation))]
-        (val e)
+        (map #(assoc % :simulation (:simulation params)) (val e))
         (let [ret (f params)]
           (swap! mem assoc (dissoc params :simulation) ret)
           ret)))))
