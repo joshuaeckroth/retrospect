@@ -128,7 +128,7 @@
      params]))
 
 (defn find-rej-conflict-candidates
-  [problem-cases est cur-ws expl]
+  [problem-cases est time-now cur-ws expl]
   (let [expl-rejected-conflicts
         (sort-by :id (filter (fn [h] (= :conflict (rejection-reason cur-ws h)))
                         expl))
@@ -145,10 +145,12 @@
                                                  acc-conflicting))
         ;; which ep-states rejected these expl (essentials are
         ;; allowed; we may still want to reject an "essential"
-        ;; explainer
-        ep-rejs (filter (fn [ep] (some (set (map :id acc-conflicting-no-comps))
-                              (:acc (:accrej (:workspace ep)))))
-                   (ep-path est))
+        ;; explainer;
+        ;; also filter out any ep's further back than a batch1
+        ep-rejs (filter #(>= (- time-now 2) (:time %))
+                   (filter (fn [ep] (some (set (map :id acc-conflicting-no-comps))
+                                 (:acc (:accrej (:workspace ep)))))
+                      (ep-path est)))
         rejs-deltas (map (fn [ep] [(get-in ep [:workspace :accrej :delta])
                                 (:cycle ep)
                                 (get-in ep [:workspace :accrej :best])])
@@ -174,7 +176,7 @@
           ;; take the earliest rej-conflict
           {:keys [implicated cycle]}
           (last (sort-by :cycle (find-rej-conflict-candidates
-                                 problem-cases est cur-ws expl)))]
+                                 problem-cases est time-now cur-ws expl)))]
       (if (and implicated (not (tried-implicated implicated)))
         (let [[est-action params-action]
               (action-preemptively-reject implicated cycle est)
@@ -296,7 +298,7 @@
   ;; no-explainers combinations
   (if (not (available-meta-hyps "meta-rej-conflict")) []
       (for [{:keys [implicated cycle rejected delta may-resolve]}
-            (find-rej-conflict-candidates problem-cases est cur-ws expl)]
+            (find-rej-conflict-candidates problem-cases est time-now cur-ws expl)]
         (new-hyp "RejConflict" :meta-rej-conflict :meta-rej-conflict
                  0.5 false meta-hyp-conflicts?
                  (map :contents may-resolve)
