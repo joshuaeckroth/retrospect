@@ -82,7 +82,7 @@
   [problem-caes est time-prev time-now sensors]
   (when (not= time-prev 0)
     (let [batch1-ep (cur-ep (goto-start-of-time est (dec time-now)))]
-      (when (= (:time batch1-ep) (- time-now 2))
+      (when (= (:time batch1-ep) (dec time-now))
         (let [new-est (new-branch-ep est batch1-ep)]
           (meta-apply-and-evaluate est new-est time-now sensors))))))
 
@@ -265,31 +265,32 @@
           ;; don't allow batching more than once (accumulating batches)
           (if (= (:time batch1-ep) (dec time-now))
             [batch1-hyp]
-            [])
-          (comment
-            (loop [hs (sort-by :id (filter #(empty? (explainers cur-ws %)) problem-cases))
-                   order-dep-hyps [batchbeg-hyp batch1-hyp]]
-              (if (empty? hs) order-dep-hyps
-                  (let [t (:time (cur-ep (goto-cycle est (accepted-cycle cur-ws (first hs)))))
-                        ep (cur-ep (goto-start-of-time est (dec t)))]
-                    ;; don't offer two order-dep hyps that go back to the same time
-                    (if (some #(= (dec t) (:time %)) order-dep-hyps)
-                      (recur (rest hs) order-dep-hyps)
-                      (recur (rest hs)
-                             (conj
-                              order-dep-hyps
-                              (new-hyp "OrderDep" :meta-order-dep :meta-order-dep
-                                       0.1 false meta-hyp-conflicts?
-                                       (:contents (first hs))
-                                       (format "Order dependency at time %d, ep %s" (dec t) (str ep))
-                                       (format "Order dependency at time %d, ep %s" (dec t) (str ep))
-                                       {:action (partial action-batch ep)
-                                        :cycle (:cycle ep)
-                                        :time (dec t)
-                                        :time-delta (- time-now (dec t))})))))))))
+            []))
         ;; time-prev == 0, so this is a "static" case or we have not
         ;; done much reasoning yet
         [])))
+
+(comment
+  (loop [hs (sort-by :id (filter #(empty? (explainers cur-ws %)) problem-cases))
+         order-dep-hyps [batchbeg-hyp batch1-hyp]]
+    (if (empty? hs) order-dep-hyps
+        (let [t (:time (cur-ep (goto-cycle est (accepted-cycle cur-ws (first hs)))))
+              ep (cur-ep (goto-start-of-time est (dec t)))]
+          ;; don't offer two order-dep hyps that go back to the same time
+          (if (some #(= (dec t) (:time %)) order-dep-hyps)
+            (recur (rest hs) order-dep-hyps)
+            (recur (rest hs)
+                   (conj
+                    order-dep-hyps
+                    (new-hyp "OrderDep" :meta-order-dep :meta-order-dep
+                             0.1 false meta-hyp-conflicts?
+                             (:contents (first hs))
+                             (format "Order dependency at time %d, ep %s" (dec t) (str ep))
+                             (format "Order dependency at time %d, ep %s" (dec t) (str ep))
+                             {:action (partial action-batch ep)
+                              :cycle (:cycle ep)
+                              :time (dec t)
+                              :time-delta (- time-now (dec t))}))))))))
 
 (defn make-meta-hyps-rej-conflict
   [problem-cases est time-prev time-now available-meta-hyps cur-ws expl]
