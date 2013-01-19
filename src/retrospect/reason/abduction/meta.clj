@@ -375,20 +375,26 @@
                               :problem-cases-prior problem-cases
                               :problem-cases-after problem-cases-new
                               :final-ep-id (:id (cur-ep (:est-new result)))
-                              :apriori (max 0.0
-                                            (- (avg (map :apriori problem-cases))
-                                               (avg (map :apriori problem-cases-new))
-                                               (if (nil? (:penalty hyp)) 0.0
-                                                   (:penalty hyp))))
+                              :apriori (cond (= "diff" (:ScoreMetaHyps params))
+                                             (max 0.0
+                                                  (- (avg (map :apriori problem-cases))
+                                                     (avg (map :apriori problem-cases-new))
+                                                     (if (nil? (:penalty hyp)) 0.0
+                                                         (:penalty hyp))))
+                                             ;; "doubt"
+                                             :else
+                                             doubt-new)
                               :desc (format (str "%s\n\nEp-state start: %s\n\n"
                                             "Problem cases prior:\n%s\n\n"
                                             "Problem cases after:\n%s\n\n"
+                                            "Doubt after: %.2f\n"
                                             "Avg apriori of problem cases prior: %.2f\n"
                                             "Avg apriori of problem cases after: %.2f\n"
                                             "Avg apriori diff: %.2f")
                                        (:desc hyp) (str (cur-ep est-new))
                                        (str/join "\n" (sort-by :id problem-cases))
                                        (str/join "\n" (sort-by :id problem-cases-new))
+                                       doubt-new
                                        (avg (map :apriori problem-cases))
                                        (avg (map :apriori problem-cases-new))
                                        (- (avg (map :apriori problem-cases))
