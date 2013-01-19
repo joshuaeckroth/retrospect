@@ -209,24 +209,30 @@
   [problem-cases est-orig time-prev time-now sensors]
   (loop [problem-cases problem-cases
          est-prior est-orig
-         est est-orig]
+         est est-orig
+         attempted-minscores #{}]
     (let [cur-ws (:workspace (cur-ep est))
           expl (set (mapcat #(explainers cur-ws %) problem-cases))
           {:keys [implicated may-resolve]}
           (find-rej-minscore-candidates problem-cases cur-ws expl)]
       (if (not-empty implicated)
-        (let [new-minscore (* 100.0 (- (apply min (map :apriori implicated)) 0.01))
-              [est-action params-action] (action-lower-minscore
-                                          new-minscore time-now est)
-              {:keys [est-old est-new]}
-              (binding [params params-action]
-                (meta-apply-and-evaluate est est-action time-now sensors))
-              problem-cases-new (find-problem-cases est-new)]
-          (if (not-empty problem-cases-new)
-            (recur problem-cases-new
-                   est-old
-                   est-new)
-            {:est-old est-old :est-new est-new}))
+        (let [new-minscore (* 100.0 (- (apply min (map :apriori implicated)) 0.01))]
+          (if (attempted-minscores new-minscore)
+            ;; don't attempt the same new minscore
+            {:est-old est-prior :est-new est}
+            ;; otherwise, haven't attempted this minscore yet
+            (let [[est-action params-action] (action-lower-minscore
+                                              new-minscore time-now est)
+                  {:keys [est-old est-new]}
+                  (binding [params params-action]
+                    (meta-apply-and-evaluate est est-action time-now sensors))
+                  problem-cases-new (find-problem-cases est-new)]
+              (if (not-empty problem-cases-new)
+                (recur problem-cases-new
+                       est-old
+                       est-new
+                       (conj attempted-minscores new-minscore))
+                {:est-old est-old :est-new est-new}))))
         {:est-old est-prior :est-new est}))))
 
 (defn meta-hyp-conflicts?
