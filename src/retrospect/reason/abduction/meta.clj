@@ -364,6 +364,7 @@
               [est-new params-new] ((:action hyp) est-attempted)
               result (binding [params params-new]
                        (meta-apply-and-evaluate est-attempted est-new time-now sensors))
+              doubt (doubt-aggregate est)
               doubt-new (doubt-aggregate (:est-new result))
               problem-cases-new (find-problem-cases (:est-new result))
               resolved-cases (filter (fn [pc] (not ((set (map :contents problem-cases-new))
@@ -388,6 +389,7 @@
                               :desc (format (str "%s\n\nEp-state start: %s\n\n"
                                             "Problem cases prior:\n%s\n\n"
                                             "Problem cases after:\n%s\n\n"
+                                            "Doubt before: %.2f\n"
                                             "Doubt after: %.2f\n"
                                             "Avg apriori of problem cases prior: %.2f\n"
                                             "Avg apriori of problem cases after: %.2f\n"
@@ -395,6 +397,7 @@
                                        (:desc hyp) (str (cur-ep est-new))
                                        (str/join "\n" (sort-by :id problem-cases))
                                        (str/join "\n" (sort-by :id problem-cases-new))
+                                       doubt
                                        doubt-new
                                        (avg (map :apriori problem-cases))
                                        (avg (map :apriori problem-cases-new))
