@@ -146,8 +146,8 @@
         ;; which ep-states rejected these expl (essentials are
         ;; allowed; we may still want to reject an "essential"
         ;; explainer;
-        ;; also filter out any ep's further back than a batch1
-        ep-rejs (filter #(>= (- time-now 2) (:time %))
+        ;; also filter out any ep's that do a batch
+        ep-rejs (filter #(= time-now (:time %))
                    (filter (fn [ep] (some (set (map :id acc-conflicting-no-comps))
                                  (:acc (:accrej (:workspace ep)))))
                       (ep-path est)))
@@ -263,7 +263,7 @@
                                    :time (dec time-now)
                                    :time-delta 1})]
           ;; don't allow batching more than once (accumulating batches)
-          (if (= (:time batch1-ep) (- time-now 2))
+          (if (= (:time batch1-ep) (dec time-now))
             [batch1-hyp]
             [])
           (comment
