@@ -216,7 +216,7 @@
           {:keys [implicated may-resolve]}
           (find-rej-minscore-candidates problem-cases cur-ws expl)]
       (if (not-empty implicated)
-        (let [new-minscore (* 100.0 (- (apply min (map :apriori implicated)) 0.01))]
+        (let [new-minscore (* 100.0 (- (apply max (map :apriori implicated)) 0.01))]
           (if (attempted-minscores new-minscore)
             ;; don't attempt the same new minscore
             {:est-old est-prior :est-new est}
@@ -324,7 +324,7 @@
             {:keys [implicated may-resolve]} (find-rej-minscore-candidates
                                               problem-cases cur-ws expl)] 
         (if (not-empty implicated)
-          (let [new-minscore (* 100.0 (- (apply min (map :apriori implicated)) 0.01))]
+          (let [new-minscore (* 100.0 (- (apply max (map :apriori implicated)) 0.01))]
             [(new-hyp "TooHighMinScore" :meta-rej-minscore :meta-rej-minscore
                       0.25 false meta-hyp-conflicts?
                       (map :contents may-resolve)
