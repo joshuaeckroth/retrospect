@@ -56,9 +56,9 @@
              :MPECoverage (:Coverage mpe-prec-coverage)
              :Prec (:Prec prec-coverage)}))]
     (merge (last metrics)
+           (compute-complexity expgraph)
            {:MinPrec (apply min (map :Prec metrics))
-            :AvgPrec (avg (map :Prec metrics))
-            :Complexity (compute-complexity expgraph)})))
+            :AvgPrec (avg (map :Prec metrics))})))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]

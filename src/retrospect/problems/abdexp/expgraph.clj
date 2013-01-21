@@ -6,7 +6,8 @@
   (:use [loom.alg])
   (:use [loom.attr])
   (:use [clojure.java.shell :only [sh]])
-  (:use [retrospect.state :only [params]]))
+  (:use [retrospect.state :only [params]])
+  (:use [retrospect.evaluate :only [avg]]))
 
 (defn vertex?
   [expgraph vertex]
@@ -165,7 +166,9 @@
 ;; TODO: include the number of states? in parents count?
 (defn compute-complexity
   [expgraph]
-  (let [exp-counts (map #(count (explainers expgraph %)) (nodes expgraph))
+  (let [top (top-nodes expgraph)
+        exp-counts (map #(count (explainers expgraph %))
+                      (filter #(not (top %)) (nodes expgraph)))
         exp-avg (double (/ (reduce + exp-counts) (count exp-counts)))
         depth (dec (count (longest-shortest-path
                            (apply remove-edges
@@ -176,7 +179,12 @@
                                      (edges expgraph)))
                            "root")))
         conflict-count (count (conflicts expgraph))]
-    (double (/ (* depth exp-avg) (inc conflict-count)))))
+    {:ComplexityVertexCount (count (vertices expgraph))
+     :ComplexityStateAvg (avg (map #(count (values expgraph %)) (vertices expgraph)))
+     :ComplexityExpAvg exp-avg
+     :ComplexityDepth depth
+     :ComplexityConflictCount conflict-count
+     :Complexity (double (/ (* depth exp-avg) (inc conflict-count)))}))
 
 (defn need-explanation
   [expgraph]
