@@ -605,7 +605,7 @@
                                time-prev time-now sensors)
           (empty? problem-cases-new)
           (:est-new result)
-          (<= (count problem-cases-new) (count problem-cases-old))
+          (< (count problem-cases-new) (count problem-cases-old))
           (resolve-by-ignoring problem-cases-new (:est-new result)
                                time-prev time-now sensors)
           :else
