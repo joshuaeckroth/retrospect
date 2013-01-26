@@ -35,11 +35,28 @@
           (double (+ 2 (:count moves-dist))))
        (:max-prob moves-dist))))
 
+(defn penalize-gray-moves
+  [apriori det det2]
+  (if (not (:PenalizeGrayMoves params)) apriori
+      (cond
+       ;; one det is gray
+       (or (and (= gray (:color det))
+                (not= gray (:color det2)))
+           (and (= gray (:color det2))
+                (not= gray (:color det))))
+       (* 0.75 apriori)
+       ;; two dets are gray
+       (and (= gray (:color det) (:color det2)))
+       (* 0.5 apriori)
+       ;; neither det is gray
+       :else apriori)))
+
 (defn calc-object-prob
   [det from-to prior-dets moves-dist]
   (let [move-probs (map (fn [det2] (let [d (dist (:x det2) (:y det2)
-                                              (:x det) (:y det))]
-                                  (move-prob d moves-dist)))
+                                              (:x det) (:y det))
+                                      apriori (move-prob d moves-dist)]
+                                  (penalize-gray-moves apriori det det2)))
                       (filter #(match-color? (:color %) (:color det)) prior-dets))]
     (if (not-empty move-probs)
       (cond (= "avg" (:ObjectScore params))
@@ -206,18 +223,7 @@
               d (dist (:x det-color) (:y det-color)
                       (:x det2-color) (:y det2-color))
               apriori (move-prob d moves-dist)
-              apriori-color-penalty (cond
-                                     ;; one det is gray
-                                     (or (and (= gray (:color det))
-                                              (not= gray (:color det2)))
-                                         (and (= gray (:color det2))
-                                              (not= gray (:color det))))
-                                     (* 0.75 apriori)
-                                     ;; two dets are gray
-                                     (and (= gray (:color det) (:color det2)))
-                                     (* 0.5 apriori)
-                                     ;; neither det is gray
-                                     :else apriori)]
+              apriori-color-penalty (penalize-gray-moves apriori det det2)]
           (when (match-color? (:color det-color) (:color det2-color))
             (new-hyp "Mov" :movement :movement
                      apriori-color-penalty

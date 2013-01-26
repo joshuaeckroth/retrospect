@@ -43,13 +43,14 @@
                :hyp-types #{:movement :object :observation}
                :ignore-doubt-types #{:object :observation}
                :default-params
-               {:ResensePrevTime [true [true]]
-                :ObjectScore ["max" ["min" "max" "avg"]]}}
+               {:ResensePrevTime [true [true]]}}
    :default-params
-   {:Steps [5 [5]]
+   {:Steps [10 [10]]
     :StepsBetween [1 [1]]
     :GridWidth [10 [10]]
     :GridHeight [10 [10]]
+    :ObjectScore ["max" ["min" "max" "avg"]]
+    :PenalizeGrayMoves [true [true false]]
     :WalkType ["random" ["random" "gaussian"]]
     :RandomWalkSteps [8 [8]]
     :TrainingSteps [100 [100]]
