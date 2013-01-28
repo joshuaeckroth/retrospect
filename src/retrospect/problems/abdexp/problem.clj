@@ -41,10 +41,10 @@
                :ignore-doubt-types #{:observation}
                :default-params {:GetMoreHyps [true [true]]}}
    :default-params
-   {:Steps [5 [5]]
+   {:Steps [10 [10]]
     :StepsBetween [1 [1]]
-    :NumExplainers [3 [3]]
-    :NumExplainsLinks [30 [30]]
+    :NumExplainers [4 [4]]
+    :NumExplainsLinks [40 [40]]
     :NumConflictLinks [10 [10]]
     :UniqueGraphs [10 [10]]
     :HypScores ["prior" ["prior" "posterior"]]
