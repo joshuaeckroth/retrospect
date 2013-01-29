@@ -17,7 +17,7 @@
     (doall
      (for [line (parse-csv (str/join "\n" (rest lines)))]
        (let [data (map #(cond (re-matches #"^(true|false)$" %) (Boolean/parseBoolean %)
-                            (re-matches #"^\d+\.\d+$" %) (Double/parseDouble %)
+                            (re-matches #"^-?\d+\.\d+$" %) (Double/parseDouble %)
                             (re-matches #"^\d+$" %) (Integer/parseInt %)
                             :else %)
                      line)]
