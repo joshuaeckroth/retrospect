@@ -135,6 +135,7 @@
         expl-rejected-conflicts
         (sort-by :id (filter (fn [h] (= :conflict (rejection-reason cur-ws h)))
                         expl))
+        ;; problem-cases explained by expl-rejected-conflicts
         problem-cases-possibly-resolved
         (sort-by :id (filter (fn [pc] ((set (mapcat :explains expl-rejected-conflicts))
                                  (:contents pc)))
