@@ -17,6 +17,8 @@
   (:use [retrospect.player :only [start-player]])
   (:use [retrospect.bugreport]))
 
+;; Retrospect is a folder name but used as namespace to refer to files in that folder
+
 (def causal-problem)
 
 (defn choose-problem
