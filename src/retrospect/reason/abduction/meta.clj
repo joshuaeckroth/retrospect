@@ -128,8 +128,10 @@
      params]))
 
 (defn find-rej-conflict-candidates
+  ;; expl is the list of possible explainers for current list of no-exp
   [problem-cases est time-now cur-ws expl]
   (let [expl-rejected-conflicts
+        ;; Finds the conflict candidats from expl for current no exp
         (sort-by :id (filter (fn [h] (= :conflict (rejection-reason cur-ws h)))
                         expl))
         problem-cases-possibly-resolved
