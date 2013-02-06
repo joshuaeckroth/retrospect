@@ -7,6 +7,11 @@
                         (or (control-results field) 0.0))]
     {increase-field increase-val}))
 
+(defn normalize
+  [vals]
+  (let [sum (double (reduce + vals))]
+    (map (fn [v] (/ v sum)) vals)))
+
 (defn avg
   [vals]
   (if (empty? vals) 0.0

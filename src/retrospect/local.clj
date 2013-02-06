@@ -1,12 +1,11 @@
 (ns retrospect.local
   (:import (java.util Date))
-  (:use [clojure.java.io :as io :only (writer copy file)])
-  (:use [clojure.stacktrace :only [print-cause-trace]])
+  (:use [clojure.java.io :as io :only (writer file)])
   (:require [clojure.string :as str])
   (:require [clojure.contrib.math :as math])
   (:use [retrospect.simulate :only [run]])
+  (:use [granary.misc])
   (:use [retrospect.random])
-  (:require [retrospect.database :as db])
   (:use [clojure-csv.core :only [write-csv]])
   (:use [retrospect.state]))
 
@@ -23,7 +22,7 @@
 	avgtime (/ elapsed finished)
 	expected (* remaining avgtime)
 	wallexpected (.toString (Date. (long (+ expected (.getTime (Date.))))))]
-    (println (format "Done %d/%d;\t Elapsed: %s;\t Remaining: %s;\t Ending %s"
+    (println (format "\nDone %d/%d;\t Elapsed: %s;\t Remaining: %s;\t Ending %s\n"
 		     finished
 		     total
 		     (format-time (int (/ elapsed 1000.0)))
@@ -78,24 +77,26 @@
 
 (defn run-partitions
   [run-meta comparative? params recdir nthreads save-record? repetitions]
+  (when save-record? (spit (format "%s/meta.clj" recdir) (pr-str run-meta)))
   (let [start-time (.getTime (Date.))
-        sim-count (* repetitions (count params))
+        sim-count (* repetitions (count (set params)))
         seeds (repeatedly repetitions #(my-rand-int 10000000))
         seeded-params (mapcat (fn [pp] (for [s seeds]
-                                         (if comparative?
-                                           (map (fn [p] (assoc p :Seed s)) pp)
-                                           (assoc pp :Seed s))))
+                                        (if comparative?
+                                          (map (fn [p] (assoc p :Seed s)) pp)
+                                          (assoc pp :Seed s))))
                               params)
         numbered-params (map (fn [i]
-                               (if comparative?
-                                 (map #(assoc % :simulation i) (nth seeded-params i))
-                                 (assoc (nth seeded-params i) :simulation i)))
-                             (range (count seeded-params)))
+                             (if comparative?
+                               (map #(assoc % :simulation i) (nth seeded-params i))
+                               (assoc (nth seeded-params i) :simulation i)))
+                           (range (count seeded-params)))
         partitions (partition-all (math/ceil (/ (count numbered-params) nthreads))
                                   (my-shuffle numbered-params))
         workers (for [part partitions]
                   (future (run-partition comparative? recdir part
                                          start-time sim-count save-record?)))]
     (doall (pmap (fn [w] @w) workers))
-    (let [run-meta-stopped (assoc run-meta :endtime (. System (currentTimeMillis)))]
+    (let [run-meta-stopped (assoc run-meta :endtime
+                                  (format-date-ms (. System (currentTimeMillis))))]
       (when save-record? (spit (format "%s/meta.clj" recdir) (pr-str run-meta-stopped))))))

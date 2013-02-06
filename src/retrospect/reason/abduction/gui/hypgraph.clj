@@ -13,7 +13,7 @@
   (:use [retrospect.state])
   (:use [retrospect.epistemicstates :only [cur-ep]])
   (:require [retrospect.reason.abduction.workspace :as ws])
-  (:use [retrospect.reason.abduction.gui.logs :only [log-box]]))
+  (:use [retrospect.gui.common :only [log-box]]))
 
 (def canvas (ref nil))
 (def hyp-id (ref ""))

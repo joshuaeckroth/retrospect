@@ -13,7 +13,7 @@
     </appender>
 
     <root>
-        <priority value="debug"/>
+        <priority value="warn"/>
         <appender-ref ref="console"/>
         <appender-ref ref="bug4j"/>
     </root>

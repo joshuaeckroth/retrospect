@@ -8,10 +8,15 @@
 
 (defn insertion-noise
   [observations expgraph]
-  (if (< (my-rand) (/ (double (:SensorInsertionNoise params)) 100.0))
-    ;; if we're adding noise, grab a random vertex and random value
-    (let [v (my-rand-nth (sort (vertices expgraph)))]
-      (conj observations [v (my-rand-nth (sort (values expgraph v)))]))
+  (if (and (not-empty observations)
+           (< (my-rand) (/ (double (:SensorInsertionNoise params)) 100.0)))
+    ;; "observe" a different state on some of the observations
+    (my-shuffle
+     (concat observations
+             (for [[v val] (take (my-rand-int (inc (count observations)))
+                                 (my-shuffle (sort-by first observations)))]
+               [v (my-rand-nth (sort (filter (fn [new-val] (not (#{val} new-val)))
+                                        (values expgraph v))))])))
     observations))
 
 (defn deletion-noise

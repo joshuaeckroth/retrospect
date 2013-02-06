@@ -4,8 +4,9 @@
                  [org.clojure/clojure-contrib "1.2.0"]
                  [org.clojars.overtone/vijual "0.2.1"]
                  [cc.artifice/clj-swing "0.1.4"]
+                 [cc.artifice/granary "1.0.0"]
+                 [seesaw "1.4.2"]
                  [cc.artifice/loom "0.1.2"]
-                 [com.ashafa/clutch "0.2.4"]
                  [batik/batik-swing "1.6-1"]
                  [batik/batik-gvt "1.6-1"]
                  [batik/batik-util "1.6-1"]
@@ -26,5 +27,5 @@
   :keep-non-project-classes true
   :java-source-paths ["src/jvm"]
   :warn-on-reflection false ;; Emit warnings on all reflection calls.
-  :jvm-opts ["-Dawt.useSystemAAFontSettings=on" "-Xmx2000m" "-Xss5m"
-             "-Djava.library.path=/home/kshitij/retro-ksh/netica"])
+  :jvm-opts ["-Dawt.useSystemAAFontSettings=on" "-Djava.library.path=netica"])
+

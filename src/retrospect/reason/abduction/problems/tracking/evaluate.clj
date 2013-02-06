@@ -12,7 +12,7 @@
   (cond (= :movement (:type hyp))
         (if (some #(moves-match? (:mov hyp) %) (:all-moves truedata)) true false)
         ;; check for sensor noise
-        (= :observation (:type hyp))
+        (or (= :observation (:type hyp)) (= :object (:type hyp)))
         (if ((:all-xys truedata) {:x (:x (:det hyp)) :y (:y (:det hyp))
                                   :time (:time (:det hyp))})
           true false)))
@@ -49,8 +49,7 @@
     (let [metrics
           (for [ep (filter :decision-point (flatten-est est))]
             (let [ws (:workspace ep)
-                  ;; a bit of a hack
-                  time-now (:time (cur-ep (goto-cycle est (dec (:cycle ep)))))
+                  time-now (:time ep)
                   true-movs (get-true-movements truedata time-now)
                   accepted (map #(lookup-hyp ws %) (:movement (:accepted ws)))
                   not-accepted (set/difference

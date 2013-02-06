@@ -37,14 +37,16 @@
                :evaluate-comp-fn evaluate-comp
                :update-kb-fn update-kb
                :stats-fn stats
-               :hyp-types [:expl :expl-composite :observation]
+               :hyp-types #{:expl :expl-composite :observation}
+               :ignore-doubt-types #{:observation}
                :default-params {:GetMoreHyps [true [true]]}}
    :default-params
-   {:Steps [100 [100]]
+   {:Steps [10 [10]]
     :StepsBetween [1 [1]]
-    :NumExplainers [3 [3]]
-    :NumExplainsLinks [20 [20]]
+    :NumExplainers [4 [4]]
+    :NumExplainsLinks [40 [40]]
     :NumConflictLinks [10 [10]]
-    :UniqueGraphs [100 [100]]
-    :HypScores ["fixed" ["fixed" "prior" "posterior" "cond-delta"]]
+    :UniqueGraphs [10 [10]]
+    :HypScores ["prior" ["prior" "posterior"]]
+    :PriorFunc ["max" ["min" "max" "avg"]]
     :MaxStates [3 [2 3 4]]}})

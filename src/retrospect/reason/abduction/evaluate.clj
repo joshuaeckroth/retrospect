@@ -18,16 +18,24 @@
 
 (defn doubt-aggregate
   [est]
-  (let [doubts (filter identity (map #(calc-doubt %) (map :workspace (ep-path est))))]
+  (let [doubts (doall (filter identity (map #(calc-doubt %) (map :workspace (ep-path est)))))
+        unexp (get-unexplained (:workspace (cur-ep est)))
+        ds (if (:DoubtUnexp params)
+             (concat (repeat (count unexp) 1.0) doubts)
+             doubts)]
     (cond (= "avg" (:DoubtAggregate params))
-          (if (empty? doubts) 0.0 (/ (reduce + doubts) (double (count doubts))))
+          (if (empty? ds) 0.0 (/ (reduce + ds) (double (count ds))))
           (= "max" (:DoubtAggregate params))
-          (if (empty? doubts) 0.0 (apply max doubts))
+          (if (empty? ds) 0.0 (apply max ds))
           (= "min" (:DoubtAggregate params))
-          (if (empty? doubts) 0.0 (apply min doubts)))))
+          (if (empty? ds) 0.0 (apply min ds)))))
+
+(defn tf-true?
+  [true-false hyp]
+  (get-in true-false [:individual (:id hyp)]))
 
 (defn group-hyps-by-true-false
-  [hyps type-key truedata true-hyp?]
+  [hyps type-key truedata true-hyp? meta?]
   (let [hs (group-by type-key hyps)
         tf (reduce (fn [m type]
                 (let [grouped (group-by (fn [h] (if (true-hyp? truedata h)
@@ -40,15 +48,23 @@
                   (assoc m-individual type
                          (reduce (fn [g tf] (if (nil? (get g tf)) (assoc g tf []) g))
                             grouped [true false]))))
-              {} (set (concat (keys hs) (:hyp-types (:abduction @problem)))))
+              {} (if meta? (:meta-hyp-types @reasoner)
+                     (:hyp-types (:abduction @problem))))
         all-true (mapcat #(get % true) (vals tf))
         all-false (mapcat #(get % false) (vals tf))]
     (assoc tf :all {true all-true false all-false})))
 
 (defn calc-true-false-scores
   "Find average scores for true hyps, average scores for false hyps."
-  [workspace true-false]
-  (let [aprioris (reduce (fn [m t]
+  [est true-false]
+  (let [workspace (:workspace (cur-ep est))
+        eps (flatten-est est)
+        meta-eps (mapcat (comp flatten-est :meta-est) (filter :meta-est eps))
+        acc? (fn [h] (if ((:meta-hyp-types @reasoner) (:type h))
+                      (some (fn [ep] ((:all (:accepted (:workspace ep))) (:id h)))
+                         meta-eps)
+                      (accepted? workspace h)))
+        aprioris (reduce (fn [m t]
                       (assoc m t
                              {true (map :apriori (get (get true-false t) true))
                               false (map :apriori (get (get true-false t) false))}))
@@ -62,9 +78,9 @@
              (keyword (format "FalseCount%s" k))
              (count (get (get true-false t) false))
              (keyword (format "TrueAcc%s" k))
-             (count (filter #(accepted? workspace %) (get (get true-false t) true)))
+             (count (filter acc? (get (get true-false t) true)))
              (keyword (format "FalseAcc%s" k))
-             (count (filter #(accepted? workspace %) (get (get true-false t) false)))
+             (count (filter acc? (get (get true-false t) false)))
              (keyword (format "AvgTrueApriori%s" k))
              (avg (get (get aprioris t) true))
              (keyword (format "AvgFalseApriori%s" k))
@@ -73,10 +89,16 @@
 
 (defn calc-true-false-deltas
   "Find average delta for true and false acceptances."
-  [est true-false]
-  (let [delta-tf (for [ep (filter (comp :best :accrej :workspace) (ep-path est))]
+  [est true-false meta?]
+  (let [eps (if meta?
+              (mapcat (comp flatten-est :meta-est) (filter :meta-est (flatten-est est)))
+              (ep-path est))
+        delta-tf (for [ep (filter (fn [ep] (when-let [b (:best (:accrej (:workspace ep)))]
+                                       (not ((:ignore-doubt-types (:abduction @problem))
+                                             (:type b)))))
+                             eps)]
                    (let [accrej (:accrej (:workspace ep))]
-                     [(get-in true-false [:individual (:id (:best accrej))])
+                     [(tf-true? true-false (:best accrej))
                       (:delta accrej)]))
         delta-true (map second (filter first delta-tf))
         delta-false (map second (filter (comp not first) delta-tf))]
@@ -94,24 +116,24 @@
       ;; ignored/rejected; or a false accepted that explained noise
       (or (and (= :observation (:type hyp))
                (accepted? ws hyp)
-               (not (get-in true-false [:individual (:id hyp)])))
+               (not (tf-true? true-false hyp)))
           (and (not= :observation (:type hyp))
                (accepted? ws hyp)
-               (not (get-in true-false [:individual (:id hyp)]))
+               (not (tf-true? true-false hyp))
                (= :observation (:type (accepted-explained ws hyp)))
-               (not (get-in true-false [:individual (:id (accepted-explained ws hyp))]))))
+               (not (tf-true? true-false (accepted-explained ws hyp)))))
       :noise
       ;; this hyp is true and eliminated due to too-low minscore;
       ;; or, this hyp is false and true rival eliminated due to
       ;; too-low minscore
       (or (and (rejected? ws hyp)
                (= :minscore (rejection-reason ws hyp))
-               (get-in true-false [:individual (:id hyp)]))
+               (tf-true? true-false hyp))
           (and (accepted? ws hyp)
-               (not (get-in true-false [:individual (:id hyp)]))
+               (not (tf-true? true-false hyp))
                ;; check that some true rival was rejected due to
                ;; minscore
-               (some (fn [h] (and (get-in true-false [:individual (:id h)])
+               (some (fn [h] (and (tf-true? true-false h)
                               (rejected? ws h)
                               (= :minscore (rejection-reason ws h))))
                   (explainers ws (accepted-explained ws hyp)))))
@@ -121,11 +143,11 @@
       ;; true, and you were the rival when a false explainer was
       ;; accepted
       (or (and (accepted? ws hyp)
-               (not (get-in true-false [:individual (:id hyp)]))
-               (some #(get-in true-false [:individual (:id %)])
+               (not (tf-true? true-false hyp))
+               (some #(tf-true? true-false %)
                   (accepted-rivals ws hyp)))
           (and (not (accepted? ws hyp))
-               (get-in true-false [:individual (:id hyp)])
+               (tf-true? true-false hyp)
                (let [accepted-instead-ids (map first
                                              (filter (fn [[hypid rivals]] (#{hyp} rivals))
                                                 (seq (:accepted-rivals ws))))]
@@ -133,14 +155,14 @@
       :scoring
       ;; false acceptance but true hyp (for what was explained) was never offered
       (and (accepted? ws hyp)
-           (not (get-in true-false [:individual (:id hyp)]))
-           (not-any? #(get-in true-false [:individual (:id %)])
+           (not (tf-true? true-false hyp))
+           (not-any? #(tf-true? true-false %)
                      (explainers ws (accepted-explained ws hyp))))
       :no-expl-offered
       ;; todo: explain this
       (and (rejected? ws hyp)
            (= :conflict (rejection-reason ws hyp))
-           (get-in true-false [:individual (:id hyp)]))
+           (tf-true? true-false hyp))
       (let [acc-conflicting (filter #(and (not (checked %))
                                      (accepted-before? ws % hyp))
                                (find-conflicts-all ws hyp))
@@ -155,12 +177,12 @@
       ;; false but accepted, conflicting but true hyp was rejected,
       ;; but why? check recursively
       (and (accepted? ws hyp)
-           (not (get-in true-false [:individual (:id hyp)]))
-           (some #(and (rejected? ws %) (get-in true-false [:individual (:id %)]))
+           (not (tf-true? true-false hyp))
+           (some #(and (rejected? ws %) (tf-true? true-false %))
               (find-conflicts-all ws hyp)))
       (let [rej-conflicting (filter #(and (not (checked %))
                                      (rejected-before? ws % hyp)
-                                     (get-in true-false [:individual (:id %)]))
+                                     (tf-true? true-false %))
                                (find-conflicts-all ws hyp))
             parent-errors (map #(classify-error ws true-false % (conj checked hyp))
                              rej-conflicting)]
@@ -172,7 +194,7 @@
               :conflict-rejection))
       ;; a true thing was not accepted because it wasn't needed to explain
       (and (not (accepted? ws hyp))
-           (get-in true-false [:individual (:id hyp)])
+           (tf-true? true-false hyp)
            (= 0 (:Threshold params))
            (not-any? (fn [e] (unexplained? ws e)) (explains ws hyp)))
       :superfluous
@@ -180,9 +202,9 @@
       ;; threshold = 0); must be an order-dependency error if none
       ;; of the above errors are the cause
       (or (and (accepted? ws hyp)
-               (not (get-in true-false [:individual (:id hyp)])))
+               (not (tf-true? true-false hyp)))
           (and (not (accepted? ws hyp))
-               (get-in true-false [:individual (:id hyp)])
+               (tf-true? true-false hyp)
                (= 0 (:Threshold params))))
       :unknown
       ;; else, there was no error
@@ -217,33 +239,148 @@
      (for [hyp noexp]
        (classify-noexp-reason ws hyp)))))
 
-;; find a better place for this?
-(def meta-hyp-types #{:order-dep :rej-conflict :rej-minscore})
+(defn true-meta-hyp?
+  "Note that hyp may be a non-meta hyp if it's a problem case."
+  [truedata hyp]
+  (let [t? (partial (:oracle-fn @problem) truedata)]
+    (if (cond (= :meta-rej-minscore (:type hyp))
+              (and (not-empty (:resolves hyp))
+                   (some (fn [h] (t? h)) (:implicated hyp))
+                   (some (fn [h] (t? h)) (:resolves hyp)))
+              (= :meta-rej-conflict (:type hyp))
+              (and (not-empty (:resolves hyp))
+                   (not (t? (first (:implicated hyp))))
+                   (some t? (:resolves hyp)))
+              (= :meta-order-dep (:type hyp))
+              (and (not-empty (:resolves hyp))
+                   (some t? (:resolves hyp)))
+              :else
+              (t? hyp))
+      true false)))
 
-(defn count-meta-hyps
+(defn find-meta-hyps
   [est]
   (let [eps (flatten-est est)
-        meta-eps (mapcat (comp flatten-est :meta-est) (filter :meta-est eps))
-        meta-hyps (set (mapcat (fn [ep] (map #(lookup-hyp (:workspace ep) %)
-                                          (:all (:accepted (:workspace ep)))))
-                               meta-eps))
-        types (map (comp keyword keyword-to-metric)
-                 (filter meta-hyp-types (map :type meta-hyps)))]
-    (merge (zipmap (map (comp keyword keyword-to-metric) meta-hyp-types)
-                   (repeat (count meta-hyp-types) 0))
-           (frequencies types))))
+        meta-eps (mapcat (comp flatten-est :meta-est) (filter :meta-est eps))]
+    (set (mapcat (fn [ep] (filter (fn [h] ((:meta-hyp-types @reasoner) (:type h)))
+                            (map #(lookup-hyp (:workspace ep) %)
+                               (:all (:hypotheses (:workspace ep))))))
+                 meta-eps))))
+
+(defn anomaly-reduction-meta-hyps
+  [meta-true-false]
+  (letfn [(ar-avg-count [type tf]
+            (let [vals (map (fn [h] (- (count (:problem-cases-prior h))
+                                    (count (:problem-cases-after h))))
+                          (get-in meta-true-false [type tf]))]
+              (avg vals)))
+          (ar-avg-apriori [type tf]
+            (let [vals (map (fn [h] (avg (map :apriori (:resolves h))))
+                          (get-in meta-true-false [type tf]))]
+              (avg vals)))
+          (ar-avg-apriori-diff [type tf]
+            (let [vals (map (fn [h] (- (avg (map :apriori (:problem-cases-prior h)))
+                                    (avg (map :apriori (:problem-cases-after h)))))
+                          (get-in meta-true-false [type tf]))]
+              (avg vals)))]
+    (reduce (fn [m t]
+         (let [k (keyword-to-metric t)]
+           (assoc m
+             (keyword (format "TrueAnomalyReduction%s" k)) (ar-avg-count t true)
+             (keyword (format "TrueAnomalyResolvedApriori%s" k)) (ar-avg-apriori t true)
+             (keyword (format "TrueAnomalyResolvedAprioriDiff%s" k)) (ar-avg-apriori-diff t true)
+             (keyword (format "FalseAnomalyReduction%s" k)) (ar-avg-count t false)
+             (keyword (format "FalseAnomalyResolvedApriori%s" k)) (ar-avg-apriori t false)
+             (keyword (format "FalseAnomalyResolvedAprioriDiff%s" k)) (ar-avg-apriori-diff t false))))
+       {:TrueMetaOrderDepTimeDeltaAvg
+        (avg (map :time-delta (get-in meta-true-false [:meta-order-dep true])))
+        :FalseMetaOrderDepTimeDeltaAvg
+        (avg (map :time-delta (get-in meta-true-false [:meta-order-dep false])))
+        :TrueMetaRejMinscoreMinScoreDeltaAvg
+        (avg (map :min-score-delta (get-in meta-true-false [:meta-rej-minscore true])))
+        :FalseMetaRejMinscoreMinScoreDeltaAvg
+        (avg (map :min-score-delta (get-in meta-true-false [:meta-rej-minscore false])))
+        :TrueMetaRejMinscoreMaxScoreDeltaAvg
+        (avg (map :max-score-delta (get-in meta-true-false [:meta-rej-minscore true])))
+        :FalseMetaRejMinscoreMaxScoreDeltaAvg
+        (avg (map :max-score-delta (get-in meta-true-false [:meta-rej-minscore false])))
+        :TrueMetaRejMinscoreAvgScoreDeltaAvg
+        (avg (map :avg-score-delta (get-in meta-true-false [:meta-rej-minscore true])))
+        :FalseMetaRejMinscoreAvgScoreDeltaAvg
+        (avg (map :avg-score-delta (get-in meta-true-false [:meta-rej-minscore false])))}
+       (:meta-hyp-types @reasoner))))
+
+(defn anomaly-reduction-indicator
+  [meta-true-false est]
+  (let [eps (flatten-est est)
+        meta-eps-last (map (comp last flatten-est :meta-est) (filter :meta-est eps))
+        apriori-diff (fn [h] (- (avg (map :apriori (:problem-cases-prior h)))
+                               (avg (map :apriori (:problem-cases-after h)))))
+        apriori-diff-compare (fn [h1 h2] (compare (apriori-diff h2) (apriori-diff h1)))
+        best-by-apriori-diff (for [ep meta-eps-last]
+                               (first (sort apriori-diff-compare
+                                            (filter (fn [h] (and
+                                                       ((:meta-hyp-types @reasoner) (:type h))
+                                                       (not-empty (:resolves h))))
+                                               (map #(lookup-hyp (:workspace ep) %)
+                                                  (:all (:hypotheses (:workspace ep))))))))
+        best-tf-grouped (group-by #(tf-true? meta-true-false %) best-by-apriori-diff)
+        choice-count (count meta-eps-last)]
+    (merge
+     {:MetaHypBestAprioriDiffPctTrue
+      (if (= 0 choice-count) 0.0
+          (double (/ (count (get best-tf-grouped true))
+                     choice-count)))
+      :MetaHypBestAprioriDiffPctFalse
+      (if (= 0 choice-count) 0.0
+          (double (/ (count (get best-tf-grouped false))
+                     choice-count)))}
+     (reduce (fn [m t]
+          (assoc m
+            (keyword (format "%sBestAprioriDiffPctTrue" (keyword-to-metric t)))
+            (if (= 0 choice-count) 0.0
+                (double (/ (count
+                            (filter #(= t (:type %))
+                               (get best-tf-grouped true)))
+                           choice-count)))
+            (keyword (format "%sBestAprioriDiffPctFalse" (keyword-to-metric t)))
+            (if (= 0 choice-count) 0.0
+                (double (/ (count
+                            (filter #(= t (:type %))
+                               (get best-tf-grouped false)))
+                           choice-count)))))
+        {} (:meta-hyp-types @reasoner)))))
+
+(defn noexp-conflict-true-false
+  "How many conflict noexp anomalies are true (and should be explained)?"
+  [est true-false]
+  (let [ws (:workspace (cur-ep est))
+        noexp-conflict (filter (fn [h] (= :conflict (classify-noexp-reason ws h)))
+                          (map #(lookup-hyp ws %) (get-no-explainers ws)))
+        grouped (group-by #(tf-true? true-false %) noexp-conflict)]
+    (if (empty? noexp-conflict)
+      ;; todo: return nil maybe?
+      {:PctTrueNoExpConflict 0.0
+       :PctFalseNoExpConflict 0.0}
+      {:PctTrueNoExpConflict (double (/ (count (get grouped true))
+                                        (count noexp-conflict)))
+       :PctFalseNoExpConflict (double (/ (count (get grouped false))
+                                         (count noexp-conflict)))})))
 
 (defn evaluate
   [truedata est]
   (let [ep (cur-ep est)
         eps (flatten-est est)
         workspace (update-graph (:workspace ep))
-        true-false (group-hyps-by-true-false
-                    (vals (:hyp-ids workspace))
-                    :type truedata (:oracle-fn @problem))
-        true-false-scores (calc-true-false-scores workspace true-false)
-        delta-avgs (calc-true-false-deltas est true-false)
-        meta-hyps (count-meta-hyps est)
+        true-false (group-hyps-by-true-false (vals (:hyp-ids workspace))
+                                             :type truedata (:oracle-fn @problem) false)
+        true-false-scores (calc-true-false-scores est true-false)
+        delta-avgs (calc-true-false-deltas est true-false false)
+        meta-hyps (find-meta-hyps est)
+        meta-true-false (group-hyps-by-true-false meta-hyps :type
+                                                  truedata true-meta-hyp? true)
+        meta-true-false-scores (calc-true-false-scores est meta-true-false)
+        meta-delta-avgs (calc-true-false-deltas est meta-true-false true)
         ep-states (flatten-est est)
         doubt (doubt-aggregate est)
         errors (find-errors est true-false)
@@ -251,13 +388,13 @@
         decision-metrics
         (for [ep (filter :decision-point ep-states)]
           (let [ws (:workspace ep)
-                noise-obs (set (filter #(not (get-in true-false [:individual (:id %)]))
+                noise-obs (set (filter #(not (tf-true? true-false %))
                                   (filter #(= :observation (:type %))
                                      (vals (:hyp-ids ws)))))
                 noise-claims (set (filter #(= :ignoring (rejection-reason ws %))
                                      (filter #(= :observation (:type %))
                                         (vals (:hyp-ids ws)))))
-                noise-claims-true (set (filter #(not (get-in true-false [:individual (:id %)]))
+                noise-claims-true (set (filter #(not (tf-true? true-false %))
                                           noise-claims))
                 noise-claims-false (set/difference noise-claims noise-claims-true)
                 noise-prec-coverage (calc-prec-coverage
@@ -280,7 +417,10 @@
            params
            ((:evaluate-fn (:abduction @problem)) truedata est)
            true-false-scores
-           meta-hyps
+           meta-true-false-scores
+           (anomaly-reduction-meta-hyps meta-true-false)
+           (anomaly-reduction-indicator meta-true-false est)
+           (noexp-conflict-true-false est true-false)
            (last decision-metrics)
            {:Step (:time ep)
             :AvgUnexplainedPct (avg (map :UnexplainedPct decision-metrics))
@@ -290,6 +430,8 @@
             :AvgNoiseClaimsF1 (avg (map :NoiseClaimsF1 decision-metrics))
             :TrueDeltaAvg (:true-delta-avg delta-avgs)
             :FalseDeltaAvg (:false-delta-avg delta-avgs)
+            :MetaTrueDeltaAvg (:true-delta-avg meta-delta-avgs)
+            :MetaFalseDeltaAvg (:false-delta-avg meta-delta-avgs)
             :Doubt (doubt-aggregate est)
             :ExplainCycles (count ep-states)
             :MetaBranches (count-branches est)

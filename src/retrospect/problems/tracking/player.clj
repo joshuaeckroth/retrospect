@@ -45,7 +45,7 @@
 	newpy (+ (* newy @grid-cell-height) (/ @grid-cell-height 2))]
     (doto g
       (.setColor (Color. (.getRed color) (.getGreen color) (.getBlue color) 150))
-      (.setStroke (BasicStroke. 1))
+      (.setStroke (BasicStroke. 2))
       (.drawLine oldpx oldpy newpx newpy))
     (when end-point?
       (.drawOval g newpx newpy 3 3))))
@@ -115,10 +115,11 @@
      (proxy [java.awt.event.MouseMotionListener] []
        (mouseDragged [e])
        (mouseMoved [e]
-         (. mouse-xy setText
-            (let [x (floor (/ (.getX e) @grid-cell-width))
-                  y (floor (/ (.getY e) @grid-cell-height))]
-              (format "Grid %d, %d" x y))))))
+         (when (and (not= 0 @grid-cell-width) (not= 0 @grid-cell-height))
+           (. mouse-xy setText
+              (let [x (floor (/ (.getX e) @grid-cell-width))
+                    y (floor (/ (.getY e) @grid-cell-height))]
+                (format "Grid %d, %d" x y)))))))
     (.addComponentListener
      (proxy [java.awt.event.ComponentListener] []
        (componentHidden [_])

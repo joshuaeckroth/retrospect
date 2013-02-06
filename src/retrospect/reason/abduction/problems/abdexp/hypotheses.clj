@@ -26,6 +26,8 @@
 (defn hyps-conflict?
   [expgraph hyp1 hyp2]
   (and (not= (:id hyp1) (:id hyp2))
+       (not= :observation (:type hyp1))
+       (not= :observation (:type hyp2))
        (or (and (= (:type hyp1) (:type hyp2))
                 (= (:vertex hyp1) (:vertex hyp2))
                 (not= (:value hyp1) (:value hyp2)))
@@ -33,32 +35,47 @@
                        [(:vertex hyp1) (:value hyp1)]
                        [(:vertex hyp2) (:value hyp2)]))))
 
+(defn make-score
+  "Figure out the (approximate) probability of v=val given
+   parents (parent-comb) and observed. Note that parent-comb may be
+   empty, indicating we want the probability of v=val without mention
+   of the parents."
+  [expgraph bn observed parent-comb v val]
+  (cond (= "prior" (:HypScores state/params))
+        (prob expgraph v val parent-comb)
+        (and (= "posterior" (:HypScores state/params))
+             (not-empty parent-comb))
+        (let [background (conj (filter #(not ((set parent-comb) %)) observed) [v val])]
+          (unobserve-all bn)
+          (observe-seq bn background)
+          (get-posterior bn parent-comb))
+        (and (= "posterior" (:HypScores state/params))
+             (empty? parent-comb))
+        (do
+          (unobserve-all bn)
+          (observe-seq bn observed)
+          (get-posterior bn [[v val]]))
+        :else 1.0))
+
 (defn make-sensor-hyps
   "Pick out the hyps that have been observed."
   [sensors time-prev time-now accepted all-hyps lookup-hyp]
   (if (= time-prev time-now) []
-      (let [expgraph (:expgraph (get-kb accepted lookup-hyp))
-            observed (set (mapcat #(sensed-at (first sensors) %)
-                                  (range (inc time-now))))]
-        (for [[v val] observed]
+      (let [kb (get-kb accepted lookup-hyp)
+            bn (:bayesnet kb)
+            expgraph (:expgraph kb)
+            ;; only :expl are "observed" here because :observation types
+            ;; may not be believed, or may conflict with beliefs
+            observed (map (fn [h] [(:vertex h) (:value h)]) (map lookup-hyp (:expl accepted)))
+            ;; figure out what the sensor has observed
+            sens-observed (set (mapcat #(sensed-at (first sensors) %)
+                                       (range (inc time-now))))]
+        (for [[v val] sens-observed]
           (new-hyp "Obs" :observation :observation
-                   1.0 true nil
+                   (make-score expgraph bn observed [] v val)
+                   true nil
                    [] (format "Observed %s=%s" v val) (format "Observed %s=%s" v val)
                    {:vertex v :value val})))))
-
-(defn make-score
-  [expgraph bn observed parent-comb v val]
-  (cond (= "fixed" (:HypScores state/params))
-        1.0
-        (and parent-comb (= "prior" (:HypScores state/params)))
-        (prob expgraph v val parent-comb)
-        (= "posterior" (:HypScores state/params))
-        (do (unobserve-all bn)
-            (observe-seq bn (filter #(not ((set parent-comb) %)) observed))
-            (get-posterior bn parent-comb))
-        (and parent-comb (= "cond-delta" (:HypScores state/params)))
-        (max 0.0 (conditional-delta bn observed parent-comb [[v val]]))
-        :else 1.0))
 
 (defn make-explainer-for-composite
   [bn expgraph observed unexp-hyp pv pval]
@@ -77,7 +94,7 @@
   (let [v (:vertex unexp-hyp)
         val (:value unexp-hyp)]
     (if (= :observation (:type unexp-hyp))
-      (let [score (make-score expgraph bn observed nil v val)]
+      (let [score (make-score expgraph bn observed [] v val)]
         [(new-hyp "Expl" :expl :expl score
                   (not-empty (explainers expgraph v))
                   #(hyps-conflict? expgraph %1 %2)
