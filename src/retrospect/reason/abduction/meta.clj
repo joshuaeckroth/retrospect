@@ -362,7 +362,12 @@
 
 (defn score-meta-hyps-estimate
   [problem-cases meta-hyps est time-prev time-now sensors]
-  [est meta-hyps])
+  ;; new-meta-hyps are scored meta-rej-conflicts
+  (let [new-meta-hyps (for [h meta-hyps]
+                        (cond (= :meta-rej-conflict (:type h))
+                              (assoc h :apriori (- 1.0 (:delta h)))
+                              :else h))]
+    [est new-meta-hyps]))
 
 (defn score-meta-hyps-simulate
   [problem-cases meta-hyps est time-prev time-now sensors]
