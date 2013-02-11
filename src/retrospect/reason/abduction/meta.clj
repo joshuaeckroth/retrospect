@@ -318,6 +318,7 @@
                     (str implicated) cycle delta (str/join "\n" (map str rejected)))
                  {:action (partial action-preemptively-reject implicated cycle)
                   :cycle cycle
+                  :delta delta
                   :implicated [implicated]}))))
 
 (defn make-meta-hyps-rej-minscore
