@@ -423,7 +423,8 @@
 (defn score-meta-hyps
   [problem-cases meta-hyps est time-prev time-now sensors]
   (if (:EstimateMetaScores params)
-    (score-meta-hyps-estimate problem-cases meta-hyps est time-prev time-now sensors)
+    (let [[est-new meta-hyps-new] (score-meta-hyps-simulate problem-cases meta-hyps est time-prev time-now sensors)]
+      (score-meta-hyps-estimate problem-cases meta-hyps est time-prev time-now sensors))
     (score-meta-hyps-simulate problem-cases meta-hyps est time-prev time-now sensors)))
 
 (defn meta-abductive
