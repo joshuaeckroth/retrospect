@@ -9,6 +9,7 @@
 (defn insertion-noise
   [observations expgraph]
   (if (and (not-empty observations)
+           (:Noise params)
            (< (my-rand) (/ (double (:SensorInsertionNoise params)) 100.0)))
     ;; "observe" a random new observation
     (let [[v val] (my-rand-nth (sort (vertex-value-pairs expgraph)))]
@@ -19,6 +20,7 @@
 (defn deletion-noise
   [observations]
   (if (and (not-empty observations)
+           (:Noise params)
            (< (my-rand) (/ (double (:SensorDeletionNoise params)) 100.0)))
     ;; remove an observation
     (rest (my-shuffle (sort observations)))
@@ -28,6 +30,7 @@
 (defn distortion-noise
   [observations expgraph]
   (if (and (not-empty observations)
+           (:Noise params)
            (< (my-rand) (/ (double (:SensorDistortionNoise params)) 100.0)))
     ;; change an observation
     (let [obs-shuffled (my-shuffle (sort observations))
