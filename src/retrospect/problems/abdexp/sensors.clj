@@ -10,22 +10,33 @@
   [observations expgraph]
   (if (and (not-empty observations)
            (< (my-rand) (/ (double (:SensorInsertionNoise params)) 100.0)))
-    ;; "observe" a different state on some of the observations
-    (my-shuffle
-     (concat observations
-             (for [[v val] (take (my-rand-int (inc (count observations)))
-                                 (my-shuffle (sort-by first observations)))]
-               [v (my-rand-nth (sort (filter (fn [new-val] (not (#{val} new-val)))
-                                        (values expgraph v))))])))
+    ;; "observe" a random new observation
+    (let [[v val] (my-rand-nth (sort (vertex-value-pairs expgraph)))]
+      (my-shuffle (sort (conj observations [v val]))))
+    ;; otherwise, don't
     observations))
 
 (defn deletion-noise
   [observations]
-  observations)
+  (if (and (not-empty observations)
+           (< (my-rand) (/ (double (:SensorDeletionNoise params)) 100.0)))
+    ;; remove an observation
+    (rest (my-shuffle (sort observations)))
+    ;; otherwise, don't
+    observations))
 
 (defn distortion-noise
-  [observations]
-  observations)
+  [observations expgraph]
+  (if (and (not-empty observations)
+           (< (my-rand) (/ (double (:SensorDistortionNoise params)) 100.0)))
+    ;; change an observation
+    (let [obs-shuffled (my-shuffle (sort observations))
+          [v val] (first obs-shuffled)
+          new-val (my-rand-nth (sort (filter (fn [new-val] (not (#{val} new-val)))
+                                        (values expgraph v))))]
+      (conj (rest obs-shuffled) [v new-val]))
+    ;; otherwise, don't
+    observations))
 
 (defn sense
   [sensor test time]
@@ -33,7 +44,7 @@
     (add-sensed sensor time (-> observations
                                (insertion-noise (:expgraph (meta sensor)))
                                (deletion-noise)
-                               (distortion-noise)))))
+                               (distortion-noise (:expgraph (meta sensor)))))))
 
 (defn generate-sensors
   [training]
