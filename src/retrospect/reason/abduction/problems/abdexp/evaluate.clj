@@ -1,7 +1,7 @@
 (ns retrospect.reason.abduction.problems.abdexp.evaluate
   (:require [clojure.set :as set])
   (:use [retrospect.evaluate :only [calc-increase calc-prec-coverage avg]])
-  (:use [retrospect.epistemicstates :only [cur-ep flatten-est]])
+  (:use [retrospect.epistemicstates :only [cur-ep decision-points]])
   (:use [retrospect.reason.abduction.workspace :only [lookup-hyp calc-doubt]])
   (:use [retrospect.reason.abduction.evaluate :only [doubt-aggregate]])
   (:use [retrospect.problems.abdexp.expgraph])
@@ -36,7 +36,7 @@
         bn (:bayesnet truedata)
         confidence (- 1.0 (doubt-aggregate est))
         metrics
-        (for [ep (filter :decision-point (flatten-est est))]
+        (for [ep (decision-points est)]
           (let [ws (:workspace ep)
                 observed (apply concat (take (:time ep) (:test truedata)))
                 _ (do (unobserve-all bn)

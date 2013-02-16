@@ -59,6 +59,10 @@
           (if (zip/end? loc) states
               (recur (zip/next loc) (conj states (zip/node loc))))))))
 
+(defn decision-points
+  [est]
+  (filter :decision-point (flatten-est est)))
+
 (defn make-ep-id
   ([] "0000")
   ([est] (format "%04d" (+ 1 (Integer/parseInt (:last-id (zip/root est)))))))

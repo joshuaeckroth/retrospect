@@ -4,7 +4,7 @@
   (:require [clojure.set :as set])
   (:use [retrospect.profile :only [profile]])
   (:use [retrospect.epistemicstates :only
-         [cur-ep new-child-ep init-est update-est]])
+         [cur-ep new-child-ep init-est update-est decision-points]])
   (:use [retrospect.sensors :only [update-sensors reset-sensors]])
   (:use [retrospect.random :only [rgen new-seed my-rand-int]])
   (:use [retrospect.logging])
@@ -47,10 +47,16 @@
 
 (defn evaluate
   [truedata ors]
-  (let [est (update-est (:est ors)
-                        (update-in (cur-ep (:est ors)) [:results] conj
-                                   (merge ((:evaluate-fn @reasoner) truedata (:est ors))
-                                          {:Milliseconds (get-in ors [:resources :milliseconds])})))]
+  ;; add to last set of results; make sure to grab the latest
+  ;; decision ep so that the most recent results are included
+  (let [new-results 
+        (conj (:results (last (filter #(not= % (cur-ep (:est ors)))
+                                 (decision-points (:est ors))))
+                        [])
+              (merge ((:evaluate-fn @reasoner) truedata (:est ors))
+                     {:Milliseconds (get-in ors [:resources :milliseconds])}))
+        est (update-est (:est ors)
+                        (assoc (cur-ep (:est ors)) :results new-results))]
     (assoc ors :est est)))
 
 (defn run-simulation

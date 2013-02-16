@@ -1,7 +1,7 @@
 (ns retrospect.reason.abduction.problems.tracking.evaluate
   (:require [clojure.set :as set])
   (:use [retrospect.evaluate :only [avg calc-increase calc-prec-coverage]])
-  (:use [retrospect.epistemicstates :only [cur-ep goto-cycle flatten-est]])
+  (:use [retrospect.epistemicstates :only [cur-ep goto-cycle decision-points]])
   (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
   (:use [retrospect.problems.tracking.movements :only [moves-match?]])
   (:use [retrospect.profile :only [prof]])
@@ -47,7 +47,7 @@
   (if (or (and (not training?) (not @batch))
           (and (not training?) (= (:Steps params) (:time (cur-ep est)))))
     (let [metrics
-          (for [ep (filter :decision-point (flatten-est est))]
+          (for [ep (decision-points est)]
             (let [ws (:workspace ep)
                   time-now (:time ep)
                   true-movs (get-true-movements truedata time-now)

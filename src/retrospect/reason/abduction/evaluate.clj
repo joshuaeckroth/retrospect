@@ -1,7 +1,7 @@
 (ns retrospect.reason.abduction.evaluate
   (:require [clojure.string :as str])
   (:require [clojure.set :as set])
-  (:use [retrospect.epistemicstates :only [cur-ep flatten-est count-branches]])
+  (:use [retrospect.epistemicstates :only [cur-ep flatten-est count-branches decision-points]])
   (:use [retrospect.evaluate :only [calc-increase calc-prec-coverage avg]])
   (:use [retrospect.epistemicstates :only [ep-path]])
   (:use [retrospect.reason.abduction.workspace
@@ -386,7 +386,7 @@
         errors (find-errors est true-false)
         noexp-reasons (find-noexp-reasons est)
         decision-metrics
-        (for [ep (filter :decision-point ep-states)]
+        (for [ep (decision-points est)]
           (let [ws (:workspace ep)
                 noise-obs (set (filter #(not (tf-true? true-false %))
                                   (filter #(= :observation (:type %))
