@@ -49,21 +49,33 @@
                 [tp tn fp fn] (tp-tn-fp-fn (:true-values-map truedata) acc not-acc)
                 prec-coverage (calc-prec-coverage tp tn fp fn
                                                   (count (:true-values-map truedata)))
+                obs-coverage (/ (double
+                                 (count (filter #(= (:value %) ((:true-values-map truedata)
+                                                           (:vertex %)))
+                                           ;; get hyps that explain an obs
+                                           (filter #(let [e (:explains %)]
+                                                 (and (= 1 (count e))
+                                                      (= :observation (:type (first e)))))
+                                              acc))))
+                                (double (count observed)))
                 {mpe :states} (most-probable-explanation bn)
                 [etp etn efp efn] (tp-tn-fp-fn mpe acc not-acc)
                 mpe-prec-coverage (calc-prec-coverage etp etn efp efn (count mpe))]
             {:MPEPrec (:Prec mpe-prec-coverage)
              :MPECoverage (:Coverage mpe-prec-coverage)
-             :Prec (:Prec prec-coverage)}))]
+             :Prec (:Prec prec-coverage)
+             :Coverage obs-coverage}))]
     (merge (last metrics)
            (compute-complexity expgraph)
            {:MinPrec (apply min (map :Prec metrics))
-            :AvgPrec (avg (map :Prec metrics))})))
+            :AvgPrec (avg (map :Prec metrics))
+            :MinCoverage (apply min (map :Coverage metrics))
+            :AvgCoverage (avg (map :Coverage metrics))})))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
-                  [:Prec :MinPrec :AvgPrec])))
+                  [:Prec :MinPrec :AvgPrec :Coverage :MinCoverage :AvgCoverage])))
 
 (defn stats
   [truedata ors time-now])
