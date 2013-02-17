@@ -393,15 +393,27 @@
                               :problem-cases-prior problem-cases
                               :problem-cases-after problem-cases-new
                               :final-ep-id (:id (cur-ep (:est-new result)))
-                              :apriori (cond (= "diff" (:ScoreMetaHyps params))
-                                             (max 0.0
-                                                  (- (avg (map :apriori problem-cases))
-                                                     (avg (map :apriori problem-cases-new))
-                                                     (if (nil? (:penalty hyp)) 0.0
-                                                         (:penalty hyp))))
-                                             ;; "doubt"
-                                             :else
-                                             doubt-new)
+                              :apriori (if (<= 0.0 (- doubt-new doubt))
+                                         ;; doubt-diff is positive (the meta-hyp increases doubt);
+                                         ;; forget it
+                                         0.0
+                                         ;; otherwise, doubt-diff is negative (the meta-hyp decreases doubt)
+                                         (if (= :meta-rej-minscore (:type hyp))
+                                           ;; different scoring for rej-minscore meta-hyps
+                                           (- 1.0
+                                              (max 0.0
+                                                   (- (avg (map :apriori problem-cases))
+                                                      (avg (map :apriori problem-cases-new)))))
+                                           ;; normal scoring (non-rej-minscore meta-hyps)
+                                           (cond (= "diff" (:ScoreMetaHyps params))
+                                                 (max 0.0
+                                                      (- (avg (map :apriori problem-cases))
+                                                         (avg (map :apriori problem-cases-new))
+                                                         (if (nil? (:penalty hyp)) 0.0
+                                                             (:penalty hyp))))
+                                                 ;; "doubt"
+                                                 :else
+                                                 doubt-new)))
                               :doubt-prior doubt
                               :doubt-new doubt-new
                               :doubt-diff (- doubt-new doubt)
