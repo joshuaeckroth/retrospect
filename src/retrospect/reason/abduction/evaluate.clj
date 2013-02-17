@@ -267,7 +267,7 @@
                                (:all (:hypotheses (:workspace ep))))))
                  meta-eps))))
 
-(defn anomaly-reduction-meta-hyps
+(defn meta-hyp-metrics
   [meta-true-false]
   (letfn [(ar-avg-count [type tf]
             (let [vals (map (fn [h] (- (count (:problem-cases-prior h))
@@ -282,6 +282,15 @@
             (let [vals (map (fn [h] (- (avg (map :apriori (:problem-cases-prior h)))
                                     (avg (map :apriori (:problem-cases-after h)))))
                           (get-in meta-true-false [type tf]))]
+              (avg vals)))
+          (avg-doubt-prior [type tf]
+            (let [vals (map :doubt-prior (get-in meta-true-false [type tf]))]
+              (avg vals)))
+          (avg-doubt-new [type tf]
+            (let [vals (map :doubt-new (get-in meta-true-false [type tf]))]
+              (avg vals)))
+          (avg-doubt-diff [type tf]
+            (let [vals (map :doubt-diff (get-in meta-true-false [type tf]))]
               (avg vals)))]
     (reduce (fn [m t]
          (let [k (keyword-to-metric t)]
@@ -289,9 +298,15 @@
              (keyword (format "TrueAnomalyReduction%s" k)) (ar-avg-count t true)
              (keyword (format "TrueAnomalyResolvedApriori%s" k)) (ar-avg-apriori t true)
              (keyword (format "TrueAnomalyResolvedAprioriDiff%s" k)) (ar-avg-apriori-diff t true)
+             (keyword (format "TrueDoubtPrior%s" k)) (avg-doubt-prior t true)
+             (keyword (format "TrueDoubtNew%s" k)) (avg-doubt-new t true)
+             (keyword (format "TrueDoubtDiff%s" k)) (avg-doubt-diff t true)
              (keyword (format "FalseAnomalyReduction%s" k)) (ar-avg-count t false)
              (keyword (format "FalseAnomalyResolvedApriori%s" k)) (ar-avg-apriori t false)
-             (keyword (format "FalseAnomalyResolvedAprioriDiff%s" k)) (ar-avg-apriori-diff t false))))
+             (keyword (format "FalseAnomalyResolvedAprioriDiff%s" k)) (ar-avg-apriori-diff t false)
+             (keyword (format "FalseDoubtPrior%s" k)) (avg-doubt-prior t false)
+             (keyword (format "FalseDoubtNew%s" k)) (avg-doubt-new t false)
+             (keyword (format "FalseDoubtDiff%s" k)) (avg-doubt-diff t false))))
        {:TrueMetaOrderDepTimeDeltaAvg
         (avg (map :time-delta (get-in meta-true-false [:meta-order-dep true])))
         :FalseMetaOrderDepTimeDeltaAvg
@@ -307,7 +322,8 @@
         :TrueMetaRejMinscoreAvgScoreDeltaAvg
         (avg (map :avg-score-delta (get-in meta-true-false [:meta-rej-minscore true])))
         :FalseMetaRejMinscoreAvgScoreDeltaAvg
-        (avg (map :avg-score-delta (get-in meta-true-false [:meta-rej-minscore false])))}
+        (avg (map :avg-score-delta (get-in meta-true-false [:meta-rej-minscore false])))
+        }
        (:meta-hyp-types @reasoner))))
 
 (defn anomaly-reduction-indicator
@@ -418,7 +434,7 @@
            ((:evaluate-fn (:abduction @problem)) truedata est)
            true-false-scores
            meta-true-false-scores
-           (anomaly-reduction-meta-hyps meta-true-false)
+           (meta-hyp-metrics meta-true-false)
            (anomaly-reduction-indicator meta-true-false est)
            (noexp-conflict-true-false est true-false)
            (last decision-metrics)
