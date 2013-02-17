@@ -404,7 +404,7 @@
                                              doubt-new)
                               :doubt-prior doubt
                               :doubt-new doubt-new
-                              :doubt-diff (- doubt doubt-new)
+                              :doubt-diff (- doubt-new doubt)
                               :desc (format (str "%s\n\nEp-state start: %s\n\n"
                                             "Problem cases prior:\n%s\n\n"
                                             "Problem cases after:\n%s\n\n"
