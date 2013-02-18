@@ -53,27 +53,30 @@
       observations)))
 
 (defn deletion-noise
-  [observations sensor time]
-  ;; each observation has the form {:x # :y # :time # :color ""}
-  (filter (fn [_] (>= (my-rand) (/ (double (:SensorDeletionNoise params)) 100.0)))
-     observations))
+  [observations]
+  (if (and (not-empty observations)
+           (:Noise params)
+           (< (my-rand) (/ (double (:SensorDeletionNoise params)) 100.0)))
+    ;; remove an observation
+    (rest (my-shuffle (sort-by vec observations)))
+    ;; otherwise, don't
+    observations))
 
 (defn distortion-noise
-  [observations sensor time]
+  [observations]
   ;; each observation has the form {:x # :y # :time # :color ""}
-  (loop [obs observations
-         new-obs []]
-    (cond (empty? obs) new-obs
-          (>= (my-rand) (/ (double (:SensorDistortionNoise params)) 100.0))
-          (recur (rest obs) (conj new-obs (first obs)))
-          :else
-          (let [det (make-random-det sensor time)]
-            ;; don't allow noise to occupy same space as other detections
-            (if (not-any? (fn [{xx :x yy :y}]
-                            (and (= (:x det) xx) (= (:y det) yy)))
-                          new-obs)
-              (recur (rest obs) (conj new-obs det))
-              (recur (rest obs) (conj new-obs (first obs))))))))
+  (if (and (not-empty observations)
+           (:Noise params)
+           (< (my-rand) (/ (double (:SensorDistortionNoise params)) 100.0)))
+    ;; change an observation
+    (let [obs-shuffled (my-shuffle (sort-by vec observations))
+          {:keys [x y time color]} (first obs-shuffled)
+          ;; random number in range [-2,2]
+          new-x (+ x (- (my-rand-int 5) 2))
+          new-y (+ y (- (my-rand-int 5) 2))]
+      (conj (rest obs-shuffled) {:x new-x :y new-y :time time :color color}))
+    ;; otherwise, don't
+    observations))
 
 (defn sense
   [sensor movements time]
@@ -81,8 +84,8 @@
     (add-sensed sensor time
                 (-> observations
                    (insertion-noise sensor time)
-                   (deletion-noise sensor time)
-                   (distortion-noise sensor time)))))
+                   (deletion-noise)
+                   (distortion-noise)))))
 
 (defn new-sensor
   "Generate a new sensor with provided values and an empty 'spotted' vector."
