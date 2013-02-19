@@ -452,13 +452,14 @@
         meta-hyps (make-meta-hyps problem-cases est time-prev time-now)
         [est-new meta-hyps-scored] (score-meta-hyps problem-cases meta-hyps
                                                     est time-prev time-now sensors)
+        meta-hyps-scored-explanatory (filter #(not-empty (:explains %)) meta-hyps-scored)
         meta-est (new-child-ep (init-est (assoc (init-workspace)
                                            :meta-oracle (:meta-oracle (:workspace (cur-ep est))))))
         meta-ws (binding [params meta-params]
                   (reduce #(add %1 %2 0)
                      (reduce #(add-observation %1 %2 0)
                         (:workspace (cur-ep meta-est)) problem-cases)
-                     meta-hyps-scored))
+                     meta-hyps-scored-explanatory))
         meta-est-reasoned (binding [params meta-params]
                             (reason (update-est meta-est (assoc (cur-ep meta-est)
                                                            :workspace meta-ws))
