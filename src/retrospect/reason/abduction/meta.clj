@@ -104,10 +104,13 @@
   [(new-branch-ep est ep)
    params])
 
-(defn action-lower-minscore
-  [new-minscore time-now est]
-  [(new-branch-ep est (cur-ep (goto-start-of-time est time-now)))
-   (assoc params :MinScore new-minscore)])
+(defn action-prevent-rejection-minscore
+  [implicated cycle est]
+  (let [new-est (new-branch-ep est (cur-ep (goto-cycle est (- cycle 2))))
+        ep (cur-ep new-est)
+        ws-prevent-rejection (prevent-rejection (:workspace ep) implicated :minscore)
+        ep-prevent-rejection (assoc ep :workspace ws-prevent-rejection)]
+    [(update-est new-est ep-prevent-rejection) params]))
 
 (defn action-ignore
   [hyp est]
@@ -213,30 +216,25 @@
   [problem-cases est-orig time-prev time-now sensors]
   (loop [problem-cases problem-cases
          est-prior est-orig
-         est est-orig
-         attempted-minscores #{}]
+         est est-orig]
     (let [cur-ws (:workspace (cur-ep est))
           expl (set (mapcat #(explainers cur-ws %) problem-cases))
           {:keys [implicated may-resolve]}
-          (find-rej-minscore-candidates problem-cases cur-ws expl)]
+          (find-rej-minscore-candidates problem-cases cur-ws expl)
+          cycle (if (not-empty implicated)
+                  (apply min (map (fn [h] (rejected-cycle cur-ws h)) implicated)))]
       (if (not-empty implicated)
-        (let [new-minscore (* 100.0 (- (apply max (map :apriori implicated)) 0.01))]
-          (if (attempted-minscores new-minscore)
-            ;; don't attempt the same new minscore
-            {:est-old est-prior :est-new est}
-            ;; otherwise, haven't attempted this minscore yet
-            (let [[est-action params-action] (action-lower-minscore
-                                              new-minscore time-now est)
-                  {:keys [est-old est-new]}
-                  (binding [params params-action]
-                    (meta-apply-and-evaluate est est-action time-now sensors))
-                  problem-cases-new (find-problem-cases est-new)]
-              (if (not-empty problem-cases-new)
-                (recur problem-cases-new
-                       est-old
-                       est-new
-                       (conj attempted-minscores new-minscore))
-                {:est-old est-old :est-new est-new}))))
+        (let [[est-action params-action]
+              (action-prevent-rejection-minscore implicated cycle est)
+              {:keys [est-old est-new]}
+              (binding [params params-action]
+                (meta-apply-and-evaluate est est-action time-now sensors))
+              problem-cases-new (find-problem-cases est-new)]
+          (if (not-empty problem-cases-new)
+            (recur problem-cases-new
+                   est-old
+                   est-new)
+            {:est-old est-old :est-new est-new}))
         {:est-old est-prior :est-new est}))))
 
 (defn meta-hyp-conflicts?
@@ -327,24 +325,23 @@
   (if (not (available-meta-hyps "meta-rej-minscore")) []
       (let [minscore (/ (double (:MinScore params)) 100.0)
             {:keys [implicated may-resolve]} (find-rej-minscore-candidates
-                                              problem-cases cur-ws expl)] 
+                                              problem-cases cur-ws expl)
+            cycle (if (not-empty implicated)
+                    (apply min (map (fn [h] (rejected-cycle cur-ws h)) implicated)))]
         (if (not-empty implicated)
-          (let [new-minscore (* 100.0 (- (apply max (map :apriori implicated)) 0.01))]
-            [(new-hyp "TooHighMinScore" :meta-rej-minscore :meta-rej-minscore
-                      0.25 false meta-hyp-conflicts?
-                      (map :contents may-resolve)
-                      "Explainers rejected due to too-high min-score"
-                      (format "These explainers were rejected due to too-high min-score:\n%s\n\nLowering to: %.2f\n\nRelevant problem cases:\n%s"
-                         (str/join "\n" (sort (map str implicated)))
-                         new-minscore
-                         (str/join "\n" (sort (map str may-resolve))))
-                      {:action (partial action-lower-minscore new-minscore time-now)
-                       :cycle (:cycle (cur-ep (goto-start-of-time est time-now)))
-                       :implicated implicated
-                       :new-minscore new-minscore
-                       :min-score-delta (- minscore (apply min (map :apriori implicated)))
-                       :max-score-delta (- minscore (apply max (map :apriori implicated)))
-                       :avg-score-delta (- minscore (avg (map :apriori implicated)))})])
+          [(new-hyp "TooHighMinScore" :meta-rej-minscore :meta-rej-minscore
+                    0.25 false meta-hyp-conflicts?
+                    (map :contents may-resolve)
+                    "Explainers rejected due to too-high min-score"
+                    (format "These explainers were rejected due to too-high min-score:\n%s\n\nRelevant problem cases:\n%s"
+                       (str/join "\n" (sort (map str implicated)))
+                       (str/join "\n" (sort (map str may-resolve))))
+                    {:action (partial action-prevent-rejection-minscore implicated cycle)
+                     :cycle cycle
+                     :implicated implicated
+                     :min-score-delta (- minscore (apply min (map :apriori implicated)))
+                     :max-score-delta (- minscore (apply max (map :apriori implicated)))
+                     :avg-score-delta (- minscore (avg (map :apriori implicated)))})]
           []))))
 
 (defn make-meta-hyps
@@ -548,6 +545,7 @@
             batch1-hyp (first (filter #(and (= :meta-order-dep (:type %))
                                        (= 1 (:time-delta %)))
                                  meta-hyps-scored))
+            ;; NOTE: THIS WON'T WORK ANYMORE, :new-minscore is not part of lower-minscore hyps now
             least-minscore-hyp (last (sort-by :new-minscore (filter #(= :meta-rej-minscore (:type %))
                                                                meta-hyps-scored)))
             cheapest-rej-conflict-hyp (last (sort-by :cycle (filter #(= :meta-rej-conflict (:type %))

@@ -73,6 +73,8 @@
    :rejected-cycle {}
    ;; a map of hyp-id => reason-tag (e.g., :conflict)
    :rejection-reasons {}
+   ;; a set of [hyp-contents rej-reason] specifying which hyps should not be rejected for which reasons
+   :prevent-rejections #{}
    ;; a map of hyp-id => hyp what was explained when it was accepted
    :accepted-explained {}
    ;; a map of hyp-id => seq of hyps of rival explainers when it was accepted
@@ -128,9 +130,22 @@
          (<= (get-in workspace [:rejected-cycle (:id hyp)]) cycle))
     false))
 
+(defn rejected-cycle
+  [workspace hyp]
+  (get-in workspace [:rejected-cycle (:id hyp)]))
+
 (defn rejection-reason
   [workspace hyp]
   (get-in workspace [:rejection-reasons (:id hyp)]))
+
+(defn prevent-rejection
+  [workspace hyps rej-reason]
+  (update-in workspace [:prevent-rejections]
+             set/union (set (map (fn [h] [(:contents h) rej-reason]) hyps))))
+
+(defn prevented-rejection?
+  [workspace hyp rej-reason]
+  ((:prevent-rejections workspace) [(:contents hyp) rej-reason]))
 
 (defn unexplained?
   [workspace hyp]
@@ -713,7 +728,8 @@
                     (recur ws (rest hyps)))
 
                 (and (not= :observation (:type hyp))
-                     (< (:apriori hyp) (/ (double (:MinScore params)) 100.0)))
+                     (< (:apriori hyp) (/ (double (:MinScore params)) 100.0))
+                     (not (prevented-rejection? ws hyp :minscore)))
                 (do (log "...rejecting because score" (:apriori hyp)
                          "is lower than MinScore.")
                     (let [ws-next (reject-many ws [hyp] :minscore cycle)]
