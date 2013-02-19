@@ -220,16 +220,18 @@
   [problem-cases est-orig time-prev time-now sensors]
   (loop [problem-cases problem-cases
          est-prior est-orig
-         est est-orig]
+         est est-orig
+         implicated-before #{}]
     (let [cur-ws (:workspace (cur-ep est))
           expl (set (mapcat #(explainers cur-ws %) problem-cases))
           {:keys [implicated may-resolve]}
           (find-rej-minscore-candidates problem-cases cur-ws expl)
-          cycle (if (not-empty implicated)
-                  (apply min (map (fn [h] (rejected-cycle cur-ws h)) implicated)))]
-      (if (not-empty implicated)
+          implicated-untried (filter #(not (implicated-before (:contents %))) implicated)
+          cycle (if (not-empty implicated-untried)
+                  (apply min (map (fn [h] (rejected-cycle cur-ws h)) implicated-untried)))]
+      (if (not-empty implicated-untried)
         (let [[est-action params-action]
-              (action-prevent-rejection-minscore implicated cycle est)
+              (action-prevent-rejection-minscore implicated-untried cycle est)
               {:keys [est-old est-new]}
               (binding [params params-action]
                 (meta-apply-and-evaluate est est-action time-now sensors))
@@ -237,7 +239,8 @@
           (if (not-empty problem-cases-new)
             (recur problem-cases-new
                    est-old
-                   est-new)
+                   est-new
+                   (set/union implicated-before (set (map :contents implicated-untried))))
             {:est-old est-old :est-new est-new}))
         {:est-old est-prior :est-new est}))))
 
