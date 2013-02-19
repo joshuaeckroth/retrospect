@@ -405,7 +405,7 @@
 
 (defn add
   [workspace hyp cycle]
-  (let [explains (set (map #(get (:hyp-contents workspace) %) (:explains hyp)))
+  (let [hyp-explains (set (map #(get (:hyp-contents workspace) %) (:explains hyp)))
         ;; update a composite hyp so that pre-existing
         ;; components are used instead of duplicate components
         ;; in the new composite
@@ -415,7 +415,7 @@
                                              (lookup-hyp workspace h-id) h))
                                     (:hyps hyp)))
                 hyp)]
-    (log "Adding" hyp-c "which explains" explains)
+    (log "Adding" hyp-c "which explains" hyp-explains)
     (if-let [prior-hyp-id (get (:hyp-contents workspace) (:contents hyp-c))]
       ;; hyp already present; update explains in case it changed,
       ;; and whether it needs explanation or not
@@ -456,7 +456,9 @@
             ;; it was already accepted
             (if ((get-in ws [:accepted :all]) prior-hyp-id)
               (do (log "...yet was already accepted.")
-                  (-> ws (dissoc-in [:sorted-explainers prior-hyp-id])
+                  (-> ws
+                     (dissoc-needing-explanation (explains ws prior-hyp-updated))
+                     (dissoc-in [:sorted-explainers prior-hyp-id])
                      (dissoc-explainer prior-hyp-updated)))
               ;; it may conflict with an accepted hyp
               (if (and (:conflicts?-fn hyp-c)
@@ -472,7 +474,7 @@
                  (-> workspace
                     (assoc-in [:hyp-ids (:id hyp-apriori)] hyp-apriori)
                     (assoc-in [:hyp-contents (:contents hyp-apriori)] (:id hyp-apriori))
-                    (assoc-in [:explains (:id hyp-apriori)] explains)
+                    (assoc-in [:explains (:id hyp-apriori)] hyp-explains)
                     (record-if-needs-explanation hyp-apriori)
                     (assoc-explainer hyp-apriori)
                     (update-in [:hypotheses (:type hyp-apriori)] conj (:id hyp-apriori))
