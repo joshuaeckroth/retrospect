@@ -13,8 +13,9 @@
 
 (defn new-explainers
   [vertices]
+  ;; just generating one seems to be best
   (filter #(not (vertices %))
-     (repeatedly 2 #(format "V%d" (my-rand-int 10000)))))
+     (repeatedly 1 #(format "V%d" (my-rand-int 10000)))))
 
 (defn reuse-explainers
   [vertices n]
@@ -23,14 +24,14 @@
 (defn make-explainers
   [vertices v1 reuse-n]
   (map (fn [v2] [v2 v1])
-     (take (inc (my-rand-int (:NumExplainers params)))
+     (take (Math/ceil (/ (:NumExplainers params) 4))
            (my-shuffle
             (concat (new-explainers vertices)
                     (reuse-explainers vertices reuse-n))))))
 
 (defn gen-explains-links
   []
-  (let [initial-vertices (set (repeatedly (* (:Steps params) 2)
+  (let [initial-vertices (set (repeatedly (:Steps params)
                                           #(format "V%d" (my-rand-int 10000))))]
     (loop [unexp initial-vertices
            vs #{}
@@ -38,7 +39,7 @@
       (if (>= (count expl-links) (:NumExplainsLinks params))
         (take (:NumExplainsLinks params) (my-shuffle expl-links))
         ;; make some explainers for some of the unexplained
-        (let [to-be-explained (take (count unexp) (my-shuffle (sort unexp)))
+        (let [to-be-explained (my-shuffle (sort unexp))
               reuse-n (:NumExplainers params)
               new-expl-links (mapcat (fn [v] (make-explainers vs v reuse-n))
                                      to-be-explained)
@@ -129,7 +130,7 @@
   (let [expl-links (gen-explains-links)
         eg (reduce (fn [g el] (let [g2 (add-edges g el)]
                           (if (dag? g2) g2 g)))
-              (digraph) expl-links)]
+              (digraph) (my-shuffle (sort expl-links)))]
     (let [vs (sort (nodes eg))
           eg-values (reduce (fn [eg v]
                          (-> eg (add-attr v :id v)
