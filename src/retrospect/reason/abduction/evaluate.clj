@@ -283,6 +283,9 @@
                                     (avg (map :apriori (:problem-cases-after h)))))
                           (get-in meta-true-false [type tf]))]
               (avg vals)))
+          (avg-explain-count [type tf]
+            (let [vals (map #(count (:explains %)) (get-in meta-true-false [type tf]))]
+              (avg vals)))
           (avg-doubt-prior [type tf]
             (let [vals (map :doubt-prior (get-in meta-true-false [type tf]))]
               (avg vals)))
@@ -301,12 +304,14 @@
              (keyword (format "TrueDoubtPrior%s" k)) (avg-doubt-prior t true)
              (keyword (format "TrueDoubtNew%s" k)) (avg-doubt-new t true)
              (keyword (format "TrueDoubtDiff%s" k)) (avg-doubt-diff t true)
+             (keyword (format "TrueExplainCount%s" k)) (avg-explain-count t true)
              (keyword (format "FalseAnomalyReduction%s" k)) (ar-avg-count t false)
              (keyword (format "FalseAnomalyResolvedApriori%s" k)) (ar-avg-apriori t false)
              (keyword (format "FalseAnomalyResolvedAprioriDiff%s" k)) (ar-avg-apriori-diff t false)
              (keyword (format "FalseDoubtPrior%s" k)) (avg-doubt-prior t false)
              (keyword (format "FalseDoubtNew%s" k)) (avg-doubt-new t false)
-             (keyword (format "FalseDoubtDiff%s" k)) (avg-doubt-diff t false))))
+             (keyword (format "FalseDoubtDiff%s" k)) (avg-doubt-diff t false)
+             (keyword (format "FalseExplainCount%s" k)) (avg-explain-count t false))))
        {:TrueMetaOrderDepTimeDeltaAvg
         (avg (map :time-delta (get-in meta-true-false [:meta-order-dep true])))
         :FalseMetaOrderDepTimeDeltaAvg
