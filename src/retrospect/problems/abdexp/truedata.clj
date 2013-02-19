@@ -103,23 +103,25 @@
                                    (conflicts? expgraph [v1 val1] [v2 val2]))
                                  (seq true-values-map)))
                (seq true-values-map)))]
-    (loop [vs (reverse (sorted-by-dep expgraph))
+    (loop [attempts 0
+           vs (reverse (sorted-by-dep expgraph))
            true-values-map {}]
-      (if (empty? vs) true-values-map
-          (let [v (first vs)
-                parents (explainers expgraph v)
-                parent-vals (set (map (fn [v] [v (get true-values-map v)]) parents))
-                val-probs (sort-by second (map (fn [val] [val (prob expgraph v val parent-vals)])
-                                             (values expgraph v)))
-                rand-prob (my-rand)
-                chosen-val (ffirst (drop-while #(< (second %) rand-prob)
-                                               (reductions (fn [[val1 prob1] [val2 prob2]]
-                                                             [val2 (+ prob1 prob2)]) val-probs)))
-                new-true-values-map (conj true-values-map [v chosen-val])]
-            ;; if an incompatibility has been introduced, start over
-            (if (any-incompatible? new-true-values-map)
-              (recur (reverse (sorted-by-dep expgraph)) {})
-              (recur (rest vs) new-true-values-map)))))))
+      (if (>= attempts 10) nil
+          (if (empty? vs) true-values-map
+              (let [v (first vs)
+                    parents (explainers expgraph v)
+                    parent-vals (set (map (fn [v] [v (get true-values-map v)]) parents))
+                    val-probs (sort-by second (map (fn [val] [val (prob expgraph v val parent-vals)])
+                                                 (values expgraph v)))
+                    rand-prob (my-rand)
+                    chosen-val (ffirst (drop-while #(< (second %) rand-prob)
+                                                   (reductions (fn [[val1 prob1] [val2 prob2]]
+                                                                 [val2 (+ prob1 prob2)]) val-probs)))
+                    new-true-values-map (conj true-values-map [v chosen-val])]
+                ;; if an incompatibility has been introduced, start over
+                (if (any-incompatible? new-true-values-map)
+                  (recur (inc attempts) (reverse (sorted-by-dep expgraph)) {})
+                  (recur attempts (rest vs) new-true-values-map))))))))
 
 (defn rand-vals
   []
@@ -127,11 +129,12 @@
 
 (defn random-expgraph
   []
-  (let [expl-links (gen-explains-links)
-        eg (reduce (fn [g el] (let [g2 (add-edges g el)]
-                          (if (dag? g2) g2 g)))
-              (digraph) (my-shuffle (sort expl-links)))]
-    (let [vs (sort (nodes eg))
+  (loop []
+    (let [expl-links (gen-explains-links)
+          eg (reduce (fn [g el] (let [g2 (add-edges g el)]
+                            (if (dag? g2) g2 g)))
+                (digraph) (my-shuffle (sort expl-links)))
+          vs (sort (nodes eg))
           eg-values (reduce (fn [eg v]
                          (-> eg (add-attr v :id v)
                             (add-attr v :values (rand-vals))))
@@ -145,13 +148,14 @@
           eg-conflicts (reduce set-conflicts eg-values conflict-links)
           eg-probs (reduce add-prob-table eg-conflicts vs)
           bayesnet (build-bayesnet eg-probs)
-          true-values-map (sample-expgraph eg-probs)
-          observations (take (* 3 (:Steps params))
-                             (my-shuffle (sort-by first (seq true-values-map))))]
-      {:expgraph eg-probs
-       :bayesnet bayesnet
-       :observations observations
-       :true-values-map true-values-map})))
+          true-values-map (sample-expgraph eg-probs)]
+      (if true-values-map
+        {:expgraph eg-probs
+         :bayesnet bayesnet
+         :observations (take (* 3 (:Steps params))
+                             (my-shuffle (sort-by first (seq true-values-map))))
+         :true-values-map true-values-map}
+        (recur)))))
 
 (defn observation-groups
   [observations]

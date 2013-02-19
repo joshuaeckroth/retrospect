@@ -193,16 +193,17 @@
                            (explainers expgraph v))))
      (on-nodes expgraph)))
 
-(defn sorted-by-dep
-  ([expgraph]
-     (sorted-by-dep expgraph nil))
-  ([expgraph starts]
-     (let [eg (let [conflicts-edges (filter #(apply conflicts-vertices? expgraph %)
-                                                (edges expgraph))]
-                (apply remove-edges expgraph conflicts-edges))]
-       (rest (topsort (reduce (fn [g v] (add-edges g [-1 v])) (transpose eg)
-                         (or starts (bottom-nodes eg)))
-                      -1)))))
+(def sorted-by-dep
+  (memoize
+   (fn ([expgraph starts]
+         (let [eg (let [conflicts-edges (filter #(apply conflicts-vertices? expgraph %)
+                                           (edges expgraph))]
+                    (apply remove-edges expgraph conflicts-edges))]
+           (rest (topsort (reduce (fn [g v] (add-edges g [-1 v])) (transpose eg)
+                             (or starts (bottom-nodes eg)))
+                          -1))))
+     ([expgraph]
+        (sorted-by-dep expgraph nil)))))
 
 ;; TODO: make sure no combination has a conflicting pair
 (defn gen-parent-combinations
