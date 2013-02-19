@@ -108,7 +108,11 @@
   [implicated cycle est]
   (let [new-est (new-branch-ep est (cur-ep (goto-cycle est (- cycle 2))))
         ep (cur-ep new-est)
-        ws-prevent-rejection (prevent-rejection (:workspace ep) implicated :minscore)
+        ;; ensure the prevent-rejections set doesn't go back to a prior, smaller set;
+        ;; ensuring this will prevent loops
+        ws-prevent-rejection (update-in (prevent-rejection (:workspace ep) implicated :minscore)
+                                        [:prevent-rejections]
+                                        set/union (:prevent-rejections (:workspace (cur-ep est))))
         ep-prevent-rejection (assoc ep :workspace ws-prevent-rejection)]
     [(update-est new-est ep-prevent-rejection) params]))
 
