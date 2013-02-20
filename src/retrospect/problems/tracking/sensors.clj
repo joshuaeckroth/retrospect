@@ -74,7 +74,23 @@
           ;; random number in range [-2,2]
           new-x (+ x (- (my-rand-int 5) 2))
           new-y (+ y (- (my-rand-int 5) 2))]
-      (conj (rest obs-shuffled) {:x new-x :y new-y :time time :color color}))
+      (my-shuffle (conj (rest obs-shuffled) {:x new-x :y new-y :time time :color color})))
+    ;; otherwise, don't
+    observations))
+
+(defn duplication-noise
+  [observations]
+  ;; each observation has the form {:x # :y # :time # :color ""}
+  (if (and (not-empty observations)
+           (:Noise params)
+           (< (my-rand) (/ (double (:SensorDuplicationNoise params)) 100.0)))
+    ;; add an observation
+    (let [obs-shuffled (my-shuffle (sort-by vec observations))
+          {:keys [x y time color]} (first obs-shuffled)
+          ;; random number in range [-2,2]
+          new-x (+ x (- (my-rand-int 5) 2))
+          new-y (+ y (- (my-rand-int 5) 2))]
+      (my-shuffle (conj obs-shuffled {:x new-x :y new-y :time time :color color})))
     ;; otherwise, don't
     observations))
 
