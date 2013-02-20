@@ -78,6 +78,13 @@
     {:est-old (goto-ep reason-est (:id (cur-ep est)))
      :est-new reason-est}))
 
+(defn meta-batchbeg
+  [problem-caes est time-prev time-now sensors]
+  (when (not= time-prev 0)
+    (let [batchbeg-ep (cur-ep (goto-start-of-time est 0))
+          new-est (new-branch-ep est batchbeg-ep)]
+      (meta-apply-and-evaluate est new-est time-now sensors))))
+
 (defn meta-batch1
   [problem-caes est time-prev time-now sensors]
   (when (not= time-prev 0)
@@ -621,8 +628,10 @@
   [est time-prev time-now sensors]
   (let [problem-cases (find-problem-cases est)
         m (:Metareasoning params)
-        f (cond (= "batch" m)
+        f (cond (= "batch1" m)
                 meta-batch1
+                (= "batchbeg" m)
+                meta-batchbeg
                 (= "lower-minscore" m)
                 meta-lower-minscore
                 (= "rej-conflict" m)
