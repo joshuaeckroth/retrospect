@@ -151,17 +151,19 @@
                               (fn [e] (filter (fn [c] (accepted-before? cur-ws c e))
                                         (find-conflicts-all cur-ws e)))
                               expl-rejected-conflicts))
+        ;; get all inner hyps, if any, of those that were accepted but conflict
         inner-hyps (set (map :id (mapcat :hyps acc-conflicting)))
-        acc-conflicting-no-comps (sort-by :id (filter #(not (inner-hyps (:id %)))
+        ;; keep only those that are not inner hyps
+        acc-conflicting-no-inner (sort-by :id (filter #(not (inner-hyps (:id %)))
                                                  acc-conflicting))
         ;; which ep-states rejected these expl (essentials are
         ;; allowed; we may still want to reject an "essential"
         ;; explainer;
-        ;; also filter out any ep's that do a batch
-        ep-rejs (filter #(= time-now (:time %))
-                   (filter (fn [ep] (some (set (map :id acc-conflicting-no-comps))
-                                 (:acc (:accrej (:workspace ep)))))
-                      (ep-path est)))
+        ep-rejs (filter (fn [ep] (and
+                            (<= (dec time-now) (:time ep))
+                            (some (set (map :id acc-conflicting-no-inner))
+                               (:acc (:accrej (:workspace ep))))))
+                   (ep-path est))
         rejs-deltas (map (fn [ep] [(get-in ep [:workspace :accrej :delta])
                                 (:cycle ep)
                                 (get-in ep [:workspace :accrej :best])])
@@ -404,10 +406,12 @@
                                          ;; otherwise, doubt-diff is negative (the meta-hyp decreases doubt)
                                          (if (= :meta-rej-minscore (:type hyp))
                                            ;; different scoring for rej-minscore meta-hyps
-                                           (* 0.5 (- 1.0
-                                                     (max 0.0
-                                                          (- (avg (map :apriori problem-cases))
-                                                             (avg (map :apriori problem-cases-new))))))
+                                           (max 0.0
+                                                (- (* 0.5 (- 1.0
+                                                             (max 0.0
+                                                                  (- (avg (map :apriori problem-cases))
+                                                                     (avg (map :apriori problem-cases-new))))))
+                                                   (* 2.0 (:max-score-delta hyp))))
                                            ;; normal scoring (non-rej-minscore meta-hyps)
                                            (cond (= "diff" (:ScoreMetaHyps params))
                                                  (max 0.0
