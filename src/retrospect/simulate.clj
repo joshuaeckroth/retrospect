@@ -90,7 +90,8 @@
    :Noise [false [true false]]
    :SensorDeletionNoise [0 [0]]
    :SensorInsertionNoise [0 [0]]
-   :SensorDistortionNoise [0 [0]]})
+   :SensorDistortionNoise [0 [0]]
+   :SensorDuplicationNoise [0 [0]]})
 
 (defn get-default-params-ranges
   []

@@ -37,7 +37,21 @@
           [v val] (first obs-shuffled)
           new-val (my-rand-nth (sort (filter (fn [new-val] (not (#{val} new-val)))
                                         (values expgraph v))))]
-      (conj (rest obs-shuffled) [v new-val]))
+      (my-shuffle (conj (rest obs-shuffled) [v new-val])))
+    ;; otherwise, don't
+    observations))
+
+(defn duplication-noise
+  [observations expgraph]
+  (if (and (not-empty observations)
+           (:Noise params)
+           (< (my-rand) (/ (double (:SensorDuplicationNoise params)) 100.0)))
+    ;; "observe" a different state on one of the observations
+    (let [obs-shuffled (my-shuffle (sort observations))
+          [v val] (first obs-shuffled)
+          new-val (my-rand-nth (sort (filter (fn [new-val] (not (#{val} new-val)))
+                                        (values expgraph v))))]
+      (my-shuffle (conj obs-shuffled [v new-val])))
     ;; otherwise, don't
     observations))
 
@@ -47,7 +61,8 @@
     (add-sensed sensor time (-> observations
                                (insertion-noise (:expgraph (meta sensor)))
                                (deletion-noise)
-                               (distortion-noise (:expgraph (meta sensor)))))))
+                               (distortion-noise (:expgraph (meta sensor)))
+                               (duplication-noise (:expgraph (meta sensor)))))))
 
 (defn generate-sensors
   [training]
