@@ -65,9 +65,9 @@
             (apply min move-probs)
             (= "max" (:ObjectScore params))
             (apply max move-probs))
-      (if (or (and (= :from from-to) (= 1 (:time det)))
-              (and (= :to from-to) (= 0 (:time det))))
-        1.0 0.0))))
+      ;; time 0 or lost track (nothing of same color at time before);
+      ;; give default apriori value
+      0.5)))
 
 (defn generate-kb
   [training]
