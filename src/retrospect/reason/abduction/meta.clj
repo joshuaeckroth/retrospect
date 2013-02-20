@@ -281,8 +281,8 @@
                                    :time-delta 1})]
           ;; don't allow batching more than once (accumulating batches)
           (if (= (:time batch1-ep) (dec time-now))
-            [batch1-hyp]
-            []))
+            [batchbeg-hyp batch1-hyp]
+            [batchbeg-hyp]))
         ;; time-prev == 0, so this is a "static" case or we have not
         ;; done much reasoning yet
         [])))
