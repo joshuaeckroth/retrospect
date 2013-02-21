@@ -44,7 +44,8 @@
   [observations sensor time]
   ;; each observation has the form {:x # :y # :time # :color (object)}
   (let [noise (make-random-det sensor time)]
-    (if (and (< (my-rand) (/ (double (:SensorInsertionNoise params)) 100.0))
+    (if (and (:Noise params)
+             (< (my-rand)(/ (double (:SensorInsertionNoise params)) 100.0))
              (not-any? (fn [{x :x y :y}] (and (= (:x noise) x)
                                              (= (:y noise) y)))
                        observations))
