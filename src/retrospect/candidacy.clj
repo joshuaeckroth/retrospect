@@ -55,8 +55,8 @@
         c2-post (get-posterior bn [["C2" "true"]])]
     (> c1-post c2-post)))
 
-(defn natural-bayesnet?
-  "A Bayesnet is considered 'natural' if O1 is more probable if either
+(defn causal-bayesnet?
+  "A Bayesnet is considered 'causal' if O1 is more probable if either
    C1 or C2 is true, and O2 is more probable if C3 is true."
   [bn]
   (let [o1-prior (do (unobserve-all bn)
@@ -211,14 +211,14 @@
   (dosync (alter state/batch (constantly true)))
   (binding [rgen (new-seed 0)]
     (loop [i 0
-           counts {:natural 0 :total 0}]
+           counts {:causal 0 :total 0}]
       (if (= i iters) counts
           (let [{:keys [expgraph bayesnet]} (loop []
                                               (let [net (make-net)]
                                                 (if (valid-bayesnet? (:bayesnet net))
                                                   net
                                                   (recur))))
-                natural? (natural-bayesnet? bayesnet)
+                causal? (causal-bayesnet? bayesnet)
                 abd (aifw bayesnet)
                 mpe (mpe bayesnet)
                 map-gardenfors (bayes-map-gardenfors bayesnet false)
@@ -227,7 +227,7 @@
                 decampos-indep (decampos bayesnet true)
                 decampos-rel (decampos bayesnet false)
                 update-counts (fn [counts key [result _]]
-                                (if natural?
+                                (if causal?
                                   (-> counts
                                      (update-in [false key :matched] #(if (= (first abd) result) (nil-inc %) (or % 0)))
                                      (update-in [false key :mpe-comp] conj (mpe-comp (first mpe) result))
@@ -240,7 +240,7 @@
                                      (update-in [false key :mpe-comp] conj (mpe-comp (first mpe) result))
                                      (update-in [false key result] nil-inc))))]
             (comment
-              (println "natural?" natural?)
+              (println "causal?" causal?)
               (println "abd:" abd)
               (println "mpe:" mpe)
               (println "map-gardenfors:" map-gardenfors)
@@ -250,10 +250,10 @@
               (println))
             (when (= 0 (mod i 1000)) (print (format "%d..." i)) (flush))
             (recur (inc i)
-                   (-> (if natural?
+                   (-> (if causal?
                         (-> counts
                            (update-in [:total] inc)
-                           (update-in [:natural] inc))
+                           (update-in [:causal] inc))
                         (update-in counts [:total] inc))
                       (update-counts :abd abd)
                       (update-counts :mpe mpe)
@@ -264,31 +264,31 @@
                       (update-counts :decampos-rel decampos-rel))))))))
 
 (defn print-results
-  [results natural?]
-  (let [count (get results (if natural? :natural :total))
+  [results causal?]
+  (let [count (get results (if causal? :causal :total))
         r-to-str (fn [r] (str/join ", " (map (fn [[c tf]] (format "%s = %5s" c tf)) (sort-by first r))))]
-    (doseq [[k m] (get results natural?)]
-      (println (format "%20s --  matches abd: %5d (%5.2f%%) average mpe-acc: %5.2f"
+    (doseq [[k m] (get results causal?)]
+      (println (format "%20s --  matches abd: %5d (%6.2f%%) average mpe-acc: %6.2f"
                   (name k) (:matched m)
                   (double (* 100.0 (/ (:matched m) count)))
                   (avg (map :mpe-acc (:mpe-comp m)))))
       (doseq [[r v] (sort-by (comp r-to-str first) (filter (comp set? first) m))]
-        (println (format "\t\t%5d (%5.2f%%)            {%s}"
+        (println (format "\t\t%5d (%6.2f%%)            {%s}"
                     v (double (* 100.0 (/ v count)))
                     (r-to-str r))))
       (println))))
 
 (defn -main
   []
-  (let [results (do-experiment 100)]
+  (let [results (do-experiment 10)]
     (println)
     (println)
     (println "Total:" (get results :total))
     (println)
     (print-results results false)
     (println)
-    (println (format "Natural: %d (%5.2f%%)" (get results :natural)
-                (double (* 100.0 (/ (get results :natural)
+    (println (format "Causal: %d (%6.2f%%)" (get results :causal)
+                (double (* 100.0 (/ (get results :causal)
                                     (get results :total))))))
     (println)
     (print-results results true)
