@@ -202,6 +202,10 @@
   (if (empty? vals) 0.0
       (/ (double (reduce + vals)) (double (count vals)))))
 
+(defn nil-inc
+  [v]
+  (if (nil? v) 1 (inc v)))
+
 (defn do-experiment
   [iters]
   (dosync (alter state/batch (constantly true)))
@@ -223,16 +227,18 @@
                 decampos-indep (decampos bayesnet true)
                 decampos-rel (decampos bayesnet false)
                 update-counts (fn [counts key [result _]]
-                                (let [c (if (nil? (get-in counts [natural? key :matched]))
-                                          (assoc-in counts [natural? key :matched] 0)
-                                          counts)
-                                      c-causes (if (nil? (get-in c [natural? key result]))
-                                                 (assoc-in c [natural? key result] 0)
-                                                 c)]
-                                  (-> c-causes
-                                     (update-in [natural? key :matched] #(if (= (first abd) result) (inc %) %))
-                                     (update-in [natural? key :mpe-comp] conj (mpe-comp (first mpe) result))
-                                     (update-in [natural? key result] inc))))]
+                                (if natural?
+                                  (-> counts
+                                     (update-in [false key :matched] #(if (= (first abd) result) (nil-inc %) (or % 0)))
+                                     (update-in [false key :mpe-comp] conj (mpe-comp (first mpe) result))
+                                     (update-in [false key result] nil-inc)
+                                     (update-in [true key :matched] #(if (= (first abd) result) (nil-inc %) (or % 0)))
+                                     (update-in [true key :mpe-comp] conj (mpe-comp (first mpe) result))
+                                     (update-in [true key result] nil-inc))
+                                  (-> counts
+                                     (update-in [false key :matched] #(if (= (first abd) result) (nil-inc %) (or % 0)))
+                                     (update-in [false key :mpe-comp] conj (mpe-comp (first mpe) result))
+                                     (update-in [false key result] nil-inc))))]
             (comment
               (println "natural?" natural?)
               (println "abd:" abd)
