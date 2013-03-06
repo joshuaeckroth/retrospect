@@ -3,6 +3,7 @@
   (:use [loom.graph])
   (:use [loom.attr])
   (:require [clojure.string :as str])
+  (:require [clojure.set :as set])
   (:use [retrospect.random])
   (:use [clojure.contrib.combinatorics])
   (:require [retrospect.state :as state])
@@ -46,10 +47,17 @@
         bayesnet (build-bayesnet eg-probs)]
     {:expgraph eg-probs :bayesnet bayesnet}))
 
+(defn valid-bayesnet?
+  "A Bayesnet is considered 'valid' if C1 is more probable than C2 (posterior)."
+  [bn]
+  (observe-evidence bn)
+  (let [c1-post (get-posterior bn [["C1" "true"]])
+        c2-post (get-posterior bn [["C2" "true"]])]
+    (> c1-post c2-post)))
+
 (defn natural-bayesnet?
   "A Bayesnet is considered 'natural' if O1 is more probable if either
-   C1 or C2 is true, C1 is more probable than C2 (posterior), and O2
-   is more probable if C3 is true."
+   C1 or C2 is true, and O2 is more probable if C3 is true."
   [bn]
   (let [o1-prior (do (unobserve-all bn)
                      (get-posterior bn [["O1" "true"]]))
@@ -63,15 +71,10 @@
                      (get-posterior bn [["O2" "true"]]))
         o2-c3 (do (unobserve-all bn)
                   (observe-seq bn [["C3" "true"]])
-                  (get-posterior bn [["O2" "true"]]))
-        c1-post (do (observe-evidence bn)
-                    (get-posterior bn [["C1" "true"]]))
-        c2-post (do (observe-evidence bn)
-                    (get-posterior bn [["C2" "true"]]))]
+                  (get-posterior bn [["O2" "true"]]))]
     (and (or (> o1-c1 o1-prior)
              (> o1-c2 o1-prior))
-         (> o2-c3 o2-prior)
-         (> c1-post c2-post))))
+         (> o2-c3 o2-prior))))
 
 (defn mpe
   [bn]
@@ -102,33 +105,39 @@
        (set (apply concat (map #(sort-by first %) cause-groups)))))))
 
 (defn decampos
-  [bn]
-  (let [causes (map (fn [c] [[c "true"] [c "false"]]) ["C1" "C2" "C3"])
-        parent-combs (gen-parent-combinations causes)
-        probs (set (apply concat
-                          (for [cs parent-combs]
-                            (let [p (do (unobserve-all bn)
-                                        (observe-seq bn cs)
-                                        (get-posterior bn [["O1" "true"] ["O2" "true"]]))
-                                  subexps (set (map set (apply concat
-                                                             (for [n (range 1 (inc (count cs)))]
-                                                               (combinations cs n)))))]
-                              (filter (fn [[se psub]] (and (> (Math/abs (- psub p)) 0.01)
-                                                     (> psub p)))
-                                 (map (fn [se] (do (unobserve-all bn)
-                                                (observe-seq bn se)
-                                                [se (get-posterior bn [["O1" "true"] ["O2" "true"]])]))
-                                    subexps))))))]
-    (or (last (sort-by second probs))
-        [#{} 0.0])))
-
-(defn bayes-map
-  [bn]
-  (observe-evidence bn)
-  (let [causes (cause-combination-posteriors)
-        maps (for [c causes] [c (get-posterior bn c)])]
-    (or (last (sort-by second maps))
-        [#{} 0.0])))
+  "indep? is true if using independence-based simplification, false if
+   using relevance-based simplification."
+  [bn indep?]
+  (let [epsilon 0.05
+        simplification? (fn [p psub] (if indep?
+                                      ;; independence-based simplification
+                                      (and (>= psub (* (- 1.0 epsilon) p))
+                                           (<= psub (* (+ 1.0 epsilon) p)))
+                                      ;; relevance-based simplification
+                                      (>= psub (* (- 1.0 epsilon) p))))
+        mpe (first (mpe bn))
+        p (do (unobserve-all bn)
+              (observe-seq bn mpe)
+              (get-posterior bn [["O1" "true"] ["O2" "true"]]))
+        subexps (set (map set (apply concat
+                                   (for [n (range 1 (inc (count mpe)))]
+                                     (combinations mpe n)))))
+        subexps-probs (map (fn [se] (do (unobserve-all bn)
+                                     (observe-seq bn se)
+                                     [se (get-posterior bn [["O1" "true"] ["O2" "true"]])]))
+                         subexps)
+        subexps-simp (filter (fn [[se psub]] (simplification? p psub)) subexps-probs)]
+    ;; now find the best simplification of cs
+    (first (filter (fn [[se psub]]
+                (every? (fn [[se2 psub2]]
+                          (or
+                           ;; every other simplifcation has more elements
+                           (> (count se2) (count se))
+                           ;; or if it has same number of elements, it's further from original prob
+                           (and (= (count se2) (count se))
+                                (>= (Math/abs (- psub2 p)) (Math/abs (- psub p))))))
+                        subexps-simp))
+              subexps-simp))))
 
 (defn bayes-map-gardenfors
   [bn exp?]
@@ -140,7 +149,7 @@
                      post (do (unobserve-all bn)
                               (observe-seq bn c)
                               (get-posterior bn [["O1" "true"] ["O2" "true"]]))]
-                 [c (if exp? (- post prior)
+                 [c (if exp? (/ post prior)
                         (do (unobserve-all bn)
                             (get-posterior bn c)))]))
         exps (filter (fn [[c _]]
@@ -151,7 +160,7 @@
                         (let [prior-ev (get-posterior bn [["O1" "true"] ["O2" "true"]])
                               prior-ex (do (unobserve-all bn)
                                            (get-posterior bn c))]
-                          (and (> post-ex prior-ex) (< prior-ex 1.0))))))
+                          (> post-ex prior-ex)))))
                 maps)]
     (or (last (sort-by second exps))
         [#{} 0.0])))
@@ -166,13 +175,27 @@
 
 (defn aifw
   [bn]
-  #{["C1" "true"] ["C3" "true"]})
+  [#{["C1" "true"] ["C3" "true"]} 0.0])
 
 (comment (observe-evidence bn)
          (if (> (get-posterior bn [["C1" "true"]])
                 (get-posterior bn [["C2" "true"]]))
            #{["C1" "true"] ["C3" "true"]}
            #{["C2" "true"] ["C3" "true"]}))
+
+(defn mpe-comp
+  [mpe result]
+  (let [tp (count (set/intersection result mpe))
+        fp (count (set/difference result mpe))
+        prec (if (= 0 (+ tp fp)) 0.0 (double (/ tp (+ tp fp))))
+        fdr (if (= 0 (+ tp fp)) 0.0 (double (/ fp (+ tp fp))))]
+    {:mpe-prec prec
+     :mpe-fdr fdr}))
+
+(defn avg
+  [vals]
+  (if (empty? vals) 0.0
+      (/ (double (reduce + vals)) (double (count vals)))))
 
 (defn do-experiment
   [iters]
@@ -181,15 +204,19 @@
     (loop [i 0
            counts {:natural 0 :total 0}]
       (if (= i iters) counts
-          (let [{:keys [expgraph bayesnet]} (make-net)
+          (let [{:keys [expgraph bayesnet]} (loop []
+                                              (let [net (make-net)]
+                                                (if (valid-bayesnet? (:bayesnet net))
+                                                  net
+                                                  (recur))))
                 natural? (natural-bayesnet? bayesnet)
                 abd (aifw bayesnet)
                 mpe (mpe bayesnet)
-                map (bayes-map bayesnet)
                 map-gardenfors (bayes-map-gardenfors bayesnet false)
                 map-gardenfors-exp (bayes-map-gardenfors bayesnet true)
                 mre (mre bayesnet)
-                decampos (decampos bayesnet)
+                decampos-indep (decampos bayesnet true)
+                decampos-rel (decampos bayesnet false)
                 update-counts (fn [counts key [result _]]
                                 (let [c (if (nil? (get-in counts [natural? key :matched]))
                                           (assoc-in counts [natural? key :matched] 0)
@@ -198,16 +225,17 @@
                                                  (assoc-in c [natural? key result] 0)
                                                  c)]
                                   (-> c-causes
-                                     (update-in [natural? key :matched] #(if (= abd result) (inc %) %))
+                                     (update-in [natural? key :matched] #(if (= (first abd) result) (inc %) %))
+                                     (update-in [natural? key :mpe-comp] conj (mpe-comp (first mpe) result))
                                      (update-in [natural? key result] inc))))]
             (comment
               (println "natural?" natural?)
               (println "abd:" abd)
               (println "mpe:" mpe)
-              (println "map:" map)
               (println "map-gardenfors:" map-gardenfors)
               (println "mre:" mre)
-              (println "decampos:" decampos)
+              (println "decampos-indep:" decampos-indep)
+              (println "decampos-rel:" decampos-rel)
               (println))
             (when (= 0 (mod i 1000)) (print (format "%d..." i)) (flush))
             (recur (inc i)
@@ -216,21 +244,24 @@
                            (update-in [:total] inc)
                            (update-in [:natural] inc))
                         (update-in counts [:total] inc))
+                      (update-counts :abd abd)
                       (update-counts :mpe mpe)
-                      (update-counts :map map)
                       (update-counts :map-gardenfors map-gardenfors)
                       (update-counts :map-gardenfors-exp map-gardenfors-exp)
                       (update-counts :mre mre)
-                      (update-counts :decampos decampos))))))))
+                      (update-counts :decampos-indep decampos-indep)
+                      (update-counts :decampos-rel decampos-rel))))))))
 
 (defn print-results
   [results natural?]
   (let [count (get results (if natural? :natural :total))
         r-to-str (fn [r] (str/join ", " (map (fn [[c tf]] (format "%s = %5s" c tf)) (sort-by first r))))]
     (doseq [[k m] (get results natural?)]
-      (println (format "%20s  %5d (%5.2f%%)"
+      (println (format "%20s  %5d (%5.2f%%)   average mpe-prec: %5.2f  average mpe-fdr: %5.2f"
                   (name k) (:matched m)
-                  (double (* 100.0 (/ (:matched m) count)))))
+                  (double (* 100.0 (/ (:matched m) count)))
+                  (avg (map :mpe-prec (:mpe-comp m)))
+                  (avg (map :mpe-fdr (:mpe-comp m)))))
       (doseq [[r v] (sort-by (comp r-to-str first) (filter (comp set? first) m))]
         (println (format "\t\t%5d (%5.2f%%)            {%s}"
                     v (double (* 100.0 (/ v count)))
@@ -239,7 +270,7 @@
 
 (defn -main
   []
-  (let [results (do-experiment 100000)]
+  (let [results (do-experiment 1000)]
     (println)
     (println)
     (println "Total:" (get results :total))
