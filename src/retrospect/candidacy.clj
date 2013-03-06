@@ -209,7 +209,7 @@
               (println "mre:" mre)
               (println "decampos:" decampos)
               (println))
-            (when (= 0 (mod i 1000)) (print (format "%d..." i)))
+            (when (= 0 (mod i 1000)) (print (format "%d..." i)) (flush))
             (recur (inc i)
                    (-> (if natural?
                         (-> counts
