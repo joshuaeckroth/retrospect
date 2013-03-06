@@ -120,7 +120,7 @@
                                                 [se (get-posterior bn [["O1" "true"] ["O2" "true"]])]))
                                     subexps))))))]
     (or (last (sort-by second probs))
-        #{})))
+        [#{} 0.0])))
 
 (defn bayes-map
   [bn]
@@ -128,7 +128,7 @@
   (let [causes (cause-combination-posteriors)
         maps (for [c causes] [c (get-posterior bn c)])]
     (or (last (sort-by second maps))
-        #{})))
+        [#{} 0.0])))
 
 (defn bayes-map-gardenfors
   [bn exp?]
@@ -154,7 +154,7 @@
                           (and (> post-ex prior-ex) (< prior-ex 1.0))))))
                 maps)]
     (or (last (sort-by second exps))
-        #{})))
+        [#{} 0.0])))
 
 (defn mre
   [bn]
@@ -162,7 +162,7 @@
   (let [causes (cause-combination-posteriors)
         gbfs (for [c causes] [ c (mre-bayes-factor bn c)])]
     (or (last (sort-by second gbfs))
-        #{})))
+        [#{} 0.0])))
 
 (defn aifw
   [bn]
