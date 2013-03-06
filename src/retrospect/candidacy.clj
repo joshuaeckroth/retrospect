@@ -185,12 +185,17 @@
 
 (defn mpe-comp
   [mpe result]
-  (let [tp (count (set/intersection result mpe))
-        fp (count (set/difference result mpe))
+  (let [tp (count (filter #(= "true" (second %)) (set/intersection result mpe)))
+        fp (count (filter #(= "true" (second %)) (set/difference result mpe)))
+        tn (count (filter #(= "false" (second %)) (set/intersection result mpe)))
+        fn (count (filter #(= "false" (second %)) (set/difference result mpe)))
         prec (if (= 0 (+ tp fp)) 0.0 (double (/ tp (+ tp fp))))
-        fdr (if (= 0 (+ tp fp)) 0.0 (double (/ fp (+ tp fp))))]
+        fdr (if (= 0 (+ tp fp)) 0.0 (double (/ fp (+ tp fp))))
+        accuracy (if (= 0 (+ tp fp tn fn)) 0.0
+                     (double (/ (+ tp tn) (+ tp fp tn fn))))]
     {:mpe-prec prec
-     :mpe-fdr fdr}))
+     :mpe-fdr fdr
+     :mpe-acc accuracy}))
 
 (defn avg
   [vals]
@@ -257,11 +262,10 @@
   (let [count (get results (if natural? :natural :total))
         r-to-str (fn [r] (str/join ", " (map (fn [[c tf]] (format "%s = %5s" c tf)) (sort-by first r))))]
     (doseq [[k m] (get results natural?)]
-      (println (format "%20s  %5d (%5.2f%%)   average mpe-prec: %5.2f  average mpe-fdr: %5.2f"
+      (println (format "%20s --  matches abd: %5d (%5.2f%%) average mpe-acc: %5.2f"
                   (name k) (:matched m)
                   (double (* 100.0 (/ (:matched m) count)))
-                  (avg (map :mpe-prec (:mpe-comp m)))
-                  (avg (map :mpe-fdr (:mpe-comp m)))))
+                  (avg (map :mpe-acc (:mpe-comp m)))))
       (doseq [[r v] (sort-by (comp r-to-str first) (filter (comp set? first) m))]
         (println (format "\t\t%5d (%5.2f%%)            {%s}"
                     v (double (* 100.0 (/ v count)))
@@ -270,7 +274,7 @@
 
 (defn -main
   []
-  (let [results (do-experiment 1000)]
+  (let [results (do-experiment 100)]
     (println)
     (println)
     (println "Total:" (get results :total))
