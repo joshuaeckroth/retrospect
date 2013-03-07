@@ -59,7 +59,8 @@
   "A Bayesnet is considered 'causal' if O1 is more probable if either
    C1 or C2 is true, and O2 is more probable if C3 is true."
   [bn]
-  (let [o1-prior (do (unobserve-all bn)
+  (let [causes? (fn [post prior] (and (> post 0.5) (< prior 0.5)))
+        o1-prior (do (unobserve-all bn)
                      (get-posterior bn [["O1" "true"]]))
         o1-c1 (do (unobserve-all bn)
                   (observe-seq bn [["C1" "true"]])
@@ -72,9 +73,9 @@
         o2-c3 (do (unobserve-all bn)
                   (observe-seq bn [["C3" "true"]])
                   (get-posterior bn [["O2" "true"]]))]
-    (and (or (> o1-c1 o1-prior)
-             (> o1-c2 o1-prior))
-         (> o2-c3 o2-prior))))
+    (and (causes? o1-c1 o1-prior)
+         (causes? o1-c2 o1-prior)
+         (causes? o2-c3 o2-prior))))
 
 (defn mpe
   [bn]
@@ -218,50 +219,52 @@
                                                 (if (valid-bayesnet? (:bayesnet net))
                                                   net
                                                   (recur))))
-                causal? (causal-bayesnet? bayesnet)
-                abd (aifw bayesnet)
-                mpe (mpe bayesnet)
-                map-gardenfors (bayes-map-gardenfors bayesnet false)
-                map-gardenfors-exp (bayes-map-gardenfors bayesnet true)
-                mre (mre bayesnet)
-                decampos-indep (decampos bayesnet true)
-                decampos-rel (decampos bayesnet false)
-                update-counts (fn [counts key [result _]]
-                                (if causal?
-                                  (-> counts
-                                     (update-in [false key :matched] #(if (= (first abd) result) (nil-inc %) (or % 0)))
-                                     (update-in [false key :mpe-comp] conj (mpe-comp (first mpe) result))
-                                     (update-in [false key result] nil-inc)
-                                     (update-in [true key :matched] #(if (= (first abd) result) (nil-inc %) (or % 0)))
-                                     (update-in [true key :mpe-comp] conj (mpe-comp (first mpe) result))
-                                     (update-in [true key result] nil-inc))
-                                  (-> counts
-                                     (update-in [false key :matched] #(if (= (first abd) result) (nil-inc %) (or % 0)))
-                                     (update-in [false key :mpe-comp] conj (mpe-comp (first mpe) result))
-                                     (update-in [false key result] nil-inc))))]
-            (comment
-              (println "causal?" causal?)
-              (println "abd:" abd)
-              (println "mpe:" mpe)
-              (println "map-gardenfors:" map-gardenfors)
-              (println "mre:" mre)
-              (println "decampos-indep:" decampos-indep)
-              (println "decampos-rel:" decampos-rel)
-              (println))
-            (when (= 0 (mod i 1000)) (print (format "%d..." i)) (flush))
-            (recur (inc i)
-                   (-> (if causal?
-                        (-> counts
-                           (update-in [:total] inc)
-                           (update-in [:causal] inc))
-                        (update-in counts [:total] inc))
-                      (update-counts :abd abd)
-                      (update-counts :mpe mpe)
-                      (update-counts :map-gardenfors map-gardenfors)
-                      (update-counts :map-gardenfors-exp map-gardenfors-exp)
-                      (update-counts :mre mre)
-                      (update-counts :decampos-indep decampos-indep)
-                      (update-counts :decampos-rel decampos-rel))))))))
+                causal? (causal-bayesnet? bayesnet)]
+            (if-not causal?
+              (recur i counts)
+              (let [abd (aifw bayesnet)
+                    mpe (mpe bayesnet)
+                    map-gardenfors (bayes-map-gardenfors bayesnet false)
+                    map-gardenfors-exp (bayes-map-gardenfors bayesnet true)
+                    mre (mre bayesnet)
+                    decampos-indep (decampos bayesnet true)
+                    decampos-rel (decampos bayesnet false)
+                    update-counts (fn [counts key [result _]]
+                                    (if causal?
+                                      (-> counts
+                                         (update-in [false key :matched] #(if (= (first abd) result) (nil-inc %) (or % 0)))
+                                         (update-in [false key :mpe-comp] conj (mpe-comp (first mpe) result))
+                                         (update-in [false key result] nil-inc)
+                                         (update-in [true key :matched] #(if (= (first abd) result) (nil-inc %) (or % 0)))
+                                         (update-in [true key :mpe-comp] conj (mpe-comp (first mpe) result))
+                                         (update-in [true key result] nil-inc))
+                                      (-> counts
+                                         (update-in [false key :matched] #(if (= (first abd) result) (nil-inc %) (or % 0)))
+                                         (update-in [false key :mpe-comp] conj (mpe-comp (first mpe) result))
+                                         (update-in [false key result] nil-inc))))]
+                (comment
+                  (println "causal?" causal?)
+                  (println "abd:" abd)
+                  (println "mpe:" mpe)
+                  (println "map-gardenfors:" map-gardenfors)
+                  (println "mre:" mre)
+                  (println "decampos-indep:" decampos-indep)
+                  (println "decampos-rel:" decampos-rel)
+                  (println))
+                (when (= 0 (mod i 100)) (print (format "%d..." i)) (flush))
+                (recur (inc i)
+                       (-> (if causal?
+                            (-> counts
+                               (update-in [:total] inc)
+                               (update-in [:causal] inc))
+                            (update-in counts [:total] inc))
+                          (update-counts :abd abd)
+                          (update-counts :mpe mpe)
+                          (update-counts :map-gardenfors map-gardenfors)
+                          (update-counts :map-gardenfors-exp map-gardenfors-exp)
+                          (update-counts :mre mre)
+                          (update-counts :decampos-indep decampos-indep)
+                          (update-counts :decampos-rel decampos-rel))))))))))
 
 (defn print-results
   [results causal?]
@@ -280,13 +283,14 @@
 
 (defn -main
   []
-  (let [results (do-experiment 10)]
+  (let [results (do-experiment 10000)]
     (println)
     (println)
-    (println "Total:" (get results :total))
-    (println)
-    (print-results results false)
-    (println)
+    (comment
+      (println "Total:" (get results :total))
+      (println)
+      (print-results results false)
+      (println))
     (println (format "Causal: %d (%6.2f%%)" (get results :causal)
                 (double (* 100.0 (/ (get results :causal)
                                     (get results :total))))))
