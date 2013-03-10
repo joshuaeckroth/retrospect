@@ -411,7 +411,8 @@
                                          ;; forget it
                                          0.0
                                          ;; otherwise, doubt-diff is negative (the meta-hyp decreases doubt)
-                                         (if (= :meta-rej-minscore (:type hyp))
+                                         (if (and (:ComplexMetaRejMinscoreScoring params)
+                                                  (= :meta-rej-minscore (:type hyp)))
                                            ;; different scoring for rej-minscore meta-hyps
                                            (max 0.0
                                                 (- (* 0.5 (- 1.0

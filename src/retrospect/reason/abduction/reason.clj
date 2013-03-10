@@ -37,6 +37,7 @@
              :MetaHyps ["meta-rej-conflict,meta-rej-minscore,meta-order-dep"
                         ["meta-rej-conflict,meta-rej-minscore,meta-order-dep"]]
              :ScoreMetaHyps ["diff" ["diff" "doubt"]]
+             :ComplexMetaRejMinscoreScoring [true [true false]]
              :EstimateMetaScores [false [true false]]
              :MinScore [0 [0 10]]
              :DoubtMeasure ["delta" ["score" "delta"]]
