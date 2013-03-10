@@ -56,26 +56,26 @@
     (> c1-post c2-post)))
 
 (defn causal-bayesnet?
-  "A Bayesnet is considered 'causal' if O1 is more probable if either
-   C1 or C2 is true, and O2 is more probable if C3 is true."
   [bn]
-  (let [causes? (fn [post prior] (and (> post 0.5) (< prior 0.5)))
-        o1-prior (do (unobserve-all bn)
-                     (get-posterior bn [["O1" "true"]]))
+  (let [causes? (fn [caused not-caused] (> caused not-caused))
+        o1-not-caused (do (unobserve-all bn)
+                          (observe-seq bn [["C1" "false"] ["C2" "false"]])
+                          (get-posterior bn [["O1" "true"]]))
+        o2-not-caused (do (unobserve-all bn)
+                          (observe-seq bn [["C3" "false"]])
+                          (get-posterior bn [["O2" "true"]]))
         o1-c1 (do (unobserve-all bn)
                   (observe-seq bn [["C1" "true"]])
                   (get-posterior bn [["O1" "true"]]))
         o1-c2 (do (unobserve-all bn)
                   (observe-seq bn [["C2" "true"]])
                   (get-posterior bn [["O1" "true"]]))
-        o2-prior (do (unobserve-all bn)
-                     (get-posterior bn [["O2" "true"]]))
         o2-c3 (do (unobserve-all bn)
                   (observe-seq bn [["C3" "true"]])
                   (get-posterior bn [["O2" "true"]]))]
-    (and (causes? o1-c1 o1-prior)
-         (causes? o1-c2 o1-prior)
-         (causes? o2-c3 o2-prior))))
+    (and (causes? o1-c1 o1-not-caused)
+         (causes? o1-c2 o1-not-caused)
+         (causes? o2-c3 o2-not-caused))))
 
 (defn mpe
   [bn]
@@ -184,7 +184,7 @@
            #{["C1" "true"] ["C3" "true"]}
            #{["C2" "true"] ["C3" "true"]}))
 
-(defn mpe-comp
+(defn metrics
   [mpe result]
   (let [tp (count (filter #(= "true" (second %)) (set/intersection result mpe)))
         fp (count (filter #(= "true" (second %)) (set/difference result mpe)))
@@ -193,10 +193,14 @@
         prec (if (= 0 (+ tp fp)) 0.0 (double (/ tp (+ tp fp))))
         fdr (if (= 0 (+ tp fp)) 0.0 (double (/ fp (+ tp fp))))
         accuracy (if (= 0 (+ tp fp tn fn)) 0.0
-                     (double (/ (+ tp tn) (+ tp fp tn fn))))]
+                     (double (/ (+ tp tn) (+ tp fp tn fn))))
+        c1-or-c2 (not-empty (set/intersection #{["C1" "true"] ["C2" true]} result))
+        c3 (not-empty (set/intersection #{["C3" "true"]} result))]
     {:mpe-prec prec
      :mpe-fdr fdr
-     :mpe-acc accuracy}))
+     :mpe-acc accuracy
+     :c1-or-c2 c1-or-c2
+     :c3 c3}))
 
 (defn avg
   [vals]
@@ -233,14 +237,14 @@
                                     (if causal?
                                       (-> counts
                                          (update-in [false key :matched] #(if (= (first abd) result) (nil-inc %) (or % 0)))
-                                         (update-in [false key :mpe-comp] conj (mpe-comp (first mpe) result))
+                                         (update-in [false key :metrics] conj (metrics (first mpe) result))
                                          (update-in [false key result] nil-inc)
                                          (update-in [true key :matched] #(if (= (first abd) result) (nil-inc %) (or % 0)))
-                                         (update-in [true key :mpe-comp] conj (mpe-comp (first mpe) result))
+                                         (update-in [true key :metrics] conj (metrics (first mpe) result))
                                          (update-in [true key result] nil-inc))
                                       (-> counts
                                          (update-in [false key :matched] #(if (= (first abd) result) (nil-inc %) (or % 0)))
-                                         (update-in [false key :mpe-comp] conj (mpe-comp (first mpe) result))
+                                         (update-in [false key :metrics] conj (metrics (first mpe) result))
                                          (update-in [false key result] nil-inc))))]
                 (comment
                   (println "causal?" causal?)
@@ -250,6 +254,7 @@
                   (println "mre:" mre)
                   (println "decampos-indep:" decampos-indep)
                   (println "decampos-rel:" decampos-rel)
+                  (println expgraph)
                   (println))
                 (when (= 0 (mod i 100)) (print (format "%d..." i)) (flush))
                 (recur (inc i)
@@ -268,16 +273,18 @@
 
 (defn print-results
   [results causal?]
-  (let [count (get results (if causal? :causal :total))
+  (let [cnt (get results (if causal? :causal :total))
         r-to-str (fn [r] (str/join ", " (map (fn [[c tf]] (format "%s = %5s" c tf)) (sort-by first r))))]
     (doseq [[k m] (get results causal?)]
-      (println (format "%20s --  matches abd: %5d (%6.2f%%) average mpe-acc: %6.2f"
+      (println (format "%20s --  matches abd: %5d (%6.2f%%) average mpe-acc: %6.2f  c1-or-c2: %6.2f%%  c3: %6.2f%%"
                   (name k) (:matched m)
-                  (double (* 100.0 (/ (:matched m) count)))
-                  (avg (map :mpe-acc (:mpe-comp m)))))
+                  (double (* 100.0 (/ (:matched m) cnt)))
+                  (avg (map :mpe-acc (:metrics m)))
+                  (double (* 100.0 (/ (count (filter :c1-or-c2 (:metrics m))) cnt)))
+                  (double (* 100.0 (/ (count (filter :c3 (:metrics m))) cnt)))))
       (doseq [[r v] (sort-by (comp r-to-str first) (filter (comp set? first) m))]
         (println (format "\t\t%5d (%6.2f%%)            {%s}"
-                    v (double (* 100.0 (/ v count)))
+                    v (double (* 100.0 (/ v cnt)))
                     (r-to-str r))))
       (println))))
 
