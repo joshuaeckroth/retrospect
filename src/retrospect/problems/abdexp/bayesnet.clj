@@ -56,7 +56,7 @@
       (let [[x y] (vertex-positions v)]
         (.setPosition (.visual (.getNode bn v)) x y)))
     ;; Netica crashes if nets are garbage collected; save them all
-    ;;(dosync (alter bns conj bn))
+    (dosync (alter bns conj bn))
     (.compile bn)
     bn))
 
