@@ -11,8 +11,8 @@
          [entities-at entity-movements]])
   (:use [retrospect.problems.tracking.truedata :only
          [format-movements-comparative]])
-  (:use [retrospect.reason.abduction.problems.tracking.hypotheses :only [get-kb]])
-  (:use [retrospect.reason.abduction.problems.tracking.evaluate :only
+  (:use [retrospect.problems.tracking.hypotheses :only [get-kb]])
+  (:use [retrospect.problems.tracking.evaluate :only
          [get-true-movements]])
   (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
   (:use [retrospect.problems.tracking.colors])

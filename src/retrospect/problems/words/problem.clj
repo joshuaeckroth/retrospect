@@ -1,9 +1,9 @@
 (ns retrospect.problems.words.problem
-  (:use [retrospect.reason.abduction.problems.words.evaluate :only
+  (:use [retrospect.problems.words.evaluate :only
          [evaluate evaluate-comp true-hyp? stats]])
   (:use [retrospect.problems.words.truedata :only [generate-truedata]])
   (:use [retrospect.problems.words.sensors :only [generate-sensors perturb]])
-  (:use [retrospect.reason.abduction.problems.words.hypotheses :only
+  (:use [retrospect.problems.words.hypotheses :only
          [hypothesize make-sensor-hyps generate-kb update-kb]])
   (:use [retrospect.problems.words.player :only
          [player-get-stats-panel player-update-stats player-get-truedata-log

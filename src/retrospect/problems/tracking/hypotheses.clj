@@ -1,4 +1,4 @@
-(ns retrospect.reason.abduction.problems.tracking.hypotheses
+(ns retrospect.problems.tracking.hypotheses
   (:require [clojure.string :as str])
   (:use [retrospect.reason.abduction.workspace :only [new-hyp]])
   (:use [retrospect.sensors :only [sensed-at]])

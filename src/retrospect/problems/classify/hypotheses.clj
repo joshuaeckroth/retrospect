@@ -1,4 +1,4 @@
-(ns retrospect.reason.abduction.problems.classify.hypotheses
+(ns retrospect.problems.classify.hypotheses
   (:use [clojure.math.combinatorics :only [combinations]])
   (:use [retrospect.reason.abduction.workspace :only [new-hyp]])
   (:use [retrospect.sensors :only [sensed-at]])

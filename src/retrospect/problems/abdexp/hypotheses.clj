@@ -1,4 +1,4 @@
-(ns retrospect.reason.abduction.problems.abdexp.hypotheses
+(ns retrospect.problems.abdexp.hypotheses
   (:require [clojure.set :as set])
   (:require [clojure.string :as str])
   (:use [clojure.math.combinatorics :only [subsets]])

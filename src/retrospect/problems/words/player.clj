@@ -4,7 +4,7 @@
   (:use [clj-swing.panel])
   (:require [clojure.string :as str])
   (:use [retrospect.epistemicstates :only [cur-ep]])
-  (:use [retrospect.reason.abduction.problems.words.evaluate :only
+  (:use [retrospect.problems.words.evaluate :only
          [get-words find-oov]])
   (:use [retrospect.reason.abduction.workspace :only [lookup-hyp get-unexplained]])
   (:use [retrospect.state]))

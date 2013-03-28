@@ -3,7 +3,7 @@
   (:require [clojure.string :as str])
   (:require [retrospect.reason.abduction.gui.logs :as logs])
   (:require [retrospect.reason.abduction.workspace :as workspace])
-  (:require [retrospect.reason.abduction.problems.tracking.hypotheses :as track-hyps])
+  (:require [retrospect.problems.tracking.hypotheses :as track-hyps])
   (:use [retrospect.random])
   (:use [retrospect.reason.abduction.reason :only [reason-abduction]])
   (:use [retrospect.problems.tracking.problem :only [tracking-problem]])

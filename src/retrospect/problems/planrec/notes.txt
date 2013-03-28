@@ -1,0 +1,12 @@
+plan recognition
+
+- plan library
+  - possibly a graph of possible actions
+    - a DAG
+  - special goal nodes
+  - special start node
+  - a plan is a path from the start node to a goal node
+  - or maybe an AND/OR tree like PHATT
+- observations are actions taken by the agent
+  - ordered by time
+- "explanations" are 

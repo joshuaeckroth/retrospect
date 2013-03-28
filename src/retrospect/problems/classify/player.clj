@@ -4,7 +4,7 @@
   (:use [clj-swing.label])
   (:use [clj-swing.panel])
   (:use [retrospect.epistemicstates :only [cur-ep]])
-  (:use [retrospect.reason.abduction.problems.classify.evaluate :only [chosen-cats]])
+  (:use [retrospect.problems.classify.evaluate :only [chosen-cats]])
   (:use [retrospect.state]))
 
 (def fscore-label (label ""))

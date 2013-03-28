@@ -1,4 +1,4 @@
-(ns retrospect.reason.abduction.problems.words.evaluate
+(ns retrospect.problems.words.evaluate
   (:use [clojure.java.shell :only [sh]])
   (:require [clojure.string :as str])
   (:use [clojure.java.io :only [file]])

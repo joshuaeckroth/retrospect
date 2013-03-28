@@ -1,12 +1,12 @@
 (ns retrospect.problems.tracking.problem
   (:require [clojure.string :as str])
-  (:use [retrospect.reason.abduction.problems.tracking.evaluate :only
+  (:use [retrospect.problems.tracking.evaluate :only
          [evaluate evaluate-comp true-hyp? training-stats]])
   (:use [retrospect.problems.tracking.truedata :only
          [generate-truedata]])
   (:use [retrospect.problems.tracking.sensors :only
          [generate-sensors perturb]])
-  (:use [retrospect.reason.abduction.problems.tracking.hypotheses :only
+  (:use [retrospect.problems.tracking.hypotheses :only
          [generate-kb make-sensor-hyps hypothesize update-kb]])
   (:use [retrospect.problems.tracking.player :only
          [player-get-stats-panel player-update-stats player-get-truedata-log

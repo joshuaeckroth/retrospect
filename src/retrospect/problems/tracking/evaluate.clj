@@ -1,4 +1,4 @@
-(ns retrospect.reason.abduction.problems.tracking.evaluate
+(ns retrospect.problems.tracking.evaluate
   (:require [clojure.set :as set])
   (:use [retrospect.evaluate :only [avg calc-increase calc-prec-coverage]])
   (:use [retrospect.epistemicstates :only [cur-ep goto-cycle decision-points]])

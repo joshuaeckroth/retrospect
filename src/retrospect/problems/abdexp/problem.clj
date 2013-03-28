@@ -5,9 +5,9 @@
          [player-get-stats-panel player-update-stats
           player-setup-diagram player-update-diagram
           player-get-truedata-log player-get-problem-log]])
-  (:use [retrospect.reason.abduction.problems.abdexp.hypotheses :only
+  (:use [retrospect.problems.abdexp.hypotheses :only
          [generate-kb make-sensor-hyps hypothesize update-kb]])
-  (:use [retrospect.reason.abduction.problems.abdexp.evaluate :only
+  (:use [retrospect.problems.abdexp.evaluate :only
          [evaluate evaluate-comp stats true-hyp?]])
   (:use [retrospect.problems.abdexp.prepared :only [prepared-map]])
   (:use [retrospect.state]))

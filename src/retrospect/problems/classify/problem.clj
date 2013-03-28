@@ -1,9 +1,9 @@
 (ns retrospect.problems.classify.problem
-  (:use [retrospect.reason.abduction.problems.classify.evaluate :only
+  (:use [retrospect.problems.classify.evaluate :only
          [evaluate evaluate-comp true-hyp? stats training-stats]])
   (:use [retrospect.problems.classify.truedata :only [generate-truedata]])
   (:use [retrospect.problems.classify.sensors :only [generate-sensors perturb]])
-  (:use [retrospect.reason.abduction.problems.classify.hypotheses :only
+  (:use [retrospect.problems.classify.hypotheses :only
          [hypothesize make-sensor-hyps generate-kb update-kb]])
   (:use [retrospect.problems.classify.player :only
          [player-get-stats-panel player-update-stats player-get-truedata-log

@@ -1,4 +1,4 @@
-(ns retrospect.reason.abduction.problems.classify.evaluate
+(ns retrospect.problems.classify.evaluate
   (:require [clojure.set :as set])
   (:use [retrospect.epistemicstates :only [cur-ep]])
   (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]]))
