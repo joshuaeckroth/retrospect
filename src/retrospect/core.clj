@@ -52,10 +52,10 @@
              ["--dbname" "MySQL database name" :default "retrospect"]
              ["--dbuser" "MySQL database user" :default "user"]
              ["--dbpassword" "MySQL database password" :default "password"]
-             ["--upload" "Upload?" :default true :parse-fn #(Boolean. %)]
-             ["--save-record" "Save in record directory?" :default true :parse-fn #(Boolean. %)]
+             ["--upload" "Upload?" :default true :parse-fn #(= "true" %)]
+             ["--save-record" "Save in record directory?" :default true :parse-fn #(= "true" %)]
              ["--recdir" "Record directory" :default ""]
-             ["--log" "Show verbose logging?" :default false :parse-fn #(Boolean. %)])
+             ["--log" "Show verbose logging?" :default false :parse-fn #(= "true" %)])
         reasoner (choose-reasoner (:reasoner options))
         problem (choose-problem (:problem options))]
     (set-granary-db (:dbhost options) (:dbname options) (:dbuser options) (:dbpassword options))
