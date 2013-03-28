@@ -132,9 +132,9 @@
      (binding [rgen (new-seed (:Seed ps))
                last-id 0
                params ps]
-       (let [truedata (profile ((:generate-truedata-fn @problem)))
+       (let [truedata ((:generate-truedata-fn @problem))
              sensors ((:generate-sensors-fn @problem) (:training truedata))
-             ors (profile (init-ors truedata sensors))]
+             ors (init-ors truedata sensors)]
          (let [ors-final (run-simulation truedata ors)]
            (:results (cur-ep (:est ors-final)))))))))
 

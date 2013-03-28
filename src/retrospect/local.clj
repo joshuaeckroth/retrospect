@@ -6,6 +6,7 @@
   (:use [granary.misc])
   (:use [retrospect.random])
   (:use [clojure-csv.core :only [write-csv]])
+  (:use [retrospect.profile :only [profile]])
   (:use [retrospect.state]))
 
 (defn format-time
@@ -95,7 +96,7 @@
         workers (for [part partitions]
                   (future (run-partition comparative? recdir part
                                          start-time sim-count save-record?)))]
-    (doall (pmap (fn [w] @w) workers))
+    (profile (doall (pmap (fn [w] @w) workers)))
     (let [run-meta-stopped (assoc run-meta :endtime
                                   (format-date-ms (. System (currentTimeMillis))))]
       (when save-record? (spit (format "%s/meta.clj" recdir) (pr-str run-meta-stopped))))))
