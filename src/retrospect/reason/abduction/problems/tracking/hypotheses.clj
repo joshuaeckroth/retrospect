@@ -1,6 +1,5 @@
 (ns retrospect.reason.abduction.problems.tracking.hypotheses
   (:require [clojure.string :as str])
-  (:use [clojure.contrib.seq :only [find-first]])
   (:use [retrospect.reason.abduction.workspace :only [new-hyp]])
   (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.problems.tracking.colors])

@@ -1,5 +1,4 @@
 (ns retrospect.problems.tracking.movements
-  (:require [clojure.contrib.math :as math])
   (:use [retrospect.random])
   (:use [retrospect.problems.tracking.colors])
   (:use [retrospect.state]))
@@ -69,7 +68,7 @@
 (defn dist
   [x1 y1 x2 y2]
   (if (= "gaussian" (:WalkType params))
-    (double (math/sqrt (+ (* (- x1 x2) (- x1 x2))
+    (double (Math/sqrt (+ (* (- x1 x2) (- x1 x2))
                           (* (- y1 y2) (- y1 y2)))))
     ;; else, :WalkType = "random"
     ;; use manhattan distance

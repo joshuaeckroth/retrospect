@@ -2,7 +2,6 @@
   (:use [retrospect.random])
   (:use [retrospect.problems.tracking.colors])
   (:use [retrospect.sensors :only [init-sensor add-sensed]])
-  (:require [clojure.contrib.math :as math])
   (:use [retrospect.problems.tracking.movements :only
          [entity-movements entities-at]])
   (:use [retrospect.random])
@@ -120,7 +119,7 @@
                  (:seen-colors training))]
     (let [width-height (* (:GridHeight params)
                           (- 1.0 (* 0.01 (:SensorSeesColor params))))
-          top-bottom (int (math/ceil (/ (- (:GridHeight params) width-height) 2)))
+          top-bottom (int (Math/ceil (/ (- (:GridHeight params) width-height) 2)))
           colors (:seen-colors training)]
       (filter identity
          [(new-sensor (keyword "middle-gray")

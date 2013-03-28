@@ -6,7 +6,7 @@
   (:use [granary.parameters :only [explode-params vectorize-params]])
   (:require [clojure.string :as str])
   (:use [clojure.java.io :only [file]])
-  (:use [clojure.contrib.io :only [pwd]])
+  (:use [clojure.java.shell :only [sh]])
   (:use [retrospect.local :only [run-partitions]])
   (:use [clojure-csv.core :only [parse-csv]])
   (:use [retrospect.state]))
@@ -66,10 +66,10 @@
           run (merge {:starttime (format-date-ms t)
                       :paramid (:paramid @db-params)
                       :datadir @datadir :recorddir recdir :nthreads nthreads
-                      :pwd (pwd) :repetitions repetitions :seed seed
+                      :pwd (:out (sh "pwd")) :repetitions repetitions :seed seed
                       :hostname (.getHostName (java.net.InetAddress/getLocalHost))
                       :username (System/getProperty "user.name")}
-                     (git-meta-info git (pwd)))]
+                     (git-meta-info git (:out (sh "pwd"))))]
       (when (and comparison-params (not= (count control-params) (count comparison-params)))
         (println "Control/comparison param counts are not equal.")
         (System/exit -1))
@@ -85,6 +85,4 @@
                              recdir nthreads save-record? repetitions))
       (when (and upload? (not= "" "localhost"))
         (submit-archived-results recdir))
-      (System/exit 0))
-    (catch java.util.concurrent.ExecutionException e
-      (println "Quitting early."))))
+      (System/exit 0))))

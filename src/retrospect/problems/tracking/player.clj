@@ -4,7 +4,6 @@
                      BorderLayout RenderingHints BasicStroke Font Insets Color))
   (:import (java.awt.image BufferedImage))
   (:import (javax.swing JPanel JSpinner SpinnerNumberModel))
-  (:use [clojure.contrib.math :only [floor ceil]])
   (:use [clj-swing.label])
   (:use [clj-swing.panel])
   (:use [retrospect.problems.tracking.sensors :only [sees]])
@@ -84,8 +83,8 @@
      (alter diagram-height (constantly (.. g (getClipBounds) height)))
      (alter grid-width (constantly (:GridWidth params)))
      (alter grid-height (constantly (:GridHeight params)))
-     (alter grid-cell-width (constantly (floor (/ @diagram-width @grid-width))))
-     (alter grid-cell-height (constantly (floor (/ @diagram-height @grid-height)))))
+     (alter grid-cell-width (constantly (int (Math/floor (/ @diagram-width @grid-width)))))
+     (alter grid-cell-height (constantly (int (Math/floor (/ @diagram-height @grid-height))))))
     (swap! resized (constantly nil)))
   (let [img (new BufferedImage @diagram-width @diagram-height
                  (. BufferedImage TYPE_INT_ARGB))
@@ -117,8 +116,8 @@
        (mouseMoved [e]
          (when (and (not= 0 @grid-cell-width) (not= 0 @grid-cell-height))
            (. mouse-xy setText
-              (let [x (floor (/ (.getX e) @grid-cell-width))
-                    y (floor (/ (.getY e) @grid-cell-height))]
+              (let [x (int (Math/floor (/ (.getX e) @grid-cell-width)))
+                    y (int (Math/floor (/ (.getY e) @grid-cell-height)))]
                 (format "Grid %d, %d" x y)))))))
     (.addComponentListener
      (proxy [java.awt.event.ComponentListener] []

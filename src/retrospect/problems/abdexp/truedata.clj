@@ -4,7 +4,7 @@
   (:use [loom.graph])
   (:use [loom.alg])
   (:use [loom.attr])
-  (:use [clojure.contrib.combinatorics])
+  (:use [clojure.math.combinatorics])
   (:require [clojure.set :as set])
   (:use [retrospect.problems.abdexp.expgraph])
   (:use [retrospect.problems.abdexp.bayesnet :only [build-bayesnet]])

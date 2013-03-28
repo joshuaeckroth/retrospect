@@ -2,7 +2,7 @@
   (:import (org.apache.commons.math3.distribution NormalDistribution))
   (:import (java.util Random)))
 
-(def rgen nil)
+(def ^:dynamic rgen nil)
 
 (defn new-seed
   [n]

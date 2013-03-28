@@ -7,7 +7,6 @@
   (:use [clj-swing.tree])
   (:use [clj-swing.button])
   (:use [clj-swing.panel])
-  (:use [clojure.contrib.seq :only [find-first]])
   (:require [clojure.set :as set])
   (:require [clojure.string :as str])
   (:require [retrospect.reason.abduction.workspace :as ws])
@@ -139,18 +138,18 @@
           ;; find top-most ep-state
           ep-state (if (> (. path getPathCount) 2)
                      (if-let [ep-id (re-find #"^\d+" (str (. path getPathComponent 1)))]
-                       (find-first #(= (:id %) ep-id) (flatten-est (:est @or-state)))))
+                       (first (filter #(= (:id %) ep-id) (flatten-est (:est @or-state))))))
           meta-ep-state (if (and (> (. path getPathCount) 3)
                                  (= "Abductive Meta" (str (. path getPathComponent 2))))
                           (if-let [ep-id (re-find #"^\d+"
                                                   (str (. path getPathComponent 3)))]
-                            (find-first #(= (:id %) ep-id)
-                                        (flatten-est (:meta-est ep-state)))))
+                            (first (filter #(= (:id %) ep-id)
+                                      (flatten-est (:meta-est ep-state))))))
           ep (or meta-ep-state ep-state)
           ws (if ep (:workspace ep))]
       (if (= "Log" last-comp)
         (dosync (alter reason-log (constantly (str/join "\n" (reverse (:log ws))))))
-        (let [hyp (if ws (find-first #(= (:name %) last-comp) (vals (:hyp-ids ws))))]
+        (let [hyp (if ws (first (filter #(= (:name %) last-comp) (vals (:hyp-ids ws)))))]
           (when hyp (update-hyp-info ws hyp (not (nil? meta-ep-state)))))))))
 
 (defn update-abduction-log

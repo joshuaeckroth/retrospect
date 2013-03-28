@@ -1,7 +1,7 @@
 (ns retrospect.reason.abduction.problems.abdexp.hypotheses
   (:require [clojure.set :as set])
   (:require [clojure.string :as str])
-  (:use [clojure.contrib.combinatorics :only [subsets]])
+  (:use [clojure.math.combinatorics :only [subsets]])
   (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.reason.abduction.workspace :only [new-hyp new-composite]])
   (:use [retrospect.problems.abdexp.bayesnet])

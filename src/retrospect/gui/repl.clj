@@ -10,7 +10,7 @@
 
 (def repl-output (ref ""))
 
-(def *print-stack-trace-on-error* true)
+(def ^:dynamic *print-stack-trace-on-error* true)
 
 (def editor (doto (RSyntaxTextArea.)
               (.setSyntaxEditingStyle SyntaxConstants/SYNTAX_STYLE_CLOJURE)))

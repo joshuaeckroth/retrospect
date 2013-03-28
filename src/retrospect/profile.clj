@@ -38,10 +38,10 @@ under the JVM.  See the function documentation for more details.
   retrospect.profile
   (:require [clojure.string :as str]))
 
-(def *profile-data* nil)
+(def ^:dynamic *profile-data* nil)
 
 (def #^{:doc "Set this to false before loading/compiling to omit
-profiling code."}  *enable-profiling* false)
+profiling code."} ^:dynamic *enable-profiling* false)
 
 (defmacro prof
   "If *enable-profiling* is true, wraps body in profiling code.

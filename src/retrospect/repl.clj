@@ -1,6 +1,5 @@
 (ns retrospect.repl
   (:import (misc AlphanumComparator))
-  (:use [clojure.contrib.seq :only [find-first]])
   (:require [clojure.string :as str])
   (:require [retrospect.reason.abduction.gui.logs :as logs])
   (:require [retrospect.reason.abduction.workspace :as workspace])
@@ -81,8 +80,8 @@
 (defn find-hyp-by-id
   [hypid]
   (let [ws (:workspace (cur-ep (:est @or-state)))]
-    (find-first #(= (:id %) hypid)
-                (apply concat (vals (:hypotheses ws))))))
+    (first (filter #(= (:id %) hypid)
+              (apply concat (vals (:hypotheses ws)))))))
 
 (defn hyp-info
   [hypid]

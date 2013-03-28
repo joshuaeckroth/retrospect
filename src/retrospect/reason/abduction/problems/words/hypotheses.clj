@@ -1,6 +1,5 @@
 (ns retrospect.reason.abduction.problems.words.hypotheses
   (:require [clojure.string :as str])
-  (:use [clojure.contrib.string :only [substring?]])
   (:require [clojure.set :as set])
   (:use [loom.graph :only [has-edge? weight edges neighbors incoming]])
   (:use [retrospect.profile :only [prof]])
@@ -128,7 +127,7 @@
          ;; word hyps
          (map (fn [s-hyps]
               (let [word (apply str (map :sym s-hyps))
-                    containing-words (filter #(substring? word %)
+                    containing-words (filter #(.contains word %)
                                         (filter #(> (count %) (count word)) (:dict kb)))
                     containing-freq-sum (reduce + (+ 2 (get dict-freqs word 0))
                                            (map #(get dict-freqs % 0) containing-words))

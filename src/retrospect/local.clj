@@ -2,7 +2,6 @@
   (:import (java.util Date))
   (:use [clojure.java.io :as io :only (writer file)])
   (:require [clojure.string :as str])
-  (:require [clojure.contrib.math :as math])
   (:use [retrospect.simulate :only [run]])
   (:use [granary.misc])
   (:use [retrospect.random])
@@ -91,7 +90,7 @@
                                (map #(assoc % :simulation i) (nth seeded-params i))
                                (assoc (nth seeded-params i) :simulation i)))
                            (range (count seeded-params)))
-        partitions (partition-all (math/ceil (/ (count numbered-params) nthreads))
+        partitions (partition-all (int (Math/ceil (/ (count numbered-params) nthreads)))
                                   (my-shuffle numbered-params))
         workers (for [part partitions]
                   (future (run-partition comparative? recdir part

@@ -6,7 +6,7 @@
 (def datadir (ref nil))
 (def db-params (ref nil))
 
-(def last-id 0)
+(def ^:dynamic last-id 0)
 
 (def logging-enabled (ref false))
 
@@ -19,8 +19,8 @@
     (var-set (var last-id) n)))
 
 ;; params, training? need not to be shared among threads
-(def params nil)
-(def training? false)
+(def ^:dynamic params nil)
+(def ^:dynamic training? false)
 
 ;; generally only used by the player/explore mode
 (def results (ref []))

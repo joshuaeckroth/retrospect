@@ -1,7 +1,7 @@
 (ns retrospect.problems.classify.truedata
   (:require [clojure.set :as set])
   (:require [clojure.string :as str])
-  (:use [clojure.contrib.combinatorics :only [combinations]])
+  (:use [clojure.math.combinatorics :only [combinations]])
   (:use [retrospect.random])
   (:use [retrospect.state]))
 

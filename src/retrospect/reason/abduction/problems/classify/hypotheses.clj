@@ -1,5 +1,5 @@
 (ns retrospect.reason.abduction.problems.classify.hypotheses
-  (:use [clojure.contrib.combinatorics :only [combinations]])
+  (:use [clojure.math.combinatorics :only [combinations]])
   (:use [retrospect.reason.abduction.workspace :only [new-hyp]])
   (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.profile :only [prof]]))

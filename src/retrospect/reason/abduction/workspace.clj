@@ -1,7 +1,6 @@
 (ns retrospect.reason.abduction.workspace
   (:require [clojure.set :as set])
   (:require [clojure.string :as str])
-  (:use [clojure.contrib.core :only [dissoc-in]])
   (:use [loom.graph :only
          [digraph nodes incoming neighbors weight
           add-nodes add-edges remove-nodes edges has-edge?]])

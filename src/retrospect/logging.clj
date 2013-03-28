@@ -3,7 +3,7 @@
   (:use [retrospect.state :only [batch logging-enabled]])
   (:use [retrospect.profile :only [prof]]))
 
-(def reason-log (ref '()))
+(def ^:dynamic reason-log (ref '()))
 
 (defn log
   [& objs]

@@ -1,8 +1,7 @@
 (ns retrospect.reason.abduction.problems.words.evaluate
   (:use [clojure.java.shell :only [sh]])
   (:require [clojure.string :as str])
-  (:use [clojure.contrib.io :only [file]])
-  (:use [clojure.contrib.seq-utils :only [find-first]])
+  (:use [clojure.java.io :only [file]])
   (:require [clojure.set :as set])
   (:use [retrospect.evaluate :only [calc-increase avg]])
   (:use [retrospect.epistemicstates :only [cur-ep ep-path]])

@@ -3,7 +3,6 @@
   (:import (java.awt.image BufferedImage))
   (:import (javax.swing JLabel ImageIcon JViewport))
   (:import (misc AlphanumComparator))
-  (:use [clojure.contrib.seq-utils :only [find-first]])
   (:use [clj-swing.core :only [add-action-listener]])
   (:use [clj-swing.panel])
   (:use [clj-swing.button])
@@ -33,7 +32,7 @@
 (defn listener
   [node]
   (let [workspace (:workspace (cur-ep (:est @or-state)))
-        hyp (find-first #(= (:id %) node) (apply concat (vals (:hypotheses workspace))))]
+        hyp (first (filter #(= (:id %) node) (apply concat (vals (:hypotheses workspace)))))]
     (when hyp
       (let [alphanum (AlphanumComparator.)
             explains (str/join ", " (map str (sort-by :id alphanum (:explains hyp))))
