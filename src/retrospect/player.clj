@@ -18,7 +18,7 @@
   (:use [retrospect.gui.repl :only [update-repl-tab repl-tab]])
   (:use [retrospect.epistemicstates
          :only [list-ep-states cur-ep prev-ep goto-ep ep-path]])
-  (:use [granary.random :only [rgen new-seed]]))
+  (:use [geppetto.random :only [rgen new-seed]]))
 
 (def prepared-selected (atom "None"))
 (def params-edit (ref ""))

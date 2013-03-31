@@ -10,7 +10,7 @@
   (:use [retrospect.problems.words.truedata :only [extract-tags-word]])
   (:use [retrospect.logging])
   (:use [retrospect.state])
-  (:use [granary.random]))
+  (:use [geppetto.random]))
 
 (defn generate-kb
   [training]

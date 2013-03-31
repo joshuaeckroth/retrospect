@@ -1,5 +1,5 @@
 (ns retrospect.problems.tracking.movements
-  (:use [granary.random])
+  (:use [geppetto.random])
   (:use [retrospect.problems.tracking.colors])
   (:use [retrospect.state]))
 

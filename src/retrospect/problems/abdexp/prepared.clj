@@ -4,7 +4,7 @@
   (:use [retrospect.problems.abdexp.expgraph])
   (:use [retrospect.problems.abdexp.bayesnet])
   (:use [retrospect.problems.abdexp.sensors :only [generate-sensors]])
-  (:use [granary.random]))
+  (:use [geppetto.random]))
 
 (defn bn-abc
   []

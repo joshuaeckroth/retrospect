@@ -1,6 +1,6 @@
 (ns retrospect.problems.words.sensors
   (:use [retrospect.sensors :only [init-sensor add-sensed]])
-  (:use [granary.random])
+  (:use [geppetto.random])
   (:use [retrospect.state]))
 
 (defn sense

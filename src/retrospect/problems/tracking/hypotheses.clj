@@ -7,7 +7,7 @@
          :only [dist dets-match?]])
   (:use [retrospect.profile :only [prof]])
   (:use [retrospect.evaluate :only [normalize avg]])
-  (:use [granary.random])
+  (:use [geppetto.random])
   (:use [retrospect.state]))
 
 (defn compute-moves-dist

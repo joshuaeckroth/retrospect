@@ -1,6 +1,6 @@
 (ns retrospect.problems.tracking.truedata
   (:import (misc AlphanumComparator))
-  (:use [granary.random])
+  (:use [geppetto.random])
   (:use [retrospect.problems.tracking.colors])
   (:use [retrospect.problems.tracking.movements])
   (:use [retrospect.state]))

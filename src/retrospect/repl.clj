@@ -4,7 +4,7 @@
   (:require [retrospect.reason.abduction.gui.logs :as logs])
   (:require [retrospect.reason.abduction.workspace :as workspace])
   (:require [retrospect.problems.tracking.hypotheses :as track-hyps])
-  (:use [granary.random])
+  (:use [geppetto.random])
   (:use [retrospect.reason.abduction.reason :only [reason-abduction]])
   (:use [retrospect.problems.tracking.problem :only [tracking-problem]])
   (:use [retrospect.problems.tracking.player :only

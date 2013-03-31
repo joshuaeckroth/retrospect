@@ -1,6 +1,6 @@
 (ns retrospect.problems.tracking.colors
   (:import (java.awt Color))
-  (:use [granary.random]))
+  (:use [geppetto.random]))
 
 (def gray (Color. 211 215 207))
 

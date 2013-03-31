@@ -6,7 +6,7 @@
   (:use [retrospect.epistemicstates :only
          [cur-ep new-child-ep init-est update-est decision-points]])
   (:use [retrospect.sensors :only [update-sensors reset-sensors]])
-  (:use [granary.random :only [rgen new-seed my-rand-int]])
+  (:use [geppetto.random :only [rgen new-seed my-rand-int]])
   (:use [retrospect.logging])
   (:use [retrospect.state]))
 

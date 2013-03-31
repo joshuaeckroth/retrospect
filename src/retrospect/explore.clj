@@ -9,7 +9,7 @@
   (:use [clj-swing.button])
   (:use [clj-swing.combo-box])
   (:use [clj-swing.text-field])
-  (:use [granary.random :only [rgen new-seed my-rand-nth my-rand-int my-rand]])
+  (:use [geppetto.random :only [rgen new-seed my-rand-nth my-rand-int my-rand]])
   (:use [retrospect.simulate :only [get-default-params-ranges run-simulation init-ors]])
   (:use [retrospect.gui.results :only [update-results results-tab]])
   (:use [retrospect.epistemicstates :only [cur-ep]])

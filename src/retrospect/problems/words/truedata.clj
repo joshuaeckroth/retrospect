@@ -5,7 +5,7 @@
   (:require [clojure.set :as set])
   (:use [clojure.java.shell :only [sh]])
   (:use [retrospect.profile :only [prof profile]])
-  (:use [granary.random])
+  (:use [geppetto.random])
   (:use [retrospect.state]))
 
 (defn crf-format-word

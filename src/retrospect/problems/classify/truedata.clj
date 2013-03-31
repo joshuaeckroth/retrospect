@@ -2,7 +2,7 @@
   (:require [clojure.set :as set])
   (:require [clojure.string :as str])
   (:use [clojure.math.combinatorics :only [combinations]])
-  (:use [granary.random])
+  (:use [geppetto.random])
   (:use [retrospect.state]))
 
 (def stopwords

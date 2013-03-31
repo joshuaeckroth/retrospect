@@ -3,7 +3,7 @@
   (:use [retrospect.sensors :only [init-sensor add-sensed]])
   (:use [retrospect.problems.tracking.movements :only
          [entity-movements entities-at]])
-  (:use [granary.random])
+  (:use [geppetto.random])
   (:use [retrospect.state]))
 
 (defn perturb

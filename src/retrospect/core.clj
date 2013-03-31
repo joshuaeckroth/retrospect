@@ -3,17 +3,17 @@
   (:use [clojure.java.shell :only [sh]])
   (:use [clojure.string :only [split-lines]])
   (:use [clojure.tools.cli :only [cli]])
-  (:use [granary.random :only [rgen new-seed]])
+  (:use [geppetto.random :only [rgen new-seed]])
   (:require [retrospect.state :as state])
-  (:use [granary.misc])
-  (:use [granary.parameters :only [read-params]])
+  (:use [geppetto.misc])
+  (:use [geppetto.parameters :only [read-params]])
   (:use [retrospect.reason.abduction.reason :only [reason-abduction]])
   (:use [retrospect.problems.tracking.problem :only [tracking-problem]])
   (:use [retrospect.problems.words.problem :only [words-problem]])
   (:use [retrospect.problems.classify.problem :only [classify-problem]])
   (:use [retrospect.problems.abdexp.problem :only [abdexp-problem]])
   (:use [retrospect.simulate :only [run]])
-  (:use [granary.records :only [run-with-new-record submit-archived-results]])
+  (:use [geppetto.records :only [run-with-new-record submit-archived-results]])
   (:use [retrospect.explore :only [start-explore]])
   (:use [retrospect.player :only [start-player]])
   (:use [retrospect.utility]))
@@ -49,17 +49,17 @@
              ["--repetitions" "Number of repetitions" :default 10 :parse-fn #(Integer. %)]
              ["--git" "Git path" :default "git"]
              ["--seed" "Seed" :default 0 :parse-fn #(Integer. %)]
-             ["--dbhost" "MySQL database host" :default "localhost"]
-             ["--dbname" "MySQL database name" :default "retrospect"]
-             ["--dbuser" "MySQL database user" :default "user"]
-             ["--dbpassword" "MySQL database password" :default "password"]
+             ["--dbhost" "Geppetto database host" :default "localhost"]
+             ["--dbname" "Geppetto database name" :default "retrospect"]
+             ["--dbuser" "Geppetto database user" :default "user"]
+             ["--dbpassword" "Geppetto database password" :default "password"]
              ["--upload" "Upload?" :default true :parse-fn #(= "true" %)]
              ["--save-record" "Save in record directory?" :default true :parse-fn #(= "true" %)]
              ["--recdir" "Record directory" :default ""]
              ["--log" "Show verbose logging?" :default false :parse-fn #(= "true" %)])
         reasoner (choose-reasoner (:reasoner options))
         problem (choose-problem (:problem options))]
-    (set-granary-db (:dbhost options) (:dbname options) (:dbuser options) (:dbpassword options))
+    (set-geppetto-db (:dbhost options) (:dbname options) (:dbuser options) (:dbpassword options))
     (alter-var-root (var rgen) (constantly (new-seed (:seed options))))
     (dosync
      (alter state/datadir (constantly (:datadir options)))

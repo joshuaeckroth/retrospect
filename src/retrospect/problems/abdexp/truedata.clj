@@ -8,7 +8,7 @@
   (:require [clojure.set :as set])
   (:use [retrospect.problems.abdexp.expgraph])
   (:use [retrospect.problems.abdexp.bayesnet :only [build-bayesnet]])
-  (:use [granary.random])
+  (:use [geppetto.random])
   (:use [retrospect.state]))
 
 (defn new-explainers
