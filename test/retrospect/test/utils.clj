@@ -1,9 +1,8 @@
 (ns retrospect.test.utils
   (:require [retrospect.state])
-  (:use [retrospect.random :only [rgen new-seed]])
+  (:use [granary.random :only [rgen new-seed]])
   (:use [retrospect.workspaces :only [last-id]])
-  (:use [retrospect.problem :only [run-simulation merge-default-params]])
-  (:use [retrospect.onerun :only [init-one-run-state]]))
+  (:use [retrospect.problem :only [run-simulation merge-default-params]]))
 
 (defn approx=
   "Return true if the absolute value of the difference between x and y

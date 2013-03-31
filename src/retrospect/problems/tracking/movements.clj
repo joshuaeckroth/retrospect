@@ -1,5 +1,5 @@
 (ns retrospect.problems.tracking.movements
-  (:use [retrospect.random])
+  (:use [granary.random])
   (:use [retrospect.problems.tracking.colors])
   (:use [retrospect.state]))
 

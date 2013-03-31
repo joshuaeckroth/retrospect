@@ -1,10 +1,9 @@
 (ns retrospect.problems.tracking.sensors
-  (:use [retrospect.random])
   (:use [retrospect.problems.tracking.colors])
   (:use [retrospect.sensors :only [init-sensor add-sensed]])
   (:use [retrospect.problems.tracking.movements :only
          [entity-movements entities-at]])
-  (:use [retrospect.random])
+  (:use [granary.random])
   (:use [retrospect.state]))
 
 (defn perturb

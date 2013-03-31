@@ -8,7 +8,7 @@
   (:use [loom.attr :only [add-attr remove-attr]])
   (:use [retrospect.profile :only [prof]])
   (:use [retrospect.logging])
-  (:use [retrospect.random])
+  (:use [granary.random])
   (:use [retrospect.state])
   (:use [retrospect.utility]))
 

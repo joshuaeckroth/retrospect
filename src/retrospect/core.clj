@@ -3,7 +3,7 @@
   (:use [clojure.java.shell :only [sh]])
   (:use [clojure.string :only [split-lines]])
   (:use [clojure.tools.cli :only [cli]])
-  (:use [retrospect.random :only [rgen new-seed]])
+  (:use [granary.random :only [rgen new-seed]])
   (:require [retrospect.state :as state])
   (:use [granary.misc])
   (:use [granary.parameters :only [read-params]])
@@ -12,7 +12,8 @@
   (:use [retrospect.problems.words.problem :only [words-problem]])
   (:use [retrospect.problems.classify.problem :only [classify-problem]])
   (:use [retrospect.problems.abdexp.problem :only [abdexp-problem]])
-  (:use [retrospect.records :only [run-with-new-record submit-archived-results]])
+  (:use [retrospect.simulate :only [run]])
+  (:use [granary.records :only [run-with-new-record submit-archived-results]])
   (:use [retrospect.explore :only [start-explore]])
   (:use [retrospect.player :only [start-player]])
   (:use [retrospect.utility]))
@@ -96,9 +97,9 @@
               (System/exit -1))
             (dosync
              (alter state/batch (constantly true))
-             (alter state/problem (constantly problem))               
-             (alter state/db-params (constantly ps)))
-            (run-with-new-record (:seed options) (:git options) (:recordsdir options) (:nthreads options)
+             (alter state/problem (constantly problem)))
+            (run-with-new-record run ps (:datadir options) (:seed options)
+              (:git options) (:recordsdir options) (:nthreads options)
               (:upload options) (:save-record options) (:repetitions options)))
           
           :else

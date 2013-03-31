@@ -1,8 +1,8 @@
 (ns retrospect.problems.tracking.prepared
   (:import (java.awt Color))
   (:require [retrospect.state])
-  (:require [retrospect.random])
-  (:use [retrospect.random :only [new-seed]])
+  (:require [granary.random])
+  (:use [granary.random :only [new-seed]])
   (:use [retrospect.problems.tracking.truedata :only
          [generate-truedata]])
   (:use [retrospect.problems.tracking.sensors :only
@@ -35,7 +35,7 @@
 (defn prepared-from-params
   [params]
   (binding [retrospect.state/params params
-            retrospect.random/rgen (new-seed (:Seed params))]
+            granary.random/rgen (new-seed (:Seed params))]
     {:params params :sensors (generate-sensors) :truedata (generate-truedata)}))
 
 (defn simple-disappearance

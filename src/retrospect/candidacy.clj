@@ -4,7 +4,7 @@
   (:use [loom.attr])
   (:require [clojure.string :as str])
   (:require [clojure.set :as set])
-  (:use [retrospect.random])
+  (:use [granary.random])
   (:use [clojure.math.combinatorics])
   (:require [retrospect.state :as state])
   (:use [retrospect.problems.abdexp.bayesnet]))

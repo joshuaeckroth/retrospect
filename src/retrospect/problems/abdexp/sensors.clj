@@ -3,7 +3,7 @@
   (:use [retrospect.sensors :only [init-sensor add-sensed]])
   (:use [loom.graph :only [digraph]])
   (:use [retrospect.problems.abdexp.expgraph])
-  (:use [retrospect.random])
+  (:use [granary.random])
   (:use [retrospect.state]))
 
 (defn insertion-noise
