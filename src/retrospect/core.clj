@@ -7,6 +7,7 @@
   (:require [retrospect.state :as state])
   (:use [geppetto.misc])
   (:use [geppetto.parameters :only [read-params]])
+  (:use [geppetto.claim])
   (:use [retrospect.reason.abduction.reason :only [reason-abduction]])
   (:use [retrospect.problems.tracking.problem :only [tracking-problem]])
   (:use [retrospect.problems.words.problem :only [words-problem]])
@@ -39,7 +40,7 @@
 (defn -main [& args]
   (let [[options _ banner]
         (cli args
-             ["--action" "Action (run/player/explore/resubmit)" :default "player"]
+             ["--action" "Action (run/player/explore/resubmit/verify-claims)" :default "player"]
              ["--reasoner" "Reasoning algorithm" :default "abduction"]
              ["--problem" "Problem" :default "tracking"]
              ["--params" "Parameters identifier (e.g. 'Words/foobar')" :default ""]
@@ -81,6 +82,20 @@
 
           (= (:action options) "resubmit")
           (submit-archived-results (:recdir options))
+
+          (= (:action options) "verify-claims")
+          (let [claim (make-claim tracking-baseline-high-avgprec
+                                  (parameters "AbdExp/baseline")
+                                  (verify (> (geppetto.stats/mean :_AvgPrec) 0.75)
+                                          (> (geppetto.stats/mean :_AvgCoverage) 0.75)))
+                [problem-name ps] (read-params (:parameters claim))
+                problem (choose-problem problem-name)]
+            (dosync
+             (alter state/batch (constantly true))
+             (alter state/problem (constantly problem)))
+            (evaluate-claim run claim ps (:datadir options) (:git options)
+                            (:recordsdir options) (:nthreads options))
+            (System/exit 0))
           
           (= (:action options) "run")
           (let [[problem-name ps] (read-params (:params options))
@@ -99,8 +114,8 @@
              (alter state/batch (constantly true))
              (alter state/problem (constantly problem)))
             (run-with-new-record run ps (:datadir options) (:seed options)
-              (:git options) (:recordsdir options) (:nthreads options)
-              (:upload options) (:save-record options) (:repetitions options)))
+              (:git options) (:recordsdir options) (:nthreads options) (:repetitions options)
+              (:upload options) (:save-record options) false))
           
           :else
           (println "No action given."))))
