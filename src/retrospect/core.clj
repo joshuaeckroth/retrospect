@@ -5,8 +5,9 @@
   (:use [clojure.tools.cli :only [cli]])
   (:use [geppetto.random :only [rgen new-seed]])
   (:require [retrospect.state :as state])
+  (:use propertea.core)
   (:use [geppetto.misc])
-  (:use [geppetto.parameters :only [read-params]])
+  (:use [geppetto.parameters :only [read-params extract-problem]])
   (:use [geppetto.claim])
   (:use [retrospect.reason.abduction.reason :only [reason-abduction]])
   (:use [retrospect.problems.tracking.problem :only [tracking-problem]])
@@ -18,8 +19,6 @@
   (:use [retrospect.explore :only [start-explore]])
   (:use [retrospect.player :only [start-player]])
   (:use [retrospect.utility]))
-
-;; Retrospect is a folder name but used as namespace to refer to files in that folder
 
 (defn choose-problem
   [problem]
@@ -44,29 +43,29 @@
              ["--reasoner" "Reasoning algorithm" :default "abduction"]
              ["--problem" "Problem" :default "tracking"]
              ["--params" "Parameters identifier (e.g. 'Words/foobar')" :default ""]
-             ["--datadir" "Data directory" :default "data"]
-             ["--recordsdir" "Records directory" :default "records"]
              ["--nthreads" "Number of threads" :default 1 :parse-fn #(Integer. %)]
              ["--repetitions" "Number of repetitions" :default 10 :parse-fn #(Integer. %)]
-             ["--git" "Git path" :default "git"]
              ["--seed" "Seed" :default 0 :parse-fn #(Integer. %)]
-             ["--dbhost" "Geppetto database host" :default "localhost"]
-             ["--dbname" "Geppetto database name" :default "retrospect"]
-             ["--dbuser" "Geppetto database user" :default "user"]
-             ["--dbpassword" "Geppetto database password" :default "password"]
              ["--upload" "Upload?" :default true :parse-fn #(= "true" %)]
              ["--save-record" "Save in record directory?" :default true :parse-fn #(= "true" %)]
-             ["--recdir" "Record directory" :default ""]
-             ["--log" "Show verbose logging?" :default false :parse-fn #(= "true" %)])
+             ["--recdir" "Record directory (to resubmit)" :default ""]
+             ["--log" "Show verbose logging?" :default false :parse-fn #(= "true" %)]
+             ["--quiet" "Quiet mode (hide progress messages)?" :default false :parse-fn #(= "true" %)])
         reasoner (choose-reasoner (:reasoner options))
-        problem (choose-problem (:problem options))]
-    (set-geppetto-db (:dbhost options) (:dbname options) (:dbuser options) (:dbpassword options))
+        problem (choose-problem (:problem options))
+        props (read-properties "config.properties")]
+    (setup-geppetto (:geppetto_dbhost props)
+                    (:geppetto_dbname props)
+                    (:geppetto_dbuser props)
+                    (:geppetto_dbpassword props)
+                    (:quiet options))
     (alter-var-root (var rgen) (constantly (new-seed (:seed options))))
     (dosync
-     (alter state/datadir (constantly (:datadir options)))
+     (alter state/datadir (constantly (:datadir props)))
      (alter state/reasoner (constantly reasoner))
      (alter state/problem (constantly problem))
-     (alter state/logging-enabled (constantly (:log options))))
+     (alter state/logging-enabled (constantly (:log options)))
+     (alter state/quiet-mode (constantly (:quiet options))))
     (cond (and (= (:action options) "run") (= "" (:params options)))
           (println "--params identifier required.")
           
@@ -84,28 +83,29 @@
           (submit-archived-results (:recdir options))
 
           (= (:action options) "verify-claims")
-          (let [claim (make-claim tracking-baseline-high-avgprec
-                                  (parameters "AbdExp/baseline")
-                                  (verify (> (geppetto.stats/mean :_AvgPrec) 0.75)
-                                          (> (geppetto.stats/mean :_AvgCoverage) 0.75)))
-                [problem-name ps] (read-params (:parameters claim))
-                problem (choose-problem problem-name)]
-            (dosync
-             (alter state/batch (constantly true))
-             (alter state/problem (constantly problem)))
-            (evaluate-claim run claim ps (:datadir options) (:git options)
-                            (:recordsdir options) (:nthreads options))
+          (do
+            (dosync (alter state/batch (constantly true)))
+            (let [claims (concat (get @state/problem :claims [])
+                                 (get-in @state/problem [(:key reasoner) :claims] []))]
+              (if (empty? claims)
+                (println (format "No claims for %s" (:name @state/problem)))
+                (do
+                  (println (format "Verifying %d claims for %s with reasoner %s..."
+                              (count claims) (:name @state/problem) (:name @state/reasoner)))
+                  (let [results (doall (for [claim claims]
+                                         (evaluate-claim
+                                          run claim (:datadir props) (:git props)
+                                          (:recordsdir props) (:nthreads options))))]
+                    (if (every? identity results)
+                      (println "All claims verified.")
+                      (println "Some claims not verified."))))))
             (System/exit 0))
           
           (= (:action options) "run")
-          (let [[problem-name ps] (read-params (:params options))
-                problem (choose-problem problem-name)
+          (let [problem (choose-problem (extract-problem (:params options)))
                 git-dirty? (not-empty
                             (filter #(not= "??" (if (>= 2 (count %)) "??" (subs % 0 2)))
-                               (split-lines (:out (sh (:git options) "status" "--porcelain")))))]
-            (when (or (nil? problem) (nil? ps))
-              (println "No such parameters.")
-              (System/exit -1))
+                               (split-lines (:out (sh (:git props) "status" "--porcelain")))))]
             (when (and (:upload options) git-dirty?)
               (println "Project has uncommitted changes. Commit with git before"
                        "running simulations.")
@@ -113,8 +113,8 @@
             (dosync
              (alter state/batch (constantly true))
              (alter state/problem (constantly problem)))
-            (run-with-new-record run ps (:datadir options) (:seed options)
-              (:git options) (:recordsdir options) (:nthreads options) (:repetitions options)
+            (run-with-new-record run (:params options) (:datadir props) (:seed options)
+              (:git props) (:recordsdir props) (:nthreads options) (:repetitions options)
               (:upload options) (:save-record options) false))
           
           :else

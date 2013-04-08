@@ -17,6 +17,7 @@
 
 (def reason-abduction
   {:name "Abduction"
+   :key :abduction
    :reason-fn reason
    :stats-fn (fn [truedata ors time-now]
                ((:stats-fn (:abduction @problem)) truedata ors time-now))

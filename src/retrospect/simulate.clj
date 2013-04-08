@@ -127,7 +127,7 @@
 (def run-single
   (params-memoize
    (fn [ps]
-     (when (not (:Stats ps))
+     (when (and (not @quiet-mode) (not (:Stats ps)))
        (prn ps))
      (binding [rgen (new-seed (:Seed ps))
                last-id 0

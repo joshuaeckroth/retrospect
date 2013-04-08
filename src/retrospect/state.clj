@@ -4,6 +4,7 @@
 (def reasoner (ref nil))
 (def problem (ref nil))
 (def datadir (ref nil))
+(def quiet-mode (ref nil))
 
 (def ^:dynamic last-id 0)
 

@@ -20,12 +20,10 @@
                  [clojure-csv/clojure-csv "2.0.0-alpha1"]
                  [com.fifesoft/rsyntaxtextarea "2.0.2"]
                  [com.github.insubstantial/substance "7.1"]
-                 [norsys/netica "504"]]
-  :dev-dependencies [[lein-marginalia "0.7.0"]]
-  :plugins [[lein-localrepo "0.4.1"]]
+                 [norsys/netica "504"]
+                 [propertea "1.2.3"]]
   :main retrospect.core
   :keep-non-project-classes true
   :java-source-paths ["src/jvm"]
-  :warn-on-reflection false ;; Emit warnings on all reflection calls.
   :jvm-opts ["-Dawt.useSystemAAFontSettings=on" "-Djava.library.path=netica"])
 

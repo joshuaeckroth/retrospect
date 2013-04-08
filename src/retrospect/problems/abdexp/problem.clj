@@ -10,6 +10,7 @@
   (:use [retrospect.problems.abdexp.evaluate :only
          [evaluate evaluate-comp stats true-hyp?]])
   (:use [retrospect.problems.abdexp.prepared :only [prepared-map]])
+  (:use [retrospect.problems.abdexp.claims])
   (:use [retrospect.state]))
 
 (def abdexp-problem
@@ -39,7 +40,9 @@
                :stats-fn stats
                :hyp-types #{:expl :expl-composite :observation}
                :ignore-doubt-types #{:observation}
-               :default-params {:GetMoreHyps [true [true]]}}
+               :default-params {:GetMoreHyps [true [true]]}
+               :claims abduction-claims}
+   :claims generic-claims
    :default-params
    {:Steps [10 [10]]
     :StepsBetween [1 [1]]
