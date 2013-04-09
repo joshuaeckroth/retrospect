@@ -8,7 +8,9 @@
   (:use propertea.core)
   (:use [geppetto.misc])
   (:use [geppetto.parameters :only [read-params extract-problem]])
+  (:use [geppetto.runs :only [get-run]])
   (:use [geppetto.claim])
+  (:use [geppetto.repeat])
   (:use [retrospect.reason.abduction.reason :only [reason-abduction]])
   (:use [retrospect.problems.tracking.problem :only [tracking-problem]])
   (:use [retrospect.problems.words.problem :only [words-problem]])
@@ -43,6 +45,7 @@
              ["--reasoner" "Reasoning algorithm" :default "abduction"]
              ["--problem" "Problem" :default "tracking"]
              ["--params" "Parameters identifier (e.g. 'Words/foobar')" :default ""]
+             ["--runid" "Run ID for repeating" :default ""]
              ["--nthreads" "Number of threads" :default 1 :parse-fn #(Integer. %)]
              ["--repetitions" "Number of repetitions" :default 10 :parse-fn #(Integer. %)]
              ["--seed" "Seed" :default 0 :parse-fn #(Integer. %)]
@@ -100,6 +103,14 @@
                       (println "All claims verified.")
                       (println "Some claims not verified."))))))
             (System/exit 0))
+
+          (= (:action options) "repeat")
+          (let [problem (choose-problem (:problem (get-run (:runid options))))]
+            (dosync
+             (alter state/problem (constantly problem))
+             (alter state/batch (constantly true)))
+            (let [identical? (repeat-run (:runid options) run (:datadir props) (:git props)
+                                         (:recordsdir props) (:nthreads options))]))
           
           (= (:action options) "run")
           (let [problem (choose-problem (extract-problem (:params options)))
