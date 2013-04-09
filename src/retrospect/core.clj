@@ -115,15 +115,15 @@
 
           (= (:action options) "verify-identical")
           (let [problem (choose-problem (:problem (get-run (:runid options))))
-                only-ignore {:control {:ignore [:params]}
-                             :comparison {:ignore [:params]}
-                             :comparative {:ignore [:params]}}]
+                only-ignore {:control {:ignore [:Milliseconds]}
+                             :comparison {:ignore [:Milliseconds]}
+                             :comparative {:ignore [:Milliseconds]}}]
             (dosync
              (alter state/problem (constantly problem))
              (alter state/batch (constantly true)))
-            (pprint (take 2 (verify-identical-repeat-run
-                             (:runid options) only-ignore run
-                             (:datadir props) (:git props) (:nthreads options)))))
+            (pprint (verify-identical-repeat-run
+                     (:runid options) only-ignore run
+                     (:datadir props) (:git props) (:nthreads options))))
           
           (= (:action options) "run")
           (let [problem (choose-problem (extract-problem (:params options)))
