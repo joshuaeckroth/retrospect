@@ -6,6 +6,7 @@
   (:use [geppetto.random :only [rgen new-seed]])
   (:require [retrospect.state :as state])
   (:use propertea.core)
+  (:use [clojure.pprint :only [pprint]])
   (:use [geppetto.misc])
   (:use [geppetto.parameters :only [read-params extract-problem]])
   (:use [geppetto.runs :only [get-run]])
@@ -45,7 +46,7 @@
              ["--reasoner" "Reasoning algorithm" :default "abduction"]
              ["--problem" "Problem" :default "tracking"]
              ["--params" "Parameters identifier (e.g. 'Words/foobar')" :default ""]
-             ["--runid" "Run ID for repeating" :default ""]
+             ["--runid" "Run ID for repeating" :default "" :parse-fn #(Integer. %)]
              ["--nthreads" "Number of threads" :default 1 :parse-fn #(Integer. %)]
              ["--repetitions" "Number of repetitions" :default 10 :parse-fn #(Integer. %)]
              ["--seed" "Seed" :default 0 :parse-fn #(Integer. %)]
@@ -111,6 +112,18 @@
              (alter state/batch (constantly true)))
             (let [identical? (repeat-run (:runid options) run (:datadir props) (:git props)
                                          (:recordsdir props) (:nthreads options))]))
+
+          (= (:action options) "verify-identical")
+          (let [problem (choose-problem (:problem (get-run (:runid options))))
+                only-ignore {:control {:ignore [:params]}
+                             :comparison {:ignore [:params]}
+                             :comparative {:ignore [:params]}}]
+            (dosync
+             (alter state/problem (constantly problem))
+             (alter state/batch (constantly true)))
+            (pprint (take 2 (verify-identical-repeat-run
+                             (:runid options) only-ignore run
+                             (:datadir props) (:git props) (:nthreads options)))))
           
           (= (:action options) "run")
           (let [problem (choose-problem (extract-problem (:params options)))
