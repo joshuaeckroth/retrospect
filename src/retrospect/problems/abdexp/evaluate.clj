@@ -11,7 +11,7 @@
 (defn true-hyp?
   [truedata hyp]
   (cond (= :kb (:type hyp)) true
-        (= :expl-composite (:type hyp))
+        (= :expl-composite (:subtype hyp))
         (every? #(true-hyp? truedata %) (:hyps hyp))
         (or (= :expl (:type hyp)) (= :observation (:type hyp)))
         (if (= (:value hyp) ((:true-values-map truedata) (:vertex hyp))) true false)

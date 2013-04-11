@@ -117,7 +117,7 @@
                                        parent-comb)
                                score (make-score expgraph bn observed
                                                  parent-comb v val)]
-                           (new-composite "ExplComp" :expl-composite :expl-composite
+                           (new-composite "ExplComp" :expl :expl-composite
                                           score [(:contents unexp-hyp)]
                                           (str/join "," (map (fn [[pv pval]]
                                                              (format "%s=%s" pv pval))

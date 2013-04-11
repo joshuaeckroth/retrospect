@@ -6,6 +6,11 @@
   (:use [retrospect.simulate :only [get-default-params]])
   (:use [retrospect.state]))
 
+(use-fixtures :each
+  (fn [f] (dosync (alter logging-enabled (constantly false))
+                 (alter batch (constantly true)))
+    (f)))
+
 (deftest test-new-hyp
   (binding [last-id 0]
     (let [h (new-hyp "Test" :mytype :mysubtype 0.25 true (constantly false)
@@ -51,7 +56,8 @@
                 (add h1 1)
                 (add h2 1)
                 (add h3 1)
-                (add h4 1))]
+                (add h4 1))
+          ws-cache (cache-conflicts ws)]
       (is (= true (conflicts? h1 h2)))
       (is (= true (conflicts? h2 h1)))
       (is (= true (conflicts? h3 h4)))
@@ -67,7 +73,17 @@
       (is (= [h2] (find-conflicts-all ws h1)))
       (is (= [h1] (find-conflicts-all ws h2)))
       (is (= [h4] (find-conflicts-all ws h3)))
-      (is (= [h3] (find-conflicts-all ws h4))))))
+      (is (= [h3] (find-conflicts-all ws h4)))
+      (is (= [1 2 3 4] (:conflicts-unchecked ws)))
+      (is (empty? (:conflicts-unchecked ws-cache)))
+      (is (= {1 #{2} 2 #{1} 3 #{4} 4 #{3}} (:conflicts ws-cache)))
+      ;; caching again should be a no-op
+      (is (= (:conflicts ws-cache) (:conflicts (cache-conflicts ws-cache))))
+      (is (= (:conflicts-checked ws-cache) (:conflicts-checked (cache-conflicts ws-cache))))
+      (is (= [h2] (find-conflicts-all ws-cache h1)))
+      (is (= [h1] (find-conflicts-all ws-cache h2)))
+      (is (= [h4] (find-conflicts-all ws-cache h3)))
+      (is (= [h3] (find-conflicts-all ws-cache h4))))))
 
 (deftest test-acceptance
   (dosync (alter reasoner (constantly reason-abduction))

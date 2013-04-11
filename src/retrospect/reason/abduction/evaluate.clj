@@ -206,7 +206,8 @@
           (and (not (accepted? ws hyp))
                (tf-true? true-false hyp)
                (= 0 (:Threshold params))))
-      :unknown
+      (do (println "unknown error:" hyp)
+          :unknown)
       ;; else, there was no error
       :else
       :no-error)))
