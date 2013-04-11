@@ -1,4 +1,5 @@
-(ns retrospect.utility)
+(ns retrospect.utility
+  (:use [retrospect.profile :only [prof]]))
 
 ;; from clojure.contrib.core
 (defn dissoc-in
@@ -6,15 +7,16 @@
   nested structure. keys is a sequence of keys. Any empty maps that result
   will not be present in the new structure."
   [m [k & ks :as keys]]
-  (if ks
-    (if-let [nextmap (get m k)]
-      (let [newmap (dissoc-in nextmap ks)]
-        (if (seq newmap)
-          (assoc m k newmap)
-          (dissoc m k)))
-      m)
-    (dissoc m k)))
+  (prof :dissoc-in
+        (if ks
+          (if-let [nextmap (get m k)]
+            (let [newmap (dissoc-in nextmap ks)]
+              (if (seq newmap)
+                (assoc m k newmap)
+                (dissoc m k)))
+            m)
+          (dissoc m k))))
 
 (defn conjs
   [coll x]
-  (conj (set coll) x))
+  (prof :conjs (conj (set coll) x)))
