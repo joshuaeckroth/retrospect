@@ -12,6 +12,8 @@
   (:use [retrospect.state])
   (:use [retrospect.utility]))
 
+(def conflicts-cache (atom {}))
+
 (defrecord Hypothesis
     [id name type subtype apriori needs-explainer? conflicts?-fn
      explains short-str desc data]
@@ -53,10 +55,6 @@
    :explains {}
    ;; all explainers, keyed by hyp-id, with vals as sets of hyp-ids; serves as a cache
    :explainers {}
-   ;; a map of hyp-id => seq of hypids
-   :conflicts {}
-   ;; a seq of hypids
-   :conflicts-unchecked []
    ;; a set of hypids that, should a hyp in here be accepted, needs to be explained
    :needs-explanation #{}
    ;; a map of hyp-id => set of hypids
@@ -246,8 +244,8 @@
    :compare-by-delta
    (let [delta-fn (fn [hyps]
                     (let [normalized-aprioris (let [aprioris (map :apriori hyps)
-                                                    s (reduce + aprioris)]
-                                                (if (= 0 s) aprioris
+                                                    s (double (reduce + aprioris))]
+                                                (if (= 0.0 s) aprioris
                                                     (map #(/ % s) aprioris)))]
                       (if (second normalized-aprioris)
                         (- (first normalized-aprioris) (second normalized-aprioris))
@@ -319,56 +317,37 @@
   [h1 h2]
   (prof
    :conflicts?
-   (cond (not= (:type h1) (:type h2))
-         false
-         (:composite? h2)
-         (some (fn [h] ((:conflicts?-fn h) h1 h)) (:hyps h2))
-         (:composite? h1)
-         (some (fn [h] ((:conflicts?-fn h) h h2)) (:hyps h1))
-         (or (nil? (:conflicts?-fn h1)) (nil? (:conflicts?-fn h2)))
-         false
-         :else
-         ((:conflicts?-fn h1) h1 h2))))
+   (if-let [c? (get-in @conflicts-cache [(:simulation params) (:id h1) (:id h2)])]
+     c?
+     (let [c? (cond (not= (:type h1) (:type h2))
+                    false
+                    (:composite? h2)
+                    (if (some (fn [h] ((:conflicts?-fn h) h1 h)) (:hyps h2)) true false)
+                    (:composite? h1)
+                    (if (some (fn [h] ((:conflicts?-fn h) h h2)) (:hyps h1)) true false)
+                    (or (nil? (:conflicts?-fn h1)) (nil? (:conflicts?-fn h2)))
+                    false
+                    :else
+                    (if ((:conflicts?-fn h1) h1 h2) true false))]
+       (swap! conflicts-cache
+              #(-> %
+                  (assoc-in [(:simulation params) (:id h1) (:id h2)] c?)
+                  (assoc-in [(:simulation params) (:id h2) (:id h1)] c?)))
+       c?))))
 
 (defn find-conflicts-all
   [workspace hyp]
   (prof
    :find-conflicts-all
-   (if-let [cs (get-in workspace [:conflicts (:id hyp)])]
-     (map #(lookup-hyp workspace %) cs)
-     (filter #(conflicts? hyp %) (vals (:hyp-ids workspace))))))
+   (filter #(conflicts? hyp %) (vals (:hyp-ids workspace)))))
 
 (defn find-conflicts
   [workspace hyp]
   (prof
    :find-conflicts
-   (if-let [cs (get-in workspace [:conflicts (:id hyp)])]
-     (map #(lookup-hyp workspace %)
-        (set/intersection cs (set (apply concat (vals (:sorted-explainers workspace))))))
-     (filter #(conflicts? hyp %)
-        (map #(lookup-hyp workspace %)
-           (set (apply concat (vals (:sorted-explainers workspace)))))))))
-
-(defn cache-conflicts
-  [workspace]
-  (prof
-   :cache-conflicts
-   (let [hyps (vals (:hyp-ids workspace))]
-     (loop [conflicts (:conflicts workspace)
-            unchecked-hyps (map #(lookup-hyp workspace %) (:conflicts-unchecked workspace))]
-       (if (empty? unchecked-hyps)
-         (assoc workspace
-           :conflicts (into {} (for [[h1 h1-conflicts] conflicts] [h1 (set h1-conflicts)]))
-           :conflicts-unchecked [])
-         (let [h1 (first unchecked-hyps)
-               h1-conflicts (filter #(conflicts? h1 %) (filter #(= (:type h1) (:type %)) hyps))]
-           (recur
-            ;; save the conflicts of h1
-            (reduce (fn [con h2]
-                 (update-in con [(:id h2)] conj (:id h1)))
-               (update-in conflicts [(:id h1)] concat (map :id h1-conflicts))
-               h1-conflicts)
-            (rest unchecked-hyps))))))))
+   (filter #(conflicts? hyp %)
+      (map #(lookup-hyp workspace %)
+         (set (apply concat (vals (:sorted-explainers workspace))))))))
 
 (defn dissoc-needing-explanation
   [workspace hyps]
@@ -873,7 +852,7 @@
    (do
      (log "Updating hypotheses")
      (let [hyps (get-explaining-hypotheses workspace time-now)]
-       (cache-conflicts (reduce #(add %1 %2 cycle) workspace hyps))))))
+       (reduce #(add %1 %2 cycle) workspace hyps)))))
 
 (defn explain
   [workspace cycle time-now]
@@ -924,7 +903,7 @@
                sensors time-prev time-now
                (:accepted workspace) (:hypotheses workspace)
                (partial lookup-hyp workspace))]
-       (cache-conflicts (reduce #(add-observation %1 %2 cycle) workspace hs))))))
+       (reduce #(add-observation %1 %2 cycle) workspace hs)))))
 
 (defn add-kb
   [workspace hyps]

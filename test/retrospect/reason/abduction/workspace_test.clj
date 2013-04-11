@@ -7,8 +7,10 @@
   (:use [retrospect.state]))
 
 (use-fixtures :each
-  (fn [f] (dosync (alter logging-enabled (constantly false))
-                 (alter batch (constantly true)))
+  (fn [f]
+    (dosync (alter logging-enabled (constantly false))
+            (alter batch (constantly true)))
+    (swap! conflicts-cache (constantly {}))
     (f)))
 
 (deftest test-new-hyp
@@ -41,7 +43,7 @@
   (dosync (alter reasoner (constantly reason-abduction))
           (alter problem (constantly abdexp-problem)))
   (binding [last-id 0
-            params (get-default-params)]
+            params (assoc (get-default-params) :simulation 0)]
     (let [conflicts?-fn (fn [hyp1 hyp2] (and (not= hyp1 hyp2)
                                             (= (:type hyp1) (:type hyp2))))
           h1 (new-hyp "Test" :type1 :mysubtype 0.25 true
@@ -56,8 +58,7 @@
                 (add h1 1)
                 (add h2 1)
                 (add h3 1)
-                (add h4 1))
-          ws-cache (cache-conflicts ws)]
+                (add h4 1))]
       (is (= true (conflicts? h1 h2)))
       (is (= true (conflicts? h2 h1)))
       (is (= true (conflicts? h3 h4)))
@@ -74,22 +75,17 @@
       (is (= [h1] (find-conflicts-all ws h2)))
       (is (= [h4] (find-conflicts-all ws h3)))
       (is (= [h3] (find-conflicts-all ws h4)))
-      (is (= [1 2 3 4] (:conflicts-unchecked ws)))
-      (is (empty? (:conflicts-unchecked ws-cache)))
-      (is (= {1 #{2} 2 #{1} 3 #{4} 4 #{3}} (:conflicts ws-cache)))
-      ;; caching again should be a no-op
-      (is (= (:conflicts ws-cache) (:conflicts (cache-conflicts ws-cache))))
-      (is (= (:conflicts-checked ws-cache) (:conflicts-checked (cache-conflicts ws-cache))))
-      (is (= [h2] (find-conflicts-all ws-cache h1)))
-      (is (= [h1] (find-conflicts-all ws-cache h2)))
-      (is (= [h4] (find-conflicts-all ws-cache h3)))
-      (is (= [h3] (find-conflicts-all ws-cache h4))))))
+      (is (= {0 {1 {1 false 2 true 3 false 4 false}
+                 2 {1 true 2 false 3 false 4 false}
+                 3 {1 false 2 false 3 false 4 true}
+                 4 {1 false 2 false 3 true 4 false}}}
+             @conflicts-cache)))))
 
 (deftest test-acceptance
   (dosync (alter reasoner (constantly reason-abduction))
           (alter problem (constantly abdexp-problem)))
   (binding [last-id 0
-            params (get-default-params)]
+            params (assoc (get-default-params) :simulation 0)]
     (let [conflicts?-fn (fn [hyp1 hyp2] (and (not= hyp1 hyp2)
                                             (= (:type hyp1) (:type hyp2))))
           h1 (new-hyp "Test" :type1 :mysubtype 0.25 true
@@ -127,7 +123,7 @@
   (dosync (alter reasoner (constantly reason-abduction))
           (alter problem (constantly abdexp-problem)))
   (binding [last-id 0
-            params (get-default-params)]
+            params (assoc (get-default-params) :simulation 0)]
     (let [conflicts?-fn (fn [hyp1 hyp2] (and (not= hyp1 hyp2)
                                             (= (:type hyp1) (:type hyp2))))
           ;; id 1
@@ -177,7 +173,7 @@
   (dosync (alter reasoner (constantly reason-abduction))
           (alter problem (constantly abdexp-problem)))
   (binding [last-id 0
-            params (get-default-params)]
+            params (assoc (get-default-params) :simulation 0)]
     (let [conflicts?-fn (fn [hyp1 hyp2] (and (not= hyp1 hyp2)
                                             (= (:type hyp1) (:type hyp2))))
           ;; id 1
