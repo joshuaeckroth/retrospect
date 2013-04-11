@@ -19,9 +19,9 @@
 
 (defn normalize
   [vals]
-  (let [vs (filter #(not (.isNaN %)) (map double vals))]
-    (let [sum (double (reduce + vs))]
-      (map (fn [v] (/ v sum)) vs))))
+  (let [vs (filter #(not (.isNaN %)) (map double vals))
+        sum (double (reduce + vs))]
+    (map (fn [v] (/ v sum)) vs)))
 
 (defn avg
   [vals]
