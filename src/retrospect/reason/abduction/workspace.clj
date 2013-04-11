@@ -718,7 +718,7 @@
                  nbest (second choices)
                  normalized-aprioris (let [aprioris (map :apriori choices)
                                            s (reduce + aprioris)]
-                                       (if (= 0 s) aprioris
+                                       (if (= 0.0 (double s)) aprioris
                                            (map #(/ % s) aprioris)))
                  delta (- (first normalized-aprioris) (second normalized-aprioris))
                  comparison (hyp-better-than? workspace best nbest)]
