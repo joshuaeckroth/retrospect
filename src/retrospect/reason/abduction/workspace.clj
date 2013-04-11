@@ -613,7 +613,7 @@
                                             cycle explained delta (nil? nbest) nbest
                                             comparison)))
                  ws-expl (dissoc-needing-explanation ws-hyplog (explains workspace hyp))
-                 conflicts (prof :accept-conflicts (find-conflicts ws-expl hyp))
+                 conflicts (prof :accept-conflicts (find-conflicts-all ws-expl hyp))
                  ws-conflicts (prof :accept-reject-many
                                     (reject-many ws-expl conflicts :conflict cycle))
                  ws-needs-exp (if (or (not ((:needs-explanation ws-conflicts) (:id hyp)))
