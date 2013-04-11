@@ -7,26 +7,36 @@
                         (or (control-results field) 0.0))]
     {increase-field increase-val}))
 
+(defn nan-max
+  [vals]
+  (let [vs (filter #(not (.isNaN %)) (map double vals))]
+    (apply max vs)))
+
+(defn nan-min
+  [vals]
+  (let [vs (filter #(not (.isNaN %)) (map double vals))]
+    (apply min vs)))
+
 (defn normalize
   [vals]
-  (let [sum (double (reduce + vals))]
-    (map (fn [v] (/ v sum)) vals)))
+  (let [vs (filter #(not (.isNaN %)) (map double vals))]
+    (let [sum (double (reduce + vs))]
+      (map (fn [v] (/ v sum)) vs))))
 
 (defn avg
   [vals]
-  (if (empty? vals) 0.0
-      (/ (double (reduce + vals)) (double (count vals)))))
+  (let [vs (filter #(not (.isNaN %)) (map double vals))]
+    (if (empty? vs) 0.0
+        (/ (double (reduce + vs)) (double (count vs))))))
 
 (defn calc-prec-coverage
   [tp tn fp fn event-count]
-  (let [coverage (if (= 0 event-count) 1.0
-                     (/ (double tp) (double event-count)))
-        prec (if (= 0 (+ tp fp)) 0.0 (/ (double tp) (double (+ tp fp))))]
+  (let [coverage (/ (double tp) (double event-count))
+        prec (/ (double tp) (double (+ tp fp)))]
     ;; http://en.wikipedia.org/wiki/Receiver_operating_characteristic
     {:TP tp :TN tn :FP fp :FN fn
-     :TPR (if (= 0 (+ tp fn)) 1.0 (/ (double tp) (double (+ tp fn))))
-     :FPR (if (= 0 (+ fp tn)) 1.0 (/ (double fp) (double (+ fp tn))))
+     :TPR (/ (double tp) (double (+ tp fn)))
+     :FPR (/ (double fp) (double (+ fp tn)))
      :Coverage coverage
      :Prec prec
-     :F1 (if (= 0 (+ prec coverage)) 0.0
-             (/ (* 2.0 prec coverage) (+ prec coverage)))}))
+     :F1 (/ (* 2.0 prec coverage) (+ prec coverage))}))

@@ -1,6 +1,6 @@
 (ns retrospect.problems.tracking.evaluate
   (:require [clojure.set :as set])
-  (:use [retrospect.evaluate :only [avg calc-increase calc-prec-coverage]])
+  (:use [retrospect.evaluate])
   (:use [retrospect.epistemicstates :only [cur-ep goto-cycle decision-points]])
   (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
   (:use [retrospect.problems.tracking.movements :only [moves-match?]])
@@ -61,8 +61,8 @@
                   [tp tn fp fn] (tp-tn-fp-fn true-movs acc-movs not-acc-movs)]
               (calc-prec-coverage tp tn fp fn (count true-movs))))]
       (merge (last metrics)
-             {:MinPrec (apply min (map :Prec metrics))
-              :MinCoverage (apply min (map :Coverage metrics))
+             {:MinPrec (nan-min (map :Prec metrics))
+              :MinCoverage (nan-min (map :Coverage metrics))
               :AvgPrec (avg (map :Prec metrics))
               :AvgCoverage (avg (map :Coverage metrics))
               :AvgF1 (avg (map :F1 metrics))}))

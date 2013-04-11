@@ -1,6 +1,6 @@
 (ns retrospect.problems.abdexp.evaluate
   (:require [clojure.set :as set])
-  (:use [retrospect.evaluate :only [calc-increase calc-prec-coverage avg]])
+  (:use [retrospect.evaluate])
   (:use [retrospect.epistemicstates :only [cur-ep decision-points]])
   (:use [retrospect.reason.abduction.workspace :only [lookup-hyp calc-doubt]])
   (:use [retrospect.reason.abduction.evaluate :only [doubt-aggregate]])
@@ -68,15 +68,15 @@
              :Coverage obs-coverage}))]
     (merge (last metrics)
            (compute-complexity expgraph)
-           {:MinMPEPrec (apply min (map :MPEPrec metrics))
+           {:MinMPEPrec (nan-min (map :MPEPrec metrics))
             :AvgMPEPrec (avg (map :MPEPrec metrics))
-            :MinMPECoverage (apply min (map :MPECoverage metrics))
+            :MinMPECoverage (nan-min (map :MPECoverage metrics))
             :AvgMPECoverage (avg (map :MPECoverage metrics))
-            :MinMPEF1 (apply min (map :MPEF1 metrics))
+            :MinMPEF1 (nan-min (map :MPEF1 metrics))
             :AvgMPEF1 (avg (map :MPEF1 metrics))
-            :MinPrec (apply min (map :Prec metrics))
+            :MinPrec (nan-min (map :Prec metrics))
             :AvgPrec (avg (map :Prec metrics))
-            :MinCoverage (apply min (map :Coverage metrics))
+            :MinCoverage (nan-min (map :Coverage metrics))
             :AvgCoverage (avg (map :Coverage metrics))})))
 
 (defn evaluate-comp

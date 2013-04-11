@@ -1,8 +1,9 @@
 (ns retrospect.reason.abduction.evaluate
   (:require [clojure.string :as str])
   (:require [clojure.set :as set])
-  (:use [retrospect.epistemicstates :only [cur-ep flatten-est count-branches decision-points]])
-  (:use [retrospect.evaluate :only [calc-increase calc-prec-coverage avg]])
+  (:use [retrospect.epistemicstates
+         :only [cur-ep flatten-est count-branches decision-points]])
+  (:use [retrospect.evaluate])
   (:use [retrospect.epistemicstates :only [ep-path]])
   (:use [retrospect.reason.abduction.workspace
          :only [get-unexp-pct get-noexp-pct calc-doubt
@@ -26,9 +27,9 @@
     (cond (= "avg" (:DoubtAggregate params))
           (if (empty? ds) 0.0 (/ (reduce + ds) (double (count ds))))
           (= "max" (:DoubtAggregate params))
-          (if (empty? ds) 0.0 (apply max ds))
+          (if (empty? ds) 0.0 (nan-max ds))
           (= "min" (:DoubtAggregate params))
-          (if (empty? ds) 0.0 (apply min ds)))))
+          (if (empty? ds) 0.0 (nan-min ds)))))
 
 (defn tf-true?
   [true-false hyp]
