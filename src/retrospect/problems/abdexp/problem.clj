@@ -38,7 +38,7 @@
                :evaluate-comp-fn evaluate-comp
                :update-kb-fn update-kb
                :stats-fn stats
-               :hyp-types #{:expl :expl-composite :observation}
+               :hyp-types #{:expl :observation}
                :ignore-doubt-types #{:observation}
                :default-params {:GetMoreHyps [true [true]]}
                :claims abduction-claims}
