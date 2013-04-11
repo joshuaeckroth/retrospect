@@ -5,7 +5,7 @@
   (:use [retrospect.evaluate :only [calc-increase calc-prec-coverage avg]])
   (:use [retrospect.epistemicstates :only [ep-path]])
   (:use [retrospect.reason.abduction.workspace
-         :only [get-unexp-pct get-noexp-pct calc-doubt calc-coverage
+         :only [get-unexp-pct get-noexp-pct calc-doubt
                 accepted? rejected? rejection-reason lookup-hyp update-graph
                 accepted-before? rejected-before? unexplained?
                 accepted-explained accepted-rivals get-no-explainers
@@ -392,7 +392,7 @@
   [truedata est]
   (let [ep (cur-ep est)
         eps (flatten-est est)
-        workspace (update-graph (:workspace ep))
+        workspace (:workspace ep)
         true-false (group-hyps-by-true-false (vals (:hyp-ids workspace))
                                              :type truedata (:oracle-fn @problem) false)
         true-false-scores (calc-true-false-scores est true-false)

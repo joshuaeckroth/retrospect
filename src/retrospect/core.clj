@@ -19,7 +19,6 @@
   (:use [retrospect.problems.abdexp.problem :only [abdexp-problem]])
   (:use [retrospect.simulate :only [run]])
   (:use [geppetto.records :only [run-with-new-record submit-archived-results]])
-  (:use [retrospect.explore :only [start-explore]])
   (:use [retrospect.player :only [start-player]])
   (:use [retrospect.utility]))
 
@@ -76,12 +75,6 @@
           (= (:action options) "player")
           ;; start the player on swing's "event dispatch thread"
           (SwingUtilities/invokeLater start-player)
-
-          (= (:action options) "explore")
-          (do
-            (dosync (alter state/batch (constantly true)))
-            ;; start the explore gui on swing's "event dispatch thread"
-            (SwingUtilities/invokeLater start-explore))
 
           (= (:action options) "resubmit")
           (submit-archived-results (:recdir options))
@@ -143,3 +136,11 @@
           
           :else
           (println "No action given."))))
+
+(comment
+  (= (:action options) "explore")
+  (do
+    (dosync (alter state/batch (constantly true)))
+    ;; start the explore gui on swing's "event dispatch thread"
+    (SwingUtilities/invokeLater start-explore)))
+

@@ -15,7 +15,6 @@
   (:use [retrospect.profile :only [profile]])
   (:use [retrospect.gui.eptree :only [ep-tree-tab update-ep-tree]])
   (:use [retrospect.gui.results :only [update-results results-tab]])
-  (:use [retrospect.gui.repl :only [update-repl-tab repl-tab]])
   (:use [retrospect.epistemicstates
          :only [list-ep-states cur-ep prev-ep goto-ep ep-path]])
   (:use [geppetto.random :only [rgen new-seed]]))
@@ -77,7 +76,6 @@
   (update-ep-tree)
   ((:update-tabs-fn (:player-fns @reasoner)))
   (update-results)
-  (update-repl-tab)
   ((:update-stats-fn (:player-fns @problem)))
   (when-let [f (:update-diagram-fn (:player-fns @problem))]
     (f)))
@@ -172,7 +170,6 @@
                 (.addTab tabs (first t) (second t)))
               (doto tabs
                 (.addTab "Ep tree" (ep-tree-tab))
-                (.addTab "REPL" (repl-tab))
                 (.addTab "Results" (results-tab))
                 (.setSelectedIndex 0))
               tabs)
@@ -228,7 +225,6 @@
 
 (defn start-player
   [& opts]
-  #_(javax.swing.UIManager/setLookAndFeel "org.pushingpixels.substance.api.skin.SubstanceBusinessLookAndFeel")
   (swap! prefs (constantly (.node (Preferences/userRoot) "/cc/artifice/retrospect/player")))
   (get-saved-params)
   (when (:Seed params) (set-seed-spinner (:Seed params)))

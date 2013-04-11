@@ -43,8 +43,7 @@
   (print-simple (format "%s(%s)/%.2f" (:name h) (:short-str h) (:apriori h)) w))
 
 (def empty-workspace
-  {:graph (digraph)
-   :oracle nil
+  {:oracle nil
    :meta-oracle nil
    ;; what was accepted, rejected, merged with the 'best' map
    :accrej {}
@@ -172,7 +171,7 @@
   [workspace hyp]
   (prof
    :unexplained?
-   (#{(:id hyp)} (:sorted-explainers-explained workspace))))
+   (some #{(:id hyp)} (:sorted-explainers-explained workspace))))
 
 (defn hyp-log
   [workspace hyp]
@@ -672,18 +671,6 @@
                 (not ((:ignore-doubt-types (:abduction @problem))
                       (:type (:best (:accrej workspace))))))
        (- 1.0 (:delta (:accrej workspace)))))))
-
-(defn calc-coverage
-  [workspace]
-  (prof
-   :calc-coverage
-   (let [acc-needs-exp (set (filter (:needs-explanation workspace)
-                               (:all (:accepted workspace))))]
-     (if (empty? acc-needs-exp) 1.0
-         (let [accessible (mapcat (fn [hyp-id] (pre-traverse (:graph workspace) hyp-id))
-                                  acc-needs-exp)]
-           (/ (double (count (set/intersection acc-needs-exp (set accessible))))
-              (double (count acc-needs-exp))))))))
 
 (defn find-unaccepted
   [workspace]

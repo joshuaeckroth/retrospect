@@ -2,7 +2,7 @@
   (:require [clojure.set :as set])
   (:require [clojure.string :as str])
   (:use [retrospect.reason.abduction.workspace
-         :only [init-workspace init-kb calc-doubt calc-coverage]])
+         :only [init-workspace init-kb calc-doubt]])
   (:use [retrospect.reason.abduction.meta
          :only [reason]])
   (:use [retrospect.reason.abduction.evaluate
@@ -24,7 +24,6 @@
    :evaluate-fn evaluate
    :evaluate-comp-fn evaluate-comp
    :calc-doubt-fn calc-doubt
-   :calc-coverage-fn calc-coverage
    :meta-oracle-fn (fn [truedata hyp]
                      (if (= "Abduction" (:name @reasoner))
                        (true-meta-hyp? truedata hyp)
