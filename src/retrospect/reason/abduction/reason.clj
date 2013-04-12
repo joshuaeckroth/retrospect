@@ -42,6 +42,7 @@
              :MinScore [0 [0 10]]
              :DoubtMeasure ["delta" ["score" "delta"]]
              :DoubtAggregate ["avg" ["max" "avg"]]
+             :DoubtModifier ["none" ["square" "cube" "sqrt" "log" "none"]]
              :DoubtUnexp [false [true false]]
              :UseScores [true [true]]
              :ScoreLevels [100 [2 3 5 10 100]]

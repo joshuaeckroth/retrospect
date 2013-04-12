@@ -699,16 +699,26 @@
   [workspace]
   (prof
    :calc-doubt
-   (if (= "score" (:DoubtMeasure params))
-     (when (and (:best (:accrej workspace))
-                (not ((:ignore-doubt-types (:abduction @problem))
-                      (:type (:best (:accrej workspace))))))
-       (- 1.0 (:apriori (:best (:accrej workspace)))))
-     ;; "delta"
-     (when (and (:delta (:accrej workspace))
-                (not ((:ignore-doubt-types (:abduction @problem))
-                      (:type (:best (:accrej workspace))))))
-       (- 1.0 (:delta (:accrej workspace)))))))
+   (when-let [d (if (= "score" (:DoubtMeasure params))
+                  (when (and (:best (:accrej workspace))
+                             (not ((:ignore-doubt-types (:abduction @problem))
+                                   (:type (:best (:accrej workspace))))))
+                    (- 1.0 (:apriori (:best (:accrej workspace)))))
+                  ;; "delta"
+                  (when (and (:delta (:accrej workspace))
+                             (not ((:ignore-doubt-types (:abduction @problem))
+                                   (:type (:best (:accrej workspace))))))
+                    (- 1.0 (:delta (:accrej workspace)))))]
+     (cond (= "square" (:DoubtModifier params))
+           (* d d)
+           (= "cube" (:DoubtModifier params))
+           (* d d d)
+           (= "sqrt" (:DoubtModifier params))
+           (Math/sqrt d)
+           (= "log" (:DoubtModifier params))
+           (Math/log d)
+           :else
+           d))))
 
 (defn find-unaccepted
   [workspace]
