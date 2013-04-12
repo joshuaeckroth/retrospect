@@ -716,7 +716,7 @@
            (= "sqrt" (:DoubtModifier params))
            (Math/sqrt d)
            (= "log" (:DoubtModifier params))
-           (Math/log d)
+           (Math/log (+ 1.0 d))
            :else
            d))))
 
