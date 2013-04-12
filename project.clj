@@ -25,5 +25,5 @@
   :main retrospect.core
   :keep-non-project-classes true
   :java-source-paths ["src/jvm"]
-  :jvm-opts ["-Dawt.useSystemAAFontSettings=on" "-Djava.library.path=netica"])
+  :jvm-opts ["-Xmx4000m" "-Dawt.useSystemAAFontSettings=on" "-Djava.library.path=netica"])
 
