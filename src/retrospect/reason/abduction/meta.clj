@@ -93,19 +93,6 @@
         (let [new-est (new-branch-ep est batch1-ep)]
           (meta-apply-and-evaluate est new-est time-now sensors))))))
 
-(defn meta-batch-weakest
-  [problem-cases est _ time-now sensors]
-  (let [doubts-cycles (reverse (sort-by first
-                                        (filter first
-                                           (map (fn [ep]
-                                                [(calc-doubt (:workspace ep)) (:cycle ep)])
-                                              (ep-path est)))))
-        highest-doubt (ffirst doubts-cycles)
-        prior-cycle (dec (second (first (sort-by second (filter #(= highest-doubt (first %))
-                                                           doubts-cycles)))))
-        new-est (new-branch-ep est (cur-ep (goto-cycle est prior-cycle)))]
-    (meta-apply-and-evaluate est new-est time-now sensors)))
-
 (defn action-batch
   [ep est]
   [(new-branch-ep est ep)
@@ -117,9 +104,11 @@
         ep (cur-ep new-est)
         ;; ensure the prevent-rejections set doesn't go back to a prior, smaller set;
         ;; ensuring this will prevent loops
-        ws-prevent-rejection (update-in (prevent-rejection (:workspace ep) implicated :minscore)
-                                        [:prevent-rejections]
-                                        set/union (:prevent-rejections (:workspace (cur-ep est))))
+        ws-prevent-rejection (update-in
+                              (prevent-rejection (:workspace ep)
+                                                 implicated :minscore)
+                              [:prevent-rejections]
+                              set/union (:prevent-rejections (:workspace (cur-ep est))))
         ep-prevent-rejection (assoc ep :workspace ws-prevent-rejection)]
     [(update-est new-est ep-prevent-rejection) params]))
 
@@ -294,28 +283,6 @@
         ;; done much reasoning yet
         [])))
 
-(comment
-  (loop [hs (sort-by :id (filter #(empty? (explainers cur-ws %)) problem-cases))
-         order-dep-hyps [batchbeg-hyp batch1-hyp]]
-    (if (empty? hs) order-dep-hyps
-        (let [t (:time (cur-ep (goto-cycle est (accepted-cycle cur-ws (first hs)))))
-              ep (cur-ep (goto-start-of-time est (dec t)))]
-          ;; don't offer two order-dep hyps that go back to the same time
-          (if (some #(= (dec t) (:time %)) order-dep-hyps)
-            (recur (rest hs) order-dep-hyps)
-            (recur (rest hs)
-                   (conj
-                    order-dep-hyps
-                    (new-hyp "OrderDep" :meta-order-dep :meta-order-dep
-                             0.1 false meta-hyp-conflicts?
-                             (:contents (first hs))
-                             (format "Order dependency at time %d, ep %s" (dec t) (str ep))
-                             (format "Order dependency at time %d, ep %s" (dec t) (str ep))
-                             {:action (partial action-batch ep)
-                              :cycle (:cycle ep)
-                              :time (dec t)
-                              :time-delta (- time-now (dec t))}))))))))
-
 (defn make-meta-hyps-rej-conflict
   [problem-cases est time-prev time-now available-meta-hyps cur-ws expl]
   ;; correct explainer(s) were rejected due to conflicts; need to
@@ -383,6 +350,33 @@
                               :else h))]
     [est new-meta-hyps]))
 
+(defn score-meta-hyps-simulate-apriori
+  [hyp problem-cases problem-cases-new doubt doubt-new]
+  (if (<= 0.0 (- doubt-new doubt))
+    ;; doubt-diff is positive (the meta-hyp increases doubt);
+    ;; forget it
+    0.0
+    ;; otherwise, doubt-diff is negative (the meta-hyp decreases doubt)
+    (if (and (:ComplexMetaRejMinscoreScoring params)
+             (= :meta-rej-minscore (:type hyp)))
+      ;; different scoring for rej-minscore meta-hyps
+      (max 0.0
+           (- (* 0.5 (- 1.0
+                        (max 0.0
+                             (- (avg (map :apriori problem-cases))
+                                (avg (map :apriori problem-cases-new))))))
+              (* 2.0 (:max-score-delta hyp))))
+      ;; normal scoring (non-rej-minscore meta-hyps)
+      (cond (= "diff" (:ScoreMetaHyps params))
+            (max 0.0
+                 (- (avg (map :apriori problem-cases))
+                    (avg (map :apriori problem-cases-new))
+                    (if (nil? (:penalty hyp)) 0.0
+                        (:penalty hyp))))
+            ;; "doubt"
+            :else
+            doubt-new))))
+
 (defn score-meta-hyps-simulate
   [problem-cases meta-hyps est time-prev time-now sensors]
   (loop [est-attempted est
@@ -406,30 +400,9 @@
                               :problem-cases-prior problem-cases
                               :problem-cases-after problem-cases-new
                               :final-ep-id (:id (cur-ep (:est-new result)))
-                              :apriori (if (<= 0.0 (- doubt-new doubt))
-                                         ;; doubt-diff is positive (the meta-hyp increases doubt);
-                                         ;; forget it
-                                         0.0
-                                         ;; otherwise, doubt-diff is negative (the meta-hyp decreases doubt)
-                                         (if (and (:ComplexMetaRejMinscoreScoring params)
-                                                  (= :meta-rej-minscore (:type hyp)))
-                                           ;; different scoring for rej-minscore meta-hyps
-                                           (max 0.0
-                                                (- (* 0.5 (- 1.0
-                                                             (max 0.0
-                                                                  (- (avg (map :apriori problem-cases))
-                                                                     (avg (map :apriori problem-cases-new))))))
-                                                   (* 2.0 (:max-score-delta hyp))))
-                                           ;; normal scoring (non-rej-minscore meta-hyps)
-                                           (cond (= "diff" (:ScoreMetaHyps params))
-                                                 (max 0.0
-                                                      (- (avg (map :apriori problem-cases))
-                                                         (avg (map :apriori problem-cases-new))
-                                                         (if (nil? (:penalty hyp)) 0.0
-                                                             (:penalty hyp))))
-                                                 ;; "doubt"
-                                                 :else
-                                                 doubt-new)))
+                              :apriori (score-meta-hyps-simulate-apriori
+                                        hyp problem-cases problem-cases-new
+                                        doubt doubt-new)
                               :doubt-prior doubt
                               :doubt-new doubt-new
                               :doubt-diff (- doubt-new doubt)
@@ -455,9 +428,12 @@
   [problem-cases meta-hyps est time-prev time-now sensors]
   (if (:EstimateMetaScores params)
     (let [[est-new meta-hyps-new]
-          (score-meta-hyps-simulate problem-cases meta-hyps est time-prev time-now sensors)]
-      (score-meta-hyps-estimate problem-cases meta-hyps-new est-new time-prev time-now sensors))
-    (score-meta-hyps-simulate problem-cases meta-hyps est time-prev time-now sensors)))
+          (score-meta-hyps-simulate
+           problem-cases meta-hyps est time-prev time-now sensors)]
+      (score-meta-hyps-estimate
+       problem-cases meta-hyps-new est-new time-prev time-now sensors))
+    (score-meta-hyps-simulate
+     problem-cases meta-hyps est time-prev time-now sensors)))
 
 (defn meta-abductive
   [problem-cases est time-prev time-now sensors]
@@ -469,8 +445,9 @@
         [est-new meta-hyps-scored] (score-meta-hyps problem-cases meta-hyps
                                                     est time-prev time-now sensors)
         meta-hyps-scored-explanatory (filter #(not-empty (:explains %)) meta-hyps-scored)
-        meta-est (new-child-ep (init-est (assoc (init-workspace)
-                                           :meta-oracle (:meta-oracle (:workspace (cur-ep est))))))
+        meta-est (new-child-ep
+                  (init-est (assoc (init-workspace)
+                              :meta-oracle (:meta-oracle (:workspace (cur-ep est))))))
         meta-ws (binding [params meta-params]
                   (reduce #(add %1 %2 0)
                      (reduce #(add-observation %1 %2 0)
@@ -500,7 +477,8 @@
         ;; the action has not been done yet, so do it
         (let [[est-new params-new] ((:action best) est-new-meta-est)
               result (binding [params params-new]
-                       (meta-apply-and-evaluate est-new-meta-est est-new time-now sensors))]
+                       (meta-apply-and-evaluate
+                        est-new-meta-est est-new time-now sensors))]
           {:est-old (:est-old result)
            :est-new (:est-new result)
            :best best})
@@ -533,87 +511,6 @@
                  implicated))
         {:est-old est-old :est-new est-new}))))
 
-(defn meta-rule-based
-  [problem-cases est time-prev time-now sensors]
-  (loop [problem-cases problem-cases
-         est-prior est
-         attempted #{}
-         rules-applied #{}]
-    (if (empty? problem-cases)
-      {:est-old (goto-ep est-prior (:id (cur-ep est)))
-       :est-new est-prior}
-      (let [meta-hyps (make-meta-hyps problem-cases est-prior time-prev time-now)
-            [est-scored meta-hyps-scored] (score-meta-hyps problem-cases meta-hyps
-                                                           est-prior time-prev time-now sensors)
-            meta-est (new-child-ep (init-est (init-workspace)))
-            meta-ws (reduce #(add %1 %2 0)
-                       (reduce #(add-observation %1 %2 0)
-                          (:workspace (cur-ep meta-est)) problem-cases)
-                       meta-hyps-scored)
-            do-action (fn [h] (let [meta-ws-accepted (accept meta-ws h nil [] [] 0.0 {} 0) ;; a kludge
-                                   meta-est-accepted (update-est meta-est
-                                                                 (assoc (cur-ep meta-est)
-                                                                   :workspace meta-ws-accepted))
-                                   est-with-meta-hyps (update-est est-scored
-                                                                  (assoc (cur-ep est-scored)
-                                                                    :meta-est meta-est-accepted))
-                                   [est-action params-action] ((:action h) est-with-meta-hyps)]
-                               (binding [params params-action]
-                                 (:est-new (meta-apply-and-evaluate
-                                            est-with-meta-hyps est-action time-now sensors)))))
-            batch1-hyp (first (filter #(and (= :meta-order-dep (:type %))
-                                       (= 1 (:time-delta %)))
-                                 meta-hyps-scored))
-            ;; NOTE: THIS WON'T WORK ANYMORE, :new-minscore is not part of lower-minscore hyps now
-            least-minscore-hyp (last (sort-by :new-minscore (filter #(= :meta-rej-minscore (:type %))
-                                                               meta-hyps-scored)))
-            cheapest-rej-conflict-hyp (last (sort-by :cycle (filter #(= :meta-rej-conflict (:type %))
-                                                               meta-hyps-scored)))
-            rule (cond (= "a" (:MetaRuleSet params))
-                       (cond (and (not (rules-applied :batch1)) batch1-hyp)
-                             :batch1
-                             (and (not (rules-applied :lower-minscore)) least-minscore-hyp)
-                             :lower-minscore
-                             (and (not (rules-applied :reject-conflict)) cheapest-rej-conflict-hyp)
-                             :reject-conflict)
-                       (= "b" (:MetaRuleSet params))
-                       (cond (and (not (rules-applied :reject-conflict)) cheapest-rej-conflict-hyp)
-                             :reject-conflict
-                             (and (not (rules-applied :lower-minscore)) least-minscore-hyp)
-                             :lower-minscore
-                             (and (not (rules-applied :batch1)) batch1-hyp)
-                             :batch1)
-                       (= "c" (:MetaRuleSet params))
-                       (cond (and (not (rules-applied :lower-minscore)) least-minscore-hyp)
-                             :lower-minscore
-                             (and (not (rules-applied :reject-conflict)) cheapest-rej-conflict-hyp)
-                             :reject-conflict
-                             (and (not (rules-applied :batch1)) batch1-hyp)
-                             :batch1))
-            choice (cond (= :batch1 rule) batch1-hyp
-                         (= :lower-minscore rule) least-minscore-hyp
-                         (= :reject-conflict rule) cheapest-rej-conflict-hyp)]
-        (comment
-          (println "problem-cases:" problem-cases)
-          (println "batch1-hyp:" batch1-hyp)
-          (println "least-minscore-hyp:" least-minscore-hyp)
-          (println "cheapest-rej-conflict-hyp:" cheapest-rej-conflict-hyp)
-          (println "rule:" rule)
-          (println "choice:" choice)
-          (println "\n\n"))
-        (if choice
-          (let [est-result (do-action choice)
-                problem-cases-new (find-problem-cases est-result)]
-            (recur problem-cases-new est-result
-                   (conj attempted (dissoc (:contents choice) :action))
-                   (conj rules-applied rule)))
-          ;; no choice made; we're done
-          (let [meta-est-hyps (update-est meta-est (assoc (cur-ep meta-est) :workspace meta-ws))
-                est-with-meta-hyps (update-est est-scored (assoc (cur-ep est-scored)
-                                                            :meta-est meta-est-hyps))]
-            {:est-old (goto-ep est-with-meta-hyps (:id (cur-ep est)))
-             :est-new est-with-meta-hyps}))))))
-
 (defn resolve-by-ignoring
   [problem-cases est time-prev time-now sensors]
   (let [new-est (new-branch-ep est (cur-ep est))
@@ -639,8 +536,6 @@
                 meta-rej-conflict
                 (= "abd" m)
                 meta-abductive-recursive
-                (= "rule-based" m)
-                meta-rule-based
                 (= "ignore" m)
                 (constantly nil))
         result (f problem-cases est time-prev time-now sensors)

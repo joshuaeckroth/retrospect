@@ -341,13 +341,21 @@
    :find-conflicts-all
    (filter #(conflicts? hyp %) (vals (:hyp-ids workspace)))))
 
-(defn find-conflicts
+(defn find-conflicts-active
   [workspace hyp]
   (prof
-   :find-conflicts
+   :find-conflicts-active
    (filter #(conflicts? hyp %)
       (map #(lookup-hyp workspace %)
          (set (apply concat (vals (:sorted-explainers workspace))))))))
+
+(defn conflicts-with-accepted?
+  [workspace hyp]
+  (prof
+   :conflicts-with-accepted?
+   (some (fn [hyp2] (conflicts? hyp hyp2))
+      (map #(lookup-hyp workspace %)
+         (get (:accepted workspace) (:type hyp))))))
 
 (defn dissoc-needing-explanation
   [workspace hyps]
@@ -482,99 +490,111 @@
 
 (defn add-helper
   [workspace hyp]
-  (prof :add-helper
-        (let [hyp-apriori (update-hyp-apriori workspace hyp)]
-          (-> workspace
-             (assoc-in [:hyp-ids (:id hyp-apriori)] hyp-apriori)
-             (assoc-in [:hyp-contents (:contents hyp-apriori)] (:id hyp-apriori))
-             (assoc-in [:explains (:id hyp-apriori)]
-                       (set (map #(get (:hyp-contents workspace) %) (:explains hyp-apriori))))
-             (record-if-needs-explanation hyp-apriori)
-             (assoc-explainer hyp-apriori)
-             (update-in [:hypotheses (:type hyp-apriori)] conj (:id hyp-apriori))
-             (update-in [:hypotheses :all] conj (:id hyp-apriori))))))
+  (prof
+   :add-helper
+   (let [hyp-apriori (update-hyp-apriori workspace hyp)]
+     (-> workspace
+        (assoc-in [:hyp-ids (:id hyp-apriori)] hyp-apriori)
+        (assoc-in [:hyp-contents (:contents hyp-apriori)] (:id hyp-apriori))
+        (assoc-in [:explains (:id hyp-apriori)]
+                  (set (map #(get (:hyp-contents workspace) %) (:explains hyp-apriori))))
+        (record-if-needs-explanation hyp-apriori)
+        (assoc-explainer hyp-apriori)
+        (update-in [:hypotheses (:type hyp-apriori)] conj (:id hyp-apriori))
+        (update-in [:hypotheses :all] conj (:id hyp-apriori))))))
+
+(defn add-existing-hyp-minscore
+  [workspace prior-hyp prior-hyp-updated]
+  ;; if it was rejected due to :minscore and it would not again be
+  ;; rejected for the same reason, unreject it
+  (prof
+   :add-existing-hyp-minscore
+   (if (and (= :minscore (rejection-reason workspace prior-hyp))
+            (>= (:apriori prior-hyp-updated)
+               (double (/ (:MinScore params) 100.0))))
+     (do (log "...yet was rejected due to :minscore previously\n"
+              "...but now satisfies minscore, so unrejecting.")
+         (-> workspace (update-in [:rejected :all] disj (:id prior-hyp))
+            (update-in [:rejected (:type prior-hyp)] disj (:id prior-hyp))
+            (update-in [:accrej :rej] disj (:id prior-hyp))
+            (dissoc-in [:rejection-reasons (:id prior-hyp)])))
+     (do (log "...yet was rejected due to" (rejection-reason workspace prior-hyp)
+              "so leaving as is (not adding).")
+         (-> workspace (dissoc-in [:sorted-explainers (:id prior-hyp)])
+            (dissoc-explainer prior-hyp-updated))))))
+
+(defn add-existing-hyp-accepted
+  [workspace prior-hyp prior-hyp-updated cycle]
+  (prof
+   :add-existing-hyp-accepted
+   (if ((get-in workspace [:accepted :all]) (:id prior-hyp))
+     (do (log "...yet was already accepted.")
+         (-> workspace
+            (dissoc-needing-explanation (explains workspace prior-hyp-updated))
+            (dissoc-in [:sorted-explainers (:id prior-hyp)])
+            (dissoc-explainer prior-hyp-updated)))
+     ;; it may conflict with an accepted hyp
+     (if (conflicts-with-accepted? workspace prior-hyp)
+       (do (log (str "...yet it conflicts with an already accepted hyp, "
+                     "so immediately rejecting."))
+           (reject-many workspace [prior-hyp] :conflict cycle))
+       ;; otherwise, just leave it with its explainers updated, etc.
+       workspace))))
+
+(defn add-existing-hyp-updated
+  "hyp already present; update explains in case it changed,
+   and whether it needs explanation or not"
+  [workspace hyp prior-hyp-id cycle]
+  (prof
+   :add-existing-hyp-updated
+   (let [prior-hyp (lookup-hyp workspace prior-hyp-id)
+         new-hyp-apriori (:apriori (update-hyp-apriori workspace hyp))]
+     (if (and (= new-hyp-apriori (:apriori prior-hyp))
+              (= (:explains hyp) (:explains prior-hyp))
+              (= (:needs-explainer? hyp) (:needs-explainer? prior-hyp)))
+       ;; nothing changed in this hyp
+       workspace
+       ;; otherwise, there are changes in this version of the same hyp
+       (let [prior-hyp-updated (assoc prior-hyp
+                                 :needs-explainer? (:needs-explainer? hyp)
+                                 :explains (set/union (set (:explains prior-hyp))
+                                                  (set (:explains hyp)))
+                                 :apriori (min (:apriori prior-hyp)
+                                               new-hyp-apriori))
+             new-explains (set (map #(get (:hyp-contents workspace) %)
+                                  (:explains prior-hyp-updated)))]
+         (log hyp "is already in the workspace as" prior-hyp-updated
+              ", so merging what it explains to obtain:" new-explains)
+         (let [ws (-> workspace
+                     (forget-explainer prior-hyp)
+                     (assoc-in [:hyp-ids prior-hyp-id] prior-hyp-updated)
+                     (assoc-in [:explains prior-hyp-id] new-explains)
+                     (assoc-explainer prior-hyp-updated)
+                     (record-if-needs-explanation prior-hyp-updated))]
+           (if ((get-in ws [:rejected :all]) prior-hyp-id)
+             (add-existing-hyp-minscore ws prior-hyp prior-hyp-updated)
+             (add-existing-hyp-accepted ws prior-hyp prior-hyp-updated cycle))))))))
 
 (defn add
   [workspace hyp cycle]
   (prof
    :add
-   (let [;; update a composite hyp so that pre-existing
-         ;; components are used instead of duplicate components
-         ;; in the new composite
-         hyp-c (if (:composite? hyp)
-                 (prof :add-composite
-                       (assoc hyp :hyps (map (fn [h] (if-let [h-id (get (:hyp-contents workspace)
-                                                                     (:contents h))]
-                                                    (lookup-hyp workspace h-id) h))
-                                           (:hyps hyp))))
+   (let [hyp-c (if (:composite? hyp)
+                 ;; update a composite hyp so that updated sub-hyps are used
+                 (let [lookup-sub-hyp (fn [h] (if-let [h-id (get (:hyp-contents workspace)
+                                                                (:contents h))]
+                                               (lookup-hyp workspace h-id) h))
+                       updated-sub-hyps (map lookup-sub-hyp (:hyps hyp))]
+                   (assoc hyp :hyps updated-sub-hyps))
                  hyp)]
      (log "Adding" hyp-c)
-     (if-let [prior-hyp-id (prof :add-hyp-contents
-                                 (get (:hyp-contents workspace) (:contents hyp-c)))]
-       ;; hyp already present; update explains in case it changed,
-       ;; and whether it needs explanation or not
-       (let [prior-hyp (lookup-hyp workspace prior-hyp-id)
-             new-hyp-apriori (:apriori (update-hyp-apriori workspace hyp-c))]
-         (if (and (= new-hyp-apriori (:apriori prior-hyp))
-                  (= (:explains hyp-c) (:explains prior-hyp))
-                  (= (:needs-explainer? hyp-c) (:needs-explainer? prior-hyp)))
-           workspace
-           (let [prior-hyp-updated (prof :add-prior-hyp-updated
-                                         (assoc prior-hyp
-                                           :needs-explainer? (:needs-explainer? hyp-c)
-                                           :explains (set/union (set (:explains prior-hyp))
-                                                            (set (:explains hyp-c)))
-                                           :apriori (min (:apriori prior-hyp)
-                                                         new-hyp-apriori)))
-                 new-explains (prof :add-new-explains
-                                    (set (map #(get (:hyp-contents workspace) %)
-                                            (:explains prior-hyp-updated))))]
-             (log hyp-c "is already in the workspace as" prior-hyp-updated
-                  ", so merging what it explains to obtain:" new-explains)
-             (let [ws (-> workspace
-                         (forget-explainer prior-hyp)
-                         (assoc-in [:hyp-ids prior-hyp-id] prior-hyp-updated)
-                         (assoc-in [:explains prior-hyp-id] new-explains)
-                         (assoc-explainer prior-hyp-updated)
-                         (record-if-needs-explanation prior-hyp-updated))]
-               (if ((get-in ws [:rejected :all]) prior-hyp-id)
-                 ;; if it was rejected due to :minscore and it
-                 ;; would not again be rejected for the same reason,
-                 ;; unreject it
-                 (if (and (= :minscore (rejection-reason ws prior-hyp))
-                          (>= (:apriori prior-hyp-updated) (double (/ (:MinScore params) 100.0))))
-                   (do (log "...yet was rejected due to :minscore previously\n"
-                            "...but now satisfies minscore, so unrejecting.")
-                       (-> ws (update-in [:rejected :all] disj prior-hyp-id)
-                          (update-in [:rejected (:type prior-hyp)] disj prior-hyp-id)
-                          (update-in [:accrej :rej] disj prior-hyp-id)
-                          (dissoc-in [:rejection-reasons prior-hyp-id])))
-                   (do (log "...yet was rejected due to" (rejection-reason ws prior-hyp)
-                            "so leaving as is (not adding).")
-                       (-> ws (dissoc-in [:sorted-explainers prior-hyp-id])
-                          (dissoc-explainer prior-hyp-updated))))
-                 ;; it was already accepted
-                 (if ((get-in ws [:accepted :all]) prior-hyp-id)
-                   (do (log "...yet was already accepted.")
-                       (-> ws
-                          (dissoc-needing-explanation (explains ws prior-hyp-updated))
-                          (dissoc-in [:sorted-explainers prior-hyp-id])
-                          (dissoc-explainer prior-hyp-updated)))
-                   ;; it may conflict with an accepted hyp
-                   (if (some (fn [hyp2] (conflicts? hyp-c hyp2))
-                          (map #(lookup-hyp workspace %) (get (:accepted workspace) (:type hyp-c))))
-                     (do (log "...yet it conflicts with an already accepted hyp, so immediately rejecting.")
-                         (reject-many ws [prior-hyp] :conflict cycle))
-                     ;; otherwise, just leave it with its explainers
-                     ;; updated, etc. (from above)
-                     ws)))))))
+     (if-let [prior-hyp-id (get (:hyp-contents workspace) (:contents hyp-c))]
+       (add-existing-hyp-updated workspace hyp-c prior-hyp-id cycle)
        ;; otherwise, check if conflicts, if not add it
        (let [ws (add-helper workspace hyp-c)]
-         (if (prof :add-conflict-lookup
-                   (some (fn [hyp2] (conflicts? hyp-c hyp2))
-                      (map #(lookup-hyp workspace %)
-                         (get (:accepted workspace) (:type hyp-c)))))
-           (do (log "...yet it conflicts with an already accepted hyp, so rejecting.")
+         (if (conflicts-with-accepted? ws hyp-c)
+           (do (log (str "...yet it conflicts with an already accepted hyp, "
+                         "so immediately rejecting."))
                (reject-many ws [hyp-c] :conflict cycle))
            ws))))))
 
