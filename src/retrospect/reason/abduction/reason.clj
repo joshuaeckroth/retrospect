@@ -41,7 +41,7 @@
              :EstimateMetaScores [false [true false]]
              :MinScore [0 [0 10]]
              :DoubtMeasure ["delta" ["score" "delta"]]
-             :DoubtAggregate ["avg" ["max" "avg"]]
+             :DoubtAggregate ["avg" ["max" "avg" "min"]]
              :DoubtModifier ["none" ["square" "cube" "sqrt" "log" "none"]]
              :DoubtUnexp [false [true false]]
              :UseScores [true [true]]
