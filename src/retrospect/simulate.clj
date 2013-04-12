@@ -75,8 +75,8 @@
         ws-meta-oracle (if (= "none" (:MetaOracle params)) ws-oracle
                            (assoc ws-oracle :meta-oracle
                                   (partial (:meta-oracle-fn @reasoner) truedata)))
-        est (new-child-ep (init-est ((:init-kb-fn @reasoner) ws-meta-oracle
-                                     (:training truedata))))]
+        ws-with-kb ((:init-kb-fn @reasoner) ws-meta-oracle (:training truedata))
+        est (new-child-ep (init-est ws-with-kb))]
     {:resources {:milliseconds 0 :meta-accepted 0 :meta-activations 0}
      :sensors sensors :est est}))
 
