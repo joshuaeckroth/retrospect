@@ -23,16 +23,25 @@
   (compareTo [self other] (compare (hash self) (hash other))))
 
 (defn new-hyp
-  [prefix type subtype apriori needs-explainer? conflicts?-fn
-   explains short-str desc data]
-  (let [id (inc last-id)]
-    (set-last-id id)
-    (assoc (merge (Hypothesis.
-                   id (format "%s%d" prefix id)
-                   type subtype apriori needs-explainer? conflicts?-fn
-                   explains short-str desc data)
-                  data)
-      :contents (assoc data :type type :subtype subtype))))
+  ;; contents not provided; make them
+  ([prefix type subtype apriori needs-explainer? conflicts?-fn
+    explains short-str desc data]
+   (new-hyp prefix type subtype apriori needs-explainer? conflicts?-fn
+            explains short-str desc data
+            (assoc data :type type :subtype subtype)))
+  ;; contents provided; allows the hyp generator to decide what constitutes
+  ;; an identical hyp (note that :data will be copied from new hyp
+  ;; when an identical hyp is detected)
+  ([prefix type subtype apriori needs-explainer? conflicts?-fn
+    explains short-str desc data contents]
+     (let [id (inc last-id)]
+       (set-last-id id)
+       (assoc (merge (Hypothesis.
+                      id (format "%s%d" prefix id)
+                      type subtype apriori needs-explainer? conflicts?-fn
+                      explains short-str desc data)
+                     data)
+         :contents contents))))
 
 (defn new-composite
   [prefix type subtype apriori explains short-str desc data hyps]
@@ -560,7 +569,8 @@
                                  :explains (set/union (set (:explains prior-hyp))
                                                   (set (:explains hyp)))
                                  :apriori (min (:apriori prior-hyp)
-                                               new-hyp-apriori))
+                                               new-hyp-apriori)
+                                 :data (:data hyp))
              new-explains (set (map #(get (:hyp-contents workspace) %)
                                   (:explains prior-hyp-updated)))]
          (log hyp "is already in the workspace as" prior-hyp-updated

@@ -87,6 +87,7 @@
    :MetaOracle ["none" ["none"]]
    :Steps [10 [10]]
    :Stats [false [false]]
+   :SequentialSensorReports [true [true false]]
    :Noise [false [true false]]
    :SensorDeletionNoise [0 [0]]
    :SensorInsertionNoise [0 [0]]
