@@ -95,18 +95,22 @@
 
 (def next-button (button "Next" :enabled false :action ([_] (next-step))))
 
+(def simulation (atom 0))
+
 (defn new-simulation
   []
   (.setEnabled next-button true)
+  (swap! simulation inc)
   (let [prepared? (and (not (nil? @prepared-selected))
                        (not= "None" @prepared-selected))
-        ps (dissoc (merge-default-params (read-string @params-edit)) :simulation)]
+        ps (assoc (merge-default-params (read-string @params-edit))
+             :simulation @simulation)]
     (alter-var-root (var params) (constantly ps))
     (set-last-id 0)
     (when (not prepared?)
       (let [ps (merge-default-params (read-string @params-edit))
             seed (if (:Seed ps) (:Seed ps) (get-seed))
-            ps-seed (assoc ps :Seed seed)]
+            ps-seed (assoc ps :Seed seed :simulation @simulation)]
         (alter-var-root (var params) (constantly ps-seed))
         (.put @prefs (format "%s-%s-params" (:name @reasoner) (:name @problem))
               (pr-str ps-seed))
