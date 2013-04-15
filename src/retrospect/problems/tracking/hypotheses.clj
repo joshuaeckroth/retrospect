@@ -136,31 +136,36 @@
                  (or (= (:time mov1) (:time mov2))
                      (= (:ot mov1) (:ot mov2))))))))))
 
+(defn make-sensor-hyp
+  [{:keys [x y color time] :as det} from-to prior-dets moves-dist]
+  (let [desc (format (str "Sensor detection - color: %s, "
+                     "x: %d, y: %d, time: %d")
+                (color-str color) x y time)]
+    (new-hyp "SensFrom" :observation from-to
+             (calc-object-prob det :from prior-dets moves-dist)
+             true nil []
+             (format "%d,%d@%d" x y time) desc
+             {:det det :from-to from-to})))
+
 (defn make-sensor-hyps
   [sensors time-prev time-now accepted all-hyps lookup-hyp]
   (let [kb (get-kb accepted lookup-hyp)
         moves-dist (:moves-dist kb)
         prior-dets (filter #(= (dec time-now) (:time %))
-                      (map :det2 (map lookup-hyp (get accepted :movement))))]
+                      (map :det2 (map lookup-hyp (get accepted :movement))))
+        known-dets (set (map (fn [h] [(:det h) (:from-to h)])
+                           (map lookup-hyp (get all-hyps :observation))))]
     (doall
      (if (= time-prev time-now) []
-         (mapcat (fn [{:keys [x y color time] :as det}]
-                   (let [desc (format (str "Sensor detection - color: %s, "
-                                      "x: %d, y: %d, time: %d")
-                                 (color-str color) x y time)
-                         from (new-hyp "SensFrom" :observation :from
-                                       (calc-object-prob det :from prior-dets moves-dist)
-                                       true nil []
-                                       (format "%d,%d@%d" x y time) desc
-                                       {:det det :from-to :from})
-                         to (new-hyp "SensTo" :observation :to
-                                     (calc-object-prob det :to prior-dets moves-dist)
-                                     true nil []
-                                     (format "%d,%d@%d" x y time) desc
-                                     {:det det :from-to :to})]
-                     (cond (= time time-prev) [to]
-                           (= time time-now) [from]
-                           :else [from to])))
+         (mapcat (fn [det] (cond (and (= (:time det) time-prev) (not (known-dets [det :to])))
+                                [(make-sensor-hyp det :to prior-dets moves-dist)]
+                                (and (= (:time det) time-now) (not (known-dets [det :from])))
+                                [(make-sensor-hyp det :from prior-dets moves-dist)]
+                                (and (not (known-dets [det :to]))
+                                     (not (known-dets [det :from])))
+                                [(make-sensor-hyp det :to prior-dets moves-dist)
+                                 (make-sensor-hyp det :from prior-dets moves-dist)]
+                                :else []))
                  (sort-by :time (mapcat (fn [t] (mapcat (fn [s] (sensed-at s t)) sensors))
                                         (range time-prev (inc time-now)))))))))
 
