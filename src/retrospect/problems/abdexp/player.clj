@@ -25,7 +25,9 @@
 (def current-expgraph-dot (ref ""))
 (def current-expgraph-svg (ref ""))
 
-(def prec-label (label ""))
+(def mpeprec-label (label ""))
+(def mpecoverage-label (label ""))
+(def mpef1-label (label ""))
 (def unexp-label (label ""))
 (def noexp-label (label ""))
 
@@ -86,17 +88,25 @@
   []
   (panel :layout (GridBagLayout.)
          :constrains (java.awt.GridBagConstraints.)
-         [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0
+         [:weightx 1.0 :weighty 0.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
-          :gridx 0
-          _ (label "Prec:")
+          :gridx 0 :gridy 0
+          _ (label "MPEPrec:")
           :gridx 1
-          _ prec-label
+          _ mpeprec-label
           :gridx 0 :gridy 1
+          _ (label "MPECoverage:")
+          :gridx 1
+          _ mpecoverage-label
+          :gridx 0 :gridy 2
+          _ (label "MPEF1:")
+          :gridx 1
+          _ mpef1-label
+          :gridx 0 :gridy 3
           _ (label "Unexplained:")
           :gridx 1
           _ unexp-label
-          :gridx 0 :gridy 2
+          :gridx 0 :gridy 4
           _ (label "NoExplainers:")
           :gridx 1
           _ noexp-label]))
@@ -105,11 +115,15 @@
   []
   (if-let [results (last (:results (cur-ep (:est @or-state))))]
     (do
-      (. prec-label (setText (format "%.2f" (:Prec results))))
+      (. mpeprec-label (setText (format "%.2f" (:MPEPrec results))))
+      (. mpecoverage-label (setText (format "%.2f" (:MPECoverage results))))
+      (. mpef1-label (setText (format "%.2f" (:MPEF1 results))))
       (. unexp-label (setText (format "%.2f" (:UnexplainedPct results))))
       (. noexp-label (setText (format "%.2f" (:NoExplainersPct results)))))
     (do
-      (. prec-label (setText "N/A"))
+      (. mpeprec-label (setText "N/A"))
+      (. mpecoverage-label (setText "N/A"))
+      (. mpef1-label (setText "N/A"))
       (. unexp-label (setText "N/A"))
       (. noexp-label (setText "N/A")))))
 

@@ -71,8 +71,10 @@
   (dosync
    (alter ep-list (constantly (sort (list-ep-states (:est @or-state)))))
    (alter results (constantly (:results (cur-ep (:est @or-state))))))
-  (let [ws (:workspace (cur-ep (:est @or-state)))]
-    (. doubt-label (setText (format "%.2f" (:Doubt (last @results))))))
+  (let [ws (:workspace (cur-ep (:est @or-state)))
+        d (:Doubt (last @results))]
+    (if (nil? d) (.setText doubt-label "N/A")
+        (.setText doubt-label (format "%.2f" d))))
   (update-ep-tree)
   ((:update-tabs-fn (:player-fns @reasoner)))
   (update-results)
