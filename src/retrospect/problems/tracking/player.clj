@@ -14,7 +14,7 @@
   (:use [retrospect.problems.tracking.hypotheses :only [get-kb]])
   (:use [retrospect.problems.tracking.evaluate :only
          [get-true-movements]])
-  (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
+  (:use [retrospect.reason.abduction.workspace :only [accepted]])
   (:use [retrospect.problems.tracking.colors])
   (:use [retrospect.epistemicstates :only [cur-ep]])
   (:use [retrospect.state]))
@@ -141,8 +141,7 @@
                  (constantly (make-diagram
                               #(when (> @time-now 0)
                                  (let [ws (:workspace (cur-ep (:est @or-state)))]
-                                   (map (fn [hypid] (:mov (lookup-hyp ws hypid)))
-                                      (:movement (:accepted ws)))))))))
+                                   (map :mov (:movement (accepted ws)))))))))
   (panel :layout (GridBagLayout.)
          :constrains (java.awt.GridBagConstraints.)
          [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0
@@ -196,8 +195,7 @@
       (let [ws (:workspace (cur-ep (:est @or-state)))]
         (format-movements-comparative
          (:test @truedata)
-         (map #(:mov (lookup-hyp ws %))
-            (get (:accepted ws) :movement))
+         (map :mov (:movement (accepted ws)))
          (max 0 @time-prev) @time-now))))
 
 (defn move-str
@@ -208,9 +206,8 @@
 (defn player-get-problem-log
   []
   (let [ws (:workspace (cur-ep (:est @or-state)))
-        mov-hyps (sort-by :id (AlphanumComparator.)
-                          (map #(lookup-hyp ws %) (get (:accepted ws) :movement)))
+        mov-hyps (sort-by :id (AlphanumComparator.) (:movement (accepted ws)))
         lines (fn [ss] (apply str (interpose "\n" ss)))
-        kb (get-kb (:accepted ws) #(lookup-hyp ws %))]
+        kb (get-kb (accepted ws))]
     (format "Believed movements:\n%s"
        (lines (map #(format "%s: %s" % (move-str (:mov %))) mov-hyps)))))

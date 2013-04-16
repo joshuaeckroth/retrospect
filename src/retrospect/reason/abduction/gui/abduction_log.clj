@@ -63,16 +63,14 @@
                   {"Hypotheses"
                    (apply merge
                           (for [t (keys (:hypotheses ws))]
-                            (let [all-hyps (map #(ws/lookup-hyp ws %)
-                                              (get (:hypotheses ws) t))
-                                  acc-hyps (map #(ws/lookup-hyp ws %)
-                                              (get (:accepted ws) t))
-                                  not-acc-hyps (set/difference
-                                                (set (map #(ws/lookup-hyp ws %)
-                                                        (get (:hypotheses ws) t)))
-                                                acc-hyps)
+                            (let [all-hyps (get (ws/hypotheses ws) t)
+                                  acc-hyps (get (ws/accepted ws) t)
+                                  rej-hyps (get (ws/rejected ws) t)
+                                  ;; TODO: fix group-by or not-group-by
+                                  not-acc-hyps (get (ws/undecided ws) t)
                                   all-tf-hyps (group-by tf-fn all-hyps)
                                   acc-tf-hyps (group-by tf-fn acc-hyps)
+                                  rej-tf-hyps (group-by tf-fn rej-hyps)
                                   not-acc-tf-hyps (group-by tf-fn not-acc-hyps)]
                               {(name t)
                                {"All" 
@@ -83,17 +81,17 @@
                                 {"All" (list-hyps acc-hyps)
                                  "True" (list-hyps (get acc-tf-hyps true))
                                  "False" (list-hyps (get acc-tf-hyps false))}
-                                "Not accepted"
+                                "Rejected"
+                                {"All" (list-hyps rej-hyps)
+                                 "True" (list-hyps (get rej-tf-hyps true))
+                                 "False" (list-hyps (get rej-tf-hyps false))}
+                                "Undecided"
                                 {"All" (list-hyps not-acc-hyps)
                                  "True" (list-hyps (get not-acc-tf-hyps true))
                                  "False" (list-hyps (get not-acc-tf-hyps false))}}})))
                    "Cycle" (build-cycle ws)
-                   "No explainers" (list-hyps (map #(ws/lookup-hyp ws %)
-                                                 (ws/get-no-explainers ws)))
-                   "Unexplained" (list-hyps (map #(ws/lookup-hyp ws %)
-                                               (ws/get-unexplained ws)))
-                   "Unaccepted" (list-hyps (map #(ws/lookup-hyp ws %)
-                                              (ws/find-unaccepted ws)))}))]
+                   "No explainers" (list-hyps (ws/no-explainers ws))
+                   "Unexplained" (list-hyps (ws/unexplained ws))}))]
     (apply sorted-map-by anc
            (mapcat (fn [ep]
                      (let [tree {"Workspace" (assoc (ws-fn (:workspace ep)) "Log" nil)}]
@@ -110,10 +108,7 @@
         explains (str/join "\n" (map str (sort-by :name alphanum (ws/explains workspace hyp))))
         explainers (str/join "\n" (map #(format "[%s]" %)
                                      (map #(str/join ", " (sort-by :name alphanum %))
-                                        (vals (group-by :type
-                                                        (map #(ws/lookup-hyp workspace %)
-                                                           (get (:explainers workspace)
-                                                                (:id hyp))))))))
+                                        (vals (group-by :type (ws/explainers workspace hyp))))))
         conflicts (str/join "\n" (map str (sort-by :name alphanum
                                                  (ws/find-conflicts-all workspace hyp))))]
     (. hyp-apriori-label setText

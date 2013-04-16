@@ -9,8 +9,8 @@
          :only [get-unexp-pct get-noexp-pct calc-doubt
                 accepted? rejected? rejection-reason lookup-hyp update-graph
                 accepted-before? rejected-before? unexplained?
-                accepted-explained accepted-rivals get-no-explainers
-                get-unexplained explainers explains find-conflicts-all]])
+                accepted-explained accepted-rivals no-explainers
+                unexplained explainers explains find-conflicts-all]])
   (:use [retrospect.state]))
 
 (defn keyword-to-metric
@@ -20,7 +20,7 @@
 (defn doubt-aggregate
   [est]
   (let [doubts (doall (filter identity (map #(calc-doubt %) (map :workspace (ep-path est)))))
-        unexp (get-unexplained (:workspace (cur-ep est)))
+        unexp (unexplained (:workspace (cur-ep est)))
         ds (if (:DoubtUnexp params)
              (concat (repeat (count unexp) 1.0) doubts)
              doubts)]
@@ -236,7 +236,7 @@
 (defn find-noexp-reasons
   [est]
   (let [ws (:workspace (cur-ep est))
-        noexp (map #(lookup-hyp ws %) (get-no-explainers ws))]
+        noexp (no-explainers ws)]
     (frequencies
      (for [hyp noexp]
        (classify-noexp-reason ws hyp)))))
@@ -379,7 +379,7 @@
   [est true-false]
   (let [ws (:workspace (cur-ep est))
         noexp-conflict (filter (fn [h] (= :conflict (classify-noexp-reason ws h)))
-                          (map #(lookup-hyp ws %) (get-no-explainers ws)))
+                          (no-explainers ws))
         grouped (group-by #(tf-true? true-false %) noexp-conflict)]
     (if (empty? noexp-conflict)
       ;; todo: return nil maybe?
@@ -427,8 +427,10 @@
                                      0                          ;; fn
                                      ;; and event-count:
                                      (count noise-obs))]
-            {:Unexplained (count (get-unexplained ws))
+            (println "unexp:" (unexplained ws))
+            {:Unexplained (count (unexplained ws))
              :UnexplainedPct (get-unexp-pct ws)
+             :NoExplainers (count (no-explainers ws))
              :NoExplainersPct (get-noexp-pct ws)
              :NoiseTotal (count noise-obs)
              :NoiseClaimsTrue (count noise-claims-true)

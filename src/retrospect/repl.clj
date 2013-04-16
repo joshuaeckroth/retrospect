@@ -12,7 +12,6 @@
   (dosync (alter problem (constantly tracking-problem))
           (alter reasoner (constantly reason-abduction))))
 
-
 (defn cur-ws
   []
   (:workspace (cur-ep (:est @or-state))))

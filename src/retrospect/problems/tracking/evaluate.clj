@@ -2,7 +2,7 @@
   (:require [clojure.set :as set])
   (:use [retrospect.evaluate])
   (:use [retrospect.epistemicstates :only [cur-ep goto-cycle decision-points]])
-  (:use [retrospect.reason.abduction.workspace :only [lookup-hyp]])
+  (:use [retrospect.reason.abduction.workspace :only [accepted rejected]])
   (:use [retrospect.problems.tracking.movements :only [moves-match?]])
   (:use [retrospect.profile :only [prof]])
   (:use [retrospect.state]))
@@ -51,14 +51,9 @@
             (let [ws (:workspace ep)
                   time-now (:time ep)
                   true-movs (get-true-movements truedata time-now)
-                  accepted (map #(lookup-hyp ws %) (:movement (:accepted ws)))
-                  not-accepted (set/difference
-                                (set (map #(lookup-hyp ws %)
-                                        (:movement (:hypotheses ws))))
-                                accepted)
-                  acc-movs (map :mov accepted)
-                  not-acc-movs (map :mov not-accepted)
-                  [tp tn fp fn] (tp-tn-fp-fn true-movs acc-movs not-acc-movs)]
+                  acc-movs (map :mov (:movement (accepted ws)))
+                  rej-movs (map :mov (:movement (rejected ws)))
+                  [tp tn fp fn] (tp-tn-fp-fn true-movs acc-movs rej-movs)]
               (calc-prec-coverage tp tn fp fn (count true-movs))))]
       (merge (last metrics)
              {:MinPrec (nan-min (map :Prec metrics))

@@ -14,22 +14,24 @@
   (:use [geppetto.repeat])
   (:use [retrospect.reason.abduction.reason :only [reason-abduction]])
   (:use [retrospect.problems.tracking.problem :only [tracking-problem]])
-  (:use [retrospect.problems.words.problem :only [words-problem]])
-  (:use [retrospect.problems.classify.problem :only [classify-problem]])
+  #_(:use [retrospect.problems.words.problem :only [words-problem]])
+  #_(:use [retrospect.problems.classify.problem :only [classify-problem]])
   (:use [retrospect.problems.abdexp.problem :only [abdexp-problem]])
   (:use [retrospect.simulate :only [run]])
   (:use [geppetto.records :only [run-with-new-record submit-archived-results]])
   (:use [retrospect.player :only [start-player]])
   (:use [retrospect.utility]))
 
+(comment
+  (or (= "Words" problem) (= "words" problem))
+  words-problem
+  (or (= "Classify" problem) (= "classify" problem))
+  classify-problem)
+
 (defn choose-problem
   [problem]
   (cond (or (= "Tracking" problem) (= "tracking" problem))
         tracking-problem
-        (or (= "Words" problem) (= "words" problem))
-        words-problem
-        (or (= "Classify" problem) (= "classify" problem))
-        classify-problem
         (or (= "AbdExp" problem) (= "abdexp" problem))
         abdexp-problem))
 

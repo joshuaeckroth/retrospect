@@ -2,7 +2,7 @@
   (:require [clojure.set :as set])
   (:use [retrospect.evaluate])
   (:use [retrospect.epistemicstates :only [cur-ep decision-points]])
-  (:use [retrospect.reason.abduction.workspace :only [lookup-hyp calc-doubt]])
+  (:use [retrospect.reason.abduction.workspace :only [accepted rejected calc-doubt]])
   (:use [retrospect.reason.abduction.evaluate :only [doubt-aggregate]])
   (:use [retrospect.problems.abdexp.expgraph])
   (:use [retrospect.problems.abdexp.bayesnet])
@@ -41,12 +41,10 @@
                 observed (apply concat (take (:time ep) (:test truedata)))
                 _ (do (unobserve-all bn)
                       (observe-seq bn observed))
-                acc (set (map #(lookup-hyp ws %) (get (:accepted ws) :expl)))
+                acc (:expl (accepted ws))
                 acc-vertex-values (set (map (fn [h] [(:vertex h) (:value h)]) acc))
-                not-acc (set/difference (set (map #(lookup-hyp ws %)
-                                                (get (:hypotheses ws) :expl)))
-                                        acc)
-                [tp tn fp fn] (tp-tn-fp-fn (:true-values-map truedata) acc not-acc)
+                rej (:expl (rejected ws))
+                [tp tn fp fn] (tp-tn-fp-fn (:true-values-map truedata) acc rej)
                 prec-coverage (calc-prec-coverage tp tn fp fn
                                                   (count (:true-values-map truedata)))
                 obs-coverage (/ (double
@@ -59,7 +57,7 @@
                                               acc))))
                                 (double (count observed)))
                 {mpe :states} (most-probable-explanation bn)
-                [etp etn efp efn] (tp-tn-fp-fn mpe acc not-acc)
+                [etp etn efp efn] (tp-tn-fp-fn mpe acc rej)
                 mpe-prec-coverage (calc-prec-coverage etp etn efp efn (count mpe))]
             {:MPEPrec (:Prec mpe-prec-coverage)
              :MPECoverage (:Coverage mpe-prec-coverage)

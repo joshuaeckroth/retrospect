@@ -15,7 +15,7 @@
 (defn find-problem-cases
   [est]
   (let [workspace (:workspace (cur-ep est))]
-    (set (map #(lookup-hyp workspace %) (get-no-explainers workspace)))))
+    (set (no-explainers workspace))))
 
 (defn metareasoning-activated?
   [est]
@@ -117,7 +117,7 @@
   (let [ws-old (:workspace (cur-ep est))
         new-est (new-branch-ep est (cur-ep est))
         new-ep (cur-ep new-est)
-        ws-ignored (reject-many (:workspace new-ep) [hyp] :ignoring (:cycle new-ep))]
+        ws-ignored (reject (:workspace new-ep) hyp :ignoring (:cycle new-ep))]
     [(update-est new-est (assoc new-ep :workspace ws-ignored))
      params]))
 
@@ -125,7 +125,7 @@
   [hyp cycle est]
   (let [new-est (new-branch-ep est (cur-ep (goto-cycle est (- cycle 2))))
         ep (cur-ep new-est)
-        ws-rejected (reject-many (:workspace ep) [hyp] :preemptive (:cycle ep))
+        ws-rejected (reject (:workspace ep) hyp :preemptive (:cycle ep))
         ep-rejected (assoc ep :workspace ws-rejected)]
     [(update-est new-est ep-rejected)
      params]))
@@ -460,8 +460,7 @@
         meta-ws-reasoned (:workspace (cur-ep meta-est-reasoned))
         ;; take out the "observations"
         meta-accepted (filter (fn [hyp] (not ((set (map :contents problem-cases)) (:contents hyp))))
-                         (map #(lookup-hyp meta-ws-reasoned %)
-                            (:all (:accepted meta-ws-reasoned))))
+                         (:all (accepted meta-ws-reasoned)))
         est-new-meta-est (update-est est-new (assoc (cur-ep est)
                                                :meta-est meta-est-reasoned))
         meta-hyp-compare (fn [h1 h2] (if (= 0 (compare (:apriori h2) (:apriori h1)))
@@ -516,7 +515,8 @@
   (let [new-est (new-branch-ep est (cur-ep est))
         new-ep (cur-ep new-est)
         ws-old (:workspace (cur-ep est))
-        ws-ignored (reject-many (:workspace new-ep) problem-cases :ignoring (:cycle new-ep))
+        ws-ignored (reduce (fn [ws h] (reject ws h :ignoring (:cycle new-ep)))
+                      (:workspace new-ep) problem-cases)
         new-est-ignored (update-est new-est (assoc new-ep :workspace ws-ignored))]
     (reason new-est-ignored time-prev time-now sensors :no-metareason)))
 

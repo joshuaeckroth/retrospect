@@ -16,12 +16,13 @@
             {:expgraph (:expgraph training) :bayesnet (:bayesnet training)})])
 
 (defn get-kb
-  [accepted lookup-hyp]
-  (first (filter :expgraph (map lookup-hyp (get accepted :kb)))))
+  [accepted]
+  (first (get accepted :kb)))
 
+;; TODO
 (defn update-kb
-  [accepted unexplained hypotheses lookup-hyp]
-  (map lookup-hyp (get accepted :kb)))
+  [accepted unexplained hypotheses]
+  [(get-kb accepted)])
 
 (defn hyps-conflict?
   [expgraph hyp1 hyp2]
@@ -59,14 +60,14 @@
 
 (defn make-sensor-hyps
   "Pick out the hyps that have been observed."
-  [sensors time-prev time-now accepted all-hyps lookup-hyp]
+  [sensors time-prev time-now accepted hypotheses]
   (if (= time-prev time-now) []
-      (let [kb (get-kb accepted lookup-hyp)
+      (let [kb (get-kb accepted)
             bn (:bayesnet kb)
             expgraph (:expgraph kb)
             ;; only :expl are "observed" here because :observation types
             ;; may not be believed, or may conflict with beliefs
-            observed (map (fn [h] [(:vertex h) (:value h)]) (map lookup-hyp (:expl accepted)))
+            observed (map (fn [h] [(:vertex h) (:value h)]) (get :expl accepted))
             ;; figure out what the sensor has observed
             sens-observed (set (mapcat #(sensed-at (first sensors) %)
                                        (range (inc time-now))))]
@@ -129,11 +130,11 @@
                 expl-sets)))))
 
 (defn hypothesize
-  [unexp-hyps accepted all-hyps lookup-hyp time-now]
-  (let [kb (get-kb accepted lookup-hyp)
+  [unexp accepted hypotheses time-now]
+  (let [kb (get-kb accepted)
         bn (:bayesnet kb)
         expgraph (:expgraph kb)
         ;; only :expl are "observed" here because :observation types
         ;; may not be believed, or may conflict with beliefs
-        observed (map (fn [h] [(:vertex h) (:value h)]) (map lookup-hyp (:expl accepted)))]
-    (mapcat #(make-explainer-hyps bn expgraph observed %) unexp-hyps)))
+        observed (map (fn [h] [(:vertex h) (:value h)]) (:expl accepted))]
+    (mapcat #(make-explainer-hyps bn expgraph observed %) unexp)))

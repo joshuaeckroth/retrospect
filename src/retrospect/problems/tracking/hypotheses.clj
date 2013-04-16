@@ -76,13 +76,14 @@
              :seen-colors (:seen-colors training)})])
 
 (defn get-kb
-  [accepted lookup-hyp]
-  (first (filter #(= :kb (:subtype %)) (map lookup-hyp (get accepted :kb)))))
+  [accepted]
+  (first (get accepted :kb)))
 
+;; TODO
 (defn update-kb
-  [accepted unexplained hypotheses lookup-hyp]
-  (let [mov-hyps (map lookup-hyp (get accepted :movement))
-        old-kb (get-kb accepted lookup-hyp)
+  [accepted unexplained hypotheses]
+  (let [mov-hyps (:movement accepted)
+        old-kb (get-kb accepted)
         kb-moves (update-in old-kb [:moves] concat (map :mov mov-hyps))
         kb-moves-dist (assoc kb-moves :moves-dist (compute-moves-dist (:moves kb-moves)))]
     [kb-moves-dist]))
@@ -142,13 +143,13 @@
            {:det det :from-to from-to}))
 
 (defn make-sensor-hyps
-  [sensors time-prev time-now accepted all-hyps lookup-hyp]
-  (let [kb (get-kb accepted lookup-hyp)
+  [sensors time-prev time-now accepted hypotheses]
+  (let [kb (get-kb accepted)
         moves-dist (:moves-dist kb)
         prior-dets (filter #(= (dec time-now) (:time %))
-                      (map :det2 (map lookup-hyp (get accepted :movement))))
+                      (map :det2 (:movement accepted)))
         known-dets (set (map (fn [h] [(:det h) (:from-to h)])
-                           (map lookup-hyp (get all-hyps :observation))))
+                           (:observation hypotheses)))
         to-time (if (:SequentialSensorReports params) time-prev 0)
         from-time (if (:SequentialSensorReports params) time-now (:Steps params))]
     (doall
@@ -278,22 +279,22 @@
              {:det det :from-to (:from-to obs)})))
 
 (defn hypothesize
-  [unexp-hyps accepted all-hyps lookup-hyp time-now]
+  [unexp accepted hypotheses time-now]
   (prof :hypothesize
-        (let [kb (get-kb accepted lookup-hyp)
+        (let [kb (get-kb accepted)
               moves-dist (:moves-dist kb)
               prior-dets (filter #(= (dec time-now) (:time %))
-                            (map :det2 (map lookup-hyp (get accepted :movement))))
+                            (map :det2 (:movement accepted)))
               sensor-from-hyps (filter #(and (= :observation (:type %)) (= :from (:subtype %)))
-                                  unexp-hyps)
+                                  unexp)
               sensor-to-hyps (filter #(and (= :observation (:type %)) (= :to (:subtype %)))
-                                unexp-hyps)
+                                unexp)
               new-obj-from-hyps (map #(make-object-hyp % moves-dist prior-dets) sensor-from-hyps)
               new-obj-to-hyps (map #(make-object-hyp % moves-dist prior-dets) sensor-to-hyps)
               existing-obj-from-hyps (filter #(and (= :object (:type %)) (= :from (:subtype %)))
-                                        unexp-hyps)
+                                        unexp)
               existing-obj-to-hyps (filter #(and (= :object (:type %)) (= :to (:subtype %)))
-                                      unexp-hyps)
+                                      unexp)
               unexp-obj-from-hyps (sort-by (comp :time :det)
                                            (concat existing-obj-from-hyps new-obj-from-hyps))
               unexp-obj-to-hyps (sort-by (comp :time :det)
@@ -302,8 +303,7 @@
                   new-obj-from-hyps new-obj-to-hyps
                   (mapcat
                    (fn [evidence]
-                     (let [acc-mov-hyps (sort-by (comp :time :mov)
-                                                 (map lookup-hyp (get accepted :movement)))
+                     (let [acc-mov-hyps (sort-by (comp :time :mov) (:movement accepted))
                            nearby (filter #(dets-connected? evidence %) unexp-obj-to-hyps)
                            mov-hyps (doall
                                      (filter identity
