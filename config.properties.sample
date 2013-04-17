@@ -1,0 +1,10 @@
+
+geppetto_dbhost = localhost
+geppetto_dbname = retrospect
+geppetto_dbuser = user
+geppetto_dbpassword = password
+
+datadir = data
+recordsdir = records
+git = /usr/bin/git
+
