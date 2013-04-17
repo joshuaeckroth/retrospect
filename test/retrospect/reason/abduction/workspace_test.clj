@@ -155,19 +155,17 @@
                 (add h2 1)
                 (add h3 1)
                 (add h4 1))
-          ws-sorted (update-sorted-explainers ws)]
-      (is (= {:score false :expl false} (hyp-better-than? ws-sorted h2 h3)))
-      (is (= {:score true :expl false} (hyp-better-than? ws-sorted h3 h2)))
-      (is (= {:score false :expl true} (hyp-better-than? ws-sorted h4 h3)))
-      (is (= {:score true :expl false} (hyp-better-than? ws-sorted h3 h4)))
-      (is (= {1 [6 3] 2 [5 4 6]} (:sorted-explainers ws-sorted)))
-      ;; delta of 6-3 is 0.15, delta of 5-4 is 0.1
-      (is (= [1 2] (:sorted-explainers-explained ws-sorted)))
+          unexp (unexplained ws)]
+      (is (= {:score false :expl false} (hyp-better-than? ws unexp h2 h3)))
+      (is (= {:score true :expl false} (hyp-better-than? ws unexp h3 h2)))
+      (is (= {:score false :expl true} (hyp-better-than? ws unexp h4 h3)))
+      (is (= {:score true :expl false} (hyp-better-than? ws unexp h3 h4)))
+      (is (= [{:hyp e1 :expl [h4 h1]} {:hyp e2 :expl [h3 h2 h4]}]))
       (let [normalized-aprioris [(/ 0.4 (+ 0.4 0.25)) (/ 0.25 (+ 0.4 0.25))]]
         (is (= {:best h4 :nbest h1 :delta (apply - normalized-aprioris)
                 :normalized-aprioris normalized-aprioris
                 :explained e1 :alts [h1] :comparison {:score true :expl true}}
-               (find-best ws-sorted)))))))
+               (find-best ws)))))))
 
 (deftest test-explain
   (dosync (alter reasoner (constantly reason-abduction))
@@ -227,13 +225,14 @@
       (is (not (rejected? ws-expl h1)))
       (is (not (rejected? ws-expl h2)))
       (is (not (rejected? ws-expl h4)))
-      (is (= [6 7] (get-unexplained ws-expl)))
+      (is (= #{h4 ne1} (set (unexplained ws-expl))))
       (is (unexplained? ws-expl h4))
       (is (not (unexplained? ws-expl e1)))
       (is (unexplained? ws-expl ne1))
-      (is (= [6 7] (get-no-explainers ws-expl)))
+      (is (= #{h4 ne1} (set (no-explainers ws-expl))))
       (is (= 0.5 (get-noexp-pct ws-expl)))
-      (is (= #{3 4 5} (find-unaccepted ws-expl))))))
+      (is (= #{h1 h2} (set (undecided ws-expl))))
+      (is (= #{h4} (set (unexplained (reject ws-expl ne1 :ignoring 1))))))))
 
 (deftest test-composite
   (dosync (alter reasoner (constantly reason-abduction))
@@ -270,7 +269,7 @@
                 (add h3 1)
                 (add hc1 1))
           ws-expl (explain ws 1 1)
-          ws-rej (-> ws (add h2 1) (reject-many [h2] :conflict 1))
+          ws-rej (-> ws (add h2 1) (reject h2 :conflict 1))
           ws-rej-cleanup (clean-up-workspace ws-rej 1)
           ws-rej-expl (explain ws-rej 1 1)]
       (is (:composite? hc1))

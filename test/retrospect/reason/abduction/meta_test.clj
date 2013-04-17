@@ -74,7 +74,7 @@
       (is (not (unexplained? ws-expl-adv e1)))
       (is (not (unexplained? ws-expl-adv e2)))
       (is (unexplained? ws-expl-adv ne1))
-      (is (= [7] (get-no-explainers ws-expl-adv)))
+      (is (= [ne1] (no-explainers ws-expl-adv)))
       (is (= #{ne1} (find-problem-cases est-expl-adv)))
       (is (empty? (find-problem-cases
                    (binding [params (assoc params :Metareasoning "ignore")]

@@ -115,19 +115,19 @@
           (<= (get-in workspace [:accepted-cycle (:id hyp)]) cycle))
      false)))
 
-;; TODO
 (defn accepted-cycle
-  [workspace hyp]
+  [workspace h]
   (prof
    :accepted-cycle
-   (get-in workspace [:accepted-cycle (:id hyp)])))
+   (let [hypid (if (integer? h) h (:id h))]
+     (attr (:hypgraph workspace) hypid :accepted-cycle))))
 
-;; TODO
 (defn accepted-explained
-  [workspace hyp]
+  [workspace h]
   (prof
    :accepted-explained
-   (get-in workspace [:accepted-explained (:id hyp)])))
+   (let [hypid (if (integer? h) h (:id h))]
+     (attr (:hypgraph workspace) hypid :accepted-explained))))
 
 ;; TODO
 (defn accepted-rivals
@@ -162,19 +162,19 @@
           (<= (get-in workspace [:rejected-cycle (:id hyp)]) cycle))
      false)))
 
-;; TODO
 (defn rejected-cycle
-  [workspace hyp]
+  [workspace h]
   (prof
    :rejected-cycle
-   (get-in workspace [:rejected-cycle (:id hyp)])))
+   (let [hypid (if (integer? h) h (:id h))]
+     (attr (:hypgraph workspace) hypid :rejected-cycle))))
 
-;; TODO
 (defn rejection-reason
-  [workspace hyp]
+  [workspace h]
   (prof
    :rejected-reason
-   (get-in workspace [:rejection-reasons (:id hyp)])))
+   (let [hypid (if (integer? h) h (:id h))]
+     (attr (:hypgraph workspace) hypid :rejection-reason))))
 
 ;; TODO
 (defn prevent-rejection
@@ -280,27 +280,24 @@
      (attr (:hypgraph workspace) hypid :log))))
 
 (defn hyp-better-than?
-  [workspace hyp1 hyp2]
+  [workspace unexp hyp1 hyp2]
   (prof
    :hyp-better-than?
-   (let [score (> (double (- (:apriori hyp1) (:apriori hyp2))) 0.001)]
-     ;; leaving out expl calculation because it's too slow; probably should
-     ;; pass in unexp list rather than calculating it repeatedly
-     (comment
-       expl (> (count (filter #(explains? workspace hyp1 %) (unexplained workspace)))
-               (count (filter #(explains? workspace hyp2 %) (unexplained workspace)))))
-     {:score score :expl false})))
+   (let [score (> (double (- (:apriori hyp1) (:apriori hyp2))) 0.001)
+         expl (> (count (filter #(explains? workspace hyp1 %) unexp))
+                 (count (filter #(explains? workspace hyp2 %) unexp)))]
+     {:score score :expl expl})))
 
 (defn compare-hyps
   "Since we are using probabilities, smaller value = less
    confidence. We want most confident first. With equal confidences,
    we look for higher explanatory power (explains more). If all that
    fails, comparison is done by the :id's (to keep it deterministic)."
-  [workspace hyp1 hyp2]
+  [workspace unexp hyp1 hyp2]
   (prof
    :compare-hyps
-   (let [comp1 (hyp-better-than? workspace hyp1 hyp2)
-         comp2 (hyp-better-than? workspace hyp2 hyp1)
+   (let [comp1 (hyp-better-than? workspace unexp hyp1 hyp2)
+         comp2 (hyp-better-than? workspace unexp hyp2 hyp1)
          pref (:HypPreference params)
          id-compare (compare (:id hyp1) (:id hyp2))]
      (cond (= "score" pref) (cond (:score comp1) -1
@@ -340,12 +337,12 @@
        (- (compare expl1-delta expl2-delta))))))
 
 (defn sort-explainers
-  [workspace explainers]
+  [workspace unexp explainers]
   (prof
    :sort-explainers
    (let [hyp-sorter (if (= (:HypPreference params) "arbitrary")
                       #(my-shuffle %)
-                      #(sort (partial compare-hyps workspace) %))
+                      #(sort (partial compare-hyps workspace unexp) %))
          apriori-sorter (fn [{hyp1 :hyp expl1 :expl} {hyp2 :hyp expl2 :expl}]
                           (- (compare
                               (:apriori (first expl1))
@@ -441,10 +438,16 @@
                           ;; hyp not known yet (rejecting preemptively); add first
                           (add workspace hyp cycle)
                           workspace)
-               ;; TODO: add rejection reason, etc.
                ws2 (-> ws-added
+                      (update-in [:hypgraph] remove-attr (:id hyp) :accepted?)
+                      (update-in [:hypgraph] remove-attr (:id hyp) :accepted-cycle)
+                      (update-in [:hypgraph] remove-attr (:id hyp) :accepted-explained)
                       (update-in [:hypgraph] add-attr (:id hyp) :rejected? true)
-                      (update-in [:rejected] conj (:id hyp)))]
+                      (update-in [:hypgraph] add-attr (:id hyp) :rejected-cycle cycle)
+                      (update-in [:hypgraph] add-attr (:id hyp) :rejection-reason reason-tag)
+                      (update-in [:accepted] disj (:id hyp))
+                      (update-in [:rejected] conj (:id hyp))
+                      (update-in [:unexplained] disj (:id hyp)))]
            (if @batch ws2
                (assoc-in ws2 [:hyp-log (:id hyp)]
                          (format "Rejected at cycle %d with reason %s"
@@ -574,6 +577,8 @@
            :else
            (let [ws-acc (-> workspace
                            (update-in [:hypgraph] add-attr (:id hyp) :accepted? true)
+                           (update-in [:hypgraph] add-attr (:id hyp) :accepted-cycle cycle)
+                           (update-in [:hypgraph] add-attr (:id hyp) :accepted-explained explained)
                            (update-in [:accepted] conj (:id hyp))
                            (update-in [:unexplained] set/difference
                                       (set (map :id (explains workspace hyp)))))
@@ -656,15 +661,19 @@
            :else
            d))))
 
+(defn contrast-sets
+  [workspace unexp]
+  (let [expls (doall (filter #(not-empty (:expl %))
+                        (for [h unexp] {:hyp h :expl (filter #(undecided? workspace %)
+                                                        (explainers workspace h))})))]
+    (sort-explainers workspace unexp expls)))
+
 (defn find-best
   [workspace]
   (prof
    :find-best
    (let [unexp (unexplained workspace)
-         expls (doall (filter #(not-empty (:expl %))
-                         (for [h unexp] {:hyp h :expl (filter #(undecided? workspace %)
-                                                         (explainers workspace h))})))
-         expls-sorted (sort-explainers workspace expls)]
+         expls-sorted (contrast-sets workspace unexp)]
      (when (not-empty expls-sorted)
        (let [essential-expl (first (filter #(= 1 (count (:expl %))) expls-sorted))]
          (if essential-expl
@@ -683,7 +692,7 @@
                                        (if (= 0.0 (double s)) aprioris
                                            (map #(/ % s) aprioris)))
                  delta (- (first normalized-aprioris) (second normalized-aprioris))
-                 comparison (hyp-better-than? workspace best nbest)]
+                 comparison (hyp-better-than? workspace unexp best nbest)]
              (log "best:" best "nbest:" nbest "delta:" delta)
              (when (or (= 0 (:Threshold params))
                        (>= delta (+ 0.001 (/ (:Threshold params) 100.0)))
