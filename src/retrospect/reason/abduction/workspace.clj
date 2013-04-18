@@ -686,7 +686,7 @@
                         (= "score-delta-avg" (:DoubtMeasure params))
                         (when (and score delta) (- 1.0 (/ (+ score delta) 2.0)))
                         (= "score-delta-pow" (:DoubtMeasure params))
-                        (when (and score delta) (- 1.0 (Math/pow score delta)))
+                        (when (and score delta) (Math/pow (- 1.0 delta) score))
                         :else
                         (- 1.0 delta))]
        (cond (= "square" (:DoubtModifier params))
