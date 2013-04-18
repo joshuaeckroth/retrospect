@@ -8,6 +8,8 @@
 
 (def ^:dynamic last-id 0)
 
+(def ^:dynamic cache)
+
 (def logging-enabled (ref false))
 
 (defn set-last-id

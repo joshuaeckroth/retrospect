@@ -13,8 +13,6 @@
   (:use [retrospect.state])
   (:use [retrospect.utility]))
 
-(def conflicts-cache (atom {}))
-
 (defrecord Hypothesis
     [id name type subtype apriori needs-explainer? conflicts?-fn
      explains short-str desc data]
@@ -375,7 +373,7 @@
   [h1 h2]
   (prof
    :conflicts?
-   (if-let [c? (get-in @conflicts-cache [(:simulation params) (:id h1) (:id h2)])]
+   (if-let [c? (get-in @cache [:conflicts (:simulation params) (:id h1) (:id h2)])]
      c?
      (let [c? (cond (not= (:type h1) (:type h2))
                     false
@@ -387,10 +385,10 @@
                     false
                     :else
                     (if ((:conflicts?-fn h1) h1 h2) true false))]
-       (swap! conflicts-cache
+       (swap! cache
               #(-> %
-                  (assoc-in [(:simulation params) (:id h1) (:id h2)] c?)
-                  (assoc-in [(:simulation params) (:id h2) (:id h1)] c?)))
+                  (assoc-in [:conflicts (:simulation params) (:id h1) (:id h2)] c?)
+                  (assoc-in [:conflicts (:simulation params) (:id h2) (:id h1)] c?)))
        c?))))
 
 (defn find-conflicts-all

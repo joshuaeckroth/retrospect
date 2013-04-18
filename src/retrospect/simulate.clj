@@ -115,29 +115,19 @@
   (let [default (get-default-params)]
     (merge default params)))
 
-(defn params-memoize
-  [f]
-  (let [mem (atom {})]
-    (fn [params]
-      (if-let [e (find @mem (dissoc params :simulation))]
-        (map #(assoc % :simulation (:simulation params)) (val e))
-        (let [ret (f params)]
-          (swap! mem assoc (dissoc params :simulation) ret)
-          ret)))))
-
-(def run-single
-  (params-memoize
-   (fn [ps]
-     (when (and (not @quiet-mode) (not (:Stats ps)))
-       (prn ps))
-     (binding [rgen (new-seed (:Seed ps))
-               last-id 0
-               params ps]
-       (let [truedata ((:generate-truedata-fn @problem))
-             sensors ((:generate-sensors-fn @problem) (:training truedata))
-             ors (init-ors truedata sensors)]
-         (let [ors-final (run-simulation truedata ors)]
-           (:results (cur-ep (:est ors-final)))))))))
+(defn run-single
+  [ps]
+  (when (and (not @quiet-mode) (not (:Stats ps)))
+    (prn ps))
+  (binding [rgen (new-seed (:Seed ps))
+            last-id 0
+            cache (atom {})
+            params ps]
+    (let [truedata ((:generate-truedata-fn @problem))
+          sensors ((:generate-sensors-fn @problem) (:training truedata))
+          ors (init-ors truedata sensors)]
+      (let [ors-final (run-simulation truedata ors)]
+        (:results (cur-ep (:est ors-final)))))))
 
 (defn run
   [comparative? params]
