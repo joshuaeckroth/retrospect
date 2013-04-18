@@ -4,8 +4,8 @@
   (:use [plumbing.core])
   (:use [loom.graph :only
          [digraph nodes incoming neighbors weight
-          add-nodes add-edges remove-nodes edges has-edge?]])
-  (:use [loom.alg :only [pre-traverse]])
+          add-nodes add-edges remove-nodes edges has-edge? transpose]])
+  (:use [loom.alg :only [bf-traverse]])
   (:use [loom.attr :only [add-attr remove-attr attr]])
   (:use [retrospect.profile :only [prof profile]])
   (:use [retrospect.logging])
@@ -176,22 +176,20 @@
    (let [hypid (if (integer? h) h (:id h))]
      (attr (:hypgraph workspace) hypid :rejection-reason))))
 
-;; TODO
 (defn prevent-rejection
-  [workspace hyps rej-reason]
+  [workspace h rej-reason]
   (prof
    :prevent-rejection
-   (update-in workspace [:prevent-rejections]
-              set/union (set (map (fn [h] [(:contents h) rej-reason]) hyps)))))
+   (let [hypid (if (integer? h) h (:id h))]
+     (update-in workspace [:hypgraph]
+                add-attr hypid :prevent-rejection rej-reason))))
 
-;; TODO
 (defn prevented-rejection?
-  [workspace hyp rej-reason]
+  [workspace h rej-reason]
   (prof
    :prevented-rejection?
-   (do
-     (comment ((:prevent-rejections workspace) [(:contents hyp) rej-reason]))
-     false)))
+   (let [hypid (if (integer? h) h (:id h))]
+     (= rej-reason (attr (:hypgraph workspace) hypid :prevent-rejection)))))
 
 (defn undecided?
   [workspace h]
@@ -395,7 +393,6 @@
                   (assoc-in [(:simulation params) (:id h2) (:id h1)] c?)))
        c?))))
 
-;; TODO
 (defn find-conflicts-all
   [workspace hyp]
   (prof
@@ -420,6 +417,30 @@
          (map #(lookup-hyp workspace %) (filter (fn [hypid] (accepted? workspace hypid))
                                          (nodes (:hypgraph workspace))))))))
 
+(defn undecide
+  [workspace hyp]
+  (prof
+   :undecide
+   ;; note related-hyps includes hyp itself
+   (let [related-hyps (concat (bf-traverse (transpose (:hypgraph workspace)) (:id hyp))
+                              (map :id (find-conflicts-all workspace hyp)))]
+     (log "Undeciding" hyp "and related hyps" related-hyps)
+     (reduce (fn [ws hypid]
+          (-> ws
+             (update-in [:hypgraph] remove-attr hypid :accepted?)
+             (update-in [:hypgraph] remove-attr hypid :accepted-cycle)
+             (update-in [:hypgraph] remove-attr hypid :accepted-explained)
+             (update-in [:hypgraph] remove-attr hypid :accepted-newly-explained)
+             (update-in [:hypgraph] remove-attr hypid :rejected?)
+             (update-in [:hypgraph] remove-attr hypid :rejected-cycle)
+             (update-in [:hypgraph] remove-attr hypid :rejection-reason)
+             (update-in [:accepted] disj hypid)
+             (update-in [:rejected] disj hypid)
+             (update-in [:unexplained] set/union
+                        (attr (:hypgraph workspace) hypid
+                              :accepted-newly-explained))))
+        workspace related-hyps))))
+
 ;; forward declaration so (reject) can refer to (add) and vice versa
 (declare add)
 
@@ -442,6 +463,7 @@
                       (update-in [:hypgraph] remove-attr (:id hyp) :accepted?)
                       (update-in [:hypgraph] remove-attr (:id hyp) :accepted-cycle)
                       (update-in [:hypgraph] remove-attr (:id hyp) :accepted-explained)
+                      (update-in [:hypgraph] remove-attr (:id hyp) :accepted-newly-explained)
                       (update-in [:hypgraph] add-attr (:id hyp) :rejected? true)
                       (update-in [:hypgraph] add-attr (:id hyp) :rejected-cycle cycle)
                       (update-in [:hypgraph] add-attr (:id hyp) :rejection-reason reason-tag)
@@ -575,13 +597,19 @@
            (do (log "Already rejected, with reason" (rejection-reason workspace hyp))
                workspace)
            :else
-           (let [ws-acc (-> workspace
-                           (update-in [:hypgraph] add-attr (:id hyp) :accepted? true)
-                           (update-in [:hypgraph] add-attr (:id hyp) :accepted-cycle cycle)
-                           (update-in [:hypgraph] add-attr (:id hyp) :accepted-explained explained)
+           (let [newly-explained (set/intersection (:unexplained workspace)
+                                        (set (map :id (explains workspace hyp))))
+                 ws-acc (-> workspace
+                           (update-in [:hypgraph] add-attr (:id hyp)
+                                      :accepted? true)
+                           (update-in [:hypgraph] add-attr (:id hyp)
+                                      :accepted-cycle cycle)
+                           (update-in [:hypgraph] add-attr (:id hyp)
+                                      :accepted-explained explained)
+                           (update-in [:hypgraph] add-attr (:id hyp)
+                                      :accepted-newly-explained newly-explained)
                            (update-in [:accepted] conj (:id hyp))
-                           (update-in [:unexplained] set/difference
-                                      (set (map :id (explains workspace hyp)))))
+                           (update-in [:unexplained] set/difference newly-explained))
                  ws-hyplog (if @batch ws-acc
                                (update-in ws-acc [:hypgraph]
                                           add-attr (:id hyp) :log

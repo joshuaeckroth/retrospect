@@ -13,6 +13,13 @@
     (swap! conflicts-cache (constantly {}))
     (f)))
 
+(defn explain-helper
+  [workspace]
+  (loop [ws workspace]
+    (let [ws-expl (explain ws 1 1)]
+      (if (nil? (:best (:accrej ws-expl))) ws-expl
+          (recur ws-expl)))))
+
 (deftest test-new-hyp
   (binding [last-id 0]
     (let [h (new-hyp "Test" :mytype :mysubtype 0.25 true (constantly false)
@@ -294,3 +301,67 @@
       (is (rejected? ws-rej-expl h2))
       (is (rejected? ws-rej-expl hc1))
       (is (accepted? ws-rej-expl h3)))))
+
+(deftest test-undecide
+  (dosync (alter reasoner (constantly reason-abduction))
+          (alter problem (constantly abdexp-problem)))
+  (binding [last-id 0
+            params (assoc (get-default-params) :simulation 0)]
+    (let [conflicts?-fn (fn [hyp1 hyp2] (and (not= hyp1 hyp2)
+                                            (= (:type hyp1) (:type hyp2))))
+          ;; id 1
+          e1 (new-hyp "Test" :explained :mysubtype 0.5 true
+                      (constantly false) [] "" "" {:a 1})
+          ;; id 2
+          e2 (new-hyp "Test" :explained :mysubtype 0.5 true
+                      (constantly false) [] "" "" {:a 2})
+          ;; id 3
+          h3 (new-hyp "Test" :type1 :mysubtype 0.25 true
+                      conflicts?-fn [(:contents e1)]
+                      "short-descr" "desc" {:x 1})
+          ;; id 4
+          h4 (new-hyp "Test" :type2 :mysubtype 0.50 false
+                      conflicts?-fn [(:contents e2)]
+                      "short-descr" "desc" {:x 2})
+          ;; id 5
+          h5 (new-hyp "Test" :type3 :mysubtype 0.60 true
+                      conflicts?-fn [(:contents h3)]
+                      "short-descr" "desc" {:x 3})
+          ;; id 6
+          h6 (new-hyp "Test" :type4 :mysubtype 0.40 false
+                      conflicts?-fn [(:contents h5)]
+                      "short-descr" "desc" {:x 4})
+          ;; id 7
+          h7 (new-hyp "Test" :type3 :mysubtype 0.40 false
+                      conflicts?-fn []
+                      "short-descr" "desc" {:x 5})
+          ws (-> (init-workspace)
+                (add-observation e1 1)
+                (add-observation e2 1)
+                (add h3 1)
+                (add h4 1)
+                (add h5 1)
+                (add h6 1)
+                (add h7 1))
+          ws-expl (explain-helper ws)
+          ws-undecided (undecide ws-expl h5)
+          ws-undecided-expl (explain-helper ws-undecided)
+          ws-undecided-expl-undecided (undecide ws-undecided-expl h5)]
+      (is (accepted? ws-expl e1))
+      (is (accepted? ws-expl e2))
+      (is (accepted? ws-expl h3))
+      (is (accepted? ws-expl h4))
+      (is (accepted? ws-expl h5))
+      (is (accepted? ws-expl h6))
+      (is (rejected? ws-expl h7))
+      (is (= :conflict (rejection-reason ws-expl h7)))
+      (is (accepted? ws-undecided e1))
+      (is (accepted? ws-undecided e2))
+      (is (accepted? ws-undecided h3))
+      (is (accepted? ws-undecided h4))
+      (is (undecided? ws-undecided h5))
+      (is (undecided? ws-undecided h6))
+      (is (undecided? ws-undecided h7))
+      (is (= [h3] (unexplained ws-undecided)))
+      (is (= ws-expl ws-undecided-expl))
+      (is (= ws-undecided ws-undecided-expl-undecided)))))

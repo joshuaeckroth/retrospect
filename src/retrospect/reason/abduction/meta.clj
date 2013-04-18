@@ -100,15 +100,13 @@
 
 (defn action-prevent-rejection-minscore
   [implicated cycle est]
-  (let [new-est (new-branch-ep est (cur-ep (goto-cycle est (- cycle 2))))
+  (let [new-est (new-branch-ep est (cur-ep est))
         ep (cur-ep new-est)
-        ;; ensure the prevent-rejections set doesn't go back to a prior, smaller set;
-        ;; ensuring this will prevent loops
-        ws-prevent-rejection (update-in
-                              (prevent-rejection (:workspace ep)
-                                                 implicated :minscore)
-                              [:prevent-rejections]
-                              set/union (:prevent-rejections (:workspace (cur-ep est))))
+        ws-prevent-rejection (reduce (fn [ws hyp]
+                                  ;; undeciding does not affect prevent rejection tags
+                                  (-> ws (undecide hyp)
+                                     (prevent-rejection hyp :minscore)))
+                                (:workspace ep) implicated)
         ep-prevent-rejection (assoc ep :workspace ws-prevent-rejection)]
     [(update-est new-est ep-prevent-rejection) params]))
 
@@ -123,9 +121,10 @@
 
 (defn action-preemptively-reject
   [hyp cycle est]
-  (let [new-est (new-branch-ep est (cur-ep (goto-cycle est (- cycle 2))))
+  (let [new-est (new-branch-ep est (cur-ep est))
         ep (cur-ep new-est)
-        ws-rejected (reject (:workspace ep) hyp :preemptive (:cycle ep))
+        ws-rejected (reject (undecide (:workspace ep) hyp)
+                            hyp :preemptive (:cycle ep))
         ep-rejected (assoc ep :workspace ws-rejected)]
     [(update-est new-est ep-rejected)
      params]))
