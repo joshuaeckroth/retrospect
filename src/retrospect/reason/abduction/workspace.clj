@@ -678,9 +678,9 @@
                                 (:type (:best (:accrej workspace))))))
                  (:delta (:accrej workspace)))]
      (when-let [d (cond (= "score" (:DoubtMeasure params))
-                        (- 1.0 score)
+                        (when score (- 1.0 score))
                         (= "delta" (:DoubtMeasure params))
-                        (- 1.0 delta)
+                        (when delta (- 1.0 delta))
                         (= "score-delta-prod" (:DoubtMeasure params))
                         (when (and score delta) (* score delta))
                         (= "score-delta-avg" (:DoubtMeasure params))
@@ -688,7 +688,7 @@
                         (= "score-delta-pow" (:DoubtMeasure params))
                         (when (and score delta) (Math/pow (- 1.0 delta) score))
                         :else
-                        (- 1.0 delta))]
+                        (when delta (- 1.0 delta)))]
        (cond (= "square" (:DoubtModifier params))
              (* d d)
              (= "cube" (:DoubtModifier params))
