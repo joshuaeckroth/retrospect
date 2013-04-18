@@ -672,21 +672,23 @@
    (let [score (when (and (:best (:accrej workspace))
                           (not ((:ignore-doubt-types (:abduction @problem))
                                 (:type (:best (:accrej workspace))))))
-                 (- 1.0 (:apriori (:best (:accrej workspace)))))
+                 (:apriori (:best (:accrej workspace))))
          delta (when (and (:delta (:accrej workspace))
                           (not ((:ignore-doubt-types (:abduction @problem))
                                 (:type (:best (:accrej workspace))))))
-                 (- 1.0 (:delta (:accrej workspace))))]
+                 (:delta (:accrej workspace)))]
      (when-let [d (cond (= "score" (:DoubtMeasure params))
-                        score
+                        (- 1.0 score)
                         (= "delta" (:DoubtMeasure params))
-                        delta
+                        (- 1.0 delta)
                         (= "score-delta-prod" (:DoubtMeasure params))
                         (when (and score delta) (* score delta))
                         (= "score-delta-avg" (:DoubtMeasure params))
-                        (when (and score delta) (/ (+ score delta) 2.0))
+                        (when (and score delta) (- 1.0 (/ (+ score delta) 2.0)))
+                        (= "score-delta-pow" (:DoubtMeasure params))
+                        (when (and score delta) (- 1.0 (Math/pow score delta)))
                         :else
-                        delta)]
+                        (- 1.0 delta))]
        (cond (= "square" (:DoubtModifier params))
              (* d d)
              (= "cube" (:DoubtModifier params))
@@ -695,7 +697,7 @@
              (Math/sqrt d)
              (= "log" (:DoubtModifier params))
              (Math/log (+ 1.0 d))
-             :else
+             :else ;; "none"
              d)))))
 
 (defn contrast-sets

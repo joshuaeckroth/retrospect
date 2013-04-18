@@ -40,7 +40,8 @@
              :ComplexMetaRejMinscoreScoring [true [true false]]
              :EstimateMetaScores [false [true false]]
              :MinScore [0 [0 10]]
-             :DoubtMeasure ["delta" ["score" "delta" "score-delta-prod" "score-delta-avg"]]
+             :DoubtMeasure ["delta" ["score" "delta" "score-delta-prod"
+                                     "score-delta-avg" "score-delta-pow"]]
              :DoubtAggregate ["avg" ["max" "avg" "min"]]
              :DoubtModifier ["none" ["square" "cube" "sqrt" "log" "none"]]
              :DoubtUnexp [false [true false]]
