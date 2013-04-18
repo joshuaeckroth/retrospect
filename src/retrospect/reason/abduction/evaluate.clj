@@ -107,6 +107,26 @@
      :false-delta-avg (/ (reduce + delta-false) (double (let [c (count delta-false)]
                                                      (if (= 0 c) 1 c))))}))
 
+(defn calc-true-false-explained
+  "Find average number of explainers, average score of best, and average delta
+   for true and false evidence."
+  [est true-false meta?]
+  (let [eps (if meta?
+              (mapcat (comp flatten-est :meta-est) (filter :meta-est (flatten-est est)))
+              (ep-path est))
+        acc-tf (group-by :tf? (for [ep (filter (fn [ep] (:best (:accrej (:workspace ep)))) eps)]
+                                (let [accrej (:accrej (:workspace ep))]
+                                  {:tf? (tf-true? true-false (:explained accrej))
+                                   :expcount (inc (count (:alts accrej)))
+                                   :score (:apriori (:best accrej))
+                                   :delta (:delta accrej)})))]
+    (into {} (for [tf [true false] cat [:expcount :score :delta]]
+               [(keyword (format "Explained%s%s%sAvg"
+                            (if meta? "Meta" "")
+                            (str/capitalize (str tf))
+                            (str/capitalize (str (name cat)))))
+                (avg (map cat (get acc-tf tf)))]))))
+
 (defn classify-error
   ([ws true-false hyp]
      (classify-error ws true-false hyp #{}))
@@ -400,11 +420,13 @@
                                              :type truedata (:oracle-fn @problem) false)
         true-false-scores (calc-true-false-scores est true-false)
         delta-avgs (calc-true-false-deltas est true-false false)
+        explained-avgs (calc-true-false-explained est true-false false)
         meta-hyps (find-meta-hyps est)
         meta-true-false (group-hyps-by-true-false meta-hyps :type
                                                   truedata true-meta-hyp? true)
         meta-true-false-scores (calc-true-false-scores est meta-true-false)
         meta-delta-avgs (calc-true-false-deltas est meta-true-false true)
+        meta-explained-avgs (calc-true-false-explained est meta-true-false true)
         ep-states (flatten-est est)
         doubt (doubt-aggregate est)
         errors (find-errors est true-false)
@@ -446,6 +468,8 @@
            (meta-hyp-metrics meta-true-false)
            (anomaly-reduction-indicator meta-true-false est)
            (noexp-conflict-true-false est true-false)
+           explained-avgs
+           meta-explained-avgs
            (last decision-metrics)
            {:Step (:time ep)
             :AvgUnexplainedPct (avg (map :UnexplainedPct decision-metrics))
