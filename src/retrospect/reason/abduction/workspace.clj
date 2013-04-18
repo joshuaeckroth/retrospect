@@ -653,7 +653,7 @@
          acc (accepted workspace)]
      (if (empty? unexp) 0.0
          (/ (double (count unexp))
-            (double (count acc)))))))
+            (double (count (:all acc))))))))
 
 (defn get-noexp-pct
   [workspace]
@@ -663,7 +663,7 @@
          acc (accepted workspace)]
      (if (empty? noexp) 0.0
          (/ (double (count noexp))
-            (double (count acc)))))))
+            (double (count (:all acc))))))))
 
 (defn calc-doubt
   [workspace]
