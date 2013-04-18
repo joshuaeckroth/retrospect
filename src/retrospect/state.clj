@@ -8,7 +8,7 @@
 
 (def ^:dynamic last-id 0)
 
-(def ^:dynamic cache)
+(def ^:dynamic cache (atom {}))
 
 (def logging-enabled (ref false))
 

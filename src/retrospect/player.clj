@@ -108,6 +108,7 @@
         ps (assoc (merge-default-params (read-string @params-edit))
              :simulation @simulation)]
     (alter-var-root (var params) (constantly ps))
+    (alter-var-root (var cache) (constantly (atom {})))
     (set-last-id 0)
     (when (not prepared?)
       (let [ps (merge-default-params (read-string @params-edit))
@@ -141,6 +142,7 @@
           sens (:sensors prepared)]
       (dosync (alter params-edit (constantly (format-params (dissoc ps-seed :seed)))))
       (alter-var-root (var params) (constantly ps-seed))
+      (alter-var-root (var cache) (constantly (atom {})))
       (.put @prefs (format "%s-%s-params" (:name @reasoner) (:name @problem)) (pr-str ps-seed))
       (alter-var-root (var rgen) (constantly (new-seed seed)))
       (set-last-id 0)
