@@ -503,7 +503,10 @@
   (prof
    :add-helper
    (let [hyp-apriori (update-hyp-apriori workspace hyp)
-         explains (map #(get (:hyp-contents workspace) %) (:explains hyp-apriori))]
+         ;; sometimes, an added hyp explains stuff not already added;
+         ;; this can happen when a problem case is added during abductive metareasoning;
+         ;; we just ignore these non-existing explained hyps
+         explains (filter identity (map #(get (:hyp-contents workspace) %) (:explains hyp-apriori)))]
      (-> workspace
         (assoc-in [:hyp-ids (:id hyp-apriori)] hyp-apriori)
         (assoc-in [:hyp-contents (:contents hyp-apriori)] (:id hyp-apriori))

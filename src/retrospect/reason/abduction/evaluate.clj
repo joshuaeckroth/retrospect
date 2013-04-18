@@ -62,8 +62,7 @@
         eps (flatten-est est)
         meta-eps (mapcat (comp flatten-est :meta-est) (filter :meta-est eps))
         acc? (fn [h] (if ((:meta-hyp-types @reasoner) (:type h))
-                      (some (fn [ep] ((:all (:accepted (:workspace ep))) (:id h)))
-                         meta-eps)
+                      (some (fn [ep] (accepted? (:workspace ep) h)) meta-eps)
                       (accepted? workspace h)))
         aprioris (reduce (fn [m t]
                       (assoc m t
@@ -143,6 +142,8 @@
       ;; of your rivals is true; or you were not accepted but are
       ;; true, and you were the rival when a false explainer was
       ;; accepted
+
+      ;; TODO: fix, no such thing as :accepted-rivals in workspace
       (or (and (accepted? ws hyp)
                (not (tf-true? true-false hyp))
                (some #(tf-true? true-false %)
@@ -427,7 +428,6 @@
                                      0                          ;; fn
                                      ;; and event-count:
                                      (count noise-obs))]
-            (println "unexp:" (unexplained ws))
             {:Unexplained (count (unexplained ws))
              :UnexplainedPct (get-unexp-pct ws)
              :NoExplainers (count (no-explainers ws))
