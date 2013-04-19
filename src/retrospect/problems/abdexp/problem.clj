@@ -40,7 +40,8 @@
                :stats-fn stats
                :hyp-types #{:expl :observation}
                :ignore-doubt-types #{:observation}
-               :default-params {:GetMoreHyps [true [true]]}
+               :default-params {:GetMoreHyps [true [true]]
+                                :OnlySingleExplainers [false [true false]]}
                :claims abduction-claims}
    :claims generic-claims
    :default-params
