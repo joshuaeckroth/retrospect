@@ -5,7 +5,7 @@
   (:use [loom.graph :only
          [digraph nodes incoming neighbors weight
           add-nodes add-edges remove-nodes edges has-edge? transpose]])
-  (:use [loom.alg :only [bf-traverse]])
+  (:use [loom.alg-generic :only [bf-traverse]])
   (:use [loom.attr :only [add-attr remove-attr attr]])
   (:use [retrospect.profile :only [prof profile]])
   (:use [retrospect.logging])
@@ -415,14 +415,20 @@
          (map #(lookup-hyp workspace %) (filter (fn [hypid] (accepted? workspace hypid))
                                          (nodes (:hypgraph workspace))))))))
 
+(defn related-hyps
+  [workspace hyp]
+  (let [g (transpose (:hypgraph workspace))]
+    (bf-traverse (fn [hypid] (concat (neighbors g hypid)
+                                    (map :id (find-conflicts-all workspace (lookup-hyp workspace hypid)))))
+                 (:id hyp))))
+
 (defn undecide
   [workspace hyp]
   (prof
    :undecide
    ;; note related-hyps includes hyp itself
-   (let [related-hyps (concat (bf-traverse (transpose (:hypgraph workspace)) (:id hyp))
-                              (map :id (find-conflicts-all workspace hyp)))]
-     (log "Undeciding" hyp "and related hyps" related-hyps)
+   (let [rel-hyps (related-hyps workspace hyp)]
+     (log "Undeciding" hyp "and related hyps" rel-hyps)
      (reduce (fn [ws hypid]
           (-> ws
              (update-in [:hypgraph] remove-attr hypid :accepted?)
@@ -437,7 +443,7 @@
              (update-in [:unexplained] set/union
                         (attr (:hypgraph workspace) hypid
                               :accepted-newly-explained))))
-        workspace related-hyps))))
+        workspace rel-hyps))))
 
 ;; forward declaration so (reject) can refer to (add) and vice versa
 (declare add)

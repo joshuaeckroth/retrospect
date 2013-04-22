@@ -10,7 +10,7 @@
   (fn [f]
     (dosync (alter logging-enabled (constantly false))
             (alter batch (constantly true)))
-    (swap! conflicts-cache (constantly {}))
+    (swap! cache (constantly {}))
     (f)))
 
 (defn explain-helper
@@ -86,7 +86,7 @@
                  2 {1 true 2 false 3 false 4 false}
                  3 {1 false 2 false 3 false 4 true}
                  4 {1 false 2 false 3 true 4 false}}}
-             @conflicts-cache)))))
+             (:conflicts @cache))))))
 
 (deftest test-acceptance
   (dosync (alter reasoner (constantly reason-abduction))
@@ -347,6 +347,13 @@
           ws-undecided (undecide ws-expl h5)
           ws-undecided-expl (explain-helper ws-undecided)
           ws-undecided-expl-undecided (undecide ws-undecided-expl h5)]
+      (is (= [1 3 5 6 7] (related-hyps ws e1)))
+      (is (= [2 4] (related-hyps ws e2)))
+      (is (= [3 5 6 7] (related-hyps ws h3)))
+      (is (= [4] (related-hyps ws h4)))
+      (is (= [5 6 7] (related-hyps ws h5)))
+      (is (= [6] (related-hyps ws h6)))
+      (is (= [7 5 6] (related-hyps ws h7)))
       (is (accepted? ws-expl e1))
       (is (accepted? ws-expl e2))
       (is (accepted? ws-expl h3))
