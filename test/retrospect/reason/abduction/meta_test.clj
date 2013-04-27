@@ -12,7 +12,7 @@
   (fn [f]
     (dosync (alter logging-enabled (constantly false))
             (alter batch (constantly true)))
-    (swap! conflicts-cache (constantly {}))
+    (swap! cache (constantly {}))
     (f)))
 
 (deftest test-meta-no-offered-expl
@@ -104,6 +104,132 @@
                      (:est-new (meta-abductive-recursive
                                 #{ne1} est-expl-adv time-prev time-now sensors))))))))
 
+(deftest test-meta-rej-conflict
+  (dosync (alter reasoner (constantly reason-abduction))
+          (alter problem (constantly
+                          {:abduction {:hypothesize-fn (constantly [])
+                                       :make-sensor-hyps-fn (constantly [])
+                                       :ignore-doubt-types #{}}})))
+  (binding [last-id 0
+            params (assoc (get-default-params)
+                     :GetMoreHyps false)]
+    (let [conflicts?-fn (fn [hyp1 hyp2] (and (not= hyp1 hyp2)
+                                            (= (:type hyp1) (:type hyp2))))
+          ;; id 1
+          e1 (new-hyp "Test" :explained :mysubtype 0.5 true
+                      (constantly false) [] "" "" {:a 1})
+          ;; id 2
+          e2 (new-hyp "Test" :explained :mysubtype 0.5 true
+                      (constantly false) [] "" "" {:a 2})
+          ;; id 3 (accepted first, rejects h5/h6)
+          h3 (new-hyp "Test" :type1 :mysubtype 0.75 false
+                      conflicts?-fn [(:contents e1)]
+                      "short-descr" "desc" {:x 1})
+          ;; id 4
+          h4 (new-hyp "Test" :type2 :mysubtype 0.25 false
+                      conflicts?-fn [(:contents e1)]
+                      "short-descr" "desc" {:x 2})
+          ;; id 5
+          h5 (new-hyp "Test" :type1 :mysubtype 0.60 false
+                      conflicts?-fn [(:contents e2)]
+                      "short-descr" "desc" {:x 3})
+          ;; id 6
+          h6 (new-hyp "Test" :type1 :mysubtype 0.50 false
+                      conflicts?-fn [(:contents e2)]
+                      "short-descr" "desc" {:x 4})
+          ws (-> (init-workspace)
+                (add-observation e1 1)
+                (add-observation e2 1)
+                (add h3 1)
+                (add h4 1)
+                (add h5 1)
+                (add h6 1))
+          sensors []
+          time-prev 1
+          time-now 2
+          est (new-child-ep (new-child-ep (init-est ws)))
+          est-expl-adv (explain-and-advance est time-prev time-now sensors)
+          ws-expl-adv (:workspace (cur-ep est-expl-adv))
+          {est-rc-old :est-old est-rc-new :est-new} (meta-rej-conflict
+                                                     #{e2} est-expl-adv time-prev time-now sensors)
+          ws-rc-old (:workspace (cur-ep est-rc-old))
+          ws-rc-new (:workspace (cur-ep est-rc-new))]
+      (is (accepted? ws-expl-adv e1))
+      (is (accepted? ws-expl-adv e2))
+      (is (accepted? ws-expl-adv h3))
+      (is (not (accepted? ws-expl-adv h4)))
+      (is (not (accepted? ws-expl-adv h5)))
+      (is (not (accepted? ws-expl-adv h6)))
+      (is (undecided? ws-expl-adv h4))
+      (is (rejected? ws-expl-adv h5))
+      (is (rejected? ws-expl-adv h6))
+      (is (= :conflict (rejection-reason ws-expl-adv h5)))
+      (is (= :conflict (rejection-reason ws-expl-adv h6)))
+      (is (not (unexplained? ws-expl-adv e1)))
+      (is (unexplained? ws-expl-adv e2))
+      (is (= [e2] (no-explainers ws-expl-adv)))
+      (is (= #{e2} (find-problem-cases est-expl-adv)))
+      (is (= [{:implicated h3 :cycle 2 :rejected #{h5 h6} :delta 0.5 :may-resolve [e2]}]
+             (find-rej-conflict-candidates #{e2} est-expl-adv time-now)))
+      (is (unexplained? ws-rc-old e2))
+      (is (rejected? ws-rc-new h3))
+      (is (= :preemptive (rejection-reason ws-rc-new h3)))
+      (is (accepted? ws-rc-new h4))
+      (is (accepted? ws-rc-new h5))
+      (is (empty? (unexplained ws-rc-new))))))
+
+(deftest test-meta-lower-minscore
+  (dosync (alter reasoner (constantly reason-abduction))
+          (alter problem (constantly
+                          {:abduction {:hypothesize-fn (constantly [])
+                                       :make-sensor-hyps-fn (constantly [])
+                                       :ignore-doubt-types #{}}})))
+  (binding [last-id 0
+            params (assoc (get-default-params)
+                     :GetMoreHyps false :MinScore 50)]
+    (let [conflicts?-fn (fn [hyp1 hyp2] (and (not= hyp1 hyp2)
+                                            (= (:type hyp1) (:type hyp2))))
+          ;; id 1
+          e1 (new-hyp "Test" :explained :mysubtype 0.75 true
+                      (constantly false) [] "" "" {:a 1})
+          ;; id 2
+          h2 (new-hyp "Test" :type1 :mysubtype 0.35 false
+                      conflicts?-fn [(:contents e1)]
+                      "short-descr" "desc" {:x 1})
+          ;; id 3
+          h3 (new-hyp "Test" :type1 :mysubtype 0.25 false
+                      conflicts?-fn [(:contents e1)]
+                      "short-descr" "desc" {:x 2})
+          ws (-> (init-workspace)
+                (add-observation e1 1)
+                (add h2 1)
+                (add h3 1))
+          sensors []
+          time-prev 1
+          time-now 2
+          est (new-child-ep (new-child-ep (init-est ws)))
+          est-expl-adv (explain-and-advance est time-prev time-now sensors)
+          ws-expl-adv (:workspace (cur-ep est-expl-adv))
+          {est-rc-old :est-old est-rc-new :est-new} (meta-lower-minscore
+                                                     #{e1} est-expl-adv time-prev time-now sensors)
+          ws-rc-old (:workspace (cur-ep est-rc-old))
+          ws-rc-new (:workspace (cur-ep est-rc-new))]
+      (is (accepted? ws-expl-adv e1))
+      (is (rejected? ws-expl-adv h2))
+      (is (rejected? ws-expl-adv h3))
+      (is (= :minscore (rejection-reason ws-expl-adv h2)))
+      (is (= :minscore (rejection-reason ws-expl-adv h3)))
+      (is (unexplained? ws-expl-adv e1))
+      (is (= [e1] (no-explainers ws-expl-adv)))
+      (is (= #{e1} (find-problem-cases est-expl-adv)))
+      (is (unexplained? ws-rc-old e1))
+      (is (accepted? ws-rc-new h2))
+      (is (rejected? ws-rc-new h3))
+      (is (= :conflict (rejection-reason ws-rc-new h3)))
+      (is (prevented-rejection? ws-rc-new h2 :minscore))
+      (is (prevented-rejection? ws-rc-new h3 :minscore))
+      (is (empty? (unexplained ws-rc-new))))))
+
 (deftest test-meta-compound-cause
   ;; the explainer is rejected due to minscore, but when that's fixed,
   ;; it's rejected due to conflict
@@ -136,8 +262,8 @@
           h5 (new-hyp "Test" :type1 :mysubtype 0.15 false
                       conflicts?-fn [(:contents e2)]
                       "short-descr" "desc" {:x 3})
-          ;; id 6 (will be rejected due to minscore, but also due to conflict with h4)
-          h6 (new-hyp "Test" :type2 :mysubtype 0.14 false
+          ;; id 6 (will be rejected due to minscore, but also due to conflict with h3)
+          h6 (new-hyp "Test" :type1 :mysubtype 0.14 false
                       conflicts?-fn [(:contents e2)]
                       "short-descr" "desc" {:x 4})
           ws (-> (init-workspace)

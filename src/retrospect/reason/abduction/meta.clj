@@ -130,48 +130,27 @@
      params]))
 
 (defn find-rej-conflict-candidates
-  ;; problem-cases is the list of noexp anomalies
-  ;; expl is the list of possible explainers for current list of problem-cases
-  [problem-cases est time-now cur-ws expl]
-  (let [;; Finds the conflict candidates from expl for current problem-cases
-        expl-rejected-conflicts
-        (sort-by :id (filter (fn [h] (= :conflict (rejection-reason cur-ws h)))
-                        expl))
-        ;; problem-cases explained by expl-rejected-conflicts
-        problem-cases-possibly-resolved
-        (sort-by :id (filter (fn [pc] ((set (mapcat :explains expl-rejected-conflicts))
-                                 (:contents pc)))
-                        problem-cases))
-        acc-conflicting (set (mapcat
-                              (fn [e] (filter (fn [c] (accepted-before? cur-ws c e))
-                                        (find-conflicts-all cur-ws e)))
-                              expl-rejected-conflicts))
-        ;; get all inner hyps, if any, of those that were accepted but conflict
-        inner-hyps (set (map :id (mapcat :hyps acc-conflicting)))
-        ;; keep only those that are not inner hyps
-        acc-conflicting-no-inner (sort-by :id (filter #(not (inner-hyps (:id %)))
-                                                 acc-conflicting))
-        ;; which ep-states rejected these expl (essentials are
-        ;; allowed; we may still want to reject an "essential"
-        ;; explainer;
-        ep-rejs (filter (fn [ep] (and
-                            (<= (dec time-now) (:time ep))
-                            (some (set (map :id acc-conflicting-no-inner))
-                               (:acc (:accrej (:workspace ep))))))
+  [problem-cases est time-now]
+  (let [cur-ws (:workspace (cur-ep est))
+        expl (set (mapcat #(explainers cur-ws %) problem-cases)) ;; explainers of problem-cases
+        expl-rc (set (filter (fn [h] (= :conflict (rejection-reason cur-ws h))) expl)) ;; rejected explainers due to conflict
+        pc-res (sort-by :id ;; problem-cases explained by expl-rc, and therefore possibly resolved
+                        (filter (fn [pc] ((set (mapcat :explains expl-rc)) (:contents pc))) problem-cases))
+        acc (set (mapcat (fn [e] (filter (fn [c] (accepted? cur-ws c)) ;; acc that conflict with expl-rc
+                                   (find-conflicts-all cur-ws e))) expl-rc))
+        inner-hyps (set (map :id (mapcat :hyps acc))) ;; inner hyps, if any, of acc
+        acc-no-inner (sort-by :id (filter #(not (inner-hyps (:id %))) acc)) ;; keep only those that are not inner hyps
+        acc-no-inner-ids (set (map :id acc-no-inner))
+        ep-rejs (filter (fn [ep] (and (= time-now (:time ep))) (some acc-no-inner-ids (:acc (:accrej (:workspace ep)))))
                    (ep-path est))
         rejs-deltas (map (fn [ep] [(get-in ep [:workspace :accrej :delta])
                                 (:cycle ep)
                                 (get-in ep [:workspace :accrej :best])])
                        ep-rejs)
         ;; this will sort by delta first, then cycle
-        bad-bests (reverse (sort (set (filter (fn [[delta _ best]] (and delta best))
-                                         rejs-deltas))))]
+        bad-bests (reverse (sort (set (filter (fn [[delta _ best]] (and delta best)) rejs-deltas))))]
     (for [[delta cycle hyp] bad-bests]
-      {:implicated hyp
-       :cycle cycle
-       :rejected expl-rejected-conflicts
-       :delta delta
-       :may-resolve problem-cases-possibly-resolved})))
+      {:implicated hyp :cycle cycle :rejected expl-rc :delta delta :may-resolve pc-res})))
 
 (defn meta-rej-conflict
   [problem-cases est-orig time-prev time-now sensors]
@@ -179,30 +158,24 @@
          est-prior est-orig
          est est-orig
          tried-implicated #{}]
-    (let [cur-ws (:workspace (cur-ep est))
-          expl (set (mapcat #(explainers cur-ws %) problem-cases))
-          ;; take the earliest rej-conflict
-          {:keys [implicated cycle]}
-          (last (sort-by :cycle (find-rej-conflict-candidates
-                                 problem-cases est time-now cur-ws expl)))]
+    (let [ ;; take the earliest rej-conflict
+          {:keys [implicated cycle]} (last (sort-by :cycle (find-rej-conflict-candidates
+                                                            problem-cases est time-now)))]
       (if (and implicated (not (tried-implicated implicated)))
-        (let [[est-action params-action]
-              (action-preemptively-reject implicated cycle est)
-              {:keys [est-old est-new]}
-              (binding [params params-action]
-                (meta-apply-and-evaluate est est-action time-now sensors))
+        (let [[est-action params-action] (action-preemptively-reject implicated cycle est)
+              {:keys [est-old est-new]} (binding [params params-action]
+                                          (meta-apply-and-evaluate est est-action time-now sensors))
               problem-cases-new (find-problem-cases est-new)]
           (if (not-empty problem-cases-new)
-            (recur problem-cases-new
-                   est-old
-                   est-new
-                   (conj tried-implicated implicated))
+            (recur problem-cases-new est-old est-new (conj tried-implicated implicated))
             {:est-old est-old :est-new est-new}))
         {:est-old est-prior :est-new est}))))
 
 (defn find-rej-minscore-candidates
-  [problem-cases cur-ws expl]
-  (let [minscore (/ (double (:MinScore params)) 100.0)
+  [problem-cases est time-now]
+  (let [cur-ws (:workspace (cur-ep est))
+        expl (set (mapcat #(explainers cur-ws %) problem-cases)) ;; explainers of problem-cases
+        minscore (/ (double (:MinScore params)) 100.0)
         expl-rejected-minscore
         (sort-by :id (filter (fn [h] (= :minscore (rejection-reason cur-ws h)))
                         expl))
@@ -222,7 +195,7 @@
     (let [cur-ws (:workspace (cur-ep est))
           expl (set (mapcat #(explainers cur-ws %) problem-cases))
           {:keys [implicated may-resolve]}
-          (find-rej-minscore-candidates problem-cases cur-ws expl)
+          (find-rej-minscore-candidates problem-cases est time-now)
           implicated-untried (filter #(not (implicated-before (:contents %))) implicated)
           cycle (if (not-empty implicated-untried)
                   (apply min (map (fn [h] (rejected-cycle cur-ws h)) implicated-untried)))]
@@ -289,7 +262,7 @@
   ;; no-explainers combinations
   (if (not (available-meta-hyps "meta-rej-conflict")) []
       (for [{:keys [implicated cycle rejected delta may-resolve]}
-            (find-rej-conflict-candidates problem-cases est time-now cur-ws expl)]
+            (find-rej-conflict-candidates problem-cases est time-now)]
         (new-hyp "RejConflict" :meta-rej-conflict :meta-rej-conflict
                  0.5 false meta-hyp-conflicts?
                  (map :contents may-resolve)
@@ -306,8 +279,7 @@
   ;; were some explainers omitted due to high min-score?
   (if (not (available-meta-hyps "meta-rej-minscore")) []
       (let [minscore (/ (double (:MinScore params)) 100.0)
-            {:keys [implicated may-resolve]} (find-rej-minscore-candidates
-                                              problem-cases cur-ws expl)
+            {:keys [implicated may-resolve]} (find-rej-minscore-candidates problem-cases est time-now)
             cycle (if (not-empty implicated)
                     (apply min (map (fn [h] (rejected-cycle cur-ws h)) implicated)))]
         (if (not-empty implicated)
