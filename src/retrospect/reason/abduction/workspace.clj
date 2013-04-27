@@ -459,23 +459,24 @@
    (if (rejected? workspace hyp) workspace
        (do
          (log "Rejecting" hyp "with reason" reason-tag)
-         (let [ws-added (if (nil? (get (:hyp-contents workspace) (:contents hyp)))
-                          ;; hyp not known yet (rejecting preemptively); add first
-                          (add workspace hyp cycle)
-                          workspace)
-               ws2 (-> ws-added
-                      (update-in [:hypgraph] remove-attr (:id hyp) :accepted?)
-                      (update-in [:hypgraph] remove-attr (:id hyp) :accepted-cycle)
-                      (update-in [:hypgraph] remove-attr (:id hyp) :accepted-explained)
-                      (update-in [:hypgraph] remove-attr (:id hyp) :accepted-newly-explained)
-                      (update-in [:hypgraph] add-attr (:id hyp) :rejected? true)
-                      (update-in [:hypgraph] add-attr (:id hyp) :rejected-cycle cycle)
-                      (update-in [:hypgraph] add-attr (:id hyp) :rejection-reason reason-tag)
-                      (update-in [:accepted] disj (:id hyp))
-                      (update-in [:rejected] conj (:id hyp))
-                      (update-in [:unexplained] disj (:id hyp)))]
-           (if @batch ws2
-               (assoc-in ws2 [:hyp-log (:id hyp)]
+         (let [ws (-> workspace
+                     (update-in [:hypgraph] remove-attr (:id hyp) :accepted?)
+                     (update-in [:hypgraph] remove-attr (:id hyp) :accepted-cycle)
+                     (update-in [:hypgraph] remove-attr (:id hyp) :accepted-explained)
+                     (update-in [:hypgraph] remove-attr (:id hyp) :accepted-newly-explained)
+                     (update-in [:hypgraph] add-attr (:id hyp) :rejected? true)
+                     (update-in [:hypgraph] add-attr (:id hyp) :rejected-cycle cycle)
+                     (update-in [:hypgraph] add-attr (:id hyp) :rejection-reason reason-tag)
+                     (update-in [:accepted] disj (:id hyp))
+                     (update-in [:rejected] conj (:id hyp))
+                     (update-in [:unexplained] disj (:id hyp)))
+               ;; is this hyp a member of any composites? if so, those
+               ;; composites need to be rejected as well
+               composites (filter (fn [h] (and (:composite? h) (some (fn [hc] (= hyp hc)) (:hyps h))))
+                             (:all (hypotheses workspace)))
+               ws-comp (reduce (fn [ws h] (reject ws h reason-tag cycle)) ws composites)]
+           (if @batch ws-comp
+               (assoc-in ws-comp [:hyp-log (:id hyp)]
                          (format "Rejected at cycle %d with reason %s"
                             cycle (str reason-tag)))))))))
 

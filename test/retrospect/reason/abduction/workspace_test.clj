@@ -277,7 +277,6 @@
                 (add hc1 1))
           ws-expl (explain ws 1 1)
           ws-rej (-> ws (add h2 1) (reject h2 :conflict 1))
-          ws-rej-cleanup (clean-up-workspace ws-rej 1)
           ws-rej-expl (explain ws-rej 1 1)]
       (is (:composite? hc1))
       (is (= [h1 h2] (:hyps hc1)))
@@ -294,10 +293,8 @@
       (is (rejected? ws-expl h3))
       ;; rather than explaining, a preemptive rejection of a hyp in the composite
       (is (rejected? ws-rej h2))
-      (is (not (rejected? ws-rej hc1)))
-      (is (rejected? ws-rej-cleanup h2))
-      (is (rejected? ws-rej-cleanup hc1))
-      (is (= :conflict (rejection-reason ws-rej-cleanup hc1)))
+      (is (rejected? ws-rej hc1))
+      (is (= :conflict (rejection-reason ws-rej hc1)))
       (is (rejected? ws-rej-expl h2))
       (is (rejected? ws-rej-expl hc1))
       (is (accepted? ws-rej-expl h3)))))
