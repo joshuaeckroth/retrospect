@@ -797,35 +797,6 @@
                      g-conflicts (:all (:accepted workspace)))]
      (assoc workspace :graph g-accepted))))
 
-(defn clean-up-workspace
-  "Find & reject pending rejections due to conflicts or too-low apriori values."
-  [workspace cycle]
-  (prof
-   :cleanup-workspace
-   (loop [ws workspace
-          hyps (undecided workspace)]
-     (if (empty? hyps) ws
-         (let [hyp (first hyps)]
-           (log "Checking whether" hyp "should be cleaned up...")
-           (cond (and (not= :observation (:type hyp))
-                      (< (:apriori hyp) (/ (double (:MinScore params)) 100.0))
-                      (not (prevented-rejection? ws hyp :minscore)))
-                 (do (log "...rejecting because score" (:apriori hyp)
-                          "is lower than MinScore.")
-                     (let [ws-next (reject ws hyp :minscore cycle)]
-                       (recur ws-next (rest hyps))))
-                 (and (:composite? hyp)
-                      (some (fn [h] (rejected? ws h)) (:hyps hyp)))
-                 (do (log "...rejecting because this hyp is a composite of at least one rejected hyp.")
-                     (let [first-rej-hyp (first (filter (fn [h] (rejected? ws h)) (:hyps hyp)))
-                           ws-next (reject ws hyp
-                                           (rejection-reason ws first-rej-hyp)
-                                           cycle)]
-                       (recur ws-next (rest hyps))))
-                 :else
-                 (do (log "...we'll keep this hyp.")
-                     (recur ws (rest hyps)))))))))
-
 (defn get-explaining-hypotheses
   "Ask problem domain to get explainers."
   [workspace time-now]
@@ -848,7 +819,7 @@
   [workspace cycle time-now]
   (prof
    :explain
-   (let [ws (clean-up-workspace (assoc workspace :accrej {}) cycle)]
+   (let [ws (assoc workspace :accrej {})]
      (log "Unexplained:" (map :id (unexplained ws)))
      (let [{:keys [best nbest alts explained delta comparison] :as b} (find-best ws)]
        (if-not best
