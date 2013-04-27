@@ -46,6 +46,29 @@
       (is (= 1 (compare-by-delta (init-workspace) [h1 h2] [h3 h4])))
       (is (= -1 (compare-by-delta (init-workspace) [h3 h4] [h1 h2]))))))
 
+(deftest test-minscore
+  (dosync (alter reasoner (constantly reason-abduction))
+          (alter problem (constantly abdexp-problem)))
+  (binding [last-id 0
+            params (assoc (get-default-params) :simulation 0 :MinScore 50)]
+    (let [conflicts?-fn (fn [hyp1 hyp2] (and (not= hyp1 hyp2)
+                                            (= (:type hyp1) (:type hyp2))))
+          h1 (new-hyp "Test" :type1 :mysubtype 0.60 true
+                      conflicts?-fn [] "short-descr" "desc" {:x 1})
+          h2 (new-hyp "Test" :type1 :mysubtype 0.50 true
+                      conflicts?-fn [] "short-descr" "desc" {:x 2})
+          h3 (new-hyp "Test" :type2 :mysubtype 0.25 true
+                      conflicts?-fn [] "short-descr" "desc" {:x 3})
+          ws (-> (init-workspace)
+                (add h1 1)
+                (add h2 1)
+                (add h3 1))]
+      (is (undecided? ws h1))
+      (is (rejected? ws h2))
+      (is (= :minscore (rejection-reason ws h2)))
+      (is (rejected? ws h3))
+      (is (= :minscore (rejection-reason ws h3))))))
+
 (deftest test-conflicts
   (dosync (alter reasoner (constantly reason-abduction))
           (alter problem (constantly abdexp-problem)))
@@ -87,6 +110,33 @@
                  3 {1 false 2 false 3 false 4 true}
                  4 {1 false 2 false 3 true 4 false}}}
              (:conflicts @cache))))))
+
+(deftest test-adding
+  (dosync (alter reasoner (constantly reason-abduction))
+          (alter problem (constantly abdexp-problem)))
+  (binding [last-id 0
+            params (assoc (get-default-params) :simulation 0 :MinScore 50)]
+    (let [conflicts?-fn (fn [hyp1 hyp2] (and (not= hyp1 hyp2)
+                                            (= (:type hyp1) (:type hyp2))))
+          h1 (new-hyp "Test" :type1 :mysubtype 0.70 true
+                      conflicts?-fn [] "short-descr" "desc" {:x 1})
+          h2 (new-hyp "Test" :type1 :mysubtype 0.20 true
+                      conflicts?-fn [] "short-descr" "desc" {:x 2})
+          h3 (new-hyp "Test" :type1 :mysubtype 0.20 true
+                      conflicts?-fn [] "short-descr" "desc" {:x 3})
+          ws (-> (init-workspace)
+                (add h1 1)
+                (reject h1 :conflict 1)
+                (add h1 1)
+                (add h2 1)
+                (add h2 1)
+                (add h3 1)
+                (add (assoc h3 :apriori 0.70) 1))]
+      (is (rejected? ws h1))
+      (is (= :conflict (rejection-reason ws h1)))
+      (is (rejected? ws h2))
+      (is (= :minscore (rejection-reason ws h2)))
+      (is (undecided? ws h3)))))
 
 (deftest test-acceptance
   (dosync (alter reasoner (constantly reason-abduction))

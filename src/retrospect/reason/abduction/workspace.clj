@@ -445,6 +445,16 @@
                               :accepted-newly-explained))))
         workspace rel-hyps))))
 
+(defn unreject
+  [workspace hyp]
+  (prof
+   :unreject
+   (-> workspace
+      (update-in [:hypgraph] remove-attr (:id hyp) :rejected?)
+      (update-in [:hypgraph] remove-attr (:id hyp) :rejected-cycle)
+      (update-in [:hypgraph] remove-attr (:id hyp) :rejection-reason)
+      (update-in [:rejected] disj (:id hyp)))))
+
 ;; forward declaration so (reject) can refer to (add) and vice versa
 (declare add)
 
@@ -507,34 +517,31 @@
   [workspace hyp]
   (prof
    :add-helper
-   (let [hyp-apriori (update-hyp-apriori workspace hyp)
-         ;; sometimes, an added hyp explains stuff not already added;
+   (let [;; sometimes, an added hyp explains stuff not already added;
          ;; this can happen when a problem case is added during abductive metareasoning;
          ;; we just ignore these non-existing explained hyps
-         explains (filter identity (map #(get (:hyp-contents workspace) %) (:explains hyp-apriori)))]
+         explains (filter identity (map #(get (:hyp-contents workspace) %) (:explains hyp)))]
      (-> workspace
-        (assoc-in [:hyp-ids (:id hyp-apriori)] hyp-apriori)
-        (assoc-in [:hyp-contents (:contents hyp-apriori)] (:id hyp-apriori))
-        (update-in [:hypgraph] add-nodes (:id hyp-apriori))
-        (update-in [:hypgraph] #(apply add-edges % (for [e explains] [(:id hyp-apriori) e])))
-        (?> (:needs-explainer? hyp) update-in [:unexplained] conj (:id hyp-apriori))
-        (update-in [:hypotheses (:type hyp-apriori)] conj (:id hyp-apriori))
-        (update-in [:hypotheses :all] conj (:id hyp-apriori))))))
+        (assoc-in [:hyp-ids (:id hyp)] hyp)
+        (assoc-in [:hyp-contents (:contents hyp)] (:id hyp))
+        (update-in [:hypgraph] add-nodes (:id hyp))
+        (update-in [:hypgraph] #(apply add-edges % (for [e explains] [(:id hyp) e])))
+        (?> (:needs-explainer? hyp) update-in [:unexplained] conj (:id hyp))
+        (update-in [:hypotheses (:type hyp)] conj (:id hyp))
+        (update-in [:hypotheses :all] conj (:id hyp))))))
 
-;; TODO
-(defn add-existing-hyp-minscore
+(defn add-existing-hyp-rejected
   [workspace prior-hyp prior-hyp-updated]
   ;; if it was rejected due to :minscore and it would not again be
   ;; rejected for the same reason, unreject it
   (prof
-   :add-existing-hyp-minscore
+   :add-existing-hyp-rejected
    (if (and (= :minscore (rejection-reason workspace prior-hyp))
             (>= (:apriori prior-hyp-updated)
                (double (/ (:MinScore params) 100.0))))
      (do (log "...yet was rejected due to :minscore previously\n"
               "...but now satisfies minscore, so unrejecting.")
-         ;; TODO
-         workspace)
+         (unreject workspace prior-hyp-updated))
      (do (log "...yet was rejected due to" (rejection-reason workspace prior-hyp)
               "so leaving as is (not adding).")
          workspace))))
@@ -545,9 +552,8 @@
   [workspace hyp prior-hyp-id cycle]
   (prof
    :add-existing-hyp-updated
-   (let [prior-hyp (lookup-hyp workspace prior-hyp-id)
-         new-hyp-apriori (:apriori (update-hyp-apriori workspace hyp))]
-     (if (and (= new-hyp-apriori (:apriori prior-hyp))
+   (let [prior-hyp (lookup-hyp workspace prior-hyp-id)]
+     (if (and (= (:apriori hyp) (:apriori prior-hyp))
               (= (:explains hyp) (:explains prior-hyp))
               (= (:needs-explainer? hyp) (:needs-explainer? prior-hyp)))
        ;; nothing changed in this hyp
@@ -557,33 +563,39 @@
                                  :needs-explainer? (:needs-explainer? hyp)
                                  :explains (set/union (set (:explains prior-hyp))
                                                   (set (:explains hyp)))
-                                 :apriori (min (:apriori prior-hyp)
-                                               new-hyp-apriori)
+                                 :apriori (:apriori hyp)
                                  :data (:data hyp))]
-         (add-helper workspace prior-hyp-updated))))))
+         (if (rejected? workspace prior-hyp)
+           (add-existing-hyp-rejected workspace prior-hyp prior-hyp-updated)
+           (add-helper workspace prior-hyp-updated)))))))
 
 (defn add
   [workspace hyp cycle]
   (prof
    :add
-   (let [hyp-c (if (:composite? hyp)
+   (let [hyp-apriori (update-hyp-apriori workspace hyp)
+         hyp-c (if (:composite? hyp-apriori)
                  ;; update a composite hyp so that updated sub-hyps are used
                  (let [lookup-sub-hyp (fn [h] (if-let [h-id (get (:hyp-contents workspace)
                                                                 (:contents h))]
                                                (lookup-hyp workspace h-id) h))
-                       updated-sub-hyps (map lookup-sub-hyp (:hyps hyp))]
-                   (assoc hyp :hyps updated-sub-hyps))
-                 hyp)]
+                       updated-sub-hyps (map lookup-sub-hyp (:hyps hyp-apriori))]
+                   (assoc hyp-apriori :hyps updated-sub-hyps))
+                 hyp-apriori)]
      (log "Adding" hyp-c)
      (if-let [prior-hyp-id (get (:hyp-contents workspace) (:contents hyp-c))]
        (add-existing-hyp-updated workspace hyp-c prior-hyp-id cycle)
-       ;; otherwise, check if conflicts, if not add it
+       ;; add it, then check for conflicts and minscore issues; if no issues, keep it
        (let [ws (add-helper workspace hyp-c)]
-         (if (conflicts-with-accepted? ws hyp-c)
-           (do (log (str "...yet it conflicts with an already accepted hyp, "
-                         "so immediately rejecting."))
-               (reject ws hyp-c :conflict cycle))
-           ws))))))
+         (cond (conflicts-with-accepted? ws hyp-c)
+               (do (log (str "...yet it conflicts with an already accepted hyp, "
+                             "so immediately rejecting."))
+                   (reject ws hyp-c :conflict cycle))
+               (<= (:apriori hyp-c) (double (/ (:MinScore params) 100.0)))
+               (do (log (str "...yet it does not meet MinScore requirement, "
+                             "so immediately rejecting."))
+                   (reject ws hyp-c :minscore cycle))
+               :else ws))))))
 
 (defn accept
   [workspace hyp nbest alts explained delta comparison cycle]
