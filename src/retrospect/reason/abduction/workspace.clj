@@ -591,7 +591,8 @@
                (do (log (str "...yet it conflicts with an already accepted hyp, "
                              "so immediately rejecting."))
                    (reject ws hyp-c :conflict cycle))
-               (<= (:apriori hyp-c) (double (/ (:MinScore params) 100.0)))
+               (and (<= (:apriori hyp-c) (double (/ (:MinScore params) 100.0)))
+                    (not (prevented-rejection? ws hyp-c :minscore)))
                (do (log (str "...yet it does not meet MinScore requirement, "
                              "so immediately rejecting."))
                    (reject ws hyp-c :minscore cycle))
