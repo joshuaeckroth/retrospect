@@ -10,12 +10,14 @@
 (defn nan-max
   [vals]
   (let [vs (filter #(not (.isNaN %)) (map double vals))]
-    (apply max vs)))
+    (if (empty? vs) Double/NaN
+        (apply max vs))))
 
 (defn nan-min
   [vals]
   (let [vs (filter #(not (.isNaN %)) (map double vals))]
-    (apply min vs)))
+    (if (empty? vs) Double/NaN
+        (apply min vs))))
 
 (defn normalize
   [vals]
