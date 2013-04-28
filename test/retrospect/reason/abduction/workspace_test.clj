@@ -296,6 +296,43 @@
       (is (= #{h1 h2} (set (undecided ws-expl))))
       (is (= #{h4} (set (unexplained (reject ws-expl ne1 :ignoring 1))))))))
 
+(deftest test-already-explained
+  (dosync (alter reasoner (constantly reason-abduction))
+          (alter problem (constantly abdexp-problem)))
+  (binding [last-id 0
+            params (assoc (get-default-params) :simulation 0)]
+    (let [conflicts?-fn (fn [hyp1 hyp2] (and (not= hyp1 hyp2)
+                                            (= (:type hyp1) (:type hyp2))))
+          ;; id 1
+          e1 (new-hyp "Test" :explained :mysubtype 0.5 true
+                      (constantly false) [] "" "" {:a 1})
+          ;; id 2
+          e2 (new-hyp "Test" :explained :mysubtype 0.5 true
+                      (constantly false) [] "" "" {:a 2})
+          ;; id 3
+          h3 (new-hyp "Test" :type1 :mysubtype 0.25 false
+                      conflicts?-fn [(:contents e1)]
+                      "short-descr" "desc" {:x 1})
+          ;; id 4
+          h4 (new-hyp "Test" :type2 :mysubtype 0.60 true
+                      conflicts?-fn [(:contents e2)]
+                      "short-descr" "desc" {:x 2})
+          ;; id 5; repeat of h3, but now also explains h4
+          h5 (new-hyp "Test" :type1 :mysubtype 0.25 false
+                      conflicts?-fn [(:contents e1) (:contents h4)]
+                      "short-descr" "desc" {:x 1})
+          ws (-> (init-workspace)
+                (add-observation e1 1)
+                (add h3 1)
+                (explain 1 1)
+                (add-observation e2 2)
+                (add h4 2)
+                (add h5 2)
+                (explain 2 2))]
+      (is (accepted? ws h4))
+      (is (not (unexplained? ws h4)))
+      (is (empty? (unexplained ws))))))
+
 (deftest test-composite
   (dosync (alter reasoner (constantly reason-abduction))
           (alter problem (constantly abdexp-problem)))
