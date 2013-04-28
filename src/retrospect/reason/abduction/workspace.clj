@@ -211,7 +211,8 @@
    (let [hypid (if (integer? h) h (:id h))]
      (and ((:unexplained workspace) hypid)
           (accepted? workspace hypid)
-          (needs-explainer? workspace hypid)))))
+          (needs-explainer? workspace hypid)
+          (not-any? (fn [h2] (accepted? workspace h2)) (explainers workspace hypid))))))
 
 (defn unexplained
   [workspace]
@@ -243,6 +244,12 @@
    :hyp-log
    (let [hypid (if (integer? h) h (:id h))]
      (attr (:hypgraph workspace) hypid :log))))
+
+(defn add-to-hyp-log
+  [workspace h msg]
+  (let [hypid (if (integer? h) h (:id h))
+        new-log (format "%s%s\n" (or (attr (:hypgraph workspace) hypid :log) "") msg)]
+    (update-in workspace [:hypgraph] add-attr hypid :log new-log)))
 
 (defn hyp-better-than?
   [workspace unexp hyp1 hyp2]
@@ -439,16 +446,15 @@
                      (update-in [:hypgraph] add-attr (:id hyp) :rejection-reason reason-tag)
                      (update-in [:accepted] disj (:id hyp))
                      (update-in [:rejected] conj (:id hyp))
-                     (update-in [:unexplained] disj (:id hyp)))
+                     (update-in [:unexplained] disj (:id hyp))
+                     (update-in [:accrej :rej] conj (:id hyp)))
                ;; is this hyp a member of any composites? if so, those
                ;; composites need to be rejected as well
                composites (filter (fn [h] (and (:composite? h) (some (fn [hc] (= hyp hc)) (:hyps h))))
                              (:all (hypotheses workspace)))
                ws-comp (reduce (fn [ws h] (reject ws h reason-tag cycle)) ws composites)]
-           (if @batch ws-comp
-               (assoc-in ws-comp [:hyp-log (:id hyp)]
-                         (format "Rejected at cycle %d with reason %s"
-                            cycle (str reason-tag)))))))))
+           (if @batch ws-comp (add-to-hyp-log ws-comp hyp (format "Rejected at cycle %d with reason %s"
+                                                             cycle (str reason-tag)))))))))
 
 (defn update-hyp-apriori
   [workspace hyp]
@@ -477,7 +483,7 @@
   [workspace hyp]
   (prof
    :add-helper
-   (let [;; sometimes, an added hyp explains stuff not already added;
+   (let [ ;; sometimes, an added hyp explains stuff not already added;
          ;; this can happen when a problem case is added during abductive metareasoning;
          ;; we just ignore these non-existing explained hyps
          explains (filter identity (map #(get (:hyp-contents workspace) %) (:explains hyp)))]
@@ -486,9 +492,9 @@
         (assoc-in [:hyp-contents (:contents hyp)] (:id hyp))
         (update-in [:hypgraph] add-nodes (:id hyp))
         (update-in [:hypgraph] #(apply add-edges % (for [e explains] [(:id hyp) e])))
-        (?> (:needs-explainer? hyp) update-in [:unexplained] conj (:id hyp))
         (update-in [:hypotheses (:type hyp)] conj (:id hyp))
-        (update-in [:hypotheses :all] conj (:id hyp))))))
+        (update-in [:hypotheses :all] conj (:id hyp))
+        (?> (:needs-explainer? hyp) update-in [:unexplained] conj (:id hyp))))))
 
 (defn add-existing-hyp-rejected
   [workspace prior-hyp prior-hyp-updated]
@@ -501,7 +507,9 @@
                (double (/ (:MinScore params) 100.0))))
      (do (log "...yet was rejected due to :minscore previously\n"
               "...but now satisfies minscore, so unrejecting.")
-         (unreject workspace prior-hyp-updated))
+         (-> workspace
+            (add-to-hyp-log prior-hyp-updated "Unrejecting because now satisfies MinScore.")
+            (unreject prior-hyp-updated)))
      (do (log "...yet was rejected due to" (rejection-reason workspace prior-hyp)
               "so leaving as is (not adding).")
          workspace))))
@@ -524,7 +532,8 @@
                                  :explains (set/union (set (:explains prior-hyp))
                                                   (set (:explains hyp)))
                                  :apriori (:apriori hyp)
-                                 :data (:data hyp))]
+                                 :data (:data hyp)
+                                 :contents (assoc (:data hyp) :type (:type hyp) :subtype (:subtype hyp)))]
          (if (rejected? workspace prior-hyp)
            (add-existing-hyp-rejected workspace prior-hyp prior-hyp-updated)
            (add-helper workspace prior-hyp-updated)))))))
@@ -543,20 +552,25 @@
                    (assoc hyp-apriori :hyps updated-sub-hyps))
                  hyp-apriori)]
      (log "Adding" hyp-c)
-     (if-let [prior-hyp-id (get (:hyp-contents workspace) (:contents hyp-c))]
-       (add-existing-hyp-updated workspace hyp-c prior-hyp-id cycle)
-       ;; add it, then check for conflicts and minscore issues; if no issues, keep it
-       (let [ws (add-helper workspace hyp-c)]
-         (cond (conflicts-with-accepted? ws hyp-c)
-               (do (log (str "...yet it conflicts with an already accepted hyp, "
-                             "so immediately rejecting."))
-                   (reject ws hyp-c :conflict cycle))
-               (and (<= (:apriori hyp-c) (double (/ (:MinScore params) 100.0)))
-                    (not (prevented-rejection? ws hyp-c :minscore)))
-               (do (log (str "...yet it does not meet MinScore requirement, "
-                             "so immediately rejecting."))
-                   (reject ws hyp-c :minscore cycle))
-               :else ws))))))
+     (let [ws (if-let [prior-hyp-id (get (:hyp-contents workspace) (:contents hyp-c))]
+                (-> workspace
+                   (add-to-hyp-log hyp-c (format "Added as updated hyp %s at cycle %d" prior-hyp-id cycle))
+                   (add-existing-hyp-updated hyp-c prior-hyp-id cycle))
+                (-> workspace
+                   (add-to-hyp-log hyp-c (format "Added at cycle %d" cycle))
+                   (add-helper hyp-c)))]
+       (cond (and (not (rejected? ws hyp-c))
+                  (conflicts-with-accepted? ws hyp-c))
+             (do (log (str "...yet it conflicts with an already accepted hyp, "
+                           "so immediately rejecting."))
+                 (reject ws hyp-c :conflict cycle))
+             (and (not (rejected? ws hyp-c))
+                  (<= (:apriori hyp-c) (double (/ (:MinScore params) 100.0)))
+                  (not (prevented-rejection? ws hyp-c :minscore)))
+             (do (log (str "...yet it does not meet MinScore requirement, "
+                           "so immediately rejecting."))
+                 (reject ws hyp-c :minscore cycle))
+             :else ws)))))
 
 (defn accept
   [workspace hyp nbest alts explained delta comparison cycle]
@@ -592,29 +606,25 @@
                            (update-in [:accepted] conj (:id hyp))
                            (update-in [:unexplained] set/difference newly-explained))
                  ws-hyplog (if @batch ws-acc
-                               (update-in ws-acc [:hypgraph]
-                                          add-attr (:id hyp) :log
-                                          (format (str "Accepted at cycle %d to explain %s with delta %.2f "
-                                                  "(essential? %s; next-best: %s); "
-                                                  "comparison: %s")
-                                             cycle explained delta (nil? nbest) nbest
-                                             comparison)))
-                 conflicts (prof :accept-conflicts (find-conflicts ws-hyplog hyp))
-                 ws-conflicts (prof :accept-reject
-                                    (reduce (fn [ws h] (reject ws h :conflict cycle))
-                                       ws-hyplog conflicts))
-                 ws-composite (if (:composite? hyp)
-                                (reduce (fn [ws h]
-                                     (let [ws-added (add ws h cycle)
-                                           ;; when added, hyp id may have
-                                           ;; changed; find the hyp again
-                                           h-updated (lookup-hyp ws-added
-                                                                 (get (:hyp-contents ws-added)
-                                                                      (:contents h)))]
-                                       (accept ws-added h-updated nbest alts explained
-                                               delta comparison cycle)))
-                                   ws-conflicts (:hyps hyp))
-                                ws-conflicts)]
+                               (add-to-hyp-log ws-acc hyp
+                                               (format (str "Accepted at cycle %d to explain %s with delta %.2f "
+                                                       "(essential? %s; next-best: %s); "
+                                                       "comparison: %s")
+                                                  cycle explained delta (nil? nbest) nbest
+                                                  comparison)))
+                 conflicts (find-conflicts ws-hyplog hyp)
+                 ws-conflicts (reduce (fn [ws h] (reject ws h :conflict cycle)) ws-hyplog conflicts)
+                 ws-composite (if (not (:composite? hyp)) ws-conflicts
+                                  (reduce (fn [ws h]
+                                       (let [ws-added (add ws h cycle)
+                                             ;; when added, hyp id may have
+                                             ;; changed; find the hyp again
+                                             h-updated (lookup-hyp ws-added
+                                                                   (get (:hyp-contents ws-added)
+                                                                        (:contents h)))]
+                                         (accept ws-added h-updated nbest alts explained
+                                                 delta comparison cycle)))
+                                     ws-conflicts (:hyps hyp)))]
              (update-in ws-composite [:accrej :acc] conj (:id hyp)))))))
 
 (defn add-observation
@@ -793,7 +803,7 @@
   (prof
    :explain
    (let [ws (assoc workspace :accrej {})]
-     (log "Unexplained:" (map :id (unexplained ws)))
+     (log "Unexplained:" (str/join ", " (sort (map :id (unexplained ws)))))
      (let [{:keys [best nbest alts explained delta comparison] :as b} (find-best ws)]
        (if-not best
          (do (log "No best.") ws)

@@ -22,12 +22,12 @@
   (count (filter #(= (:value %) (true-values-map (:vertex %))) hyps)))
 
 (defn tp-tn-fp-fn
-  [true-values-map acc not-acc]
+  [true-values-map acc rej]
   (if (empty? true-values-map) [0 0 0 0]
       (let [true-pos (count-matches true-values-map acc)
             false-pos (- (count acc) true-pos)
-            false-neg (count-matches true-values-map not-acc)
-            true-neg (- (count not-acc) false-neg)]
+            false-neg (count-matches true-values-map rej)
+            true-neg (- (count rej) false-neg)]
         [true-pos true-neg false-pos false-neg])))
 
 (defn evaluate
@@ -41,9 +41,9 @@
                 observed (apply concat (take (:time ep) (:test truedata)))
                 _ (do (unobserve-all bn)
                       (observe-seq bn observed))
-                acc (:expl (accepted ws))
+                acc (filter #(= :expl (:subtype %)) (:expl (accepted ws)))
                 acc-vertex-values (set (map (fn [h] [(:vertex h) (:value h)]) acc))
-                rej (:expl (rejected ws))
+                rej (filter #(= :expl (:subtype %)) (:expl (rejected ws)))
                 [tp tn fp fn] (tp-tn-fp-fn (:true-values-map truedata) acc rej)
                 prec-coverage (calc-prec-coverage tp tn fp fn
                                                   (count (:true-values-map truedata)))
