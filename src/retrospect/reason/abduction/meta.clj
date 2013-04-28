@@ -137,7 +137,7 @@
         pc-res (sort-by :id ;; problem-cases explained by expl-rc, and therefore possibly resolved
                         (filter (fn [pc] ((set (mapcat :explains expl-rc)) (:contents pc))) problem-cases))
         acc (set (mapcat (fn [e] (filter (fn [c] (accepted? cur-ws c)) ;; acc that conflict with expl-rc
-                                   (find-conflicts-all cur-ws e))) expl-rc))
+                                   (find-conflicts cur-ws e))) expl-rc))
         inner-hyps (set (map :id (mapcat :hyps acc))) ;; inner hyps, if any, of acc
         acc-no-inner (sort-by :id (filter #(not (inner-hyps (:id %))) acc)) ;; keep only those that are not inner hyps
         acc-no-inner-ids (set (map :id acc-no-inner))

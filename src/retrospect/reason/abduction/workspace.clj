@@ -101,18 +101,6 @@
          all (map #(lookup-hyp workspace %) (nodes g))]
      (merge (group-by :type all) {:all all}))))
 
-;; TODO
-(defn accepted-before?
-  "Was hyp accepted at or before hyp2 was accepted/rejected?"
-  [workspace hyp hyp2]
-  (prof
-   :accepted-before?
-   (if-let [cycle (or (get-in workspace [:accepted-cycle (:id hyp2)])
-                      (get-in workspace [:rejected-cycle (:id hyp2)]))]
-     (and (accepted? workspace hyp)
-          (<= (get-in workspace [:accepted-cycle (:id hyp)]) cycle))
-     false)))
-
 (defn accepted-cycle
   [workspace h]
   (prof
@@ -127,13 +115,6 @@
    (let [hypid (if (integer? h) h (:id h))]
      (attr (:hypgraph workspace) hypid :accepted-explained))))
 
-;; TODO
-(defn accepted-rivals
-  [workspace hyp]
-  (prof
-   :accepted-rivals
-   (get-in workspace [:accepted-rivals (:id hyp)])))
-
 (defn rejected?
   [workspace h]
   (prof
@@ -147,18 +128,6 @@
    :rejected
    (let [all (doall (map #(lookup-hyp workspace %) (:rejected workspace)))]
      (merge (group-by :type all) {:all all}))))
-
-;; TODO
-(defn rejected-before?
-  "Was hyp rejected at or before hyp2 was accepted/rejected?"
-  [workspace hyp hyp2]
-  (prof
-   :rejected-before?
-   (if-let [cycle (or (get-in workspace [:accepted-cycle (:id hyp2)])
-                      (get-in workspace [:rejected-cycle (:id hyp2)]))]
-     (and (rejected? workspace hyp)
-          (<= (get-in workspace [:rejected-cycle (:id hyp)]) cycle))
-     false)))
 
 (defn rejected-cycle
   [workspace h]
@@ -391,20 +360,11 @@
                   (assoc-in [:conflicts (:simulation params) (:id h2) (:id h1)] c?)))
        c?))))
 
-(defn find-conflicts-all
+(defn find-conflicts
   [workspace hyp]
   (prof
-   :find-conflicts-all
+   :find-conflicts
    (filter #(conflicts? hyp %) (vals (:hyp-ids workspace)))))
-
-;; TODO
-(defn find-conflicts-active
-  [workspace hyp]
-  (prof
-   :find-conflicts-active
-   (filter #(conflicts? hyp %)
-      (map #(lookup-hyp workspace %)
-         (set (apply concat (vals (:sorted-explainers workspace))))))))
 
 (defn conflicts-with-accepted?
   [workspace hyp]
@@ -419,7 +379,7 @@
   [workspace hyp]
   (let [g (transpose (:hypgraph workspace))]
     (bf-traverse (fn [hypid] (concat (neighbors g hypid)
-                                    (map :id (find-conflicts-all workspace (lookup-hyp workspace hypid)))))
+                                    (map :id (find-conflicts workspace (lookup-hyp workspace hypid)))))
                  (:id hyp))))
 
 (defn undecide
@@ -639,7 +599,7 @@
                                                   "comparison: %s")
                                              cycle explained delta (nil? nbest) nbest
                                              comparison)))
-                 conflicts (prof :accept-conflicts (find-conflicts-all ws-hyplog hyp))
+                 conflicts (prof :accept-conflicts (find-conflicts ws-hyplog hyp))
                  ws-conflicts (prof :accept-reject
                                     (reduce (fn [ws h] (reject ws h :conflict cycle))
                                        ws-hyplog conflicts))
@@ -794,8 +754,7 @@
          g-conflicts (if @batch g-expl
                          (reduce
                           (fn [g h]
-                            (let [conflicts (find-conflicts-all
-                                             workspace (lookup-hyp workspace h))]
+                            (let [conflicts (find-conflicts workspace (lookup-hyp workspace h))]
                               (reduce (fn [g2 c]
                                         (if (or (has-edge? g2 h c) (has-edge? g2 c h)) g2
                                             (-> g2 (add-edges [h c])

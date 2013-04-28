@@ -110,7 +110,7 @@
                                      (map #(str/join ", " (sort-by :name alphanum %))
                                         (vals (group-by :type (ws/explainers workspace hyp))))))
         conflicts (str/join "\n" (map str (sort-by :name alphanum
-                                                 (ws/find-conflicts-all workspace hyp))))]
+                                                 (ws/find-conflicts workspace hyp))))]
     (. hyp-apriori-label setText
        (format "Apriori: %.2f" (:apriori hyp)))
     (. hyp-truefalse-label setText
