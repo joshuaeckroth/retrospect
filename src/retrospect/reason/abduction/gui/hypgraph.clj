@@ -42,7 +42,7 @@
                                                                 (get (:explainers workspace)
                                                                      hyp))))))
             conflicts (str/join ", " (map str (sort-by :id alphanum
-                                                       (ws/find-conflicts-all workspace hyp))))]
+                                                       (ws/find-conflicts workspace hyp))))]
         (. hyp-id-label setText (format "%s %s" (:id hyp) (:short-str hyp)))
         (. hyp-apriori-label setText (format "Apriori: %.2f" (:apriori hyp)))
         (. hyp-truefalse-label setText
