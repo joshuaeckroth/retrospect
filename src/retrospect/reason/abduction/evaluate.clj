@@ -8,9 +8,8 @@
   (:use [retrospect.reason.abduction.workspace
          :only [get-unexp-pct get-noexp-pct calc-doubt
                 accepted? rejected? rejection-reason lookup-hyp update-graph
-                accepted-before? rejected-before? unexplained?
-                accepted-explained accepted-rivals no-explainers
-                unexplained explainers explains find-conflicts-all]])
+                unexplained? accepted-explained no-explainers
+                unexplained explainers explains find-conflicts]])
   (:use [retrospect.state]))
 
 (defn keyword-to-metric
@@ -162,18 +161,8 @@
       ;; of your rivals is true; or you were not accepted but are
       ;; true, and you were the rival when a false explainer was
       ;; accepted
-
-      ;; TODO: fix, no such thing as :accepted-rivals in workspace
-      (or (and (accepted? ws hyp)
-               (not (tf-true? true-false hyp))
-               (some #(tf-true? true-false %)
-                  (accepted-rivals ws hyp)))
-          (and (not (accepted? ws hyp))
-               (tf-true? true-false hyp)
-               (let [accepted-instead-ids (map first
-                                             (filter (fn [[hypid rivals]] (#{hyp} rivals))
-                                                (seq (:accepted-rivals ws))))]
-                 (some #(not (get-in true-false [:individual %])) accepted-instead-ids))))
+      ;; TODO: fix
+      false
       :scoring
       ;; false acceptance but true hyp (for what was explained) was never offered
       (and (accepted? ws hyp)
@@ -185,9 +174,8 @@
       (and (rejected? ws hyp)
            (= :conflict (rejection-reason ws hyp))
            (tf-true? true-false hyp))
-      (let [acc-conflicting (filter #(and (not (checked %))
-                                     (accepted-before? ws % hyp))
-                               (find-conflicts-all ws hyp))
+      (let [acc-conflicting (filter #(and (not (checked %)) (accepted? ws %))
+                               (find-conflicts ws hyp))
             parent-errors (map #(classify-error ws true-false % (conj checked hyp))
                              acc-conflicting)]
         (cond (some #{:noise} parent-errors) :noise
@@ -201,11 +189,10 @@
       (and (accepted? ws hyp)
            (not (tf-true? true-false hyp))
            (some #(and (rejected? ws %) (tf-true? true-false %))
-              (find-conflicts-all ws hyp)))
-      (let [rej-conflicting (filter #(and (not (checked %))
-                                     (rejected-before? ws % hyp)
+              (find-conflicts ws hyp)))
+      (let [rej-conflicting (filter #(and (not (checked %)) (rejected? ws %)
                                      (tf-true? true-false %))
-                               (find-conflicts-all ws hyp))
+                               (find-conflicts ws hyp))
             parent-errors (map #(classify-error ws true-false % (conj checked hyp))
                              rej-conflicting)]
         (cond (some #{:noise} parent-errors) :noise
@@ -233,6 +220,18 @@
       ;; else, there was no error
       :else
       :no-error)))
+
+(comment
+  (or (and (accepted? ws hyp)
+           (not (tf-true? true-false hyp))
+           (some #(tf-true? true-false %)
+              (accepted-rivals ws hyp)))
+      (and (not (accepted? ws hyp))
+           (tf-true? true-false hyp)
+           (let [accepted-instead-ids (map first
+                                         (filter (fn [[hypid rivals]] (#{hyp} rivals))
+                                            (seq (:accepted-rivals ws))))]
+             (some #(not (get-in true-false [:individual %])) accepted-instead-ids)))))
 
 (defn find-errors
   [est true-false]
