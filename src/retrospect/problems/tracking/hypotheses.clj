@@ -133,9 +133,7 @@
 
 (defn make-sensor-hyp
   [{:keys [x y color time] :as det} from-to prior-dets moves-dist]
-  (new-hyp "SensFrom" :observation from-to
-           (calc-object-prob det :from prior-dets moves-dist)
-           true nil []
+  (new-hyp "SensFrom" :observation from-to 1.0 true nil []
            (format "%d,%d@%d" x y time)
            (format (str "Sensor detection - color: %s, "
                    "x: %d, y: %d, time: %d")
