@@ -228,7 +228,7 @@
   (if (not (available-meta-hyps "meta-order-dep")) []
       ;; order dependency among the observations; a no-expl-offered situation
       (if (and (not= 0 time-prev)
-               ;; require that some problem case has no known explainerse
+               ;; require that some problem case has no known explainers
                (some (fn [pc] (empty? (explainers (:workspace (cur-ep est)) pc))) problem-cases))
         (let [batchbeg-ep (cur-ep (goto-start-of-time est 0))
               batchbeg-hyp (new-hyp "OrderDep" :meta-order-dep :meta-order-dep

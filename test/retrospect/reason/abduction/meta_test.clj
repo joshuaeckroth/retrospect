@@ -111,9 +111,11 @@
         (is (empty? (find-problem-cases
                      (binding [params (assoc params :Metareasoning "abd")]
                        (metareason est-expl-adv time-prev time-now sensors)))))
-        (is (= #{ne7} (find-problem-cases
-                       (:est-new (meta-abductive-recursive
-                                  #{ne7} est-expl-adv time-prev time-now sensors)))))))))
+        (is (= #{0 2} (set (map :cycle (make-meta-hyps-order-dep
+                                      #{ne7} est-expl-adv time-prev time-now #{"meta-order-dep"})))))
+        (is (empty? (find-problem-cases
+                     (:est-new (meta-abductive-recursive
+                                #{ne7} est-expl-adv time-prev time-now sensors)))))))))
 
 (deftest test-meta-rej-conflict
   (dosync (alter reasoner (constantly reason-abduction))
