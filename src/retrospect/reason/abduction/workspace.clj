@@ -229,7 +229,9 @@
          expls (explainers workspace hypid)]
      (and (unexplained? workspace hypid)
           (or (empty? expls)
-              (every? (fn [expl] (rejected? workspace expl)) expls))))))
+              (every? (fn [expl] (and (rejected? workspace expl)
+                                     (not= :ignoring (rejection-reason workspace expl))))
+                      expls))))))
 
 (defn no-explainers
   [workspace]
