@@ -101,10 +101,10 @@
       (is (= false (conflicts? h3 h1)))
       (is (= false (conflicts? h2 h4)))
       (is (= false (conflicts? h4 h2)))
-      (is (= [h2] (find-conflicts-all ws h1)))
-      (is (= [h1] (find-conflicts-all ws h2)))
-      (is (= [h4] (find-conflicts-all ws h3)))
-      (is (= [h3] (find-conflicts-all ws h4)))
+      (is (= [h2] (find-conflicts ws h1)))
+      (is (= [h1] (find-conflicts ws h2)))
+      (is (= [h4] (find-conflicts ws h3)))
+      (is (= [h3] (find-conflicts ws h4)))
       (is (= {0 {1 {1 false 2 true 3 false 4 false}
                  2 {1 true 2 false 3 false 4 false}
                  3 {1 false 2 false 3 false 4 true}
