@@ -274,7 +274,7 @@
                  (format "%s rejected some explainers" implicated)
                  (format "%s rejected these explainers (cycle %d, delta %.2f):\n%s"
                     (str implicated) cycle delta (str/join "\n" (map str rejected)))
-                 {:action (partial action-preemptively-reject [implicated] cycle)
+                 {:action (partial action-preemptively-reject [implicated])
                   :cycle cycle
                   :delta delta
                   :implicated [implicated]}))))
