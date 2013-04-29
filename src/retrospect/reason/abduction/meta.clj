@@ -42,7 +42,7 @@
   [workspace cycle time-now]
   (binding [reason-log (ref (:log workspace))]
     (log "Explaining at cycle" cycle)
-    (let [ws (explain workspace cycle time-now)]
+    (let [ws (explain workspace cycle)]
       (assoc ws :log @reason-log))))
 
 (defn explain-and-advance
@@ -95,11 +95,10 @@
 
 (defn action-batch
   [ep est]
-  [(new-branch-ep est ep)
-   params])
+  [(new-branch-ep est ep) params])
 
 (defn action-prevent-rejection-minscore
-  [implicated cycle est]
+  [implicated est]
   (let [new-est (new-branch-ep est (cur-ep est))
         ep (cur-ep new-est)
         ws-prevent-rejection (reduce (fn [ws hyp]
@@ -111,23 +110,34 @@
     [(update-est new-est ep-prevent-rejection) params]))
 
 (defn action-ignore
-  [hyp est]
-  (let [ws-old (:workspace (cur-ep est))
-        new-est (new-branch-ep est (cur-ep est))
-        new-ep (cur-ep new-est)
-        ws-ignored (reject (:workspace new-ep) hyp :ignoring (:cycle new-ep))]
-    [(update-est new-est (assoc new-ep :workspace ws-ignored))
-     params]))
-
-(defn action-preemptively-reject
-  [hyp cycle est]
+  [implicated est]
   (let [new-est (new-branch-ep est (cur-ep est))
         ep (cur-ep new-est)
-        ws-rejected (reject (undecide (:workspace ep) hyp)
-                            hyp :preemptive (:cycle ep))
+        ws-ignored (reduce (fn [ws hyp]
+                        (-> ws (undecide hyp)
+                           (reject hyp :ignoring (:cycle ep))))
+                      (:workspace ep) implicated)
+        ep-ignored (assoc ep :workspace ws-ignored)]
+    [(update-est new-est ep-ignored) params]))
+
+(defn action-undecide
+  [implicated est]
+  (let [new-est (new-branch-ep est (cur-ep est))
+        ep (cur-ep new-est)
+        ws-undecided (reduce undecide (:workspace ep) implicated)
+        ep-undecided (assoc ep :workspace ws-undecided)]
+    [(update-est new-est ep-undecided) params]))
+
+(defn action-preemptively-reject
+  [implicated est]
+  (let [new-est (new-branch-ep est (cur-ep est))
+        ep (cur-ep new-est)
+        ws-rejected (reduce (fn [ws hyp]
+                         (-> ws (undecide hyp)
+                            (reject hyp :preemptive (:cycle ep))))
+                       (:workspace ep) implicated)
         ep-rejected (assoc ep :workspace ws-rejected)]
-    [(update-est new-est ep-rejected)
-     params]))
+    [(update-est new-est ep-rejected) params]))
 
 (defn find-rej-conflict-candidates
   [problem-cases est time-now]
@@ -141,7 +151,9 @@
         inner-hyps (set (map :id (mapcat :hyps acc))) ;; inner hyps, if any, of acc
         acc-no-inner (sort-by :id (filter #(not (inner-hyps (:id %))) acc)) ;; keep only those that are not inner hyps
         acc-no-inner-ids (set (map :id acc-no-inner))
-        ep-rejs (filter (fn [ep] (and (= time-now (:time ep))) (some acc-no-inner-ids (:acc (:accrej (:workspace ep)))))
+        ;; don't do any batching
+        ep-rejs (filter (fn [ep] (and (= time-now (:time ep))
+                                (some acc-no-inner-ids (:acc (:accrej (:workspace ep))))))
                    (ep-path est))
         rejs-deltas (map (fn [ep] [(get-in ep [:workspace :accrej :delta])
                                 (:cycle ep)
@@ -159,10 +171,10 @@
          est est-orig
          tried-implicated #{}]
     (let [ ;; take the earliest rej-conflict
-          {:keys [implicated cycle]} (last (sort-by :cycle (find-rej-conflict-candidates
-                                                            problem-cases est time-now)))]
+          {:keys [implicated]} (last (sort-by :cycle (find-rej-conflict-candidates
+                                                      problem-cases est time-now)))]
       (if (and implicated (not (tried-implicated implicated)))
-        (let [[est-action params-action] (action-preemptively-reject implicated cycle est)
+        (let [[est-action params-action] (action-preemptively-reject [implicated] est)
               {:keys [est-old est-new]} (binding [params params-action]
                                           (meta-apply-and-evaluate est est-action time-now sensors))
               problem-cases-new (find-problem-cases est-new)]
@@ -175,14 +187,10 @@
   [problem-cases est time-now]
   (let [cur-ws (:workspace (cur-ep est))
         expl (set (mapcat #(explainers cur-ws %) problem-cases)) ;; explainers of problem-cases
-        minscore (/ (double (:MinScore params)) 100.0)
-        expl-rejected-minscore
-        (sort-by :id (filter (fn [h] (= :minscore (rejection-reason cur-ws h)))
-                        expl))
-        relevant-problem-cases
-        (sort-by :id (filter (fn [pc] (some #{(:contents pc)}
-                                   (mapcat :explains expl-rejected-minscore)))
-                        problem-cases))]
+        expl-rejected-minscore (sort-by :id (filter (fn [h] (= :minscore (rejection-reason cur-ws h))) expl))
+        relevant-problem-cases (sort-by :id (filter (fn [pc] (some #{(:contents pc)}
+                                                          (mapcat :explains expl-rejected-minscore)))
+                                               problem-cases))]
     {:implicated expl-rejected-minscore
      :may-resolve relevant-problem-cases}))
 
@@ -193,18 +201,12 @@
          est est-orig
          implicated-before #{}]
     (let [cur-ws (:workspace (cur-ep est))
-          expl (set (mapcat #(explainers cur-ws %) problem-cases))
-          {:keys [implicated may-resolve]}
-          (find-rej-minscore-candidates problem-cases est time-now)
-          implicated-untried (filter #(not (implicated-before (:contents %))) implicated)
-          cycle (if (not-empty implicated-untried)
-                  (apply min (map (fn [h] (rejected-cycle cur-ws h)) implicated-untried)))]
+          {:keys [implicated]} (find-rej-minscore-candidates problem-cases est time-now)
+          implicated-untried (filter #(not (implicated-before (:contents %))) implicated)]
       (if (not-empty implicated-untried)
-        (let [[est-action params-action]
-              (action-prevent-rejection-minscore implicated-untried cycle est)
-              {:keys [est-old est-new]}
-              (binding [params params-action]
-                (meta-apply-and-evaluate est est-action time-now sensors))
+        (let [[est-action params-action] (action-prevent-rejection-minscore implicated-untried est)
+              {:keys [est-old est-new]} (binding [params params-action]
+                                          (meta-apply-and-evaluate est est-action time-now sensors))
               problem-cases-new (find-problem-cases est-new)]
           (if (not-empty problem-cases-new)
             (recur problem-cases-new
@@ -216,15 +218,18 @@
 
 (defn meta-hyp-conflicts?
   [hyp1 hyp2]
+  ;; all meta-hyp types conflict; only one can be accepted
   (and (not= hyp1 hyp2)
        ((:meta-hyp-types @reasoner) (:type hyp1))
        ((:meta-hyp-types @reasoner) (:type hyp2))))
 
 (defn make-meta-hyps-order-dep
-  [problem-cases est time-prev time-now available-meta-hyps cur-ws expl]
+  [problem-cases est time-prev time-now available-meta-hyps]
   (if (not (available-meta-hyps "meta-order-dep")) []
       ;; order dependency among the observations; a no-expl-offered situation
-      (if (not= 0 time-prev)
+      (if (and (not= 0 time-prev)
+               ;; require that some problem case has no known explainerse
+               (some (fn [pc] (empty? (explainers (:workspace (cur-ep est)) pc))) problem-cases))
         (let [batchbeg-ep (cur-ep (goto-start-of-time est 0))
               batchbeg-hyp (new-hyp "OrderDep" :meta-order-dep :meta-order-dep
                                     0.1 false meta-hyp-conflicts?
@@ -256,7 +261,7 @@
         [])))
 
 (defn make-meta-hyps-rej-conflict
-  [problem-cases est time-prev time-now available-meta-hyps cur-ws expl]
+  [problem-cases est time-prev time-now available-meta-hyps]
   ;; correct explainer(s) were rejected due to conflicts; need to
   ;; consider the various possibilities of rejected explainers and
   ;; no-explainers combinations
@@ -269,19 +274,17 @@
                  (format "%s rejected some explainers" implicated)
                  (format "%s rejected these explainers (cycle %d, delta %.2f):\n%s"
                     (str implicated) cycle delta (str/join "\n" (map str rejected)))
-                 {:action (partial action-preemptively-reject implicated cycle)
+                 {:action (partial action-preemptively-reject [implicated] cycle)
                   :cycle cycle
                   :delta delta
                   :implicated [implicated]}))))
 
 (defn make-meta-hyps-rej-minscore
-  [problem-cases est time-prev time-now available-meta-hyps cur-ws expl]
+  [problem-cases est time-prev time-now available-meta-hyps]
   ;; were some explainers omitted due to high min-score?
   (if (not (available-meta-hyps "meta-rej-minscore")) []
       (let [minscore (/ (double (:MinScore params)) 100.0)
-            {:keys [implicated may-resolve]} (find-rej-minscore-candidates problem-cases est time-now)
-            cycle (if (not-empty implicated)
-                    (apply min (map (fn [h] (rejected-cycle cur-ws h)) implicated)))]
+            {:keys [implicated may-resolve]} (find-rej-minscore-candidates problem-cases est time-now)]
         (if (not-empty implicated)
           [(new-hyp "TooHighMinScore" :meta-rej-minscore :meta-rej-minscore
                     0.25 false meta-hyp-conflicts?
@@ -290,8 +293,7 @@
                     (format "These explainers were rejected due to too-high min-score:\n%s\n\nRelevant problem cases:\n%s"
                        (str/join "\n" (sort (map str implicated)))
                        (str/join "\n" (sort (map str may-resolve))))
-                    {:action (partial action-prevent-rejection-minscore implicated cycle)
-                     :cycle cycle
+                    {:action (partial action-prevent-rejection-minscore implicated)
                      :implicated implicated
                      :min-score-delta (- minscore (apply min (map :apriori implicated)))
                      :max-score-delta (- minscore (apply max (map :apriori implicated)))
@@ -301,16 +303,11 @@
 (defn make-meta-hyps
   "Create explanations, and associated actions, for problem-cases."
   [problem-cases est time-prev time-now]
-  (let [available-meta-hyps (set (str/split (:MetaHyps params) #","))
-        cur-ws (:workspace (cur-ep est))
-        expl (set (mapcat #(explainers cur-ws %) problem-cases))]
+  (let [available-meta-hyps (set (str/split (:MetaHyps params) #","))]
     (concat
-     (make-meta-hyps-order-dep
-      problem-cases est time-prev time-now available-meta-hyps cur-ws expl)
-     (make-meta-hyps-rej-conflict
-      problem-cases est time-prev time-now available-meta-hyps cur-ws expl)
-     (make-meta-hyps-rej-minscore
-      problem-cases est time-prev time-now available-meta-hyps cur-ws expl))))
+     (make-meta-hyps-order-dep problem-cases est time-prev time-now available-meta-hyps)
+     (make-meta-hyps-rej-conflict problem-cases est time-prev time-now available-meta-hyps)
+     (make-meta-hyps-rej-minscore problem-cases est time-prev time-now available-meta-hyps))))
 
 (defn score-meta-hyps-estimate
   [problem-cases meta-hyps est time-prev time-now sensors]
@@ -465,8 +462,7 @@
          est est
          attempted #{}
          implicated #{}]
-    (let [{:keys [est-old est-new best]}
-          (meta-abductive problem-cases est time-prev time-now sensors)
+    (let [{:keys [est-old est-new best]} (meta-abductive problem-cases est time-prev time-now sensors)
           problem-cases-new (find-problem-cases est-new)]
       (if (and best
                (not (attempted (dissoc (:contents best) :action)))
@@ -483,13 +479,8 @@
 
 (defn resolve-by-ignoring
   [problem-cases est time-prev time-now sensors]
-  (let [new-est (new-branch-ep est (cur-ep est))
-        new-ep (cur-ep new-est)
-        ws-old (:workspace (cur-ep est))
-        ws-ignored (reduce (fn [ws h] (reject ws h :ignoring (:cycle new-ep)))
-                      (:workspace new-ep) problem-cases)
-        new-est-ignored (update-est new-est (assoc new-ep :workspace ws-ignored))]
-    (reason new-est-ignored time-prev time-now sensors :no-metareason)))
+  (let [[new-est _] (action-ignore problem-cases est)]
+    (reason new-est time-prev time-now sensors :no-metareason)))
 
 (defn metareason
   "Activate the appropriate metareasoning strategy (as given by
@@ -514,13 +505,10 @@
                               problem-cases)
         problem-cases-new (when result (find-problem-cases (:est-new result)))]
     (cond (nil? result)
-          (resolve-by-ignoring problem-cases-old est
-                               time-prev time-now sensors)
+          (resolve-by-ignoring problem-cases-old est time-prev time-now sensors)
           (empty? problem-cases-new)
           (:est-new result)
           (< (count problem-cases-new) (count problem-cases-old))
-          (resolve-by-ignoring problem-cases-new (:est-new result)
-                               time-prev time-now sensors)
+          (resolve-by-ignoring problem-cases-new (:est-new result) time-prev time-now sensors)
           :else
-          (resolve-by-ignoring problem-cases-old (:est-old result)
-                               time-prev time-now sensors))))
+          (resolve-by-ignoring problem-cases-old (:est-old result) time-prev time-now sensors))))

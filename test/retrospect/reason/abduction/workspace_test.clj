@@ -16,7 +16,7 @@
 (defn explain-helper
   [workspace]
   (loop [ws workspace]
-    (let [ws-expl (explain ws 1 1)]
+    (let [ws-expl (explain ws 1)]
       (if (nil? (:best (:accrej ws-expl))) ws-expl
           (recur ws-expl)))))
 
@@ -62,7 +62,8 @@
           ws (-> (init-workspace)
                 (add h1 1)
                 (add h2 1)
-                (add h3 1))]
+                (add h3 1)
+                (reject-minscore 1))]
       (is (undecided? ws h1))
       (is (rejected? ws h2))
       (is (= :minscore (rejection-reason ws h2)))
@@ -135,7 +136,8 @@
                 (add h3 1)
                 (add (assoc h3 :apriori 0.70) 1)
                 (prevent-rejection h4 :minscore)
-                (add h4 1))]
+                (add h4 1)
+                (reject-minscore 1))]
       (is (rejected? ws h1))
       (is (= :conflict (rejection-reason ws h1)))
       (is (rejected? ws h2))
@@ -270,7 +272,7 @@
                 (add h3 1)
                 (add h4 1)
                 (add-observation ne1 1))
-          ws-expl (explain ws 1 1)]
+          ws-expl (explain ws 1)]
       (is (= [e1] (explains ws h1)))
       (is (= [e2] (explains ws h2)))
       (is (= [e2] (explains ws h3)))
@@ -324,11 +326,11 @@
           ws (-> (init-workspace)
                 (add-observation e1 1)
                 (add h3 1)
-                (explain 1 1)
+                (explain 1)
                 (add-observation e2 2)
                 (add h4 2)
                 (add h5 2)
-                (explain 2 2))]
+                (explain 2))]
       (is (accepted? ws h4))
       (is (not (unexplained? ws h4)))
       (is (empty? (unexplained ws))))))
@@ -367,9 +369,9 @@
                 (add-observation e2 1)
                 (add h3 1)
                 (add hc1 1))
-          ws-expl (explain ws 1 1)
+          ws-expl (explain ws 1)
           ws-rej (-> ws (add h2 1) (reject h2 :conflict 1))
-          ws-rej-expl (explain ws-rej 1 1)]
+          ws-rej-expl (explain ws-rej 1)]
       (is (:composite? hc1))
       (is (= [h1 h2] (:hyps hc1)))
       (is (= [e2] (explains ws h3)))
@@ -433,9 +435,9 @@
                 (add h6 1)
                 (add h7 1))
           ws-expl (explain-helper ws)
-          ws-undecided (undecide ws-expl h5)
+          ws-undecided (reject-minscore (undecide ws-expl h5) 1)
           ws-undecided-expl (explain-helper ws-undecided)
-          ws-undecided-expl-undecided (undecide ws-undecided-expl h5)]
+          ws-undecided-expl-undecided (reject-minscore (undecide ws-undecided-expl h5) 1)]
       (is (= [1 3 5 6 7] (related-hyps ws e1)))
       (is (= [2 4] (related-hyps ws e2)))
       (is (= [3 5 6 7] (related-hyps ws h3)))
@@ -459,5 +461,7 @@
       (is (undecided? ws-undecided h6))
       (is (undecided? ws-undecided h7))
       (is (= [h3] (unexplained ws-undecided)))
-      (is (= ws-expl ws-undecided-expl))
-      (is (= ws-undecided ws-undecided-expl-undecided)))))
+      (is (= (clear-all-hyp-logs ws-expl)
+             (clear-all-hyp-logs ws-undecided-expl)))
+      (is (= (clear-all-hyp-logs ws-undecided)
+             (clear-all-hyp-logs ws-undecided-expl-undecided))))))

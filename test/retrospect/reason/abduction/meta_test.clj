@@ -69,11 +69,11 @@
                                            :make-sensor-hyps-fn sensor-hyps-fn
                                            :ignore-doubt-types #{}}})))
       (let [sensors []
-            est (new-child-ep (new-child-ep (init-est (init-workspace))))
-            est2 (update-est est (assoc (cur-ep est) :time 1))
-            est3 (new-child-ep (explain-and-advance est2 0 1 sensors))
-            est4 (update-est est3 (assoc (cur-ep est3) :time 2))
-            est-expl-adv (explain-and-advance est4 1 2 sensors)
+            est (update-est-ep (new-child-ep (new-child-ep (init-est (init-workspace))))
+                               :time 1)
+            est2 (update-est-ep (new-child-ep (explain-and-advance est 0 1 sensors))
+                                :time 2)
+            est-expl-adv (explain-and-advance est2 1 2 sensors)
             ws-expl-adv (:workspace (cur-ep est-expl-adv))
             time-prev 1
             time-now 2]
@@ -158,7 +158,8 @@
           sensors []
           time-prev 1
           time-now 2
-          est (new-child-ep (new-child-ep (init-est ws)))
+          est (update-est-ep (new-child-ep (new-child-ep (init-est ws)))
+                             :time 2)
           est-expl-adv (explain-and-advance est time-prev time-now sensors)
           ws-expl-adv (:workspace (cur-ep est-expl-adv))
           {est-rc-old :est-old est-rc-new :est-new} (meta-rej-conflict
@@ -287,7 +288,8 @@
           sensors []
           time-prev 1
           time-now 2
-          est (new-child-ep (new-child-ep (init-est ws)))
+          est (update-est-ep (new-child-ep (new-child-ep (init-est ws)))
+                             :time 2)
           est-expl-adv (explain-and-advance est time-prev time-now sensors)
           ws-expl-adv (:workspace (cur-ep est-expl-adv))
           est-meta-ignore (binding [params (assoc params :Metareasoning "ignore")]
@@ -357,10 +359,10 @@
       (is (= :minscore (rejection-reason ws-meta-lms h5)))
       (is (= :minscore (rejection-reason ws-meta-lms h6)))
       (is (= :ignoring (rejection-reason ws-meta-lms e2)))
-      (is (empty? (find-problem-cases est-meta-lms-tmp)))
+      (is (= #{e2} (find-problem-cases est-meta-lms-tmp)))
       (is (accepted? ws-meta-lms-tmp h3))
       (is (= :conflict (rejection-reason ws-meta-lms-tmp h5)))
-      (is (accepted? ws-meta-lms-tmp h6))
+      (is (= :conflict (rejection-reason ws-meta-lms-tmp h6)))
 
       ;; reject-conflict just falls back to ignoring because, of course,
       ;; it does not solve the minscore issue (which was the "original" cause)

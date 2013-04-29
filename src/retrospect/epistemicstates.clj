@@ -127,6 +127,10 @@
   [est ep]
   (zip/replace est ep))
 
+(defn update-est-ep
+  [est & kvs]
+  (update-est est (apply assoc (cur-ep est) kvs)))
+
 (defn est-to-nested-helper
   [ep]
   (let [deeper (map est-to-nested-helper (:children ep))]

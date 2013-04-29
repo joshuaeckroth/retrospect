@@ -251,6 +251,17 @@
         new-log (format "%s%s\n" (or (attr (:hypgraph workspace) hypid :log) "") msg)]
     (update-in workspace [:hypgraph] add-attr hypid :log new-log)))
 
+(defn clear-hyp-log
+  "Primarily for test cases."
+  [workspace h]
+  (let [hypid (if (integer? h) h (:id h))]
+    (update-in workspace [:hypgraph] remove-attr hypid :log)))
+
+(defn clear-all-hyp-logs
+  "Primarily for test cases."
+  [workspace]
+  (reduce clear-hyp-log workspace (:all (hypotheses workspace))))
+
 (defn hyp-better-than?
   [workspace unexp hyp1 hyp2]
   (prof
@@ -407,9 +418,8 @@
              (update-in [:hypgraph] remove-attr hypid :rejection-reason)
              (update-in [:accepted] disj hypid)
              (update-in [:rejected] disj hypid)
-             (update-in [:unexplained] set/union
-                        (attr (:hypgraph workspace) hypid
-                              :accepted-newly-explained))))
+             (update-in [:unexplained] set/union (attr (:hypgraph workspace) hypid :accepted-newly-explained))
+             (add-to-hyp-log hyp "Undecided")))
         workspace rel-hyps))))
 
 (defn unreject
@@ -453,8 +463,7 @@
                composites (filter (fn [h] (and (:composite? h) (some (fn [hc] (= hyp hc)) (:hyps h))))
                              (:all (hypotheses workspace)))
                ws-comp (reduce (fn [ws h] (reject ws h reason-tag cycle)) ws composites)]
-           (if @batch ws-comp (add-to-hyp-log ws-comp hyp (format "Rejected at cycle %d with reason %s"
-                                                             cycle (str reason-tag)))))))))
+           (add-to-hyp-log ws-comp hyp (format "Rejected at cycle %d with reason %s" cycle (str reason-tag))))))))
 
 (defn update-hyp-apriori
   [workspace hyp]
@@ -559,18 +568,12 @@
                 (-> workspace
                    (add-to-hyp-log hyp-c (format "Added at cycle %d" cycle))
                    (add-helper hyp-c)))]
-       (cond (and (not (rejected? ws hyp-c))
-                  (conflicts-with-accepted? ws hyp-c))
-             (do (log (str "...yet it conflicts with an already accepted hyp, "
-                           "so immediately rejecting."))
-                 (reject ws hyp-c :conflict cycle))
-             (and (not (rejected? ws hyp-c))
-                  (<= (:apriori hyp-c) (double (/ (:MinScore params) 100.0)))
-                  (not (prevented-rejection? ws hyp-c :minscore)))
-             (do (log (str "...yet it does not meet MinScore requirement, "
-                           "so immediately rejecting."))
-                 (reject ws hyp-c :minscore cycle))
-             :else ws)))))
+       (if (and (not (rejected? ws hyp-c))
+                (conflicts-with-accepted? ws hyp-c))
+         (do (log (str "...yet it conflicts with an already accepted hyp, "
+                       "so immediately rejecting."))
+             (reject ws hyp-c :conflict cycle))
+         ws)))))
 
 (defn accept
   [workspace hyp nbest alts explained delta comparison cycle]
@@ -613,7 +616,10 @@
                                                   cycle explained delta (nil? nbest) nbest
                                                   comparison)))
                  conflicts (find-conflicts ws-hyplog hyp)
-                 ws-conflicts (reduce (fn [ws h] (reject ws h :conflict cycle)) ws-hyplog conflicts)
+                 ws-conflicts (reduce (fn [ws h] (if (undecided? ws h)
+                                             (reject ws h :conflict cycle)
+                                             ws))
+                                 ws-hyplog conflicts)
                  ws-composite (if (not (:composite? hyp)) ws-conflicts
                                   (reduce (fn [ws h]
                                        (let [ws-added (add ws h cycle)
@@ -627,6 +633,99 @@
                                      ws-conflicts (:hyps hyp)))]
              (update-in ws-composite [:accrej :acc] conj (:id hyp)))))))
 
+(defn contrast-sets
+  [workspace unexp]
+  (let [expls (doall (filter #(not-empty (:expl %))
+                        (for [h unexp] {:hyp h :expl (filter #(undecided? workspace %)
+                                                        (explainers workspace h))})))]
+    (sort-explainers workspace unexp expls)))
+
+(defn find-best
+  [workspace]
+  (prof
+   :find-best
+   (let [unexp (unexplained workspace)
+         expls-sorted (contrast-sets workspace unexp)]
+     (when (not-empty expls-sorted)
+       (let [essential-expl (first (filter #(= 1 (count (:expl %))) expls-sorted))]
+         (if essential-expl
+           (let [explained (:hyp essential-expl)
+                 best (first (:expl essential-expl))]
+             {:best best :nbest nil :explained explained :alts []
+              :comparison {} :delta 1.0 :normalized-aprioris [1.0]})
+           ;; otherwise, choose highest-delta non-essential
+           (let [hyp-expl (first expls-sorted)
+                 explained (:hyp hyp-expl)
+                 choices (:expl hyp-expl)
+                 best (first choices)
+                 nbest (second choices)
+                 normalized-aprioris (let [aprioris (map :apriori choices)
+                                           s (reduce + aprioris)]
+                                       (if (= 0.0 (double s)) aprioris
+                                           (map #(/ % s) aprioris)))
+                 delta (- (first normalized-aprioris) (second normalized-aprioris))
+                 comparison (hyp-better-than? workspace unexp best nbest)]
+             (log "best:" best "nbest:" nbest "delta:" delta)
+             (when (or (= 0 (:Threshold params))
+                       (>= delta (+ 0.001 (/ (:Threshold params) 100.0)))
+                       ;; if threshold is not good enough,
+                       ;; see if one hyp is better purely by
+                       ;; other factors such as explanatory power
+                       (and (:ConsiderExplPower params)
+                            (or (:expl comparison) (:explainers comparison))))
+               {:best best :nbest nbest :delta delta
+                :normalized-aprioris normalized-aprioris
+                :explained explained :alts (rest choices)
+                :comparison comparison}))))))))
+
+;; TODO
+(defn update-kb
+  [workspace]
+  (prof
+   :update-kb
+   (if-not (:UpdateKB params) workspace
+           workspace)))
+
+(defn get-explaining-hypotheses
+  "Ask problem domain to get explainers."
+  [workspace time-now]
+  (prof
+   :get-explaining-hypotheses
+   (doall ((:hypothesize-fn (:abduction @problem))
+           (unexplained workspace) (accepted workspace) (hypotheses workspace) time-now))))
+
+(defn update-hypotheses
+  "Put explainers from problem domain into workspace."
+  [workspace cycle time-now]
+  (prof
+   :update-hypotheses
+   (do
+     (log "Updating hypotheses")
+     (let [hyps (get-explaining-hypotheses workspace time-now)]
+       (reduce #(add %1 %2 cycle) workspace hyps)))))
+
+(defn reject-minscore
+  [workspace cycle]
+  (reduce (fn [ws h] (reject ws h :minscore cycle))
+     workspace (filter (fn [h] (and (not (rejected? workspace h))
+                              (<= (:apriori h) (double (/ (:MinScore params) 100.0)))
+                              (not (prevented-rejection? workspace h :minscore))))
+                  (:all (hypotheses workspace)))))
+
+(defn explain
+  [workspace cycle]
+  (prof
+   :explain
+   (let [ws (assoc workspace :accrej {})
+         ws-minscore (reject-minscore ws cycle)]
+     (log "Unexplained:" (str/join ", " (sort (map :id (unexplained ws-minscore)))))
+     (let [{:keys [best nbest alts explained delta comparison] :as b} (find-best ws-minscore)]
+       (if-not best
+         (do (log "No best.") ws-minscore)
+         (do (log "Best is" (:id best) (:apriori best))
+             (-> ws-minscore (update-in [:accrej] merge b)
+                (accept best nbest alts explained delta comparison cycle))))))))
+
 (defn add-observation
   [workspace hyp cycle]
   (prof
@@ -634,6 +733,47 @@
    (let [ws-added (add workspace hyp cycle)]
      (if (rejected? ws-added hyp) ws-added
          (accept ws-added hyp nil [] [] 0.0 {} cycle)))))
+
+(defn add-sensor-hyps
+  "Ask problem domain to make sensor hyps; then put them into workspace."
+  [workspace time-prev time-now sensors cycle]
+  (prof
+   :add-sensor-hyps
+   (do
+     (log "Adding sensor hyps")
+     (let [hs ((:make-sensor-hyps-fn (:abduction @problem))
+               sensors time-prev time-now
+               (accepted workspace) (hypotheses workspace))]
+       (reduce #(add-observation %1 %2 cycle) workspace hs)))))
+
+(defn add-kb
+  [workspace hyps]
+  (prof
+   :add-kb
+   (reduce (fn [ws h]
+        (let [ws-added (add ws h 0)]
+          (if (= :kb (:type h))
+            (-> ws-added
+               (update-in [:hypgraph] add-attr (:id h) :accepted? true)
+               (update-in [:accepted] conj (:id h)))
+            ws-added)))
+      workspace hyps)))
+
+(defn init-kb
+  [workspace training]
+  (prof
+   :init-kb
+   (add-kb workspace ((:generate-kb-fn (:abduction @problem)) training))))
+
+(defn init-workspace
+  []
+  (prof
+   :init-workspace
+   (assoc empty-workspace
+     :oracle-types
+     (set (map keyword (str/split (:Oracle params) #",")))
+     :meta-oracle-types
+     (set (map keyword (str/split (:MetaOracle params) #","))))))
 
 (defn get-unexp-pct
   [workspace]
@@ -690,59 +830,6 @@
              :else ;; "none"
              d)))))
 
-(defn contrast-sets
-  [workspace unexp]
-  (let [expls (doall (filter #(not-empty (:expl %))
-                        (for [h unexp] {:hyp h :expl (filter #(undecided? workspace %)
-                                                        (explainers workspace h))})))]
-    (sort-explainers workspace unexp expls)))
-
-(defn find-best
-  [workspace]
-  (prof
-   :find-best
-   (let [unexp (unexplained workspace)
-         expls-sorted (contrast-sets workspace unexp)]
-     (when (not-empty expls-sorted)
-       (let [essential-expl (first (filter #(= 1 (count (:expl %))) expls-sorted))]
-         (if essential-expl
-           (let [explained (:hyp essential-expl)
-                 best (first (:expl essential-expl))]
-             {:best best :nbest nil :explained explained :alts []
-              :comparison {} :delta 1.0 :normalized-aprioris [1.0]})
-           ;; otherwise, choose highest-delta non-essential
-           (let [hyp-expl (first expls-sorted)
-                 explained (:hyp hyp-expl)
-                 choices (:expl hyp-expl)
-                 best (first choices)
-                 nbest (second choices)
-                 normalized-aprioris (let [aprioris (map :apriori choices)
-                                           s (reduce + aprioris)]
-                                       (if (= 0.0 (double s)) aprioris
-                                           (map #(/ % s) aprioris)))
-                 delta (- (first normalized-aprioris) (second normalized-aprioris))
-                 comparison (hyp-better-than? workspace unexp best nbest)]
-             (log "best:" best "nbest:" nbest "delta:" delta)
-             (when (or (= 0 (:Threshold params))
-                       (>= delta (+ 0.001 (/ (:Threshold params) 100.0)))
-                       ;; if threshold is not good enough,
-                       ;; see if one hyp is better purely by
-                       ;; other factors such as explanatory power
-                       (and (:ConsiderExplPower params)
-                            (or (:expl comparison) (:explainers comparison))))
-               {:best best :nbest nbest :delta delta
-                :normalized-aprioris normalized-aprioris
-                :explained explained :alts (rest choices)
-                :comparison comparison}))))))))
-
-;; TODO
-(defn update-kb
-  [workspace]
-  (prof
-   :update-kb
-   (if-not (:UpdateKB params) workspace
-           workspace)))
-
 ;; TODO
 (defn update-graph
   "Need to run this before evaluation in order to calculate coverage."
@@ -780,74 +867,3 @@
                      g-conflicts (:all (:accepted workspace)))]
      (assoc workspace :graph g-accepted))))
 
-(defn get-explaining-hypotheses
-  "Ask problem domain to get explainers."
-  [workspace time-now]
-  (prof
-   :get-explaining-hypotheses
-   (doall ((:hypothesize-fn (:abduction @problem))
-           (unexplained workspace) (accepted workspace) (hypotheses workspace) time-now))))
-
-(defn update-hypotheses
-  "Put explainers from problem domain into workspace."
-  [workspace cycle time-now]
-  (prof
-   :update-hypotheses
-   (do
-     (log "Updating hypotheses")
-     (let [hyps (get-explaining-hypotheses workspace time-now)]
-       (reduce #(add %1 %2 cycle) workspace hyps)))))
-
-(defn explain
-  [workspace cycle time-now]
-  (prof
-   :explain
-   (let [ws (assoc workspace :accrej {})]
-     (log "Unexplained:" (str/join ", " (sort (map :id (unexplained ws)))))
-     (let [{:keys [best nbest alts explained delta comparison] :as b} (find-best ws)]
-       (if-not best
-         (do (log "No best.") ws)
-         (do (log "Best is" (:id best) (:apriori best))
-             (-> ws (update-in [:accrej] merge b)
-                (accept best nbest alts explained delta comparison cycle))))))))
-
-(defn add-sensor-hyps
-  "Ask problem domain to make sensor hyps; then put them into workspace."
-  [workspace time-prev time-now sensors cycle]
-  (prof
-   :add-sensor-hyps
-   (do
-     (log "Adding sensor hyps")
-     (let [hs ((:make-sensor-hyps-fn (:abduction @problem))
-               sensors time-prev time-now
-               (accepted workspace) (hypotheses workspace))]
-       (reduce #(add-observation %1 %2 cycle) workspace hs)))))
-
-(defn add-kb
-  [workspace hyps]
-  (prof
-   :add-kb
-   (reduce (fn [ws h]
-        (let [ws-added (add ws h 0)]
-          (if (= :kb (:type h))
-            (-> ws-added
-               (update-in [:hypgraph] add-attr (:id h) :accepted? true)
-               (update-in [:accepted] conj (:id h)))
-            ws-added)))
-      workspace hyps)))
-
-(defn init-kb
-  [workspace training]
-  (prof
-   :init-kb
-   (add-kb workspace ((:generate-kb-fn (:abduction @problem)) training))))
-
-(defn init-workspace
-  []
-  (prof
-   :init-workspace
-   (assoc empty-workspace
-     :oracle-types
-     (set (map keyword (str/split (:Oracle params) #",")))
-     :meta-oracle-types
-     (set (map keyword (str/split (:MetaOracle params) #","))))))
