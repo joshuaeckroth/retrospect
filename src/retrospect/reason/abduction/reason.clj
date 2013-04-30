@@ -36,8 +36,8 @@
              :MetaRuleSet ["a" ["a" "b" "c"]]
              :MetaHyps ["meta-rej-conflict,meta-rej-minscore,meta-order-dep"
                         ["meta-rej-conflict,meta-rej-minscore,meta-order-dep"]]
-             :ScoreMetaHyps ["diff" ["diff" "doubt"]]
-             :ComplexMetaRejMinscoreScoring [true [true false]]
+             :ScoreMetaHyps ["doubt-diff" ["doubt-diff" "doubt" "apriori-diff"]]
+             :ComplexMetaRejMinscoreScoring [false [true false]]
              :EstimateMetaScores [false [true false]]
              :MinScore [0 [0 10]]
              :DoubtMeasure ["delta" ["score" "delta" "score-delta-prod"

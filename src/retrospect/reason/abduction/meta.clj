@@ -225,7 +225,7 @@
   (if (not (available-meta-hyps "meta-order-dep")) []
       ;; order dependency among the observations; a no-expl-offered situation
       (if (and (not= 0 time-prev)
-               ;; require that some problem case has no known explainers
+               ;; require that some problem case has no known explainers (no-expl-offered)
                (some (fn [pc] (empty? (explainers (:workspace (cur-ep est)) pc))) problem-cases))
         (let [batchbeg-ep (cur-ep (goto-start-of-time est 0))
               batchbeg-hyp (new-hyp "OrderDep" :meta-order-dep :meta-order-dep
@@ -332,12 +332,14 @@
                                 (avg (map :apriori problem-cases-new))))))
               (* 2.0 (:max-score-delta hyp))))
       ;; normal scoring (non-rej-minscore meta-hyps)
-      (cond (= "diff" (:ScoreMetaHyps params))
+      (cond (= "apriori-diff" (:ScoreMetaHyps params))
             (max 0.0
                  (- (avg (map :apriori problem-cases))
                     (avg (map :apriori problem-cases-new))
                     (if (nil? (:penalty hyp)) 0.0
                         (:penalty hyp))))
+            (= "doubt-diff" (:ScoreMetaHyps params))
+            (- doubt doubt-new) ;; known to be non-negative due to (if) above
             ;; "doubt"
             :else
             doubt-new))))
