@@ -718,7 +718,8 @@
 (defn reject-minscore
   [workspace cycle]
   (reduce (fn [ws h] (reject ws h :minscore cycle))
-     workspace (filter (fn [h] (and (undecided? workspace h)
+     workspace (filter (fn [h] (and (not= :observation (:type h))
+                              (undecided? workspace h)
                               (<= (:apriori h) (double (/ (:MinScore params) 100.0)))
                               (not (prevented-rejection? workspace h :minscore))))
                   (:all (hypotheses workspace)))))

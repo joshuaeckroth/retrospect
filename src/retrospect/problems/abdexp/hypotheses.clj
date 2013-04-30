@@ -72,7 +72,9 @@
             sens-observed (set (mapcat #(sensed-at (first sensors) %)
                                        (range (inc time-now))))]
         (for [[v val] sens-observed]
-          (new-hyp "Obs" :observation :observation 1.0 true nil
+          (new-hyp "Obs" :observation :observation
+                   (make-score expgraph bn observed [] v val)
+                   true nil
                    [] (format "Observed %s=%s" v val) (format "Observed %s=%s" v val)
                    {:vertex v :value val})))))
 
