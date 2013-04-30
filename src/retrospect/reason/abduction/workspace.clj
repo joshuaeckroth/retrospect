@@ -472,7 +472,7 @@
                composites (filter (fn [h] (and (:composite? h) (some (fn [hc] (= hyp hc)) (:hyps h))))
                              (:all (hypotheses workspace)))
                ws-comp (reduce (fn [ws h] (reject ws h reason-tag cycle)) ws composites)]
-           (add-to-hyp-log ws-comp hyp (format "Rejected at cycle %d with reason %s" cycle (str reason-tag))))))))
+           (add-to-hyp-log ws-comp hyp (format "%s rejected at cycle %d with reason %s" (str hyp) cycle (str reason-tag))))))))
 
 (defn update-hyp-apriori
   [workspace hyp]
@@ -526,7 +526,7 @@
      (do (log "...yet was rejected due to :minscore previously\n"
               "...but now satisfies minscore, so unrejecting.")
          (-> workspace
-            (add-to-hyp-log prior-hyp-updated "Unrejecting because now satisfies MinScore.")
+            (add-to-hyp-log prior-hyp-updated (format "%s Unrejecting because now satisfies MinScore." (str prior-hyp-updated)))
             (unreject prior-hyp-updated)))
      (do (log "...yet was rejected due to" (rejection-reason workspace prior-hyp)
               "so leaving as is (not adding).")
@@ -549,7 +549,7 @@
                                  :needs-explainer? (:needs-explainer? hyp)
                                  :explains (set/union (set (:explains prior-hyp))
                                                   (set (:explains hyp)))
-                                 :apriori (:apriori hyp)
+                                 :apriori (max (:apriori hyp) (:apriori prior-hyp))
                                  :data (:data hyp)
                                  :contents (assoc (:data hyp) :type (:type hyp) :subtype (:subtype hyp)))]
          (if (rejected? workspace prior-hyp)
@@ -572,7 +572,7 @@
      (log "Adding" hyp-c)
      (let [ws (if-let [prior-hyp-id (get (:hyp-contents workspace) (:contents hyp-c))]
                 (-> workspace
-                   (add-to-hyp-log hyp-c (format "Added as updated hyp %s at cycle %d" prior-hyp-id cycle))
+                   (add-to-hyp-log prior-hyp-id (format "%s Added as updated hyp %s at cycle %d" hyp-c prior-hyp-id cycle))
                    (add-existing-hyp-updated hyp-c prior-hyp-id cycle))
                 (-> workspace
                    (add-to-hyp-log hyp-c (format "Added at cycle %d" cycle))
