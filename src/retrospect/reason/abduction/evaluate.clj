@@ -5,11 +5,7 @@
          :only [cur-ep flatten-est count-branches decision-points]])
   (:use [retrospect.evaluate])
   (:use [retrospect.epistemicstates :only [ep-path]])
-  (:use [retrospect.reason.abduction.workspace
-         :only [get-unexp-pct get-noexp-pct calc-doubt
-                accepted? rejected? rejection-reason lookup-hyp update-graph
-                unexplained? accepted-explained no-explainers
-                unexplained explainers explains find-conflicts]])
+  (:use [retrospect.reason.abduction.workspace])
   (:use [retrospect.state]))
 
 (defn keyword-to-metric
@@ -161,8 +157,15 @@
       ;; of your rivals is true; or you were not accepted but are
       ;; true, and you were the rival when a false explainer was
       ;; accepted
-      ;; TODO: fix
-      false
+      (or (and (accepted? ws hyp) ;; this was accepted,
+               (not (tf-true? true-false hyp)) ;; but it's false,
+               (some #(tf-true? true-false %) (accepted-rivals ws hyp))) ;; and a rival is true; or,
+          (and (not (accepted? ws hyp)) ;; this was not accepted,
+               (tf-true? true-false hyp) ;; but it's true, and
+               (some (fn [h] (and (accepted? ws h) ;; another was accepted,
+                              (not (tf-true? true-false h)) ;; which was false,
+                              (some (fn [h2] (= hyp h2)) (accepted-rivals ws h)))) ;; and competed with this one
+                  (:all (hypotheses ws)))))
       :scoring
       ;; false acceptance but true hyp (for what was explained) was never offered
       (and (accepted? ws hyp)
@@ -220,18 +223,6 @@
       ;; else, there was no error
       :else
       :no-error)))
-
-(comment
-  (or (and (accepted? ws hyp)
-           (not (tf-true? true-false hyp))
-           (some #(tf-true? true-false %)
-              (accepted-rivals ws hyp)))
-      (and (not (accepted? ws hyp))
-           (tf-true? true-false hyp)
-           (let [accepted-instead-ids (map first
-                                         (filter (fn [[hypid rivals]] (#{hyp} rivals))
-                                            (seq (:accepted-rivals ws))))]
-             (some #(not (get-in true-false [:individual %])) accepted-instead-ids)))))
 
 (defn find-errors
   [est true-false]

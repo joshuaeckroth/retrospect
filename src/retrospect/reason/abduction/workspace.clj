@@ -115,6 +115,13 @@
    (let [hypid (if (integer? h) h (:id h))]
      (attr (:hypgraph workspace) hypid :accepted-explained))))
 
+(defn accepted-rivals
+  [workspace h]
+  (prof
+   :accepted-rivals
+   (let [hypid (if (integer? h) h (:id h))]
+     (attr (:hypgraph workspace) hypid :accepted-rivals))))
+
 (defn rejected?
   [workspace h]
   (prof
@@ -608,6 +615,8 @@
                                       :accepted-explained explained)
                            (update-in [:hypgraph] add-attr (:id hyp)
                                       :accepted-newly-explained newly-explained)
+                           (update-in [:hypgraph] add-attr (:id hyp)
+                                      :accepted-rivals alts)
                            (update-in [:accepted] conj (:id hyp))
                            (update-in [:unexplained] set/difference newly-explained))
                  ws-hyplog (if @batch ws-acc
@@ -709,7 +718,7 @@
 (defn reject-minscore
   [workspace cycle]
   (reduce (fn [ws h] (reject ws h :minscore cycle))
-     workspace (filter (fn [h] (and (not (rejected? workspace h))
+     workspace (filter (fn [h] (and (undecided? workspace h)
                               (<= (:apriori h) (double (/ (:MinScore params) 100.0)))
                               (not (prevented-rejection? workspace h :minscore))))
                   (:all (hypotheses workspace)))))
