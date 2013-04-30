@@ -151,10 +151,7 @@
         inner-hyps (set (map :id (mapcat :hyps acc))) ;; inner hyps, if any, of acc
         acc-no-inner (sort-by :id (filter #(not (inner-hyps (:id %))) acc)) ;; keep only those that are not inner hyps
         acc-no-inner-ids (set (map :id acc-no-inner))
-        ;; don't do any batching
-        ep-rejs (filter (fn [ep] (and (= time-now (:time ep))
-                                (some acc-no-inner-ids (:acc (:accrej (:workspace ep))))))
-                   (ep-path est))
+        ep-rejs (filter (fn [ep] (some acc-no-inner-ids (:acc (:accrej (:workspace ep))))) (ep-path est))
         rejs-deltas (map (fn [ep] [(get-in ep [:workspace :accrej :delta])
                                 (:cycle ep)
                                 (get-in ep [:workspace :accrej :best])])

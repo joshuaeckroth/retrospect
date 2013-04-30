@@ -404,6 +404,7 @@
 
 (defn related-hyps
   [workspace hyp]
+  ;; includes this hyp
   (let [g (transpose (:hypgraph workspace))]
     (bf-traverse (fn [hypid] (concat (neighbors g hypid)
                                     (map :id (find-conflicts workspace (lookup-hyp workspace hypid)))))
@@ -428,7 +429,7 @@
              (update-in [:accepted] disj hypid)
              (update-in [:rejected] disj hypid)
              (update-in [:unexplained] set/union (attr (:hypgraph workspace) hypid :accepted-newly-explained))
-             (add-to-hyp-log hyp "Undecided")))
+             (add-to-hyp-log hypid "Undecided")))
         workspace rel-hyps))))
 
 (defn unreject
@@ -515,20 +516,20 @@
         (?> (:needs-explainer? hyp) update-in [:unexplained] conj (:id hyp))))))
 
 (defn add-existing-hyp-rejected
-  [workspace prior-hyp prior-hyp-updated]
+  [workspace hyp]
   ;; if it was rejected due to :minscore and it would not again be
   ;; rejected for the same reason, unreject it
   (prof
    :add-existing-hyp-rejected
-   (if (and (= :minscore (rejection-reason workspace prior-hyp))
-            (>= (:apriori prior-hyp-updated)
+   (if (and (= :minscore (rejection-reason workspace hyp))
+            (>= (:apriori hyp)
                (double (/ (:MinScore params) 100.0))))
      (do (log "...yet was rejected due to :minscore previously\n"
               "...but now satisfies minscore, so unrejecting.")
          (-> workspace
-            (add-to-hyp-log prior-hyp-updated (format "%s Unrejecting because now satisfies MinScore." (str prior-hyp-updated)))
-            (unreject prior-hyp-updated)))
-     (do (log "...yet was rejected due to" (rejection-reason workspace prior-hyp)
+            (add-to-hyp-log hyp (format "%s Unrejecting because now satisfies MinScore." (str hyp)))
+            (unreject hyp)))
+     (do (log "...yet was rejected due to" (rejection-reason workspace hyp)
               "so leaving as is (not adding).")
          workspace))))
 
@@ -551,10 +552,13 @@
                                                   (set (:explains hyp)))
                                  :apriori (max (:apriori hyp) (:apriori prior-hyp))
                                  :data (:data hyp)
-                                 :contents (assoc (:data hyp) :type (:type hyp) :subtype (:subtype hyp)))]
-         (if (rejected? workspace prior-hyp)
-           (add-existing-hyp-rejected workspace prior-hyp prior-hyp-updated)
-           (add-helper workspace prior-hyp-updated)))))))
+                                 :contents (assoc (:data hyp) :type (:type hyp) :subtype (:subtype hyp)))
+             ;; ensure hyp is updated with new :explains, :apriori, etc.
+             ws (add-helper workspace prior-hyp-updated)]
+         (if (rejected? ws prior-hyp)
+           ;; possibly unreject it
+           (add-existing-hyp-rejected ws prior-hyp-updated)
+           ws))))))
 
 (defn add
   [workspace hyp cycle]
