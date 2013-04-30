@@ -119,20 +119,24 @@
                          parent-combs)
                       ;; build a composite of several parent-combs
                       (map (fn [parent-comb]
-                           (let [hyps (map (fn [[pv pval]]
-                                           (make-explainer
-                                            bn expgraph observed unexp-hyp pv pval))
-                                         parent-comb)
-                                 score (make-score expgraph bn observed
-                                                   parent-comb v val)]
-                             (new-composite "ExplComp" :expl :expl-composite
-                                            score [(:contents unexp-hyp)]
-                                            (str/join "," (map (fn [[pv pval]]
-                                                               (format "%s=%s" pv pval))
-                                                             parent-comb))
-                                            (format "Composite of:\n%s"
-                                               (str/join "\n" (map str hyps)))
-                                            {:parent-comb parent-comb} hyps)))
+                           (if (= 1 (count parent-comb))
+                             ;; don't make a composite if there is only one vertex-value pair
+                             (let [[pv pval] (first parent-comb)]
+                               (make-explainer bn expgraph observed unexp-hyp pv pval))
+                             ;; make a composite if there are multiple vertex-value pairs
+                             (let [hyps (map (fn [[pv pval]]
+                                             (make-explainer bn expgraph observed unexp-hyp pv pval))
+                                           parent-comb)
+                                   score (make-score expgraph bn observed
+                                                     parent-comb v val)]
+                               (new-composite "ExplComp" :expl :expl-composite
+                                              score [(:contents unexp-hyp)]
+                                              (str/join "," (map (fn [[pv pval]]
+                                                                 (format "%s=%s" pv pval))
+                                                               parent-comb))
+                                              (format "Composite of:\n%s"
+                                                 (str/join "\n" (map str hyps)))
+                                              {:parent-comb parent-comb} hyps))))
                          parent-combs))))
                 expl-sets)))))
 
