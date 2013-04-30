@@ -135,8 +135,7 @@
           (and (not= :observation (:type hyp))
                (accepted? ws hyp)
                (not (tf-true? true-false hyp))
-               (= :observation (:type (accepted-explained ws hyp)))
-               (not (tf-true? true-false (accepted-explained ws hyp)))))
+               (= :noise (classify-error ws true-false (accepted-explained ws hyp)))))
       :noise
       ;; this hyp is true and eliminated due to too-low minscore;
       ;; or, this hyp is false and true rival eliminated due to
