@@ -12,7 +12,8 @@
   (:require [retrospect.reason.abduction.workspace :as ws])
   (:use [retrospect.epistemicstates :only
          [cur-ep flatten-est]])
-  (:use [retrospect.reason.abduction.evaluate :only [true-meta-hyp?]])
+  (:use [retrospect.reason.abduction.evaluate :only
+         [true-meta-hyp? find-meta-hyps group-hyps-by-true-false classify-error classify-noexp-reason]])
   #_(:use [retrospect.reason.abduction.robustness :only [analyze-dependency]])
   (:use [retrospect.gui.common])
   (:use [retrospect.state]))
@@ -27,6 +28,8 @@
 (def hyp-log (ref ""))
 (def reason-log (ref ""))
 (def abduction-tree-map (ref {}))
+(def hyps-true-false (ref nil))
+(def meta-hyps-true-false (ref nil))
 
 (def anc (AlphanumComparator.))
 
@@ -110,7 +113,10 @@
                                      (map #(str/join ", " (sort-by :name alphanum %))
                                         (vals (group-by :type (ws/explainers workspace hyp))))))
         conflicts (str/join "\n" (map str (sort-by :name alphanum
-                                                 (ws/find-conflicts workspace hyp))))]
+                                                 (ws/find-conflicts workspace hyp))))
+        noexp? ((set (ws/no-explainers workspace)) hyp)
+        meta-hyp? ((:meta-hyp-types @reasoner) (:type hyp))
+        error (classify-error workspace (if meta-hyp? @meta-hyps-true-false @hyps-true-false) hyp)]
     (. hyp-apriori-label setText
        (format "Apriori: %.2f" (:apriori hyp)))
     (. hyp-truefalse-label setText
@@ -124,7 +130,10 @@
      (alter hyp-explains (constantly (str "Explains:\n" explains)))
      (alter hyp-explainers (constantly (str "Explainers:\n" explainers)))
      (alter hyp-conflicts (constantly (str "Conflicts:\n" conflicts)))
-     (alter hyp-log (constantly (ws/hyp-log workspace hyp))))))
+     (alter hyp-log (constantly (format "%s\n%s\n%s" (ws/hyp-log workspace hyp)
+                                   (if (or (not noexp?) (and meta? (not meta-hyp?))) ""
+                                       (format "Noexp reason: %s" (name (classify-noexp-reason workspace hyp))))
+                                   (format "Error reason: %s" (name error))))))))
 
 (defn show-log
   [path]
@@ -149,8 +158,14 @@
 
 (defn update-abduction-log
   []
-  (dosync
-   (alter abduction-tree-map (constantly (build-abduction-tree-map (:est @or-state) false)))))
+  (let [ws (:workspace (cur-ep (:est @or-state)))
+        meta-hyps (find-meta-hyps (:est @or-state))]
+    (dosync
+     (alter abduction-tree-map (constantly (build-abduction-tree-map (:est @or-state) false)))
+     (alter hyps-true-false (constantly (group-hyps-by-true-false (vals (:hyp-ids ws))
+                                                                  :type @truedata (:oracle-fn @problem) false)))
+     (alter meta-hyps-true-false (constantly (group-hyps-by-true-false meta-hyps :type
+                                                                       @truedata true-meta-hyp? true))))))
 
 (defn abduction-log-tab
   []
