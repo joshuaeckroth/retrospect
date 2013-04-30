@@ -127,6 +127,10 @@
      (classify-error ws true-false hyp #{}))
   ([ws true-false hyp checked]
      (cond
+      ;; an ignored but true hyp
+      (and (tf-true? true-false hyp)
+           (= :ignoring (rejection-reason ws hyp)))
+      :ignored
       ;; obs that's false yet was accepted, should have been
       ;; ignored/rejected; or a false accepted that explained noise
       (or (and (= :observation (:type hyp))
@@ -481,6 +485,7 @@
             :ErrorsScoring (:scoring errors 0)
             :ErrorsNoExpl (:no-expl-offered errors 0)
             :ErrorsSuperfluous (:superfluous errors 0)
+            :ErrorsIgnored (:ignored errors 0)
             :ErrorsUnknown (:unknown errors 0)
             :ErrorsNoError (:no-error errors 0)
             :NoExpCount (reduce + (vals noexp-reasons))
