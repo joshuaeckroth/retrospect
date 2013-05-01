@@ -267,11 +267,11 @@
   (let [t? (partial (:oracle-fn @problem) truedata)]
     (if (cond (= :meta-rej-minscore (:type hyp))
               (and (not-empty (:resolves hyp))
-                   (some (fn [h] (t? h)) (:implicated hyp))
+                   (t? (:implicated hyp))
                    (some (fn [h] (t? h)) (:resolves hyp)))
               (= :meta-rej-conflict (:type hyp))
               (and (not-empty (:resolves hyp))
-                   (not (t? (first (:implicated hyp))))
+                   (not (t? (:implicated hyp)))
                    (some t? (:resolves hyp)))
               (= :meta-order-dep (:type hyp))
               (and (not-empty (:resolves hyp))
@@ -338,19 +338,10 @@
         (avg (map :time-delta (get-in meta-true-false [:meta-order-dep true])))
         :FalseMetaOrderDepTimeDeltaAvg
         (avg (map :time-delta (get-in meta-true-false [:meta-order-dep false])))
-        :TrueMetaRejMinscoreMinScoreDeltaAvg
-        (avg (map :min-score-delta (get-in meta-true-false [:meta-rej-minscore true])))
-        :FalseMetaRejMinscoreMinScoreDeltaAvg
-        (avg (map :min-score-delta (get-in meta-true-false [:meta-rej-minscore false])))
-        :TrueMetaRejMinscoreMaxScoreDeltaAvg
-        (avg (map :max-score-delta (get-in meta-true-false [:meta-rej-minscore true])))
-        :FalseMetaRejMinscoreMaxScoreDeltaAvg
-        (avg (map :max-score-delta (get-in meta-true-false [:meta-rej-minscore false])))
-        :TrueMetaRejMinscoreAvgScoreDeltaAvg
-        (avg (map :avg-score-delta (get-in meta-true-false [:meta-rej-minscore true])))
-        :FalseMetaRejMinscoreAvgScoreDeltaAvg
-        (avg (map :avg-score-delta (get-in meta-true-false [:meta-rej-minscore false])))
-        }
+        :TrueMetaRejMinscoreScoreDeltaAvg
+        (avg (map :score-delta (get-in meta-true-false [:meta-rej-minscore true])))
+        :FalseMetaRejMinscoreScoreDeltaAvg
+        (avg (map :score-delta (get-in meta-true-false [:meta-rej-minscore false])))}
        (:meta-hyp-types @reasoner))))
 
 (defn anomaly-reduction-indicator

@@ -183,7 +183,7 @@
       (is (unexplained? ws-expl-adv e2))
       (is (= [e2] (no-explainers ws-expl-adv)))
       (is (= #{e2} (find-problem-cases est-expl-adv)))
-      (is (= [{:implicated h3 :cycle 2 :rejected #{h5 h6} :delta 0.5 :may-resolve [e2]}]
+      (is (= #{{:implicated h3 :cycle 2 :expl-conflicting [h5 h6] :delta 0.5 :may-resolve [e2]}}
              (find-rej-conflict-candidates #{e2} est-expl-adv time-now)))
       (is (unexplained? ws-rc-old e2))
       (is (rejected? ws-rc-new h3))
@@ -239,9 +239,8 @@
       (is (unexplained? ws-rc-old e1))
       (is (accepted? ws-rc-new h2))
       (is (rejected? ws-rc-new h3))
-      (is (= :conflict (rejection-reason ws-rc-new h3)))
+      (is (= :minscore (rejection-reason ws-rc-new h3)))
       (is (prevented-rejection? ws-rc-new h2 :minscore))
-      (is (prevented-rejection? ws-rc-new h3 :minscore))
       (is (empty? (unexplained ws-rc-new))))))
 
 (deftest test-meta-compound-cause
@@ -272,11 +271,11 @@
           h4 (new-hyp "Test" :type2 :mysubtype 0.40 false
                       conflicts?-fn [(:contents e1)]
                       "short-descr" "desc" {:x 2})
-          ;; id 5 (will be rejected due to minscore, but also due to conflict with h3)
+          ;; id 5 (will be rejected first due to minscore, but also due to conflict with h3)
           h5 (new-hyp "Test" :type1 :mysubtype 0.15 false
                       conflicts?-fn [(:contents e2)]
                       "short-descr" "desc" {:x 3})
-          ;; id 6 (will be rejected due to minscore, but also due to conflict with h3)
+          ;; id 6 (will be rejected first due to minscore, but also due to conflict with h3)
           h6 (new-hyp "Test" :type1 :mysubtype 0.14 false
                       conflicts?-fn [(:contents e2)]
                       "short-descr" "desc" {:x 4})
@@ -350,21 +349,21 @@
       (is (= :minscore (rejection-reason ws-meta-batchbeg-tmp h6)))
       (is (unexplained? ws-meta-batchbeg-tmp e2))
 
-      ;; lower-minscore fixes the issue by rejecting h6 but leaving
-      ;; h5 available; the "undeciding" of h5 and h6 also undecides
-      ;; h3, which conflicted with h5 and h4 which conflicted with h6;
-      ;; but h3 still has a greater delta over h4 than h5/h6 so
-      ;; it is accepted first, rejecting h5, leaving h6 to explain e2,
-      ;; and everything is explained
+      ;; lower-minscore fixes the issue by preventing h5 from being
+      ;; rejected due to minscore, thus leaving it an essential
+      ;; explainer for e2, thus rejecting h3, and leaving h4 as an
+      ;; essential for e1; h6 is left rejected due to minscore
       (is (empty? (find-problem-cases est-meta-lms)))
       (is (accepted? ws-meta-lms h3))
       (is (= :minscore (rejection-reason ws-meta-lms h5)))
       (is (= :minscore (rejection-reason ws-meta-lms h6)))
       (is (= :ignoring (rejection-reason ws-meta-lms e2)))
-      (is (= #{e2} (find-problem-cases est-meta-lms-tmp)))
-      (is (accepted? ws-meta-lms-tmp h3))
-      (is (= :conflict (rejection-reason ws-meta-lms-tmp h5)))
-      (is (= :conflict (rejection-reason ws-meta-lms-tmp h6)))
+      (is (empty? (find-problem-cases est-meta-lms-tmp)))
+      (is (accepted? ws-meta-lms-tmp h5))
+      (is (accepted? ws-meta-lms-tmp h4))
+      (is (rejected? ws-meta-lms-tmp h3))
+      (is (= :conflict (rejection-reason ws-meta-lms-tmp h3)))
+      (is (= :minscore (rejection-reason ws-meta-lms-tmp h6)))
 
       ;; reject-conflict just falls back to ignoring because, of course,
       ;; it does not solve the minscore issue (which was the "original" cause)

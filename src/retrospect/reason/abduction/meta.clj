@@ -176,9 +176,9 @@
          est-prior est-orig
          est est-orig
          tried-implicated #{}]
-    (let [ ;; take the earliest rej-conflict
-          {:keys [implicated]} (last (sort-by :cycle (find-rej-conflict-candidates
-                                                      problem-cases est time-now)))]
+    (let [ ;; take the lowest delta
+          {:keys [implicated]} (first (sort-by :delta (find-rej-conflict-candidates
+                                                       problem-cases est time-now)))]
       (if (and implicated (not (tried-implicated implicated)))
         (let [[est-action params-action] (action-preemptively-reject [implicated] est)
               {:keys [est-old est-new]} (binding [params params-action]
@@ -206,19 +206,16 @@
          est est-orig
          implicated-before #{}]
     (let [cur-ws (:workspace (cur-ep est))
-          ;; TODO: get all minscore candidates, not just first
-          {:keys [implicated]} (first (find-rej-minscore-candidates problem-cases est time-now))
-          implicated-untried (filter #(not (implicated-before (:contents %))) implicated)]
-      (if (not-empty implicated-untried)
-        (let [[est-action params-action] (action-prevent-rejection-minscore implicated-untried est)
+          ;; take the greatest scoring hyp to prevent-rejection
+          {:keys [implicated]} (last (sort-by (comp :apriori :implicated)
+                                              (find-rej-minscore-candidates problem-cases est time-now)))]
+      (if (and implicated (not (implicated-before (:contents implicated))))
+        (let [[est-action params-action] (action-prevent-rejection-minscore [implicated] est)
               {:keys [est-old est-new]} (binding [params params-action]
                                           (meta-apply-and-evaluate est est-action time-now sensors))
               problem-cases-new (find-problem-cases est-new)]
           (if (not-empty problem-cases-new)
-            (recur problem-cases-new
-                   est-old
-                   est-new
-                   (set/union implicated-before (set (map :contents implicated-untried))))
+            (recur problem-cases-new est-old est-new (conj implicated-before (:contents implicated)))
             {:est-old est-old :est-new est-new}))
         {:est-old est-prior :est-new est}))))
 
@@ -296,23 +293,17 @@
   [problem-cases est time-prev time-now available-meta-hyps]
   ;; were some explainers omitted due to high min-score?
   (if (not (available-meta-hyps "meta-rej-minscore")) []
-      (let [minscore (/ (double (:MinScore params)) 100.0)
-            ;; TODO: get all minscore candidates, not just first
-            {:keys [implicated may-resolve]} (first (find-rej-minscore-candidates problem-cases est time-now))]
-        (if (not-empty implicated)
-          [(new-hyp "TooHighMinScore" :meta-rej-minscore :meta-rej-minscore
-                    0.25 false meta-hyp-conflicts?
-                    (map :contents may-resolve)
-                    "Explainers rejected due to too-high min-score"
-                    (format "These explainers were rejected due to too-high min-score:\n%s\n\nRelevant problem cases:\n%s"
-                       (str/join "\n" (sort (map str implicated)))
-                       (str/join "\n" (sort (map str may-resolve))))
-                    {:action (partial action-prevent-rejection-minscore implicated)
-                     :implicated implicated
-                     :min-score-delta (- minscore (apply min (map :apriori implicated)))
-                     :max-score-delta (- minscore (apply max (map :apriori implicated)))
-                     :avg-score-delta (- minscore (avg (map :apriori implicated)))})]
-          []))))
+      (for [{:keys [implicated may-resolve]} (find-rej-minscore-candidates problem-cases est time-now)]
+        (new-hyp "TooHighMinScore" :meta-rej-minscore :meta-rej-minscore
+                 0.25 false meta-hyp-conflicts?
+                 (map :contents may-resolve)
+                 "Explainer rejected due to too-high min-score"
+                 (format "This explainer was rejected due to too-high min-score: %s\n\nRelevant problem cases:\n%s"
+                    (str implicated)
+                    (str/join "\n" (sort (map str may-resolve))))
+                 {:action (partial action-prevent-rejection-minscore [implicated])
+                  :implicated implicated
+                  :score-delta (- (/ (double (:MinScore params)) 100.0) (:apriori implicated))}))))
 
 (defn make-meta-hyps
   "Create explanations, and associated actions, for problem-cases."
@@ -347,7 +338,7 @@
                         (max 0.0
                              (- (avg (map :apriori problem-cases))
                                 (avg (map :apriori problem-cases-new))))))
-              (* 2.0 (:max-score-delta hyp))))
+              (* 2.0 (:score-delta hyp))))
       ;; normal scoring (non-rej-minscore meta-hyps)
       (cond (= "apriori-diff" (:ScoreMetaHyps params))
             (max 0.0
