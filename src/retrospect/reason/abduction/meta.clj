@@ -488,9 +488,12 @@
   [problem-cases est-prior est time-prev time-now sensors]
   (loop [problem-cases problem-cases
          est-prior est-prior
-         est est]
-    (let [minscore (find-rej-minscore-candidates problem-cases est time-now)
-          rej-conflict (find-rej-conflict-candidates problem-cases est time-now)
+         est est
+         implicated-tried #{}]
+    (let [minscore (filter #(not (implicated-tried [:minscore (:contents (:implicated %))]))
+                      (find-rej-minscore-candidates problem-cases est time-now))
+          rej-conflict (filter #(not (implicated-tried [:rej-conflict (:contents (:implicated %))]))
+                          (find-rej-conflict-candidates problem-cases est time-now))
           implicated (set (map :implicated (concat minscore rej-conflict)))]
       (comment
         (println "minscore:")
@@ -510,7 +513,8 @@
                                               (meta-apply-and-evaluate est est-action time-now sensors))
                   problem-cases-new (find-problem-cases est-new)]
               (if (not-empty problem-cases-new)
-                (recur problem-cases-new est-old est-new)
+                (recur problem-cases-new est-old est-new
+                       (conj implicated-tried [:rej-conflict (:contents implicated)]))
                 {:est-old est-old :est-new est-new}))
             (not-empty minscore)
             (let [implicated (:implicated (last (sort-by (comp :apriori :implicated) minscore)))
@@ -519,7 +523,8 @@
                                               (meta-apply-and-evaluate est est-action time-now sensors))
                   problem-cases-new (find-problem-cases est-new)]
               (if (not-empty problem-cases-new)
-                (recur problem-cases-new est-old est-new)
+                (recur problem-cases-new est-old est-new
+                       (conj implicated-tried [:minscore (:contents implicated)]))
                 {:est-old est-old :est-new est-new}))
             :else
             {:est-old est-prior :est-new est}))))
