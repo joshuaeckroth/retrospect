@@ -83,7 +83,7 @@
        {} (keys true-false))))
 
 (defn calc-true-false-deltas
-  "Find average delta for true and false acceptances."
+  "Find average delta for true and false acceptances of each hyp type."
   [est true-false meta?]
   (let [eps (if meta?
               (mapcat (comp flatten-est :meta-est) (filter :meta-est (flatten-est est)))
@@ -93,14 +93,17 @@
                                              (:type b)))))
                              eps)]
                    (let [accrej (:accrej (:workspace ep))]
-                     [(tf-true? true-false (:best accrej))
-                      (:delta accrej)]))
-        delta-true (map second (filter first delta-tf))
-        delta-false (map second (filter (comp not first) delta-tf))]
-    {:true-delta-avg (/ (reduce + delta-true) (double (let [c (count delta-true)]
-                                                   (if (= 0 c) 1 c))))
-     :false-delta-avg (/ (reduce + delta-false) (double (let [c (count delta-false)]
-                                                     (if (= 0 c) 1 c))))}))
+                     {:type (:type (:best accrej))
+                      :tf (tf-true? true-false (:best accrej))
+                      :delta (:delta accrej)}))]
+    (reduce (fn [m [t ds]]
+         (let [k (keyword-to-metric t)]
+           (assoc m
+             (keyword (format "TrueDeltaAvg%s" k)) (avg (map :delta (filter :tf ds)))
+             (keyword (format "FalseDeltaAvg%s" k)) (avg (map :delta (filter #(not (:tf %)) ds))))))
+       {:TrueDeltaAvg (avg (map :delta (filter :tf delta-tf)))
+        :FalseDeltaAvg (avg (map :delta (filter #(not (:tf %)) delta-tf)))}
+       (group-by :type delta-tf))))
 
 (defn calc-true-false-explained
   "Find average number of explainers, average score of best, and average delta
@@ -463,6 +466,7 @@
            (noexp-conflict-true-false est true-false)
            explained-avgs
            meta-explained-avgs
+           delta-avgs
            (last decision-metrics)
            {:Step (:time ep)
             :AvgUnexplainedPct (avg (map :UnexplainedPct decision-metrics))
@@ -470,8 +474,6 @@
             :AvgNoiseClaimsPrec (avg (map :NoiseClaimsPrec decision-metrics))
             :AvgNoiseClaimsCoverage (avg (map :NoiseClaimsCoverage decision-metrics))
             :AvgNoiseClaimsF1 (avg (map :NoiseClaimsF1 decision-metrics))
-            :TrueDeltaAvg (:true-delta-avg delta-avgs)
-            :FalseDeltaAvg (:false-delta-avg delta-avgs)
             :MetaTrueDeltaAvg (:true-delta-avg meta-delta-avgs)
             :MetaFalseDeltaAvg (:false-delta-avg meta-delta-avgs)
             :Doubt (doubt-aggregate est)
