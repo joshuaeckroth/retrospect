@@ -16,13 +16,11 @@
   (:use [retrospect.gui.eptree :only [ep-tree-tab update-ep-tree]])
   (:use [retrospect.gui.results :only [update-results results-tab]])
   (:use [retrospect.epistemicstates
-         :only [list-ep-states cur-ep prev-ep goto-ep ep-path]])
+         :only [list-ep-states cur-ep prev-ep ep-path]])
   (:use [geppetto.random :only [rgen new-seed]]))
 
 (def prepared-selected (atom "None"))
 (def params-edit (ref ""))
-(def ep-list (ref '[]))
-(def ep-selected (atom nil))
 (def steplabel (label ""))
 (def doubt-label (label ""))
 (def prefs (atom nil))
@@ -69,7 +67,6 @@
      (alter time-prev (constantly time-p)))
     (. steplabel (setText (format "Step: %d->%d" @time-prev @time-now))))
   (dosync
-   (alter ep-list (constantly (sort (list-ep-states (:est @or-state)))))
    (alter results (constantly (:results (cur-ep (:est @or-state))))))
   (let [ws (:workspace (cur-ep (:est @or-state)))
         d (:Doubt (last @results))]
@@ -154,13 +151,6 @@
       (.setEnabled next-button true)
       (update-everything))))
 
-(defn goto-ep-state-action
-  []
-  (if @ep-selected
-    (let [id (re-find #"^[A-Z]+" @ep-selected)]
-      (dosync (alter or-state assoc :est (goto-ep (:est @or-state) id)))
-      (update-everything))))
-
 (defn mainframe
   []
   (frame :title "retrospect player"
@@ -169,7 +159,7 @@
          :size [1000 700]
          :show true
          :on-close :exit
-         [:gridx 0 :gridy 0 :gridheight 12 :weightx 1.0 :weighty 1.0
+         [:gridx 0 :gridy 0 :gridheight 11 :weightx 1.0 :weighty 1.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
           _ (let [tabs (JTabbedPane.)]
               (when-let [f (:setup-diagram-fn (:player-fns @problem))]
@@ -211,24 +201,17 @@
               (.add next-button))
 
           :gridx 1 :gridy 6
-          _ (doto (panel)
-              (.add (doto (combo-box
-                           [] :model (seq-ref-combobox-model ep-list ep-selected))
-                      (.setMinimumSize (Dimension. 100 0))))
-              (.add (button "Goto" :action ([_] (goto-ep-state-action)))))
-
-          :gridx 1 :gridy 7
           _ steplabel
 
-          :gridx 1 :gridy 8
+          :gridx 1 :gridy 7
           _ (label "Doubt:")
           :gridx 2
           _ doubt-label
 
-          :gridx 1 :gridy 9 :insets (Insets. 0 0 0 0)
+          :gridx 1 :gridy 8 :insets (Insets. 0 0 0 0)
           _ ((:get-stats-panel-fn (:player-fns @problem)))
 
-          :gridy 10 :weighty 1.0
+          :gridy 9 :weighty 1.0
           _ (panel)]))
 
 (defn start-player
