@@ -157,16 +157,19 @@
                (some (fn [h] (and (tf-true? true-false h)
                               (rejected? ws h)
                               (= :minscore (rejection-reason ws h))))
-                  (explainers ws (accepted-explained ws hyp)))))
+                  (explainers ws (accepted-explained ws hyp))))
+          (and (accepted? ws hyp)
+               (not (tf-true? true-false hyp))
+               (= :minscore (classify-error ws true-false (accepted-explained ws hyp)))))
       :minscore
       ;; scoring error: if you were accepted but are false, and one
       ;; of your rivals is true; or you were not accepted but are
       ;; true, and you were the rival when a false explainer was
       ;; accepted
-      (or (and (accepted? ws hyp) ;; this was accepted,
+      (or (and (accepted? ws hyp)              ;; this was accepted,
                (not (tf-true? true-false hyp)) ;; but it's false,
                (some #(tf-true? true-false %) (accepted-rivals ws hyp))) ;; and a rival is true; or,
-          (and (not (accepted? ws hyp)) ;; this was not accepted,
+          (and (not (accepted? ws hyp))  ;; this was not accepted,
                (tf-true? true-false hyp) ;; but it's true, and
                (some (fn [h] (and (accepted? ws h) ;; another was accepted,
                               (not (tf-true? true-false h)) ;; which was false,
