@@ -27,7 +27,7 @@
   (new-child-ep (update-est est (assoc (cur-ep est)
                                   :workspace workspace))))
 
-(defn workspace-update-sensors
+(defn workspace-update-hypotheses
   [workspace time-prev time-now sensors cycle]
   (binding [reason-log (ref '())]
     (let [ws-sensors (if sensors
@@ -49,14 +49,15 @@
   [est time-prev time-now sensors]
   (let [ws (:workspace (cur-ep est))
         cycle (:cycle (cur-ep est))
-        ws-sensors (workspace-update-sensors ws time-prev time-now sensors cycle)
-        ws-explained (workspace-explain ws-sensors cycle time-now)
+        ws-hyps (workspace-update-hypotheses ws time-prev time-now sensors cycle)
+        ws-explained (workspace-explain ws-hyps cycle time-now)
         est-result (est-workspace-child est ws-explained)]
     (if (or (and (:GetMoreHyps params)
                  (not= (count (:hyp-ids ws-explained))
                        (count (:hyp-ids ws))))
             (:best (:accrej ws-explained)))
-      (recur est-result time-prev time-now sensors)
+      ;; don't recur with sensors so that sensor hyps are not re-added
+      (recur est-result time-prev time-now nil)
       est-result)))
 
 (defn reason
