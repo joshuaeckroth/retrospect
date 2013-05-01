@@ -24,17 +24,24 @@
   [accepted unexplained hypotheses]
   [(get-kb accepted)])
 
+(defn vertex-values-conflict?
+  [expgraph v1 val1 v2 val2]
+  (or (and (= v1 v2)
+           (not= val1 val2))
+      (conflicts? expgraph [v1 val1] [v2 val2])))
+
+(defn any-vertex-values-conflict?
+  [expgraph v1 val1 other-vertex-values]
+  (some (fn [[v2 val2]] (vertex-values-conflict? expgraph v1 val1 v2 val2))
+     other-vertex-values))
+
 (defn hyps-conflict?
   [expgraph hyp1 hyp2]
   (and (not= (:id hyp1) (:id hyp2))
        (not= :observation (:type hyp1))
        (not= :observation (:type hyp2))
-       (or (and (= (:type hyp1) (:type hyp2))
-                (= (:vertex hyp1) (:vertex hyp2))
-                (not= (:value hyp1) (:value hyp2)))
-           (conflicts? expgraph
-                       [(:vertex hyp1) (:value hyp1)]
-                       [(:vertex hyp2) (:value hyp2)]))))
+       (vertex-values-conflict?
+        expgraph (:vertex hyp1) (:value hyp1) (:vertex hyp2) (:value hyp2))))
 
 (defn make-score
   "Figure out the (approximate) probability of v=val given
@@ -70,7 +77,7 @@
             observed (map (fn [h] [(:vertex h) (:value h)]) (get :expl accepted))
             ;; figure out what the sensor has observed
             sens-observed (set (mapcat #(sensed-at (first sensors) %)
-                                       (range (inc time-now))))]
+                                       (range time-prev (inc time-now))))]
         (for [[v val] sens-observed]
           (new-hyp "Obs" :observation :observation
                    (make-score expgraph bn observed [] v val)
@@ -107,18 +114,25 @@
       (let [expl (explainers expgraph v)
             expl-sets (if (:OnlySingleExplainers state/params)
                         (for [e expl] [e]) ;; a single parent state is enough to explain
-                        (filter not-empty (subsets expl)))] ;; try all subsets of parent states
+                        ;; try all subsets of parent states
+                        (filter not-empty (subsets expl)))]
         (mapcat (fn [expl-set]
                   (let [parent-vals (map (fn [pv] (map (fn [pval] [pv pval])
                                                   (sort (values expgraph pv))))
                                        (sort expl-set))
-                        parent-combs (gen-parent-combinations parent-vals)]
+                        parent-combs (gen-parent-combinations parent-vals)
+                        non-conf-parent-combs (filter (fn [parent-comb]
+                                                   (not-any? (fn [[pv pval]]
+                                                               (any-vertex-values-conflict?
+                                                                expgraph pv pval observed))
+                                                             parent-comb))
+                                                 parent-combs)]
                     (if (:OnlySingleExplainers state/params)
                       ;; build a single explainer for each parent-comb
                       (map (fn [parent-comb]
                            (let [[pv pval] (first parent-comb)]
                              (make-explainer bn expgraph observed unexp-hyp pv pval)))
-                         parent-combs)
+                         non-conf-parent-combs)
                       ;; build a composite of several parent-combs
                       (map (fn [parent-comb]
                            (if (= 1 (count parent-comb))
@@ -139,7 +153,7 @@
                                               (format "Composite of:\n%s"
                                                  (str/join "\n" (map str hyps)))
                                               {:parent-comb parent-comb} hyps))))
-                         parent-combs))))
+                         non-conf-parent-combs))))
                 expl-sets)))))
 
 (defn hypothesize
