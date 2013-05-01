@@ -410,6 +410,11 @@
                                     (map :id (find-conflicts workspace (lookup-hyp workspace hypid)))))
                  (:id hyp))))
 
+(defn related-hyps?
+  [workspace hyp1 hyp2]
+  (not-empty (set/intersection (set (related-hyps workspace hyp1))
+                    (set (related-hyps workspace hyp2)))))
+
 (defn undecide
   [workspace hyp]
   (prof
