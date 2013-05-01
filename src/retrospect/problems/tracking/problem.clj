@@ -40,7 +40,7 @@
                :stats-fn (constantly nil)
                :training-stats-fn training-stats
                :learn-fn (constantly [])
-               :hyp-types #{:movement :object :observation}
+               :hyp-types #{:movement :observation}
                :ignore-doubt-types #{:observation}
                :default-params
                {:ResensePrevTime [true [true]]}}
@@ -49,7 +49,7 @@
     :StepsBetween [1 [1]]
     :GridWidth [10 [10]]
     :GridHeight [10 [10]]
-    :ObjectScore ["max" ["min" "max" "avg"]]
+    :DetScore ["max" ["min" "max" "avg"]]
     :PenalizeGrayMoves [true [true false]]
     :WalkType ["random" ["random" "gaussian"]]
     :RandomWalkSteps [8 [8]]

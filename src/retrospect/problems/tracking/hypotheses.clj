@@ -51,7 +51,7 @@
        ;; neither det is gray
        :else apriori)))
 
-(defn calc-object-prob
+(defn calc-det-prob
   [det other-dets moves-dist]
   (let [move-probs (map (fn [det2] (let [d (dist (:x det2) (:y det2)
                                               (:x det) (:y det))
@@ -59,11 +59,11 @@
                                   (penalize-gray-moves apriori det det2)))
                       (filter #(match-color? (:color %) (:color det)) other-dets))]
     (if (not-empty move-probs)
-      (cond (= "avg" (:ObjectScore params))
+      (cond (= "avg" (:DetScore params))
             (avg move-probs)
-            (= "min" (:ObjectScore params))
+            (= "min" (:DetScore params))
             (apply min move-probs)
-            (= "max" (:ObjectScore params))
+            (= "max" (:DetScore params))
             (apply max move-probs))
       ;; time 0 or lost track (nothing of same color at time before);
       ;; give default apriori value
@@ -136,7 +136,7 @@
   [{:keys [x y color time] :as det} from-to other-dets moves-dist]
   (new-hyp (format "Sens%s" (if (= :from from-to) "From" "To"))
            :observation from-to
-           (calc-object-prob det other-dets moves-dist)
+           (calc-det-prob det other-dets moves-dist)
            true nil []
            (format "%d,%d@%d" x y time)
            (format (str "Sensor detection - color: %s, x: %d, y: %d, time: %d\n\nOther dets:\n")
@@ -267,22 +267,6 @@
   [to from]
   (= (:time (:det to)) (inc (:time (:det from)))))
 
-(defn make-object-hyp
-  [obs moves-dist other-dets]
-  ;; make a kind of "duplicate" hyp that
-  ;; says "this observation was real"
-  (let [det (:det obs)
-        apriori (calc-object-prob det other-dets moves-dist)]
-    (new-hyp (format "Obj%s" (if (= :to (:subtype obs)) "To" "From"))
-             :object (:subtype obs)
-             apriori true conflicts?
-             [(:contents obs)]
-             (format "Object %d,%d@%d" (:x det) (:y det) (:time det))
-             (format "Object %d,%d@%d with color %s\n\nOther dets:\n%s"
-                (:x det) (:y det) (:time det) (color-str (:color det))
-                (str/join "\n" (map str (filter #(match-color? (:color %) (:color det)) other-dets))))
-             {:det det :from-to (:from-to obs)})))
-
 (defn hypothesize
   [unexp accepted hypotheses time-now]
   (prof :hypothesize
@@ -291,30 +275,16 @@
               dets (set (map :det (:observation accepted)))
               prior-dets (filter #(= (dec time-now) (:time %)) dets)
               next-dets (filter #(= time-now (:time %)) dets)
-              sensor-from-hyps (filter #(and (= :observation (:type %)) (= :from (:subtype %)))
-                                  unexp)
-              sensor-to-hyps (filter #(and (= :observation (:type %)) (= :to (:subtype %)))
-                                unexp)
-              new-obj-from-hyps (map #(make-object-hyp % moves-dist prior-dets) sensor-from-hyps)
-              new-obj-to-hyps (map #(make-object-hyp % moves-dist next-dets) sensor-to-hyps)
-              existing-obj-from-hyps (filter #(and (= :object (:type %)) (= :from (:subtype %)))
-                                        unexp)
-              existing-obj-to-hyps (filter #(and (= :object (:type %)) (= :to (:subtype %)))
-                                      unexp)
-              unexp-obj-from-hyps (sort-by (comp :time :det)
-                                           (concat existing-obj-from-hyps new-obj-from-hyps))
-              unexp-obj-to-hyps (sort-by (comp :time :det)
-                                         (concat existing-obj-to-hyps new-obj-to-hyps))]
-          (doall (concat
-                  new-obj-from-hyps new-obj-to-hyps
-                  (mapcat
-                   (fn [evidence]
-                     (let [acc-mov-hyps (sort-by (comp :time :mov) (:movement accepted))
-                           nearby (filter #(dets-connected? evidence %) unexp-obj-to-hyps)
-                           mov-hyps (doall
-                                     (filter identity
-                                        (map #(new-mov-hyp % evidence acc-mov-hyps
-                                                         (:moves-dist kb) (:seen-colors kb))
-                                           nearby)))]
-                       (filter-valid-movs mov-hyps acc-mov-hyps)))
-                   unexp-obj-from-hyps))))))
+              sensor-from-hyps (filter #(and (= :observation (:type %)) (= :from (:subtype %))) unexp)
+              sensor-to-hyps (filter #(and (= :observation (:type %)) (= :to (:subtype %))) unexp)]
+          (doall (mapcat
+                  (fn [evidence]
+                    (let [acc-mov-hyps (sort-by (comp :time :mov) (:movement accepted))
+                          nearby (filter #(dets-connected? evidence %) sensor-to-hyps)
+                          mov-hyps (doall
+                                    (filter identity
+                                       (map #(new-mov-hyp % evidence acc-mov-hyps
+                                                        (:moves-dist kb) (:seen-colors kb))
+                                          nearby)))]
+                      (filter-valid-movs mov-hyps acc-mov-hyps)))
+                  sensor-from-hyps)))))
