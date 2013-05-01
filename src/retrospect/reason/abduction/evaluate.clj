@@ -95,15 +95,17 @@
                    (let [accrej (:accrej (:workspace ep))]
                      {:type (:type (:best accrej))
                       :tf (tf-true? true-false (:best accrej))
-                      :delta (:delta accrej)}))]
-    (reduce (fn [m [t ds]]
-         (let [k (keyword-to-metric t)]
+                      :delta (:delta accrej)}))
+        grouped-delta-tf (group-by :type delta-tf)]
+    (reduce (fn [m t]
+         (let [ds (get grouped-delta-tf t [])
+               k (keyword-to-metric t)]
            (assoc m
              (keyword (format "TrueDeltaAvg%s" k)) (avg (map :delta (filter :tf ds)))
              (keyword (format "FalseDeltaAvg%s" k)) (avg (map :delta (filter #(not (:tf %)) ds))))))
        {:TrueDeltaAvg (avg (map :delta (filter :tf delta-tf)))
         :FalseDeltaAvg (avg (map :delta (filter #(not (:tf %)) delta-tf)))}
-       (group-by :type delta-tf))))
+       (keys true-false))))
 
 (defn calc-true-false-explained
   "Find average number of explainers, average score of best, and average delta
