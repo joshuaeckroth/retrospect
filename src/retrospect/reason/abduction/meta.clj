@@ -253,6 +253,7 @@
                                     (format "Order dependency at time 0, ep %s" (str (:ep batchbeg)))
                                     (format "Order dependency at time 0, ep %s" (str (:ep batchbeg)))
                                     {:action (partial action-batch (:ep batchbeg))
+                                     :resolves (:may-resolve batchbeg)
                                      :cycle (:cycle (:ep batchbeg))
                                      :time 0
                                      :time-delta time-now}))
@@ -265,6 +266,7 @@
                                   (format "Order dependency at time %d, ep %s"
                                      (dec time-now) (str (:ep batch1)))
                                   {:action (partial action-batch (:ep batch1))
+                                   :resolves (:may-resolve batch1)
                                    :cycle (:cycle (:ep batch1))
                                    :time (dec time-now)
                                    :time-delta 1}))]
@@ -285,6 +287,7 @@
                  (format "%s rejected these explainers (cycle %d, delta %.2f):\n%s"
                     (str implicated) cycle delta (str/join "\n" (map str rejected)))
                  {:action (partial action-preemptively-reject [implicated])
+                  :resolves may-resolve
                   :cycle cycle
                   :delta delta
                   :implicated implicated}))))
@@ -302,6 +305,7 @@
                     (str implicated)
                     (str/join "\n" (sort (map str may-resolve))))
                  {:action (partial action-prevent-rejection-minscore [implicated])
+                  :resolves may-resolve
                   :implicated implicated
                   :score-delta (- (/ (double (:MinScore params)) 100.0) (:apriori implicated))}))))
 
@@ -317,16 +321,19 @@
 
 (defn score-meta-hyps-estimate
   [problem-cases meta-hyps est time-prev time-now sensors]
-  [est (for [h meta-hyps]
-         (assoc h :apriori
-                (cond (= :meta-order-dep (:type h))
-                      1.0
-                      (= :meta-rej-conflict (:type h))
-                      (- 1.0 (:delta h))
-                      (= :meta-rej-minscore (:type h))
-                      (:score-delta h)
-                      :else ;; some non-meta-hyp type
-                      (:apriori h))))])
+  ;; must use (doall) to avoid lazy evaluation since state/params may
+  ;; change later (specifically, MinScore and Threshold change to
+  ;; MetaMinScore and MetaThreshold)
+  [est (doall (for [h meta-hyps]
+                (assoc h :apriori
+                       (cond (= :meta-order-dep (:type h))
+                             1.0
+                             (= :meta-rej-conflict (:type h))
+                             (- 1.0 (:delta h))
+                             (= :meta-rej-minscore (:type h))
+                             (:score-delta h)
+                             :else ;; some non-meta-hyp type
+                             (:apriori h)))))])
 
 (defn score-meta-hyps-simulate-apriori
   [hyp problem-cases problem-cases-new doubt doubt-new]
@@ -403,14 +410,14 @@
 
 (defn meta-abductive
   [problem-cases est time-prev time-now sensors]
-  (let [meta-params (assoc params
-                      :MinScore (:MetaMinScore params)
-                      :Threshold (:MetaThreshold params)
-                      :GetMoreHyps false)
-        meta-hyps (make-meta-hyps problem-cases est time-prev time-now)
+  (let [meta-hyps (make-meta-hyps problem-cases est time-prev time-now)
         [est-new meta-hyps-scored] (score-meta-hyps problem-cases meta-hyps est time-prev time-now sensors)
         meta-est (new-child-ep (init-est (assoc (init-workspace)
                                            :meta-oracle (:meta-oracle (:workspace (cur-ep est))))))
+        meta-params (assoc params
+                      :MinScore (:MetaMinScore params)
+                      :Threshold (:MetaThreshold params)
+                      :GetMoreHyps false)
         meta-ws (binding [params meta-params]
                   (let [ws-obs (reduce (fn [ws h] (add-observation ws h 0))
                                   (:workspace (cur-ep meta-est)) problem-cases)]
