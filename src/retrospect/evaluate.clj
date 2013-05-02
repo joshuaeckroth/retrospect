@@ -27,7 +27,7 @@
 
 (defn avg
   [vals]
-  (let [vs (filter #(not (.isNaN %)) (map double vals))]
+  (let [vs (filter #(not (.isNaN %)) (map double (filter identity vals)))]
     (if (empty? vs) 0.0
         (/ (double (reduce + vs)) (double (count vs))))))
 
