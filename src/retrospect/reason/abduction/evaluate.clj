@@ -463,6 +463,7 @@
            explained-avgs
            meta-explained-avgs
            delta-avgs
+           meta-delta-avgs
            (last decision-metrics)
            {:Step (:time ep)
             :AvgUnexplainedPct (avg (map :UnexplainedPct decision-metrics))
