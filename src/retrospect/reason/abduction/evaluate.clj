@@ -368,6 +368,14 @@
                                           m acc-t)))
                             {} (:meta-hyp-types @reasoner))]
     (apply merge
+           ;; calculate number of meta-hyps accepted in one meta-abd cycle
+           {:MetaHypsAcceptedCountAvg
+            (double (/ (reduce + (map (fn [ep] (count (filter #((:meta-hyp-types @reasoner) (:type %))
+                                                 (:all (accepted (:workspace ep))))))
+                               ;; filter out cycles that had no "observations"
+                               (filter #(not-empty (accepted (:workspace %)))
+                                  (map (comp last flatten-est :meta-est) (filter :meta-est eps)))))
+                       (count (filter :meta-est eps))))}
            (for [t (:meta-hyp-types @reasoner)]
              (let [t-acc (filter #(= t (:type (:best %))) meta-hyp-acceptances)
                    ;; if t-acc is empty, the numerators will all be zero
