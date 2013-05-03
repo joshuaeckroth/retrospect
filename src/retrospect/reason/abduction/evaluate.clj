@@ -343,49 +343,51 @@
         :TrueMetaRejMinscoreScoreDeltaAvg
         (avg (map :score-delta (get-in meta-true-false [:meta-rej-minscore true])))
         :FalseMetaRejMinscoreScoreDeltaAvg
-        (avg (map :score-delta (get-in meta-true-false [:meta-rej-minscore false])))}
+        (avg (map :score-delta (get-in meta-true-false [:meta-rej-minscore false])))
+        :TrueMetaRejMinscoreConflictsAccepted
+        (let [hyps (get-in meta-true-false [:meta-rej-minscore true])]
+          (if (empty? hyps) 0.0
+              (double (/ (count (filter :conflicts-with-accepted? hyps)) (count hyps)))))
+        :FalseMetaRejMinscoreConflictsAccepted
+        (let [hyps (get-in meta-true-false [:meta-rej-minscore false])]
+          (if (empty? hyps) 0.0
+              (double (/ (count (filter :conflicts-with-accepted? hyps)) (count hyps)))))}
        (:meta-hyp-types @reasoner))))
 
-(defn anomaly-reduction-indicator
+(defn meta-hyp-workspace-metrics
   [meta-true-false est]
   (let [eps (flatten-est est)
-        meta-eps-last (map (comp last flatten-est :meta-est) (filter :meta-est eps))
-        apriori-diff (fn [h] (- (avg (map :apriori (:problem-cases-prior h)))
-                               (avg (map :apriori (:problem-cases-after h)))))
-        apriori-diff-compare (fn [h1 h2] (compare (apriori-diff h2) (apriori-diff h1)))
-        best-by-apriori-diff (for [ep meta-eps-last]
-                               (first (sort apriori-diff-compare
-                                            (filter (fn [h] (and
-                                                       ((:meta-hyp-types @reasoner) (:type h))
-                                                       (not-empty (:resolves h))))
-                                               (map #(lookup-hyp (:workspace ep) %)
-                                                  (:all (:hypotheses (:workspace ep))))))))
-        best-tf-grouped (group-by #(tf-true? meta-true-false %) best-by-apriori-diff)
-        choice-count (count meta-eps-last)]
-    (merge
-     {:MetaHypBestAprioriDiffPctTrue
-      (if (= 0 choice-count) 0.0
-          (double (/ (count (get best-tf-grouped true))
-                     choice-count)))
-      :MetaHypBestAprioriDiffPctFalse
-      (if (= 0 choice-count) 0.0
-          (double (/ (count (get best-tf-grouped false))
-                     choice-count)))}
-     (reduce (fn [m t]
-          (assoc m
-            (keyword (format "%sBestAprioriDiffPctTrue" (keyword-to-metric t)))
-            (if (= 0 choice-count) 0.0
-                (double (/ (count
-                            (filter #(= t (:type %))
-                               (get best-tf-grouped true)))
-                           choice-count)))
-            (keyword (format "%sBestAprioriDiffPctFalse" (keyword-to-metric t)))
-            (if (= 0 choice-count) 0.0
-                (double (/ (count
-                            (filter #(= t (:type %))
-                               (get best-tf-grouped false)))
-                           choice-count)))))
-        {} (:meta-hyp-types @reasoner)))))
+        meta-eps (mapcat (comp flatten-est :meta-est) (filter :meta-est eps))
+        meta-hyp-acceptances (filter #((:meta-hyp-types @reasoner) (:type (:best %)))
+                                (map (comp :accrej :workspace) meta-eps))
+        essential-counts (reduce (fn [m t] (let [acc-t (filter #(= t (:type (:best %))) meta-hyp-acceptances)]
+                                       (reduce (fn [m acc]
+                                            (if (nil? (:nbest acc-t))
+                                              (update-in m [t :essential] conj (:best acc))
+                                              (update-in m [t :non-essential] conj (:best acc))))
+                                          m acc-t)))
+                            {} (:meta-hyp-types @reasoner))]
+    (apply merge
+           (for [t (:meta-hyp-types @reasoner)]
+             (let [t-acc (filter #(= t (:type (:best %))) meta-hyp-acceptances)
+                   ;; if t-acc is empty, the numerators will all be zero
+                   t-acc-count (if (empty? t-acc) 1 (count t-acc))
+                   true-essential (filter #(tf-true? meta-true-false %)
+                                     (get-in essential-counts [t :essential]))
+                   false-essential (filter #(not (tf-true? meta-true-false %))
+                                      (get-in essential-counts [t :essential]))
+                   true-non-essential (filter #(tf-true? meta-true-false %)
+                                         (get-in essential-counts [t :non-essential]))
+                   false-non-essential (filter #(not (tf-true? meta-true-false %))
+                                          (get-in essential-counts [t :non-essential]))]
+               {(keyword (format "TrueEssential%s" (keyword-to-metric t)))
+                (double (/ (count true-essential) t-acc-count))
+                (keyword (format "FalseEssential%s" (keyword-to-metric t)))
+                (double (/ (count false-essential) t-acc-count))
+                (keyword (format "TrueNonEssential%s" (keyword-to-metric t)))
+                (double (/ (count true-non-essential) t-acc-count))
+                (keyword (format "FalseNonEssential%s" (keyword-to-metric t)))
+                (double (/ (count false-non-essential) t-acc-count))})))))
 
 (defn noexp-conflict-true-false
   "How many conflict noexp anomalies are true (and should be explained)?"
@@ -458,7 +460,7 @@
            true-false-scores
            meta-true-false-scores
            (meta-hyp-metrics meta-true-false)
-           (anomaly-reduction-indicator meta-true-false est)
+           (meta-hyp-workspace-metrics meta-true-false est)
            (noexp-conflict-true-false est true-false)
            explained-avgs
            meta-explained-avgs

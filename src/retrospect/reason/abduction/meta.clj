@@ -307,7 +307,9 @@
                  {:action (partial action-prevent-rejection-minscore [implicated])
                   :resolves may-resolve
                   :implicated implicated
-                  :score-delta (- (/ (double (:MinScore params)) 100.0) (:apriori implicated))}))))
+                  :score-delta (- (/ (double (:MinScore params)) 100.0) (:apriori implicated))
+                  :conflicts-with-accepted? (some (fn [h] (conflicts? implicated h))
+                                               (:all (accepted (:workspace (cur-ep est)))))}))))
 
 (defn make-meta-hyps
   "Create explanations, and associated actions, for problem-cases."
