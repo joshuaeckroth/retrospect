@@ -38,6 +38,7 @@
                         ["meta-rej-conflict,meta-rej-minscore,meta-order-dep"]]
              :ScoreMetaHyps ["doubt-diff" ["doubt-diff" "doubt" "apriori-diff"]]
              :EstimateMetaScores [false [true false]]
+             :RemoveConflictingRejMinScore [true [true false]]
              :MinScore [0 [0 10]]
              :DoubtMeasure ["delta" ["score" "delta" "score-delta-prod"
                                      "score-delta-avg" "score-delta-pow"]]

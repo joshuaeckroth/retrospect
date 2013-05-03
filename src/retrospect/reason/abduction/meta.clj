@@ -296,20 +296,24 @@
   [problem-cases est time-prev time-now available-meta-hyps]
   ;; were some explainers omitted due to high min-score?
   (if (not (available-meta-hyps "meta-rej-minscore")) []
-      (for [{:keys [implicated may-resolve]} (find-rej-minscore-candidates problem-cases est time-now)]
-        (new-hyp "TooHighMinScore" :meta-rej-minscore :meta-rej-minscore
-                 0.0 false meta-hyp-conflicts?
-                 (map :contents may-resolve)
-                 "Explainer rejected due to too-high min-score"
-                 (format "This explainer was rejected due to too-high min-score: %s\n\nRelevant problem cases:\n%s"
-                    (str implicated)
-                    (str/join "\n" (sort (map str may-resolve))))
-                 {:action (partial action-prevent-rejection-minscore [implicated])
-                  :resolves may-resolve
-                  :implicated implicated
-                  :score-delta (- (/ (double (:MinScore params)) 100.0) (:apriori implicated))
-                  :conflicts-with-accepted? (some (fn [h] (conflicts? implicated h))
-                                               (:all (accepted (:workspace (cur-ep est)))))}))))
+      (filter
+       (if (:RemoveConflictingRejMinScore params)
+         (comp not :conflicts-with-accepted?)
+         identity)
+       (for [{:keys [implicated may-resolve]} (find-rej-minscore-candidates problem-cases est time-now)]
+         (new-hyp "TooHighMinScore" :meta-rej-minscore :meta-rej-minscore
+                  0.0 false meta-hyp-conflicts?
+                  (map :contents may-resolve)
+                  "Explainer rejected due to too-high min-score"
+                  (format "This explainer was rejected due to too-high min-score: %s\n\nRelevant problem cases:\n%s"
+                     (str implicated)
+                     (str/join "\n" (sort (map str may-resolve))))
+                  {:action (partial action-prevent-rejection-minscore [implicated])
+                   :resolves may-resolve
+                   :implicated implicated
+                   :score-delta (- (/ (double (:MinScore params)) 100.0) (:apriori implicated))
+                   :conflicts-with-accepted? (some (fn [h] (conflicts? implicated h))
+                                                (:all (accepted (:workspace (cur-ep est)))))})))))
 
 (defn make-meta-hyps
   "Create explanations, and associated actions, for problem-cases."
