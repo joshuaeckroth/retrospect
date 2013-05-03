@@ -228,8 +228,9 @@
             batch1 {:ep (cur-ep (goto-start-of-time est (dec time-now)))
                     :may-resolve no-expl-offered}]
         ;; don't allow batching more than once (accumulating batches)
+        ;; TODO: offer appropriate batch at appropriate times, and judge which is better
         (if (= (:time (:ep batch1)) (dec time-now))
-          [batchbeg batch1]
+          [batchbeg] ;; was [batch1 batchbeg]
           [batchbeg]))
       ;; time-prev == 0, so this is a "static" case or we have not
       ;; done much reasoning yet; or there are no no-expl-offered cases
