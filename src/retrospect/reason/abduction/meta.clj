@@ -349,7 +349,13 @@
     ;; forget it
     0.0
     ;; otherwise, doubt-diff is negative (the meta-hyp decreases doubt)
-    (cond (= "apriori-diff" (:ScoreMetaHyps params))
+    (cond (= :meta-rej-minscore (:type hyp))
+          (- 1.0 (max 0.0
+                      (- (avg (map :apriori problem-cases))
+                         (avg (map :apriori problem-cases-new))
+                         (if (nil? (:penalty hyp)) 0.0
+                             (:penalty hyp)))))
+          (= "apriori-diff" (:ScoreMetaHyps params))
           (max 0.0
                (- (avg (map :apriori problem-cases))
                   (avg (map :apriori problem-cases-new))
