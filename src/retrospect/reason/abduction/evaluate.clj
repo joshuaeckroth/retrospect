@@ -437,20 +437,19 @@
         decision-metrics
         (for [ep (decision-points est)]
           (let [ws (:workspace ep)
-                noise-obs (set (filter #(not (tf-true? true-false %))
-                                  (filter #(= :observation (:type %))
-                                     (vals (:hyp-ids ws)))))
-                noise-claims (set (filter #(= :ignoring (rejection-reason ws %))
-                                     (filter #(= :observation (:type %))
-                                        (vals (:hyp-ids ws)))))
-                noise-claims-true (set (filter #(not (tf-true? true-false %))
-                                          noise-claims))
+                obs (set (filter #(= :observation (:type %)) (vals (:hyp-ids ws))))
+                noise-obs (set (filter #(not (tf-true? true-false %)) obs))
+                noise-claims (set (filter #(= :ignoring (rejection-reason ws %)) obs))
+                not-noise-claims (set/difference obs noise-claims)
+                noise-claims-true (set (filter #(not (tf-true? true-false %)) noise-claims))
                 noise-claims-false (set/difference noise-claims noise-claims-true)
+                not-noise-claims-true (set (filter #(tf-true? true-false %) not-noise-claims))
+                not-noise-claims-false (set (filter #(not (tf-true? true-false %)) not-noise-claims))
                 noise-prec-coverage (calc-prec-coverage
-                                     (count noise-claims-true)  ;; tp
-                                     0                          ;; tn
+                                     (count noise-claims-true) ;; tp
+                                     (count not-noise-claims-true) ;; tn
                                      (count noise-claims-false) ;; fp
-                                     0                          ;; fn
+                                     (count not-noise-claims-false) ;; fn
                                      ;; and event-count:
                                      (count noise-obs))]
             {:Unexplained (count (unexplained ws))
@@ -462,7 +461,9 @@
              :NoiseClaimsFalse (count noise-claims-false)
              :NoiseClaimsPrec (:Prec noise-prec-coverage)
              :NoiseClaimsCoverage (:Coverage noise-prec-coverage)
-             :NoiseClaimsF1 (:F1 noise-prec-coverage)}))]
+             :NoiseClaimsF1 (:F1 noise-prec-coverage)
+             :NoiseClaimsTPR (:TPR noise-prec-coverage)
+             :NoiseClaimsFPR (:FPR noise-prec-coverage)}))]
     (merge {:Problem (:name @problem)}
            params
            ((:evaluate-fn (:abduction @problem)) truedata est)
@@ -482,6 +483,8 @@
             :AvgNoiseClaimsPrec (avg (map :NoiseClaimsPrec decision-metrics))
             :AvgNoiseClaimsCoverage (avg (map :NoiseClaimsCoverage decision-metrics))
             :AvgNoiseClaimsF1 (avg (map :NoiseClaimsF1 decision-metrics))
+            :AvgNoiseClaimsTPR (avg (map :NoiseClaimsTPR decision-metrics))
+            :AvgNoiseClaimsFPR (avg (map :NoiseClaimsFPR decision-metrics))
             :MetaTrueDeltaAvg (:true-delta-avg meta-delta-avgs)
             :MetaFalseDeltaAvg (:false-delta-avg meta-delta-avgs)
             :Doubt (doubt-aggregate est)
