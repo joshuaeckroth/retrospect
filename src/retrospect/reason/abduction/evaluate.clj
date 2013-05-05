@@ -364,7 +364,7 @@
                                 (map (comp :accrej :workspace) meta-eps))
         essential-counts (reduce (fn [m t] (let [acc-t (filter #(= t (:type (:best %))) meta-hyp-acceptances)]
                                        (reduce (fn [m acc]
-                                            (if (nil? (:nbest acc-t))
+                                            (if (nil? (:nbest acc))
                                               (update-in m [t :essential] conj (:best acc))
                                               (update-in m [t :non-essential] conj (:best acc))))
                                           m acc-t)))
