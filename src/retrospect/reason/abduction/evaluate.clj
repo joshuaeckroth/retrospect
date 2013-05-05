@@ -250,8 +250,10 @@
     (cond
      (empty? expl)
      :no-expl-offered
-     (some #{:minscore} rej-reasons)
+     (every? #{:minscore} rej-reasons)
      :minscore
+     (every? #{:ignoring} rej-reasons)
+     :ignored
      :else
      :conflict)))
 
@@ -503,9 +505,9 @@
             :ErrorsNoError (:no-error errors 0)
             :NoExpCount (reduce + (vals noexp-reasons))
             :NoExpReasonConflict (:conflict noexp-reasons 0)
+            :NoExpReasonIgnored (:ignored noexp-reasons 0)
             :NoExpReasonMinScore (:minscore noexp-reasons 0)
-            :NoExpReasonNoExpl (:no-expl-offered noexp-reasons 0)
-            :NoExpReasonUnknown (:unknown noexp-reasons 0)})))
+            :NoExpReasonNoExpl (:no-expl-offered noexp-reasons 0)})))
 
 (defn prefix-params
   [prefix params]
