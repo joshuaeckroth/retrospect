@@ -109,8 +109,8 @@
   [workspace hyp meta?]
   (let [alphanum (AlphanumComparator.)
         explains (str/join "\n" (map str (sort-by :name alphanum (ws/explains workspace hyp))))
-        explainers (str/join "\n" (map #(format "[%s]" %)
-                                     (map #(str/join ", " (sort-by :name alphanum %))
+        explainers (str/join "\n" (map #(format "\n%s\n" %)
+                                     (map #(str/join "\n" (sort-by :name alphanum %))
                                         (vals (group-by :type (ws/explainers workspace hyp))))))
         conflicts (str/join "\n" (map str (sort-by :name alphanum
                                                  (ws/find-conflicts workspace hyp))))
