@@ -45,7 +45,7 @@
                :default-params
                {:ResensePrevTime [true [true]]}}
    :default-params
-   {:Steps [10 [10]]
+   {:Steps [5 [5]]
     :StepsBetween [1 [1]]
     :GridWidth [10 [10]]
     :GridHeight [10 [10]]
@@ -57,6 +57,6 @@
     :TrainingRandom [50 [50]]
     :GaussianTrueWalkMean [4 [4]]
     :GaussianBelWalkMean [4 [4]]
-    :NumberEntities [4 [2 4 6]]
-    :SensorSeesColor [40 [0 20 40 60 80 100]]
+    :NumberEntities [6 [2 4 6]]
+    :SensorSeesColor [60 [0 20 40 60 80 100]]
     :SensorCoverage [100 [100]]}})

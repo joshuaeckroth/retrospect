@@ -33,17 +33,16 @@
      (merge {:Threshold [0 [0]]
              :MetaMinScore [0 [0]]
              :MetaThreshold [0 [0]]
-             :MetaRuleSet ["a" ["a" "b" "c"]]
              :MetaHyps ["meta-rej-conflict,meta-rej-minscore,meta-order-dep"
                         ["meta-rej-conflict,meta-rej-minscore,meta-order-dep"]]
-             :ScoreMetaHyps ["doubt-diff" ["doubt-diff" "doubt" "apriori-diff"]]
+             :ScoreMetaHyps ["apriori-diff" ["doubt-diff" "doubt" "apriori-diff"]]
              :EstimateMetaScores [false [true false]]
              :RemoveConflictingRejMinScore [true [true false]]
              :MinScore [0 [0 10]]
-             :DoubtMeasure ["delta" ["score" "delta" "score-delta-prod"
-                                     "score-delta-avg" "score-delta-pow"]]
+             :DoubtMeasure ["score-delta-avg" ["score" "delta" "score-delta-prod"
+                                               "score-delta-avg" "score-delta-pow"]]
              :DoubtAggregate ["avg" ["max" "avg" "min"]]
-             :DoubtModifier ["none" ["square" "cube" "sqrt" "log" "none"]]
+             :DoubtModifier ["log" ["square" "cube" "sqrt" "log" "none"]]
              :DoubtUnexp [false [true false]]
              :UseScores [true [true]]
              :ScoreLevels [100 [2 3 5 10 100]]
