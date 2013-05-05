@@ -24,7 +24,10 @@
           (= "max" (:DoubtAggregate params))
           (if (empty? ds) 0.0 (nan-max ds))
           (= "min" (:DoubtAggregate params))
-          (if (empty? ds) 0.0 (nan-min ds)))))
+          (if (empty? ds) 0.0 (nan-min ds))
+          (= "geommean" (:DoubtAggregate params))
+          (if (empty? ds) 0.0 (- 1.0 (Math/pow (reduce * (map #(- 1.0 %) ds))
+                                               (double (/ 1.0 (count ds)))))))))
 
 (defn tf-true?
   [true-false hyp]

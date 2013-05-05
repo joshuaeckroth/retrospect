@@ -41,7 +41,7 @@
              :MinScore [0 [0 10]]
              :DoubtMeasure ["score-delta-avg" ["score" "delta" "score-delta-prod"
                                                "score-delta-avg" "score-delta-pow"]]
-             :DoubtAggregate ["avg" ["max" "avg" "min"]]
+             :DoubtAggregate ["avg" ["geammean" "max" "avg" "min"]]
              :DoubtModifier ["log" ["square" "cube" "sqrt" "log" "none"]]
              :DoubtUnexp [false [true false]]
              :UseScores [true [true]]
