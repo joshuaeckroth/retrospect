@@ -5,7 +5,7 @@
   (:use [retrospect.epistemicstates])
   (:use [retrospect.reason.abduction.workspace])
   (:use [retrospect.evaluate :only [avg]])
-  (:use [retrospect.reason.abduction.evaluate :only [doubt-aggregate]])
+  (:use [retrospect.reason.abduction.evaluate :only [doubt-aggregate classify-noexp-reason]])
   (:use [retrospect.logging])
   (:use [retrospect.state]))
 
@@ -246,7 +246,9 @@
 (defn make-meta-hyps-order-dep
   [problem-cases est time-prev time-now available-meta-hyps]
   (if (not (available-meta-hyps "meta-order-dep")) []
-      (let [[batchbeg batch1] (find-order-dep-candidates problem-cases est time-prev time-now)
+      (let [rel-prob-cases (filter #(= :no-expl-offered (classify-noexp-reason (:workspace (cur-ep est)) %))
+                              problem-cases)
+            [batchbeg batch1] (find-order-dep-candidates rel-prob-cases est time-prev time-now)
             batchbeg-hyp (when batchbeg
                            (new-hyp "OrderDep" :meta-order-dep :meta-order-dep
                                     0.0 false meta-hyp-conflicts?
@@ -279,42 +281,46 @@
   ;; consider the various possibilities of rejected explainers and
   ;; no-explainers combinations
   (if (not (available-meta-hyps "meta-rej-conflict")) []
-      (for [{:keys [implicated cycle rejected delta may-resolve]}
-            (find-rej-conflict-candidates problem-cases est time-now)]
-        (new-hyp "RejConflict" :meta-rej-conflict :meta-rej-conflict
-                 0.0 false meta-hyp-conflicts?
-                 (map :contents may-resolve)
-                 (format "%s rejected some explainers" implicated)
-                 (format "%s rejected these explainers (cycle %d, delta %.2f):\n%s"
-                    (str implicated) cycle delta (str/join "\n" (map str rejected)))
-                 {:action (partial action-preemptively-reject [implicated])
-                  :resolves may-resolve
-                  :cycle cycle
-                  :delta delta
-                  :implicated implicated}))))
+      (let [rel-prob-cases (filter #(= :conflict (classify-noexp-reason (:workspace (cur-ep est)) %))
+                              problem-cases)]
+        (for [{:keys [implicated cycle rejected delta may-resolve]}
+              (find-rej-conflict-candidates rel-prob-cases est time-now)]
+          (new-hyp "RejConflict" :meta-rej-conflict :meta-rej-conflict
+                   0.0 false meta-hyp-conflicts?
+                   (map :contents may-resolve)
+                   (format "%s rejected some explainers" implicated)
+                   (format "%s rejected these explainers (cycle %d, delta %.2f):\n%s"
+                      (str implicated) cycle delta (str/join "\n" (map str rejected)))
+                   {:action (partial action-preemptively-reject [implicated])
+                    :resolves may-resolve
+                    :cycle cycle
+                    :delta delta
+                    :implicated implicated})))))
 
 (defn make-meta-hyps-rej-minscore
   [problem-cases est time-prev time-now available-meta-hyps]
   ;; were some explainers omitted due to high min-score?
   (if (not (available-meta-hyps "meta-rej-minscore")) []
-      (filter
-       (if (:RemoveConflictingRejMinScore params)
-         (comp not :conflicts-with-accepted?)
-         identity)
-       (for [{:keys [implicated may-resolve]} (find-rej-minscore-candidates problem-cases est time-now)]
-         (new-hyp "TooHighMinScore" :meta-rej-minscore :meta-rej-minscore
-                  0.0 false meta-hyp-conflicts?
-                  (map :contents may-resolve)
-                  "Explainer rejected due to too-high min-score"
-                  (format "This explainer was rejected due to too-high min-score: %s\n\nRelevant problem cases:\n%s"
-                     (str implicated)
-                     (str/join "\n" (sort (map str may-resolve))))
-                  {:action (partial action-prevent-rejection-minscore [implicated])
-                   :resolves may-resolve
-                   :implicated implicated
-                   :score-delta (- (/ (double (:MinScore params)) 100.0) (:apriori implicated))
-                   :conflicts-with-accepted? (some (fn [h] (conflicts? implicated h))
-                                                (:all (accepted (:workspace (cur-ep est)))))})))))
+      (let [rel-prob-cases (filter #(= :minscore (classify-noexp-reason (:workspace (cur-ep est)) %))
+                              problem-cases)]
+        (filter
+         (if (:RemoveConflictingRejMinScore params)
+           (comp not :conflicts-with-accepted?)
+           identity)
+         (for [{:keys [implicated may-resolve]} (find-rej-minscore-candidates rel-prob-cases est time-now)]
+           (new-hyp "TooHighMinScore" :meta-rej-minscore :meta-rej-minscore
+                    0.0 false meta-hyp-conflicts?
+                    (map :contents may-resolve)
+                    "Explainer rejected due to too-high min-score"
+                    (format "This explainer was rejected due to too-high min-score: %s\n\nRelevant problem cases:\n%s"
+                       (str implicated)
+                       (str/join "\n" (sort (map str may-resolve))))
+                    {:action (partial action-prevent-rejection-minscore [implicated])
+                     :resolves may-resolve
+                     :implicated implicated
+                     :score-delta (- (/ (double (:MinScore params)) 100.0) (:apriori implicated))
+                     :conflicts-with-accepted? (some (fn [h] (conflicts? implicated h))
+                                                  (:all (accepted (:workspace (cur-ep est)))))}))))))
 
 (defn make-meta-hyps
   "Create explanations, and associated actions, for problem-cases."
