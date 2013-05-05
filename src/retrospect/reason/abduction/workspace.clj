@@ -586,7 +586,8 @@
                 (-> workspace
                    (add-to-hyp-log hyp-c (format "Added at cycle %d" cycle))
                    (add-helper hyp-c)))]
-       (if (and (not (rejected? ws hyp-c))
+       (if (and (not= :observation (:type hyp-c))
+                (not (rejected? ws hyp-c))
                 (conflicts-with-accepted? ws hyp-c))
          (do (log (str "...yet it conflicts with an already accepted hyp, "
                        "so immediately rejecting."))
@@ -635,7 +636,8 @@
                                                        "comparison: %s")
                                                   cycle explained delta (nil? nbest) nbest
                                                   comparison)))
-                 conflicts (find-conflicts ws-hyplog hyp)
+                 conflicts (if (= :observation (:type hyp)) []
+                               (find-conflicts ws-hyplog hyp))
                  ws-conflicts (reduce (fn [ws h] (if (undecided? ws h)
                                              (reject ws h :conflict cycle)
                                              ws))

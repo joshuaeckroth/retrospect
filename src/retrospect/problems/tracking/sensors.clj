@@ -105,7 +105,8 @@
                 (-> observations
                    (insertion-noise sensor time)
                    (deletion-noise)
-                   (distortion-noise)))))
+                   (distortion-noise)
+                   (duplication-noise)))))
 
 (defn new-sensor
   "Generate a new sensor with provided values and an empty 'spotted' vector."

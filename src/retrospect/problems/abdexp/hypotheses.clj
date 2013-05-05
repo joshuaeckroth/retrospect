@@ -38,8 +38,6 @@
 (defn hyps-conflict?
   [expgraph hyp1 hyp2]
   (and (not= (:id hyp1) (:id hyp2))
-       (not= :observation (:type hyp1))
-       (not= :observation (:type hyp2))
        (vertex-values-conflict?
         expgraph (:vertex hyp1) (:value hyp1) (:vertex hyp2) (:value hyp2))))
 
@@ -81,7 +79,7 @@
         (for [[v val] sens-observed]
           (new-hyp "Obs" :observation :observation
                    (make-score expgraph bn observed [] v val)
-                   true nil
+                   true (partial hyps-conflict? expgraph)
                    [] (format "Observed %s=%s" v val) (format "Observed %s=%s" v val)
                    {:vertex v :value val})))))
 

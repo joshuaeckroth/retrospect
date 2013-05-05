@@ -243,6 +243,28 @@
      (for [hyp (filter #(not= :kb (:type %)) (vals (:hyp-ids ws)))]
        (classify-error ws true-false hyp)))))
 
+(defn classify-noise
+  [ws true-false hyp]
+  ;; solitary noise: false observation, and no other observation conlicts with it
+  ;; conflicting noise: false observation, and some other observation conflicts with it
+  (cond (and (= :observation (:type hyp))
+             (not (tf-true? true-false hyp))
+             (not-any? #(conflicts? % hyp) (:observation (hypotheses ws))))
+        :solitary
+        (and (= :observation (:type hyp))
+             (not (tf-true? true-false hyp))
+             (some #(conflicts? % hyp) (:observation (hypotheses ws))))
+        :conflicting
+        :else
+        :not-noise))
+
+(defn find-noise
+  [est true-false]
+  (let [ws (:workspace (cur-ep est))]
+    (frequencies
+     (for [hyp (filter #(not (tf-true? true-false %)) (:observation (hypotheses ws)))]
+       (classify-noise ws true-false hyp)))))
+
 (defn classify-noexp-reason
   [ws hyp]
   (let [expl (explainers ws hyp)
@@ -435,6 +457,7 @@
         ep-states (flatten-est est)
         doubt (doubt-aggregate est)
         errors (find-errors est true-false)
+        noise-types (find-noise est true-false)
         noexp-reasons (find-noexp-reasons est)
         decision-metrics
         (for [ep (decision-points est)]
@@ -507,7 +530,9 @@
             :NoExpReasonConflict (:conflict noexp-reasons 0)
             :NoExpReasonIgnored (:ignored noexp-reasons 0)
             :NoExpReasonMinScore (:minscore noexp-reasons 0)
-            :NoExpReasonNoExpl (:no-expl-offered noexp-reasons 0)})))
+            :NoExpReasonNoExpl (:no-expl-offered noexp-reasons 0)
+            :NoiseSolitary (:solitary noise-types 0)
+            :NoiseConflicting (:conflicting noise-types 0)})))
 
 (defn prefix-params
   [prefix params]
