@@ -10,7 +10,7 @@
   (:use [clj-swing.text-field])
   (:use [retrospect.simulate
          :only [run-simulation-step merge-default-params get-default-params init-ors
-                evaluate]])
+                evaluate pre-sense]])
   (:use [retrospect.state])
   (:use [retrospect.profile :only [profile]])
   (:use [retrospect.gui.eptree :only [ep-tree-tab update-ep-tree]])
@@ -120,8 +120,8 @@
         (set-last-id 0)
         (dosync
          (alter truedata (constantly (profile ((:generate-truedata-fn @problem)))))
-         (alter sensors (constantly ((:generate-sensors-fn @problem)
-                                     (:training @truedata)))))))
+         (alter sensors (constantly (pre-sense @truedata ((:generate-sensors-fn @problem)
+                                                          (:training @truedata))))))))
     (dosync
      (alter results (constantly []))
      (alter or-state (constantly (init-ors @truedata @sensors))))

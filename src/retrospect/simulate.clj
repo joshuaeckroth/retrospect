@@ -10,31 +10,22 @@
   (:use [retrospect.logging])
   (:use [retrospect.state]))
 
-(defn update-sensors-from-to
-  [time-prev time-now truedata sensors]
-  (loop [t time-prev
-         sens (if (:ResetSensors params) (reset-sensors sensors) sensors)]
-    (let [sens2 (update-sensors sens (:test truedata) t)]
-      (if (>= t time-now) sens2
-          (recur (inc t) sens2)))))
-
 (defn run-simulation-step
   [truedata ors player?]
   (let [time-prev (:time (cur-ep (:est ors)))
         time-now (min (:Steps params) (+ (:StepsBetween params) time-prev))
-        sensors (update-sensors-from-to time-prev time-now truedata (:sensors ors))
         ;; start the clock
         start-time (. System (nanoTime))
         est-next (new-child-ep (:est ors))
         est-time (update-est est-next (assoc (cur-ep est-next) :time time-now))
-        reason-est ((:reason-fn @reasoner) est-time time-prev time-now sensors)
+        reason-est ((:reason-fn @reasoner) est-time time-prev time-now (:sensors ors))
         ;; record this ep as a decision point
         decision-est (update-est reason-est (assoc (cur-ep reason-est)
                                               :time time-now
                                               :decision-point true))
         ;; stop the clock
         ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
-        ors-est (assoc ors :est decision-est :sensors sensors)
+        ors-est (assoc ors :est decision-est)
         ors-results (update-in ors-est [:resources :milliseconds] + ms)]
     (when (:Stats params)
       ((:stats-fn @reasoner) truedata ors-results time-now))
@@ -115,6 +106,14 @@
   (let [default (get-default-params)]
     (merge default params)))
 
+(defn pre-sense
+  [truedata sensors]
+  (loop [t 0
+         sens (if (:ResetSensors params) (reset-sensors sensors) sensors)]
+    (let [sens2 (update-sensors sens (:test truedata) t)]
+      (if (>= t (:Steps params)) sens2
+          (recur (inc t) sens2)))))
+
 (defn run-single
   [ps]
   (when (and (not @quiet-mode) (not (:Stats ps)))
@@ -124,7 +123,7 @@
             cache (atom {})
             params ps]
     (let [truedata ((:generate-truedata-fn @problem))
-          sensors ((:generate-sensors-fn @problem) (:training truedata))
+          sensors (pre-sense truedata ((:generate-sensors-fn @problem) (:training truedata)))
           ors (init-ors truedata sensors)]
       (let [ors-final (run-simulation truedata ors)]
         (:results (cur-ep (:est ors-final)))))))

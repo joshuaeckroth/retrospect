@@ -333,8 +333,12 @@
   (prof
    :sort-explainers
    (let [hyp-sorter (if (= (:HypPreference params) "arbitrary")
-                      #(my-shuffle %)
-                      #(sort (partial compare-hyps workspace unexp) %))
+                      (fn [hyps] (doall (my-shuffle hyps)))
+                      ;; even if not "arbitrary", perform a shuffle so
+                      ;; the rgen (random generator) stays in sync
+                      ;; with runs that don't use arbitrary hyp-pref
+                      (fn [hyps] (doall (my-shuffle hyps))
+                        (sort (partial compare-hyps workspace unexp) hyps)))
          apriori-sorter (fn [{hyp1 :hyp expl1 :expl} {hyp2 :hyp expl2 :expl}]
                           (- (compare
                               (:apriori (first expl1))
@@ -362,8 +366,10 @@
                            (= (:ContrastPreference params) "delta")
                            (fn [hs] (sort delta-sorter hs))
                            (= (:ContrastPreference params) "arbitrary")
-                           #(my-shuffle %))]
-     (expl-sorter (map #(update-in % [:expl] hyp-sorter) explainers)))))
+                           identity)]
+     ;; perform a shuffle first so the rgen stays in sync across
+     ;; arbitrary and non-arbitrary runs
+     (expl-sorter (my-shuffle (map #(update-in % [:expl] hyp-sorter) explainers))))))
 
 (defn conflicts?
   [h1 h2]
