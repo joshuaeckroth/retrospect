@@ -45,12 +45,12 @@
                :claims abduction-claims}
    :claims generic-claims
    :default-params
-   {:Steps [10 [10]]
+   {:Steps [20 [20]]
     :StepsBetween [1 [1]]
     :NumExplainers [4 [4]]
     :NumExplainsLinks [50 [50]]
-    :NumConflictLinks [20 [20]]
-    :UniqueGraphs [10 [10]]
+    :NumConflictLinks [10 [10]]
+    :UniqueGraphs [20 [20]]
     :HypScores ["prior" ["prior" "posterior"]]
     :PriorFunc ["max" ["min" "max" "avg"]]
     :MaxStates [3 [2 3 4]]}})

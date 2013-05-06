@@ -40,15 +40,15 @@
              :RemoveConflictingRejMinScore [true [true false]]
              :MinScore [0 [0 10]]
              :DoubtIgnoreEssentials [false [true false]]
-             :DoubtMeasure ["score-delta-avg" ["score" "delta" "score-delta-prod"
+             :DoubtMeasure ["min-score-delta" ["score" "delta" "score-delta-prod"
                                                "score-delta-avg" "score-delta-pow"
                                                "max-score-delta" "min-score-delta"]]
              :DoubtAggregate ["avg" ["geammean" "max" "avg" "min"]]
-             :DoubtModifier ["log" ["square" "cube" "sqrt" "log" "none"]]
+             :DoubtModifier ["none" ["square" "cube" "sqrt" "log" "none"]]
              :DoubtUnexp [false [true false]]
              :UseScores [true [true]]
              :ScoreLevels [100 [2 3 5 10 100]]
-             :ContrastPreference ["delta,score" ["arbitrary" "score,delta"
+             :ContrastPreference ["score,delta" ["arbitrary" "score,delta"
                                                  "score" "delta" "delta,score"]]
              :HypPreference ["score,expl" ["score" "expl" "score,expl"
                                            "expl,score" "arbitrary"]]
