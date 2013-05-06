@@ -836,7 +836,7 @@
                         (= "delta" (:DoubtMeasure params))
                         (when delta (- 1.0 delta))
                         (= "score-delta-prod" (:DoubtMeasure params))
-                        (when (and score delta) (* score delta))
+                        (when (and score delta) (- 1.0 (* score delta)))
                         (= "score-delta-avg" (:DoubtMeasure params))
                         (when (and score delta) (- 1.0 (/ (+ score delta) 2.0)))
                         (= "score-delta-pow" (:DoubtMeasure params))
