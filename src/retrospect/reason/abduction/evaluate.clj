@@ -19,6 +19,11 @@
         ds (if (:DoubtUnexp params)
              (concat (repeat (count unexp) 1.0) doubts)
              doubts)]
+    (println "doubts:" ds)
+    (println "1.0 - doubts:" (map #(- 1.0 %) ds))
+    (println "avg:" (/ (reduce + ds) (double (count ds))))
+    (println "geommean*:" (Math/pow (reduce * (map #(- 1.0 %) ds)) (double (/ 1.0 (count ds)))))
+    (println "geommean:" (- 1.0 (Math/pow (reduce * (map #(- 1.0 %) ds)) (double (/ 1.0 (count ds))))))
     (cond (= "avg" (:DoubtAggregate params))
           (if (empty? ds) 0.0 (/ (reduce + ds) (double (count ds))))
           (= "max" (:DoubtAggregate params))

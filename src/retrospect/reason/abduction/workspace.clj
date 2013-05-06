@@ -822,13 +822,14 @@
   [workspace]
   (prof
    :calc-doubt
-   (let [score (when (and (:best (:accrej workspace))
-                          (not ((:ignore-doubt-types (:abduction @problem))
-                                (:type (:best (:accrej workspace))))))
-                 (:apriori (:best (:accrej workspace))))
-         delta (when (and (:delta (:accrej workspace))
-                          (not ((:ignore-doubt-types (:abduction @problem))
-                                (:type (:best (:accrej workspace))))))
+   (let [best (when (and (:best (:accrej workspace))
+                         (or (not (:DoubtIgnoreEssentials params))
+                             (:nbest (:accrej workspace)))
+                         (not ((:ignore-doubt-types (:abduction @problem))
+                               (:type (:best (:accrej workspace))))))
+                (:best (:accrej workspace)))
+         score (when best (:apriori best))
+         delta (when (and best (:delta (:accrej workspace)))
                  (:delta (:accrej workspace)))]
      (when-let [d (cond (= "score" (:DoubtMeasure params))
                         (when score (- 1.0 score))

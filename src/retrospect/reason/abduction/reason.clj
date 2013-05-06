@@ -39,6 +39,7 @@
              :EstimateMetaScores [false [true false]]
              :RemoveConflictingRejMinScore [true [true false]]
              :MinScore [0 [0 10]]
+             :DoubtIgnoreEssentials [false [true false]]
              :DoubtMeasure ["score-delta-avg" ["score" "delta" "score-delta-prod"
                                                "score-delta-avg" "score-delta-pow"]]
              :DoubtAggregate ["avg" ["geammean" "max" "avg" "min"]]
