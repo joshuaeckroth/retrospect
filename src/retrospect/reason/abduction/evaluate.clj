@@ -106,9 +106,9 @@
            (assoc m
              (keyword (format "TrueDeltaAvg%s" k)) (avg (map :delta (filter :tf ds)))
              (keyword (format "FalseDeltaAvg%s" k)) (avg (map :delta (filter #(not (:tf %)) ds))))))
-       {:TrueDeltaAvg (avg (map :delta (filter :tf delta-tf)))
-        :FalseDeltaAvg (avg (map :delta (filter #(not (:tf %)) delta-tf)))}
-       (keys true-false))))
+       {(keyword (format "True%sDeltaAvg" (if meta? "Meta" ""))) (avg (map :delta (filter :tf delta-tf)))
+        (keyword (format "False%sDeltaAvg" (if meta? "Meta" ""))) (avg (map :delta (filter #(not (:tf %)) delta-tf)))}
+       (keys (dissoc true-false :all :individual)))))
 
 (defn calc-true-false-explained
   "Find average number of explainers, average score of best, and average delta
@@ -513,8 +513,6 @@
             :AvgNoiseClaimsF1 (avg (map :NoiseClaimsF1 decision-metrics))
             :AvgNoiseClaimsTPR (avg (map :NoiseClaimsTPR decision-metrics))
             :AvgNoiseClaimsFPR (avg (map :NoiseClaimsFPR decision-metrics))
-            :MetaTrueDeltaAvg (:true-delta-avg meta-delta-avgs)
-            :MetaFalseDeltaAvg (:false-delta-avg meta-delta-avgs)
             :Doubt (doubt-aggregate est)
             :ExplainCycles (count ep-states)
             :MetaBranches (count-branches est)
