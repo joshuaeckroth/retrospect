@@ -843,6 +843,8 @@
                         (when (and score delta) (- 1.0 (Math/pow score (- 1.0 delta))))
                         (= "max-score-delta" (:DoubtMeasure params))
                         (when (and score delta) (- 1.0 (max score delta)))
+                        (= "min-score-delta" (:DoubtMeasure params))
+                        (when (and score delta) (- 1.0 (min score delta)))
                         :else
                         (when delta (- 1.0 delta)))]
        (cond (= "square" (:DoubtModifier params))

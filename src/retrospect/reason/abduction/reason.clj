@@ -42,7 +42,7 @@
              :DoubtIgnoreEssentials [false [true false]]
              :DoubtMeasure ["score-delta-avg" ["score" "delta" "score-delta-prod"
                                                "score-delta-avg" "score-delta-pow"
-                                               "max-score-delta"]]
+                                               "max-score-delta" "min-score-delta"]]
              :DoubtAggregate ["avg" ["geammean" "max" "avg" "min"]]
              :DoubtModifier ["log" ["square" "cube" "sqrt" "log" "none"]]
              :DoubtUnexp [false [true false]]
