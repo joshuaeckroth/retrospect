@@ -108,9 +108,22 @@
 (defn update-hyp-info
   [workspace hyp meta?]
   (let [alphanum (AlphanumComparator.)
+        hyp-tf? (fn [hyp] (or (and meta? (true-meta-hyp? @truedata hyp))
+                             (and (not meta?) ((:oracle-fn @problem) @truedata hyp))))
         explains (str/join "\n" (map str (sort-by :name alphanum (ws/explains workspace hyp))))
         explainers (str/join "\n" (map #(format "\n%s\n" %)
-                                     (map #(str/join "\n" (sort-by :name alphanum %))
+                                     (map #(str/join "\n" (for [e (sort-by :name alphanum %)]
+                                                          (format "%s (%s; %s)" (str e)
+                                                             (if (hyp-tf? e) "True" "False")
+                                                             (cond (ws/accepted? workspace e)
+                                                                   (format "Acc @ %d"
+                                                                      (ws/accepted-cycle workspace e))
+                                                                   (ws/rejected? workspace e)
+                                                                   (format "Rej: %s @ %d"
+                                                                      (name (ws/rejection-reason workspace e))
+                                                                      (ws/rejected-cycle workspace e))
+                                                                   :else
+                                                                   "Und"))))
                                         (vals (group-by :type (ws/explainers workspace hyp))))))
         conflicts (str/join "\n" (map str (sort-by :name alphanum
                                                  (ws/find-conflicts workspace hyp))))
@@ -120,9 +133,7 @@
     (. hyp-apriori-label setText
        (format "Apriori: %.2f" (:apriori hyp)))
     (. hyp-truefalse-label setText
-       (if (or (and meta? (true-meta-hyp? @truedata hyp))
-               (and (not meta?) ((:oracle-fn @problem) @truedata hyp)))
-         "TF: True" "TF: False"))
+       (if (hyp-tf? hyp) "TF: True" "TF: False"))
     (. hyp-accepted-label setText
        (if (ws/accepted? workspace hyp) "Acc: True" "Acc: False"))
     (dosync
