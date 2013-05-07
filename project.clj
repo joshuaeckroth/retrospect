@@ -3,7 +3,7 @@
   :dependencies [[org.clojure/clojure "1.4.0"]
                  [cc.artifice/vijual "0.2.5"]
                  [cc.artifice/clj-swing "0.1.6"]
-                 [cc.artifice/geppetto "2.3.0-SNAPSHOT"]
+                 [cc.artifice/geppetto "2.4.0-SNAPSHOT"]
                  [prismatic/plumbing "0.0.1"]
                  [seesaw "1.4.2"]
                  [cc.artifice/loom "0.1.3"]

@@ -18,7 +18,7 @@
   #_(:use [retrospect.problems.classify.problem :only [classify-problem]])
   (:use [retrospect.problems.abdexp.problem :only [abdexp-problem]])
   (:use [retrospect.simulate :only [run]])
-  (:use [geppetto.records :only [run-with-new-record submit-archived-results]])
+  (:use [geppetto.records :only [run-with-new-record submit-results]])
   (:use [retrospect.player :only [start-player]])
   (:use [retrospect.utility]))
 
@@ -79,7 +79,7 @@
           (SwingUtilities/invokeLater start-player)
 
           (= (:action options) "resubmit")
-          (submit-archived-results (:recdir options))
+          (submit-results (:recdir options))
 
           (= (:action options) "verify-claims")
           (do
