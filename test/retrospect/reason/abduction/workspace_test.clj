@@ -4,7 +4,8 @@
   (:use [retrospect.reason.abduction.reason :only [reason-abduction]])
   (:use [retrospect.reason.abduction.workspace])
   (:use [retrospect.simulate :only [get-default-params]])
-  (:use [retrospect.state]))
+  (:use [retrospect.state])
+  (:use [geppetto.random]))
 
 (use-fixtures :each
   (fn [f]
@@ -21,7 +22,8 @@
           (recur ws-expl)))))
 
 (deftest test-new-hyp
-  (binding [last-id 0]
+  (binding [last-id 0
+            rgen (new-seed 0)]
     (let [h (new-hyp "Test" :mytype :mysubtype 0.25 true (constantly false)
                      [] "short-descr" "desc" {:x 1})]
       (is (= 1 (:id h)))
@@ -34,6 +36,7 @@
   (dosync (alter reasoner (constantly reason-abduction))
           (alter problem (constantly abdexp-problem)))
   (binding [last-id 0
+            rgen (new-seed 0)
             params (get-default-params)]
     (let [h1 (new-hyp "Test" :mytype :mysubtype 0.25 true (constantly false)
                       [] "short-descr" "desc" {:x 1})
@@ -50,6 +53,7 @@
   (dosync (alter reasoner (constantly reason-abduction))
           (alter problem (constantly abdexp-problem)))
   (binding [last-id 0
+            rgen (new-seed 0)
             params (assoc (get-default-params) :simulation 0 :MinScore 50)]
     (let [conflicts?-fn (fn [hyp1 hyp2] (and (not= hyp1 hyp2)
                                             (= (:type hyp1) (:type hyp2))))
@@ -74,6 +78,7 @@
   (dosync (alter reasoner (constantly reason-abduction))
           (alter problem (constantly abdexp-problem)))
   (binding [last-id 0
+            rgen (new-seed 0)
             params (assoc (get-default-params) :simulation 0)]
     (let [conflicts?-fn (fn [hyp1 hyp2] (and (not= hyp1 hyp2)
                                             (= (:type hyp1) (:type hyp2))))
@@ -116,6 +121,7 @@
   (dosync (alter reasoner (constantly reason-abduction))
           (alter problem (constantly abdexp-problem)))
   (binding [last-id 0
+            rgen (new-seed 0)
             params (assoc (get-default-params) :simulation 0 :MinScore 50)]
     (let [conflicts?-fn (fn [hyp1 hyp2] (and (not= hyp1 hyp2)
                                             (= (:type hyp1) (:type hyp2))))
@@ -149,6 +155,7 @@
   (dosync (alter reasoner (constantly reason-abduction))
           (alter problem (constantly abdexp-problem)))
   (binding [last-id 0
+            rgen (new-seed 0)
             params (assoc (get-default-params) :simulation 0)]
     (let [conflicts?-fn (fn [hyp1 hyp2] (and (not= hyp1 hyp2)
                                             (= (:type hyp1) (:type hyp2))))
@@ -187,6 +194,7 @@
   (dosync (alter reasoner (constantly reason-abduction))
           (alter problem (constantly abdexp-problem)))
   (binding [last-id 0
+            rgen (new-seed 0)
             params (assoc (get-default-params) :simulation 0)]
     (let [conflicts?-fn (fn [hyp1 hyp2] (and (not= hyp1 hyp2)
                                             (= (:type hyp1) (:type hyp2))))
@@ -235,6 +243,7 @@
   (dosync (alter reasoner (constantly reason-abduction))
           (alter problem (constantly abdexp-problem)))
   (binding [last-id 0
+            rgen (new-seed 0)
             params (assoc (get-default-params) :simulation 0)]
     (let [conflicts?-fn (fn [hyp1 hyp2] (and (not= hyp1 hyp2)
                                             (= (:type hyp1) (:type hyp2))))
@@ -302,6 +311,7 @@
   (dosync (alter reasoner (constantly reason-abduction))
           (alter problem (constantly abdexp-problem)))
   (binding [last-id 0
+            rgen (new-seed 0)
             params (assoc (get-default-params) :simulation 0)]
     (let [conflicts?-fn (fn [hyp1 hyp2] (and (not= hyp1 hyp2)
                                             (= (:type hyp1) (:type hyp2))))
@@ -339,6 +349,7 @@
   (dosync (alter reasoner (constantly reason-abduction))
           (alter problem (constantly abdexp-problem)))
   (binding [last-id 0
+            rgen (new-seed 0)
             params (assoc (get-default-params) :simulation 0)]
     (let [conflicts?-fn (fn [hyp1 hyp2] (and (not= hyp1 hyp2)
                                             (= (:type hyp1) (:type hyp2))))
@@ -397,6 +408,7 @@
   (dosync (alter reasoner (constantly reason-abduction))
           (alter problem (constantly abdexp-problem)))
   (binding [last-id 0
+            rgen (new-seed 0)
             params (assoc (get-default-params) :simulation 0)]
     (let [conflicts?-fn (fn [hyp1 hyp2] (and (not= hyp1 hyp2)
                                             (= (:type hyp1) (:type hyp2))))

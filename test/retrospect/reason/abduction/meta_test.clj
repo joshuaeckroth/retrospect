@@ -6,7 +6,8 @@
   (:use [retrospect.reason.abduction.workspace])
   (:use [retrospect.simulate])
   (:use [retrospect.epistemicstates])
-  (:use [retrospect.state]))
+  (:use [retrospect.state])
+  (:use [geppetto.random]))
 
 (use-fixtures :each
   (fn [f]
@@ -17,6 +18,7 @@
 
 (deftest test-meta-no-offered-expl
   (binding [last-id 0
+            rgen (new-seed 0)
             params (assoc (get-default-params)
                      :GetMoreHyps false)]
     (let [conflicts?-fn (fn [hyp1 hyp2] (and (not= hyp1 hyp2)
@@ -124,6 +126,7 @@
                                        :make-sensor-hyps-fn (constantly [])
                                        :ignore-doubt-types #{}}})))
   (binding [last-id 0
+            rgen (new-seed 0)
             params (assoc (get-default-params)
                      :GetMoreHyps false)]
     (let [conflicts?-fn (fn [hyp1 hyp2] (and (not= hyp1 hyp2)
@@ -199,6 +202,7 @@
                                        :make-sensor-hyps-fn (constantly [])
                                        :ignore-doubt-types #{}}})))
   (binding [last-id 0
+            rgen (new-seed 0)
             params (assoc (get-default-params)
                      :GetMoreHyps false :MinScore 50)]
     (let [conflicts?-fn (fn [hyp1 hyp2] (and (not= hyp1 hyp2)
@@ -252,6 +256,7 @@
                                        :make-sensor-hyps-fn (constantly [])
                                        :ignore-doubt-types #{}}})))
   (binding [last-id 0
+            rgen (new-seed 0)
             params (assoc (get-default-params)
                      :GetMoreHyps false
                      :MinScore 20)]
