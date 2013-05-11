@@ -883,7 +883,13 @@
   [accgraph]
   (let [tops (filter #(empty? (incoming accgraph %)) (nodes accgraph))]
     (when-not (empty? tops)
-      (- 1.0 (avg (map #(calc-doubt-from-accgraph-recursive accgraph %) tops))))))
+      (let [ds (map #(calc-doubt-from-accgraph-recursive accgraph %) tops)]
+        (- 1.0 (cond (= "min" (:DoubtAccGraphAgg params))
+                     (apply min ds)
+                     (= "max" (:DoubtAccGraphAgg params))
+                     (apply max ds)
+                     (= "avg" (:DoubtAccGraphAgg params))
+                     (avg ds)))))))
 
 (defn calc-doubt
   [workspace]
