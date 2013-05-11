@@ -42,8 +42,10 @@
              :DoubtIgnoreEssentials [false [true false]]
              :DoubtMeasure ["min-score-delta" ["score" "delta" "score-delta-prod"
                                                "score-delta-avg" "score-delta-pow"
-                                               "max-score-delta" "min-score-delta"]]
-             :DoubtAggregate ["avg" ["geammean" "max" "avg" "min"]]
+                                               "max-score-delta" "min-score-delta"
+                                               "accgraph"]]
+             :DoubtAggregate ["avg" ["geammean" "max" "avg" "min" "last"]]
+             :DoubtAccGraphAgg ["min" ["min" "max" "avg"]]
              :DoubtModifier ["none" ["square" "cube" "sqrt" "log" "none"]]
              :DoubtUnexp [false [true false]]
              :UseScores [true [true]]

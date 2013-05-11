@@ -5,10 +5,12 @@
   (:use [loom.graph :only
          [digraph nodes incoming neighbors weight
           add-nodes add-edges remove-nodes edges has-edge? transpose]])
+  (:use [loom.alg :only [topsort]])
   (:use [loom.alg-generic :only [bf-traverse]])
   (:use [loom.attr :only [add-attr remove-attr attr]])
   (:use [retrospect.profile :only [prof profile]])
   (:use [retrospect.logging])
+  (:use [retrospect.evaluate :only [avg]])
   (:use [geppetto.random])
   (:use [retrospect.state])
   (:use [retrospect.utility]))
@@ -59,6 +61,8 @@
    :accrej {}
    ;; hypgraph
    :hypgraph (digraph)
+   ;; acceptance graph, which stores the dependencies of acceptances
+   :accgraph (digraph)
    ;; a cache
    :accepted #{}
    ;; a cache
@@ -620,8 +624,11 @@
            (do (log "Already rejected, with reason" (rejection-reason workspace hyp))
                workspace)
            :else
-           (let [newly-explained (set/intersection (:unexplained workspace)
-                                        (set (map :id (explains workspace hyp))))
+           (let [newly-explained (filter #(unexplained? workspace %)
+                                    (set/intersection (:unexplained workspace)
+                                           (set (map :id (explains workspace hyp)))))
+                 conflicts (if (= :observation (:type hyp)) []
+                               (find-conflicts workspace hyp))
                  ws-acc (-> workspace
                            (update-in [:hypgraph] add-attr (:id hyp)
                                       :accepted? true)
@@ -642,8 +649,6 @@
                                                        "comparison: %s")
                                                   cycle explained delta (nil? nbest) nbest
                                                   comparison)))
-                 conflicts (if (= :observation (:type hyp)) []
-                               (find-conflicts ws-hyplog hyp))
                  ws-conflicts (reduce (fn [ws h] (if (undecided? ws h)
                                              (reject ws h :conflict cycle)
                                              ws))
@@ -660,51 +665,6 @@
                                                  delta comparison cycle)))
                                      ws-conflicts (:hyps hyp)))]
              (update-in ws-composite [:accrej :acc] conj (:id hyp)))))))
-
-(defn contrast-sets
-  [workspace unexp]
-  (let [expls (doall (filter #(not-empty (:expl %))
-                        (for [h unexp] {:hyp h :expl (filter #(undecided? workspace %)
-                                                        (explainers workspace h))})))]
-    (sort-explainers workspace unexp expls)))
-
-(defn find-best
-  [workspace]
-  (prof
-   :find-best
-   (let [unexp (unexplained workspace)
-         expls-sorted (contrast-sets workspace unexp)]
-     (when (not-empty expls-sorted)
-       (let [essential-expl (first (filter #(= 1 (count (:expl %))) expls-sorted))]
-         (if essential-expl
-           (let [explained (:hyp essential-expl)
-                 best (first (:expl essential-expl))]
-             {:best best :nbest nil :explained explained :alts []
-              :comparison {} :delta 1.0 :normalized-aprioris [1.0]})
-           ;; otherwise, choose highest-delta non-essential
-           (let [hyp-expl (first expls-sorted)
-                 explained (:hyp hyp-expl)
-                 choices (:expl hyp-expl)
-                 best (first choices)
-                 nbest (second choices)
-                 normalized-aprioris (let [aprioris (map :apriori choices)
-                                           s (reduce + aprioris)]
-                                       (if (= 0.0 (double s)) aprioris
-                                           (map #(/ % s) aprioris)))
-                 delta (- (first normalized-aprioris) (second normalized-aprioris))
-                 comparison (hyp-better-than? workspace unexp best nbest)]
-             (log "best:" best "nbest:" nbest "delta:" delta)
-             (when (or (= 0 (:Threshold params))
-                       (>= delta (+ 0.001 (/ (:Threshold params) 100.0)))
-                       ;; if threshold is not good enough,
-                       ;; see if one hyp is better purely by
-                       ;; other factors such as explanatory power
-                       (and (:ConsiderExplPower params)
-                            (or (:expl comparison) (:explainers comparison))))
-               {:best best :nbest nbest :delta delta
-                :normalized-aprioris normalized-aprioris
-                :explained explained :alts (rest choices)
-                :comparison comparison}))))))))
 
 ;; TODO
 (defn update-kb
@@ -741,6 +701,80 @@
                               (not (prevented-rejection? workspace h :minscore))))
                   (:all (hypotheses workspace)))))
 
+(defn contrast-sets
+  [workspace unexp]
+  (let [expls (doall (filter #(not-empty (:expl %))
+                        (for [h unexp] {:hyp h :expl (filter #(undecided? workspace %)
+                                                        (explainers workspace h))})))]
+    (sort-explainers workspace unexp expls)))
+
+(defn find-best
+  [workspace]
+  (prof
+   :find-best
+   (let [unexp (unexplained workspace)
+         expls-sorted (contrast-sets workspace unexp)]
+     (when (not-empty expls-sorted)
+       (let [essential-expl (first (filter #(= 1 (count (:expl %))) expls-sorted))]
+         (if essential-expl
+           (let [explained (:hyp essential-expl)
+                 best (first (:expl essential-expl))]
+             {:best best :nbest nil :explained explained :alts []
+              :comparison {} :delta 1.0 :normalized-aprioris [1.0]
+              :contrast-sets expls-sorted})
+           ;; otherwise, choose highest-delta non-essential
+           (let [hyp-expl (first expls-sorted)
+                 explained (:hyp hyp-expl)
+                 choices (:expl hyp-expl)
+                 best (first choices)
+                 nbest (second choices)
+                 normalized-aprioris (let [aprioris (map :apriori choices)
+                                           s (reduce + aprioris)]
+                                       (if (= 0.0 (double s)) aprioris
+                                           (map #(/ % s) aprioris)))
+                 delta (- (first normalized-aprioris) (second normalized-aprioris))
+                 comparison (hyp-better-than? workspace unexp best nbest)]
+             (log "best:" best "nbest:" nbest "delta:" delta)
+             (when (or (= 0 (:Threshold params))
+                       (>= delta (+ 0.001 (/ (:Threshold params) 100.0)))
+                       ;; if threshold is not good enough,
+                       ;; see if one hyp is better purely by
+                       ;; other factors such as explanatory power
+                       (and (:ConsiderExplPower params)
+                            (or (:expl comparison) (:explainers comparison))))
+               {:best best :nbest nbest :delta delta
+                :normalized-aprioris normalized-aprioris
+                :explained explained :alts (rest choices)
+                :comparison comparison
+                :contrast-sets expls-sorted}))))))))
+
+(defn record-best-in-accgraph
+  [workspace hyp contrast-sets]
+  (let [newly-explained (filter #(unexplained? workspace %)
+                           (set/intersection (:unexplained workspace)
+                                  (set (map :id (explains workspace hyp)))))
+        deltas (into {} (for [explained newly-explained]
+                          (let [expl (:expl (first (filter #(= explained (:id (:hyp %))) contrast-sets)))]
+                            [explained
+                             (cond (= [hyp] expl) 1.0
+                                   (= hyp (first expl)) (- (:apriori hyp)
+                                                           (:apriori (second expl)))
+                                   (not-empty expl)
+                                   (- (:apriori hyp) (:apriori (first expl)))
+                                   :else 1.0)])))
+        ag-expl (reduce (fn [ag hypid]
+                     (-> ag
+                        (add-edges [(:id hyp) hypid])
+                        (add-attr hypid :score (:apriori (lookup-hyp workspace hypid)))
+                        (add-attr hypid :label (format "%d / %.2f" hypid (:apriori (lookup-hyp workspace hypid))))
+                        (add-attr (:id hyp) hypid :delta (get deltas hypid))
+                        (add-attr (:id hyp) hypid :label (format "%.2f" (get deltas hypid)))))
+                   (-> (:accgraph workspace)
+                      (add-attr (:id hyp) :score (:apriori hyp))
+                      (add-attr (:id hyp) :label (format "%d / %.2f" (:id hyp) (:apriori hyp))))
+                   (keys deltas))]
+    (assoc workspace :accgraph ag-expl)))
+
 (defn explain
   [workspace cycle]
   (prof
@@ -748,11 +782,16 @@
    (let [ws (assoc workspace :accrej {})
          ws-minscore (reject-minscore ws cycle)]
      (log "Unexplained:" (str/join ", " (sort (map :id (unexplained ws-minscore)))))
-     (let [{:keys [best nbest alts explained delta comparison] :as b} (find-best ws-minscore)]
+     (let [{:keys [best nbest alts explained delta comparison contrast-sets] :as b} (find-best ws-minscore)]
        (if-not best
          (do (log "No best.") ws-minscore)
          (do (log "Best is" (:id best) (:apriori best))
-             (-> ws-minscore (update-in [:accrej] merge b)
+             (-> ws-minscore
+                (update-in [:accrej] merge b)
+                ;; record-best-in-accgraph must occur before accept in
+                ;; order to figure out what is newly explained (TODO:
+                ;; fix this)
+                (record-best-in-accgraph best contrast-sets)
                 (accept best nbest alts explained delta comparison cycle))))))))
 
 (defn add-observation
@@ -824,6 +863,28 @@
          (/ (double (count noexp))
             (double (count (:all acc))))))))
 
+(defn calc-doubt-from-accgraph-recursive
+  [accgraph hypid]
+  (let [this-score (attr accgraph hypid :score)
+        children (neighbors accgraph hypid)]
+    (if (empty? children) this-score
+        (let [ds (map (fn [child-id]
+                      (* this-score (attr accgraph hypid child-id :delta)
+                         (calc-doubt-from-accgraph-recursive accgraph child-id)))
+                    children)]
+          (cond (= "min" (:DoubtAccGraphAgg params))
+                (apply min ds)
+                (= "max" (:DoubtAccGraphAgg params))
+                (apply max ds)
+                (= "avg" (:DoubtAccGraphAgg params))
+                (avg ds))))))
+
+(defn calc-doubt-from-accgraph
+  [accgraph]
+  (let [tops (filter #(empty? (incoming accgraph %)) (nodes accgraph))]
+    (when-not (empty? tops)
+      (- 1.0 (avg (map #(calc-doubt-from-accgraph-recursive accgraph %) tops))))))
+
 (defn calc-doubt
   [workspace]
   (prof
@@ -851,6 +912,8 @@
                         (when (and score delta) (- 1.0 (max score delta)))
                         (= "min-score-delta" (:DoubtMeasure params))
                         (when (and score delta) (- 1.0 (min score delta)))
+                        (= "accgraph" (:DoubtMeasure params))
+                        (calc-doubt-from-accgraph (:accgraph workspace))
                         :else
                         (when delta (- 1.0 delta)))]
        (cond (= "square" (:DoubtModifier params))
