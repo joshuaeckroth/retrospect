@@ -1,7 +1,7 @@
 (ns retrospect.core
   (:import (javax.swing SwingUtilities))
+  (:require [clojure.string :as str])
   (:use [clojure.java.shell :only [sh]])
-  (:use [clojure.string :only [split-lines]])
   (:use [clojure.tools.cli :only [cli]])
   (:use [geppetto.random :only [rgen new-seed]])
   (:require [retrospect.state :as state])
@@ -48,6 +48,8 @@
              ["--problem" "Problem" :default "tracking"]
              ["--params" "Parameters identifier (e.g. 'Words/foobar')" :default ""]
              ["--runid" "Run ID for repeating" :default "" :parse-fn #(Integer. %)]
+             ["--claims" "Which claims to verify, comma separated (default: all)"
+              :default nil :parse-fn #(set (str/split % #"\s*,\s*"))]
              ["--nthreads" "Number of threads" :default 1 :parse-fn #(Integer. %)]
              ["--repetitions" "Number of repetitions" :default 10 :parse-fn #(Integer. %)]
              ["--seed" "Seed" :default 0 :parse-fn #(Integer. %)]
@@ -84,10 +86,13 @@
           (= (:action options) "verify-claims")
           (do
             (dosync (alter state/batch (constantly true)))
-            (let [claims (concat (get @state/problem :claims [])
-                                 (get-in @state/problem [(:key reasoner) :claims] []))]
+            (let [claims (let [cs (concat (get @state/problem :claims [])
+                                          (get-in @state/problem [(:key reasoner) :claims] []))]
+                           (if (:claims options)
+                             (filter #((:claims options) (str (:name %))) cs)
+                             cs))]
               (if (empty? claims)
-                (println (format "No claims for %s" (:name @state/problem)))
+                (println (format "No claims (or no valid claims selected) for %s" (:name @state/problem)))
                 (do
                   (println (format "Verifying %d claims for %s with reasoner %s..."
                               (count claims) (:name @state/problem) (:name @state/reasoner)))
@@ -95,8 +100,10 @@
                                          (evaluate-claim run claim (:datadir props) (:git props)
                                                          "/tmp" (:nthreads options))))]
                     (if (every? identity results)
-                      (println "All claims verified.")
-                      (println "Some claims not verified."))))))
+                      (do (println "All claims verified.")
+                          (System/exit 0))
+                      (do (println "Some claims not verified.")
+                          (System/exit -1)))))))
             (System/exit 0))
 
           (= (:action options) "repeat")
@@ -123,7 +130,7 @@
           (let [problem (choose-problem (extract-problem (:params options)))
                 git-dirty? (not-empty
                             (filter #(not= "??" (if (>= 2 (count %)) "??" (subs % 0 2)))
-                               (split-lines (:out (sh (:git props) "status" "--porcelain")))))]
+                               (str/split-lines (:out (sh (:git props) "status" "--porcelain")))))]
             (when (and (:upload options) git-dirty?)
               (println "Project has uncommitted changes. Commit with git before"
                        "running simulations.")
