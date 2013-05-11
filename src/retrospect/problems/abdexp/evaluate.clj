@@ -41,12 +41,15 @@
                 observed (apply concat (take (:time ep) (:test truedata)))
                 _ (do (unobserve-all bn)
                       (observe-seq bn observed))
-                acc (filter #(= :expl (:subtype %)) (:expl (accepted ws)))
+                acc (:expl (accepted ws))
+                acc-top-nodes (filter (comp not :needs-explainer?) acc)
                 acc-vertex-values (set (map (fn [h] [(:vertex h) (:value h)]) acc))
-                rej (filter #(= :expl (:subtype %)) (:expl (rejected ws)))
-                [tp tn fp fn] (tp-tn-fp-fn (:true-values-map truedata) acc rej)
-                prec-coverage (calc-prec-coverage tp tn fp fn
-                                                  (count (:true-values-map truedata)))
+                rej (:expl (rejected ws))
+                rej-top-nodes (filter (comp not :needs-explainer?) rej)
+                top-nodes-truth (select-keys (:true-values-map truedata)
+                                             (top-nodes expgraph))
+                [tp tn fp fn] (tp-tn-fp-fn top-nodes-truth acc-top-nodes rej-top-nodes)
+                prec-coverage (calc-prec-coverage tp tn fp fn (count top-nodes-truth))
                 obs-coverage (/ (double
                                  (count (filter #(= (:value %) ((:true-values-map truedata)
                                                            (:vertex %)))
@@ -63,24 +66,23 @@
              :MPECoverage (:Coverage mpe-prec-coverage)
              :MPEF1 (:F1 mpe-prec-coverage)
              :Prec (:Prec prec-coverage)
-             :Coverage obs-coverage}))]
+             :Coverage (:Coverage prec-coverage)
+             :F1 (:F1 prec-coverage)
+             :ObsCoverage obs-coverage}))]
     (merge (last metrics)
            (compute-complexity expgraph)
-           {:MinMPEPrec (nan-min (map :MPEPrec metrics))
-            :AvgMPEPrec (avg (map :MPEPrec metrics))
-            :MinMPECoverage (nan-min (map :MPECoverage metrics))
+           {:AvgMPEPrec (avg (map :MPEPrec metrics))
             :AvgMPECoverage (avg (map :MPECoverage metrics))
-            :MinMPEF1 (nan-min (map :MPEF1 metrics))
             :AvgMPEF1 (avg (map :MPEF1 metrics))
-            :MinPrec (nan-min (map :Prec metrics))
             :AvgPrec (avg (map :Prec metrics))
-            :MinCoverage (nan-min (map :Coverage metrics))
-            :AvgCoverage (avg (map :Coverage metrics))})))
+            :AvgCoverage (avg (map :Coverage metrics))
+            :AvgF1 (avg (map :F1 metrics))
+            :AvgObsCoverage (avg (map :ObsCoverage metrics))})))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
-                  [:Prec :MinPrec :AvgPrec :Coverage :MinCoverage :AvgCoverage])))
+                  [:Prec :AvgPrec :Coverage :AvgCoverage :F1 :AvgF1 :ObsCoverage :AvgObsCoverage])))
 
 (defn stats
   [truedata ors time-now])
