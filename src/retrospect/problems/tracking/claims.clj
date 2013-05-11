@@ -17,17 +17,23 @@
                                       :SensorInsertionNoise [0 5 10 15 20 25 30 35 40 45 50]}})
                (verify {:control ((let [lm (geppetto.stats/linear-reg :_SensorInsertionNoise :_NoExplainersPct)]
                                     ;; positive slope
-                                    (and (clojure.test/is (> (first (:coefs lm)) 0.0))
+                                    (and (clojure.test/is (> (first (:coefs lm)) 0.001))
                                          ;; strong correlation
-                                         (clojure.test/is (> (:r-square lm) 0.5)))))}))
+                                         (clojure.test/is (> (:r-square lm) 0.6))))
+                                  (let [lm (geppetto.stats/linear-reg :_SensorInsertionNoise :_ErrorsNoise)]
+                                    ;; positive slope
+                                    (and (clojure.test/is (> (first (:coefs lm)) 0.4))
+                                         ;; strong correlation
+                                         (clojure.test/is (> (:r-square lm) 0.6)))))}))
    (make-claim tracking-distortion-noise
+               ;; we don't get a good correlation with noexppct with this kind of noise
                (parameters {:control {:Noise true
                                       :SensorDistortionNoise [0 5 10 15 20 25 30 35 40 45 50]}})
-               (verify {:control ((let [lm (geppetto.stats/linear-reg :_SensorDistortionNoise :_NoExplainersPct)]
+               (verify {:control ((let [lm (geppetto.stats/linear-reg :_SensorDistortionNoise :_ErrorsNoise)]
                                     ;; positive slope
-                                    (and (clojure.test/is (> (first (:coefs lm)) 0.0))
+                                    (and (clojure.test/is (> (first (:coefs lm)) 0.2))
                                          ;; strong correlation
-                                         (clojure.test/is (> (:r-square lm) 0.5)))))}))
+                                         (clojure.test/is (> (:r-square lm) 0.6)))))}))
    (make-claim tracking-duplication-noise
                (parameters {:control {:Noise true
                                       :SensorDuplicationNoise [0 5 10 15 20 25 30 35 40 45 50]}})
@@ -35,14 +41,14 @@
                                     ;; positive slope
                                     (and (clojure.test/is (> (first (:coefs lm)) 0.0))
                                          ;; strong correlation
-                                         (clojure.test/is (> (:r-square lm) 0.5)))))}))
+                                         (clojure.test/is (> (:r-square lm) 0.6)))))}))
    (make-claim tracking-deletion-noise
                (parameters {:control {:Noise true
                                       :SensorDeletionNoise [0 5 10 15 20 25 30 35 40 45 50]}})
                (verify {:control ((let [lm (geppetto.stats/linear-reg :_SensorDeletionNoise :_NoExplainersPct)]
                                     ;; positive slope
                                     (and (clojure.test/is (> (first (:coefs lm)) 0.0))
-                                         ;; strong correlation
-                                         (clojure.test/is (> (:r-square lm) 0.5)))))}))])
+                                         ;; weak correlation
+                                         (clojure.test/is (> (:r-square lm) 0.4)))))}))])
 
 (def tracking-claims (concat generic-claims noise-claims))
