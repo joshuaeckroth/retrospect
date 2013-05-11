@@ -867,17 +867,30 @@
   [accgraph hypid]
   (let [this-score (attr accgraph hypid :score)
         children (neighbors accgraph hypid)]
-    (if (empty? children) this-score
-        (let [ds (map (fn [child-id]
-                      (* this-score (attr accgraph hypid child-id :delta)
-                         (calc-doubt-from-accgraph-recursive accgraph child-id)))
-                    children)]
-          (cond (= "min" (:DoubtAccGraphAgg params))
-                (apply min ds)
-                (= "max" (:DoubtAccGraphAgg params))
-                (apply max ds)
-                (= "avg" (:DoubtAccGraphAgg params))
-                (avg ds))))))
+    (if (empty? children)
+      (cond (= "delta" (:DoubtAccGraphMult params))
+            1.0
+            (= "score" (:DoubtAccGraphMult params))
+            this-score
+            (= "delta,score" (:DoubtAccGraphMult params))
+            this-score)
+      (let [ds (map (fn [child-id]
+                    (cond (= "delta" (:DoubtAccGraphMult params))
+                          (* (attr accgraph hypid child-id :delta)
+                             (calc-doubt-from-accgraph-recursive accgraph child-id))
+                          (= "score" (:DoubtAccGraphMult params))
+                          (* this-score
+                             (calc-doubt-from-accgraph-recursive accgraph child-id))
+                          (= "delta,score" (:DoubtAccGraphMult params))
+                          (* this-score (attr accgraph hypid child-id :delta)
+                             (calc-doubt-from-accgraph-recursive accgraph child-id))))
+                  children)]
+        (cond (= "min" (:DoubtAccGraphAgg params))
+              (apply min ds)
+              (= "max" (:DoubtAccGraphAgg params))
+              (apply max ds)
+              (= "avg" (:DoubtAccGraphAgg params))
+              (avg ds))))))
 
 (defn calc-doubt-from-accgraph
   [accgraph]
