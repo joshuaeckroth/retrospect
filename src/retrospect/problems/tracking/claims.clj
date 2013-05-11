@@ -18,8 +18,8 @@
                (verify {:control ((let [lm (geppetto.stats/linear-reg :_SensorInsertionNoise :_NoExplainersPct)]
                                     ;; positive slope
                                     (and (clojure.test/is (> (first (:coefs lm)) 0.001))
-                                         ;; strong correlation
-                                         (clojure.test/is (> (:r-square lm) 0.6))))
+                                         ;; moderate correlation
+                                         (clojure.test/is (> (:r-square lm) 0.5))))
                                   (let [lm (geppetto.stats/linear-reg :_SensorInsertionNoise :_ErrorsNoise)]
                                     ;; positive slope
                                     (and (clojure.test/is (> (first (:coefs lm)) 0.4))
