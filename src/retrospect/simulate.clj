@@ -27,6 +27,7 @@
         ms (/ (- (. System (nanoTime)) start-time) 1000000.0)
         ors-est (assoc ors :est decision-est)
         ors-results (update-in ors-est [:resources :milliseconds] + ms)]
+    #_(retrospect.reason.abduction.workspace/view-accgraph (:workspace (cur-ep (:est ors-results))))
     (when (:Stats params)
       ((:stats-fn @reasoner) truedata ors-results time-now))
     (comment

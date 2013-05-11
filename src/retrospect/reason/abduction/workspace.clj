@@ -4,7 +4,9 @@
   (:use [plumbing.core])
   (:use [loom.graph :only
          [digraph nodes incoming neighbors weight
-          add-nodes add-edges remove-nodes edges has-edge? transpose]])
+          add-nodes add-edges remove-nodes edges remove-edges
+          has-edge? transpose]])
+  (:use [loom.io :only [view]])
   (:use [loom.alg :only [topsort]])
   (:use [loom.alg-generic :only [bf-traverse]])
   (:use [loom.attr :only [add-attr remove-attr attr]])
@@ -811,8 +813,11 @@
      (log "Adding sensor hyps")
      (let [hs ((:make-sensor-hyps-fn (:abduction @problem))
                sensors time-prev time-now
-               (accepted workspace) (hypotheses workspace))]
-       (reduce #(add-observation %1 %2 cycle) workspace hs)))))
+               (accepted workspace) (hypotheses workspace))
+           ws (reduce #(add-observation %1 %2 cycle) workspace hs)]
+       (if (:ClearAccGraphSensors params)
+         (assoc ws :accgraph (digraph))
+         ws)))))
 
 (defn add-kb
   [workspace hyps]
@@ -867,24 +872,23 @@
   [accgraph hypid]
   (let [this-score (attr accgraph hypid :score)
         children (neighbors accgraph hypid)]
-    (if (empty? children)
-      (cond (= "delta" (:DoubtAccGraphMult params))
-            1.0
-            (= "score" (:DoubtAccGraphMult params))
-            this-score
-            (= "delta,score" (:DoubtAccGraphMult params))
-            this-score)
-      (let [ds (map (fn [child-id]
-                    (cond (= "delta" (:DoubtAccGraphMult params))
-                          (* (attr accgraph hypid child-id :delta)
-                             (calc-doubt-from-accgraph-recursive accgraph child-id))
-                          (= "score" (:DoubtAccGraphMult params))
-                          (* this-score
-                             (calc-doubt-from-accgraph-recursive accgraph child-id))
-                          (= "delta,score" (:DoubtAccGraphMult params))
-                          (* this-score (attr accgraph hypid child-id :delta)
-                             (calc-doubt-from-accgraph-recursive accgraph child-id))))
-                  children)]
+    (if (empty? children) 1.0
+      (let [ds (for [child-id children]
+                 (cond (= "delta" (:DoubtAccGraphMult params))
+                       (* (attr accgraph hypid child-id :delta)
+                          (calc-doubt-from-accgraph-recursive accgraph child-id))
+                       (= "score" (:DoubtAccGraphMult params))
+                       (* this-score
+                          (calc-doubt-from-accgraph-recursive accgraph child-id))
+                       (= "score-delta-prod" (:DoubtAccGraphMult params))
+                       (* this-score (attr accgraph hypid child-id :delta)
+                          (calc-doubt-from-accgraph-recursive accgraph child-id))
+                       (= "min-score-delta" (:DoubtAccGraphMult params))
+                       (* (min this-score (attr accgraph hypid child-id :delta))
+                          (calc-doubt-from-accgraph-recursive accgraph child-id))
+                       (= "max-score-delta" (:DoubtAccGraphMult params))
+                       (* (max this-score (attr accgraph hypid child-id :delta))
+                          (calc-doubt-from-accgraph-recursive accgraph child-id))))]
         (cond (= "min" (:DoubtAccGraphAgg params))
               (apply min ds)
               (= "max" (:DoubtAccGraphAgg params))
@@ -892,11 +896,17 @@
               (= "avg" (:DoubtAccGraphAgg params))
               (avg ds))))))
 
+(defn view-accgraph
+  [workspace]
+  (javax.swing.SwingUtilities/invokeLater
+   (fn [] (view (:accgraph workspace)))) )
+
 (defn calc-doubt-from-accgraph
-  [accgraph]
-  (let [tops (filter #(empty? (incoming accgraph %)) (nodes accgraph))]
+  [workspace]
+  (let [ag (:accgraph workspace)
+        tops (filter #(empty? (incoming ag %)) (nodes ag))]
     (when-not (empty? tops)
-      (let [ds (map #(calc-doubt-from-accgraph-recursive accgraph %) tops)]
+      (let [ds (map #(calc-doubt-from-accgraph-recursive ag %) tops)]
         (- 1.0 (cond (= "min" (:DoubtAccGraphAgg params))
                      (apply min ds)
                      (= "max" (:DoubtAccGraphAgg params))
@@ -932,7 +942,7 @@
                         (= "min-score-delta" (:DoubtMeasure params))
                         (when (and score delta) (- 1.0 (min score delta)))
                         (= "accgraph" (:DoubtMeasure params))
-                        (calc-doubt-from-accgraph (:accgraph workspace))
+                        (calc-doubt-from-accgraph workspace)
                         :else
                         (when delta (- 1.0 delta)))]
        (cond (= "square" (:DoubtModifier params))

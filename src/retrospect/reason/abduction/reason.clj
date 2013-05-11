@@ -46,7 +46,9 @@
                                                "accgraph"]]
              :DoubtAggregate ["avg" ["geammean" "max" "avg" "min" "last"]]
              :DoubtAccGraphAgg ["min" ["min" "max" "avg"]]
-             :DoubtAccGraphMult ["delta,score" ["score" "delta" "delta,score"]]
+             :DoubtAccGraphMult ["score-delta-prod" ["score" "delta" "score-delta-prod"
+                                                     "min-score-delta" "max-score-delta"]]
+             :ClearAccGraphSensors [false [true false]]
              :DoubtModifier ["none" ["square" "cube" "sqrt" "log" "none"]]
              :DoubtUnexp [false [true false]]
              :UseScores [true [true]]
