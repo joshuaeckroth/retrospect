@@ -92,9 +92,8 @@
                   (println (format "Verifying %d claims for %s with reasoner %s..."
                               (count claims) (:name @state/problem) (:name @state/reasoner)))
                   (let [results (doall (for [claim claims]
-                                         (evaluate-claim
-                                          run claim (:datadir props) (:git props)
-                                          (:recordsdir props) (:nthreads options))))]
+                                         (evaluate-claim run claim (:datadir props) (:git props)
+                                                         "/tmp" (:nthreads options))))]
                     (if (every? identity results)
                       (println "All claims verified.")
                       (println "Some claims not verified."))))))

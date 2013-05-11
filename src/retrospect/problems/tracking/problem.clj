@@ -13,7 +13,7 @@
           player-get-problem-log player-setup-diagram player-update-diagram]])
   (:use [retrospect.problems.tracking.prepared :only
          [prepared-map]])
-  (:use [retrospect.problems.tracking.claims :only [generic-claims]])
+  (:use [retrospect.problems.tracking.claims])
   (:use [retrospect.state]))
 
 (def tracking-problem
@@ -45,7 +45,7 @@
                :ignore-doubt-types #{:observation}
                :default-params
                {:ResensePrevTime [true [true]]}}
-   :claims generic-claims
+   :claims tracking-claims
    :default-params
    {:Steps [5 [5]]
     :StepsBetween [1 [1]]
