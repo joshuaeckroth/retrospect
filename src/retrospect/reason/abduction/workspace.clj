@@ -943,6 +943,9 @@
                         (when (and score delta) (- 1.0 (min score delta)))
                         (= "accgraph" (:DoubtMeasure params))
                         (calc-doubt-from-accgraph workspace)
+                        (= "weighted-score-delta" (:DoubtMeasure params))
+                        (when (and score delta) (+ (* (:DoubtScoreWeight params) (- 1.0 score))
+                                                   (* (- 1.0 (:DoubtScoreWeight params)) (- 1.0 delta))))
                         :else
                         (when delta (- 1.0 delta)))]
        (cond (= "square" (:DoubtModifier params))
