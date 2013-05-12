@@ -161,5 +161,5 @@
         expgraph (:expgraph kb)
         ;; only :expl are "observed" here because :observation types
         ;; may not be believed, or may conflict with beliefs
-        observed (map (fn [h] [(:vertex h) (:value h)]) (:expl accepted))]
+        observed (map (fn [h] [(:vertex h) (:value h)]) (filter #(= :expl (:subtype %)) (:expl accepted)))]
     (mapcat #(make-explainer-hyps bn expgraph observed %) unexp)))
