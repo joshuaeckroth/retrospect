@@ -81,7 +81,7 @@
    :Stats [false [false]]
    :SequentialSensorReports [true [true false]]
    :Noise [false [true false]]
-   :NoiseLevelsEqual [true [true false]]
+   :NoiseLevelsEqual [false [true false]]
    :NoiseLevels [10 [0 10]]
    :SensorDeletionNoise [10 [0 10]]
    :SensorInsertionNoise [10 [0 10]]
