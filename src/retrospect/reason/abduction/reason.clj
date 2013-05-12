@@ -48,7 +48,7 @@
                                                      "min-score-delta" "max-score-delta"]]
              :ClearAccGraphSensors [false [true false]]
              :DoubtModifier ["none" ["square" "cube" "sqrt" "log" "none"]]
-             :DoubtNoExp [false [true false]]
+             :DoubtNoExp [true [true false]]
              :UseScores [true [true]]
              :ScoreLevels [100 [2 3 5 10 100]]
              :ContrastPreference ["delta,score" ["arbitrary" "score,delta"
