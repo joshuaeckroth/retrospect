@@ -15,9 +15,9 @@
 (defn doubt-aggregate
   [est]
   (let [doubts (doall (filter identity (map #(calc-doubt %) (map :workspace (ep-path est)))))
-        unexp (unexplained (:workspace (cur-ep est)))
-        ds (if (:DoubtUnexp params)
-             (concat (repeat (count unexp) 1.0) doubts)
+        noexp (no-explainers (:workspace (cur-ep est)))
+        ds (if (:DoubtNoExp params)
+             (concat (for [h noexp] (:apriori h)) doubts)
              doubts)]
     (cond (= "avg" (:DoubtAggregate params))
           (if (empty? ds) 0.0 (/ (reduce + ds) (double (count ds))))

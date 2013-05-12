@@ -38,9 +38,9 @@
              :RemoveConflictingRejMinScore [true [true false]]
              :MinScore [0 [0 10]]
              :DoubtIgnoreEssentials [false [true false]]
-             :DoubtMeasure ["min-score-delta" ["score-delta-prod" "score-delta-pow"
-                                               "max-score-delta" "min-score-delta"
-                                               "accgraph" "weighted-score-delta"]]
+             :DoubtMeasure ["weighted-score-delta" ["score-delta-prod" "score-delta-pow"
+                                                    "max-score-delta" "min-score-delta"
+                                                    "accgraph" "weighted-score-delta"]]
              :DoubtScoreWeight [0.5 [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0]]
              :DoubtAggregate ["avg" ["geammean" "max" "avg" "min" "last"]]
              :DoubtAccGraphAgg ["min" ["min" "max" "avg"]]
@@ -48,7 +48,7 @@
                                                      "min-score-delta" "max-score-delta"]]
              :ClearAccGraphSensors [false [true false]]
              :DoubtModifier ["none" ["square" "cube" "sqrt" "log" "none"]]
-             :DoubtUnexp [false [true false]]
+             :DoubtNoExp [false [true false]]
              :UseScores [true [true]]
              :ScoreLevels [100 [2 3 5 10 100]]
              :ContrastPreference ["delta,score" ["arbitrary" "score,delta"
