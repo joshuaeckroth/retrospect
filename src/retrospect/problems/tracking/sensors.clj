@@ -56,13 +56,17 @@
       ;; no noise
       observations)))
 
+(defn shuffle-observations
+  [observations]
+  (my-shuffle (sort-by (fn [ob] [(:x ob) (:y ob) (:time ob)]) observations)))
+
 (defn deletion-noise
   [observations]
   (if (and (not-empty observations)
            (:Noise params)
            (< (my-rand) (/ (double (:SensorDeletionNoise params)) 100.0)))
     ;; remove an observation
-    (rest (my-shuffle (sort-by vec observations)))
+    (rest (shuffle-observations observations))
     ;; otherwise, don't
     observations))
 
@@ -73,7 +77,7 @@
            (:Noise params)
            (< (my-rand) (/ (double (:SensorDistortionNoise params)) 100.0)))
     ;; change an observation
-    (let [obs-shuffled (my-shuffle (sort-by vec observations))
+    (let [obs-shuffled (shuffle-observations observations)
           {:keys [x y time color]} (first obs-shuffled)
           ;; random number in range [-2,2]
           new-x (+ x (- (my-rand-int 5) 2))
@@ -89,7 +93,7 @@
            (:Noise params)
            (< (my-rand) (/ (double (:SensorDuplicationNoise params)) 100.0)))
     ;; add an observation
-    (let [obs-shuffled (my-shuffle (sort-by vec observations))
+    (let [obs-shuffled (shuffle-observations observations)
           {:keys [x y time color]} (first obs-shuffled)
           ;; random number in range [-2,2]
           new-x (+ x (- (my-rand-int 5) 2))
