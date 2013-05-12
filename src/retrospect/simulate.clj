@@ -81,6 +81,8 @@
    :Stats [false [false]]
    :SequentialSensorReports [true [true false]]
    :Noise [false [true false]]
+   :NoiseLevelsEqual [true [true false]]
+   :NoiseLevels [10 [0 10]]
    :SensorDeletionNoise [10 [0 10]]
    :SensorInsertionNoise [10 [0 10]]
    :SensorDistortionNoise [10 [0 10]]
@@ -100,12 +102,20 @@
                   (:default-params @problem)
                   ((:default-params-fn @reasoner)))]
     (reduce (fn [m k] (assoc m k (first (get ps k))))
-            {} (keys ps))))
+       {} (keys ps))))
 
 (defn merge-default-params
   [params]
-  (let [default (get-default-params)]
-    (merge default params)))
+  (let [default (get-default-params)
+        ps (merge default params)]
+    (if (:NoiseLevelsEqual ps)
+      (let [level (:NoiseLevels ps)]
+        (assoc ps
+          :SensorDeletionNoise level
+          :SensorInsertionNoise level
+          :SensorDistortionNoise level
+          :SensorDuplicationNoise level))
+      ps)))
 
 (defn pre-sense
   [truedata sensors]
