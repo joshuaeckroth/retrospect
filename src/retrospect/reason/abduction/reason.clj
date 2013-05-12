@@ -7,8 +7,6 @@
          :only [reason]])
   (:use [retrospect.reason.abduction.evaluate
          :only [evaluate evaluate-comp true-meta-hyp?]])
-  (:use [retrospect.reason.abduction.gui.hypgraph
-         :only [hypgraph-tab update-hypgraph]])
   (:use [retrospect.reason.abduction.gui.abduction-log
          :only [abduction-log-tab update-abduction-log]])
   (:use [retrospect.reason.abduction.gui.problem-log
@@ -64,8 +62,6 @@
    :init-kb-fn init-kb
    :player-fns
    {:get-tabs-fn (fn [] [["Problem Log" (problem-log-tab)]
-                        ["Abduction Log" (abduction-log-tab)]
-                        ["Hypgraph" (hypgraph-tab)]])
-    :update-tabs-fn (fn [] (do (update-hypgraph)
-                              (update-problem-log)
+                        ["Abduction Log" (abduction-log-tab)]])
+    :update-tabs-fn (fn [] (do (update-problem-log)
                               (update-abduction-log)))}})
