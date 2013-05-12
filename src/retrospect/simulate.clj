@@ -81,10 +81,10 @@
    :Stats [false [false]]
    :SequentialSensorReports [true [true false]]
    :Noise [false [true false]]
-   :SensorDeletionNoise [0 [0]]
-   :SensorInsertionNoise [0 [0]]
-   :SensorDistortionNoise [0 [0]]
-   :SensorDuplicationNoise [0 [0]]})
+   :SensorDeletionNoise [10 [0 10]]
+   :SensorInsertionNoise [10 [0 10]]
+   :SensorDistortionNoise [10 [0 10]]
+   :SensorDuplicationNoise [10 [0 10]]})
 
 (defn get-default-params-ranges
   []
