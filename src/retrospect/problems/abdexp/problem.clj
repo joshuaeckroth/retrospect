@@ -50,7 +50,7 @@
     :NumExplainers [4 [4]]
     :NumExplainsLinks [50 [50]]
     :NumConflictLinks [10 [10]]
-    :UniqueGraphs [20 [20]]
-    :HypScores ["prior" ["prior" "posterior"]]
+    :UniqueGraphs [1000 [1000]]
+    :HypScores ["posterior" ["prior" "posterior"]]
     :PriorFunc ["max" ["min" "max" "avg"]]
     :MaxStates [3 [2 3 4]]}})
