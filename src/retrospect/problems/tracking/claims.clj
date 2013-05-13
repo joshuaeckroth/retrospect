@@ -8,8 +8,7 @@
                (verify {:control ((clojure.test/is (> (geppetto.stats/mean :_AvgPrec) 0.8))
                                   (clojure.test/is (> (geppetto.stats/mean :_AvgCoverage) 0.8))
                                   (clojure.test/is (> (geppetto.stats/mean :_AvgF1) 0.8))
-                                  (let [_ (println :_Doubt :_Prec)
-                                        lm (geppetto.stats/linear-reg :_Doubt :_Prec)]
+                                  (let [lm (geppetto.stats/linear-reg :_Doubt :_Prec)]
                                     ;; negative slope
                                     (and (clojure.test/is (< (first (:coefs lm)) 0.0))
                                          ;; weak correlation
