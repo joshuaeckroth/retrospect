@@ -43,7 +43,7 @@
                :default-params {:GetMoreHyps [true [true]]
                                 :OnlySingleExplainers [false [true false]]}
                :claims abduction-claims}
-   :claims generic-claims
+   :claims abduction-claims
    :default-params
    {:Steps [20 [20]]
     :StepsBetween [1 [1]]
