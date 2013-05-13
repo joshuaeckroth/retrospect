@@ -33,7 +33,7 @@
              :MetaThreshold [0 [0]]
              :MetaHyps ["meta-rej-conflict,meta-rej-minscore,meta-order-dep"
                         ["meta-rej-conflict,meta-rej-minscore,meta-order-dep"]]
-             :ScoreMetaHyps ["apriori-diff" ["doubt-diff" "doubt" "apriori-diff"]]
+             :ScoreMetaHyps ["doubt-diff" ["doubt-diff" "doubt" "apriori-diff"]]
              :EstimateMetaScores [false [true false]]
              :RemoveConflictingRejMinScore [true [true false]]
              :MinScore [0 [0 10]]
