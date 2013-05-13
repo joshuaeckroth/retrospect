@@ -270,6 +270,17 @@
      (for [hyp (filter #(not (tf-true? true-false %)) (:observation (hypotheses ws)))]
        (classify-noise ws true-false hyp)))))
 
+(defn noise-noexp-metrics
+  [est true-false]
+  (let [ws (:workspace (cur-ep est))
+        obs (:observation (hypotheses ws))
+        noise (filter #(not (tf-true? true-false %)) obs)
+        noise-noexp (filter #(no-explainers? ws %) noise)
+        noexp (no-explainers ws)
+        noexp-noise (filter #(and (= :observation (:type %)) (not (tf-true? true-false %))) noexp)]
+    {:NoiseIsNoExpPct (if (empty? noise) Double/NaN (double (/ (count noise-noexp) (count noise))))
+     :NoExpIsNoisePct (if (empty? noexp) Double/NaN (double (/ (count noexp-noise) (count noexp))))}))
+
 (defn classify-noexp-reason
   [ws hyp]
   (let [expl (explainers ws hyp)
@@ -502,6 +513,7 @@
            (meta-hyp-metrics meta-true-false)
            (meta-hyp-workspace-metrics meta-true-false est)
            (noexp-conflict-true-false est true-false)
+           (noise-noexp-metrics est true-false)
            explained-avgs
            meta-explained-avgs
            delta-avgs
