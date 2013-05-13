@@ -1,6 +1,6 @@
 (defproject cc.artifice/retrospect "1.0.0-SNAPSHOT"
   :description "retrospect"
-  :dependencies [[org.clojure/clojure "1.4.0"]
+  :dependencies [[org.clojure/clojure "1.5.1"]
                  [cc.artifice/vijual "0.2.5"]
                  [cc.artifice/clj-swing "0.1.6"]
                  [cc.artifice/geppetto "2.4.0-SNAPSHOT"]
@@ -22,9 +22,10 @@
                  [com.fifesoft/rsyntaxtextarea "2.0.2"]
                  [com.github.insubstantial/substance "7.1"]
                  [norsys/netica "504"]
-                 [propertea "1.2.3"]]
+                 [propertea "1.2.3"]
+                 [fleet "0.9.5"]]
   :main retrospect.core
   :keep-non-project-classes true
   :java-source-paths ["src/jvm"]
-  :jvm-opts ["-Xmx2000m" "-Dawt.useSystemAAFontSettings=on" "-Djava.library.path=netica"])
+  :jvm-opts ["-Xmx2000m" "-Dawt.useSystemAAFontSettings=on" "-Djava.library.path=netica"] )
 

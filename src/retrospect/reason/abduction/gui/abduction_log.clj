@@ -1,12 +1,15 @@
 (ns retrospect.reason.abduction.gui.abduction-log
   (:import (java.awt GridBagLayout Insets Dimension Font))
   (:import (javax.swing Box JScrollBar JTabbedPane))
+  (:import (javax.swing.event HyperlinkEvent HyperlinkEvent$EventType))
   (:import (misc AlphanumComparator))
+  (:use [fleet])
   (:use [clj-swing.label])
   (:use [clj-swing.text-field])
   (:use [clj-swing.tree])
   (:use [clj-swing.button])
   (:use [clj-swing.panel])
+  (:use [seesaw.core :only [editor-pane listen scrollable scroll!]])
   (:require [clojure.set :as set])
   (:require [clojure.string :as str])
   (:require [retrospect.reason.abduction.workspace :as ws])
@@ -14,24 +17,101 @@
          [cur-ep flatten-est]])
   (:use [retrospect.reason.abduction.evaluate :only
          [true-meta-hyp? find-meta-hyps group-hyps-by-true-false classify-error classify-noexp-reason]])
-  #_(:use [retrospect.reason.abduction.robustness :only [analyze-dependency]])
   (:use [retrospect.gui.common])
   (:use [retrospect.state]))
 
-(def hyp-id (ref ""))
-(def hyp-apriori-label (label "Apriori:"))
-(def hyp-truefalse-label (label "T/F:"))
-(def hyp-accepted-label (label "Acc:"))
-(def hyp-explains (ref ""))
-(def hyp-explainers (ref ""))
-(def hyp-conflicts (ref ""))
-(def hyp-log (ref ""))
-(def reason-log (ref ""))
 (def abduction-tree-map (ref {}))
 (def hyps-true-false (ref nil))
 (def meta-hyps-true-false (ref nil))
 
 (def anc (AlphanumComparator.))
+
+(declare load-hyp-info)
+
+(def hyp-info
+  (let [e (editor-pane
+           :content-type "text/html"
+           :editable? false)]
+    (listen e :hyperlink
+            (fn [e]
+              (when (= HyperlinkEvent$EventType/ACTIVATED (.getEventType e))
+                (let [[hypid ep-id] (str/split (.getDescription e) #"@")]
+                  (load-hyp-info (Integer/parseInt hypid) ep-id)))))
+    e))
+
+(defn eps-with-hyp
+  [hyp]
+  (filter #(get-in % [:workspace :hyp-ids (:id hyp)])
+     (flatten-est (:est @or-state))))
+
+(defn hyp-link
+  ([hyp ep] (format "<a href=\"%s@%s\">%s</a>" (str (:id hyp)) (str (:id ep)) (str ep)))
+  ([hyp] (let [most-recent-ep (last (eps-with-hyp hyp))]
+           (format "<a href=\"%s@%s\">%s</a>" (str (:id hyp)) (str (:id most-recent-ep)) (str hyp)))))
+
+(def hyp-info-template
+  (fleet [hyp log explains explainers conflicts noexp? error tf acc rej und eps]
+         "<html>
+<h1><(str hyp)></h1>
+<p><(str/replace (:desc hyp) #\"\n\" \"<br>\")></p>
+<p><b><(if tf \"True\" \"False\")></b>, <(cond acc \"Accepted\" rej \"Rejected\" und \"Undecided\")></p>
+<(if noexp? \"><p>This is an anomaly (no explainer).</p><\")>
+<p>Error status: <(name error)>.</p>
+<h2>Explains:</h2>
+<ul>
+<(for [e explains] \">
+  <li><(hyp-link e)></li>
+<\")>
+</ul>
+<h2>Explainers:</h2>
+<(for [es explainers] \">
+  <ul>
+  <(for [e es] \">
+    <li><(hyp-link e)></li>
+  <\")>
+  </ul>
+<\")>
+<h2>Conflicts:</h2>
+<ul>
+<(for [c conflicts] \">
+  <li><(hyp-link c)></li>
+<\")>
+</ul>
+<h2>Log:</h2>
+<p><(str/replace log #\"\n\" \"<br>\")></p>
+<h2>Epistemic states with this hyp:</h2>
+<ul>
+<(for [ep eps] \">
+  <li><(hyp-link hyp ep)></li>
+<\")>
+</html>"))
+
+(defn update-hyp-info
+  [workspace hyp meta?]
+  (let [hyp-tf? (fn [hyp] (or (and meta? (true-meta-hyp? @truedata hyp))
+                             (and (not meta?) ((:oracle-fn @problem) @truedata hyp))))
+        explains (sort-by :name anc (ws/explains workspace hyp))
+        explainers (for [es (vals (group-by :type (ws/explainers workspace hyp)))]
+                     (sort-by :name anc es))
+        conflicts (sort-by :name anc (ws/find-conflicts workspace hyp))
+        log (ws/hyp-log workspace hyp)
+        noexp? ((set (ws/no-explainers workspace)) hyp)
+        meta-hyp? ((:meta-hyp-types @reasoner) (:type hyp))
+        error (classify-error workspace (if meta-hyp? @meta-hyps-true-false @hyps-true-false) hyp)]
+    (.setText hyp-info (str (hyp-info-template hyp log explains explainers conflicts noexp? error
+                                               (hyp-tf? hyp)
+                                               (ws/accepted? workspace hyp)
+                                               (ws/rejected? workspace hyp)
+                                               (ws/undecided? workspace hyp)
+                                               (eps-with-hyp hyp))))
+    (scroll! hyp-info :to :top)))
+
+(defn load-hyp-info
+  [hypid ep-id]
+  (let [ep (first (filter #(= (:id %) ep-id) (flatten-est (:est @or-state))))
+        ws (:workspace ep)
+        hyp (ws/lookup-hyp ws hypid)]
+    (update-hyp-info ws hyp false)))
 
 (defn list-hyps
   [hyps]
@@ -76,22 +156,19 @@
                                   rej-tf-hyps (group-by tf-fn rej-hyps)
                                   not-acc-tf-hyps (group-by tf-fn not-acc-hyps)]
                               {(name t)
-                               {"All" 
-                                {"All" (list-hyps all-hyps)
-                                 "True" (list-hyps (get all-tf-hyps true))
-                                 "False" (list-hyps (get all-tf-hyps false))}
-                                "Accepted"
-                                {"All" (list-hyps acc-hyps)
-                                 "True" (list-hyps (get acc-tf-hyps true))
-                                 "False" (list-hyps (get acc-tf-hyps false))}
-                                "Rejected"
-                                {"All" (list-hyps rej-hyps)
-                                 "True" (list-hyps (get rej-tf-hyps true))
-                                 "False" (list-hyps (get rej-tf-hyps false))}
-                                "Undecided"
-                                {"All" (list-hyps not-acc-hyps)
-                                 "True" (list-hyps (get not-acc-tf-hyps true))
-                                 "False" (list-hyps (get not-acc-tf-hyps false))}}})))
+                               (sorted-map
+                                "*" (list-hyps all-hyps)
+                                "*/T" (list-hyps (get all-tf-hyps true))
+                                "*/F" (list-hyps (get all-tf-hyps false))
+                                "Acc" (list-hyps acc-hyps)
+                                "Acc/T" (list-hyps (get acc-tf-hyps true))
+                                "Acc/F" (list-hyps (get acc-tf-hyps false))
+                                "Rej" (list-hyps rej-hyps)
+                                "Rej/T" (list-hyps (get rej-tf-hyps true))
+                                "Rej/F" (list-hyps (get rej-tf-hyps false))
+                                "Und" (list-hyps not-acc-hyps)
+                                "Und/T" (list-hyps (get not-acc-tf-hyps true))
+                                "Und/F" (list-hyps (get not-acc-tf-hyps false)))})))
                    "Cycle" (build-cycle ws)
                    "No explainers" (list-hyps (ws/no-explainers ws))
                    "Unexplained" (list-hyps (ws/unexplained ws))}))]
@@ -104,47 +181,6 @@
                                   "Abductive Meta"
                                   (build-abduction-tree-map (:meta-est ep) true)))]))
                    ep-states))))
-
-(defn update-hyp-info
-  [workspace hyp meta?]
-  (let [alphanum (AlphanumComparator.)
-        hyp-tf? (fn [hyp] (or (and meta? (true-meta-hyp? @truedata hyp))
-                             (and (not meta?) ((:oracle-fn @problem) @truedata hyp))))
-        explains (str/join "\n" (map str (sort-by :name alphanum (ws/explains workspace hyp))))
-        explainers (str/join "\n" (map #(format "\n%s\n" %)
-                                     (map #(str/join "\n" (for [e (sort-by :name alphanum %)]
-                                                          (format "%s (%s; %s)" (str e)
-                                                             (if (hyp-tf? e) "True" "False")
-                                                             (cond (ws/accepted? workspace e)
-                                                                   (format "Acc @ %d"
-                                                                      (ws/accepted-cycle workspace e))
-                                                                   (ws/rejected? workspace e)
-                                                                   (format "Rej: %s @ %d"
-                                                                      (name (ws/rejection-reason workspace e))
-                                                                      (ws/rejected-cycle workspace e))
-                                                                   :else
-                                                                   "Und"))))
-                                        (vals (group-by :type (ws/explainers workspace hyp))))))
-        conflicts (str/join "\n" (map str (sort-by :name alphanum
-                                                 (ws/find-conflicts workspace hyp))))
-        noexp? ((set (ws/no-explainers workspace)) hyp)
-        meta-hyp? ((:meta-hyp-types @reasoner) (:type hyp))
-        error (classify-error workspace (if meta-hyp? @meta-hyps-true-false @hyps-true-false) hyp)]
-    (. hyp-apriori-label setText
-       (format "Apriori: %.2f" (:apriori hyp)))
-    (. hyp-truefalse-label setText
-       (if (hyp-tf? hyp) "TF: True" "TF: False"))
-    (. hyp-accepted-label setText
-       (if (ws/accepted? workspace hyp) "Acc: True" "Acc: False"))
-    (dosync
-     (alter hyp-id (constantly (:desc hyp)))
-     (alter hyp-explains (constantly (str "Explains:\n" explains)))
-     (alter hyp-explainers (constantly (str "Explainers:\n" explainers)))
-     (alter hyp-conflicts (constantly (str "Conflicts:\n" conflicts)))
-     (alter hyp-log (constantly (format "%s\n%s\n%s" (ws/hyp-log workspace hyp)
-                                   (if (or (not noexp?) (and meta? (not meta-hyp?))) ""
-                                       (format "Noexp reason: %s" (name (classify-noexp-reason workspace hyp))))
-                                   (format "Error reason: %s" (name error))))))))
 
 (defn show-log
   [path]
@@ -163,7 +199,9 @@
           ep (or meta-ep-state ep-state)
           ws (if ep (:workspace ep))]
       (if (= "Log" last-comp)
-        (dosync (alter reason-log (constantly (str/join "\n" (reverse (:log ws))))))
+        (do
+          (.setText hyp-info (str/join "<br>" (reverse (:log ws))))
+          (scroll! hyp-info :to :top))
         (let [hyp (if ws (first (filter #(= (:name %) last-comp) (vals (:hyp-ids ws)))))]
           (when hyp (update-hyp-info ws hyp (not (nil? meta-ep-state)))))))))
 
@@ -187,39 +225,5 @@
                            abduction-tree-map "Epistemic states")
                    :action ([_ _] (show-log (.getSelectionPath tr))))
          (.setFont (Font. "Sans" Font/PLAIN 10)))
-       (doto (JTabbedPane.)
-         (.addTab
-          "Hyp Info"
-          (panel :layout (GridBagLayout.)
-                 :constrains (java.awt.GridBagConstraints.)
-                 [:gridx 0 :gridy 0 :gridwidth 3 :weightx 1.0 :weighty 1.0
-                  :fill :BOTH :insets (Insets. 5 5 5 5)
-                  _ (log-box hyp-id)
-
-                  :gridy 1 :gridwidth 1 :weighty 0.0
-                  _ hyp-apriori-label
-                  :gridx 1
-                  _ hyp-truefalse-label
-                  :gridx 2
-                  _ hyp-accepted-label
-
-                  :gridy 2 :gridx 0 :gridwidth 5 :weighty 1.0
-                  _ (log-box hyp-explains)
-
-                  :gridy 3
-                  _ (log-box hyp-explainers)
-
-                  :gridy 4
-                  _ (log-box hyp-conflicts)
-
-                  :gridy 5
-                  _ (log-box hyp-log)]))
-         (.addTab
-          "Reason Log"
-          (panel :layout (GridBagLayout.)
-                 :constrains (java.awt.GridBagConstraints.)
-                 [:gridx 0 :gridy 0 :weightx 1.0 :weighty 1.0
-                  :fill :BOTH :insets (Insets. 5 5 5 5)
-                  _ (log-box reason-log)]))
-         (.setSelectedIndex 0)))
-    (.setDividerLocation 200)))
+       (scrollable hyp-info))
+    (.setDividerLocation 250)))

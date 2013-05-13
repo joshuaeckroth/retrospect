@@ -156,7 +156,7 @@
   (frame :title "retrospect player"
          :layout (GridBagLayout.)
          :constrains (java.awt.GridBagConstraints.)
-         :size [1000 700]
+         :size [1100 700]
          :show true
          :on-close :exit
          [:gridx 0 :gridy 0 :gridheight 11 :weightx 1.0 :weighty 1.0
