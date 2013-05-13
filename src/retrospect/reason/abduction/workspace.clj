@@ -445,7 +445,7 @@
              (update-in [:hypgraph] remove-attr hypid :rejection-reason)
              (update-in [:accepted] disj hypid)
              (update-in [:rejected] disj hypid)
-             (update-in [:unexplained] set/union (attr (:hypgraph workspace) hypid :accepted-newly-explained))
+             (update-in [:unexplained] set/union (set (attr (:hypgraph workspace) hypid :accepted-newly-explained)))
              (add-to-hyp-log hypid "Undecided")))
         workspace rel-hyps))))
 
