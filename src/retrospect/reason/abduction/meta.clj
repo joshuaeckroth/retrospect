@@ -236,6 +236,7 @@
       ;; done much reasoning yet; or there are no no-expl-offered cases
       [])))
 
+;;; TODO: replace this with the (related-hyps?) code
 (defn meta-hyp-conflicts?
   [hyp1 hyp2]
   ;; all meta-hyp types conflict; only one can be accepted
@@ -350,28 +351,14 @@
 
 (defn score-meta-hyps-simulate-apriori
   [hyp problem-cases problem-cases-new doubt doubt-new]
-  (if (<= 0.0 (- doubt-new doubt))
-    ;; doubt-diff is positive (the meta-hyp increases doubt);
-    ;; forget it
-    0.0
-    ;; otherwise, doubt-diff is negative (the meta-hyp decreases doubt)
-    (cond (= :meta-rej-minscore (:type hyp))
-          (- 1.0 (max 0.0
-                      (- (avg (map :apriori problem-cases))
-                         (avg (map :apriori problem-cases-new))
-                         (if (nil? (:penalty hyp)) 0.0
-                             (:penalty hyp)))))
-          (= "apriori-diff" (:ScoreMetaHyps params))
-          (max 0.0
-               (- (avg (map :apriori problem-cases))
-                  (avg (map :apriori problem-cases-new))
-                  (if (nil? (:penalty hyp)) 0.0
-                      (:penalty hyp))))
-          (= "doubt-diff" (:ScoreMetaHyps params))
-          (- doubt doubt-new) ;; known to be non-negative due to (if) above
-          ;; "doubt"
-          :else
-          doubt-new)))
+  (cond (= "apriori-diff" (:ScoreMetaHyps params))
+        (max 0.0 (- (avg (map :apriori problem-cases))
+                    (avg (map :apriori problem-cases-new))))
+        (= "doubt-diff" (:ScoreMetaHyps params))
+        (max 0.0 (- doubt doubt-new))
+        ;; "doubt"
+        :else
+        doubt-new))
 
 (defn score-meta-hyps-simulate
   [problem-cases meta-hyps est time-prev time-now sensors]
