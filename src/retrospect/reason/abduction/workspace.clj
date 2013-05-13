@@ -383,9 +383,7 @@
    :conflicts?
    (if-let [c? (get-in @cache [:conflicts (:simulation params) (:id h1) (:id h2)])]
      c?
-     (let [c? (cond (not= (:type h1) (:type h2))
-                    false
-                    (:composite? h2)
+     (let [c? (cond (:composite? h2)
                     (if (some (fn [h] ((:conflicts?-fn h) h1 h)) (:hyps h2)) true false)
                     (:composite? h1)
                     (if (some (fn [h] ((:conflicts?-fn h) h h2)) (:hyps h1)) true false)
