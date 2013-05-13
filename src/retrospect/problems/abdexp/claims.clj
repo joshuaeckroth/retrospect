@@ -4,7 +4,7 @@
 
 (def generic-claims
   [(make-claim abdexp-baseline
-               (parameters {:control {}}) ;; use only default params
+               (parameters {:control {:dummy 0}}) ;; use only default params
                (verify {:control ((clojure.test/is (> (geppetto.stats/mean :_AvgMPEPrec) 0.95))
                                   (clojure.test/is (> (geppetto.stats/mean :_AvgMPECoverage) 0.48))
                                   (clojure.test/is (> (geppetto.stats/mean :_AvgMPEF1) 0.61))

@@ -4,11 +4,12 @@
 
 (def generic-claims
   [(make-claim tracking-baseline-high-avgprec
-               (parameters {:control {}}) ;; use only default params
+               (parameters {:control {:dummy 0}}) ;; use only default params
                (verify {:control ((clojure.test/is (> (geppetto.stats/mean :_AvgPrec) 0.8))
                                   (clojure.test/is (> (geppetto.stats/mean :_AvgCoverage) 0.8))
                                   (clojure.test/is (> (geppetto.stats/mean :_AvgF1) 0.8))
-                                  (let [lm (geppetto.stats/linear-reg :_Doubt :_Prec)]
+                                  (let [_ (println :_Doubt :_Prec)
+                                        lm (geppetto.stats/linear-reg :_Doubt :_Prec)]
                                     ;; negative slope
                                     (and (clojure.test/is (< (first (:coefs lm)) 0.0))
                                          ;; weak correlation
