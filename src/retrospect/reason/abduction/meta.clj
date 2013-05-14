@@ -230,8 +230,8 @@
         ;; don't allow batching more than once (accumulating batches)
         ;; TODO: offer appropriate batch at appropriate times, and judge which is better
         (if (= (:time (:ep batch1)) (dec time-now))
-          [batch1] ;; was [batch1 batchbeg]
-          [])) ;; was [batchbeg]
+          [batchbeg] ;; was [batch1 batchbeg]
+          [batchbeg]))
       ;; time-prev == 0, so this is a "static" case or we have not
       ;; done much reasoning yet; or there are no no-expl-offered cases
       [])))
@@ -252,34 +252,34 @@
   (if (not (available-meta-hyps "meta-order-dep")) []
       (let [rel-prob-cases (filter #(= :no-expl-offered (classify-noexp-reason (:workspace (cur-ep est)) %))
                               problem-cases)
-            [batch1] (find-order-dep-candidates rel-prob-cases est time-prev time-now)
-            batch1-hyp (when batch1
-                         (new-hyp "OrderDep" :meta-order-dep :meta-order-dep
-                                  0.0 false (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
-                                  (map :contents (:may-resolve batch1))
-                                  (format "Order dependency at time %d, ep %s"
-                                     (dec time-now) (str (:ep batch1)))
-                                  (format "Order dependency at time %d, ep %s"
-                                     (dec time-now) (str (:ep batch1)))
-                                  {:action (partial action-batch (:ep batch1))
-                                   :resolves (:may-resolve batch1)
-                                   :cycle (:cycle (:ep batch1))
-                                   :time (dec time-now)
-                                   :time-delta 1}))]
-        (filter identity [batch1-hyp]))))
+            [batchbeg] (find-order-dep-candidates rel-prob-cases est time-prev time-now)
+            batchbeg-hyp (when batchbeg
+                           (new-hyp "OrderDep" :meta-order-dep :meta-order-dep
+                                    0.0 false (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
+                                    (map :contents (:may-resolve batchbeg))
+                                    (format "Order dependency at time 0, ep %s" (str (:ep batchbeg)))
+                                    (format "Order dependency at time 0, ep %s" (str (:ep batchbeg)))
+                                    {:action (partial action-batch (:ep batchbeg))
+                                     :resolves (:may-resolve batchbeg)
+                                     :cycle (:cycle (:ep batchbeg))
+                                     :time 0
+                                     :time-delta time-now}))]
+        (filter identity [batchbeg-hyp]))))
 
 (comment
-  batchbeg-hyp (when batchbeg
-                 (new-hyp "OrderDep" :meta-order-dep :meta-order-dep
-                          0.0 false (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
-                          (map :contents (:may-resolve batchbeg))
-                          (format "Order dependency at time 0, ep %s" (str (:ep batchbeg)))
-                          (format "Order dependency at time 0, ep %s" (str (:ep batchbeg)))
-                          {:action (partial action-batch (:ep batchbeg))
-                           :resolves (:may-resolve batchbeg)
-                           :cycle (:cycle (:ep batchbeg))
-                           :time 0
-                           :time-delta time-now})))
+  batch1-hyp (when batch1
+               (new-hyp "OrderDep" :meta-order-dep :meta-order-dep
+                        0.0 false (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
+                        (map :contents (:may-resolve batch1))
+                        (format "Order dependency at time %d, ep %s"
+                           (dec time-now) (str (:ep batch1)))
+                        (format "Order dependency at time %d, ep %s"
+                           (dec time-now) (str (:ep batch1)))
+                        {:action (partial action-batch (:ep batch1))
+                         :resolves (:may-resolve batch1)
+                         :cycle (:cycle (:ep batch1))
+                         :time (dec time-now)
+                         :time-delta 1})))
 
 (defn make-meta-hyps-rej-conflict
   [problem-cases est time-prev time-now available-meta-hyps]
