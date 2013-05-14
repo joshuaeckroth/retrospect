@@ -255,7 +255,7 @@
             [batch1] (find-order-dep-candidates rel-prob-cases est time-prev time-now)
             batch1-hyp (when batch1
                          (new-hyp "OrderDep" :meta-order-dep :meta-order-dep
-                                  0.0 false meta-hyp-conflicts?
+                                  0.0 false (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
                                   (map :contents (:may-resolve batch1))
                                   (format "Order dependency at time %d, ep %s"
                                      (dec time-now) (str (:ep batch1)))
