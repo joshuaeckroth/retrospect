@@ -310,7 +310,8 @@
       (let [rel-prob-cases (filter #(= :minscore (classify-noexp-reason (:workspace (cur-ep est)) %))
                               problem-cases)]
         (filter
-         (if (:RemoveConflictingRejMinScore params)
+         (if (and (not= "oracle" (:Metareasoning params))
+                  (:RemoveConflictingRejMinScore params))
            (comp not :conflicts-with-accepted?)
            identity)
          (for [{:keys [implicated may-resolve]} (find-rej-minscore-candidates rel-prob-cases est time-now)]
