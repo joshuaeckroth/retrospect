@@ -474,6 +474,7 @@
         doubt (doubt-aggregate est)
         errors (find-errors est true-false)
         noise-types (find-noise est true-false)
+        noise-total (+ (:solitary noise-types 0) (:conflicting noise-types 0))
         noexp-reasons (find-noexp-reasons est)
         decision-metrics
         (for [ep (decision-points est)]
@@ -483,9 +484,13 @@
                 noise-claims (set (filter #(= :ignoring (rejection-reason ws %)) obs))
                 not-noise-claims (set/difference obs noise-claims)
                 noise-claims-true (set (filter #(not (tf-true? true-false %)) noise-claims))
+                noise-claims-true-solitary (filter #(= :solitary (classify-noise ws true-false %)) noise-claims-true)
+                noise-claims-true-conflicting (filter #(= :conflicting (classify-noise ws true-false %)) noise-claims-true)
                 noise-claims-false (set/difference noise-claims noise-claims-true)
                 not-noise-claims-true (set (filter #(tf-true? true-false %) not-noise-claims))
                 not-noise-claims-false (set (filter #(not (tf-true? true-false %)) not-noise-claims))
+                not-noise-claims-false-solitary (filter #(= :solitary (classify-noise ws true-false %)) not-noise-claims-false)
+                not-noise-claims-false-conflicting (filter #(= :conflicting (classify-noise ws true-false %)) not-noise-claims-false)
                 noise-prec-coverage (calc-prec-coverage
                                      (count noise-claims-true) ;; tp
                                      (count not-noise-claims-true) ;; tn
@@ -504,7 +509,19 @@
              :NoiseClaimsCoverage (:Coverage noise-prec-coverage)
              :NoiseClaimsF1 (:F1 noise-prec-coverage)
              :NoiseClaimsTPR (:TPR noise-prec-coverage)
-             :NoiseClaimsFPR (:FPR noise-prec-coverage)}))]
+             :NoiseClaimsFPR (:FPR noise-prec-coverage)
+             :NoiseClaimsTrueSolitaryPct (if (empty? noise-claims-true) Double/NaN
+                                             (double (/ (count noise-claims-true-solitary)
+                                                        (count noise-claims-true))))
+             :NoiseClaimsTrueConflictingPct (if (empty? noise-claims-true) Double/NaN
+                                                (double (/ (count noise-claims-true-conflicting)
+                                                           (count noise-claims-true))))
+             :NotNoiseClaimsFalseSolitaryPct (if (empty? not-noise-claims-false) Double/NaN
+                                                 (double (/ (count not-noise-claims-false-solitary)
+                                                            (count not-noise-claims-false))))
+             :NotNoiseClaimsFalseConflictingPct (if (empty? not-noise-claims-false) Double/NaN
+                                                    (double (/ (count not-noise-claims-false-conflicting)
+                                                               (count not-noise-claims-false))))}))]
     (merge {:Problem (:name @problem)}
            params
            ((:evaluate-fn (:abduction @problem)) truedata est)
@@ -547,7 +564,13 @@
             :NoExpReasonMinScore (:minscore noexp-reasons 0)
             :NoExpReasonNoExpl (:no-expl-offered noexp-reasons 0)
             :NoiseSolitary (:solitary noise-types 0)
-            :NoiseConflicting (:conflicting noise-types 0)})))
+            :NoiseSolitaryPct (if (= 0 noise-total) Double/NaN
+                                  (double (/ (:solitary noise-types 0)
+                                             noise-total)))
+            :NoiseConflicting (:conflicting noise-types 0)
+            :NoiseConflictingPct (if (= 0 noise-total) Double/NaN
+                                     (double (/ (:conflicting noise-types 0)
+                                                noise-total)))})))
 
 (defn prefix-params
   [prefix params]
