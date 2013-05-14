@@ -31,6 +31,8 @@
      (merge {:Threshold [0 [0]]
              :MetaMinScore [0 [0]]
              :MetaThreshold [0 [0]]
+             :MetaOracle ["meta-rej-conflict,meta-rej-minscore,meta-order-dep"
+                          ["meta-rej-conflict,meta-rej-minscore,meta-order-dep"]]
              :MetaHyps ["meta-rej-conflict,meta-rej-minscore,meta-order-dep"
                         ["meta-rej-conflict,meta-rej-minscore,meta-order-dep"]]
              :ScoreMetaHyps ["doubt-diff" ["doubt-diff" "doubt" "apriori-diff"]]

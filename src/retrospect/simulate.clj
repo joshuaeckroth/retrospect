@@ -64,19 +64,19 @@
   (let [ws ((:init-workspace-fn @reasoner))
         ws-oracle (if (= "none" (:Oracle params)) ws
                       (assoc ws :oracle (partial (:oracle-fn @problem) truedata)))
-        ws-meta-oracle (if (= "none" (:MetaOracle params)) ws-oracle
-                           (assoc ws-oracle :meta-oracle
-                                  (partial (:meta-oracle-fn @reasoner) truedata)))
+        ws-meta-oracle (if (= "oracle" (:Metareasoning params))
+                         (assoc ws-oracle :meta-oracle
+                                (partial (:meta-oracle-fn @reasoner) truedata))
+                         ws-oracle)
         ws-with-kb ((:init-kb-fn @reasoner) ws-meta-oracle (:training truedata))
         est (new-child-ep (init-est ws-with-kb))]
     {:resources {:milliseconds 0 :meta-accepted 0 :meta-activations 0}
      :sensors sensors :est est}))
 
 (def global-default-params
-  {:Metareasoning ["none" ["none"]]
+  {:Metareasoning ["none" ["none" "oracle"]]
    :UpdateKB [true [true false]]
    :Oracle ["none" ["none"]]
-   :MetaOracle ["none" ["none"]]
    :Steps [10 [10]]
    :Stats [false [false]]
    :SequentialSensorReports [true [true false]]

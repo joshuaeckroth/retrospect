@@ -496,12 +496,14 @@
    :update-hyp-apriori
    (cond
     ;; check oracle
-    ((:oracle-types workspace) (:type hyp))
+    (and (:oracle workspace)
+         ((:oracle-types workspace) (:type hyp)))
     (if ((:oracle workspace) hyp)
       (assoc hyp :apriori 1.0)
       (assoc hyp :apriori 0.0))
     ;; check meta-oracle
-    ((:meta-oracle-types workspace) (:type hyp))
+    (and (:meta-oracle workspace)
+         ((:meta-oracle-types workspace) (:type hyp)))
     (if ((:meta-oracle workspace) hyp)
       (assoc hyp :apriori 1.0)
       (assoc hyp :apriori 0.0))

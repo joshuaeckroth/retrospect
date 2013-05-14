@@ -424,7 +424,8 @@
         meta-est (new-child-ep (init-est (assoc (init-workspace)
                                            :meta-oracle (:meta-oracle (:workspace (cur-ep est))))))
         meta-params (assoc params
-                      :MinScore (:MetaMinScore params)
+                      :MinScore (if (= "oracle" (:Metareasoning params)) 1
+                                    (:MetaMinScore params))
                       :Threshold (:MetaThreshold params)
                       :GetMoreHyps false)
         meta-ws (binding [params meta-params]
@@ -480,7 +481,7 @@
                 meta-lower-minscore
                 (= "rej-conflict" m)
                 meta-rej-conflict
-                (= "abd" m)
+                (or (= "abd" m) (= "oracle" m))
                 meta-abductive-recursive
                 (= "ignore" m)
                 (constantly nil))
