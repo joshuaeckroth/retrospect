@@ -65,6 +65,9 @@
             {:MPEPrec (:Prec mpe-prec-coverage)
              :MPECoverage (:Coverage mpe-prec-coverage)
              :MPEF1 (:F1 mpe-prec-coverage)
+             ;; tpr and fpr for mpe
+             :TPR (:TPR mpe-prec-coverage)
+             :FPR (:FPR mpe-prec-coverage)
              :Prec (:Prec prec-coverage)
              :Coverage (:Coverage prec-coverage)
              :F1 (:F1 prec-coverage)
@@ -74,6 +77,8 @@
            {:AvgMPEPrec (avg (map :MPEPrec metrics))
             :AvgMPECoverage (avg (map :MPECoverage metrics))
             :AvgMPEF1 (avg (map :MPEF1 metrics))
+            :AvgTPR (avg (map :TPR metrics))
+            :AvgFPR (avg (map :FPR metrics))
             :AvgPrec (avg (map :Prec metrics))
             :AvgCoverage (avg (map :Coverage metrics))
             :AvgF1 (avg (map :F1 metrics))
@@ -82,7 +87,9 @@
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
-                  [:Prec :AvgPrec :Coverage :AvgCoverage :F1 :AvgF1 :ObsCoverage :AvgObsCoverage])))
+                  [:Prec :AvgPrec :Coverage :AvgCoverage :F1 :AvgF1
+                   :TPR :FPR :AvgTPR :AvgFPR
+                   :ObsCoverage :AvgObsCoverage])))
 
 (defn stats
   [truedata ors time-now])

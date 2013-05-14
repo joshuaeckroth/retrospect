@@ -60,7 +60,9 @@
               :MinCoverage (nan-min (map :Coverage metrics))
               :AvgPrec (avg (map :Prec metrics))
               :AvgCoverage (avg (map :Coverage metrics))
-              :AvgF1 (avg (map :F1 metrics))}))
+              :AvgF1 (avg (map :F1 metrics))
+              :AvgTPR (avg (map :TPR metrics))
+              :AvgFPR (avg (map :FPR metrics))}))
     {:TP 0 :TN 0 :FP 0 :FN 0 :TPR 0.0 :FPR 0.0 :F1 0.0 :Coverage 0.0 :Prec 0.0
      :MinPrec 0.0 :MinCoverage 0.0 :AvgPrec 0.0 :AvgCoverage 0.0 :AvgF1 0.0}))
 
@@ -68,6 +70,7 @@
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
                   [:TP :TN :FP :FN :TPR :FPR :F1 :Coverage :Prec
+                   :AvgTPR :AvgFPR
                    :MinPrec :MinCoverage :AvgPrec :AvgCoverage :AvgF1])))
 
 (defn training-stats
