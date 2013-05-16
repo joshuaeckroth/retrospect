@@ -426,11 +426,12 @@
                     (set (related-hyps workspace hyp2)))))
 
 (defn undecide
-  [workspace hyp]
+  [workspace hyp cycle]
   (prof
    :undecide
    ;; note related-hyps includes hyp itself
-   (let [rel-hyps (related-hyps workspace hyp)]
+   (let [rel-hyps (filter #(not= :ignoring (rejection-reason workspace %))
+                     (related-hyps workspace hyp))]
      (log "Undeciding" hyp "and related hyps" rel-hyps)
      (reduce (fn [ws hypid]
           (-> ws
@@ -444,7 +445,7 @@
              (update-in [:accepted] disj hypid)
              (update-in [:rejected] disj hypid)
              (update-in [:unexplained] set/union (set (attr (:hypgraph workspace) hypid :accepted-newly-explained)))
-             (add-to-hyp-log hypid "Undecided")))
+             (add-to-hyp-log hypid (format "Undecided at cycle %d" cycle))))
         workspace rel-hyps))))
 
 (defn unreject

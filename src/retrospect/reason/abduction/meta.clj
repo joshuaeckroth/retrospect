@@ -103,7 +103,7 @@
         ep (cur-ep new-est)
         ws-prevent-rejection (reduce (fn [ws hyp]
                                   ;; undeciding does not affect prevent rejection tags
-                                  (-> ws (undecide hyp)
+                                  (-> ws (undecide hyp (:cycle ep))
                                      (prevent-rejection hyp :minscore)))
                                 (:workspace ep) implicated)
         ep-prevent-rejection (assoc ep :workspace ws-prevent-rejection)]
@@ -114,7 +114,7 @@
   (let [new-est (new-branch-ep est (cur-ep est))
         ep (cur-ep new-est)
         ws-ignored (reduce (fn [ws hyp]
-                        (-> ws (undecide hyp)
+                        (-> ws (undecide hyp (:cycle ep))
                            (reject hyp :ignoring (:cycle ep))))
                       (:workspace ep) implicated)
         ep-ignored (assoc ep :workspace ws-ignored)]
@@ -124,7 +124,7 @@
   [implicated est]
   (let [new-est (new-branch-ep est (cur-ep est))
         ep (cur-ep new-est)
-        ws-undecided (reduce undecide (:workspace ep) implicated)
+        ws-undecided (reduce #(undecide %1 %2 (:cycle ep)) (:workspace ep) implicated)
         ep-undecided (assoc ep :workspace ws-undecided)]
     [(update-est new-est ep-undecided) params]))
 
@@ -133,7 +133,7 @@
   (let [new-est (new-branch-ep est (cur-ep est))
         ep (cur-ep new-est)
         ws-rejected (reduce (fn [ws hyp]
-                         (-> ws (undecide hyp)
+                         (-> ws (undecide hyp (:cycle ep))
                             (reject hyp :preemptive (:cycle ep))))
                        (:workspace ep) implicated)
         ep-rejected (assoc ep :workspace ws-rejected)]
