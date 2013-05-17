@@ -83,38 +83,6 @@
      (for [nx (range width) ny (range height)]
        [[nx ny] (dist x y nx ny)]))))
 
-(defn walk-gaussian-next
-  [x y mean dists]
-  (let [radius (max 0.0 (my-rand-gauss mean 2.0))
-        dists2 (map (fn [[xy d]] [xy (Math/abs (- radius d))]) dists)
-        closest-dist (apply min (map second dists2))
-        loc-choices (map first (filter #(= closest-dist (second %)) dists2))]
-    (when (not-empty loc-choices)
-      (my-rand-nth loc-choices))))
-
-(defn walk-gaussian
-  "Move an entity maxwalk steps in random directions, respecting angle
-   constraints. Also avoid landing in an occupied space."
-  [mean movements entity time]
-  (let [width (:width (meta movements))
-        height (:height (meta movements))
-        movs (reverse (get movements entity))
-        last-pos (first movs)
-        [ox oy] [(:x last-pos) (:y last-pos)]
-        dists (loc-distances ox oy width height)]
-    (loop [attempts 0]
-      (let [[x y] (walk-gaussian-next ox oy mean dists)]
-        (cond (= attempts 50)
-              ;; ran out of attempts to move to an empty space; just
-              ;; stay where we are
-              (move-entity movements entity ox oy time)
-              ;; make sure we didn't land on an occupied space
-              (and x y
-                   (empty? (entities-at movements x y time))
-                   (empty? (entities-at movements x y (dec time))))
-              (move-entity movements entity x y time)
-              :else (recur (inc attempts)))))))
-
 (defn walk-random
   "Brownian motion"
   [walk-steps random? movements entity time]
@@ -148,25 +116,13 @@
               (move-entity movements entity x y time)
               :else (recur (inc attempts)))))))
 
-(defn get-walk-fn
-  [truedata? random?]
-  (if (= "gaussian" (:WalkType params))
-    (if random?
-      (let [grid-length-avg (/ (double (+ (:GridWidth params) (:GridHeight params))) 2.0)
-            mean (* grid-length-avg (my-rand))]
-        (partial walk-gaussian mean))
-      (if truedata?
-        (partial walk-gaussian (:GaussianTrueWalkMean params))
-        (partial walk-gaussian (:GaussianBelWalkMean params))))
-    (partial walk-random (:RandomWalkSteps params) random?)))
-
 (defn generate-movements
-  [movements steps truedata? random?]
-  (let [walk-fn (get-walk-fn truedata? random?)]
-    (loop [time 1
-           m movements]
-      (if (> time steps)
-        (if (:SequentialSensorReports params) m
-            (with-meta (reduce (fn [m [e movs]] (assoc m e (my-shuffle movs))) {} (seq m))
-              (meta m)))
-        (recur (inc time) (reduce #(walk-fn %1 %2 time) m (my-shuffle (entities m))))))))
+  [movements time-steps walk-steps random?]
+  (loop [time 1
+         m movements]
+    (if (> time time-steps)
+      (if (:SequentialSensorReports params) m
+          (with-meta (reduce (fn [m [e movs]] (assoc m e (my-shuffle movs))) {} (seq m))
+            (meta m)))
+      (recur (inc time) (reduce #(walk-random walk-steps random? %1 %2 time)
+                           m (my-shuffle (entities m)))))))
