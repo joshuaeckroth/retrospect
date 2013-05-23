@@ -2,7 +2,7 @@
   (:require [clojure.string :as str])
   (:require [clojure.set :as set])
   (:use [loom.graph :only [has-edge? weight edges neighbors incoming]])
-  (:use [retrospect.profile :only [prof]])
+  (:use [geppetto.profile :only [prof]])
   (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.reason.abduction.workspace :only [new-hyp]])
   (:use [retrospect.problems.words.evaluate :only

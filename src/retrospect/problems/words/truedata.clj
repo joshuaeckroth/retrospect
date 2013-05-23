@@ -4,7 +4,7 @@
   (:require [clojure.string :as str])
   (:require [clojure.set :as set])
   (:use [clojure.java.shell :only [sh]])
-  (:use [retrospect.profile :only [prof profile]])
+  (:use [geppetto.profile :only [prof profile]])
   (:use [geppetto.random])
   (:use [retrospect.state]))
 

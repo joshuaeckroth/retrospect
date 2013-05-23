@@ -9,7 +9,7 @@
          [lookup-hyp calc-doubt get-unexplained]])
   (:use [retrospect.problems.words.truedata :only [extract-tags-word]])
   (:use [loom.graph :only [weight]])
-  (:use [retrospect.profile :only [prof]])
+  (:use [geppetto.profile :only [prof]])
   (:use [retrospect.logging])
   (:use [retrospect.state]))
 

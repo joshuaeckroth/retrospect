@@ -19,8 +19,7 @@
   (:use [retrospect.problems.abdexp.problem :only [abdexp-problem]])
   (:use [retrospect.simulate :only [run]])
   (:use [geppetto.records :only [run-with-new-record submit-results]])
-  (:use [retrospect.player :only [start-player]])
-  (:use [retrospect.utility]))
+  (:use [retrospect.player :only [start-player]]))
 
 (comment
   (or (= "Words" problem) (= "words" problem))

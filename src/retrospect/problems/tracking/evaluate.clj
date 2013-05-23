@@ -4,7 +4,7 @@
   (:use [retrospect.epistemicstates :only [cur-ep goto-cycle decision-points]])
   (:use [retrospect.reason.abduction.workspace :only [accepted rejected]])
   (:use [retrospect.problems.tracking.movements :only [moves-match?]])
-  (:use [retrospect.profile :only [prof]])
+  (:use [geppetto.profile :only [prof]])
   (:use [retrospect.state]))
 
 (defn true-hyp?

@@ -6,7 +6,7 @@
   (:use [retrospect.problems.tracking.colors])
   (:use [retrospect.problems.tracking.movements
          :only [dist dets-match?]])
-  (:use [retrospect.profile :only [prof]])
+  (:use [geppetto.profile :only [prof]])
   (:use [retrospect.evaluate :only [normalize avg]])
   (:use [geppetto.random])
   (:use [retrospect.state]))

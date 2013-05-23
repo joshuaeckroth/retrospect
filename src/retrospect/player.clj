@@ -12,7 +12,7 @@
          :only [run-simulation-step merge-default-params get-default-params init-ors
                 evaluate pre-sense]])
   (:use [retrospect.state])
-  (:use [retrospect.profile :only [profile]])
+  (:use [geppetto.profile :only [profile]])
   (:use [retrospect.gui.eptree :only [ep-tree-tab update-ep-tree]])
   (:use [retrospect.gui.results :only [update-results results-tab]])
   (:use [retrospect.epistemicstates

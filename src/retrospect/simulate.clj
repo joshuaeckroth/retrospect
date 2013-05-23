@@ -2,7 +2,7 @@
   (:import (java.util.concurrent ExecutionException))
   (:use [clojure.string :only [split]])
   (:require [clojure.set :as set])
-  (:use [retrospect.profile :only [profile]])
+  (:use [geppetto.profile :only [profile]])
   (:use [retrospect.epistemicstates :only
          [cur-ep new-child-ep init-est update-est decision-points]])
   (:use [retrospect.sensors :only [update-sensors reset-sensors]])

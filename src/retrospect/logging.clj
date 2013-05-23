@@ -1,7 +1,7 @@
 (ns retrospect.logging
   (:use [clojure.string :only [join]])
   (:use [retrospect.state :only [batch logging-enabled]])
-  (:use [retrospect.profile :only [*enable-profiling* prof]]))
+  (:use [geppetto.profile :only [*enable-profiling* prof]]))
 
 (def ^:dynamic reason-log (ref '()))
 

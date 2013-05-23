@@ -10,12 +10,11 @@
   (:use [loom.alg :only [topsort]])
   (:use [loom.alg-generic :only [bf-traverse]])
   (:use [loom.attr :only [add-attr remove-attr attr]])
-  (:use [retrospect.profile :only [prof profile]])
+  (:use [geppetto.profile :only [prof profile]])
   (:use [retrospect.logging])
   (:use [retrospect.evaluate :only [avg]])
   (:use [geppetto.random])
-  (:use [retrospect.state])
-  (:use [retrospect.utility]))
+  (:use [retrospect.state]))
 
 (defrecord Hypothesis
     [id name type subtype apriori needs-explainer? conflicts?-fn

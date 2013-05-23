@@ -5,7 +5,7 @@
          [entity-movements entities-at]])
   (:use [geppetto.random])
   (:use [retrospect.state])
-  (:use [retrospect.profile :only [prof]]))
+  (:use [geppetto.profile :only [prof]]))
 
 (defn perturb
   [sensor]

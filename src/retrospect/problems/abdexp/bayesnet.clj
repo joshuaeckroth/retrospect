@@ -3,7 +3,7 @@
   (:import (norsys.netica Environ Net NetTester Node NodeList Streamer))
   (:use [retrospect.problems.abdexp.expgraph])
   (:use [retrospect.state :only [batch]])
-  (:use [retrospect.profile :only [prof]]))
+  (:use [geppetto.profile :only [prof]]))
 
 (def netica-env (Environ. "+EckrothJ/OhioStateU/Ex14-06-30,121,310/48453"))
 
