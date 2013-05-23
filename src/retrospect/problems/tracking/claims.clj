@@ -3,7 +3,7 @@
   (:use [geppetto.stats]))
 
 (def generic-claims
-  [(make-claim tracking-baseline-high-avgprec
+  [(make-claim tracking-baseline
                (parameters {:control {:dummy 0}}) ;; use only default params
                (verify {:control ((clojure.test/is (> (geppetto.stats/mean :_AvgPrec) 0.8))
                                   (clojure.test/is (> (geppetto.stats/mean :_AvgCoverage) 0.8))
