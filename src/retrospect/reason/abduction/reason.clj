@@ -46,8 +46,9 @@
              :DoubtScoreWeight [0.5 [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0]]
              :DoubtAggregate ["avg" ["geammean" "max" "avg" "min" "last"]]
              :DoubtAccGraphAgg ["min" ["min" "max" "avg"]]
-             :DoubtAccGraphMult ["score-delta-prod" ["score" "delta" "score-delta-prod"
-                                                     "min-score-delta" "max-score-delta"]]
+             :DoubtAccGraphBranch ["mult" ["mult" "inv-delta"]]
+             :DoubtAccGraphBranchMult ["score-delta-prod" ["score" "delta" "score-delta-prod"
+                                                           "min-score-delta" "max-score-delta"]]
              :ClearAccGraphSensors [false [true false]]
              :DoubtModifier ["none" ["square" "cube" "sqrt" "log" "none"]]
              :DoubtNoExp [true [true false]]

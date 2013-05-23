@@ -872,34 +872,43 @@
   [accgraph hypid]
   (let [this-score (attr accgraph hypid :score)
         children (neighbors accgraph hypid)]
-    (if (empty? children) 1.0
-      (let [ds (for [child-id children]
-                 (cond (= "delta" (:DoubtAccGraphMult params))
-                       (* (attr accgraph hypid child-id :delta)
-                          (calc-doubt-from-accgraph-recursive accgraph child-id))
-                       (= "score" (:DoubtAccGraphMult params))
-                       (* this-score
-                          (calc-doubt-from-accgraph-recursive accgraph child-id))
-                       (= "score-delta-prod" (:DoubtAccGraphMult params))
-                       (* this-score (attr accgraph hypid child-id :delta)
-                          (calc-doubt-from-accgraph-recursive accgraph child-id))
-                       (= "min-score-delta" (:DoubtAccGraphMult params))
-                       (* (min this-score (attr accgraph hypid child-id :delta))
-                          (calc-doubt-from-accgraph-recursive accgraph child-id))
-                       (= "max-score-delta" (:DoubtAccGraphMult params))
-                       (* (max this-score (attr accgraph hypid child-id :delta))
-                          (calc-doubt-from-accgraph-recursive accgraph child-id))))]
-        (cond (= "min" (:DoubtAccGraphAgg params))
-              (apply min ds)
-              (= "max" (:DoubtAccGraphAgg params))
-              (apply max ds)
-              (= "avg" (:DoubtAccGraphAgg params))
-              (avg ds))))))
+    (cond (= "mult" (:DoubtAccGraphBranch params))
+          (if (empty? children) 1.0
+              (let [ds (for [child-id children]
+                         (cond (= "delta" (:DoubtAccGraphBranchMult params))
+                               (* (attr accgraph hypid child-id :delta)
+                                  (calc-doubt-from-accgraph-recursive accgraph child-id))
+                               (= "score" (:DoubtAccGraphBranchMult params))
+                               (* this-score
+                                  (calc-doubt-from-accgraph-recursive accgraph child-id))
+                               (= "score-delta-prod" (:DoubtAccGraphBranchMult params))
+                               (* this-score (attr accgraph hypid child-id :delta)
+                                  (calc-doubt-from-accgraph-recursive accgraph child-id))
+                               (= "min-score-delta" (:DoubtAccGraphBranchMult params))
+                               (* (min this-score (attr accgraph hypid child-id :delta))
+                                  (calc-doubt-from-accgraph-recursive accgraph child-id))
+                               (= "max-score-delta" (:DoubtAccGraphBranchMult params))
+                               (* (max this-score (attr accgraph hypid child-id :delta))
+                                  (calc-doubt-from-accgraph-recursive accgraph child-id))))]
+                (cond (= "min" (:DoubtAccGraphAgg params))
+                      (apply min ds)
+                      (= "max" (:DoubtAccGraphAgg params))
+                      (apply max ds)
+                      (= "avg" (:DoubtAccGraphAgg params))
+                      (avg ds))))
+          (= "inv-delta" (:DoubtAccGraphBranch params))
+          (if (empty? children) 1.0
+              (let [ds (for [child-id (filter #(not-empty (neighbors accgraph %)) children)]
+                         (calc-doubt-from-accgraph-recursive accgraph child-id))
+                    this-deltas (map #(attr accgraph hypid % :delta) children)
+                    this-inv-deltas (map #(- 1.0 (max 0.0 %)) this-deltas)
+                    this-doubt (double (/ (+ this-score (- 1.0 (reduce * this-inv-deltas))) 2.0))]
+                (avg (conj ds this-doubt)))))))
 
 (defn view-accgraph
   [workspace]
   (javax.swing.SwingUtilities/invokeLater
-   (fn [] (view (:accgraph workspace)))) )
+   (fn [] (view (:accgraph workspace)))))
 
 (defn calc-doubt-from-accgraph
   [workspace]
