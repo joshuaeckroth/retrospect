@@ -873,7 +873,7 @@
   (let [this-score (attr accgraph hypid :score)
         children (neighbors accgraph hypid)]
     (cond (= "mult" (:DoubtAccGraphBranch params))
-          (if (empty? children) 1.0
+          (if (empty? children) this-score
               (let [ds (for [child-id children]
                          (cond (= "delta" (:DoubtAccGraphBranchMult params))
                                (* (attr accgraph hypid child-id :delta)
@@ -897,7 +897,7 @@
                       (= "avg" (:DoubtAccGraphAgg params))
                       (avg ds))))
           (= "inv-delta" (:DoubtAccGraphBranch params))
-          (if (empty? children) 1.0
+          (if (empty? children) this-score
               (let [ds (for [child-id (filter #(not-empty (neighbors accgraph %)) children)]
                          (calc-doubt-from-accgraph-recursive accgraph child-id))
                     this-deltas (map #(attr accgraph hypid % :delta) children)
@@ -915,13 +915,15 @@
   (let [ag (:accgraph workspace)
         tops (filter #(empty? (incoming ag %)) (nodes ag))]
     (when-not (empty? tops)
-      (let [ds (map #(calc-doubt-from-accgraph-recursive ag %) tops)]
+      (let [ds (map #(calc-doubt-from-accgraph-recursive ag %) tops)
+            noexp (no-explainers workspace)
+            ds-noexp (concat (mapcat (fn [h] (repeat (:DoubtNoExp params) (:apriori h))) noexp) ds)]
         (- 1.0 (cond (= "min" (:DoubtAccGraphAgg params))
-                     (apply min ds)
+                     (apply min ds-noexp)
                      (= "max" (:DoubtAccGraphAgg params))
-                     (apply max ds)
+                     (apply max ds-noexp)
                      (= "avg" (:DoubtAccGraphAgg params))
-                     (avg ds)))))))
+                     (avg ds-noexp)))))))
 
 (defn calc-doubt
   [workspace]

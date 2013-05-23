@@ -14,11 +14,11 @@
 
 (defn doubt-aggregate
   [est]
-  (let [doubts (doall (filter identity (map #(calc-doubt %) (map :workspace (ep-path est)))))
+  (let [doubts (filter identity (map #(calc-doubt %) (map :workspace (ep-path est))))
         noexp (no-explainers (:workspace (cur-ep est)))
-        ds (if (:DoubtNoExp params)
-             (concat (for [h noexp] (:apriori h)) doubts)
-             doubts)]
+        ds (if (= "accgraph" (:DoubtMeasure params))
+             doubts
+             (concat (mapcat (fn [h] (repeat (:DoubtNoExp params) (:apriori h))) noexp) doubts))]
     (cond (= "avg" (:DoubtAggregate params))
           (if (empty? ds) 0.0 (/ (reduce + ds) (double (count ds))))
           (= "max" (:DoubtAggregate params))
