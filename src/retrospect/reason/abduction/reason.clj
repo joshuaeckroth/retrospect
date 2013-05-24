@@ -39,6 +39,7 @@
              :EstimateMetaScores [false [true false]]
              :RemoveConflictingRejMinScore [true [true false]]
              :MinScore [0 [0 10]]
+             :AblatePct [0 [0 10]]
              :DoubtIgnoreEssentials [false [true false]]
              :DoubtMeasure ["weighted-score-delta" ["score-delta-prod" "score-delta-pow"
                                                     "max-score-delta" "min-score-delta"

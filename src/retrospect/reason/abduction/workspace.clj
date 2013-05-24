@@ -691,8 +691,11 @@
    :update-hypotheses
    (do
      (log "Updating hypotheses")
-     (let [hyps (get-explaining-hypotheses workspace time-now)]
-       (reduce #(add %1 %2 cycle) workspace hyps)))))
+     (let [hyps (get-explaining-hypotheses workspace time-now)
+           ;; possibly drop some % of lowest-scoring hyps
+           hyps-ablated (drop (int (* (count hyps) (/ (:AblatePct params) 100.0)))
+                              (sort-by :apriori hyps))]
+       (reduce #(add %1 %2 cycle) workspace hyps-ablated)))))
 
 (defn reject-minscore
   [workspace cycle]
