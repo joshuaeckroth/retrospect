@@ -62,30 +62,45 @@
         eps (flatten-est est)
         meta-eps (mapcat (comp flatten-est :meta-est) (filter :meta-est eps))
         acc? (fn [h] (if ((:meta-hyp-types @reasoner) (:type h))
-                      (some (fn [ep] (accepted? (:workspace ep) h)) meta-eps)
-                      (accepted? workspace h)))
+                       (some (fn [ep] (accepted? (:workspace ep) h)) meta-eps)
+                       (accepted? workspace h)))
         aprioris (reduce (fn [m t]
-                      (assoc m t
-                             {true (map :apriori (get (get true-false t) true))
-                              false (map :apriori (get (get true-false t) false))}))
-                    {} (keys true-false))
-        avg (fn [vals] (if (empty? vals) 0.0 (/ (reduce + vals) (count vals))))]
+                           (assoc m t
+                                  {true (map :apriori (get (get true-false t) true))
+                                   false (map :apriori (get (get true-false t) false))}))
+                         {} (keys true-false))
+        pct-true-in-range (fn [start end t]
+                            (let [hyps (filter #(and (<= start (:apriori %))
+                                                     (> end (:apriori %)))
+                                               (concat (get-in true-false [t true])
+                                                       (get-in true-false [t false])))]
+                              (if (empty? hyps) 0.0
+                                (double (/ (count (filter #(tf-true? true-false %) hyps))
+                                           (count hyps))))))]
     (reduce (fn [m t]
-         (let [k (keyword-to-metric t)]
-           (assoc m
-             (keyword (format "TrueCount%s" k))
-             (count (get (get true-false t) true))
-             (keyword (format "FalseCount%s" k))
-             (count (get (get true-false t) false))
-             (keyword (format "TrueAcc%s" k))
-             (count (filter acc? (get (get true-false t) true)))
-             (keyword (format "FalseAcc%s" k))
-             (count (filter acc? (get (get true-false t) false)))
-             (keyword (format "AvgTrueApriori%s" k))
-             (avg (get (get aprioris t) true))
-             (keyword (format "AvgFalseApriori%s" k))
-             (avg (get (get aprioris t) false)))))
-       {} (keys true-false))))
+              (let [k (keyword-to-metric t)]
+                (assoc m
+                       (keyword (format "TrueCount%s" k))
+                       (count (get (get true-false t) true))
+                       (keyword (format "FalseCount%s" k))
+                       (count (get (get true-false t) false))
+                       (keyword (format "TrueAcc%s" k))
+                       (count (filter acc? (get (get true-false t) true)))
+                       (keyword (format "FalseAcc%s" k))
+                       (count (filter acc? (get (get true-false t) false)))
+                       (keyword (format "AvgTrueApriori%s" k))
+                       (avg (get (get aprioris t) true))
+                       (keyword (format "AvgFalseApriori%s" k))
+                       (avg (get (get aprioris t) false))
+                       (keyword (format "PctTrue0025%s" k))
+                       (pct-true-in-range 0.0 0.25 t)
+                       (keyword (format "PctTrue2550%s" k))
+                       (pct-true-in-range 0.25 0.50 t)
+                       (keyword (format "PctTrue5075%s" k))
+                       (pct-true-in-range 0.50 0.75 t)
+                       (keyword (format "PctTrue75100%s" k))
+                       (pct-true-in-range 0.75 1.01 t))))
+            {} (keys true-false))))
 
 (defn calc-true-false-deltas
   "Find average delta for true and false acceptances of each hyp type."
