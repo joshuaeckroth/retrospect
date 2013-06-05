@@ -905,7 +905,7 @@
                          (calc-doubt-from-accgraph-recursive accgraph child-id))
                     this-deltas (map #(attr accgraph hypid % :delta) children)
                     this-inv-deltas (map #(- 1.0 (max 0.0 %)) this-deltas)
-                    this-doubt (double (/ (+ this-score (- 1.0 (reduce * this-inv-deltas))) 2.0))]
+                    this-doubt (min this-score (- 1.0 (reduce * this-inv-deltas)))]
                 (avg (conj ds this-doubt)))))))
 
 (defn view-accgraph
