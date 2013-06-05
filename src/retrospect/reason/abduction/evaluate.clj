@@ -74,7 +74,7 @@
                                                      (> end (:apriori %)))
                                                (concat (get-in true-false [t true])
                                                        (get-in true-false [t false])))]
-                              (if (empty? hyps) 0.0
+                              (if (empty? hyps) Double/NaN
                                 (double (/ (count (filter #(tf-true? true-false %) hyps))
                                            (count hyps))))))]
     (reduce (fn [m t]
