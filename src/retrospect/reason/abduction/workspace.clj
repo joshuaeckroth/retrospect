@@ -493,27 +493,28 @@
 (defn update-hyp-apriori
   [workspace hyp]
   (prof
-   :update-hyp-apriori
-   (cond
-    ;; check oracle
-    (and (:oracle workspace)
-         ((:oracle-types workspace) (:type hyp)))
-    (if ((:oracle workspace) hyp)
-      (assoc hyp :apriori 1.0)
-      (assoc hyp :apriori 0.0))
-    ;; check meta-oracle
-    (and (:meta-oracle workspace)
-         ((:meta-oracle-types workspace) (:type hyp)))
-    (if ((:meta-oracle workspace) hyp)
-      (assoc hyp :apriori 1.0)
-      (assoc hyp :apriori 0.0))
-    :else
-    (if (not (:UseScores params))
-      (assoc hyp :apriori 1.0)
-      (if (= 100 (:ScoreLevels params)) hyp
-          (let [levels (range 0.0 1.01 (/ 1.0 (double (dec (:ScoreLevels params)))))
-                apriori-new (first (sort-by #(Math/abs (- (:apriori hyp) %)) levels))]
-            (assoc hyp :apriori apriori-new)))))))
+    :update-hyp-apriori
+    (let [hyp-s (cond
+                  ;; check oracle
+                  (and (:oracle workspace)
+                       ((:oracle-types workspace) (:type hyp)))
+                  (if ((:oracle workspace) hyp)
+                    (assoc hyp :apriori 1.0)
+                    (assoc hyp :apriori 0.0))
+                  ;; check meta-oracle
+                  (and (:meta-oracle workspace)
+                       ((:meta-oracle-types workspace) (:type hyp)))
+                  (if ((:meta-oracle workspace) hyp)
+                    (assoc hyp :apriori 1.0)
+                    (assoc hyp :apriori 0.0))
+                  :else
+                  (if (not (:UseScores params))
+                    (assoc hyp :apriori 1.0)
+                    (if (= 100 (:ScoreLevels params)) hyp
+                      (let [levels (range 0.0 1.01 (/ 1.0 (double (dec (:ScoreLevels params)))))
+                            apriori-new (first (sort-by #(Math/abs (- (:apriori hyp) %)) levels))]
+                        (assoc hyp :apriori apriori-new)))))]
+      (if (:InvertScores params) (assoc hyp-s :apriori (- 1.0 (:apriori hyp-s))) hyp-s))))
 
 (defn add-helper
   [workspace hyp]

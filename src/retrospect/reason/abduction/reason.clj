@@ -40,6 +40,7 @@
              :RemoveConflictingRejMinScore [true [true false]]
              :MinScore [0 [0 10]]
              :AblatePct [0 [0 10]]
+             :InvertScores [false [true false]]
              :DoubtIgnoreEssentials [false [true false]]
              :DoubtMeasure ["accgraph" ["score-delta-prod" "score-delta-pow"
                                                     "max-score-delta" "min-score-delta"
