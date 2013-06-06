@@ -514,7 +514,9 @@
                       (let [levels (range 0.0 1.01 (/ 1.0 (double (dec (:ScoreLevels params)))))
                             apriori-new (first (sort-by #(Math/abs (- (:apriori hyp) %)) levels))]
                         (assoc hyp :apriori apriori-new)))))]
-      (if (:InvertScores params) (assoc hyp-s :apriori (- 1.0 (:apriori hyp-s))) hyp-s))))
+      (if (< (my-rand) (double (/ (:InvertScoresPct params) 100.0)))
+        (assoc hyp-s :apriori (- 1.0 (:apriori hyp-s)))
+        hyp-s))))
 
 (defn add-helper
   [workspace hyp]
