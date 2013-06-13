@@ -17,7 +17,7 @@
 (defn color-str
   [c]
   (if (= c gray) "gray"
-      (format "#%s" (subs (format "%h" (.getRGB c)) 2))))
+      (format "#%s" (format "%h" (.getRGB c)))))
 
 (defn match-color?
   [c1 c2]
