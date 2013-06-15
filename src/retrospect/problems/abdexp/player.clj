@@ -25,9 +25,9 @@
 (def current-expgraph-dot (ref ""))
 (def current-expgraph-svg (ref ""))
 
-(def mpeprec-label (label ""))
-(def mpecoverage-label (label ""))
-(def mpef1-label (label ""))
+(def prec-label (label ""))
+(def coverage-label (label ""))
+(def f1-label (label ""))
 (def unexp-label (label ""))
 (def noexp-label (label ""))
 
@@ -91,17 +91,17 @@
          [:weightx 1.0 :weighty 0.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
           :gridx 0 :gridy 0
-          _ (label "MPEPrec:")
+          _ (label "Prec:")
           :gridx 1
-          _ mpeprec-label
+          _ prec-label
           :gridx 0 :gridy 1
-          _ (label "MPECoverage:")
+          _ (label "Coverage:")
           :gridx 1
-          _ mpecoverage-label
+          _ coverage-label
           :gridx 0 :gridy 2
-          _ (label "MPEF1:")
+          _ (label "F1:")
           :gridx 1
-          _ mpef1-label
+          _ f1-label
           :gridx 0 :gridy 3
           _ (label "Unexplained:")
           :gridx 1
@@ -115,15 +115,15 @@
   []
   (if-let [results (last (:results (cur-ep (:est @or-state))))]
     (do
-      (. mpeprec-label (setText (format "%.2f" (:MPEPrec results))))
-      (. mpecoverage-label (setText (format "%.2f" (:MPECoverage results))))
-      (. mpef1-label (setText (format "%.2f" (:MPEF1 results))))
+      (. prec-label (setText (format "%.2f" (:Prec results))))
+      (. coverage-label (setText (format "%.2f" (:Coverage results))))
+      (. f1-label (setText (format "%.2f" (:F1 results))))
       (. unexp-label (setText (format "%.2f" (:UnexplainedPct results))))
       (. noexp-label (setText (format "%.2f" (:NoExplainersPct results)))))
     (do
-      (. mpeprec-label (setText "N/A"))
-      (. mpecoverage-label (setText "N/A"))
-      (. mpef1-label (setText "N/A"))
+      (. prec-label (setText "N/A"))
+      (. coverage-label (setText "N/A"))
+      (. f1-label (setText "N/A"))
       (. unexp-label (setText "N/A"))
       (. noexp-label (setText "N/A")))))
 
