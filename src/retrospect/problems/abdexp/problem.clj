@@ -47,9 +47,9 @@
    :default-params
    {:Steps [20 [20]]
     :StepsBetween [1 [1]]
-    :NumExplainers [4 [4]]
-    :NumExplainsLinks [50 [50]]
-    :NumConflictLinks [10 [10]]
+    :NumExplainers [5 [5]]
+    :NumExplainsLinks [40 [40]]
+    :NumConflictLinks [20 [20]]
     :UniqueGraphs [1000 [1000]]
     :HypScores ["posterior" ["prior" "posterior"]]
     :PriorFunc ["max" ["min" "max" "avg"]]
