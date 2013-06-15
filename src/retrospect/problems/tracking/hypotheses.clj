@@ -13,27 +13,17 @@
 
 (defn compute-moves-dist
   [moves]
-  (if (= "gaussian" (:WalkType params))
-    (let [dists (map #(dist (:ox %) (:oy %) (:x %) (:y %)) moves)
-          mean (/ (reduce + dists) (count dists))
-          variance (/ (reduce + (map #(Math/pow (- mean %) 2.0) dists)) (count dists))]
-      {:mean mean :variance variance})
-    ;; else, :WalkType = "random"
-    (let [dists (map #(dist (:ox %) (:oy %) (:x %) (:y %)) moves)
-          freqs (frequencies dists)
-          c (count moves)]
-      {:dist-freqs freqs :count c
-       :max-prob (apply max (map #(/ (double (+ 1 %)) (double (+ 2 c)))
-                               (vals freqs)))})))
+  (let [dists (map #(dist (:ox %) (:oy %) (:x %) (:y %)) moves)
+        freqs (frequencies dists)
+        c (count moves)]
+    {:dist-freqs freqs :count c
+     :max-prob (apply max (map #(/ (double (+ 1 %)) (double (+ 2 c)))
+                               (vals freqs)))}))
 
 (defn move-prob
   [dist moves-dist]
-  (if (= "gaussian" (:WalkType params))
-    (cumprob (:mean moves-dist) (:variance moves-dist) (- dist 2.0) (+ dist 2.0))
-    ;; else, :WalkType = "random"
-    (/ (/ (double (+ 1 (get-in moves-dist [:dist-freqs dist] 0)))
-          (double (+ 2 (:count moves-dist))))
-       (:max-prob moves-dist))))
+  (double (/ (+ 1 (get-in moves-dist [:dist-freqs dist] 0))
+             (* (+ 2 (:count moves-dist)) (:max-prob moves-dist)))))
 
 (defn penalize-gray-moves
   [apriori det det2]

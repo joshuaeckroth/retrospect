@@ -67,25 +67,16 @@
        (= (:time det) (:time det2))
        (match-color? (:color det) (:color det2))))
 
-(def dist
-  (memoize
-   (fn [x1 y1 x2 y2]
-     (if (= "gaussian" (:WalkType params))
-       (double (Math/sqrt (+ (* (- x1 x2) (- x1 x2))
-                             (* (- y1 y2) (- y1 y2)))))
-       ;; else, :WalkType = "random"
-       ;; use manhattan distance
-       (double (+ (Math/abs (- x1 x2)) (Math/abs (- y1 y2))))))))
+(defn dist
+  [x1 y1 x2 y2]
+  (Math/sqrt (double (+ (* (- x1 x2) (- x1 x2))
+                        (* (- y1 y2) (- y1 y2))))))
 
 (def loc-distances
   (memoize
    (fn [x y width height]
      (for [nx (range width) ny (range height)]
        [[nx ny] (dist x y nx ny)]))))
-
-(defn constrain
-  [x low high]
-  (min (max x low) high))
 
 (defn walk-random
   [walk-steps random? movements entity time]
@@ -95,12 +86,13 @@
         last-pos (first movs)
         [ox oy] [(:x last-pos) (:y last-pos)]]
     (loop [attempts 0]
-      (let [[x y] [(constrain (+ ox (my-rand-nth (range (- walk-steps) (inc walk-steps)))) 0 (dec width))
-                   (constrain (+ oy (my-rand-nth (range (- walk-steps) (inc walk-steps)))) 0 (dec height))]]
-        (cond (= attempts 50)
+      (let [x (+ ox (my-rand-nth (range (- walk-steps) (inc walk-steps))))
+            y (+ oy (my-rand-nth (range (- walk-steps) (inc walk-steps))))]
+        (cond (= attempts 100)
               (move-entity movements entity ox oy time)
-              (and x y
-                   (empty? (entities-at movements x y time))
+              (or (< x 0) (>= x width) (< y 0) (>= y height))
+              (recur (inc attempts))
+              (and (empty? (entities-at movements x y time))
                    (empty? (entities-at movements x y (dec time))))
               (move-entity movements entity x y time)
               :else (recur (inc attempts)))))))
