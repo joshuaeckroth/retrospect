@@ -83,12 +83,9 @@
                        (if (empty? pc) [#{}] pc))
         probs-parent-combs-map
         (reduce (fn [m pc]
-             (let [probs-orig (sort (repeatedly (count vals) my-rand))
-                   probs (my-shuffle (concat [(/ (first probs-orig) 2.0)]
-                                             (butlast (rest probs-orig))
-                                             [(* 2.0 (last probs-orig))]))
-                   probs-sum (reduce + probs)
-                   probs-pairs (interleave vals (map #(/ % probs-sum) probs))]
+                  (let [probs (my-shuffle (sort (repeatedly (count vals) my-rand)))
+                        probs-sum (reduce + probs)
+                        probs-pairs (interleave vals (map #(/ % probs-sum) probs))]
                (assoc m pc (apply sorted-map probs-pairs))))
            {} parent-combs)
         prob-table (for [v vals pc parent-combs]
