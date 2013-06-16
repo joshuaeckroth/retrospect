@@ -1,6 +1,7 @@
 (ns retrospect.reason.abduction.evaluate
   (:require [clojure.string :as str])
   (:require [clojure.set :as set])
+  (:use [loom.graph :only [transpose]])
   (:use [retrospect.epistemicstates
          :only [cur-ep flatten-est count-branches decision-points]])
   (:use [retrospect.evaluate])
@@ -461,6 +462,16 @@
        :PctFalseNoExpConflict (double (/ (count (get grouped false))
                                          (count noexp-conflict)))})))
 
+(defn hyp-relatedness
+  [workspace]
+  (let [hyps (:all (hypotheses workspace))
+        acc-rej (concat (:all (accepted workspace))
+                        (filter #(= :conflict (rejection-reason workspace %)) (:all (rejected workspace))))
+        g (transpose (:hypgraph workspace))
+        hyp-count (count hyps)
+        rel-counts (map (fn [hyp] (count (related-hyps workspace g hyp acc-rej))) hyps)]
+    (avg (map (fn [c] (double (/ c hyp-count))) rel-counts))))
+
 (defn evaluate
   [truedata est]
   (let [ep (cur-ep est)
@@ -555,6 +566,7 @@
             :ExplainCycles (count ep-states)
             :MetaBranches (count-branches est)
             :HypothesisCount ((comp count :hyp-ids :workspace) ep)
+            :HypRelatedness (hyp-relatedness workspace)
             :ErrorsCount (reduce + (vals (dissoc errors :no-error)))
             :ErrorsNoise (:noise errors 0)
             :ErrorsConflictRejection (:conflict-rejection errors 0)

@@ -380,7 +380,8 @@
   [h1 h2]
   (prof
    :conflicts?
-   (if-let [c? (get-in @cache [:conflicts (:simulation params) (:id h1) (:id h2)])]
+   (if-let [c? (or (get-in @cache [:conflicts (:simulation params) (:id h1) (:id h2)])
+                   (get-in @cache [:conflicts (:simulation params) (:id h2) (:id h1)]))]
      c?
      (let [c? (cond (:composite? h2)
                     (if (some (fn [h] ((:conflicts?-fn h) h1 h)) (:hyps h2)) true false)
@@ -412,12 +413,18 @@
                                          (nodes (:hypgraph workspace))))))))
 
 (defn related-hyps
-  [workspace hyp]
   ;; includes this hyp
-  (let [g (transpose (:hypgraph workspace))]
-    (bf-traverse (fn [hypid] (concat (neighbors g hypid)
-                                    (map :id (find-conflicts workspace (lookup-hyp workspace hypid)))))
-                 (:id hyp))))
+  ([workspace hyp]
+     (let [g (transpose (:hypgraph workspace))
+           acc-rej (concat (:all (accepted workspace))
+                           (filter #(= :conflict (rejection-reason workspace %)) (:all (rejected workspace))))]
+       (related-hyps workspace g hyp acc-rej)))
+  ([workspace g hyp acc-rej]
+     (bf-traverse (fn [hypid]
+                    (let [h (lookup-hyp workspace hypid)]
+                      (concat (filter #(not (undecided? workspace %)) (neighbors g hypid))
+                                      (map :id (filter #(conflicts? % h) acc-rej)))))
+                  (:id hyp))))
 
 (defn related-hyps?
   [workspace hyp1 hyp2]
