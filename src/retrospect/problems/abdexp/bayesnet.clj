@@ -78,7 +78,14 @@
 (defn observe
   [bn vertex value]
   (prof :bn-observe
-        (.enterState (.finding (.getNode bn vertex)) value)))
+        ;; may throw an exception if the observation was already made
+        ;; with a different state; this can occur if a false vertex
+        ;; state was accepted, and later a different state for same
+        ;; vertex was observed; recall that observations are not
+        ;; rejected when they conflict with accepted hyps (in
+        ;; reason.abduction.workspace)
+        (try (.enterState (.finding (.getNode bn vertex)) value)
+             (catch Exception _))))
 
 (defn observe-seq
   [bn obs-seq]
