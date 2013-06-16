@@ -83,7 +83,7 @@
                        (if (empty? pc) [#{}] pc))
         probs-parent-combs-map
         (reduce (fn [m pc]
-             (let [probs-orig (my-shuffle) (sort (repeatedly (count vals) my-rand))
+             (let [probs-orig (sort (repeatedly (count vals) my-rand))
                    probs (my-shuffle (concat [(/ (first probs-orig) 4.0)]
                                              (butlast (rest probs-orig))
                                              [(* 4.0 (last probs-orig))]))
