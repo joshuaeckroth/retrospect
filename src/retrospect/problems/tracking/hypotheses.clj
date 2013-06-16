@@ -295,5 +295,5 @@
                                        (map #(new-mov-hyp % evidence acc-mov-hyps
                                                         (:moves-dist kb) (:seen-colors kb))
                                           nearby)))]
-                      (filter-valid-movs mov-hyps acc-mov-hyps)))
+                      (filter #(< 0.01 (:apriori %)) (filter-valid-movs mov-hyps acc-mov-hyps))))
                   sensor-from-hyps)))))
