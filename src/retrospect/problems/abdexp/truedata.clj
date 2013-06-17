@@ -177,7 +177,6 @@
         ;; restrict the number of possible graphs
         (binding [rgen (new-seed (my-rand-int (:UniqueGraphs params)))]
           (random-expgraph))]
-    (println true-values-map)
     {:training {:expgraph expgraph
                 :bayesnet bayesnet}
      :expgraph expgraph
