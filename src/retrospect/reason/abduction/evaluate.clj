@@ -566,7 +566,6 @@
             :ExplainCycles (count ep-states)
             :MetaBranches (count-branches est)
             :HypothesisCount ((comp count :hyp-ids :workspace) ep)
-            :HypRelatedness (hyp-relatedness workspace)
             :ErrorsCount (reduce + (vals (dissoc errors :no-error)))
             :ErrorsNoise (:noise errors 0)
             :ErrorsConflictRejection (:conflict-rejection errors 0)
