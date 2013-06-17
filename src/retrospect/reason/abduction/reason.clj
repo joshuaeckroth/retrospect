@@ -43,8 +43,9 @@
              :InvertScoresPct [0 [0 10]]
              :DoubtIgnoreEssentials [false [true false]]
              :DoubtMeasure ["accgraph" ["score-delta-prod" "score-delta-pow"
-                                                    "max-score-delta" "min-score-delta"
-                                                    "accgraph" "weighted-score-delta"]]
+                                        "max-score-delta" "min-score-delta"
+                                        "accgraph" "weighted-score-delta"
+                                        "score" "delta"]]
              :DoubtScoreWeight [0.5 [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0]]
              :DoubtAccGraphAgg ["avg" ["min" "max" "avg"]]
              :DoubtAccGraphBranch ["inv-delta" ["mult" "inv-delta"]]
@@ -68,6 +69,6 @@
    :init-kb-fn init-kb
    :player-fns
    {:get-tabs-fn (fn [] [["Problem Log" (problem-log-tab)]
-                        ["Abduction Log" (abduction-log-tab)]])
+                         ["Abduction Log" (abduction-log-tab)]])
     :update-tabs-fn (fn [] (do (update-problem-log)
-                              (update-abduction-log)))}})
+                               (update-abduction-log)))}})

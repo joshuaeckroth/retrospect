@@ -976,6 +976,10 @@
                         (= "weighted-score-delta" (:DoubtMeasure params))
                         (when (and score delta) (+ (* (:DoubtScoreWeight params) (- 1.0 score))
                                                    (* (- 1.0 (:DoubtScoreWeight params)) (- 1.0 delta))))
+                        (= "score" (:DoubtMeasure params))
+                        (when score (- 1.0 score))
+                        (= "delta" (:DoubtMeasure params))
+                        (when delta (- 1.0 delta))
                         :else
                         (when delta (- 1.0 delta)))]
        (cond (= "square" (:DoubtModifier params))
