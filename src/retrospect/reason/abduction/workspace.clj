@@ -497,6 +497,22 @@
                ws-comp (reduce (fn [ws h] (reject ws h reason-tag cycle)) ws composites)]
            (add-to-hyp-log ws-comp hyp (format "%s rejected at cycle %d with reason %s" (str hyp) cycle (str reason-tag))))))))
 
+(defn oracle-apriori
+  [oracle-fn hyp]
+  (let [truthiness (double (/ (:VirtualScoresTruthiness params) 100.0))
+        apriori (if (oracle-fn hyp)
+                  ;; true hyp
+                  (if (:VirtualScores params)
+                    (let [p (my-rand-gauss truthiness 0.1)]
+                      (min 1.0 (max p 0.0)))
+                    1.0)
+                  ;; false hyp
+                  (if (:VirtualScores params)
+                    (let [p (my-rand-gauss (- 1.0 truthiness) 0.1)]
+                      (min 1.0 (max p 0.0)))
+                    0.0))]
+    (assoc hyp :apriori apriori)))
+
 (defn update-hyp-apriori
   [workspace hyp]
   (prof
@@ -505,15 +521,11 @@
                   ;; check oracle
                   (and (:oracle workspace)
                        ((:oracle-types workspace) (:type hyp)))
-                  (if ((:oracle workspace) hyp)
-                    (assoc hyp :apriori 1.0)
-                    (assoc hyp :apriori 0.0))
+                  (oracle-apriori (:oracle workspace) hyp)
                   ;; check meta-oracle
                   (and (:meta-oracle workspace)
                        ((:meta-oracle-types workspace) (:type hyp)))
-                  (if ((:meta-oracle workspace) hyp)
-                    (assoc hyp :apriori 1.0)
-                    (assoc hyp :apriori 0.0))
+                  (oracle-apriori (:meta-oracle workspace) hyp)
                   :else
                   (if (not (:UseScores params))
                     (assoc hyp :apriori 1.0)

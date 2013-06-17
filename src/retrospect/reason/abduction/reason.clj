@@ -55,6 +55,8 @@
              :DoubtNoExp [1 [0 1 2 3 4 5]]
              :UseScores [true [true]]
              :ScoreLevels [100 [2 3 5 10 100]]
+             :VirtualScores [false [true false]]
+             :VirtualScoresTruthiness [80 [0 20 40 60 80 100]]
              :ContrastPreference ["delta,score" ["arbitrary" "score,delta"
                                                  "score" "delta" "delta,score"]]
              :HypPreference ["score,expl" ["score" "expl" "score,expl"
