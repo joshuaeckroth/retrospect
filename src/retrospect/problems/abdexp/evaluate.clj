@@ -53,9 +53,9 @@
              :FPR (:FPR mpe-prec-coverage)}))]
     (merge (last metrics)
            (compute-complexity expgraph)
-           {:AvgPrec (avg (map :MPEPrec metrics))
-            :AvgCoverage (avg (map :MPECoverage metrics))
-            :AvgF1 (avg (map :MPEF1 metrics))
+           {:AvgPrec (avg (map :Prec metrics))
+            :AvgCoverage (avg (map :Coverage metrics))
+            :AvgF1 (avg (map :F1 metrics))
             :AvgTPR (avg (map :TPR metrics))
             :AvgFPR (avg (map :FPR metrics))})))
 
