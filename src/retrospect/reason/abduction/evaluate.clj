@@ -144,109 +144,112 @@
   ([ws true-false hyp]
      (classify-error ws true-false hyp #{}))
   ([ws true-false hyp checked]
-     (cond
-      ;; an ignored but true hyp
-      (and (tf-true? true-false hyp)
-           (= :ignoring (rejection-reason ws hyp)))
-      :ignored
-      ;; obs that's false yet was accepted, should have been
-      ;; ignored/rejected; or a false accepted that explained noise
-      (or (and (= :observation (:type hyp))
-               (accepted? ws hyp)
-               (not (tf-true? true-false hyp)))
-          (and (not= :observation (:type hyp))
-               (accepted? ws hyp)
-               (not (tf-true? true-false hyp))
-               (= :noise (classify-error ws true-false (accepted-explained ws hyp)))))
-      :noise
-      ;; this hyp is true and eliminated due to too-low minscore;
-      ;; or, this hyp is false and true rival eliminated due to
-      ;; too-low minscore
-      (or (and (rejected? ws hyp)
-               (= :minscore (rejection-reason ws hyp))
-               (tf-true? true-false hyp))
-          (and (accepted? ws hyp)
-               (not (tf-true? true-false hyp))
-               ;; check that some true rival was rejected due to
-               ;; minscore
-               (some (fn [h] (and (tf-true? true-false h)
-                              (rejected? ws h)
-                              (= :minscore (rejection-reason ws h))))
-                  (explainers ws (accepted-explained ws hyp))))
-          (and (accepted? ws hyp)
-               (not (tf-true? true-false hyp))
-               (= :minscore (classify-error ws true-false (accepted-explained ws hyp)))))
-      :minscore
-      ;; scoring error: if you were accepted but are false, and one
-      ;; of your rivals is true; or you were not accepted but are
-      ;; true, and you were the rival when a false explainer was
-      ;; accepted
-      (or (and (accepted? ws hyp)              ;; this was accepted,
-               (not (tf-true? true-false hyp)) ;; but it's false,
-               (some #(tf-true? true-false %) (accepted-rivals ws hyp))) ;; and a rival is true; or,
-          (and (not (accepted? ws hyp))  ;; this was not accepted,
-               (tf-true? true-false hyp) ;; but it's true, and
-               (some (fn [h] (and (accepted? ws h) ;; another was accepted,
-                              (not (tf-true? true-false h)) ;; which was false,
-                              (some (fn [h2] (= hyp h2)) (accepted-rivals ws h)))) ;; and competed with this one
-                  (:all (hypotheses ws)))))
-      :scoring
-      ;; false acceptance but true hyp (for what was explained) was never offered
-      (and (accepted? ws hyp)
-           (not (tf-true? true-false hyp))
-           (not-any? #(tf-true? true-false %)
-                     (explainers ws (accepted-explained ws hyp))))
-      :no-expl-offered
-      ;; todo: explain this
-      (and (rejected? ws hyp)
-           (= :conflict (rejection-reason ws hyp))
-           (tf-true? true-false hyp))
-      (let [acc-conflicting (filter #(and (not (checked %)) (accepted? ws %))
-                               (find-conflicts ws hyp))
-            parent-errors (map #(classify-error ws true-false % (conj checked hyp))
-                             acc-conflicting)]
-        (cond (some #{:noise} parent-errors) :noise
-              (some #{:minscore} parent-errors) :minscore
-              (some #{:scoring} parent-errors) :scoring
-              (some #{:no-expl-offered} parent-errors) :no-expl-offered
-              :else
-              :conflict-rejection))
-      ;; false but accepted, conflicting but true hyp was rejected,
-      ;; but why? check recursively
-      (and (accepted? ws hyp)
-           (not (tf-true? true-false hyp))
-           (some #(and (rejected? ws %) (tf-true? true-false %))
-              (find-conflicts ws hyp)))
-      (let [rej-conflicting (filter #(and (not (checked %)) (rejected? ws %)
-                                     (tf-true? true-false %))
-                               (find-conflicts ws hyp))
-            parent-errors (map #(classify-error ws true-false % (conj checked hyp))
-                             rej-conflicting)]
-        (cond (some #{:noise} parent-errors) :noise
-              (some #{:minscore} parent-errors) :minscore
-              (some #{:scoring} parent-errors) :scoring
-              (some #{:no-expl-offered} parent-errors) :no-expl-offered
-              :else
-              :conflict-rejection))
-      ;; a true thing was not accepted because it wasn't needed to explain
-      (and (not (accepted? ws hyp))
-           (tf-true? true-false hyp)
-           (= 0 (:Threshold params))
-           (not-any? (fn [e] (unexplained? ws e)) (explains ws hyp)))
-      :superfluous
-      ;; a false thing was accepted, or true thing not accepted (and
-      ;; threshold = 0); must be an order-dependency error if none
-      ;; of the above errors are the cause
-      (or (and (accepted? ws hyp)
-               (not (tf-true? true-false hyp)))
-          (and (not (accepted? ws hyp))
-               (tf-true? true-false hyp)
-               (= 0 (:Threshold params))))
-      (do (println "unknown error:" hyp)
-          :unknown)
-      ;; else, there was no error
-      :else
-      :no-error)))
+     (let [acc-expl (accepted-explained ws hyp)]
+       (cond
+        ;; an ignored but true hyp
+        (and (tf-true? true-false hyp)
+             (= :ignoring (rejection-reason ws hyp)))
+        :ignored
+        ;; obs that's false yet was accepted, should have been
+        ;; ignored/rejected; or a false accepted that explained noise
+        (or (and (= :observation (:type hyp))
+                 (accepted? ws hyp)
+                 (not (tf-true? true-false hyp)))
+            (and (not= :observation (:type hyp))
+                 (accepted? ws hyp)
+                 (not (tf-true? true-false hyp))
+                 (not (checked acc-expl))
+                 (= :noise (classify-error ws true-false acc-expl (conj checked acc-expl)))))
+        :noise
+        ;; this hyp is true and eliminated due to too-low minscore;
+        ;; or, this hyp is false and true rival eliminated due to
+        ;; too-low minscore
+        (or (and (rejected? ws hyp)
+                 (= :minscore (rejection-reason ws hyp))
+                 (tf-true? true-false hyp))
+            (and (accepted? ws hyp)
+                 (not (tf-true? true-false hyp))
+                 ;; check that some true rival was rejected due to
+                 ;; minscore
+                 (some (fn [h] (and (tf-true? true-false h)
+                                    (rejected? ws h)
+                                    (= :minscore (rejection-reason ws h))))
+                       (explainers ws acc-expl)))
+            (and (accepted? ws hyp)
+                 (not (tf-true? true-false hyp))
+                 (not (checked acc-expl))
+                 (= :minscore (classify-error ws true-false acc-expl (conj checked acc-expl)))))
+        :minscore
+        ;; scoring error: if you were accepted but are false, and one
+        ;; of your rivals is true; or you were not accepted but are
+        ;; true, and you were the rival when a false explainer was
+        ;; accepted
+        (or (and (accepted? ws hyp)              ;; this was accepted,
+                 (not (tf-true? true-false hyp)) ;; but it's false,
+                 (some #(tf-true? true-false %) (accepted-rivals ws hyp))) ;; and a rival is true; or,
+            (and (not (accepted? ws hyp))  ;; this was not accepted,
+                 (tf-true? true-false hyp) ;; but it's true, and
+                 (some (fn [h] (and (accepted? ws h) ;; another was accepted,
+                                    (not (tf-true? true-false h)) ;; which was false,
+                                    (some (fn [h2] (= hyp h2)) (accepted-rivals ws h)))) ;; and competed with this one
+                       (:all (hypotheses ws)))))
+        :scoring
+        ;; false acceptance but true hyp (for what was explained) was never offered
+        (and (accepted? ws hyp)
+             (not (tf-true? true-false hyp))
+             (not-any? #(tf-true? true-false %)
+                       (explainers ws acc-expl)))
+        :no-expl-offered
+        ;; todo: explain this
+        (and (rejected? ws hyp)
+             (= :conflict (rejection-reason ws hyp))
+             (tf-true? true-false hyp))
+        (let [acc-conflicting (filter #(and (not (checked %)) (accepted? ws %))
+                                      (find-conflicts ws hyp))
+              parent-errors (map #(classify-error ws true-false % (conj checked hyp))
+                                 acc-conflicting)]
+          (cond (some #{:noise} parent-errors) :noise
+                (some #{:minscore} parent-errors) :minscore
+                (some #{:scoring} parent-errors) :scoring
+                (some #{:no-expl-offered} parent-errors) :no-expl-offered
+                :else
+                :conflict-rejection))
+        ;; false but accepted, conflicting but true hyp was rejected,
+        ;; but why? check recursively
+        (and (accepted? ws hyp)
+             (not (tf-true? true-false hyp))
+             (some #(and (rejected? ws %) (tf-true? true-false %))
+                   (find-conflicts ws hyp)))
+        (let [rej-conflicting (filter #(and (not (checked %)) (rejected? ws %)
+                                            (tf-true? true-false %))
+                                      (find-conflicts ws hyp))
+              parent-errors (map #(classify-error ws true-false % (conj checked hyp))
+                                 rej-conflicting)]
+          (cond (some #{:noise} parent-errors) :noise
+                (some #{:minscore} parent-errors) :minscore
+                (some #{:scoring} parent-errors) :scoring
+                (some #{:no-expl-offered} parent-errors) :no-expl-offered
+                :else
+                :conflict-rejection))
+        ;; a true thing was not accepted because it wasn't needed to explain
+        (and (not (accepted? ws hyp))
+             (tf-true? true-false hyp)
+             (= 0 (:Threshold params))
+             (not-any? (fn [e] (unexplained? ws e)) (explains ws hyp)))
+        :superfluous
+        ;; a false thing was accepted, or true thing not accepted (and
+        ;; threshold = 0); must be an order-dependency error if none
+        ;; of the above errors are the cause
+        (or (and (accepted? ws hyp)
+                 (not (tf-true? true-false hyp)))
+            (and (not (accepted? ws hyp))
+                 (tf-true? true-false hyp)
+                 (= 0 (:Threshold params))))
+        (do (println "unknown error:" hyp)
+            :unknown)
+        ;; else, there was no error
+        :else
+        :no-error))))
 
 (defn find-errors
   [est true-false]
