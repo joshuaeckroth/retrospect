@@ -499,18 +499,18 @@
 
 (defn oracle-apriori
   [oracle-fn hyp]
-  (let [truthiness (double (/ (:VirtualScoresTruthiness params) 100.0))
-        apriori (if (oracle-fn hyp)
-                  ;; true hyp
-                  (if (:VirtualScores params)
-                    (let [p (my-rand-gauss truthiness 0.1)]
-                      (min 1.0 (max p 0.0)))
-                    1.0)
-                  ;; false hyp
-                  (if (:VirtualScores params)
-                    (let [p (my-rand-gauss (- 1.0 truthiness) 0.1)]
-                      (min 1.0 (max p 0.0)))
-                    0.0))]
+  (let [true-hyp? (oracle-fn hyp)
+        apriori (if (:VirtualScores params)
+                  (let [r (my-rand)
+                        good-bin? (or (and true-hyp? (< r (:VirtualScoresGoodProb params)))
+                                      (and (not true-hyp?) (>= r (:VirtualScoresGoodProb params))))
+                        p (if good-bin?
+                            (my-rand-gauss (:VirtualScoresGoodMean params)
+                                           (:VirtualScoresGoodVariance params))
+                            (my-rand-gauss (:VirtualScoresBadMean params)
+                                           (:VirtualScoresBadVariance params)))]
+                    (min 1.0 (max p 0.0)))
+                  (if true-hyp? 1.0 0.0))]
     (assoc hyp :apriori apriori)))
 
 (defn update-hyp-apriori
@@ -589,7 +589,7 @@
                                  :needs-explainer? (:needs-explainer? hyp)
                                  :explains (set/union (set (:explains prior-hyp))
                                                   (set (:explains hyp)))
-                                 :apriori (max (:apriori hyp) (:apriori prior-hyp))
+                                 :apriori (:apriori prior-hyp)
                                  :data (:data hyp)
                                  :contents (assoc (:data hyp) :type (:type hyp) :subtype (:subtype hyp)))
              ;; ensure hyp is updated with new :explains, :apriori, etc.
