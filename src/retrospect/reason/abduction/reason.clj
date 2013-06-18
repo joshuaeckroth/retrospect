@@ -66,7 +66,8 @@
                                                  "score" "delta" "delta,score"]]
              :HypPreference ["score,expl" ["score" "expl" "score,expl"
                                            "expl,score" "arbitrary"]]
-             :ConsiderExplPower [false [true false]]}
+             :ConsiderExplPower [false [true false]]
+             :NormalizeDelta [true [true false]]}
             (:default-params (:abduction @problem))))
    :meta-hyp-types #{:meta-rej-minscore :meta-rej-conflict :meta-order-dep}
    :init-workspace-fn init-workspace

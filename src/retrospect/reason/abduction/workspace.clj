@@ -320,12 +320,14 @@
   (prof
    :compare-by-delta
    (let [delta-fn (fn [hyps]
-                    (let [normalized-aprioris (let [aprioris (map :apriori hyps)
-                                                    s (double (reduce + aprioris))]
-                                                (if (= 0.0 s) aprioris
-                                                    (map #(/ % s) aprioris)))]
-                      (if (second normalized-aprioris)
-                        (- (first normalized-aprioris) (second normalized-aprioris))
+                    (let [aprioris (map :apriori hyps)
+                          aps (if (:NormalizeDelta params)
+                                (let [s (double (reduce + aprioris))]
+                                  (if (= 0.0 s) aprioris
+                                      (map #(/ % s) aprioris)))
+                                aprioris)]
+                      (if (second aps)
+                        (- (first aps) (second aps))
                         1.0)))
          expl1-delta (delta-fn expl1)
          expl2-delta (delta-fn expl2)]
