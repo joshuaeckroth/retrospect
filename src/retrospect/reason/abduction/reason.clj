@@ -58,10 +58,10 @@
              :ScoreLevels [100 [2 3 5 10 100]]
              :VirtualScores [false [true false]]
              :VirtualScoresGoodMean [0.75 [0.75]]
-             :VirtualScoresGoodVariance [0.25 [0.25]]
+             :VirtualScoresGoodVariance [0.05 [0.05]]
              :VirtualScoresBadMean [0.25 [0.25]]
-             :VirtualScoresBadVariance [0.5 [0.5]]
-             :VirtualScoresGoodProb [0.8 [0.8]]
+             :VirtualScoresBadVariance [0.25 [0.25]]
+             :VirtualScoresGoodProb [0.75 [0.75]]
              :ContrastPreference ["delta,score" ["arbitrary" "score,delta"
                                                  "score" "delta" "delta,score"]]
              :HypPreference ["score,expl" ["score" "expl" "score,expl"
