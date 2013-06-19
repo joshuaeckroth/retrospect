@@ -500,9 +500,10 @@
            (add-to-hyp-log ws-comp hyp (format "%s rejected at cycle %d with reason %s" (str hyp) cycle (str reason-tag))))))))
 
 (defn oracle-apriori
-  [oracle-fn hyp]
+  [oracle-fn hyp meta?]
   (let [true-hyp? (oracle-fn hyp)
-        apriori (if (:VirtualScores params)
+        ;; only do virtual scores for non-meta-hyps
+        apriori (if (and (:VirtualScores params) (not meta?))
                   (let [r (my-rand)
                         good-bin? (or (and true-hyp? (< r (:VirtualScoresGoodProb params)))
                                       (and (not true-hyp?) (>= r (:VirtualScoresGoodProb params))))
@@ -523,11 +524,11 @@
                   ;; check oracle
                   (and (:oracle workspace)
                        ((:oracle-types workspace) (:type hyp)))
-                  (oracle-apriori (:oracle workspace) hyp)
+                  (oracle-apriori (:oracle workspace) hyp false)
                   ;; check meta-oracle
                   (and (:meta-oracle workspace)
                        ((:meta-oracle-types workspace) (:type hyp)))
-                  (oracle-apriori (:meta-oracle workspace) hyp)
+                  (oracle-apriori (:meta-oracle workspace) hyp true)
                   :else
                   (if (not (:UseScores params))
                     (assoc hyp :apriori 1.0)
