@@ -14,7 +14,7 @@
 (defn find-problem-cases
   [est]
   (let [workspace (:workspace (cur-ep est))]
-    (set (no-explainers workspace))))
+    (no-explainers workspace)))
 
 (defn metareasoning-activated?
   [est]
@@ -113,10 +113,10 @@
   [implicated est]
   (let [new-est (new-branch-ep est (cur-ep est))
         ep (cur-ep new-est)
-        ws-ignored (reduce (fn [ws hyp]
-                        (-> ws (undecide hyp (:cycle ep))
-                           (reject hyp :ignoring (:cycle ep))))
-                      (:workspace ep) implicated)
+        ws-undecided (reduce (fn [ws hyp] (undecide ws hyp (:cycle ep)))
+                             (:workspace ep) implicated)
+        ws-ignored (reduce (fn [ws hyp] (reject ws hyp :ignoring (:cycle ep)))
+                           ws-undecided implicated)
         ep-ignored (assoc ep :workspace ws-ignored)]
     [(update-est new-est ep-ignored) params]))
 
@@ -132,10 +132,10 @@
   [implicated est]
   (let [new-est (new-branch-ep est (cur-ep est))
         ep (cur-ep new-est)
-        ws-rejected (reduce (fn [ws hyp]
-                         (-> ws (undecide hyp (:cycle ep))
-                            (reject hyp :preemptive (:cycle ep))))
-                       (:workspace ep) implicated)
+        ws-undecided (reduce (fn [ws hyp] (undecide ws hyp (:cycle ep)))
+                             (:workspace ep) implicated)
+        ws-rejected (reduce (fn [ws hyp] (reject ws hyp :preemptive (:cycle ep)))
+                            ws-undecided implicated)
         ep-rejected (assoc ep :workspace ws-rejected)]
     [(update-est new-est ep-rejected) params]))
 
@@ -146,7 +146,7 @@
         ;; rejected explainers due to conflict
         expl-rc (set (filter (fn [h] (= :conflict (rejection-reason cur-ws h))) expl))
         acc (set (filter (fn [c] (accepted? cur-ws c)) ;; accepted that conflict with any of expl-rc
-                    (set (mapcat #(find-conflicts cur-ws %) expl-rc))))
+                         (set (mapcat #(find-conflicts cur-ws %) expl-rc))))
         inner-hyps (set (map :id (mapcat :hyps acc))) ;; inner hyps, if any, of acc
         ;; keep only those that are not inner hyps
         acc-no-inner (sort-by :id (filter #(not (inner-hyps (:id %))) acc)) 
@@ -154,19 +154,19 @@
         ;; may have been accepted multiple times, if undecided between; want the earliest time
         ep-rejs (filter (fn [ep] (some acc-no-inner-ids (:acc (:accrej (:workspace ep))))) (ep-path est))
         ep-rejs-deltas (map (fn [ep] {:delta (get-in ep [:workspace :accrej :delta])
-                                   :cycle (:cycle ep)
-                                   :hyp (get-in ep [:workspace :accrej :best])})
-                          ep-rejs)
-        earliest-rejs-deltas (for [hyp (map :hyp ep-rejs-deltas)]
+                                      :cycle (:cycle ep)
+                                      :hyp (get-in ep [:workspace :accrej :best])})
+                            ep-rejs)
+        earliest-rejs-deltas (for [hyp (sort-by :id (map :hyp ep-rejs-deltas))]
                                (first (sort-by :cycle (filter #(= hyp (:hyp %)) ep-rejs-deltas))))]
-    (set (filter #(not-empty (:may-resolve %))
+    (filter #(not-empty (:may-resolve %))
             (for [{:keys [delta cycle hyp]} earliest-rejs-deltas]
               (let [expl-conf (filter #(conflicts? hyp %) expl-rc)
                     expl-explained (set (mapcat :explains expl-conf))
                     ;; problem-cases explained by expl-conf, and therefore possibly resolved
                     pc-res (filter (fn [pc] (expl-explained (:contents pc))) problem-cases)]
-                {:implicated hyp :cycle cycle :delta delta
-                 :expl-conflicting (sort-by :id expl-conf) :may-resolve (sort-by :id pc-res)}))))))
+                {:implicated hyp :cycle cycle :delta delta :may-resolve (sort-by :id pc-res)
+                 :rejected (sort-by :id expl-conf)})))))
 
 (defn meta-rej-conflict
   [problem-cases est-orig time-prev time-now sensors]
@@ -192,10 +192,10 @@
   (let [cur-ws (:workspace (cur-ep est))
         expl (set (mapcat #(explainers cur-ws %) problem-cases)) ;; explainers of problem-cases
         expl-rejected-minscore (sort-by :id (filter (fn [h] (= :minscore (rejection-reason cur-ws h))) expl))]
-    (set (filter #(not-empty (:may-resolve %))
+    (filter #(not-empty (:may-resolve %))
             (for [e expl-rejected-minscore]
               {:implicated e
-               :may-resolve (sort-by :id (filter (fn [pc] (some #{(:contents pc)} (:explains e))) problem-cases))})))))
+               :may-resolve (sort-by :id (filter (fn [pc] (some #{(:contents pc)} (:explains e))) problem-cases))}))))
 
 (defn meta-lower-minscore
   [problem-cases est-orig time-prev time-now sensors]
@@ -243,9 +243,9 @@
        ((:meta-hyp-types @reasoner) (:type hyp1))
        ((:meta-hyp-types @reasoner) (:type hyp2))
        ;; any batching conflicts with anything else
-       (or (= :meta-order-dep (:type hyp1)) (= :meta-order-dep (:type hyp2)))
-       ;; or the "implicated" hyps are related
-       (related-hyps? ws (:implicated hyp1) (:implicated hyp2))))
+       (or (= :meta-order-dep (:type hyp1)) (= :meta-order-dep (:type hyp2))
+           ;; or the "implicated" hyps are related
+           (related-hyps? ws (:implicated hyp1) (:implicated hyp2)))))
 
 (defn make-meta-hyps-order-dep
   [problem-cases est time-prev time-now available-meta-hyps]
@@ -299,6 +299,7 @@
                       (str implicated) cycle delta (str/join "\n" (map str rejected)))
                    {:action (partial action-preemptively-reject [implicated])
                     :resolves may-resolve
+                    :rejected rejected
                     :cycle cycle
                     :delta delta
                     :implicated implicated})))))
@@ -466,9 +467,9 @@
         {:est-old (goto-ep est-applied (:id (cur-ep est))) :est-new est-applied}))))
 
 (defn resolve-by-ignoring
-  [problem-cases est time-prev time-now sensors]
+  [problem-cases est time-now sensors]
   (let [[new-est _] (action-ignore problem-cases est)]
-    (reason new-est time-prev time-now sensors :no-metareason)))
+    (reason new-est (:time (cur-ep est)) time-now sensors :no-metareason)))
 
 (defn metareason
   "Activate the appropriate metareasoning strategy (as given by
@@ -493,10 +494,10 @@
                               problem-cases)
         problem-cases-new (when result (find-problem-cases (:est-new result)))]
     (cond (nil? result)
-          (resolve-by-ignoring problem-cases-old est time-prev time-now sensors)
+          (resolve-by-ignoring problem-cases-old est time-now sensors)
           (empty? problem-cases-new)
           (:est-new result)
           (< (count problem-cases-new) (count problem-cases-old))
-          (resolve-by-ignoring problem-cases-new (:est-new result) time-prev time-now sensors)
+          (resolve-by-ignoring problem-cases-new (:est-new result) time-now sensors)
           :else
-          (resolve-by-ignoring problem-cases-old (:est-old result) time-prev time-now sensors))))
+          (resolve-by-ignoring problem-cases-old (:est-old result) time-now sensors))))
