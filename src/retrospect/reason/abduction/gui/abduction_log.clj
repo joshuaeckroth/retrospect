@@ -50,7 +50,7 @@
            (format "<a href=\"%s@%s\">%s</a>" (str (:id hyp)) (str (:id most-recent-ep)) (str hyp)))))
 
 (def hyp-info-template
-  (fleet [hyp log explains explainers conflicts noexp? error tf acc rej und eps]
+  (fleet [hyp log explains explainers conflicts related noexp? error tf acc rej und eps]
          "<html>
 <h1><(str hyp)></h1>
 <p><(str/replace (:desc hyp) #\"\n\" \"<br>\")></p>
@@ -77,6 +77,12 @@
   <li><(hyp-link c)></li>
 <\")>
 </ul>
+<h2>Related hyps:</h2>
+<ul>
+<(for [r related] \">
+  <li><(hyp-link r)></li>
+<\")>
+</ul>
 <h2>Log:</h2>
 <p><(str/replace log #\"\n\" \"<br>\")></p>
 <h2>Epistemic states with this hyp:</h2>
@@ -94,11 +100,12 @@
         explainers (for [es (vals (group-by :type (ws/explainers workspace hyp)))]
                      (sort-by :name anc es))
         conflicts (sort-by :name anc (ws/find-conflicts workspace hyp))
+        related (sort-by :name anc (map #(ws/lookup-hyp workspace %) (ws/related-hyps workspace hyp)))
         log (ws/hyp-log workspace hyp)
         noexp? ((set (ws/no-explainers workspace)) hyp)
         meta-hyp? ((:meta-hyp-types @reasoner) (:type hyp))
         error (classify-error workspace (if meta-hyp? @meta-hyps-true-false @hyps-true-false) hyp)]
-    (.setText hyp-info (str (hyp-info-template hyp log explains explainers conflicts noexp? error
+    (.setText hyp-info (str (hyp-info-template hyp log explains explainers conflicts related noexp? error
                                                (hyp-tf? hyp)
                                                (ws/accepted? workspace hyp)
                                                (ws/rejected? workspace hyp)
