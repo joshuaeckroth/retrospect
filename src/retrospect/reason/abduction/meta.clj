@@ -425,8 +425,11 @@
   [problem-cases est time-prev time-now sensors]
   (let [meta-hyps (make-meta-hyps problem-cases est time-prev time-now)
         [est-new meta-hyps-scored] (score-meta-hyps problem-cases meta-hyps est time-prev time-now sensors)
-        meta-est (new-child-ep (init-est (assoc (init-workspace)
-                                           :meta-oracle (:meta-oracle (:workspace (cur-ep est))))))
+        meta-ws (if (= "oracle" (:Metareasoning params))
+                  (assoc (init-workspace)
+                    :meta-oracle (:meta-oracle (:workspace (cur-ep est))))
+                  (init-workspace))
+        meta-est (new-child-ep (init-est meta-ws))
         meta-params (assoc params
                       :MinScore (if (= "oracle" (:Metareasoning params)) 1
                                     (:MetaMinScore params))
@@ -434,7 +437,7 @@
                       :GetMoreHyps false)
         meta-ws (binding [params meta-params]
                   (let [ws-obs (reduce (fn [ws h] (add-observation ws h 0))
-                                  (:workspace (cur-ep meta-est)) problem-cases)]
+                                       (:workspace (cur-ep meta-est)) problem-cases)]
                     (reduce (fn [ws h] (add ws h 0)) ws-obs meta-hyps-scored)))
         meta-est-reasoned (binding [params meta-params]
                             (reason (update-est-ep meta-est :workspace meta-ws) 0 1 nil :no-metareason))]
