@@ -182,8 +182,8 @@
   (prof
    :undecided
    (let [g (:hypgraph workspace)]
-     (doall (map #(lookup-hyp workspace %)
-               (set/difference (nodes g) (:accepted workspace) (:rejected workspace)))))))
+     (doall (sort-by :id (map #(lookup-hyp workspace %)
+                              (set/difference (nodes g) (:accepted workspace) (:rejected workspace))))))))
 
 (defn explains?
   "Does h1 explain h2?"
@@ -419,13 +419,16 @@
   ([workspace hyp]
      (let [g (transpose (:hypgraph workspace))
            acc-rej (concat (:all (accepted workspace))
-                           (filter #(= :conflict (rejection-reason workspace %)) (:all (rejected workspace))))]
+                           (filter #(= :conflict (rejection-reason workspace %))
+                                   (:all (rejected workspace))))]
        (related-hyps workspace g hyp acc-rej)))
   ([workspace g hyp acc-rej]
      (bf-traverse (fn [hypid]
                     (let [h (lookup-hyp workspace hypid)]
-                      (concat (filter #(not (undecided? workspace %)) (neighbors g hypid))
-                                      (map :id (filter #(conflicts? % h) acc-rej)))))
+                      (filter #(not= :observation (:type (lookup-hyp workspace %)))
+                              (concat (filter #(not (undecided? workspace %))
+                                              (neighbors g hypid))
+                                      (map :id (filter #(conflicts? % h) acc-rej))))))
                   (:id hyp))))
 
 (defn related-hyps?
