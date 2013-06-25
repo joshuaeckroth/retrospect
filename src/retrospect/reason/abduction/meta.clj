@@ -134,10 +134,27 @@
         ep (cur-ep new-est)
         ws-undecided (reduce (fn [ws hyp] (undecide ws hyp (:cycle ep)))
                              (:workspace ep) implicated)
-        ws-rejected (reduce (fn [ws hyp] (reject ws hyp :preemptive (:cycle ep)))
+        ws-rejected (reduce (fn [ws hyp]
+                              (-> ws
+                                  (prevent-undecide hyp)
+                                  (reject hyp :preemptive (:cycle ep))))
                             ws-undecided implicated)
         ep-rejected (assoc ep :workspace ws-rejected)]
     [(update-est new-est ep-rejected) params]))
+
+(defn action-preemptively-accept
+  [implicated est]
+  (let [new-est (new-branch-ep est (cur-ep est))
+        ep (cur-ep new-est)
+        ws-undecided (reduce (fn [ws hyp] (undecide ws hyp (:cycle ep)))
+                             (:workspace ep) implicated)
+        ws-accepted (reduce (fn [ws hyp]
+                              (-> ws
+                                  (prevent-undecide hyp)
+                                  (accept hyp nil [] [] 0.0 {} (:cycle ep))))
+                            ws-undecided implicated)
+        ep-accepted (assoc ep :workspace ws-accepted)]
+    [(update-est new-est ep-accepted) params]))
 
 (defn find-rej-conflict-candidates
   [problem-cases est time-now]
@@ -208,7 +225,7 @@
           {:keys [implicated]} (last (sort-by (comp :apriori :implicated)
                                               (find-rej-minscore-candidates problem-cases est time-now)))]
       (if (and implicated (not (implicated-before (:contents implicated))))
-        (let [[est-action params-action] (action-prevent-rejection-minscore [implicated] est)
+        (let [[est-action params-action] (action-preemptively-accept [implicated] est)
               {:keys [est-old est-new]} (binding [params params-action]
                                           (meta-apply-and-evaluate est est-action time-now sensors))
               problem-cases-new (find-problem-cases est-new)]
@@ -323,7 +340,7 @@
                     (format "This explainer was rejected due to too-high min-score: %s\n\nRelevant problem cases:\n%s"
                        (str implicated)
                        (str/join "\n" (sort (map str may-resolve))))
-                    {:action (partial action-prevent-rejection-minscore [implicated])
+                    {:action (partial action-preemptively-accept [implicated])
                      :resolves may-resolve
                      :implicated implicated
                      :score-delta (- (/ (double (:MinScore params)) 100.0) (:apriori implicated))

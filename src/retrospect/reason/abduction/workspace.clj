@@ -185,6 +185,17 @@
      (doall (sort-by :id (map #(lookup-hyp workspace %)
                               (set/difference (nodes g) (:accepted workspace) (:rejected workspace))))))))
 
+(defn prevent-undecide
+  [workspace h]
+  (let [hypid (if (integer? h) h (:id h))]
+    (update-in workspace [:hypgraph]
+               add-attr hypid :prevent-undecide true)))
+
+(defn undeciding-prevented?
+  [workspace h]
+  (let [hypid (if (integer? h) h (:id h))]
+    (attr (:hypgraph workspace) hypid :prevent-undecide)))
+
 (defn explains?
   "Does h1 explain h2?"
   [workspace h1 h2]
@@ -441,23 +452,23 @@
   (prof
    :undecide
    ;; note related-hyps includes hyp itself
-   (let [rel-hyps (filter #(not= :ignoring (rejection-reason workspace %))
-                     (related-hyps workspace hyp))]
+   (let [rel-hyps (filter #(not (undeciding-prevented? workspace %))
+                          (related-hyps workspace hyp))]
      (log "Undeciding" hyp "and related hyps" rel-hyps)
      (reduce (fn [ws hypid]
-          (-> ws
-             (update-in [:hypgraph] remove-attr hypid :accepted?)
-             (update-in [:hypgraph] remove-attr hypid :accepted-cycle)
-             (update-in [:hypgraph] remove-attr hypid :accepted-explained)
-             (update-in [:hypgraph] remove-attr hypid :accepted-newly-explained)
-             (update-in [:hypgraph] remove-attr hypid :rejected?)
-             (update-in [:hypgraph] remove-attr hypid :rejected-cycle)
-             (update-in [:hypgraph] remove-attr hypid :rejection-reason)
-             (update-in [:accepted] disj hypid)
-             (update-in [:rejected] disj hypid)
-             (update-in [:unexplained] set/union (set (attr (:hypgraph workspace) hypid :accepted-newly-explained)))
-             (add-to-hyp-log hypid (format "Undecided at cycle %d" cycle))))
-        workspace rel-hyps))))
+               (-> ws
+                   (update-in [:hypgraph] remove-attr hypid :accepted?)
+                   (update-in [:hypgraph] remove-attr hypid :accepted-cycle)
+                   (update-in [:hypgraph] remove-attr hypid :accepted-explained)
+                   (update-in [:hypgraph] remove-attr hypid :accepted-newly-explained)
+                   (update-in [:hypgraph] remove-attr hypid :rejected?)
+                   (update-in [:hypgraph] remove-attr hypid :rejected-cycle)
+                   (update-in [:hypgraph] remove-attr hypid :rejection-reason)
+                   (update-in [:accepted] disj hypid)
+                   (update-in [:rejected] disj hypid)
+                   (update-in [:unexplained] set/union (set (attr (:hypgraph workspace) hypid :accepted-newly-explained)))
+                   (add-to-hyp-log hypid (format "Undecided at cycle %d" cycle))))
+             workspace rel-hyps))))
 
 (defn unreject
   [workspace hyp]
