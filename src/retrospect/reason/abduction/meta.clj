@@ -451,7 +451,9 @@
                       :MinScore (if (= "oracle" (:Metareasoning params)) 1
                                     (:MetaMinScore params))
                       :Threshold (:MetaThreshold params)
-                      :GetMoreHyps false)
+                      :GetMoreHyps false
+                      :AblatePct 0
+                      :InvertScoresPct 0)
         meta-ws (binding [params meta-params]
                   (let [ws-obs (reduce (fn [ws h] (add-observation ws h 0))
                                        (:workspace (cur-ep meta-est)) problem-cases)]
