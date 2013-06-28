@@ -113,7 +113,9 @@
   [implicated est]
   (let [new-est (new-branch-ep est (cur-ep est))
         ep (cur-ep new-est)
-        ws-undecided (reduce (fn [ws hyp] (undecide ws hyp (:cycle ep)))
+        ;; don't undecide related hyps; we want to make as little change to
+        ;; the ep state as possible so that we don't wind up with a different noexp
+        ws-undecided (reduce (fn [ws hyp] (undecide ws hyp (:cycle ep) false))
                              (:workspace ep) implicated)
         ws-ignored (reduce (fn [ws hyp] (reject ws hyp :ignoring (:cycle ep)))
                            ws-undecided implicated)
