@@ -7,22 +7,32 @@
 (defn extract-object
   [object]
   (let [objzip (zip/xml-zip object)
-        {:keys [xc yc w h]} (:attrs (zip/node (zip/down objzip)))
-        {:keys [type r]} (:attrs (zip/node (zip/right (zip/down objzip))))]
+        box (zip/node (zip/down objzip))
+        rep (zip/node (zip/right (zip/down objzip)))
+        detscore (when-let [oz (zip/right (zip/right (zip/down objzip)))]
+                   (zip/node oz))
+        {:keys [xc yc w h]} (:attrs box)
+        {:keys [type r]} (:attrs rep)
+        {:keys [value]} (:attrs detscore)]
     {:objid (:id (:attrs object))
-     :xc (Double/parseDouble xc)
-     :yc (Double/parseDouble yc)
+     :x (Double/parseDouble xc)
+     :y (Double/parseDouble yc)
      :w (Double/parseDouble w)
      :h (Double/parseDouble h)
-     :r (Double/parseDouble r)}))
+     :r (Double/parseDouble r)
+     :detscore (Double/parseDouble (or value "0.0"))}))
 
 (defn frames-from-xml
-  [folder]
-  (let [tree (zip/xml-zip (xml/parse-str (slurp (format "%s/aerial/%s/%s.xml"
-                                                        @datadir folder folder))))
+  [folder test-or-truth]
+  (let [fname (if (= "truth" test-or-truth)
+                (format "%s/aerial/Training Data Sets/%s/%s.xml"
+                        @datadir folder folder)
+                (format "%s/aerial/IPF Detections/%s-D.xml"
+                        @datadir folder))
+        tree (zip/xml-zip (xml/parse-str (slurp fname)))
         frames (vec (for [frame (zip/children tree)]
                       (let [objects (zip/children (zip/down (zip/xml-zip frame)))]
-                        {:image (format "%s/aerial/%s/%s" @datadir folder
+                        {:image (format "%s/aerial/Training Data Sets/%s/%s" @datadir folder folder
                                         (str/replace (:file (:attrs frame)) #".*\/" ""))
                          :objects (map extract-object objects)})))]
     ;; add timestamps to objects and create a time-keyed map of frames
@@ -33,6 +43,8 @@
 
 (defn generate-truedata
   []
-  (let [frames (frames-from-xml (:Folder params))]
-    {:test frames
+  (let [frames-test (frames-from-xml (:Folder params) "test")
+        frames-truth (frames-from-xml (:Folder params) "truth")]
+    {:test frames-test
+     :truth frames-truth
      :training {}}))

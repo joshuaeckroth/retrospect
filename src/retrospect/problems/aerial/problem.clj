@@ -37,11 +37,12 @@
                :stats-fn (constantly nil)
                :training-stats-fn (constantly nil)
                :learn-fn (constantly [])
-               :hyp-types #{:object}
-               :ignore-doubt-types #{}
+               :hyp-types #{:observation :movement}
+               :ignore-doubt-types #{:observation}
                :default-params {}}
    :claims []
    :default-params
    {:Steps [5 [5]]
     :StepsBetween [1 [1]]
+    :DetScore ["max" ["min" "max" "avg"]]
     :Folder ["AA_Easy_01" ["AA_Easy_01"]]}})
