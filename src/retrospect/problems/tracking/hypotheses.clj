@@ -280,10 +280,6 @@
   [unexp accepted hypotheses time-now]
   (prof :hypothesize
         (let [kb (get-kb accepted)
-              moves-dist (:moves-dist kb)
-              dets (set (map :det (:observation accepted)))
-              prior-dets (filter #(= (dec time-now) (:time %)) dets)
-              next-dets (filter #(= time-now (:time %)) dets)
               sensor-from-hyps (filter #(and (= :observation (:type %)) (= :from (:subtype %))) unexp)
               sensor-to-hyps (filter #(and (= :observation (:type %)) (= :to (:subtype %))) unexp)]
           (doall (mapcat
