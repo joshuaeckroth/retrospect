@@ -67,5 +67,7 @@
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
-  {})
-
+  (apply merge (map #(calc-increase control-results comparison-results %)
+                  [:TP :TN :FP :FN :TPR :FPR :F1 :Recall :Prec
+                   :AvgTPR :AvgFPR
+                   :AvgPrec :AvgRecall :AvgF1])))
