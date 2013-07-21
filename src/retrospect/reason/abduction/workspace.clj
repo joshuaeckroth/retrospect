@@ -75,7 +75,9 @@
    ;; a map of type => seq, with additional key :all
    :hypotheses {:all #{}}
    ;; :data + :type map keys => hyp-id values (for dup searching)
-   :hyp-contents {}})
+   :hyp-contents {}
+   ;; a cache
+   :composites #{}})
 
 (defn lookup-hyp
   [workspace id]
@@ -105,6 +107,12 @@
          ;; intentionally lazy (not sure if it helps, since using group by below)
          all (map #(lookup-hyp workspace %) (nodes g))]
      (merge (group-by :type all) {:all all}))))
+
+(defn composite-hypotheses
+  [workspace]
+  (prof
+   :composite-hypotheses
+   (map #(lookup-hyp workspace %) (:composites workspace))))
 
 (defn accepted-cycle
   [workspace h]
@@ -287,108 +295,6 @@
   [workspace]
   (reduce clear-hyp-log workspace (:all (hypotheses workspace))))
 
-(defn hyp-better-than?
-  [workspace unexp hyp1 hyp2]
-  (prof
-   :hyp-better-than?
-   (let [score (> (double (- (:apriori hyp1) (:apriori hyp2))) 0.001)
-         expl (> (count (filter #(explains? workspace hyp1 %) unexp))
-                 (count (filter #(explains? workspace hyp2 %) unexp)))]
-     {:score score :expl expl})))
-
-(defn compare-hyps
-  "Since we are using probabilities, smaller value = less
-   confidence. We want most confident first. With equal confidences,
-   we look for higher explanatory power (explains more). If all that
-   fails, comparison is done by the :id's (to keep it deterministic)."
-  [workspace unexp hyp1 hyp2]
-  (prof
-   :compare-hyps
-   (let [comp1 (hyp-better-than? workspace unexp hyp1 hyp2)
-         comp2 (hyp-better-than? workspace unexp hyp2 hyp1)
-         pref (:HypPreference params)
-         id-compare (compare (:id hyp1) (:id hyp2))]
-     (cond (= "score" pref) (cond (:score comp1) -1
-                                  (:score comp2) 1
-                                  :else id-compare)
-           (= "expl" pref) (cond (:expl comp1) -1
-                                 (:expl comp2) 1
-                                 :else id-compare)
-           (= "score,expl" pref) (cond (:score comp1) -1
-                                       (:score comp2) 1
-                                       (:expl comp1) -1
-                                       (:expl comp2) 1
-                                       :else id-compare)
-           (= "expl,score" pref) (cond (:expl comp1) -1
-                                       (:expl comp2) 1
-                                       (:score comp1) -1
-                                       (:score comp2) 1
-                                       :else id-compare)
-           :else id-compare))))
-
-(defn compare-by-delta
-  [workspace expl1 expl2]
-  (prof
-   :compare-by-delta
-   (let [delta-fn (fn [hyps]
-                    (let [aprioris (map :apriori hyps)
-                          aps (if (:NormalizeDelta params)
-                                (let [s (double (reduce + aprioris))]
-                                  (if (= 0.0 s) aprioris
-                                      (map #(/ % s) aprioris)))
-                                aprioris)]
-                      (if (second aps)
-                        (- (first aps) (second aps))
-                        1.0)))
-         expl1-delta (delta-fn expl1)
-         expl2-delta (delta-fn expl2)]
-     (if (= 0 (compare expl1-delta expl2-delta))
-       (compare (:id (first expl1)) (:id (first expl2)))
-       (- (compare expl1-delta expl2-delta))))))
-
-(defn sort-explainers
-  [workspace unexp explainers]
-  (prof
-   :sort-explainers
-   (let [hyp-sorter (if (= (:HypPreference params) "arbitrary")
-                      (fn [hyps] (doall (my-shuffle hyps)))
-                      ;; even if not "arbitrary", perform a shuffle so
-                      ;; the rgen (random generator) stays in sync
-                      ;; with runs that don't use arbitrary hyp-pref
-                      (fn [hyps] (doall (my-shuffle hyps))
-                        (sort (partial compare-hyps workspace unexp) hyps)))
-         apriori-sorter (fn [{hyp1 :hyp expl1 :expl} {hyp2 :hyp expl2 :expl}]
-                          (- (compare
-                              (:apriori (first expl1))
-                              (:apriori (first expl2)))))
-         apriori-delta-sorter (fn [{hyp1 :hyp expl1 :expl} {hyp2 :hyp expl2 :expl}]
-                                (let [hyp-apriori (- (compare
-                                                      (:apriori (first expl1))
-                                                      (:apriori (first expl2))))
-                                      d (compare-by-delta workspace expl1 expl2)]
-                                  (if (= 0 hyp-apriori) d hyp-apriori)))
-         delta-apriori-sorter (fn [{hyp1 :hyp expl1 :expl} {hyp2 :hyp expl2 :expl}]
-                                (let [hyp-apriori (- (compare
-                                                      (:apriori (first expl1))
-                                                      (:apriori (first expl2))))
-                                      d (compare-by-delta workspace expl1 expl2)]
-                                  (if (= 0 d) hyp-apriori d)))
-         delta-sorter (fn [{hyp1 :hyp expl1 :expl} {hyp2 :hyp expl2 :expl}]
-                        (compare-by-delta workspace expl1 expl2))
-         expl-sorter (cond (= (:ContrastPreference params) "score")
-                           (fn [hs] (sort apriori-sorter hs))
-                           (= (:ContrastPreference params) "score,delta")
-                           (fn [hs] (sort apriori-delta-sorter hs))
-                           (= (:ContrastPreference params) "delta,score")
-                           (fn [hs] (sort delta-apriori-sorter hs))
-                           (= (:ContrastPreference params) "delta")
-                           (fn [hs] (sort delta-sorter hs))
-                           (= (:ContrastPreference params) "arbitrary")
-                           identity)]
-     ;; perform a shuffle first so the rgen stays in sync across
-     ;; arbitrary and non-arbitrary runs
-     (expl-sorter (my-shuffle (map #(update-in % [:expl] hyp-sorter) explainers))))))
-
 (defn conflicts?
   [h1 h2]
   (prof
@@ -500,21 +406,21 @@
        (do
          (log "Rejecting" hyp "with reason" reason-tag)
          (let [ws (-> workspace
-                     (update-in [:hypgraph] remove-attr (:id hyp) :accepted?)
-                     (update-in [:hypgraph] remove-attr (:id hyp) :accepted-cycle)
-                     (update-in [:hypgraph] remove-attr (:id hyp) :accepted-explained)
-                     (update-in [:hypgraph] remove-attr (:id hyp) :accepted-newly-explained)
-                     (update-in [:hypgraph] add-attr (:id hyp) :rejected? true)
-                     (update-in [:hypgraph] add-attr (:id hyp) :rejected-cycle cycle)
-                     (update-in [:hypgraph] add-attr (:id hyp) :rejection-reason reason-tag)
-                     (update-in [:accepted] disj (:id hyp))
-                     (update-in [:rejected] conj (:id hyp))
-                     (update-in [:unexplained] disj (:id hyp))
-                     (update-in [:accrej :rej] conj (:id hyp)))
+                      (update-in [:hypgraph] remove-attr (:id hyp) :accepted?)
+                      (update-in [:hypgraph] remove-attr (:id hyp) :accepted-cycle)
+                      (update-in [:hypgraph] remove-attr (:id hyp) :accepted-explained)
+                      (update-in [:hypgraph] remove-attr (:id hyp) :accepted-newly-explained)
+                      (update-in [:hypgraph] add-attr (:id hyp) :rejected? true)
+                      (update-in [:hypgraph] add-attr (:id hyp) :rejected-cycle cycle)
+                      (update-in [:hypgraph] add-attr (:id hyp) :rejection-reason reason-tag)
+                      (update-in [:accepted] disj (:id hyp))
+                      (update-in [:rejected] conj (:id hyp))
+                      (update-in [:unexplained] disj (:id hyp))
+                      (update-in [:accrej :rej] conj (:id hyp)))
                ;; is this hyp a member of any composites? if so, those
                ;; composites need to be rejected as well
-               composites (filter (fn [h] (and (:composite? h) (some (fn [hc] (= hyp hc)) (:hyps h))))
-                             (:all (hypotheses workspace)))
+               composites (filter (fn [h] (some (fn [hc] (= hyp hc)) (:hyps h)))
+                                  (composite-hypotheses workspace))
                ws-comp (reduce (fn [ws h] (reject ws h reason-tag cycle)) ws composites)]
            (add-to-hyp-log ws-comp hyp (format "%s rejected at cycle %d with reason %s" (str hyp) cycle (str reason-tag))))))))
 
@@ -574,6 +480,7 @@
         (update-in [:hypgraph] #(apply add-edges % (for [e explains] [(:id hyp) e])))
         (update-in [:hypotheses (:type hyp)] conj (:id hyp))
         (update-in [:hypotheses :all] conj (:id hyp))
+        (?> (:composite? hyp) update-in [:composites] conj (:id hyp))
         (?> (:needs-explainer? hyp) update-in [:unexplained] conj (:id hyp))))))
 
 (defn add-existing-hyp-rejected
@@ -752,77 +659,73 @@
 
 (defn contrast-sets
   [workspace unexp]
-  (let [expls (doall (filter #(not-empty (:expl %))
-                        (for [h unexp] {:hyp h :expl (filter #(undecided? workspace %)
-                                                        (explainers workspace h))})))]
-    (sort-explainers workspace unexp expls)))
+  (filter (comp not-empty :expl)
+          (for [h unexp] {:hyp h :expl (filter #(undecided? workspace %)
+                                               (explainers workspace h))})))
+
+(defn best-contrast-set
+  [workspace c-sets]
+  (cond (= (:ContrastPreference params) "arbitrary")
+        (assoc (sort-by (comp :id :hyp) (my-rand-nth c-sets)) :delta 1.0)
+        :else
+        (apply max-key :delta
+               (for [{:keys [hyp expl]} c-sets]
+                 (let [sorted-expl (sort-by :apriori expl)
+                       normalized-aprioris (let [aprioris (map :apriori sorted-expl)
+                                                 s (reduce + aprioris)]
+                                             (if (= 0.0 (double s)) aprioris
+                                                 (map #(/ % s) aprioris)))
+                       delta (if (second normalized-aprioris)
+                               (- (first normalized-aprioris)
+                                  (second normalized-aprioris))
+                               1.0)]
+                   {:hyp hyp :expl sorted-expl :delta delta})))))
 
 (defn find-best
   [workspace]
   (prof
    :find-best
    (let [unexp (unexplained workspace)
-         expls-sorted (contrast-sets workspace unexp)]
-     (when (not-empty expls-sorted)
-       (let [essential-expl (first (filter #(= 1 (count (:expl %))) expls-sorted))]
-         (if essential-expl
-           (let [explained (:hyp essential-expl)
-                 best (first (:expl essential-expl))]
-             {:best best :nbest nil :explained explained :alts []
-              :comparison {} :delta 1.0 :normalized-aprioris [1.0]
-              :contrast-sets expls-sorted})
-           ;; otherwise, choose highest-delta non-essential
-           (let [hyp-expl (first expls-sorted)
-                 explained (:hyp hyp-expl)
-                 choices (:expl hyp-expl)
-                 best (first choices)
-                 nbest (second choices)
-                 normalized-aprioris (let [aprioris (map :apriori choices)
-                                           s (reduce + aprioris)]
-                                       (if (= 0.0 (double s)) aprioris
-                                           (map #(/ % s) aprioris)))
-                 delta (- (first normalized-aprioris) (second normalized-aprioris))
-                 comparison (hyp-better-than? workspace unexp best nbest)]
-             (log "best:" best "nbest:" nbest "delta:" delta)
-             (when (or (= 0 (:Threshold params))
-                       (>= delta (+ 0.001 (/ (:Threshold params) 100.0)))
-                       ;; if threshold is not good enough,
-                       ;; see if one hyp is better purely by
-                       ;; other factors such as explanatory power
-                       (and (:ConsiderExplPower params)
-                            (or (:expl comparison) (:explainers comparison))))
-               {:best best :nbest nbest :delta delta
-                :normalized-aprioris normalized-aprioris
-                :explained explained :alts (rest choices)
-                :comparison comparison
-                :contrast-sets expls-sorted}))))))))
+         c-sets (contrast-sets workspace unexp)
+         {:keys [hyp expl delta]} (when (not-empty c-sets) (best-contrast-set workspace c-sets))]
+     (when hyp
+       (let [best (first expl)
+             nbest (second expl)]
+         (log "best:" best "nbest:" nbest "delta:" delta)
+         (when (or (= 0 (:Threshold params))
+                   (>= delta (+ 0.001 (/ (:Threshold params) 100.0))))
+           {:best best :nbest nbest :delta delta
+            :explained hyp :alts (rest expl)
+            :contrast-sets c-sets}))))))
 
 (defn record-best-in-accgraph
   [workspace hyp contrast-sets]
-  (let [newly-explained (filter #(unexplained? workspace %)
-                           (set/intersection (:unexplained workspace)
-                                  (set (map :id (explains workspace hyp)))))
-        deltas (into {} (for [explained newly-explained]
-                          (let [expl (:expl (first (filter #(= explained (:id (:hyp %))) contrast-sets)))]
-                            [explained
-                             (cond (= [hyp] expl) 1.0
-                                   (= hyp (first expl)) (- (:apriori hyp)
-                                                           (:apriori (second expl)))
-                                   (not-empty expl)
-                                   (- (:apriori hyp) (:apriori (first expl)))
-                                   :else 1.0)])))
-        ag-expl (reduce (fn [ag hypid]
-                     (-> ag
-                        (add-edges [(:id hyp) hypid])
-                        (add-attr hypid :score (:apriori (lookup-hyp workspace hypid)))
-                        (add-attr hypid :label (format "%d / %.2f" hypid (:apriori (lookup-hyp workspace hypid))))
-                        (add-attr (:id hyp) hypid :delta (get deltas hypid))
-                        (add-attr (:id hyp) hypid :label (format "%.2f" (get deltas hypid)))))
-                   (-> (:accgraph workspace)
-                      (add-attr (:id hyp) :score (:apriori hyp))
-                      (add-attr (:id hyp) :label (format "%d / %.2f" (:id hyp) (:apriori hyp))))
-                   (keys deltas))]
-    (assoc workspace :accgraph ag-expl)))
+  (prof
+   :record-best-in-accgraph
+   (let [newly-explained (filter #(unexplained? workspace %)
+                                 (set/intersection (:unexplained workspace)
+                                                   (set (map :id (explains workspace hyp)))))
+         deltas (into {} (for [explained newly-explained]
+                           (let [expl (:expl (first (filter #(= explained (:id (:hyp %))) contrast-sets)))]
+                             [explained
+                              (cond (= [hyp] expl) 1.0
+                                    (= hyp (first expl)) (- (:apriori hyp)
+                                                            (:apriori (second expl)))
+                                    (not-empty expl)
+                                    (- (:apriori hyp) (:apriori (first expl)))
+                                    :else 1.0)])))
+         ag-expl (reduce (fn [ag hypid]
+                           (-> ag
+                               (add-edges [(:id hyp) hypid])
+                               (add-attr hypid :score (:apriori (lookup-hyp workspace hypid)))
+                               (add-attr hypid :label (format "%d / %.2f" hypid (:apriori (lookup-hyp workspace hypid))))
+                               (add-attr (:id hyp) hypid :delta (get deltas hypid))
+                               (add-attr (:id hyp) hypid :label (format "%.2f" (get deltas hypid)))))
+                         (-> (:accgraph workspace)
+                             (add-attr (:id hyp) :score (:apriori hyp))
+                             (add-attr (:id hyp) :label (format "%d / %.2f" (:id hyp) (:apriori hyp))))
+                         (keys deltas))]
+     (assoc workspace :accgraph ag-expl))))
 
 (defn explain
   [workspace cycle]

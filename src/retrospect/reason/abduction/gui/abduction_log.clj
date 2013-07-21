@@ -135,13 +135,6 @@
          {(:name (:best accrej)) nil}
          "Explained" {(:name (:explained accrej)) nil}
          "Alternatives" (list-hyps (:alts accrej))
-         "Normalized Aprioris"
-         (apply hash-map
-                (apply concat
-                       (map (fn [i]
-                            (let [a (nth (:normalized-aprioris accrej) i)]
-                              [(format "%d: %.2f" i a) nil]))
-                          (range (count (:normalized-aprioris accrej))))))
          "Accepted" (list-hyps (map #(ws/lookup-hyp workspace %) (:acc accrej)))
          "Rejected" (list-hyps (map #(ws/lookup-hyp workspace %) (:rej accrej)))})))
 
