@@ -53,7 +53,12 @@
                   acc-movs (:movement (accepted ws))
                   not-acc-movs (set/difference (set (:movement (hypotheses ws))) (set acc-movs))
                   [tp tn fp fn] (tp-tn-fp-fn truedata acc-movs not-acc-movs)]
-              (calc-prec-recall tp tn fp fn)))]
+              (merge
+               (calc-prec-recall tp tn fp fn)
+               {:AvgTrueMovDist (avg (map (comp :dist :mov)
+                                          (filter #(true-hyp? truedata %) (:movement (hypotheses ws)))))
+                :AvgFalseMovDist (avg (map (comp :dist :mov)
+                                           (filter #(not (true-hyp? truedata %)) (:movement (hypotheses ws)))))})))]
       (merge (last metrics)
              {:AvgPrec (avg (map :Prec metrics))
               :AvgRecall (avg (map :Recall metrics))

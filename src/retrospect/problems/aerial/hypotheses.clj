@@ -36,8 +36,8 @@
 
 (defn move-prob
   [det det2 moves-dist]
-  (let [dist (dist (:x det2) (:y det2) (:x det) (:y det))]
-    (/ 1.0 (+ 1.0 (* (Math/abs (- (:detscore det) (:detscore det2))))) dist)))
+  (let [d (dist (:x det2) (:y det2) (:x det) (:y det))]
+    (/ 1.0 (+ 1.0 (* (Math/abs (- (:detscore det) (:detscore det2))))) d)))
 
 (defn calc-det-prob
   [det other-dets moves-dist]
@@ -174,11 +174,15 @@
                    {:det det :det2 det2
                     :mov {:x (:x det2) :y (:y det2) :time (:time det2)
                           :ox (:x det) :oy (:y det) :ot (:time det)
-                          :objid objid}}))))
+                          :objid objid :dist d}}))))
 
-(defn dets-connected?
+(defn dets-nearby?
   [to from]
-  (= (:time (:det to)) (inc (:time (:det from)))))
+  (let [det (:det to)
+        det2 (:det from)
+        d (dist (:x det2) (:y det2) (:x det) (:y det))]
+    (and (< d 10.0)
+         (= (:time (:det to)) (inc (:time (:det from)))))))
 
 (defn hypothesize
   [unexp accepted hypotheses time-now]
@@ -189,7 +193,7 @@
           (doall (mapcat
                   (fn [evidence]
                     (let [acc-mov-hyps (sort-by (comp :time :mov) (:movement accepted))
-                          nearby (filter #(dets-connected? evidence %) sensor-to-hyps)
+                          nearby (filter #(dets-nearby? evidence %) sensor-to-hyps)
                           mov-hyps (doall (map #(new-mov-hyp % evidence acc-mov-hyps (:moves-dist kb))
                                                nearby))]
                       (filter #(< 0.01 (:apriori %)) mov-hyps)))
