@@ -34,10 +34,11 @@
         kb-moves-dist (assoc kb-moves :moves-dist (compute-moves-dist (:moves kb-moves)))]
     [kb-moves-dist]))
 
+;; (Math/abs (- (:detscore det) (:detscore det2)))
 (defn move-prob
   [det det2 moves-dist]
   (let [d (dist (:x det2) (:y det2) (:x det) (:y det))]
-    (/ 1.0 (+ 1.0 (* (Math/abs (- (:detscore det) (:detscore det2))))) d)))
+    (/ 1.0 (+ 1.0 d))))
 
 (defn calc-det-prob
   [det other-dets moves-dist]
