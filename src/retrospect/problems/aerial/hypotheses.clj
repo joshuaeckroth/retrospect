@@ -34,73 +34,56 @@
         kb-moves-dist (assoc kb-moves :moves-dist (compute-moves-dist (:moves kb-moves)))]
     [kb-moves-dist]))
 
-;; (Math/abs (- (:detscore det) (:detscore det2)))
 (defn move-prob
   [det det2 moves-dist]
-  (let [d (dist (:x det2) (:y det2) (:x det) (:y det))]
-    (/ 1.0 (+ 1.0 d))))
-
-(defn calc-det-prob
-  [det other-dets moves-dist]
-  (let [move-probs (map (fn [det2] (move-prob det det2 moves-dist))
-                        other-dets)]
-    (if (not-empty move-probs)
-      (cond (= "avg" (:DetScore params))
-            (avg move-probs)
-            (= "min" (:DetScore params))
-            (apply min move-probs)
-            (= "max" (:DetScore params))
-            (apply max move-probs))
-      ;; time 0 or lost track
-      ;; give default apriori value
-      0.5)))
+  (/ (+ (:detscore det) (:detscore det2)) 2.0))
 
 (defn conflicts?
   [h1 h2]
   (cond (= (:id h1) (:id h2)) false
         (not= (:type h1) (:type h2)) false
         (= :movement (:type h1))
-            (and
-     (= :movement (:type h1) (:type h2))
-     (let [mov1 (:mov h1)
-           mov2 (:mov h2)]
-       (or
-        ;; start at same place
-        (and (= (:x mov1) (:x mov2))
-             (= (:y mov1) (:y mov2))
-             (= (:time mov1) (:time mov2)))
-        ;; end at same place
-        (and (= (:ox mov1) (:ox mov2))
-             (= (:oy mov1) (:oy mov2))
-             (= (:ot mov1) (:ot mov2)))
-        ;; mov1 ends where mov2 starts and not same objid
-        (and (= (:x mov1) (:ox mov2))
-             (= (:y mov1) (:oy mov2))
-             (= (:time mov1) (:ot mov2))
-             (not= (:objid mov1) (:objid mov2)))
-        ;; mov2 ends where mov1 starts and not same objid
-        (and (= (:x mov2) (:ox mov1))
-             (= (:y mov2) (:oy mov1))
-             (= (:time mov2) (:ot mov1))
-             (not= (:objid mov1) (:objid mov2)))
-        ;; same objid, same start-end times but not start-end locations
-        (and (= (:objid mov1) (:objid mov2))
-             (or (and (= (:time mov1) (:ot mov2))
-                      (or (not= (:x mov1) (:ox mov2))
-                          (not= (:y mov1) (:oy mov2))))
-                 (and (= (:ot mov1) (:time mov2))
-                      (or (not= (:ox mov1) (:x mov2))
-                          (not= (:oy mov1) (:y mov2))))))
-        ;; same objid, same time, different paths
-        (and (= (:objid mov1) (:objid mov2))
-             (or (= (:time mov1) (:time mov2))
-                 (= (:ot mov1) (:ot mov2)))))))))
+        (and
+         (= :movement (:type h1) (:type h2))
+         (let [mov1 (:mov h1)
+               mov2 (:mov h2)]
+           (or
+            ;; start at same place
+            (and (= (:x mov1) (:x mov2))
+                 (= (:y mov1) (:y mov2))
+                 (= (:time mov1) (:time mov2)))
+            ;; end at same place
+            (and (= (:ox mov1) (:ox mov2))
+                 (= (:oy mov1) (:oy mov2))
+                 (= (:ot mov1) (:ot mov2)))
+            ;; mov1 ends where mov2 starts and not same objid
+            (and (= (:x mov1) (:ox mov2))
+                 (= (:y mov1) (:oy mov2))
+                 (= (:time mov1) (:ot mov2))
+                 (not= (:objid mov1) (:objid mov2)))
+            ;; mov2 ends where mov1 starts and not same objid
+            (and (= (:x mov2) (:ox mov1))
+                 (= (:y mov2) (:oy mov1))
+                 (= (:time mov2) (:ot mov1))
+                 (not= (:objid mov1) (:objid mov2)))
+            ;; same objid, same start-end times but not start-end locations
+            (and (= (:objid mov1) (:objid mov2))
+                 (or (and (= (:time mov1) (:ot mov2))
+                          (or (not= (:x mov1) (:ox mov2))
+                              (not= (:y mov1) (:oy mov2))))
+                     (and (= (:ot mov1) (:time mov2))
+                          (or (not= (:ox mov1) (:x mov2))
+                              (not= (:oy mov1) (:y mov2))))))
+            ;; same objid, same time, different paths
+            (and (= (:objid mov1) (:objid mov2))
+                 (or (= (:time mov1) (:time mov2))
+                     (= (:ot mov1) (:ot mov2)))))))))
 
 (defn make-sensor-hyp
   [{:keys [x y time detscore] :as det} from-to other-dets moves-dist]
   (new-hyp (format "Sens%s" (if (= :from from-to) "From" "To"))
            :observation from-to
-           (calc-det-prob det other-dets moves-dist)
+           (:detscore det)
            true conflicts? []
            (format "%.2f, %.2f @ %d" x y time)
            (format "Sensor detection - x: %.2f, y: %.2f, time: %d, detscore: %.2f" x y time detscore)
