@@ -17,7 +17,7 @@
 
 (defn generate-kb
   [training]
-  [(new-hyp "KB" :kb :kb 1.0 false nil [] "" ""
+  [(new-hyp "KB" :kb :kb 1.0 false nil nil [] "" ""
             {:moves (:moves training)
              :moves-dist (compute-moves-dist (:moves training))})])
 
@@ -40,9 +40,7 @@
 
 (defn conflicts?
   [h1 h2]
-  (cond (= (:id h1) (:id h2)) false
-        (not= (:type h1) (:type h2)) false
-        (= :movement (:type h1))
+  (cond (= :movement (:type h1))
         (and
          (= :movement (:type h1) (:type h2))
          (let [mov1 (:mov h1)
@@ -82,9 +80,8 @@
 (defn make-sensor-hyp
   [{:keys [x y time detscore] :as det} from-to other-dets moves-dist]
   (new-hyp (format "Sens%s" (if (= :from from-to) "From" "To"))
-           :observation from-to
-           (:detscore det)
-           true conflicts? []
+           :observation from-to (:detscore det)
+           true :observation conflicts? []
            (format "%.2f, %.2f @ %d" x y time)
            (format "Sensor detection - x: %.2f, y: %.2f, time: %d, detscore: %.2f" x y time detscore)
            {:det det :from-to from-to}))
@@ -143,8 +140,7 @@
                                   acc-mov-hyps))
               objid (if (empty? objids) (random-objid) (first objids))]
           (new-hyp "Mov" :movement :movement
-                   apriori
-                   false conflicts? (map :contents [to from])
+                   apriori false :movement conflicts? (map :contents [to from])
                    (format "%.2f, %.2f -> %.2f, %.2f @ %d->%d"
                            (:x det) (:y det)
                            (:x det2) (:y det2)

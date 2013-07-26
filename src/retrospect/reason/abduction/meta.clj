@@ -257,14 +257,9 @@
 
 (defn meta-hyp-conflicts?
   [ws hyp1 hyp2]
-  (and (not= hyp1 hyp2)
-       ;; must be meta-hyps to consider if they conflict
-       ((:meta-hyp-types @reasoner) (:type hyp1))
-       ((:meta-hyp-types @reasoner) (:type hyp2))
-       ;; any batching conflicts with anything else
-       (or (= :meta-order-dep (:type hyp1)) (= :meta-order-dep (:type hyp2))
-           ;; or the "implicated" hyps are related
-           (related-hyps? ws (:implicated hyp1) (:implicated hyp2)))))
+  (or (= :meta-order-dep (:type hyp1)) (= :meta-order-dep (:type hyp2))
+      ;; or the "implicated" hyps are related
+      (related-hyps? ws (:implicated hyp1) (:implicated hyp2))))
 
 (defn make-meta-hyps-order-dep
   [problem-cases est time-prev time-now available-meta-hyps]
@@ -274,7 +269,7 @@
             [batchbeg] (find-order-dep-candidates rel-prob-cases est time-prev time-now)
             batchbeg-hyp (when batchbeg
                            (new-hyp "OrderDep" :meta-order-dep :meta-order-dep
-                                    0.0 false (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
+                                    0.0 false :meta (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
                                     (map :contents (:may-resolve batchbeg))
                                     (format "Order dependency at time 0, ep %s" (str (:ep batchbeg)))
                                     (format "Order dependency at time 0, ep %s" (str (:ep batchbeg)))
@@ -288,7 +283,7 @@
 (comment
   batch1-hyp (when batch1
                (new-hyp "OrderDep" :meta-order-dep :meta-order-dep
-                        0.0 false (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
+                        0.0 false :meta (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
                         (map :contents (:may-resolve batch1))
                         (format "Order dependency at time %d, ep %s"
                            (dec time-now) (str (:ep batch1)))
@@ -311,7 +306,7 @@
         (for [{:keys [implicated cycle rejected delta may-resolve]}
               (find-rej-conflict-candidates rel-prob-cases est time-now)]
           (new-hyp "RejConflict" :meta-rej-conflict :meta-rej-conflict
-                   0.0 false (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
+                   0.0 false :meta (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
                    (map :contents may-resolve)
                    (format "%s rejected some explainers" implicated)
                    (format "%s rejected these explainers (cycle %d, delta %.2f):\n%s"
@@ -336,7 +331,7 @@
            identity)
          (for [{:keys [implicated may-resolve]} (find-rej-minscore-candidates rel-prob-cases est time-now)]
            (new-hyp "TooHighMinScore" :meta-rej-minscore :meta-rej-minscore
-                    0.0 false (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
+                    0.0 false :meta (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
                     (map :contents may-resolve)
                     "Explainer rejected due to too-high min-score"
                     (format "This explainer was rejected due to too-high min-score: %s\n\nRelevant problem cases:\n%s"

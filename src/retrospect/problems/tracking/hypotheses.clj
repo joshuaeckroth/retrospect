@@ -71,7 +71,7 @@
 
 (defn generate-kb
   [training]
-  [(new-hyp "KB" :kb :kb 1.0 false nil [] "" ""
+  [(new-hyp "KB" :kb :kb 1.0 false nil nil [] "" ""
             {:moves (:moves training)
              :moves-dist (compute-moves-dist (:moves training))
              :seen-colors (:seen-colors training)})])
@@ -91,62 +91,60 @@
 
 (defn conflicts?
   [h1 h2]
-  (and
-   (not= (:id h1) (:id h2))
-   (or
-    (and
-     (= :observation (:type h1) (:type h2))
-     (= (:from-to h1) (:from-to h2))
-     (not= gray (:color (:det h1)))
-     (not= gray (:color (:det h2)))
-     (match-color? (:color (:det h1)) (:color (:det h2)))
-     (not (dets-match? (:det h1) (:det h2))))
-    (and
-     (= :movement (:type h1) (:type h2))
-     (let [mov1 (:mov h1)
-           mov2 (:mov h2)]
-       (or
-        ;; start at same place
-        (and (= (:x mov1) (:x mov2))
-             (= (:y mov1) (:y mov2))
-             (= (:time mov1) (:time mov2)))
-        ;; end at same place
-        (and (= (:ox mov1) (:ox mov2))
-             (= (:oy mov1) (:oy mov2))
-             (= (:ot mov1) (:ot mov2)))
-        ;; mov1 ends where mov2 starts and not same color
-        (and (= (:x mov1) (:ox mov2))
-             (= (:y mov1) (:oy mov2))
-             (= (:time mov1) (:ot mov2))
-             (not (match-color? (:color mov1) (:color mov2))))
-        ;; mov2 ends where mov1 starts and not same color
-        (and (= (:x mov2) (:ox mov1))
-             (= (:y mov2) (:oy mov1))
-             (= (:time mov2) (:ot mov1))
-             (not (match-color? (:color mov2) (:color mov1))))
-        ;; same color (not gray), same start-end times but not start-end locations
-        (and (not= gray (:color mov1))
-             (not= gray (:color mov2))
-             (= (:color mov1) (:color mov2))
-             (or (and (= (:time mov1) (:ot mov2))
-                      (or (not= (:x mov1) (:ox mov2))
-                          (not= (:y mov1) (:oy mov2))))
-                 (and (= (:ot mov1) (:time mov2))
-                      (or (not= (:ox mov1) (:x mov2))
-                          (not= (:oy mov1) (:y mov2))))))
-        ;; same color (not gray), same time, different paths
-        (and (not= gray (:color mov1))
-             (not= gray (:color mov2))
-             (= (:color mov1) (:color mov2))
-             (or (= (:time mov1) (:time mov2))
-                 (= (:ot mov1) (:ot mov2))))))))))
+  (or
+   (and
+    (= :observation (:type h1) (:type h2))
+    (= (:from-to h1) (:from-to h2))
+    (not= gray (:color (:det h1)))
+    (not= gray (:color (:det h2)))
+    (match-color? (:color (:det h1)) (:color (:det h2)))
+    (not (dets-match? (:det h1) (:det h2))))
+   (and
+    (= :movement (:type h1) (:type h2))
+    (let [mov1 (:mov h1)
+          mov2 (:mov h2)]
+      (or
+       ;; start at same place
+       (and (= (:x mov1) (:x mov2))
+            (= (:y mov1) (:y mov2))
+            (= (:time mov1) (:time mov2)))
+       ;; end at same place
+       (and (= (:ox mov1) (:ox mov2))
+            (= (:oy mov1) (:oy mov2))
+            (= (:ot mov1) (:ot mov2)))
+       ;; mov1 ends where mov2 starts and not same color
+       (and (= (:x mov1) (:ox mov2))
+            (= (:y mov1) (:oy mov2))
+            (= (:time mov1) (:ot mov2))
+            (not (match-color? (:color mov1) (:color mov2))))
+       ;; mov2 ends where mov1 starts and not same color
+       (and (= (:x mov2) (:ox mov1))
+            (= (:y mov2) (:oy mov1))
+            (= (:time mov2) (:ot mov1))
+            (not (match-color? (:color mov2) (:color mov1))))
+       ;; same color (not gray), same start-end times but not start-end locations
+       (and (not= gray (:color mov1))
+            (not= gray (:color mov2))
+            (= (:color mov1) (:color mov2))
+            (or (and (= (:time mov1) (:ot mov2))
+                     (or (not= (:x mov1) (:ox mov2))
+                         (not= (:y mov1) (:oy mov2))))
+                (and (= (:ot mov1) (:time mov2))
+                     (or (not= (:ox mov1) (:x mov2))
+                         (not= (:oy mov1) (:y mov2))))))
+       ;; same color (not gray), same time, different paths
+       (and (not= gray (:color mov1))
+            (not= gray (:color mov2))
+            (= (:color mov1) (:color mov2))
+            (or (= (:time mov1) (:time mov2))
+                (= (:ot mov1) (:ot mov2)))))))))
 
 (defn make-sensor-hyp
   [{:keys [x y color time] :as det} from-to other-dets moves-dist]
   (new-hyp (format "Sens%s" (if (= :from from-to) "From" "To"))
            :observation from-to
            (calc-det-prob det other-dets moves-dist)
-           true conflicts? []
+           true :observation conflicts? []
            (format "%d,%d@%d" x y time)
            (format (str "Sensor detection - color: %s, x: %d, y: %d, time: %d\n\nOther dets:\n%s")
               (color-str color) x y time
@@ -250,7 +248,7 @@
           (when (match-color? (:color det-color) (:color det2-color))
             (new-hyp "Mov" :movement :movement
                      apriori-color-penalty
-                     false conflicts? (map :contents [to from])
+                     false :movement conflicts? (map :contents [to from])
                      (format "%d,%d->%d,%d @ %d->%d (%s->%s)"
                         (:x det-color) (:y det-color)
                         (:x det2-color) (:y det2-color)

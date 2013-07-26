@@ -12,7 +12,7 @@
   "This function introduces the whole expgraph so that it is ready to
    use when reasoning starts."
   [training]
-  [(new-hyp "KB" :kb :kb 1.0 false nil [] "" ""
+  [(new-hyp "KB" :kb :kb 1.0 false nil nil [] "" ""
             {:expgraph (:expgraph training) :bayesnet (:bayesnet training)})])
 
 (defn get-kb
@@ -37,9 +37,8 @@
 
 (defn hyps-conflict?
   [expgraph hyp1 hyp2]
-  (and (not= (:id hyp1) (:id hyp2))
-       (vertex-values-conflict?
-        expgraph (:vertex hyp1) (:value hyp1) (:vertex hyp2) (:value hyp2))))
+  (vertex-values-conflict?
+   expgraph (:vertex hyp1) (:value hyp1) (:vertex hyp2) (:value hyp2)))
 
 (defn make-score
   "Figure out the (approximate) probability of v=val given
@@ -79,7 +78,7 @@
         (for [[v val] sens-observed]
           (new-hyp "Obs" :observation :observation
                    (make-score expgraph bn observed [] v val)
-                   true (partial hyps-conflict? expgraph)
+                   true :observation (partial hyps-conflict? expgraph)
                    [] (format "Observed %s=%s" v val) (format "Observed %s=%s" v val)
                    {:vertex v :value val})))))
 
@@ -89,7 +88,7 @@
                           [[pv pval]] (:vertex unexp-hyp) (:value unexp-hyp))]
     (new-hyp "Expl" :expl :expl score
              (not-empty (explainers expgraph pv))
-             #(hyps-conflict? expgraph %1 %2)
+             :expl (partial hyps-conflict? expgraph)
              [(:contents unexp-hyp)]
              (format "%s=%s" pv pval)
              (format "%s=%s" pv pval)
@@ -103,7 +102,7 @@
       (let [score (make-score expgraph bn observed [] v val)]
         [(new-hyp "Expl" :expl :expl score
                   (not-empty (explainers expgraph v))
-                  #(hyps-conflict? expgraph %1 %2)
+                  :expl (partial hyps-conflict? expgraph)
                   [(:contents unexp-hyp)]
                   (format "%s=%s" v val)
                   (format "%s=%s" v val)

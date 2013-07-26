@@ -17,7 +17,7 @@
   (:use [retrospect.state]))
 
 (defrecord Hypothesis
-    [id name type subtype apriori needs-explainer? conflicts?-fn
+    [id name type subtype apriori needs-explainer? conflicts-tag conflicts?-fn
      explains short-str desc data]
   Object
   (toString [self] (format "%s(%s)/%.2f" name short-str apriori))
@@ -26,21 +26,21 @@
 
 (defn new-hyp
   ;; contents not provided; make them
-  ([prefix type subtype apriori needs-explainer? conflicts?-fn
+  ([prefix type subtype apriori needs-explainer? conflicts-tag conflicts?-fn
     explains short-str desc data]
-   (new-hyp prefix type subtype apriori needs-explainer? conflicts?-fn
+   (new-hyp prefix type subtype apriori needs-explainer? conflicts-tag conflicts?-fn
             explains short-str desc data
             (assoc data :type type :subtype subtype)))
   ;; contents provided; allows the hyp generator to decide what constitutes
   ;; an identical hyp (note that :data will be copied from new hyp
   ;; when an identical hyp is detected)
-  ([prefix type subtype apriori needs-explainer? conflicts?-fn
+  ([prefix type subtype apriori needs-explainer? conflicts-tag conflicts?-fn
     explains short-str desc data contents]
      (let [id (inc last-id)]
        (set-last-id id)
        (assoc (merge (Hypothesis.
                       id (format "%s%d" prefix id)
-                      type subtype apriori needs-explainer? conflicts?-fn
+                      type subtype apriori needs-explainer? conflicts-tag conflicts?-fn
                       explains short-str desc data)
                      data)
          :contents contents))))
@@ -77,7 +77,9 @@
    ;; :data + :type map keys => hyp-id values (for dup searching)
    :hyp-contents {}
    ;; a cache
-   :composites #{}})
+   :composites #{}
+   ;; a cache: tag => seq of hypids
+   :conflicts-tag-map {}})
 
 (defn lookup-hyp
   [workspace id]
@@ -299,37 +301,40 @@
   [h1 h2]
   (prof
    :conflicts?
-   (if-let [c? (or (get-in @cache [:conflicts (:simulation params) (:id h1) (:id h2)])
-                   (get-in @cache [:conflicts (:simulation params) (:id h2) (:id h1)]))]
-     c?
-     (let [c? (cond (:composite? h2)
-                    (if (some (fn [h] ((:conflicts?-fn h) h1 h)) (:hyps h2)) true false)
-                    (:composite? h1)
-                    (if (some (fn [h] ((:conflicts?-fn h) h h2)) (:hyps h1)) true false)
-                    (or (nil? (:conflicts?-fn h1)) (nil? (:conflicts?-fn h2)))
-                    false
-                    :else
-                    (if ((:conflicts?-fn h1) h1 h2) true false))]
-       (swap! cache
-              #(-> %
-                  (assoc-in [:conflicts (:simulation params) (:id h1) (:id h2)] c?)
-                  (assoc-in [:conflicts (:simulation params) (:id h2) (:id h1)] c?)))
-       c?))))
+   (if (= h1 h2) false
+       (if-let [c? (or (get-in @cache [:conflicts (:simulation params) (:id h1) (:id h2)])
+                       (get-in @cache [:conflicts (:simulation params) (:id h2) (:id h1)]))]
+         c?
+         (let [c? (cond (:composite? h2)
+                        (if (some (fn [h] ((:conflicts?-fn h) h1 h)) (:hyps h2)) true false)
+                        (:composite? h1)
+                        (if (some (fn [h] ((:conflicts?-fn h) h h2)) (:hyps h1)) true false)
+                        (or (nil? (:conflicts?-fn h1)) (nil? (:conflicts?-fn h2)))
+                        false
+                        :else
+                        (if ((:conflicts?-fn h1) h1 h2) true false))]
+           (swap! cache
+                  #(-> %
+                       (assoc-in [:conflicts (:simulation params) (:id h1) (:id h2)] c?)
+                       (assoc-in [:conflicts (:simulation params) (:id h2) (:id h1)] c?)))
+           c?)))))
 
 (defn find-conflicts
   [workspace hyp]
   (prof
    :find-conflicts
-   (filter #(conflicts? hyp %) (vals (:hyp-ids workspace)))))
+   (filter #(conflicts? hyp %)
+           (map #(lookup-hyp workspace %)
+                (get-in workspace [:conflicts-tag-map (:conflicts-tag hyp)])))))
 
 (defn conflicts-with-accepted?
   [workspace hyp]
   (prof
    :conflicts-with-accepted?
    (some (fn [hyp2] (conflicts? hyp hyp2))
-      (filter #(= (:type hyp) (:type %))
-         (map #(lookup-hyp workspace %) (filter (fn [hypid] (accepted? workspace hypid))
-                                         (nodes (:hypgraph workspace))))))))
+         (map #(lookup-hyp workspace %)
+              (filter (fn [hypid] (accepted? workspace hypid))
+                      (get-in workspace [:conflicts-tag-map (:conflicts-tag hyp)]))))))
 
 (defn related-hyps
   ;; includes this hyp
@@ -480,6 +485,7 @@
         (update-in [:hypgraph] #(apply add-edges % (for [e explains] [(:id hyp) e])))
         (update-in [:hypotheses (:type hyp)] conj (:id hyp))
         (update-in [:hypotheses :all] conj (:id hyp))
+        (update-in [:conflicts-tag-map (:conflicts-tag hyp)] conj (:id hyp))
         (?> (:composite? hyp) update-in [:composites] conj (:id hyp))
         (?> (:needs-explainer? hyp) update-in [:unexplained] conj (:id hyp))))))
 
