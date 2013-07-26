@@ -95,6 +95,7 @@
    (and
     (= :observation (:type h1) (:type h2))
     (= (:from-to h1) (:from-to h2))
+    (= (:time (:det h1)) (:time (:det h2)))
     (not= gray (:color (:det h1)))
     (not= gray (:color (:det h2)))
     (match-color? (:color (:det h1)) (:color (:det h2)))
