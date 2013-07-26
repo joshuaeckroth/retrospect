@@ -149,7 +149,8 @@
            (format "%d,%d@%d" x y time)
            (format (str "Sensor detection - color: %s, x: %d, y: %d, time: %d\n\nOther dets:\n%s")
               (color-str color) x y time
-              (str/join "\n" (map str (filter #(match-color? (:color %) color) other-dets))))
+              (str/join "\n" (map str (map #(update-in % [:color] color-str)
+                                           (filter #(match-color? (:color %) color) other-dets)))))
            {:det det :from-to from-to}))
 
 (defn make-sensor-hyps
