@@ -12,7 +12,7 @@
   "This function introduces the whole expgraph so that it is ready to
    use when reasoning starts."
   [training]
-  [(new-hyp "KB" :kb :kb 1.0 false nil nil [] "" ""
+  [(new-hyp "KB" :kb :kb 1.0 false [] nil [] "" ""
             {:expgraph (:expgraph training) :bayesnet (:bayesnet training)})])
 
 (defn get-kb
@@ -78,7 +78,7 @@
         (for [[v val] sens-observed]
           (new-hyp "Obs" :observation :observation
                    (make-score expgraph bn observed [] v val)
-                   true :observation (partial hyps-conflict? expgraph)
+                   true [:observation] (partial hyps-conflict? expgraph)
                    [] (format "Observed %s=%s" v val) (format "Observed %s=%s" v val)
                    {:vertex v :value val})))))
 
@@ -88,7 +88,7 @@
                           [[pv pval]] (:vertex unexp-hyp) (:value unexp-hyp))]
     (new-hyp "Expl" :expl :expl score
              (not-empty (explainers expgraph pv))
-             :expl (partial hyps-conflict? expgraph)
+             [:expl] (partial hyps-conflict? expgraph)
              [(:contents unexp-hyp)]
              (format "%s=%s" pv pval)
              (format "%s=%s" pv pval)
@@ -102,7 +102,7 @@
       (let [score (make-score expgraph bn observed [] v val)]
         [(new-hyp "Expl" :expl :expl score
                   (not-empty (explainers expgraph v))
-                  :expl (partial hyps-conflict? expgraph)
+                  [:expl] (partial hyps-conflict? expgraph)
                   [(:contents unexp-hyp)]
                   (format "%s=%s" v val)
                   (format "%s=%s" v val)

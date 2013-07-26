@@ -81,7 +81,7 @@
   [{:keys [x y time detscore] :as det} from-to other-dets moves-dist]
   (new-hyp (format "Sens%s" (if (= :from from-to) "From" "To"))
            :observation from-to (:detscore det)
-           true :observation conflicts? []
+           true nil nil []
            (format "%.2f, %.2f @ %d" x y time)
            (format "Sensor detection - x: %.2f, y: %.2f, time: %d, detscore: %.2f" x y time detscore)
            {:det det :from-to from-to}))
@@ -139,8 +139,9 @@
                                         (dets-match? mdet2 det)))
                                   acc-mov-hyps))
               objid (if (empty? objids) (random-objid) (first objids))]
-          (new-hyp "Mov" :movement :movement
-                   apriori false :movement conflicts? (map :contents [to from])
+          (new-hyp "Mov" :movement :movement apriori false
+                   [(keyword (format "mov-%d" (:time det))) (keyword (format "mov-%d" (:time det2)))]
+                   conflicts? (map :contents [to from])
                    (format "%.2f, %.2f -> %.2f, %.2f @ %d->%d"
                            (:x det) (:y det)
                            (:x det2) (:y det2)

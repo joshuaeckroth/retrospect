@@ -17,7 +17,7 @@
   (:use [retrospect.state]))
 
 (defrecord Hypothesis
-    [id name type subtype apriori needs-explainer? conflicts-tag conflicts?-fn
+    [id name type subtype apriori needs-explainer? conflicts-tags conflicts?-fn
      explains short-str desc data]
   Object
   (toString [self] (format "%s(%s)/%.2f" name short-str apriori))
@@ -26,28 +26,28 @@
 
 (defn new-hyp
   ;; contents not provided; make them
-  ([prefix type subtype apriori needs-explainer? conflicts-tag conflicts?-fn
+  ([prefix type subtype apriori needs-explainer? conflicts-tags conflicts?-fn
     explains short-str desc data]
-   (new-hyp prefix type subtype apriori needs-explainer? conflicts-tag conflicts?-fn
+   (new-hyp prefix type subtype apriori needs-explainer? conflicts-tags conflicts?-fn
             explains short-str desc data
             (assoc data :type type :subtype subtype)))
   ;; contents provided; allows the hyp generator to decide what constitutes
   ;; an identical hyp (note that :data will be copied from new hyp
   ;; when an identical hyp is detected)
-  ([prefix type subtype apriori needs-explainer? conflicts-tag conflicts?-fn
+  ([prefix type subtype apriori needs-explainer? conflicts-tags conflicts?-fn
     explains short-str desc data contents]
      (let [id (inc last-id)]
        (set-last-id id)
        (assoc (merge (Hypothesis.
                       id (format "%s%d" prefix id)
-                      type subtype apriori needs-explainer? conflicts-tag conflicts?-fn
+                      type subtype apriori needs-explainer? conflicts-tags conflicts?-fn
                       explains short-str desc data)
                      data)
          :contents contents))))
 
 (defn new-composite
   [prefix type subtype apriori explains short-str desc data hyps]
-  (let [hyp (new-hyp prefix type subtype apriori false nil
+  (let [hyp (new-hyp prefix type subtype apriori false nil nil
                      explains short-str desc data)]
     (assoc hyp :composite? true :hyps hyps)))
 
@@ -325,7 +325,10 @@
    :find-conflicts
    (filter #(conflicts? hyp %)
            (map #(lookup-hyp workspace %)
-                (get-in workspace [:conflicts-tag-map (:conflicts-tag hyp)])))))
+                (set (mapcat #(get-in workspace [:conflicts-tag-map %])
+                             (if (:composite? hyp)
+                               (set (mapcat :conflicts-tags (:hyps hyp)))
+                               (:conflicts-tags hyp))))))))
 
 (defn conflicts-with-accepted?
   [workspace hyp]
@@ -334,7 +337,10 @@
    (some (fn [hyp2] (conflicts? hyp hyp2))
          (map #(lookup-hyp workspace %)
               (filter (fn [hypid] (accepted? workspace hypid))
-                      (get-in workspace [:conflicts-tag-map (:conflicts-tag hyp)]))))))
+                      (set (mapcat #(get-in workspace [:conflicts-tag-map %])
+                                   (if (:composite? hyp)
+                                     (set (mapcat :conflicts-tags (:hyps hyp)))
+                                     (:conflicts-tags hyp)))))))))
 
 (defn related-hyps
   ;; includes this hyp
@@ -477,15 +483,19 @@
    (let [ ;; sometimes, an added hyp explains stuff not already added;
          ;; this can happen when a problem case is added during abductive metareasoning;
          ;; we just ignore these non-existing explained hyps
-         explains (filter identity (map #(get (:hyp-contents workspace) %) (:explains hyp)))]
-     (-> workspace
+         explains (filter identity (map #(get (:hyp-contents workspace) %) (:explains hyp)))
+         conflicts-tags (if (:composite? hyp)
+                          (set (mapcat :conflicts-tags (:hyps hyp)))
+                          (:conflicts-tags hyp))
+         ws-conflicts-tags (reduce (fn [ws ct] (update-in ws [:conflicts-tag-map ct] conj (:id hyp)))
+                                   workspace conflicts-tags)]
+     (-> ws-conflicts-tags
         (assoc-in [:hyp-ids (:id hyp)] hyp)
         (assoc-in [:hyp-contents (:contents hyp)] (:id hyp))
         (update-in [:hypgraph] add-nodes (:id hyp))
         (update-in [:hypgraph] #(apply add-edges % (for [e explains] [(:id hyp) e])))
         (update-in [:hypotheses (:type hyp)] conj (:id hyp))
         (update-in [:hypotheses :all] conj (:id hyp))
-        (update-in [:conflicts-tag-map (:conflicts-tag hyp)] conj (:id hyp))
         (?> (:composite? hyp) update-in [:composites] conj (:id hyp))
         (?> (:needs-explainer? hyp) update-in [:unexplained] conj (:id hyp))))))
 

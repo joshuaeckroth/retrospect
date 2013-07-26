@@ -71,7 +71,7 @@
 
 (defn generate-kb
   [training]
-  [(new-hyp "KB" :kb :kb 1.0 false nil nil [] "" ""
+  [(new-hyp "KB" :kb :kb 1.0 false [] nil [] "" ""
             {:moves (:moves training)
              :moves-dist (compute-moves-dist (:moves training))
              :seen-colors (:seen-colors training)})])
@@ -94,8 +94,6 @@
   (or
    (and
     (= :observation (:type h1) (:type h2))
-    (= (:from-to h1) (:from-to h2))
-    (= (:time (:det h1)) (:time (:det h2)))
     (not= gray (:color (:det h1)))
     (not= gray (:color (:det h2)))
     (match-color? (:color (:det h1)) (:color (:det h2)))
@@ -143,9 +141,8 @@
 (defn make-sensor-hyp
   [{:keys [x y color time] :as det} from-to other-dets moves-dist]
   (new-hyp (format "Sens%s" (if (= :from from-to) "From" "To"))
-           :observation from-to
-           (calc-det-prob det other-dets moves-dist)
-           true :observation conflicts? []
+           :observation from-to (calc-det-prob det other-dets moves-dist) true
+           [(keyword (format "obs-%s-%d" (name from-to) time))] conflicts? []
            (format "%d,%d@%d" x y time)
            (format (str "Sensor detection - color: %s, x: %d, y: %d, time: %d\n\nOther dets:\n%s")
               (color-str color) x y time
@@ -248,9 +245,9 @@
               apriori (move-prob d moves-dist)
               apriori-color-penalty (penalize-gray-moves apriori det det2)]
           (when (match-color? (:color det-color) (:color det2-color))
-            (new-hyp "Mov" :movement :movement
-                     apriori-color-penalty
-                     false :movement conflicts? (map :contents [to from])
+            (new-hyp "Mov" :movement :movement apriori-color-penalty false
+                     [(keyword (format "mov-%d" (:time det))) (keyword (format "mov-%d" (:time det2)))]
+                     conflicts? (map :contents [to from])
                      (format "%d,%d->%d,%d @ %d->%d (%s->%s)"
                         (:x det-color) (:y det-color)
                         (:x det2-color) (:y det2-color)
