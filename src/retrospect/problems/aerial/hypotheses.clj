@@ -36,7 +36,7 @@
 
 (defn move-prob
   [det det2 moves-dist]
-  (Math/abs (- (:detscore det) (:detscore det2))))
+  (/ (+ (:detscore det) (:detscore det2)) 2.0))
 
 (defn conflicts?
   [h1 h2]
@@ -82,8 +82,8 @@
   (new-hyp (format "Sens%s" (if (= :from from-to) "From" "To"))
            :observation from-to (:detscore det)
            true nil nil []
-           (format "%.2f, %.2f @ %d" x y time)
-           (format "Sensor detection - x: %.2f, y: %.2f, time: %d, detscore: %.2f" x y time detscore)
+           (format "%d, %d @ %d" x y time)
+           (format "Sensor detection - x: %d, y: %d, time: %d, detscore: %.2f" x y time detscore)
            {:det det :from-to from-to}))
 
 (defn make-sensor-hyps
@@ -142,11 +142,11 @@
           (new-hyp "Mov" :movement :movement apriori false
                    [det det2 objid]
                    conflicts? (map :contents [to from])
-                   (format "%.2f, %.2f -> %.2f, %.2f @ %d->%d"
+                   (format "%d, %d -> %d, %d @ %d->%d"
                            (:x det) (:y det)
                            (:x det2) (:y det2)
                            (:time det) (:time det2))
-                   (format "%.2f, %.2f -> %.2f, %.2f (dist=%.2f) at time %d->%d\nDetscores: %.2f -> %.2f\nID: %s"
+                   (format "%d, %d -> %d, %d (dist=%.2f) at time %d->%d\nDetscores: %.2f -> %.2f\nID: %s"
                            (:x det) (:y det)
                            (:x det2) (:y det2)
                            d (:time det) (:time det2)
