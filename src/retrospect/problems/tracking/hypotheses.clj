@@ -246,7 +246,9 @@
               apriori-color-penalty (penalize-gray-moves apriori det det2)]
           (when (match-color? (:color det-color) (:color det2-color))
             (new-hyp "Mov" :movement :movement apriori-color-penalty false
-                     [(keyword (format "mov-%d" (:time det))) (keyword (format "mov-%d" (:time det2)))]
+                     (if (not= gray (:color det-color))
+                       [(:color det-color) (dissoc det :color) (dissoc det2 :color)]
+                       [(dissoc det :color) (dissoc det2 :color)])
                      conflicts? (map :contents [to from])
                      (format "%d,%d->%d,%d @ %d->%d (%s->%s)"
                         (:x det-color) (:y det-color)

@@ -141,7 +141,7 @@
                                   acc-mov-hyps))
               objid (if (empty? objids) (random-objid) (first objids))]
           (new-hyp "Mov" :movement :movement apriori false
-                   [(keyword (format "mov-%d" (:time det))) (keyword (format "mov-%d" (:time det2)))]
+                   [det det2 objid]
                    conflicts? (map :contents [to from])
                    (format "%.2f, %.2f -> %.2f, %.2f @ %d->%d"
                            (:x det) (:y det)
