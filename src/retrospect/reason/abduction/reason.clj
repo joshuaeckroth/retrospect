@@ -31,10 +31,10 @@
      (merge {:Threshold [0 [0]]
              :MetaMinScore [0 [0]]
              :MetaThreshold [0 [0]]
-             :MetaOracle ["meta-rej-conflict,meta-rej-minscore,meta-order-dep"
-                          ["meta-rej-conflict,meta-rej-minscore,meta-order-dep"]]
-             :MetaHyps ["meta-rej-conflict,meta-rej-minscore,meta-order-dep"
-                        ["meta-rej-conflict,meta-rej-minscore,meta-order-dep"]]
+             :MetaOracle ["meta-rej-conflict,meta-rej-minscore,meta-order-dep,meta-impl-ev"
+                          ["meta-rej-conflict,meta-rej-minscore,meta-order-dep,meta-impl-ev"]]
+             :MetaHyps ["meta-rej-conflict,meta-rej-minscore,meta-order-dep,meta-impl-ev"
+                        ["meta-rej-conflict,meta-rej-minscore,meta-order-dep,meta-impl-ev"]]
              :ScoreMetaHyps ["doubt-diff" ["doubt-diff" "doubt" "apriori-diff"]]
              :EstimateMetaScores [false [true false]]
              :RemoveConflictingRejMinScore [true [true false]]
@@ -69,7 +69,7 @@
              :ConsiderExplPower [false [true false]]
              :NormalizeDelta [true [true false]]}
             (:default-params (:abduction @problem))))
-   :meta-hyp-types #{:meta-rej-minscore :meta-rej-conflict :meta-order-dep}
+   :meta-hyp-types #{:meta-rej-minscore :meta-rej-conflict :meta-order-dep :meta-impl-ev}
    :init-workspace-fn init-workspace
    :init-kb-fn init-kb
    :player-fns

@@ -158,6 +158,35 @@
         ep-accepted (assoc ep :workspace ws-accepted)]
     [(update-est new-est ep-accepted) params]))
 
+(defn resolve-implausible-evidence
+  [est]
+  (let [old-ws (:workspace (cur-ep est))
+        new-est (new-branch-ep est (cur-ep est))
+        ep (cur-ep new-est)
+        implicated (filter (fn [h] (= :minscore (rejection-reason old-ws h)))
+                           (:observation (rejected old-ws)))
+        ws-prevent-rejection (reduce (fn [ws hyp]
+                                       (-> ws (undecide hyp (:cycle ep))
+                                           (accept hyp nil [] [] 0.0 {} (:cycle ep))))
+                                     (:workspace ep) implicated)
+        ep-prevent-rejection (assoc ep :workspace ws-prevent-rejection)]
+    [(update-est new-est ep-prevent-rejection) params]))
+
+(defn resolve-implausible-evidence-cleanup
+  [est est-prior]
+  (let [old-ws (:workspace (cur-ep est-prior))
+        unrejected (map :id (filter (fn [h] (= :minscore (rejection-reason old-ws h)))
+                                    (:observation (rejected old-ws))))
+        new-est (new-child-ep est)
+        ep (cur-ep new-est)
+        problem-cases (map :id (find-problem-cases est))
+        unrejected-noexp (set/intersection (set unrejected) (set problem-cases))
+        ;; re-reject the stuff we unrejected (from minscore) but now is a noexp
+        ws-rejected (reduce (fn [ws hyp] (reject ws hyp :minscore (:cycle ep)))
+                            (:workspace ep) (map #(lookup-hyp (:workspace ep) %) unrejected-noexp))
+        ep-cleaned-up (assoc ep :workspace ws-rejected)]
+    (update-est new-est ep-cleaned-up)))
+
 (defn find-rej-conflict-candidates
   [problem-cases est time-now]
   (let [cur-ws (:workspace (cur-ep est))
@@ -214,7 +243,8 @@
     (filter #(not-empty (:may-resolve %))
             (for [e expl-rejected-minscore]
               {:implicated e
-               :may-resolve (sort-by :id (filter (fn [pc] (some #{(:contents pc)} (:explains e))) problem-cases))}))))
+               :may-resolve (sort-by :id (filter (fn [pc] (some #{(:contents pc)} (:explains e)))
+                                                 problem-cases))}))))
 
 (defn meta-lower-minscore
   [problem-cases est-orig time-prev time-now sensors]
@@ -265,7 +295,7 @@
   [problem-cases est time-prev time-now available-meta-hyps]
   (if (not (available-meta-hyps "meta-order-dep")) []
       (let [rel-prob-cases (filter #(= :no-expl-offered (classify-noexp-reason (:workspace (cur-ep est)) %))
-                              problem-cases)
+                                   problem-cases)
             [batchbeg] (find-order-dep-candidates rel-prob-cases est time-prev time-now)
             batchbeg-hyp (when batchbeg
                            (new-hyp "OrderDep" :meta-order-dep :meta-order-dep
@@ -344,6 +374,20 @@
                      :conflicts-with-accepted? (some (fn [h] (conflicts? implicated h))
                                                   (:all (accepted (:workspace (cur-ep est)))))}))))))
 
+(defn make-meta-hyps-implausible-evidence
+  [problem-cases est time-prev time-now available-meta-hyps]
+  (if (not (available-meta-hyps "meta-impl-ev")) []
+      (let [rel-prob-cases (filter #(= :no-expl-offered (classify-noexp-reason (:workspace (cur-ep est)) %))
+                                   problem-cases)]
+        [(new-hyp "ImplEv" :meta-impl-ev :meta-impl-ev
+                  0.0 false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
+                  (map :contents rel-prob-cases)
+                  "Explainers never offered due to rejection of implausible evidence"
+                  "Explainers never offered due to rejection of implausible evidence"
+                  {:action resolve-implausible-evidence
+                   :cleanup resolve-implausible-evidence-cleanup
+                   :resolves rel-prob-cases})])))
+
 (defn make-meta-hyps
   "Create explanations, and associated actions, for problem-cases."
   [problem-cases est time-prev time-now]
@@ -351,7 +395,8 @@
     (apply concat
            (for [meta-fn [make-meta-hyps-order-dep
                           make-meta-hyps-rej-conflict
-                          make-meta-hyps-rej-minscore]]
+                          make-meta-hyps-rej-minscore
+                          make-meta-hyps-implausible-evidence]]
              (meta-fn problem-cases est time-prev time-now available-meta-hyps)))))
 
 (defn score-meta-hyps-estimate
@@ -389,14 +434,17 @@
     (if (empty? hyps) [(goto-ep est-attempted (:id (cur-ep est))) new-hyps]
         (let [hyp (first hyps)
               [est-new params-new] ((:action hyp) est-attempted)
-              result (binding [params params-new]
-                       (meta-apply-and-evaluate est-attempted est-new time-now sensors))
+              result-nocleanup (binding [params params-new]
+                                 (meta-apply-and-evaluate est-attempted est-new time-now sensors))
+              result (if-let [cleanup (:cleanup hyp)]
+                       (update-in result-nocleanup [:est-new] cleanup est-attempted)
+                       result-nocleanup)
               doubt (doubt-aggregate est)
               doubt-new (doubt-aggregate (:est-new result))
               problem-cases-new (find-problem-cases (:est-new result))
               resolved-cases (filter (fn [pc] (not ((set (map :contents problem-cases-new))
-                                              (:contents pc))))
-                                problem-cases)]
+                                                    (:contents pc))))
+                                     problem-cases)]
           (recur (:est-old result) (rest hyps)
                  (conj new-hyps
                        (assoc hyp :explains (map :contents resolved-cases)
@@ -411,22 +459,22 @@
                               :doubt-new doubt-new
                               :doubt-diff (- doubt-new doubt)
                               :desc (format (str "%s\n\nEp-state start: %s\n\n"
-                                            "Problem cases prior:\n%s\n\n"
-                                            "Problem cases after:\n%s\n\n"
-                                            "Doubt before: %.2f\n"
-                                            "Doubt after: %.2f\n"
-                                            "Avg apriori of problem cases prior: %.2f\n"
-                                            "Avg apriori of problem cases after: %.2f\n"
-                                            "Avg apriori diff: %.2f")
-                                       (:desc hyp) (str (cur-ep est-new))
-                                       (str/join "\n" (sort-by :id problem-cases))
-                                       (str/join "\n" (sort-by :id problem-cases-new))
-                                       doubt
-                                       doubt-new
-                                       (avg (map :apriori problem-cases))
-                                       (avg (map :apriori problem-cases-new))
-                                       (- (avg (map :apriori problem-cases))
-                                          (avg (map :apriori problem-cases-new)))))))))))
+                                                 "Problem cases prior:\n%s\n\n"
+                                                 "Problem cases after:\n%s\n\n"
+                                                 "Doubt before: %.2f\n"
+                                                 "Doubt after: %.2f\n"
+                                                 "Avg apriori of problem cases prior: %.2f\n"
+                                                 "Avg apriori of problem cases after: %.2f\n"
+                                                 "Avg apriori diff: %.2f")
+                                            (:desc hyp) (str (cur-ep est-new))
+                                            (str/join "\n" (sort-by :id problem-cases))
+                                            (str/join "\n" (sort-by :id problem-cases-new))
+                                            doubt
+                                            doubt-new
+                                            (avg (map :apriori problem-cases))
+                                            (avg (map :apriori problem-cases-new))
+                                            (- (avg (map :apriori problem-cases))
+                                               (avg (map :apriori problem-cases-new)))))))))))
 
 (defn score-meta-hyps
   [problem-cases meta-hyps est time-prev time-now sensors]
@@ -452,7 +500,9 @@
                       :AblatePct 0
                       :InvertScoresPct 0)
         meta-ws (binding [params meta-params]
-                  (let [ws-obs (reduce (fn [ws h] (add-observation ws h 0))
+                  (let [ws-obs (reduce (fn [ws h]
+                                         (-> ws (add h 0)
+                                             (accept h nil [] [] 0.0 {} 0)))
                                        (:workspace (cur-ep meta-est)) problem-cases)]
                     (reduce (fn [ws h] (add ws h 0)) ws-obs meta-hyps-scored)))
         meta-est-reasoned (binding [params meta-params]
@@ -468,15 +518,19 @@
     (let [est-abd (meta-abductive problem-cases est time-prev time-now sensors)
           meta-workspace (:workspace (cur-ep (:meta-est (cur-ep est-abd))))
           meta-accepted (filter (fn [h] (and (not (attempted (dissoc (:contents h) :action)))
-                                       (not (implicated (:contents (:implicated h))))))
-                           (apply concat (vals (select-keys (accepted meta-workspace)
-                                                            (:meta-hyp-types @reasoner)))))
+                                             (not (implicated (:contents (:implicated h))))))
+                                (apply concat (vals (select-keys (accepted meta-workspace)
+                                                                 (:meta-hyp-types @reasoner)))))
           est-applied (if (empty? meta-accepted) est-abd
                           (reduce (fn [est hyp]
-                               (let [[est-new params-new] ((:action hyp) est)]
-                                 (binding [params params-new]
-                                   (:est-new (meta-apply-and-evaluate est est-new time-now sensors)))))
-                             est-abd meta-accepted))
+                                    (let [[est-new params-new] ((:action hyp) est)
+                                          est-nocleanup (binding [params params-new]
+                                                          (:est-new (meta-apply-and-evaluate
+                                                                     est est-new time-now sensors)))]
+                                      (if-let [cleanup (:cleanup hyp)]
+                                        (cleanup est-nocleanup est)
+                                        est-nocleanup)))
+                                  est-abd meta-accepted))
           problem-cases-new (when (not-empty meta-accepted) (find-problem-cases est-applied))]
       (if (and (not-empty meta-accepted) (not-empty problem-cases-new))
         (recur problem-cases-new

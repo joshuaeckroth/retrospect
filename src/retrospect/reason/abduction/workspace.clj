@@ -374,22 +374,24 @@
       (let [rel-hyps (if undecide-related?
                        (filter #(not (undeciding-prevented? workspace %))
                                (related-hyps workspace hyp))
-                       [hyp])]
+                       [(:id hyp)])]
         (log "Undeciding" hyp "and related hyps" rel-hyps)
         (reduce (fn [ws hypid]
-                  (-> ws
-                      (update-in [:hypgraph] remove-attr hypid :accepted?)
-                      (update-in [:hypgraph] remove-attr hypid :accepted-cycle)
-                      (update-in [:hypgraph] remove-attr hypid :accepted-explained)
-                      (update-in [:hypgraph] remove-attr hypid :accepted-newly-explained)
-                      (update-in [:hypgraph] remove-attr hypid :rejected?)
-                      (update-in [:hypgraph] remove-attr hypid :rejected-cycle)
-                      (update-in [:hypgraph] remove-attr hypid :rejection-reason)
-                      (update-in [:accepted] disj hypid)
-                      (update-in [:rejected] disj hypid)
-                      (update-in [:unexplained] set/union (set (attr (:hypgraph workspace)
-                                                                     hypid :accepted-newly-explained)))
-                      (add-to-hyp-log hypid (format "Undecided at cycle %d" cycle))))
+                  (let [hyp (lookup-hyp ws hypid)]
+                    (-> ws
+                        (update-in [:hypgraph] remove-attr hypid :accepted?)
+                        (update-in [:hypgraph] remove-attr hypid :accepted-cycle)
+                        (update-in [:hypgraph] remove-attr hypid :accepted-explained)
+                        (update-in [:hypgraph] remove-attr hypid :accepted-newly-explained)
+                        (update-in [:hypgraph] remove-attr hypid :rejected?)
+                        (update-in [:hypgraph] remove-attr hypid :rejected-cycle)
+                        (update-in [:hypgraph] remove-attr hypid :rejection-reason)
+                        (update-in [:accepted] disj hypid)
+                        (update-in [:rejected] disj hypid)
+                        (?> (:needs-explainer? hyp) update-in [:unexplained] conj (:id hyp))
+                        (update-in [:unexplained] set/union (set (attr (:hypgraph workspace)
+                                                                       hypid :accepted-newly-explained)))
+                        (add-to-hyp-log hypid (format "Undecided at cycle %d" cycle)))))
                 workspace rel-hyps)))))
 
 (defn unreject
@@ -473,7 +475,8 @@
                             apriori-new (first (sort-by #(Math/abs (- (:apriori hyp) %)) levels))]
                         (assoc hyp :apriori apriori-new)))))]
       (if (< (my-rand) (double (/ (:InvertScoresPct params) 100.0)))
-        (assoc hyp-s :apriori (- 1.0 (:apriori hyp-s)))
+        (do (log "Inverting score of" hyp)
+            (assoc hyp-s :apriori (- 1.0 (:apriori hyp-s))))
         hyp-s))))
 
 (defn add-helper
@@ -560,13 +563,12 @@
      (log "Adding" hyp-c)
      (let [ws (if-let [prior-hyp-id (get (:hyp-contents workspace) (:contents hyp-c))]
                 (-> workspace
-                   (add-to-hyp-log prior-hyp-id (format "%s Added as updated hyp %s at cycle %d" hyp-c prior-hyp-id cycle))
+                   (add-to-hyp-log prior-hyp-id (format "%s Added as updated hyp %s at cycle %d (original: %s)" hyp-c prior-hyp-id cycle hyp))
                    (add-existing-hyp-updated hyp-c prior-hyp-id cycle))
                 (-> workspace
-                   (add-to-hyp-log hyp-c (format "Added at cycle %d" cycle))
+                   (add-to-hyp-log hyp-c (format "%s Added at cycle %d (original: %s)" hyp-c cycle hyp))
                    (add-helper hyp-c)))]
-       (if (and (not= :observation (:type hyp-c))
-                (not (rejected? ws hyp-c))
+       (if (and (not (rejected? ws hyp-c))
                 (conflicts-with-accepted? ws hyp-c))
          (do (log (str "...yet it conflicts with an already accepted hyp, "
                        "so immediately rejecting."))
@@ -667,11 +669,10 @@
 (defn reject-minscore
   [workspace cycle]
   (reduce (fn [ws h] (reject ws h :minscore cycle))
-     workspace (filter (fn [h] (and (not= :observation (:type h))
-                              (undecided? workspace h)
-                              (<= (:apriori h) (double (/ (:MinScore params) 100.0)))
-                              (not (prevented-rejection? workspace h :minscore))))
-                  (:all (hypotheses workspace)))))
+          workspace (filter (fn [h] (and (undecided? workspace h)
+                                         (< (:apriori h) (double (/ (:MinScore params) 100.0)))
+                                         (not (prevented-rejection? workspace h :minscore))))
+                            (:all (hypotheses workspace)))))
 
 (defn contrast-sets
   [workspace unexp]
@@ -762,14 +763,6 @@
                 (record-best-in-accgraph best contrast-sets)
                 (accept best nbest alts explained delta comparison cycle))))))))
 
-(defn add-observation
-  [workspace hyp cycle]
-  (prof
-   :add-observation
-   (let [ws-added (add workspace hyp cycle)]
-     (if (rejected? ws-added hyp) ws-added
-         (accept ws-added hyp nil [] [] 0.0 {} cycle)))))
-
 (defn add-sensor-hyps
   "Ask problem domain to make sensor hyps; then put them into workspace."
   [workspace time-prev time-now sensors cycle]
@@ -780,10 +773,15 @@
      (let [hs ((:make-sensor-hyps-fn (:abduction @problem))
                sensors time-prev time-now
                (accepted workspace) (hypotheses workspace))
-           ws (reduce #(add-observation %1 %2 cycle) workspace hs)]
+           ws-added (reduce #(add %1 %2 cycle) workspace hs)
+           ws-rej-minscore (reject-minscore ws-added cycle)
+           ws-accepted (reduce #(accept %1 %2 nil [] [] 0.0 {} cycle)
+                               ws-rej-minscore
+                               (filter (fn [h] (undecided? ws-rej-minscore h))
+                                       (map #(lookup-hyp ws-rej-minscore (:id %)) hs)))]
        (if (:ClearAccGraphSensors params)
-         (assoc ws :accgraph (digraph))
-         ws)))))
+         (assoc ws-accepted :accgraph (digraph))
+         ws-accepted)))))
 
 (defn add-kb
   [workspace hyps]
