@@ -31,13 +31,13 @@
      (merge {:Threshold [0 [0]]
              :MetaMinScore [0 [0]]
              :MetaThreshold [0 [0]]
-             :MetaOracle ["meta-rej-conflict,meta-rej-minscore,meta-order-dep,meta-impl-ev"
-                          ["meta-rej-conflict,meta-rej-minscore,meta-order-dep,meta-impl-ev"]]
-             :MetaHyps ["meta-rej-conflict,meta-rej-minscore,meta-order-dep,meta-impl-ev"
-                        ["meta-rej-conflict,meta-rej-minscore,meta-order-dep,meta-impl-ev"]]
+             :MetaOracle ["meta-impl-ev,meta-impl-exp,meta-conf-exp"
+                          ["meta-impl-ev,meta-impl-exp,meta-conf-exp"]]
+             :MetaHyps ["meta-impl-ev,meta-impl-exp,meta-conf-exp"
+                        ["meta-impl-ev,meta-impl-exp,meta-conf-exp"]]
              :ScoreMetaHyps ["doubt-diff" ["doubt-diff" "doubt" "apriori-diff"]]
              :EstimateMetaScores [false [true false]]
-             :RemoveConflictingRejMinScore [true [true false]]
+             :RemoveConflictingImplExp [true [true false]]
              :MinScore [0 [0 10]]
              :AblatePct [0 [0 10]]
              :InvertScoresPct [0 [0 10]]
@@ -69,7 +69,7 @@
              :ConsiderExplPower [false [true false]]
              :NormalizeDelta [true [true false]]}
             (:default-params (:abduction @problem))))
-   :meta-hyp-types #{:meta-rej-minscore :meta-rej-conflict :meta-order-dep :meta-impl-ev}
+   :meta-hyp-types #{:meta-impl-ev :meta-impl-exp :meta-conf-exp}
    :init-workspace-fn init-workspace
    :init-kb-fn init-kb
    :player-fns

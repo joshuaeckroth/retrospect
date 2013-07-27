@@ -318,18 +318,15 @@
   "Note that hyp may be a non-meta hyp if it's a problem case."
   [truedata hyp]
   (let [t? (partial (:oracle-fn @problem) truedata)]
-    (if (cond (= :meta-rej-minscore (:type hyp))
+    (if (cond (= :meta-impl-exp (:type hyp))
               (and (not-empty (:resolves hyp))
                    (some t? (:resolves hyp))
                    (t? (:implicated hyp)))
-              (= :meta-rej-conflict (:type hyp))
+              (= :meta-conf-exp (:type hyp))
               (and (not-empty (:resolves hyp))
                    (some t? (:resolves hyp))
                    (not (t? (:implicated hyp)))
                    (some t? (:rejected hyp)))
-              (= :meta-order-dep (:type hyp))
-              (and (not-empty (:resolves hyp))
-                   (some t? (:resolves hyp)))
               (= :meta-impl-ev (:type hyp))
               (and (not-empty (:resolves hyp))
                    (some t? (:resolves hyp)))
@@ -391,20 +388,16 @@
              (keyword (format "FalseDoubtNew%s" k)) (avg-doubt-new t false)
              (keyword (format "FalseDoubtDiff%s" k)) (avg-doubt-diff t false)
              (keyword (format "FalseExplainCount%s" k)) (avg-explain-count t false))))
-       {:TrueMetaOrderDepTimeDeltaAvg
-        (avg (map :time-delta (get-in meta-true-false [:meta-order-dep true])))
-        :FalseMetaOrderDepTimeDeltaAvg
-        (avg (map :time-delta (get-in meta-true-false [:meta-order-dep false])))
-        :TrueMetaRejMinscoreScoreDeltaAvg
-        (avg (map :score-delta (get-in meta-true-false [:meta-rej-minscore true])))
-        :FalseMetaRejMinscoreScoreDeltaAvg
-        (avg (map :score-delta (get-in meta-true-false [:meta-rej-minscore false])))
-        :TrueMetaRejMinscoreConflictsAccepted
-        (let [hyps (get-in meta-true-false [:meta-rej-minscore true])]
+       {:TrueMetaImplExpScoreDeltaAvg
+        (avg (map :score-delta (get-in meta-true-false [:meta-impl-exp true])))
+        :FalseMetaImplExpScoreDeltaAvg
+        (avg (map :score-delta (get-in meta-true-false [:meta-impl-exp false])))
+        :TrueMetaImplExpConflictsAccepted
+        (let [hyps (get-in meta-true-false [:meta-impl-exp true])]
           (if (empty? hyps) 0.0
               (double (/ (count (filter :conflicts-with-accepted? hyps)) (count hyps)))))
-        :FalseMetaRejMinscoreConflictsAccepted
-        (let [hyps (get-in meta-true-false [:meta-rej-minscore false])]
+        :FalseMetaImplExpConflictsAccepted
+        (let [hyps (get-in meta-true-false [:meta-impl-exp false])]
           (if (empty? hyps) 0.0
               (double (/ (count (filter :conflicts-with-accepted? hyps)) (count hyps)))))}
        (:meta-hyp-types @reasoner))))
