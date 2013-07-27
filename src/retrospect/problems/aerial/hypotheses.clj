@@ -36,8 +36,7 @@
 
 (defn move-prob
   [det det2 moves-dist]
-  (let [d (dist (:x det) (:y det) (:x det2) (:y det2))]
-    (double (/ 1.0 (+ 1.0 d)))))
+  (Math/abs (- (:detscore det) (:detscore det2))))
 
 (defn conflicts?
   [h1 h2]
