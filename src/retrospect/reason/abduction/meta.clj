@@ -363,7 +363,6 @@
 (defn meta-abductive
   [anomalies est time-prev time-now sensors]
   (let [meta-hyps (make-meta-hyps anomalies est time-prev time-now)
-        _ (println "meta-hyps:" meta-hyps)
         [est-new meta-hyps-scored] (score-meta-hyps anomalies meta-hyps est time-prev time-now sensors)
         meta-ws (if (= "oracle" (:Metareasoning params))
                   (assoc (init-workspace)
