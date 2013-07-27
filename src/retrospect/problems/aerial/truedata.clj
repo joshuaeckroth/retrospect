@@ -19,12 +19,12 @@
         {:keys [xc yc w h]} (:attrs box)
         {:keys [type r]} (:attrs rep)
         {:keys [value]} (:attrs detscore)
-        x (int (Double/parseDouble xc))
-        y (int (Double/parseDouble yc))
+        x (Double/parseDouble xc)
+        y (Double/parseDouble yc)
         w (int (Double/parseDouble w))
         h (int (Double/parseDouble h))
-        x0 (int (- x (/ w 2)))
-        y0 (int (- y (/ h 2)))
+        x0 (int (- (int x) (/ w 2)))
+        y0 (int (- (int y) (/ h 2)))
         pixels (for [px (range x0 (+ x0 w)) py (range y0 (+ y0 h))]
                  (.getRGB img px py))]
     {:objid (:id (:attrs object))
@@ -52,10 +52,27 @@
                                                               (:objects frame))))))
             {} (range (count frames)))))
 
+(defn find-movements
+  [frames]
+  (let [framesvec (vec (vals frames))]
+    (apply concat
+           (for [framenum (range (dec (count framesvec)))]
+             (let [thisframe (nth framesvec framenum)
+                   nextframe (nth framesvec (inc framenum))]
+               (mapcat
+                (fn [object]
+                  (let [objid (:objid object)
+                        object2-options (filter #(= objid (:objid %)) (:objects nextframe))]
+                    (for [object2 object2-options]
+                      {:ox (:x object) :oy (:y object) :ot (:time object)
+                       :x (:x object2) :y (:y object2) :time (:time object2)})))
+                (:objects thisframe)))))))
+
 (defn generate-truedata
   []
   (let [frames-test (frames-from-xml (:Folder params) "test")
         frames-truth (frames-from-xml (:Folder params) "truth")]
     {:test frames-test
      :truth frames-truth
+     :all-moves (find-movements frames-truth)
      :training {}}))

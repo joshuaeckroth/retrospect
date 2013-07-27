@@ -7,29 +7,47 @@
   (:use [retrospect.state]))
 
 (defn near?
+  [x1 x2]
+  (< (Math/abs (- x1 x2)) 1.0))
+
+(defn det-obj-near?
   [det obj]  
-  (and (< (Math/abs (- (:x det) (:x obj))) 1.0)
-       (< (Math/abs (- (:y det) (:y obj))) 1.0)))
+  (and (near? (:x det) (:x obj))
+       (near? (:y det) (:y obj))))
 
 (defn true-hyp?
   [truedata hyp]
   (let [frames (:truth truedata)]
     (cond (= :observation (:type hyp))
           (let [det (:det hyp)]
-            (not= nil (:objid (first (filter #(near? det %) (:objects (get frames (:time det))))))))
+            (not= nil (:objid (first (filter #(det-obj-near? det %) (:objects (get frames (:time det))))))))
           (= :movement (:type hyp))
           (let [{:keys [det det2]} hyp
-                objid1 (:objid (first (filter #(near? det %) (:objects (get frames (:time det))))))
-                objid2 (:objid (first (filter #(near? det2 %) (:objects (get frames (:time det2))))))]
+                objid1 (:objid (first (filter #(det-obj-near? det %) (:objects (get frames (:time det))))))
+                objid2 (:objid (first (filter #(det-obj-near? det2 %) (:objects (get frames (:time det2))))))]
             (and (not= nil objid1) (= objid1 objid2))))))
 
+(defn moves-match?
+  [mov1 mov2]
+  (and (near? (:x mov1) (:x mov2))
+       (near? (:ox mov1) (:ox mov2))
+       (near? (:y mov1) (:y mov2))
+       (near? (:oy mov1) (:oy mov2))
+       (= (:time mov1) (:time mov2))
+       (= (:ot mov1) (:ot mov2))))
+
+(defn count-matches
+  [true-movs movs]
+  (count (filter (fn [m] (some #(moves-match? m %) true-movs)) movs)))
+
 (defn tp-tn-fp-fn
-  [truedata acc-mov-hyps not-acc-mov-hyps]
-  (let [true-pos (count (filter #(true-hyp? truedata %) acc-mov-hyps))
-        false-pos (- (count acc-mov-hyps) true-pos)
-        false-neg (count (filter #(true-hyp? truedata %) not-acc-mov-hyps))
-        true-neg (- (count not-acc-mov-hyps) false-neg)]
-    [true-pos true-neg false-pos false-neg]))
+  [true-movs acc-movs not-acc-movs]
+  (if (empty? true-movs) [0 0 0 0]
+      (let [true-pos (count-matches true-movs acc-movs)
+            false-pos (- (count acc-movs) true-pos)
+            false-neg (count-matches true-movs not-acc-movs)
+            true-neg (- (count not-acc-movs) false-neg)]
+        [true-pos true-neg false-pos false-neg])))
 
 (defn calc-prec-recall
   [tp tn fp fn]
@@ -43,6 +61,11 @@
      :Prec prec
      :F1 (/ (* 2.0 prec recall) (+ prec recall))}))
 
+(defn get-true-movements
+  [truedata time-now]
+  (set (filter #(and (:ot %) (<= (:time %) time-now))
+               (:all-moves truedata))))
+
 (defn evaluate
   [truedata est]
   (if (or (and (not training?) (not @batch))
@@ -51,9 +74,10 @@
           (for [ep (decision-points est)]
             (let [ws (:workspace ep)
                   time-now (:time ep)
-                  acc-movs (:movement (accepted ws))
-                  not-acc-movs (set/difference (set (:movement (hypotheses ws))) (set acc-movs))
-                  [tp tn fp fn] (tp-tn-fp-fn truedata acc-movs not-acc-movs)
+                  true-moves (get-true-movements truedata time-now)
+                  acc-movs (map :mov (:movement (accepted ws)))
+                  rej-movs (map :mov (:movement (rejected ws)))
+                  [tp tn fp fn] (tp-tn-fp-fn true-moves acc-movs rej-movs)
                   true-det-scores (map (comp :detscore :det)
                                        (filter #(true-hyp? truedata %) (:observation (hypotheses ws))))
                   false-det-scores (map (comp :detscore :det)
