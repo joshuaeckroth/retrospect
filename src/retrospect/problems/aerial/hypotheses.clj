@@ -11,15 +11,16 @@
   (double (Math/sqrt (+ (* (- x1 x2) (- x1 x2))
                         (* (- y1 y2) (- y1 y2))))))
 
-(defn compute-moves-dist
+(defn compute-avg-moves-dist
   [moves]
-  0.5)
+  (avg (map (fn [{:keys [ox oy x y]}] (dist ox oy x y)) moves)))
 
 (defn generate-kb
   [training]
+  (println (compute-avg-moves-dist (:all-moves training)))
   [(new-hyp "KB" :kb :kb 1.0 false nil nil [] "" ""
-            {:moves (:moves training)
-             :moves-dist (compute-moves-dist (:moves training))})])
+            {:moves (:all-moves training)
+             :avg-moves-dist (compute-avg-moves-dist (:all-moves training))})])
 
 (defn get-kb
   [accepted]
@@ -31,12 +32,18 @@
   (let [mov-hyps (:movement accepted)
         old-kb (get-kb accepted)
         kb-moves (update-in old-kb [:moves] concat (map :mov mov-hyps))
-        kb-moves-dist (assoc kb-moves :moves-dist (compute-moves-dist (:moves kb-moves)))]
+        kb-moves-dist (assoc kb-moves :moves-dist (compute-avg-moves-dist (:moves kb-moves)))]
     [kb-moves-dist]))
 
 (defn move-prob
-  [det det2 moves-dist]
-  (/ (+ (:detscore det) (:detscore det2)) 2.0))
+  [det det2 avg-moves-dist]
+  (cond (= "avg-detscores" (:MovementApriori params))
+        (/ (+ (:detscore det) (:detscore det2)) 2.0)
+        (= "dist" (:MovementApriori params))
+        (/ 1.0 (+ 1.0 (dist (:x det) (:y det) (:x det2) (:y det2))))
+        (= "dist-diff" (:MovementApriori params))
+        (let [d (dist (:x det) (:y det) (:x det2) (:y det2))]
+          (- 1.0 (/ (Math/abs (- d avg-moves-dist)) (+ (Math/abs (- d avg-moves-dist)) d))))))
 
 (defn conflicts?
   [h1 h2]
@@ -78,7 +85,7 @@
                      (= (:ot mov1) (:ot mov2)))))))))
 
 (defn make-sensor-hyp
-  [{:keys [x y time detscore] :as det} from-to other-dets moves-dist]
+  [{:keys [x y time detscore] :as det} from-to other-dets]
   (new-hyp (format "Sens%s" (if (= :from from-to) "From" "To"))
            :observation from-to (:detscore det)
            true nil nil []
@@ -89,7 +96,6 @@
 (defn make-sensor-hyps
   [sensors time-prev time-now accepted hypotheses]
   (let [kb (get-kb accepted)
-        moves-dist (:moves-dist kb)
         acc-dets (map :det (:observation accepted))
         sensed-dets (mapcat (fn [t] (sensed-at (first sensors) t))
                             (range time-prev (inc time-now)))
@@ -103,16 +109,16 @@
          (mapcat (fn [det] (cond
                             ;; if det has time 0 or time-prev, only generate "to" report
                             (and (= (:time det) to-time))
-                            [(make-sensor-hyp det :to next-dets moves-dist)]
+                            [(make-sensor-hyp det :to next-dets)]
                             ;; if det has time equal to steps or time-now,
                             ;; only generate "from" report
                             (and (= (:time det) from-time))
-                            [(make-sensor-hyp det :from prior-dets moves-dist)]
+                            [(make-sensor-hyp det :from prior-dets)]
                             ;; otherwise, generate both "from" and "to" reports
                             (and (not= (:time det) to-time)
                                  (not= (:time det) from-time))
-                            [(make-sensor-hyp det :to next-dets moves-dist)
-                             (make-sensor-hyp det :from prior-dets moves-dist)]
+                            [(make-sensor-hyp det :to next-dets)
+                             (make-sensor-hyp det :from prior-dets)]
                             :else []))
                  (sort-by :time sensed-dets))))))
 
@@ -127,11 +133,11 @@
        (= (:time det) (:time det2))))
 
 (defn new-mov-hyp
-  [to from acc-mov-hyps moves-dist]
+  [to from acc-mov-hyps avg-moves-dist]
   (prof :new-mov-hyp
         (let [det (:det to) det2 (:det from)
               d (dist (:x det) (:y det) (:x det2) (:y det2))
-              apriori (move-prob det det2 moves-dist)
+              apriori (move-prob det det2 avg-moves-dist)
               ;; these should all be the same, if not empty
               objids (map (comp :objid :mov)
                           (filter (fn [{mdet :det mdet2 :det2}]
@@ -175,7 +181,7 @@
                   (fn [evidence]
                     (let [acc-mov-hyps (sort-by (comp :time :mov) (:movement accepted))
                           nearby (filter #(dets-nearby? evidence %) sensor-to-hyps)
-                          mov-hyps (doall (map #(new-mov-hyp % evidence acc-mov-hyps (:moves-dist kb))
+                          mov-hyps (doall (map #(new-mov-hyp % evidence acc-mov-hyps (:avg-moves-dist kb))
                                                nearby))]
                       (filter #(< 0.01 (:apriori %)) mov-hyps)))
                   sensor-from-hyps)))))

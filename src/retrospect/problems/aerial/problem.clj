@@ -44,5 +44,6 @@
    :default-params
    {:Steps [5 [5]]
     :StepsBetween [1 [1]]
-    :DetScore ["max" ["min" "max" "avg"]]
+    :MovementApriori ["dist" ["dist" "avg-detscores"]]
+    :TrainingCount [10 [10]]
     :Folder ["AA_Easy_01" ["AA_Easy_01"]]}})

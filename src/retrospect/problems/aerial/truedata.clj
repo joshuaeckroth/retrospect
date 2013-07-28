@@ -55,7 +55,7 @@
 
 (defn find-movements
   [frames]
-  (let [framesvec (vec (vals frames))]
+  (let [framesvec (vec (map second (sort-by first (seq frames))))]
     (apply concat
            (for [framenum (range (dec (count framesvec)))]
              (let [thisframe (nth framesvec framenum)
@@ -72,8 +72,14 @@
 (defn generate-truedata
   []
   (let [frames-test (frames-from-xml (:Folder params) "test")
-        frames-truth (frames-from-xml (:Folder params) "truth")]
-    {:test frames-test
-     :truth frames-truth
-     :all-moves (find-movements frames-truth)
-     :training {}}))
+        frames-truth (frames-from-xml (:Folder params) "truth")
+        frames-count (count frames-test)
+        train-start (- frames-count (:TrainingCount params))
+        frames-train (select-keys frames-truth (range train-start frames-count))
+        frames-test-subset (select-keys frames-test (range train-start))
+        frames-truth-subset (select-keys frames-truth (range train-start))]
+    {:test frames-test-subset
+     :truth frames-truth-subset
+     :all-moves (find-movements frames-truth-subset)
+     :training {:frames frames-train
+                :all-moves (find-movements frames-train)}}))
