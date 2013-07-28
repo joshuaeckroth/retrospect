@@ -57,7 +57,7 @@
               (calc-prec-recall tp tn fp fn (count true-movs))))]
       (merge (last metrics)
              {:AvgPrec (avg (map :Prec metrics))
-              :AvgRecall (avg (map :Coverage metrics))
+              :AvgRecall (avg (map :Recall metrics))
               :AvgF1 (avg (map :F1 metrics))
               :AvgTPR (avg (map :TPR metrics))
               :AvgFPR (avg (map :FPR metrics))}))
