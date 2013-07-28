@@ -432,7 +432,7 @@
                 meta-implausible-explainers
                 (or (= "abd" m) (= "oracle" m))
                 meta-abductive-recursive
-                (= "false-ev" m)
+                (= "assume-false-ev" m)
                 (constantly nil))
         result (f anomalies est time-prev time-now sensors)
         anomalies-old (if result (find-anomalies (:est-old result))
