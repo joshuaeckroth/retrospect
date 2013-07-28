@@ -31,14 +31,14 @@
     (if (empty? vs) 0.0
         (/ (double (reduce + vs)) (double (count vs))))))
 
-(defn calc-prec-coverage
+(defn calc-prec-recall
   [tp tn fp fn event-count]
-  (let [coverage (/ (double tp) (double event-count))
+  (let [recall (/ (double tp) (double event-count))
         prec (/ (double tp) (double (+ tp fp)))]
     ;; http://en.wikipedia.org/wiki/Receiver_operating_characteristic
     {:TP tp :TN tn :FP fp :FN fn
      :TPR (/ (double tp) (double (+ tp fn)))
      :FPR (/ (double fp) (double (+ fp tn)))
-     :Coverage coverage
+     :Recall recall
      :Prec prec
-     :F1 (/ (* 2.0 prec coverage) (+ prec coverage))}))
+     :F1 (/ (* 2.0 prec recall) (+ prec recall))}))

@@ -45,16 +45,16 @@
                 rej (:expl (rejected ws))
                 {mpe :states} (most-probable-explanation bn)
                 [etp etn efp efn] (tp-tn-fp-fn mpe acc rej)
-                mpe-prec-coverage (calc-prec-coverage etp etn efp efn (count mpe))]
-            {:Prec (:Prec mpe-prec-coverage)
-             :Coverage (:Coverage mpe-prec-coverage)
-             :F1 (:F1 mpe-prec-coverage)
-             :TPR (:TPR mpe-prec-coverage)
-             :FPR (:FPR mpe-prec-coverage)}))]
+                mpe-prec-recall (calc-prec-recall etp etn efp efn (count mpe))]
+            {:Prec (:Prec mpe-prec-recall)
+             :Recall (:Recall mpe-prec-recall)
+             :F1 (:F1 mpe-prec-recall)
+             :TPR (:TPR mpe-prec-recall)
+             :FPR (:FPR mpe-prec-recall)}))]
     (merge (last metrics)
            (compute-complexity expgraph)
            {:AvgPrec (avg (map :Prec metrics))
-            :AvgCoverage (avg (map :Coverage metrics))
+            :AvgRecall (avg (map :Recall metrics))
             :AvgF1 (avg (map :F1 metrics))
             :AvgTPR (avg (map :TPR metrics))
             :AvgFPR (avg (map :FPR metrics))})))
@@ -62,7 +62,7 @@
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
-                  [:Prec :AvgPrec :Coverage :AvgCoverage :F1 :AvgF1
+                  [:Prec :AvgPrec :Recall :AvgRecall :F1 :AvgF1
                    :TPR :FPR :AvgTPR :AvgFPR])))
 
 (defn stats

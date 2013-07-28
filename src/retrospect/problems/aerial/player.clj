@@ -23,13 +23,13 @@
          :constrains (java.awt.GridBagConstraints.)
          [:gridx 0 :gridy 0 :weightx 1.0 :weighty 0.0
           :fill :BOTH :insets (Insets. 5 5 5 5)
-          _ (label "Recall:")
-          :gridx 1
-          _ recall-label
-          :gridx 0 :gridy 1
           _ (label "Prec:")
           :gridx 1
           _ prec-label
+          :gridx 0 :gridy 1
+          _ (label "Recall:")
+          :gridx 1
+          _ recall-label
           :gridx 0 :gridy 2
           _ (label "Unexplained:")
           :gridx 1

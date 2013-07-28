@@ -26,7 +26,7 @@
 (def current-expgraph-svg (ref ""))
 
 (def prec-label (label ""))
-(def coverage-label (label ""))
+(def recall-label (label ""))
 (def f1-label (label ""))
 (def unexp-label (label ""))
 (def noexp-label (label ""))
@@ -95,9 +95,9 @@
           :gridx 1
           _ prec-label
           :gridx 0 :gridy 1
-          _ (label "Coverage:")
+          _ (label "Recall:")
           :gridx 1
-          _ coverage-label
+          _ recall-label
           :gridx 0 :gridy 2
           _ (label "F1:")
           :gridx 1
@@ -116,13 +116,13 @@
   (if-let [results (last (:results (cur-ep (:est @or-state))))]
     (do
       (. prec-label (setText (format "%.2f" (:Prec results))))
-      (. coverage-label (setText (format "%.2f" (:Coverage results))))
+      (. recall-label (setText (format "%.2f" (:Recall results))))
       (. f1-label (setText (format "%.2f" (:F1 results))))
       (. unexp-label (setText (format "%.2f" (:UnexplainedPct results))))
       (. noexp-label (setText (format "%.2f" (:NoExplainersPct results)))))
     (do
       (. prec-label (setText "N/A"))
-      (. coverage-label (setText "N/A"))
+      (. recall-label (setText "N/A"))
       (. f1-label (setText "N/A"))
       (. unexp-label (setText "N/A"))
       (. noexp-label (setText "N/A")))))

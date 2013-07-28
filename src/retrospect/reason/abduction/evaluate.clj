@@ -510,7 +510,7 @@
                 not-noise-claims-false (set (filter #(not (tf-true? true-false %)) not-noise-claims))
                 not-noise-claims-false-solitary (filter #(= :solitary (classify-noise ws true-false %)) not-noise-claims-false)
                 not-noise-claims-false-conflicting (filter #(= :conflicting (classify-noise ws true-false %)) not-noise-claims-false)
-                noise-prec-coverage (calc-prec-coverage
+                noise-prec-recall (calc-prec-recall
                                      (count noise-claims-true) ;; tp
                                      (count not-noise-claims-true) ;; tn
                                      (count noise-claims-false) ;; fp
@@ -524,11 +524,11 @@
              :NoiseTotal (count noise-obs)
              :NoiseClaimsTrue (count noise-claims-true)
              :NoiseClaimsFalse (count noise-claims-false)
-             :NoiseClaimsPrec (:Prec noise-prec-coverage)
-             :NoiseClaimsCoverage (:Coverage noise-prec-coverage)
-             :NoiseClaimsF1 (:F1 noise-prec-coverage)
-             :NoiseClaimsTPR (:TPR noise-prec-coverage)
-             :NoiseClaimsFPR (:FPR noise-prec-coverage)
+             :NoiseClaimsPrec (:Prec noise-prec-recall)
+             :NoiseClaimsRecall (:Recall noise-prec-recall)
+             :NoiseClaimsF1 (:F1 noise-prec-recall)
+             :NoiseClaimsTPR (:TPR noise-prec-recall)
+             :NoiseClaimsFPR (:FPR noise-prec-recall)
              :NoiseClaimsTrueSolitaryPct (if (empty? noise-claims-true) Double/NaN
                                              (double (/ (count noise-claims-true-solitary)
                                                         (count noise-claims-true))))
@@ -559,7 +559,7 @@
             :AvgUnexplainedPct (avg (map :UnexplainedPct decision-metrics))
             :AvgNoExplainersPct (avg (map :NoExplainersPct decision-metrics))
             :AvgNoiseClaimsPrec (avg (map :NoiseClaimsPrec decision-metrics))
-            :AvgNoiseClaimsCoverage (avg (map :NoiseClaimsCoverage decision-metrics))
+            :AvgNoiseClaimsRecall (avg (map :NoiseClaimsRecall decision-metrics))
             :AvgNoiseClaimsF1 (avg (map :NoiseClaimsF1 decision-metrics))
             :AvgNoiseClaimsTPR (avg (map :NoiseClaimsTPR decision-metrics))
             :AvgNoiseClaimsFPR (avg (map :NoiseClaimsFPR decision-metrics))
@@ -618,7 +618,7 @@
                                :NoExpReasonRejectedMinScore :NoExpReasonNoExpl
                                :NoExpReasonUnknown :NoiseTotal
                                :NoiseClaimsTrue :NoiseClaimsFalse
-                               :NoiseClaimsPrec :NoiseClaimsCoverage :NoiseClaimsF1]
+                               :NoiseClaimsPrec :NoiseClaimsRecall :NoiseClaimsF1]
                               (mapcat
                                (fn [tf]
                                  (map #(keyword

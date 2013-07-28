@@ -49,18 +49,6 @@
             true-neg (- (count not-acc-movs) false-neg)]
         [true-pos true-neg false-pos false-neg])))
 
-(defn calc-prec-recall
-  [tp tn fp fn]
-  (let [recall (/ (double tp) (double (+ tp fn)))
-        prec (/ (double tp) (double (+ tp fp)))]
-    ;; http://en.wikipedia.org/wiki/Receiver_operating_characteristic
-    {:TP tp :TN tn :FP fp :FN fn
-     :TPR (/ (double tp) (double (+ tp fn)))
-     :FPR (/ (double fp) (double (+ fp tn)))
-     :Recall recall
-     :Prec prec
-     :F1 (/ (* 2.0 prec recall) (+ prec recall))}))
-
 (defn get-true-movements
   [truedata time-now]
   (set (filter #(and (:ot %) (<= (:time %) time-now))
@@ -103,7 +91,7 @@
                                               (str/join "\n" (map #(format "FALSE,%f,%f" %1 %2)
                                                                   false-move-dists false-move-avgpixels))))
               (merge
-               (calc-prec-recall tp tn fp fn)
+               (calc-prec-recall tp tn fp fn (count true-moves))
                {:AvgTrueMovDist (avg true-move-dists)
                 :AvgFalseMovDist (avg false-move-dists)
                 :AvgTrueDetScore (avg true-det-scores)
