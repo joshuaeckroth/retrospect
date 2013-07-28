@@ -25,8 +25,9 @@
         h (int (Double/parseDouble h))
         x0 (int (- (int x) (/ w 2)))
         y0 (int (- (int y) (/ h 2)))
-        pixels (for [px (range x0 (+ x0 w)) py (range y0 (+ y0 h))]
-                 (.getRGB img px py))]
+        pixels (try (doall (for [px (range x0 (+ x0 w)) py (range y0 (+ y0 h))]
+                             (.getRGB img px py)))
+                    (catch Exception e []))]
     {:objid (:id (:attrs object))
      :x x :y y
      :detscore (Double/parseDouble (or value "0.0"))
