@@ -121,17 +121,32 @@
 
 (defn resolve-implausible-evidence
   [est]
-  (let [old-ws (:workspace (cur-ep est))
+  (let [old-ep (cur-ep est)
+        old-ws (:workspace (cur-ep est))
+        ;; restore all observations rejected due to minscore
+        implicated (filter (fn [obs] (= :minscore (rejection-reason old-ws obs)))
+                           (:observation (rejected old-ws)))
+        ws-all-restored (reduce (fn [ws hyp]
+                                  (-> ws (undecide hyp (:cycle old-ep))
+                                      (accept hyp nil [] [] 0.0 {} (:cycle old-ep))))
+                                old-ws implicated)
+        ;; generate new explainers
+        ws-new-exp (update-hypotheses ws-all-restored (:cycle old-ep) (:time old-ep))
+        ;; gather newly-added explainers of anomalies
+        rel-anomalies (filter #(= :no-expl-offered (classify-noexp-reason old-ws %)) (find-anomalies est))
+        new-exp (set (mapcat (fn [anomaly] (explainers ws-new-exp anomaly)) rel-anomalies))
+        ;; collect minscore-rejected observations that new-exp explain (which include rel-anomalies)
+        obs-new-exp (filter (fn [obs] (= :minscore (rejection-reason old-ws obs)))
+                            (set (mapcat (fn [hyp] (explains ws-new-exp hyp)) new-exp)))
+        ;; finally, add back just these observations
         new-est (new-branch-ep est (cur-ep est))
         ep (cur-ep new-est)
-        implicated (filter (fn [h] (= :minscore (rejection-reason old-ws h)))
-                           (:observation (rejected old-ws)))
-        ws-prevent-rejection (reduce (fn [ws hyp]
-                                       (-> ws (undecide hyp (:cycle ep))
-                                           (accept hyp nil [] [] 0.0 {} (:cycle ep))))
-                                     (:workspace ep) implicated)
-        ep-prevent-rejection (assoc ep :workspace ws-prevent-rejection)]
-    [(update-est new-est ep-prevent-rejection) params]))
+        ws-subset-restored (reduce (fn [ws hyp]
+                                     (-> ws (undecide hyp (:cycle ep))
+                                         (accept hyp nil [] [] 0.0 {} (:cycle ep))))
+                                   (:workspace ep) obs-new-exp)
+        ep-subset-restored (assoc ep :workspace ws-subset-restored)]
+    [(update-est new-est ep-subset-restored) params]))
 
 (defn resolve-implausible-evidence-cleanup
   [est est-prior]
