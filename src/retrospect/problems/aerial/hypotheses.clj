@@ -17,7 +17,6 @@
 
 (defn generate-kb
   [training]
-  (println (compute-avg-moves-dist (:all-moves training)))
   [(new-hyp "KB" :kb :kb 1.0 false nil nil [] "" ""
             {:moves (:all-moves training)
              :avg-moves-dist (compute-avg-moves-dist (:all-moves training))})])
