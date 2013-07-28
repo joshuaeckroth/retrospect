@@ -428,7 +428,7 @@
   [est time-prev time-now sensors]
   (let [anomalies (find-anomalies est)
         m (:Metareasoning params)
-        f (cond (= "impl-exp" m)
+        f (cond (= "only-impl-exp" m)
                 meta-implausible-explainers
                 (or (= "abd" m) (= "oracle" m))
                 meta-abductive-recursive
