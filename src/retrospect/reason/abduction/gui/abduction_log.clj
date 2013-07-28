@@ -18,7 +18,8 @@
   (:use [retrospect.reason.abduction.evaluate :only
          [true-meta-hyp? find-meta-hyps group-hyps-by-true-false classify-error classify-noexp-reason]])
   (:use [retrospect.gui.common])
-  (:use [retrospect.state]))
+  (:use [retrospect.state])
+  (:use [geppetto.profile :only [prof]]))
 
 (def abduction-tree-map (ref {}))
 (def hyps-true-false (ref nil))
@@ -95,7 +96,7 @@
 (defn update-hyp-info
   [workspace hyp meta?]
   (let [hyp-tf? (fn [hyp] (or (and meta? (true-meta-hyp? @truedata hyp))
-                             (and (not meta?) ((:oracle-fn @problem) @truedata hyp))))
+                              (and (not meta?) ((:oracle-fn @problem) @truedata hyp))))
         explains (sort-by :name anc (ws/explains workspace hyp))
         explainers (for [es (vals (group-by :type (ws/explainers workspace hyp)))]
                      (sort-by :name anc es))
@@ -128,61 +129,65 @@
 
 (defn build-cycle
   [workspace]
-  (let [accrej (:accrej workspace)]
-    (if (empty? accrej) {}
-        {(format "Best %s" (if (:essential? accrej) "essential"
-                          (format "delta %.2f" (:delta accrej))))
-         {(:name (:best accrej)) nil}
-         "Explained" {(:name (:explained accrej)) nil}
-         "Alternatives" (list-hyps (:alts accrej))
-         "Accepted" (list-hyps (map #(ws/lookup-hyp workspace %) (:acc accrej)))
-         "Rejected" (list-hyps (map #(ws/lookup-hyp workspace %) (:rej accrej)))})))
+  (prof
+   :gui-build-cycle
+   (let [accrej (:accrej workspace)]
+     (if (empty? accrej) {}
+         {(format "Best %s" (if (:essential? accrej) "essential"
+                                (format "delta %.2f" (:delta accrej))))
+          {(:name (:best accrej)) nil}
+          "Explained" {(:name (:explained accrej)) nil}
+          "Alternatives" (list-hyps (:alts accrej))
+          "Accepted" (list-hyps (map #(ws/lookup-hyp workspace %) (:acc accrej)))
+          "Rejected" (list-hyps (map #(ws/lookup-hyp workspace %) (:rej accrej)))}))))
 
 (defn build-abduction-tree-map
   [est meta?]
-  (let [ep-states (flatten-est est)        
-        ws-fn (fn [ws]
-                (let [tf-fn (fn [hyp] (if meta?
-                                       (true-meta-hyp? @truedata hyp)
-                                       ((:oracle-fn @problem) @truedata hyp)))]
-                  {"Hypotheses"
-                   (apply merge
-                          (for [t (keys (:hypotheses ws))]
-                            (let [all-hyps (get (ws/hypotheses ws) t)
-                                  acc-hyps (get (ws/accepted ws) t)
-                                  rej-hyps (get (ws/rejected ws) t)
-                                  ;; TODO: fix group-by or not-group-by
-                                  not-acc-hyps (get (ws/undecided ws) t)
-                                  all-tf-hyps (group-by tf-fn all-hyps)
-                                  acc-tf-hyps (group-by tf-fn acc-hyps)
-                                  rej-tf-hyps (group-by tf-fn rej-hyps)
-                                  not-acc-tf-hyps (group-by tf-fn not-acc-hyps)]
-                              {(name t)
-                               (sorted-map
-                                "*" (list-hyps all-hyps)
-                                "*/T" (list-hyps (get all-tf-hyps true))
-                                "*/F" (list-hyps (get all-tf-hyps false))
-                                "Acc" (list-hyps acc-hyps)
-                                "Acc/T" (list-hyps (get acc-tf-hyps true))
-                                "Acc/F" (list-hyps (get acc-tf-hyps false))
-                                "Rej" (list-hyps rej-hyps)
-                                "Rej/T" (list-hyps (get rej-tf-hyps true))
-                                "Rej/F" (list-hyps (get rej-tf-hyps false))
-                                "Und" (list-hyps not-acc-hyps)
-                                "Und/T" (list-hyps (get not-acc-tf-hyps true))
-                                "Und/F" (list-hyps (get not-acc-tf-hyps false)))})))
-                   "Cycle" (build-cycle ws)
-                   "No explainers" (list-hyps (ws/no-explainers ws))
-                   "Unexplained" (list-hyps (ws/unexplained ws))}))]
-    (apply sorted-map-by anc
-           (mapcat (fn [ep]
-                     (let [tree {"Workspace" (assoc (ws-fn (:workspace ep)) "Log" nil)}]
-                       [(str ep)
-                        (if-not (:meta-est ep) tree
-                                (assoc tree
-                                  "Abductive Meta"
-                                  (build-abduction-tree-map (:meta-est ep) true)))]))
-                   ep-states))))
+  (prof
+   :gui-build-abduction-tree-map
+   (let [ep-states (flatten-est est)        
+         ws-fn (fn [ws]
+                 (let [tf-fn (fn [hyp] (if meta?
+                                         (true-meta-hyp? @truedata hyp)
+                                         ((:oracle-fn @problem) @truedata hyp)))]
+                   {"Hypotheses"
+                    (apply merge
+                           (for [t (keys (:hypotheses ws))]
+                             (let [all-hyps (get (ws/hypotheses ws) t)
+                                   acc-hyps (get (ws/accepted ws) t)
+                                   rej-hyps (get (ws/rejected ws) t)
+                                   ;; TODO: fix group-by or not-group-by
+                                   not-acc-hyps (get (ws/undecided ws) t)
+                                   all-tf-hyps (group-by tf-fn all-hyps)
+                                   acc-tf-hyps (group-by tf-fn acc-hyps)
+                                   rej-tf-hyps (group-by tf-fn rej-hyps)
+                                   not-acc-tf-hyps (group-by tf-fn not-acc-hyps)]
+                               {(name t)
+                                (sorted-map
+                                 "*" (list-hyps all-hyps)
+                                 "*/T" (list-hyps (get all-tf-hyps true))
+                                 "*/F" (list-hyps (get all-tf-hyps false))
+                                 "Acc" (list-hyps acc-hyps)
+                                 "Acc/T" (list-hyps (get acc-tf-hyps true))
+                                 "Acc/F" (list-hyps (get acc-tf-hyps false))
+                                 "Rej" (list-hyps rej-hyps)
+                                 "Rej/T" (list-hyps (get rej-tf-hyps true))
+                                 "Rej/F" (list-hyps (get rej-tf-hyps false))
+                                 "Und" (list-hyps not-acc-hyps)
+                                 "Und/T" (list-hyps (get not-acc-tf-hyps true))
+                                 "Und/F" (list-hyps (get not-acc-tf-hyps false)))})))
+                    "Cycle" (build-cycle ws)
+                    "No explainers" (list-hyps (ws/no-explainers ws))
+                    "Unexplained" (list-hyps (ws/unexplained ws))}))]
+     (apply sorted-map-by anc
+            (mapcat (fn [ep]
+                      (let [tree {"Workspace" (assoc (ws-fn (:workspace ep)) "Log" nil)}]
+                        [(str ep)
+                         (if-not (:meta-est ep) tree
+                                 (assoc tree
+                                   "Abductive Meta"
+                                   (build-abduction-tree-map (:meta-est ep) true)))]))
+                    ep-states)))))
 
 (defn show-log
   [path]
