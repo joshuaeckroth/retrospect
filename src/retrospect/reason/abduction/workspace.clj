@@ -437,20 +437,26 @@
                ws-comp (reduce (fn [ws h] (reject ws h reason-tag cycle)) ws composites)]
            (add-to-hyp-log ws-comp hyp (format "%s rejected at cycle %d with reason %s" (str hyp) cycle (str reason-tag))))))))
 
+(def generated-virtual-scores (atom {}))
+
 (defn oracle-apriori
   [oracle-fn hyp meta?]
   (let [true-hyp? (oracle-fn hyp)
         ;; only do virtual scores for non-meta-hyps
         apriori (if (and (:VirtualScores params) (not meta?))
-                  (let [r (my-rand)
-                        good-bin? (or (and true-hyp? (< r (:VirtualScoresGoodProb params)))
-                                      (and (not true-hyp?) (>= r (:VirtualScoresGoodProb params))))
-                        p (if good-bin?
-                            (my-rand-gauss (:VirtualScoresGoodMean params)
-                                           (:VirtualScoresGoodVariance params))
-                            (my-rand-gauss (:VirtualScoresBadMean params)
-                                           (:VirtualScoresBadVariance params)))]
-                    (min 1.0 (max p 0.0)))
+                  (if-let [apriori (get-in @generated-virtual-scores [(:simulation params) (:contents hyp)])]
+                    apriori
+                    (let [r (my-rand)
+                          good-bin? (or (and true-hyp? (< r (:VirtualScoresGoodProb params)))
+                                        (and (not true-hyp?) (>= r (:VirtualScoresGoodProb params))))
+                          p (if good-bin?
+                              (my-rand-gauss (:VirtualScoresGoodMean params)
+                                             (:VirtualScoresGoodVariance params))
+                              (my-rand-gauss (:VirtualScoresBadMean params)
+                                             (:VirtualScoresBadVariance params)))
+                          apriori (min 1.0 (max p 0.0))]
+                      (swap! generated-virtual-scores assoc-in [(:simulation params) (:contents hyp)] apriori)
+                      apriori))
                   (if true-hyp? 1.0 0.0))]
     (assoc hyp :apriori apriori)))
 
