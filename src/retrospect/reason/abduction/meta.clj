@@ -111,11 +111,7 @@
         ep (cur-ep new-est)
         ws-undecided (reduce (fn [ws hyp] (undecide ws hyp (:cycle ep)))
                              (:workspace ep) implicated)
-        ws-accepted (reduce (fn [ws hyp]
-                              (-> ws
-                                  (prevent-undecide hyp)
-                                  (accept hyp nil [] [] 0.0 {} (:cycle ep))))
-                            ws-undecided implicated)
+        ws-accepted (reduce prevent-undecide ws-undecided implicated)
         ep-accepted (assoc ep :workspace ws-accepted)]
     [(update-est new-est ep-accepted) params]))
 
