@@ -163,11 +163,11 @@
                           :objid objid :dist d}}))))
 
 (defn dets-nearby?
-  [to from]
+  [to from avg-moves-dist]
   (let [det (:det to)
         det2 (:det from)
         d (dist (:x det2) (:y det2) (:x det) (:y det))]
-    (and (< d 10.0)
+    (and (< d (* 2.0 avg-moves-dist))
          (= (:time (:det to)) (inc (:time (:det from)))))))
 
 (defn hypothesize
@@ -179,7 +179,7 @@
           (doall (mapcat
                   (fn [evidence]
                     (let [acc-mov-hyps (sort-by (comp :time :mov) (:movement accepted))
-                          nearby (filter #(dets-nearby? evidence %) sensor-to-hyps)
+                          nearby (filter #(dets-nearby? evidence % (:avg-moves-dist kb)) sensor-to-hyps)
                           mov-hyps (doall (map #(new-mov-hyp % evidence acc-mov-hyps (:avg-moves-dist kb))
                                                nearby))]
                       (filter #(< 0.01 (:apriori %)) mov-hyps)))

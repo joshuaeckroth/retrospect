@@ -24,50 +24,8 @@
           c (count moves)]
       {:dist-freqs freqs :count c
        :max-prob (apply max (map #(/ (double (+ 1 %)) (double (+ 2 c)))
-                               (vals freqs)))})))
-
-(defn move-prob
-  [dist moves-dist]
-  (if (= "gaussian" (:WalkType params))
-    (cumprob (:mean moves-dist) (:variance moves-dist) (- dist 2.0) (+ dist 2.0))
-    ;; else, :WalkType = "random"
-    (/ (/ (double (+ 1 (get-in moves-dist [:dist-freqs dist] 0)))
-          (double (+ 2 (:count moves-dist))))
-       (:max-prob moves-dist))))
-
-(defn penalize-gray-moves
-  [apriori det det2]
-  (if (not (:PenalizeGrayMoves params)) apriori
-      (cond
-       ;; one det is gray
-       (or (and (= gray (:color det))
-                (not= gray (:color det2)))
-           (and (= gray (:color det2))
-                (not= gray (:color det))))
-       (* 0.75 apriori)
-       ;; two dets are gray
-       (and (= gray (:color det) (:color det2)))
-       (* 0.5 apriori)
-       ;; neither det is gray
-       :else apriori)))
-
-(defn calc-det-prob
-  [det other-dets moves-dist]
-  (let [move-probs (map (fn [det2] (let [d (dist (:x det2) (:y det2)
-                                              (:x det) (:y det))
-                                      apriori (move-prob d moves-dist)]
-                                  (penalize-gray-moves apriori det det2)))
-                      (filter #(match-color? (:color %) (:color det)) other-dets))]
-    (if (not-empty move-probs)
-      (cond (= "avg" (:DetScore params))
-            (avg move-probs)
-            (= "min" (:DetScore params))
-            (apply min move-probs)
-            (= "max" (:DetScore params))
-            (apply max move-probs))
-      ;; time 0 or lost track (nothing of same color at time before);
-      ;; give default apriori value
-      0.5)))
+                               (vals freqs)))
+       :avg-moves-dist (avg dists)})))
 
 (defn generate-kb
   [training]
@@ -137,6 +95,49 @@
             (= (:color mov1) (:color mov2))
             (or (= (:time mov1) (:time mov2))
                 (= (:ot mov1) (:ot mov2)))))))))
+
+(defn move-prob
+  [dist moves-dist]
+  (if (= "gaussian" (:WalkType params))
+    (cumprob (:mean moves-dist) (:variance moves-dist) (- dist 2.0) (+ dist 2.0))
+    ;; else, :WalkType = "random"
+    (/ (/ (double (+ 1 (get-in moves-dist [:dist-freqs dist] 0)))
+          (double (+ 2 (:count moves-dist))))
+       (:max-prob moves-dist))))
+
+(defn penalize-gray-moves
+  [apriori det det2]
+  (if (not (:PenalizeGrayMoves params)) apriori
+      (cond
+       ;; one det is gray
+       (or (and (= gray (:color det))
+                (not= gray (:color det2)))
+           (and (= gray (:color det2))
+                (not= gray (:color det))))
+       (* 0.75 apriori)
+       ;; two dets are gray
+       (and (= gray (:color det) (:color det2)))
+       (* 0.5 apriori)
+       ;; neither det is gray
+       :else apriori)))
+
+(defn calc-det-prob
+  [det other-dets moves-dist]
+  (let [move-probs (map (fn [det2] (let [d (dist (:x det2) (:y det2)
+                                                 (:x det) (:y det))
+                                         apriori (move-prob d moves-dist)]
+                                     (penalize-gray-moves apriori det det2)))
+                        (filter #(match-color? (:color %) (:color det)) other-dets))]
+    (if (not-empty move-probs)
+      (cond (= "avg" (:DetScore params))
+            (avg move-probs)
+            (= "min" (:DetScore params))
+            (apply min move-probs)
+            (= "max" (:DetScore params))
+            (apply max move-probs))
+      ;; time 0 or lost track (nothing of same color at time before);
+      ;; give default apriori value
+      0.5)))
 
 (defn make-sensor-hyp
   [{:keys [x y color time] :as det} from-to other-dets moves-dist]
@@ -271,9 +272,13 @@
                      {:mov {:x (:x det2-color) :y (:y det2-color) :time (:time det2-color)
                             :ox (:x det-color) :oy (:y det-color) :ot (:time det-color)}})))))
 
-(defn dets-connected?
-  [to from]
-  (= (:time (:det to)) (inc (:time (:det from)))))
+(defn dets-nearby?
+  [to from moves-dist]
+  (let [det (:det to)
+        det2 (:det from)
+        d (dist (:x det2) (:y det2) (:x det) (:y det))]
+    (and (< d (* 2.0 (:avg-moves-dist moves-dist)))
+         (= (:time (:det to)) (inc (:time (:det from)))))))
 
 (defn hypothesize
   [unexp accepted hypotheses time-now]
@@ -284,7 +289,7 @@
           (doall (mapcat
                   (fn [evidence]
                     (let [acc-mov-hyps (sort-by (comp :time :mov) (:movement accepted))
-                          nearby (filter #(dets-connected? evidence %) sensor-to-hyps)
+                          nearby (filter #(dets-nearby? evidence % (:moves-dist kb)) sensor-to-hyps)
                           mov-hyps (doall
                                     (filter identity
                                        (map #(new-mov-hyp % evidence acc-mov-hyps
