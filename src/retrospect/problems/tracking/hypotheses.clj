@@ -149,7 +149,7 @@
               (color-str color) x y time
               (str/join "\n" (map str (map #(update-in % [:color] color-str)
                                            (filter #(match-color? (:color %) color) other-dets)))))
-           {:det det :from-to from-to}))
+           {:det det}))
 
 (defn make-sensor-hyps
   [sensors time-prev time-now accepted hypotheses]
@@ -161,7 +161,7 @@
         prior-next-dets (set/union acc-dets sensed-dets)
         prior-dets (filter #(= (dec time-now) (:time %)) prior-next-dets)
         next-dets (filter #(= time-now (:time %)) prior-next-dets)
-        already-observed-dets (set (map (fn [h] [(:det h) (:from-to h)]) (:observation hypotheses)))
+        already-observed-dets (set (map (fn [h] [(:det h) (:subtype h)]) (:observation hypotheses)))
         to-time (if (:SequentialSensorReports params) time-prev 0)
         from-time (if (:SequentialSensorReports params) time-now (:Steps params))]
     (doall

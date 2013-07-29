@@ -444,7 +444,8 @@
   (let [true-hyp? (oracle-fn hyp)
         ;; only do virtual scores for non-meta-hyps
         apriori (if (and (:VirtualScores params) (not meta?))
-                  (if-let [apriori (get-in @generated-virtual-scores [(:simulation params) (:contents hyp)])]
+                  (if-let [apriori (get-in @generated-virtual-scores
+                                           [(:simulation params) (dissoc (:contents hyp) :subtype)])]
                     apriori
                     (let [r (my-rand)
                           good-bin? (or (and true-hyp? (< r (:VirtualScoresGoodProb params)))
@@ -455,7 +456,8 @@
                               (my-rand-gauss (:VirtualScoresBadMean params)
                                              (:VirtualScoresBadVariance params)))
                           apriori (min 1.0 (max p 0.0))]
-                      (swap! generated-virtual-scores assoc-in [(:simulation params) (:contents hyp)] apriori)
+                      (swap! generated-virtual-scores assoc-in
+                             [(:simulation params) (dissoc (:contents hyp) :subtype)] apriori)
                       apriori))
                   (if true-hyp? 1.0 0.0))]
     (assoc hyp :apriori apriori)))
