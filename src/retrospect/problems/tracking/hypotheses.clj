@@ -99,9 +99,8 @@
 
 (defn move-prob
   [d moves-dist]
-  (/ (/ (double (+ 1 (get-in moves-dist [:dist-freqs d] 0)))
-        (double (+ 2 (:count moves-dist))))
-     (:max-prob moves-dist)))
+  (- 1.0 (/ (Math/abs (- d (:avg-moves-dist moves-dist)))
+            (+ d (Math/abs (- d (:avg-moves-dist moves-dist)))))))
 
 (defn penalize-gray-moves
   [apriori det det2]
