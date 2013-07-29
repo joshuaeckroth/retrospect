@@ -321,7 +321,7 @@
     (if (cond (= :meta-impl-exp (:type hyp))
               (and (not-empty (:resolves hyp))
                    (some t? (:resolves hyp))
-                   (t? (:implicated hyp)))
+                   (some t? (:implicated hyp)))
               (= :meta-conf-exp (:type hyp))
               (and (not-empty (:resolves hyp))
                    (some t? (:resolves hyp))
