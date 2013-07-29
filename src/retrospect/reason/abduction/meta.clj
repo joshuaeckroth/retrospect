@@ -111,9 +111,12 @@
         ep (cur-ep new-est)
         ws-undecided (reduce (fn [ws hyp] (undecide ws hyp (:cycle ep)))
                              (:workspace ep) implicated)
-        ws-accepted (reduce prevent-undecide ws-undecided implicated)
-        ep-accepted (assoc ep :workspace ws-accepted)]
-    [(update-est new-est ep-accepted) params]))
+        ws-prev-minscore (reduce (fn [ws hyp]
+                                   (-> ws (prevent-undecide hyp)
+                                       (prevent-rejection hyp :minscore)))
+                                 ws-undecided implicated)
+        ep-prev-minscore (assoc ep :workspace ws-prev-minscore)]
+    [(update-est new-est ep-prev-minscore) params]))
 
 (defn resolve-implausible-evidence
   [est]
@@ -251,26 +254,30 @@
   ;; were some explainers omitted due to high min-score?
   (if (not (available-meta-hyps "meta-impl-exp")) []
       (let [rel-prob-cases (filter #(= :minscore (classify-noexp-reason (:workspace (cur-ep est)) %))
-                              anomalies)]
-        (filter
-         (if (and (not= "oracle" (:Metareasoning params))
-                  (:RemoveConflictingImplExp params))
-           (comp not :conflicts-with-accepted?)
-           identity)
-         (for [{:keys [implicated may-resolve]} (find-implausible-explainers-candidates rel-prob-cases est time-now)]
-           (new-hyp "ImplExp" :meta-impl-exp :meta-impl-exp
+                                   anomalies)
+            candidates (find-implausible-explainers-candidates rel-prob-cases est time-now)
+            implicated (map :implicated candidates)
+            may-resolve (set (mapcat :may-resolve candidates))
+            conflicts-with-accepted? (every? (fn [h]
+                                               (some (partial conflicts? h)
+                                                     (:all (accepted (:workspace (cur-ep est))))))
+                                             implicated)]
+        (if (and (not= "oracle" (:Metareasoning params))
+                 (:RemoveConflictingImplExp params)
+                 conflicts-with-accepted?)
+          []
+          [(new-hyp "ImplExp" :meta-impl-exp :meta-impl-exp
                     0.0 false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
                     (map :contents may-resolve)
                     "Explainer rejected due to too-high min-score"
-                    (format "This explainer was rejected due to too-high min-score: %s\n\nRelevant problem cases:\n%s"
-                       (str implicated)
-                       (str/join "\n" (sort (map str may-resolve))))
-                    {:action (partial resolve-implausible-explainers [implicated])
+                    (format (str "These explainers were rejected due to too-high min-score:\n"
+                                 "%s\n\nRelevant problem cases:\n%s\n\nConflicts with accepted? %s")
+                            (str/join "\n" (sort (map str implicated)))
+                            (str/join "\n" (sort (map str may-resolve)))
+                            (str conflicts-with-accepted?))
+                    {:action (partial resolve-implausible-explainers implicated)
                      :resolves may-resolve
-                     :implicated implicated
-                     :score-delta (- (/ (double (:MinScore params)) 100.0) (:apriori implicated))
-                     :conflicts-with-accepted? (some (fn [h] (conflicts? implicated h))
-                                                  (:all (accepted (:workspace (cur-ep est)))))}))))))
+                     :implicated implicated})]))))
 
 (defn make-meta-hyps-implausible-evidence
   [anomalies est time-prev time-now available-meta-hyps]
