@@ -25,7 +25,8 @@
       {:dist-freqs freqs :count c
        :max-prob (apply max (map #(/ (double (+ 1 %)) (double (+ 2 c)))
                                (vals freqs)))
-       :avg-moves-dist (avg dists)})))
+       :avg-moves-dist (avg dists)
+       :max-moves-dist (apply max dists)})))
 
 (defn generate-kb
   [training]
@@ -97,13 +98,10 @@
                 (= (:ot mov1) (:ot mov2)))))))))
 
 (defn move-prob
-  [dist moves-dist]
-  (if (= "gaussian" (:WalkType params))
-    (cumprob (:mean moves-dist) (:variance moves-dist) (- dist 2.0) (+ dist 2.0))
-    ;; else, :WalkType = "random"
-    (/ (/ (double (+ 1 (get-in moves-dist [:dist-freqs dist] 0)))
-          (double (+ 2 (:count moves-dist))))
-       (:max-prob moves-dist))))
+  [d moves-dist]
+  (/ (/ (double (+ 1 (get-in moves-dist [:dist-freqs d] 0)))
+        (double (+ 2 (:count moves-dist))))
+     (:max-prob moves-dist)))
 
 (defn penalize-gray-moves
   [apriori det det2]
@@ -277,7 +275,7 @@
   (let [det (:det to)
         det2 (:det from)
         d (dist (:x det2) (:y det2) (:x det) (:y det))]
-    (and (< d (* 2.0 (:avg-moves-dist moves-dist)))
+    (and (< d (* 1.1 (:max-moves-dist moves-dist)))
          (= (:time (:det to)) (inc (:time (:det from)))))))
 
 (defn hypothesize
@@ -295,5 +293,5 @@
                                        (map #(new-mov-hyp % evidence acc-mov-hyps
                                                         (:moves-dist kb) (:seen-colors kb))
                                           nearby)))]
-                      (filter #(< 0.01 (:apriori %)) (filter-valid-movs mov-hyps acc-mov-hyps))))
+                      (filter-valid-movs mov-hyps acc-mov-hyps)))
                   sensor-from-hyps)))))
