@@ -277,7 +277,8 @@
                             (str conflicts-with-accepted?))
                     {:action (partial resolve-implausible-explainers implicated)
                      :resolves may-resolve
-                     :implicated implicated})]))))
+                     :implicated implicated
+                     :conflicts-with-accepted? conflicts-with-accepted?})]))))
 
 (defn make-meta-hyps-implausible-evidence
   [anomalies est time-prev time-now available-meta-hyps]

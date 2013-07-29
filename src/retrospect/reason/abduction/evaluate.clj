@@ -346,8 +346,8 @@
 (defn meta-hyp-metrics
   [meta-true-false]
   (letfn [(ar-avg-count [type tf]
-            (let [vals (map (fn [h] (- (count (:problem-cases-prior h))
-                                    (count (:problem-cases-after h))))
+            (let [vals (map (fn [h] (- (count (:anomalies-prior h))
+                                    (count (:anomalies-after h))))
                           (get-in meta-true-false [type tf]))]
               (avg vals)))
           (ar-avg-apriori [type tf]
@@ -355,8 +355,8 @@
                           (get-in meta-true-false [type tf]))]
               (avg vals)))
           (ar-avg-apriori-diff [type tf]
-            (let [vals (map (fn [h] (- (avg (map :apriori (:problem-cases-prior h)))
-                                    (avg (map :apriori (:problem-cases-after h)))))
+            (let [vals (map (fn [h] (- (avg (map :apriori (:anomalies-prior h)))
+                                    (avg (map :apriori (:anomalies-after h)))))
                           (get-in meta-true-false [type tf]))]
               (avg vals)))
           (avg-explain-count [type tf]
