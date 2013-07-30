@@ -905,11 +905,11 @@
                          (or (not (:DoubtIgnoreEssentials params))
                              (:nbest (:accrej workspace)))
                          (not ((:ignore-doubt-types (:abduction @problem))
-                               (:type (:best (:accrej workspace))))))
+                               (:type (:best (:accrej workspace)))))
+                         (:delta (:accrej workspace)))
                 (:best (:accrej workspace)))
          score (when best (:apriori best))
-         delta (when (and best (:delta (:accrej workspace)))
-                 (:delta (:accrej workspace)))]
+         delta (when best (:delta (:accrej workspace)))]
      (when-let [d (cond (= "score-delta-prod" (:DoubtMeasure params))
                         (when (and score delta) (- 1.0 (* score delta)))
                         (= "score-delta-pow" (:DoubtMeasure params))
