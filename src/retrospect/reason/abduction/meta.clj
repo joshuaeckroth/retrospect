@@ -265,7 +265,7 @@
     (if (empty? rel-anomalies) []
         [(new-hyp "ImplEv" :meta-impl-ev :meta-impl-ev
                   0.0 false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
-                  (map :contents rel-prob-cases)
+                  (map :contents rel-anomalies)
                   "Some explainers never offered due to rejection of implausible evidence"
                   "Some explainers never offered due to rejection of implausible evidence"
                   {:action resolve-impl-ev
