@@ -93,6 +93,21 @@
 <\")>
 </html>"))
 
+(defn rewrite-hyp-tf
+  [orig-txt]
+  (let [hyp-strings (doall (re-seq #"([A-Z][A-Za-z]*)(\d+)\(" orig-txt))
+        workspaces (map :workspace (reverse (flatten-est (:est @or-state))))]
+    (reduce (fn [txt [_ hyp-prefix hyp-id-str]]
+              (let [hypid (Integer/parseInt hyp-id-str)
+                    hyp (first (filter identity (map (fn [workspace] (ws/lookup-hyp workspace hypid))
+                                                     workspaces)))
+                    t? (or (true-meta-hyp? @truedata hyp)
+                           ((:oracle-fn @problem) @truedata hyp))]
+                (if t?
+                  (str/replace txt (format "%s%d(" hyp-prefix hypid) (format "%s%d+(" hyp-prefix hypid))
+                  (str/replace txt (format "%s%d(" hyp-prefix hypid) (format "%s%d-(" hyp-prefix hypid)))))
+            orig-txt hyp-strings)))
+
 (defn update-hyp-info
   [workspace hyp meta?]
   (let [hyp-tf? (fn [hyp] (or (and meta? (true-meta-hyp? @truedata hyp))
@@ -106,14 +121,16 @@
         noexp? ((set (ws/no-explainers workspace)) hyp)
         noexp-reason (classify-noexp-reason workspace hyp)
         meta-hyp? ((:meta-hyp-types @reasoner) (:type hyp))
-        error (classify-error workspace (if meta-hyp? @meta-hyps-true-false @hyps-true-false) hyp)]
-    (.setText hyp-info (str (hyp-info-template hyp log explains explainers conflicts related
-                                               noexp? noexp-reason error
-                                               (hyp-tf? hyp)
-                                               (ws/accepted? workspace hyp)
-                                               (ws/rejected? workspace hyp)
-                                               (ws/undecided? workspace hyp)
-                                               (eps-with-hyp hyp))))
+        error (classify-error workspace (if meta-hyp? @meta-hyps-true-false @hyps-true-false) hyp)
+        orig-txt (str (hyp-info-template hyp log explains explainers conflicts related
+                                         noexp? noexp-reason error
+                                         (hyp-tf? hyp)
+                                         (ws/accepted? workspace hyp)
+                                         (ws/rejected? workspace hyp)
+                                         (ws/undecided? workspace hyp)
+                                         (eps-with-hyp hyp)))
+        hyp-tf-txt (rewrite-hyp-tf orig-txt)]
+    (.setText hyp-info hyp-tf-txt)
     (scroll! hyp-info :to :top)))
 
 (defn load-hyp-info
