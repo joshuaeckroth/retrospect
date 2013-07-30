@@ -182,27 +182,28 @@
         ;; explainers that were rejected due to minscore
         expl-rejected-minscore (sort-by :id (filter (fn [h] (= :minscore (rejection-reason cur-ws h))) expl))]
     (filter #(not-empty (:may-resolve %))
-            (for [e expl-rejected-minscore]
-              (let [may-resolve (sort-by :id (filter (fn [pc] (some #{(:contents pc)} (:explains e)))
+            (for [hyp expl-rejected-minscore]
+              (let [may-resolve (sort-by :id (filter (fn [pc] (some #{(:contents pc)} (:explains hyp)))
                                                      rel-anomalies))]
-                {:hyp e :may-resolve may-resolve})))))
+                {:hyp hyp :may-resolve may-resolve :score-delta (- (/ (:MinScore params) 100.0) (:apriori hyp))})))))
 
 (defn make-meta-hyps-implausible-explainers
   [anomalies est]
   ;; were some explainers omitted due to high min-score?
   (let [candidates (impl-exp-candidates anomalies est)
-        meta-hyps (for [{:keys [hyp may-resolve]} candidates]
+        meta-hyps (for [{:keys [hyp may-resolve score-delta]} candidates]
                     (let [conflicts-with-accepted? (some (partial conflicts? hyp)
                                                          (:all (accepted (:workspace (cur-ep est)))))]
                       (new-hyp "ImplExp" :meta-impl-exp :meta-impl-exp
                                0.0 false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
                                (map :contents may-resolve)
                                "Explainer rejected due to min-score"
-                               (format "%s was rejected due to min-score\n\nConflicts with accepted? %s"
-                                       hyp (str conflicts-with-accepted?))
+                               (format "%s was rejected due to min-score\n\nConflicts with accepted? %s\nScore delta: %.2f"
+                                       hyp (str conflicts-with-accepted?) score-delta)
                                {:action (partial resolve-impl-exp hyp)
                                 :resolves may-resolve
                                 :hyp hyp
+                                :score-delta score-delta
                                 :conflicts-with-accepted? conflicts-with-accepted?})))]
     (if (and (not= "oracle" (:Metareasoning params))
              (:RemoveConflictingImplExp params))
@@ -288,7 +289,7 @@
                             make-meta-hyps-implausible-explainers)
                           (when (available-meta-hyps "meta-impl-ev")
                             make-meta-hyps-implausible-evidence)])]
-    (apply concat (for [meta-fn meta-fns] (meta-fn anomalies est)))))
+    (doall (apply concat (for [meta-fn meta-fns] (meta-fn anomalies est))))))
 
 (defn score-meta-hyps-estimate
   [anomalies meta-hyps est time-prev time-now sensors]
