@@ -204,11 +204,18 @@
                                 :resolves may-resolve
                                 :hyp hyp
                                 :score-delta score-delta
-                                :conflicts-with-accepted? conflicts-with-accepted?})))]
-    (if (and (not= "oracle" (:Metareasoning params))
-             (:RemoveConflictingImplExp params))
-      (filter #(not (:conflicts-with-accepted? %)) meta-hyps)
-      meta-hyps)))
+                                :conflicts-with-accepted? conflicts-with-accepted?})))
+        filtered-conflicting (if (and (not= "oracle" (:Metareasoning params))
+                                      (:RemoveConflictingImplExp params))
+                               (filter #(not (:conflicts-with-accepted? %)) meta-hyps)
+                               meta-hyps)
+        filtered-score-delta (if (not= "oracle" (:Metareasoning params))
+                               (filter #(<= (:score-delta %)
+                                            (* (:MaxMetaImplExpScoreDelta params)
+                                               (/ (:MinScore params) 100.0)))
+                                       filtered-conflicting)
+                               filtered-conflicting)]
+    filtered-score-delta))
 
 ;;}}}
 
