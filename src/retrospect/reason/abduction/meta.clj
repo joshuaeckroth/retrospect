@@ -83,11 +83,17 @@
 
 ;;}}}
 
+;; seems to be bad
+(comment
+  (defn meta-hyp-conflicts?
+    [ws hyp1 hyp2]
+    (or (= :meta-order-dep (:type hyp1)) (= :meta-order-dep (:type hyp2))
+        (= :meta-impl-ev (:type hyp1)) (= :meta-impl-ev (:type hyp2))
+        (related-hyps? ws (:acc-hyp hyp1) (:acc-hyp hyp2)))))
+
 (defn meta-hyp-conflicts?
   [ws hyp1 hyp2]
-  (or (= :meta-order-dep (:type hyp1)) (= :meta-order-dep (:type hyp2))
-      (= :meta-impl-ev (:type hyp1)) (= :meta-impl-ev (:type hyp2))
-      (related-hyps? ws (:acc-hyp hyp1) (:acc-hyp hyp2))))
+  true)
 
 ;; conflicting explainers
 ;;{{{
