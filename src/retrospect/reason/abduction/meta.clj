@@ -85,9 +85,9 @@
 
 (defn meta-hyp-conflicts?
   [ws hyp1 hyp2]
-  true)
-
-(comment (related-hyps? ws (:acc-hyp hyp1) (:acc-hyp hyp2)))
+  (or (= :meta-order-dep (:type hyp1)) (= :meta-order-dep (:type hyp2))
+      (= :meta-impl-ev (:type hyp1)) (= :meta-impl-ev (:type hyp2))
+      (related-hyps? ws (:acc-hyp hyp1) (:acc-hyp hyp2))))
 
 ;; conflicting explainers
 ;;{{{
@@ -185,24 +185,24 @@
             (for [hyp expl-rejected-minscore]
               (let [may-resolve (sort-by :id (filter (fn [pc] (some #{(:contents pc)} (:explains hyp)))
                                                      rel-anomalies))]
-                {:hyp hyp :may-resolve may-resolve :score-delta (- (/ (:MinScore params) 100.0) (:apriori hyp))})))))
+                {:acc-hyp hyp :may-resolve may-resolve :score-delta (- (/ (:MinScore params) 100.0) (:apriori hyp))})))))
 
 (defn make-meta-hyps-implausible-explainers
   [anomalies est]
   ;; were some explainers omitted due to high min-score?
   (let [candidates (impl-exp-candidates anomalies est)
-        meta-hyps (for [{:keys [hyp may-resolve score-delta]} candidates]
-                    (let [conflicts-with-accepted? (some (partial conflicts? hyp)
+        meta-hyps (for [{:keys [acc-hyp may-resolve score-delta]} candidates]
+                    (let [conflicts-with-accepted? (some (partial conflicts? acc-hyp)
                                                          (:all (accepted (:workspace (cur-ep est)))))]
                       (new-hyp "ImplExp" :meta-impl-exp :meta-impl-exp
                                0.0 false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
                                (map :contents may-resolve)
                                "Explainer rejected due to min-score"
                                (format "%s was rejected due to min-score\n\nConflicts with accepted? %s\nScore delta: %.2f"
-                                       hyp (str conflicts-with-accepted?) score-delta)
-                               {:action (partial resolve-impl-exp hyp)
+                                       acc-hyp (str conflicts-with-accepted?) score-delta)
+                               {:action (partial resolve-impl-exp acc-hyp)
                                 :resolves may-resolve
-                                :hyp hyp
+                                :acc-hyp acc-hyp
                                 :score-delta score-delta
                                 :conflicts-with-accepted? conflicts-with-accepted?})))
         filtered-conflicting (if (and (not= "oracle" (:Metareasoning params))
