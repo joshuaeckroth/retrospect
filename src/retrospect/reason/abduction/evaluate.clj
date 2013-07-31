@@ -321,7 +321,7 @@
     (if (cond (= :meta-impl-exp (:type hyp))
               (and (not-empty (:resolves hyp))
                    (every? t? (:resolves hyp))
-                   (t? (:hyp hyp)))
+                   (t? (:acc-hyp hyp)))
               (= :meta-order-dep (:type hyp))
               (and (not-empty (:resolve hyp))
                    (every? t? (:resolve hyp)))
