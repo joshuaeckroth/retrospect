@@ -31,10 +31,10 @@
      (merge {:Threshold [0 [0]]
              :MetaMinScore [0 [0]]
              :MetaThreshold [0 [0]]
-             :MetaOracle ["meta-impl-ev,meta-impl-exp,meta-conf-exp"
-                          ["meta-impl-ev,meta-impl-exp,meta-conf-exp"]]
-             :MetaHyps ["meta-impl-ev,meta-impl-exp,meta-conf-exp"
-                        ["meta-impl-ev,meta-impl-exp,meta-conf-exp"]]
+             :MetaOracle ["meta-impl-ev,meta-impl-exp,meta-conf-exp,meta-order-dep"
+                          ["meta-impl-ev,meta-impl-exp,meta-conf-exp,meta-order-dep"]]
+             :MetaHyps ["meta-impl-ev,meta-impl-exp,meta-conf-exp,meta-order-dep"
+                        ["meta-impl-ev,meta-impl-exp,meta-conf-exp,meta-order-dep"]]
              :ScoreMetaHyps ["doubt-diff" ["doubt-diff" "doubt" "apriori-diff"]]
              :EstimateMetaScores [false [true false]]
              :RemoveConflictingImplExp [true [true false]]
@@ -70,7 +70,7 @@
              :ConsiderExplPower [false [true false]]
              :NormalizeDelta [true [true false]]}
             (:default-params (:abduction @problem))))
-   :meta-hyp-types #{:meta-impl-ev :meta-impl-exp :meta-conf-exp}
+   :meta-hyp-types #{:meta-impl-ev :meta-impl-exp :meta-conf-exp :meta-order-dep}
    :init-workspace-fn init-workspace
    :init-kb-fn init-kb
    :player-fns

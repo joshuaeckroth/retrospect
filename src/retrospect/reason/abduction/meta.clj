@@ -219,6 +219,37 @@
 
 ;;}}}
 
+;; sensor report order dependencies
+;;{{{
+
+(defn resolve-order-dep
+  [ep est]
+  [(new-branch-ep est ep) params])
+
+(defn order-dep-candidates
+  [anomalies est]
+  (let [cur-ws (:workspace (cur-ep est))
+        rel-anomalies (filter #(= :no-expl-offered (classify-noexp-reason cur-ws %)) anomalies)
+        time-last (:time (cur-ep est))
+        eps (map (fn [t] (cur-ep (goto-start-of-time est t))) (range time-last))]
+    [rel-anomalies eps]))
+
+(defn make-meta-hyps-order-dep
+  [anomalies est]
+  (let [[may-resolve candidate-eps] (order-dep-candidates anomalies est)]
+    (for [ep candidate-eps]
+      (let [apriori (doubt-aggregate (new-branch-ep est ep))]
+        (new-hyp "OrderDep" :meta-order-dep :meta-order-dep
+                 apriori false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
+                 (map :contents may-resolve)
+                 (format "Order dependency at %s" (str ep))
+                 (format "Order dependency at %s" (str ep))
+                 {:action (partial resolve-order-dep ep)
+                  :resolve may-resolve
+                  :ep ep})))))
+
+;;}}}
+
 ;; implausible evidence
 ;;{{{
 
@@ -294,6 +325,8 @@
                             make-meta-hyps-conflicting-explainers)
                           (when (available-meta-hyps "meta-impl-exp")
                             make-meta-hyps-implausible-explainers)
+                          (when (available-meta-hyps "meta-order-dep")
+                            make-meta-hyps-order-dep)
                           (when (available-meta-hyps "meta-impl-ev")
                             make-meta-hyps-implausible-evidence)])]
     (doall (apply concat (for [meta-fn meta-fns] (meta-fn anomalies est))))))
