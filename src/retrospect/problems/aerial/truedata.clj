@@ -5,6 +5,7 @@
   (:require [clojure.string :as str])
   (:require [clojure.data.xml :as xml])
   (:require [clojure.zip :as zip])
+  (:use [geppetto.random])
   (:use [retrospect.evaluate :only [avg]])
   (:use [retrospect.state]))
 
@@ -44,11 +45,13 @@
 
 (defn add-obj-metadata
   [obj t frames-truth]
-  ;; note that noisy dets won't get an objid
+  ;; note that a noisy det might get a random objid used by a true det
   (let [objid (or (if frames-truth
                     (:objid (first (filter #(objects-near? obj %)
                                            (:objects (get frames-truth t)))))
-                    (:objid obj)))]
+                    (:objid obj))
+                  (when (<= (my-rand) (/ (:SensorDuplicationNoise params) 100.0))
+                    (my-rand-nth (sort (set (map :objid (:objects (get frames-truth t))))))))]
     (assoc obj :time t :objid objid)))
 
 (defn frames-from-xml
