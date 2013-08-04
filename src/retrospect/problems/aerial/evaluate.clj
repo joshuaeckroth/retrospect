@@ -4,27 +4,19 @@
   (:use [retrospect.evaluate])
   (:use [retrospect.epistemicstates :only [cur-ep goto-cycle decision-points]])
   (:use [retrospect.reason.abduction.workspace :only [accepted rejected hypotheses]])
+  (:use [retrospect.problems.aerial.truedata :only [objects-near? near?]])
   (:use [retrospect.state]))
-
-(defn near?
-  [x1 x2]
-  (< (Math/abs (- x1 x2)) 1.0))
-
-(defn det-obj-near?
-  [det obj]  
-  (and (near? (:x det) (:x obj))
-       (near? (:y det) (:y obj))))
 
 (defn true-hyp?
   [truedata hyp]
   (let [frames (:truth truedata)]
     (cond (= :observation (:type hyp))
           (let [det (:det hyp)]
-            (not= nil (:objid (first (filter #(det-obj-near? det %) (:objects (get frames (:time det))))))))
+            (not= nil (:objid (first (filter #(objects-near? det %) (:objects (get frames (:time det))))))))
           (= :movement (:type hyp))
           (let [{:keys [det det2]} hyp
-                objid1 (:objid (first (filter #(det-obj-near? det %) (:objects (get frames (:time det))))))
-                objid2 (:objid (first (filter #(det-obj-near? det2 %) (:objects (get frames (:time det2))))))]
+                objid1 (:objid (first (filter #(objects-near? det %) (:objects (get frames (:time det))))))
+                objid2 (:objid (first (filter #(objects-near? det2 %) (:objects (get frames (:time det2))))))]
             (and (not= nil objid1) (= objid1 objid2))))))
 
 (defn moves-match?

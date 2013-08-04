@@ -46,4 +46,5 @@
     :StepsBetween [1 [1]]
     :MovementApriori ["dist-diff" ["dist-diff" "dist" "avg-detscores"]]
     :TrainingCount [5 [5]]
+    :KeepObjIdProb [10 [10]]
     :Folder ["AA_Easy_01" ["AA_Easy_01"]]}})

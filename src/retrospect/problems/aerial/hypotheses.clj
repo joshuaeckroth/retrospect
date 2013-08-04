@@ -84,12 +84,12 @@
                      (= (:ot mov1) (:ot mov2)))))))))
 
 (defn make-sensor-hyp
-  [{:keys [x y time detscore] :as det} from-to other-dets]
+  [{:keys [x y time detscore objid] :as det} from-to other-dets]
   (new-hyp (format "Sens%s" (if (= :from from-to) "From" "To"))
            :observation from-to (:detscore det)
            true nil nil []
            (format "%.2f, %.2f @ %d" x y time)
-           (format "Sensor detection - x: %.2f, y: %.2f, time: %d, detscore: %.2f" x y time detscore)
+           (format "Sensor detection - x: %.2f, y: %.2f, time: %d, detscore: %.2f, objid: %s" x y time detscore objid)
            {:det det :from-to from-to}))
 
 (defn make-sensor-hyps
@@ -143,7 +143,10 @@
                                     (or (dets-match? mdet det2)
                                         (dets-match? mdet2 det)))
                                   acc-mov-hyps))
-              objid (if (empty? objids) (random-objid) (first objids))]
+              objid (cond (not-empty objids) (first objids)
+                          (:objid det) (:objid det)
+                          (:objid det2) (:objid det2)
+                          :else (random-objid))]
           (new-hyp "Mov" :movement :movement apriori false
                    [det det2 objid]
                    conflicts? (map :contents [to from])
@@ -151,7 +154,7 @@
                            (:x det) (:y det)
                            (:x det2) (:y det2)
                            (:time det) (:time det2))
-                   (format "%.2f, %.2f -> %.2f, %.2f (dist=%.2f) at time %d->%d\nDetscores: %.2f -> %.2f\nID: %s"
+                   (format "%.2f, %.2f -> %.2f, %.2f (dist=%.2f) at time %d->%d\nDetscores: %.2f -> %.2f\nObjid: %s"
                            (:x det) (:y det)
                            (:x det2) (:y det2)
                            d (:time det) (:time det2)
@@ -163,25 +166,46 @@
                           :objid objid :dist d}}))))
 
 (defn dets-nearby?
-  [to from avg-moves-dist]
+  [from to avg-moves-dist]
   (let [det (:det to)
         det2 (:det from)
         d (dist (:x det2) (:y det2) (:x det) (:y det))]
     (and (< d (* 2.0 avg-moves-dist))
-         (= (:time (:det to)) (inc (:time (:det from)))))))
+         (= (inc (:time (:det to))) (:time (:det from))))))
 
 (defn hypothesize
   [unexp accepted hypotheses time-now]
   (prof :hypothesize
         (let [kb (get-kb accepted)
               sensor-from-hyps (filter #(and (= :observation (:type %)) (= :from (:subtype %))) unexp)
-              sensor-to-hyps (filter #(and (= :observation (:type %)) (= :to (:subtype %))) unexp)]
+              sensor-to-hyps (filter #(and (= :observation (:type %)) (= :to (:subtype %))) unexp)
+              from-to-objid-pairs (into {} (for [from-hyp (filter (comp :objid :det) sensor-from-hyps)]
+                                             (let [objid (:objid (:det from-hyp))
+                                                   to-hyps (filter (fn [to-hyp]
+                                                                     (and (= objid (:objid (:det to-hyp)))
+                                                                          (= (inc (:time (:det to-hyp)))
+                                                                             (:time (:det from-hyp)))))
+                                                                   sensor-to-hyps)]
+                                               [from-hyp to-hyps])))
+              ;; "free" sensor-to-hyps are those with no id union
+              ;; those with an id that is not matched in a from hyp
+              free-to-hyps (concat (filter #(nil? (:objid (:det %))) sensor-to-hyps)
+                                   (filter (fn [to-hyp]
+                                             (let [objid (:objid (:det to-hyp))]
+                                               (and objid (not-any? (fn [from-hyp]
+                                                                      (and (= objid (:objid (:det from-hyp)))
+                                                                           (= (inc (:time (:det to-hyp)))
+                                                                              (:time (:det from-hyp)))))
+                                                                    sensor-from-hyps))))
+                                           sensor-to-hyps))]
           (doall (mapcat
-                  (fn [evidence]
-                    (let [acc-mov-hyps (sort-by (comp :time :mov) (:movement accepted))
-                          nearby (filter #(dets-nearby? evidence % (:avg-moves-dist kb)) sensor-to-hyps)
-                          mov-hyps (doall (map #(new-mov-hyp % evidence acc-mov-hyps (:avg-moves-dist kb))
-                                               nearby))]
+                  (fn [from-hyp]
+                    (let [to-hyps (if-let [paired-to-hyps (get from-to-objid-pairs from-hyp)]
+                                    paired-to-hyps
+                                    free-to-hyps)
+                          nearby (filter #(dets-nearby? from-hyp % (:avg-moves-dist kb)) to-hyps)
+                          acc-mov-hyps (sort-by (comp :time :mov) (:movement accepted))
+                          mov-hyps (map #(new-mov-hyp % from-hyp acc-mov-hyps (:avg-moves-dist kb)) nearby)]
                       (filter #(< 0.01 (:apriori %)) mov-hyps)))
                   sensor-from-hyps)))))
 

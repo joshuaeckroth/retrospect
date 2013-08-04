@@ -8,6 +8,15 @@
   (:use [retrospect.evaluate :only [avg]])
   (:use [retrospect.state]))
 
+(defn near?
+  [x1 x2]
+  (< (Math/abs (- x1 x2)) 1.0))
+
+(defn objects-near?
+  [obj1 obj2]
+  (and (near? (:x obj1) (:x obj2))
+       (near? (:y obj1) (:y obj2))))
+
 (defn extract-object
   [image object]
   (let [img (ImageIO/read (file image))
@@ -33,13 +42,22 @@
      :detscore (Double/parseDouble (or value "0.0"))
      :avgpixel (avg pixels)}))
 
+(defn add-obj-metadata
+  [obj t frames-truth]
+  ;; note that noisy dets won't get an objid
+  (let [objid (or (if frames-truth
+                    (:objid (first (filter #(objects-near? obj %)
+                                           (:objects (get frames-truth t)))))
+                    (:objid obj)))]
+    (assoc obj :time t :objid objid)))
+
 (defn frames-from-xml
-  [folder test-or-truth]
-  (let [fname (if (= "truth" test-or-truth)
-                (format "%s/aerial/Training Data Sets/%s/%s.xml"
-                        @datadir folder folder)
+  [folder frames-truth]
+  (let [fname (if frames-truth ;; loading testing set
                 (format "%s/aerial/IPF Detections/%s-D.xml"
-                        @datadir folder))
+                        @datadir folder)
+                (format "%s/aerial/Training Data Sets/%s/%s.xml"
+                        @datadir folder folder))
         tree (zip/xml-zip (xml/parse-str (slurp fname)))
         frames (vec (for [frame (zip/children tree)]
                       (let [objects (zip/children (zip/down (zip/xml-zip frame)))
@@ -47,10 +65,11 @@
                                           (str/replace (:file (:attrs frame)) #".*\/" ""))]
                         {:image image
                          :objects (map (partial extract-object image) objects)})))]
-    ;; add timestamps to objects and create a time-keyed map of frames
-    (reduce (fn [m t] (let [frame (nth frames t)]
-                        (assoc m t (assoc frame :objects (map (fn [obj] (assoc obj :time t))
-                                                              (:objects frame))))))
+    ;; add objids and timestamps to objects and create a time-keyed map of frames
+    (reduce (fn [m t] (let [frame (nth frames t)
+                            objs (map #(add-obj-metadata % t frames-truth)
+                                      (:objects frame))]
+                        (assoc m t (assoc frame :objects objs))))
             {} (range (count frames)))))
 
 (defn find-movements
@@ -71,8 +90,8 @@
 
 (defn generate-truedata
   []
-  (let [frames-test (frames-from-xml (:Folder params) "test")
-        frames-truth (frames-from-xml (:Folder params) "truth")
+  (let [frames-truth (frames-from-xml (:Folder params) nil)
+        frames-test (frames-from-xml (:Folder params) frames-truth)
         frames-count (count frames-test)
         train-start (- frames-count (:TrainingCount params))
         frames-train (select-keys frames-truth (range train-start frames-count))
