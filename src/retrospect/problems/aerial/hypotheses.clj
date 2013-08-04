@@ -181,12 +181,12 @@
               sensor-to-hyps (filter #(and (= :observation (:type %)) (= :to (:subtype %))) unexp)
               from-to-objid-pairs (into {} (for [from-hyp (filter (comp :objid :det) sensor-from-hyps)]
                                              (let [objid (:objid (:det from-hyp))
-                                                   to-hyps (filter (fn [to-hyp]
-                                                                     (and (= objid (:objid (:det to-hyp)))
-                                                                          (= (inc (:time (:det to-hyp)))
-                                                                             (:time (:det from-hyp)))))
-                                                                   sensor-to-hyps)]
-                                               [from-hyp to-hyps])))
+                                                   to-hyp (first (filter (fn [to-hyp]
+                                                                           (and (= objid (:objid (:det to-hyp)))
+                                                                                (= (inc (:time (:det to-hyp)))
+                                                                                   (:time (:det from-hyp)))))
+                                                                         sensor-to-hyps))]
+                                               [from-hyp to-hyp])))
               ;; "free" sensor-to-hyps are those with no id union
               ;; those with an id that is not matched in a from hyp
               free-to-hyps (concat (filter #(nil? (:objid (:det %))) sensor-to-hyps)
@@ -200,8 +200,8 @@
                                            sensor-to-hyps))]
           (doall (mapcat
                   (fn [from-hyp]
-                    (let [to-hyps (if-let [paired-to-hyps (get from-to-objid-pairs from-hyp)]
-                                    paired-to-hyps
+                    (let [to-hyps (if-let [paired-to-hyp (get from-to-objid-pairs from-hyp)]
+                                    [paired-to-hyp]
                                     free-to-hyps)
                           nearby (filter #(dets-nearby? from-hyp % (:avg-moves-dist kb)) to-hyps)
                           acc-mov-hyps (sort-by (comp :time :mov) (:movement accepted))
