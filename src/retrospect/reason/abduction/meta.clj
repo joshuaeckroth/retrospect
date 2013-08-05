@@ -304,20 +304,24 @@
 
               ;; TODO: make this reasoning step add to explains cycles
               result-est (:est-new (meta-apply-and-evaluate est est-restored time-now sensors))
-              result-anomalies (find-anomalies result-est)
-              unrejectable (set/difference (set obs-new-exp) (set result-anomalies))]
-          unrejectable))))
+              result-ws (:workspace (cur-ep result-est))
+              result-anomalies (find-anomalies result-est)]
+          (for [candidate (set/difference (set obs-new-exp) (set result-anomalies))]
+            {:candidate candidate
+             :may-resolve (set/intersection (set rel-anomalies)
+                                            (set (mapcat (fn [h] (explains result-ws h))
+                                                         (explainers result-ws candidate))))})))))
 
 (defn make-meta-hyps-implausible-evidence
   [anomalies est time-now sensors]
-  (for [candidate (impl-ev-candidates anomalies est time-now sensors)]
+  (for [{:keys [candidate may-resolve]} (impl-ev-candidates anomalies est time-now sensors)]
     (new-hyp "ImplEv" :meta-impl-ev :meta-impl-ev
              0.0 false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
-             (map :contents anomalies) ;; this will be updated by score-meta-hyps-simulate
+             (map :contents may-resolve)
              (format "Implausible evidence rejected: %s" candidate)
              (format "Some explainers never offered due to rejection of implausible evidence: %s" candidate)
              {:action (partial resolve-impl-ev candidate)
-              :resolves anomalies
+              :resolves may-resolve
               :unrejectable candidate})))
 
 ;;}}}
