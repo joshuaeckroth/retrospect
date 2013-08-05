@@ -11,7 +11,7 @@
 
 (defn near?
   [x1 x2]
-  (< (Math/abs (- x1 x2)) 1.0))
+  (< (Math/abs (- x1 x2)) 2.0))
 
 (defn objects-near?
   [obj1 obj2]
