@@ -332,7 +332,8 @@
                    (t? (:acc-hyp hyp)))
               (= :meta-impl-ev (:type hyp))
               (and (not-empty (:resolves hyp))
-                   (every? t? (:resolves hyp)))
+                   (every? t? (:resolves hyp))
+                   (t? (:candidate hyp)))
               :else
               (t? hyp))
       true false)))

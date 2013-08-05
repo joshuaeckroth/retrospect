@@ -146,7 +146,7 @@
     [(update-est new-est ep-acc) params]))
 
 (defn make-meta-hyps-conflicting-explainers
-  [anomalies est]
+  [anomalies est _ _]
   ;; correct explainer(s) were rejected due to conflicts; need to
   ;; consider the various possibilities of rejected explainers and
   ;; no-explainers combinations
@@ -194,7 +194,7 @@
                 {:acc-hyp hyp :may-resolve may-resolve :score-delta (- (/ (:MinScore params) 100.0) (:apriori hyp))})))))
 
 (defn make-meta-hyps-implausible-explainers
-  [anomalies est]
+  [anomalies est _ _]
   ;; were some explainers omitted due to high min-score?
   (let [candidates (impl-exp-candidates anomalies est)
         meta-hyps (for [{:keys [acc-hyp may-resolve score-delta]} candidates]
@@ -241,7 +241,7 @@
     [rel-anomalies eps]))
 
 (defn make-meta-hyps-order-dep
-  [anomalies est]
+  [anomalies est _ _]
   (let [[may-resolve candidate-eps] (order-dep-candidates anomalies est)]
     (for [ep candidate-eps]
       (let [apriori (doubt-aggregate (new-branch-ep est ep))]
@@ -260,62 +260,65 @@
 ;;{{{
 
 (defn resolve-impl-ev
-  [est]
-  (let [old-ep (cur-ep est)
-        old-ws (:workspace (cur-ep est))
-        ;; restore all observations rejected due to minscore
-        implicated (filter (fn [obs] (= :minscore (rejection-reason old-ws obs)))
-                           (:observation (rejected old-ws)))
-        ws-all-restored (reduce (fn [ws hyp]
-                                  (-> ws (undecide hyp (:cycle old-ep))
-                                      (accept hyp nil [] [] 0.0 {} (:cycle old-ep))))
-                                old-ws implicated)
-        ;; generate new explainers
-        ws-new-exp (update-hypotheses ws-all-restored (:cycle old-ep) (:time old-ep))
-        ;; gather newly-added explainers of anomalies
-        rel-anomalies (filter #(= :no-expl-offered (classify-noexp-reason old-ws %)) (find-anomalies est))
-        new-exp (set (mapcat (fn [anomaly] (explainers ws-new-exp anomaly)) rel-anomalies))
-        ;; collect minscore-rejected observations that new-exp explain (which include rel-anomalies)
-        obs-new-exp (filter (fn [obs] (= :minscore (rejection-reason old-ws obs)))
-                            (set (mapcat (fn [hyp] (explains ws-new-exp hyp)) new-exp)))
-        ;; finally, add back just these observations
-        new-est (new-branch-ep est (cur-ep est))
+  [unrejectable est]
+  (let [new-est (new-branch-ep est (cur-ep est))
         ep (cur-ep new-est)
-        ws-subset-restored (reduce (fn [ws hyp]
-                                     (-> ws (undecide hyp (:cycle ep))
-                                         (accept hyp nil [] [] 0.0 {} (:cycle ep))))
-                                   (:workspace ep) obs-new-exp)
-        ep-subset-restored (assoc ep :workspace ws-subset-restored)]
-    [(update-est new-est ep-subset-restored) params]))
+        ws-restored (-> (:workspace ep)
+                        (undecide unrejectable (:cycle ep))
+                        (prevent-undecide unrejectable)
+                        (accept unrejectable nil [] [] nil {} (:cycle ep)))
+        ep-restored (assoc ep :workspace ws-restored)]
+    [(update-est new-est ep-restored) params]))
 
-(defn resolve-impl-ev-cleanup
-  [est est-prior]
-  (let [old-ws (:workspace (cur-ep est-prior))
-        unrejected (map :id (filter (fn [h] (= :minscore (rejection-reason old-ws h)))
-                                    (:observation (rejected old-ws))))
-        new-est (new-child-ep est)
-        ep (cur-ep new-est)
-        anomalies (map :id (find-anomalies est))
-        unrejected-noexp (set/intersection (set unrejected) (set anomalies))
-        ;; re-reject the stuff we unrejected (from minscore) but now is a noexp
-        ws-rejected (reduce (fn [ws hyp] (reject ws hyp :minscore (:cycle ep)))
-                            (:workspace ep) (map #(lookup-hyp (:workspace ep) %) unrejected-noexp))
-        ep-cleaned-up (assoc ep :workspace ws-rejected)]
-    (update-est new-est ep-cleaned-up)))
+(defn impl-ev-candidates
+  [anomalies est time-now sensors]
+  (let [rel-anomalies (filter #(= :no-expl-offered (classify-noexp-reason (:workspace (cur-ep est)) %)) anomalies)]
+    (if (empty? rel-anomalies) []
+        (let [old-ep (cur-ep est)
+              old-ws (:workspace (cur-ep est))
+              ;; restore all observations rejected due to minscore
+              implicated (filter (fn [obs] (= :minscore (rejection-reason old-ws obs)))
+                                 (:observation (rejected old-ws)))
+              ws-all-restored (reduce (fn [ws hyp]
+                                        (-> ws (undecide hyp (:cycle old-ep))
+                                            (accept hyp nil [] [] nil {} (:cycle old-ep))))
+                                      old-ws implicated)
+              ;; generate new explainers
+              ws-new-exp (update-hypotheses ws-all-restored (:cycle old-ep) time-now)
+              ;; gather newly-added explainers of anomalies
+              new-exp (set (mapcat (fn [anomaly] (explainers ws-new-exp anomaly)) rel-anomalies))
+              ;; collect minscore-rejected observations that new-exp explain
+              obs-new-exp (filter (fn [obs] (= :minscore (rejection-reason old-ws obs)))
+                                  (set (mapcat (fn [hyp] (explains ws-new-exp hyp)) new-exp)))
+              ;; start over, and just add these obs-new-exp
+              new-est (new-branch-ep est (cur-ep est))
+              ep (cur-ep new-est)
+              ws-subset-restored (reduce (fn [ws hyp]
+                                           (-> ws (undecide hyp (:cycle ep))
+                                               (accept hyp nil [] [] nil {} (:cycle ep))))
+                                         (:workspace ep) obs-new-exp)
+              ep-subset-restored (assoc ep :workspace ws-subset-restored)
+              est-restored (update-est new-est ep-subset-restored)
+              ;; follow-through on the abduction process and figure
+              ;; out what remains explained of the added-back observations
+
+              ;; TODO: make this reasoning step add to explains cycles
+              result-est (:est-new (meta-apply-and-evaluate est est-restored time-now sensors))
+              result-anomalies (find-anomalies result-est)
+              unrejectable (set/difference (set obs-new-exp) (set result-anomalies))]
+          unrejectable))))
 
 (defn make-meta-hyps-implausible-evidence
-  [anomalies est]
-  (let [rel-anomalies (filter #(= :no-expl-offered (classify-noexp-reason (:workspace (cur-ep est)) %))
-                              anomalies)]
-    (if (empty? rel-anomalies) []
-        [(new-hyp "ImplEv" :meta-impl-ev :meta-impl-ev
-                  0.0 false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
-                  (map :contents rel-anomalies)
-                  "Some explainers never offered due to rejection of implausible evidence"
-                  "Some explainers never offered due to rejection of implausible evidence"
-                  {:action resolve-impl-ev
-                   :cleanup resolve-impl-ev-cleanup
-                   :resolves rel-anomalies})])))
+  [anomalies est time-now sensors]
+  (for [candidate (impl-ev-candidates anomalies est time-now sensors)]
+    (new-hyp "ImplEv" :meta-impl-ev :meta-impl-ev
+             0.0 false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
+             (map :contents anomalies) ;; this will be updated by score-meta-hyps-simulate
+             (format "Implausible evidence rejected: %s" candidate)
+             (format "Some explainers never offered due to rejection of implausible evidence: %s" candidate)
+             {:action (partial resolve-impl-ev candidate)
+              :resolves anomalies
+              :unrejectable candidate})))
 
 ;;}}}
 
@@ -324,7 +327,7 @@
 
 (defn make-meta-hyps
   "Create explanations, and associated actions, for anomalies."
-  [anomalies est]
+  [anomalies est time-now sensors]
   (let [available-meta-hyps (set (str/split (:MetaHyps params) #","))
         meta-fns (filter identity
                          [(when (available-meta-hyps "meta-conf-exp")
@@ -335,7 +338,7 @@
                             make-meta-hyps-order-dep)
                           (when (available-meta-hyps "meta-impl-ev")
                             make-meta-hyps-implausible-evidence)])]
-    (doall (apply concat (for [meta-fn meta-fns] (meta-fn anomalies est))))))
+    (doall (apply concat (for [meta-fn meta-fns] (meta-fn anomalies est time-now sensors))))))
 
 (defn score-meta-hyps-estimate
   [anomalies meta-hyps est time-prev time-now sensors]
@@ -363,11 +366,8 @@
     (if (empty? hyps) [(goto-ep est-attempted (:id (cur-ep est))) new-hyps]
         (let [hyp (first hyps)
               [est-new params-new] ((:action hyp) est-attempted)
-              result-nocleanup (binding [params params-new]
-                                 (meta-apply-and-evaluate est-attempted est-new time-now sensors))
-              result (if-let [cleanup (:cleanup hyp)]
-                       (update-in result-nocleanup [:est-new] cleanup est-attempted)
-                       result-nocleanup)
+              result (binding [params params-new]
+                       (meta-apply-and-evaluate est-attempted est-new time-now sensors))
               doubt (doubt-aggregate est)
               doubt-new (doubt-aggregate (:est-new result))
               anomalies-new (find-anomalies (:est-new result))
@@ -419,7 +419,7 @@
 
 (defn meta-abductive
   [anomalies est time-prev time-now sensors]
-  (let [meta-hyps (make-meta-hyps anomalies est)
+  (let [meta-hyps (make-meta-hyps anomalies est time-now sensors)
         [est-new meta-hyps-scored] (score-meta-hyps anomalies meta-hyps est time-prev time-now sensors)
         meta-ws (if (= "oracle" (:Metareasoning params))
                   (assoc (init-workspace)
