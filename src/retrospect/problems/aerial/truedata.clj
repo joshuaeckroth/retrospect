@@ -9,6 +9,11 @@
   (:use [retrospect.evaluate :only [avg]])
   (:use [retrospect.state]))
 
+(defn dist
+  [x1 y1 x2 y2]
+  (double (Math/sqrt (+ (* (- x1 x2) (- x1 x2))
+                        (* (- y1 y2) (- y1 y2))))))
+
 (defn near?
   [x1 x2]
   (< (Math/abs (- x1 x2)) 2.0))
@@ -51,7 +56,10 @@
                                            (:objects (get frames-truth t)))))
                     (:objid obj))
                   (when (<= (my-rand) (/ (:SensorDuplicationNoise params) 100.0))
-                    (my-rand-nth (sort (set (map :objid (:objects (get frames-truth t))))))))]
+                    (let [near-objects (take 5 (sort-by (fn [obj2] (dist (:x obj) (:x obj2)
+                                                                         (:y obj) (:y obj2)))
+                                                        (:objects (get frames-truth t))))]
+                      (my-rand-nth (map :objid near-objects)))))]
     (assoc obj :time t :objid objid)))
 
 (defn frames-from-xml
