@@ -237,7 +237,7 @@
   (let [cur-ws (:workspace (cur-ep est))
         rel-anomalies (filter #(= :no-expl-offered (classify-noexp-reason cur-ws %)) anomalies)
         time-last (:time (cur-ep est))
-        eps (map (fn [t] (cur-ep (goto-start-of-time est t))) (range time-last))]
+        eps (map (fn [t] (cur-ep (goto-start-of-time est t))) (range 1 time-last))]
     [rel-anomalies eps]))
 
 (defn make-meta-hyps-order-dep
