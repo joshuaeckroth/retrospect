@@ -251,7 +251,7 @@
                  (format "Order dependency at %s" (str ep))
                  (format "Order dependency at %s" (str ep))
                  {:action (partial resolve-order-dep ep)
-                  :resolve may-resolve
+                  :resolves may-resolve
                   :ep ep})))))
 
 ;;}}}
