@@ -437,30 +437,9 @@
                ws-comp (reduce (fn [ws h] (reject ws h reason-tag cycle)) ws composites)]
            (add-to-hyp-log ws-comp hyp (format "%s rejected at cycle %d with reason %s" (str hyp) cycle (str reason-tag))))))))
 
-(def generated-virtual-scores (atom {}))
-
 (defn oracle-apriori
   [oracle-fn hyp meta?]
-  (let [true-hyp? (oracle-fn hyp)
-        ;; only do virtual scores for non-meta-hyps
-        apriori (if (and (:VirtualScores params) (not meta?))
-                  (if-let [apriori (get-in @generated-virtual-scores
-                                           [(:simulation params) (dissoc (:contents hyp) :subtype)])]
-                    apriori
-                    (let [r (my-rand)
-                          good-bin? (or (and true-hyp? (< r (:VirtualScoresGoodProb params)))
-                                        (and (not true-hyp?) (>= r (:VirtualScoresGoodProb params))))
-                          p (if good-bin?
-                              (my-rand-gauss (:VirtualScoresGoodMean params)
-                                             (:VirtualScoresGoodVariance params))
-                              (my-rand-gauss (:VirtualScoresBadMean params)
-                                             (:VirtualScoresBadVariance params)))
-                          apriori (min 1.0 (max p 0.0))]
-                      (swap! generated-virtual-scores assoc-in
-                             [(:simulation params) (dissoc (:contents hyp) :subtype)] apriori)
-                      apriori))
-                  (if true-hyp? 1.0 0.0))]
-    (assoc hyp :apriori apriori)))
+  (assoc hyp :apriori (if (oracle-fn hyp) 1.0 0.0)))
 
 (defn update-hyp-apriori
   [workspace hyp]
@@ -693,7 +672,7 @@
   (if (= (:ContrastPreference params) "arbitrary")
     (assoc (sort-by (comp :id :hyp) (my-rand-nth c-sets)) :delta 1.0)
     (let [delta-c-sets (for [{:keys [hyp expl]} c-sets]
-                         (let [sorted-expl (sort-by :apriori expl)
+                         (let [sorted-expl (reverse (sort-by :apriori expl))
                                normalized-aprioris (let [aprioris (map :apriori sorted-expl)
                                                          s (reduce + aprioris)]
                                                      (if (= 0.0 (double s)) aprioris

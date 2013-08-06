@@ -139,15 +139,16 @@
 
 (defn make-sensor-hyp
   [{:keys [x y color time] :as det} from-to other-dets moves-dist]
-  (new-hyp (format "Sens%s" (if (= :from from-to) "From" "To"))
-           :observation from-to (calc-det-prob det other-dets moves-dist) true
-           [(keyword (format "obs-%s-%d" (name from-to) time))] conflicts? []
-           (format "%d,%d@%d" x y time)
-           (format (str "Sensor detection - color: %s, x: %d, y: %d, time: %d\n\nOther dets:\n%s")
-              (color-str color) x y time
-              (str/join "\n" (map str (map #(update-in % [:color] color-str)
-                                           (filter #(match-color? (:color %) color) other-dets)))))
-           {:det det}))
+  (let [apriori (or (:apriori det) (calc-det-prob det other-dets moves-dist) true)]
+    (new-hyp (format "Sens%s" (if (= :from from-to) "From" "To"))
+             :observation from-to apriori true
+             [(keyword (format "obs-%s-%d" (name from-to) time))] conflicts? []
+             (format "%d,%d@%d" x y time)
+             (format (str "Sensor detection - color: %s, x: %d, y: %d, time: %d\n\nOther dets:\n%s")
+                     (color-str color) x y time
+                     (str/join "\n" (map str (map #(update-in % [:color] color-str)
+                                                  (filter #(match-color? (:color %) color) other-dets)))))
+             {:det det})))
 
 (defn make-sensor-hyps
   [sensors time-prev time-now accepted hypotheses]
