@@ -333,7 +333,7 @@
               (= :meta-impl-ev (:type hyp))
               (and (not-empty (:resolves hyp))
                    (every? t? (:resolves hyp))
-                   (t? (:candidate hyp)))
+                   (t? (:unrejectable hyp)))
               :else
               (t? hyp))
       true false)))
