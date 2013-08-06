@@ -519,9 +519,9 @@
         anomalies-new (when result (find-anomalies (:est-new result)))]
     (cond (nil? result)
           (assume-false-evidence anomalies-old est time-now sensors)
-          (empty? anomalies-new)
-          (:est-new result)
-          (<= (count anomalies-new) (count anomalies-old))
+          (and (<= (count anomalies-new) (count anomalies-old))
+               (< (doubt-aggregate (:est-new result))
+                  (doubt-aggregate (:est-old result))))
           (assume-false-evidence anomalies-new (:est-new result) time-now sensors)
           :else
           (assume-false-evidence anomalies-old (:est-old result) time-now sensors))))
