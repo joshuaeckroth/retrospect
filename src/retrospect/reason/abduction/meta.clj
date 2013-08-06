@@ -140,9 +140,9 @@
         ws (-> (:workspace ep)
                (undecide rej-hyp (:cycle ep))
                (prevent-undecide rej-hyp)
-               (reject rej-hyp :preemptive (:cycle ep)))
-        ws-acc (accept ws acc-hyp nil [] may-resolve nil nil (:cycle ep))
-        ep-acc (assoc ep :workspace ws-acc)]
+               (reject rej-hyp :preemptive (:cycle ep))
+               (accept acc-hyp nil [] may-resolve nil nil (:cycle ep)))
+        ep-acc (assoc ep :workspace ws)]
     [(update-est new-est ep-acc) params]))
 
 (defn make-meta-hyps-conflicting-explainers
@@ -521,7 +521,7 @@
           (assume-false-evidence anomalies-old est time-now sensors)
           (empty? anomalies-new)
           (:est-new result)
-          (< (count anomalies-new) (count anomalies-old))
+          (<= (count anomalies-new) (count anomalies-old))
           (assume-false-evidence anomalies-new (:est-new result) time-now sensors)
           :else
           (assume-false-evidence anomalies-old (:est-old result) time-now sensors))))
