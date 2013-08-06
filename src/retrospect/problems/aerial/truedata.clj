@@ -70,8 +70,9 @@
                          :objects (map (partial extract-object image) objects)})))]
     ;; add objids and timestamps to objects and create a time-keyed map of frames
     (reduce (fn [m t] (let [frame (nth frames t)
-                            objs (map #(add-obj-metadata % t frames-truth)
-                                      (:objects frame))]
+                            ;; doall is important so that the rand calls all happen ahead of time
+                            objs (doall (map #(add-obj-metadata % t frames-truth)
+                                             (:objects frame)))]
                         (assoc m t (assoc frame :objects objs))))
             {} (range (count frames)))))
 
