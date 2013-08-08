@@ -353,14 +353,16 @@
 
 (defn score-meta-hyps-simulate-apriori
   [hyp anomalies anomalies-new doubt doubt-new]
-  (cond (= "apriori-diff" (:ScoreMetaHyps params))
-        (max 0.0 (- (avg (map :apriori anomalies))
-                    (avg (map :apriori anomalies-new))))
-        (= "doubt-diff" (:ScoreMetaHyps params))
-        (max 0.0 (- doubt doubt-new))
-        ;; "doubt"
-        :else
-        doubt-new))
+  (let [apriori-diff (- (avg (map :apriori anomalies))
+                        (avg (map :apriori anomalies-new)))]
+    (cond (= "apriori-diff" (:ScoreMetaHyps params))
+          (max 0.0 apriori-diff)
+          (= "doubt-diff" (:ScoreMetaHyps params))
+          (if (<= apriori-diff 0.0) 0.0
+              (max 0.0 (- doubt doubt-new)))
+          ;; "doubt"
+          :else
+          doubt-new)))
 
 (defn score-meta-hyps-simulate
   [anomalies meta-hyps est time-prev time-now sensors]
