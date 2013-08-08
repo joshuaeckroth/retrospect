@@ -890,7 +890,19 @@
                          (:delta (:accrej workspace)))
                 (:best (:accrej workspace)))
          score (when best (:apriori best))
-         delta (when best (:delta (:accrej workspace)))]
+         delta (when best (:delta (:accrej workspace)))
+         expl (when best (cond (= "none" (:DoubtExplainedModifier params))
+                               []
+                               (= "each" (:DoubtExplainedModifier params))
+                               (map :apriori (explains workspace best))
+                               (= "explained" (:DoubtExplainedModifier params))
+                               [(:apriori (:explained (:accrej workspace)))]
+                               (= "max" (:DoubtExplainedModifier params))
+                               [(apply max (map :apriori (explains workspace best)))]
+                               (= "min" (:DoubtExplainedModifier params))
+                               [(apply min (map :apriori (explains workspace best)))]
+                               (= "avg" (:DoubtExplainedModifier params))
+                               [(avg (map :apriori (explains workspace best)))]))]
      (when-let [d (cond (= "score-delta-prod" (:DoubtMeasure params))
                         (when (and score delta) (- 1.0 (* score delta)))
                         (= "score-delta-pow" (:DoubtMeasure params))
@@ -902,8 +914,12 @@
                         (= "accgraph" (:DoubtMeasure params))
                         (calc-doubt-from-accgraph workspace)
                         (= "weighted-score-delta" (:DoubtMeasure params))
-                        (when (and score delta) (+ (* (:DoubtScoreWeight params) (- 1.0 score))
-                                                   (* (- 1.0 (:DoubtScoreWeight params)) (- 1.0 delta))))
+                        (when (and score delta)
+                          (+ (* (:DoubtScoreWeight params) (- 1.0 score))
+                             (* (- 1.0 (:DoubtScoreWeight params)) (- 1.0 delta))))
+                        (= "avg-score-delta-expl" (:DoubtMeasure params))
+                        (when (and score delta)
+                          (avg (concat [(- 1.0 score) (- 1.0 delta)] expl)))
                         (= "score" (:DoubtMeasure params))
                         (when score (- 1.0 score))
                         (= "delta" (:DoubtMeasure params))
