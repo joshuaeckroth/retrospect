@@ -191,7 +191,9 @@
             (for [hyp expl-rejected-minscore]
               (let [may-resolve (sort-by :id (filter (fn [pc] (some #{(:contents pc)} (:explains hyp)))
                                                      rel-anomalies))]
-                {:acc-hyp hyp :may-resolve may-resolve :score-delta (- (/ (:MinScore params) 100.0) (:apriori hyp))})))))
+                {:acc-hyp hyp
+                 :may-resolve may-resolve
+                 :score-delta (- (/ (:MinScore params) 100.0) (:apriori hyp))})))))
 
 (defn make-meta-hyps-implausible-explainers
   [anomalies est _ _]
@@ -236,23 +238,26 @@
   [anomalies est]
   (let [cur-ws (:workspace (cur-ep est))
         rel-anomalies (filter #(= :no-expl-offered (classify-noexp-reason cur-ws %)) anomalies)
+        accept-cycles (into {} (for [hyp rel-anomalies] [hyp (accepted-cycle cur-ws hyp)]))
         time-last (:time (cur-ep est))
         eps (map (fn [t] (cur-ep (goto-start-of-time est t))) (range 1 time-last))]
-    [rel-anomalies eps]))
+    (for [ep eps]
+      (let [ws (:workspace ep)
+            may-resolve (filter (fn [hyp] (>= (get accept-cycles hyp) (:cycle ep))) rel-anomalies)]
+        [may-resolve ep]))))
 
 (defn make-meta-hyps-order-dep
   [anomalies est _ _]
-  (let [[may-resolve candidate-eps] (order-dep-candidates anomalies est)]
-    (for [ep candidate-eps]
-      (let [apriori (doubt-aggregate (new-branch-ep est ep))]
-        (new-hyp "OrderDep" :meta-order-dep :meta-order-dep
-                 apriori false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
-                 (map :contents may-resolve)
-                 (format "Order dependency at %s" (str ep))
-                 (format "Order dependency at %s" (str ep))
-                 {:action (partial resolve-order-dep ep)
-                  :resolves may-resolve
-                  :ep ep})))))
+  (for [[may-resolve ep] (order-dep-candidates anomalies est)]
+    (let [apriori (doubt-aggregate (new-branch-ep est ep))]
+      (new-hyp "OrderDep" :meta-order-dep :meta-order-dep
+               apriori false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
+               (map :contents may-resolve)
+               (format "Order dependency at %s" (str ep))
+               (format "Order dependency at %s" (str ep))
+               {:action (partial resolve-order-dep ep)
+                :resolves may-resolve
+                :ep ep}))))
 
 ;;}}}
 
@@ -344,12 +349,17 @@
                             make-meta-hyps-implausible-evidence)])]
     (doall (apply concat (for [meta-fn meta-fns] (meta-fn anomalies est time-now sensors))))))
 
+(defn score-meta-hyp-estimate
+  [meta-hyp]
+  ;; this "resolves" field is really a "may resolve" field
+  (assoc meta-hyp :apriori (avg (map :apriori (:resolves meta-hyp)))))
+
 (defn score-meta-hyps-estimate
   [anomalies meta-hyps est time-prev time-now sensors]
   ;; must use (doall) to avoid lazy evaluation since state/params may
   ;; change later (specifically, MinScore and Threshold change to
   ;; MetaMinScore and MetaThreshold)
-  [est (doall meta-hyps)])
+  [est (doall (map score-meta-hyp-estimate meta-hyps))])
 
 (defn score-meta-hyps-simulate-apriori
   [hyp anomalies anomalies-new resolved-cases doubt doubt-new]
@@ -415,7 +425,7 @@
 
 (defn score-meta-hyps
   [anomalies meta-hyps est time-prev time-now sensors]
-  (let [scorer (if (:EstimateMetaScores params)
+  (let [scorer (if (= "abd-estimate" (:Metareasoning params))
                  score-meta-hyps-estimate
                  score-meta-hyps-simulate)]
     (scorer anomalies meta-hyps est time-prev time-now sensors)))
@@ -513,7 +523,7 @@
   [est time-prev time-now sensors]
   (let [anomalies (find-anomalies est)
         m (:Metareasoning params)
-        f (cond (or (= "abd" m) (= "oracle" m))
+        f (cond (or (= "abd" m) (= "abd-estimate" m) (= "oracle" m))
                 meta-abductive-recursive
                 :else
                 (constantly nil))
