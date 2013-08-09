@@ -6,7 +6,7 @@
   (:use [retrospect.problems.aerial.sensors :only
          [generate-sensors perturb]])
   (:use [retrospect.problems.aerial.hypotheses :only
-         [generate-kb make-sensor-hyps hypothesize update-kb]])
+         [generate-kb make-sensor-hyps hypothesize update-kb suggest-related-evidence]])
   (:use [retrospect.problems.aerial.player :only
          [player-get-stats-panel player-update-stats player-get-truedata-log
           player-get-problem-log player-setup-diagram player-update-diagram]])
@@ -31,6 +31,7 @@
    :abduction {:generate-kb-fn generate-kb
                :make-sensor-hyps-fn make-sensor-hyps
                :hypothesize-fn hypothesize
+               :suggest-related-evidence-fn suggest-related-evidence
                :evaluate-fn evaluate
                :evaluate-comp-fn evaluate-comp
                :update-kb-fn update-kb

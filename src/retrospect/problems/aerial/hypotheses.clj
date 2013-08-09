@@ -258,3 +258,15 @@
                                                  nearby)))]
                       (filter-valid-movs mov-hyps acc-mov-hyps)))
                   sensor-from-hyps)))))
+
+(defn suggest-related-evidence
+  [obs possible-evidence accepted]
+  (let [kb (get-kb accepted)
+        moves-dist (:moves-dist kb)]
+    (if (= :from (:subtype obs))
+      (filter (fn [obs2] (and (= :to (:subtype obs2))
+                              (dets-nearby? obs obs2 moves-dist)))
+              possible-evidence)
+      (filter (fn [obs2] (and (= :from (:subtype obs))
+                              (dets-nearby? obs2 obs moves-dist)))
+              possible-evidence))))
