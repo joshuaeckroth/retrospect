@@ -166,14 +166,22 @@
 
 (defn order-dep-candidates
   [anomalies est]
-  (let [cur-ws (:workspace (cur-ep est))
-        accept-cycles (into {} (for [hyp anomalies] [hyp (accepted-cycle cur-ws hyp)]))
+  (let [ws (:workspace (cur-ep est))
+        acc (accepted ws)
+        ;; gather all observations rejected due to minscore
+        possible-evidence (filter (fn [obs] (= :minscore (rejection-reason ws obs)))
+                                  (:observation (rejected ws)))
+        rel-anomalies (filter (fn [anomaly]
+                                (empty? ((:suggest-related-evidence-fn (:abduction @problem))
+                                         anomaly possible-evidence acc)))
+                              anomalies)
+        accept-cycles (into {} (for [hyp rel-anomalies] [hyp (accepted-cycle ws hyp)]))
         time-last (:time (cur-ep est))
         eps (map (fn [t] (cur-ep (goto-start-of-time est t)))
                  (range (max 1 (- time-last (:MaxBatch params))) time-last))
         candidates (for [ep eps]
                      (let [ws (:workspace ep)
-                           may-resolve (filter (fn [hyp] (>= (get accept-cycles hyp) (:cycle ep))) anomalies)]
+                           may-resolve (filter (fn [hyp] (>= (get accept-cycles hyp) (:cycle ep))) rel-anomalies)]
                        {:may-resolve may-resolve :ep ep}))
         grp-candidates (group-by :may-resolve candidates)]
     (for [[may-resolve candidates] (seq grp-candidates)]
@@ -212,19 +220,17 @@
 
 (defn impl-ev-candidates
   [anomalies est time-now sensors]
-  (let [rel-anomalies (filter #(= :no-expl-offered (classify-noexp-reason (:workspace (cur-ep est)) %)) anomalies)]
-    (if (empty? rel-anomalies) []
-        (let [ws (:workspace (cur-ep est))
-              accepted (accepted ws)
-              ;; gather all observations rejected due to minscore
-              possible-evidence (filter (fn [obs] (= :minscore (rejection-reason ws obs)))
-                                        (:observation (rejected ws)))]
-          ;; ask problem domain which evidence are relevant, for each rel-anomaly
-          (filter (comp not-empty :unrejectable)
-                  (for [anomaly rel-anomalies]
-                    {:may-resolve [anomaly]
-                     :unrejectable ((:suggest-related-evidence-fn (:abduction @problem))
-                                    anomaly possible-evidence accepted)}))))))
+  (let [ws (:workspace (cur-ep est))
+        acc (accepted ws)
+        ;; gather all observations rejected due to minscore
+        possible-evidence (filter (fn [obs] (= :minscore (rejection-reason ws obs)))
+                                  (:observation (rejected ws)))]
+    ;; ask problem domain which evidence are relevant, for each anomaly
+    (filter (comp not-empty :unrejectable)
+            (for [anomaly anomalies]
+              {:may-resolve [anomaly]
+               :unrejectable ((:suggest-related-evidence-fn (:abduction @problem))
+                              anomaly possible-evidence acc)}))))
 
 (defn make-meta-hyps-implausible-evidence
   [anomalies est time-now sensors]
