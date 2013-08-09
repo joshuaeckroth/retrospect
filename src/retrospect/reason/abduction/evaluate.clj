@@ -46,7 +46,7 @@
                      (:hyp-types (:abduction @problem))))
         all-true (mapcat #(get % true) (vals tf))
         all-false (mapcat #(get % false) (vals tf))]
-    (assoc tf :all {true all-true false all-false})))
+    (assoc tf (if meta? :meta-all :all) {true all-true false all-false})))
 
 (defn calc-true-false-scores
   "Find average scores for true hyps, average scores for false hyps."
@@ -68,32 +68,35 @@
                                                (concat (get-in true-false [t true])
                                                        (get-in true-false [t false])))]
                               (if (empty? hyps) Double/NaN
-                                (double (/ (count (filter #(tf-true? true-false %) hyps))
-                                           (count hyps))))))]
+                                  (double (/ (count (filter #(tf-true? true-false %) hyps))
+                                             (count hyps))))))]
     (reduce (fn [m t]
               (let [k (keyword-to-metric t)]
                 (assoc m
-                       (keyword (format "TrueCount%s" k))
-                       (count (get (get true-false t) true))
-                       (keyword (format "FalseCount%s" k))
-                       (count (get (get true-false t) false))
-                       (keyword (format "TrueAcc%s" k))
-                       (count (filter acc? (get (get true-false t) true)))
-                       (keyword (format "FalseAcc%s" k))
-                       (count (filter acc? (get (get true-false t) false)))
-                       (keyword (format "AvgTrueApriori%s" k))
-                       (avg (get (get aprioris t) true))
-                       (keyword (format "AvgFalseApriori%s" k))
-                       (avg (get (get aprioris t) false))
-                       (keyword (format "PctTrue0025%s" k))
-                       (pct-true-in-range 0.0 0.25 t)
-                       (keyword (format "PctTrue2550%s" k))
-                       (pct-true-in-range 0.25 0.50 t)
-                       (keyword (format "PctTrue5075%s" k))
-                       (pct-true-in-range 0.50 0.75 t)
-                       (keyword (format "PctTrue75100%s" k))
-                       (pct-true-in-range 0.75 1.01 t))))
-            {} (keys true-false))))
+                  (keyword (format "TrueCount%s" k))
+                  (count (get (get true-false t) true))
+                  (keyword (format "FalseCount%s" k))
+                  (count (get (get true-false t) false))
+                  (keyword (format "TrueAcc%s" k))
+                  (count (filter acc? (get (get true-false t) true)))
+                  (keyword (format "FalseAcc%s" k))
+                  (count (filter acc? (get (get true-false t) false)))
+                  (keyword (format "CountAcc%s" k))
+                  (count (filter acc? (concat (get (get true-false t) true)
+                                              (get (get true-false t) false))))
+                  (keyword (format "AvgTrueApriori%s" k))
+                  (avg (get (get aprioris t) true))
+                  (keyword (format "AvgFalseApriori%s" k))
+                  (avg (get (get aprioris t) false))
+                  (keyword (format "PctTrue0025%s" k))
+                  (pct-true-in-range 0.0 0.25 t)
+                  (keyword (format "PctTrue2550%s" k))
+                  (pct-true-in-range 0.25 0.50 t)
+                  (keyword (format "PctTrue5075%s" k))
+                  (pct-true-in-range 0.50 0.75 t)
+                  (keyword (format "PctTrue75100%s" k))
+                  (pct-true-in-range 0.75 1.01 t))))
+            {} (keys (dissoc true-false :individual)))))
 
 (defn calc-true-false-deltas
   "Find average delta for true and false acceptances of each hyp type."
