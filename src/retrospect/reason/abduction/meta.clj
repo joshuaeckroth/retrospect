@@ -178,7 +178,7 @@
         accept-cycles (into {} (for [hyp rel-anomalies] [hyp (accepted-cycle ws hyp)]))
         time-last (:time (cur-ep est))
         eps (map (fn [t] (cur-ep (goto-start-of-time est t)))
-                 (range (max 1 (- time-last (:MaxBatch params))) time-last))
+                 (range (max 0 (- time-last (:MaxBatch params))) time-last))
         candidates (for [ep eps]
                      (let [ws (:workspace ep)
                            may-resolve (filter (fn [hyp] (>= (get accept-cycles hyp) (:cycle ep))) rel-anomalies)]
