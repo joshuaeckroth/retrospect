@@ -240,7 +240,8 @@
         rel-anomalies (filter #(= :no-expl-offered (classify-noexp-reason cur-ws %)) anomalies)
         accept-cycles (into {} (for [hyp rel-anomalies] [hyp (accepted-cycle cur-ws hyp)]))
         time-last (:time (cur-ep est))
-        eps (map (fn [t] (cur-ep (goto-start-of-time est t))) (range 1 time-last))]
+        eps (map (fn [t] (cur-ep (goto-start-of-time est t)))
+                 (range (max 1 (- time-last (:MaxBatch params))) time-last))]
     (for [ep eps]
       (let [ws (:workspace ep)
             may-resolve (filter (fn [hyp] (>= (get accept-cycles hyp) (:cycle ep))) rel-anomalies)]
