@@ -95,76 +95,6 @@
   [ws hyp1 hyp2]
   true)
 
-;; conflicting explainers
-;;{{{
-
-(defn conf-exp-candidates
-  [anomalies est]
-  (let [cur-ws (:workspace (cur-ep est))
-        rel-anomalies (filter #(= :conflict (classify-noexp-reason cur-ws %)) anomalies)
-        ;; explainers of anomalies
-        expl (set (mapcat #(explainers cur-ws %) rel-anomalies))
-        ;; rejected explainers due to conflict
-        expl-rc (set (filter (fn [h] (= :conflict (rejection-reason cur-ws h))) expl))
-        ;; accepted that conflict with any of expl-rc
-        acc (set (filter (fn [c] (accepted? cur-ws c))
-                         (set (mapcat #(find-conflicts cur-ws %) expl-rc))))
-        ;; inner hyps, if any, of acc
-        inner-hyps (set (map :id (mapcat :hyps acc))) 
-        ;; keep only those that are not inner hyps
-        acc-no-inner (sort-by :id (filter #(not (inner-hyps (:id %))) acc)) 
-        acc-no-inner-ids (set (map :id acc-no-inner))
-        ;; may have been accepted multiple times, if undecided between; want the earliest time
-        ep-rejs (filter (fn [ep] (some acc-no-inner-ids (:acc (:accrej (:workspace ep))))) (ep-path est))
-        ep-rejs-deltas (map (fn [ep] {:delta (get-in ep [:workspace :accrej :delta])
-                                      :cycle (:cycle ep)
-                                      :hyp (get-in ep [:workspace :accrej :best])})
-                            ep-rejs)
-        earliest-rejs-deltas (for [hyp (sort-by :id (map :hyp ep-rejs-deltas))]
-                               (first (sort-by :cycle (filter #(= hyp (:hyp %)) ep-rejs-deltas))))]
-    (filter #(not-empty (:may-resolve %))
-            (mapcat (fn [{:keys [delta cycle hyp]}]
-                      ;; for each accepted hyp that conflicted with an explainer,
-                      ;; get the explainers it conflicted with
-                      (for [expl-conf (filter #(conflicts? hyp %) expl-rc)]
-                        (let [ ;; anomalies explained by expl-conf, and therefore possibly resolved
-                              expl-explained (set (:explains expl-conf))
-                              pc-res (filter (fn [pc] (expl-explained (:contents pc))) rel-anomalies)]
-                          {:acc-hyp expl-conf :rej-hyp hyp :cycle cycle :delta delta :may-resolve (sort-by :id pc-res)})))
-                    earliest-rejs-deltas))))
-
-(defn resolve-conf-exp
-  [acc-hyp rej-hyp may-resolve est]
-  (let [new-est (new-branch-ep est (cur-ep est))
-        ep (cur-ep new-est)
-        ws (-> (:workspace ep)
-               (undecide rej-hyp (:cycle ep))
-               (prevent-undecide rej-hyp)
-               (reject rej-hyp :preemptive (:cycle ep))
-               (accept acc-hyp nil [] may-resolve nil nil (:cycle ep)))
-        ep-acc (assoc ep :workspace ws)]
-    [(update-est new-est ep-acc) params]))
-
-(defn make-meta-hyps-conflicting-explainers
-  [anomalies est _ _]
-  ;; correct explainer(s) were rejected due to conflicts; need to
-  ;; consider the various possibilities of rejected explainers and
-  ;; no-explainers combinations
-  (for [{:keys [acc-hyp rej-hyp cycle delta may-resolve]} (conf-exp-candidates anomalies est)]
-    (new-hyp "ConfExp" :meta-conf-exp :meta-conf-exp
-             0.0 false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
-             (map :contents may-resolve)
-             (format "%s rejected %s" (:name rej-hyp) (:name acc-hyp))
-             (format "%s rejected %s at cycle %d with delta %.2f" rej-hyp acc-hyp cycle delta)
-             {:action (partial resolve-conf-exp acc-hyp rej-hyp may-resolve)
-              :resolves may-resolve
-              :acc-hyp acc-hyp
-              :rej-hyp rej-hyp
-              :cycle cycle
-              :delta delta})))
-
-;;}}}
-
 ;; implausible explainers
 ;;{{{
 
@@ -237,15 +167,17 @@
 (defn order-dep-candidates
   [anomalies est]
   (let [cur-ws (:workspace (cur-ep est))
-        rel-anomalies (filter #(= :no-expl-offered (classify-noexp-reason cur-ws %)) anomalies)
-        accept-cycles (into {} (for [hyp rel-anomalies] [hyp (accepted-cycle cur-ws hyp)]))
+        accept-cycles (into {} (for [hyp anomalies] [hyp (accepted-cycle cur-ws hyp)]))
         time-last (:time (cur-ep est))
         eps (map (fn [t] (cur-ep (goto-start-of-time est t)))
-                 (range (max 1 (- time-last (:MaxBatch params))) time-last))]
-    (for [ep eps]
-      (let [ws (:workspace ep)
-            may-resolve (filter (fn [hyp] (>= (get accept-cycles hyp) (:cycle ep))) rel-anomalies)]
-        [may-resolve ep]))))
+                 (range (max 1 (- time-last (:MaxBatch params))) time-last))
+        candidates (for [ep eps]
+                     (let [ws (:workspace ep)
+                           may-resolve (filter (fn [hyp] (>= (get accept-cycles hyp) (:cycle ep))) anomalies)]
+                       {:may-resolve may-resolve :ep ep}))
+        grp-candidates (group-by :may-resolve candidates)]
+    (for [[may-resolve candidates] (seq grp-candidates)]
+      [may-resolve (last (sort-by :cycle (map :ep candidates)))])))
 
 (defn make-meta-hyps-order-dep
   [anomalies est _ _]
@@ -269,10 +201,12 @@
   [unrejectable est]
   (let [new-est (new-branch-ep est (cur-ep est))
         ep (cur-ep new-est)
-        ws-restored (-> (:workspace ep)
-                        (undecide unrejectable (:cycle ep))
-                        (prevent-undecide unrejectable)
-                        (accept unrejectable nil [] [] nil {} (:cycle ep)))
+        ws-restored (reduce (fn [ws h]
+                              (-> ws
+                                  (undecide h (:cycle ep))
+                                  (prevent-undecide h)
+                                  (accept h nil [] [] nil {} (:cycle ep))))
+                            (:workspace ep) unrejectable)
         ep-restored (assoc ep :workspace ws-restored)]
     [(update-est new-est ep-restored) params]))
 
@@ -280,55 +214,30 @@
   [anomalies est time-now sensors]
   (let [rel-anomalies (filter #(= :no-expl-offered (classify-noexp-reason (:workspace (cur-ep est)) %)) anomalies)]
     (if (empty? rel-anomalies) []
-        (let [old-ep (cur-ep est)
-              old-ws (:workspace (cur-ep est))
-              ;; restore all observations rejected due to minscore
-              implicated (filter (fn [obs] (= :minscore (rejection-reason old-ws obs)))
-                                 (:observation (rejected old-ws)))
-              ws-all-restored (reduce (fn [ws hyp]
-                                        (-> ws (undecide hyp (:cycle old-ep))
-                                            (accept hyp nil [] [] nil {} (:cycle old-ep))))
-                                      old-ws implicated)
-              ;; generate new explainers
-              ws-new-exp (update-hypotheses ws-all-restored (:cycle old-ep) time-now)
-              ;; gather newly-added explainers of anomalies
-              new-exp (set (mapcat (fn [anomaly] (explainers ws-new-exp anomaly)) rel-anomalies))
-              ;; collect minscore-rejected observations that new-exp explain
-              obs-new-exp (filter (fn [obs] (= :minscore (rejection-reason old-ws obs)))
-                                  (set (mapcat (fn [hyp] (explains ws-new-exp hyp)) new-exp)))
-              ;; start over, and just add these obs-new-exp
-              new-est (new-branch-ep est (cur-ep est))
-              ep (cur-ep new-est)
-              ws-subset-restored (reduce (fn [ws hyp]
-                                           (-> ws (undecide hyp (:cycle ep))
-                                               (accept hyp nil [] [] nil {} (:cycle ep))))
-                                         (:workspace ep) obs-new-exp)
-              ep-subset-restored (assoc ep :workspace ws-subset-restored)
-              est-restored (update-est new-est ep-subset-restored)
-              ;; follow-through on the abduction process and figure
-              ;; out what remains explained of the added-back observations
-
-              ;; TODO: make this reasoning step add to explains cycles
-              result-est (:est-new (meta-apply-and-evaluate est est-restored time-now sensors))
-              result-ws (:workspace (cur-ep result-est))
-              result-anomalies (find-anomalies result-est)]
-          (for [candidate (set/difference (set obs-new-exp) (set result-anomalies))]
-            {:candidate candidate
-             :may-resolve (set/intersection (set rel-anomalies)
-                                            (set (mapcat (fn [h] (explains result-ws h))
-                                                         (explainers result-ws candidate))))})))))
+        (let [ws (:workspace (cur-ep est))
+              accepted (accepted ws)
+              ;; gather all observations rejected due to minscore
+              possible-evidence (filter (fn [obs] (= :minscore (rejection-reason ws obs)))
+                                        (:observation (rejected ws)))]
+          ;; ask problem domain which evidence are relevant, for each rel-anomaly
+          (filter (comp not-empty :unrejectable)
+                  (for [anomaly rel-anomalies]
+                    {:may-resolve [anomaly]
+                     :unrejectable ((:suggest-related-evidence-fn (:abduction @problem))
+                                    anomaly possible-evidence accepted)}))))))
 
 (defn make-meta-hyps-implausible-evidence
   [anomalies est time-now sensors]
-  (for [{:keys [candidate may-resolve]} (impl-ev-candidates anomalies est time-now sensors)]
+  (for [{:keys [unrejectable may-resolve]} (impl-ev-candidates anomalies est time-now sensors)]
     (new-hyp "ImplEv" :meta-impl-ev :meta-impl-ev
              0.0 false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
              (map :contents may-resolve)
-             (format "Implausible evidence rejected: %s" candidate)
-             (format "Some explainers never offered due to rejection of implausible evidence: %s" candidate)
-             {:action (partial resolve-impl-ev candidate)
+             "Implausible evidence rejected"
+             (format "Anomaly: %s\n\nSuggested related evidence:\n%s" (first may-resolve)
+                     (str/join "\n" (sort-by :id unrejectable)))
+             {:action (partial resolve-impl-ev unrejectable)
               :resolves may-resolve
-              :unrejectable candidate})))
+              :unrejectable unrejectable})))
 
 ;;}}}
 
@@ -340,9 +249,7 @@
   [anomalies est time-now sensors]
   (let [available-meta-hyps (set (str/split (:MetaHyps params) #","))
         meta-fns (filter identity
-                         [(when (available-meta-hyps "meta-conf-exp")
-                            make-meta-hyps-conflicting-explainers)
-                          (when (available-meta-hyps "meta-impl-exp")
+                         [(when (available-meta-hyps "meta-impl-exp")
                             make-meta-hyps-implausible-explainers)
                           (when (available-meta-hyps "meta-order-dep")
                             make-meta-hyps-order-dep)
