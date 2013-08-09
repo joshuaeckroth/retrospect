@@ -352,10 +352,12 @@
   [est (doall meta-hyps)])
 
 (defn score-meta-hyps-simulate-apriori
-  [hyp anomalies anomalies-new doubt doubt-new]
+  [hyp anomalies anomalies-new resolved-cases doubt doubt-new]
   (let [apriori-diff (- (avg (map :apriori anomalies))
                         (avg (map :apriori anomalies-new)))]
-    (cond (= "apriori-diff" (:ScoreMetaHyps params))
+    (cond (= "apriori-resolved" (:ScoreMetaHyps params))
+          (avg (map :apriori resolved-cases))
+          (= "apriori-diff" (:ScoreMetaHyps params))
           (max 0.0 apriori-diff)
           (= "doubt-diff" (:ScoreMetaHyps params))
           (if (<= apriori-diff 0.0) 0.0
@@ -388,7 +390,7 @@
                               :anomalies-after anomalies-new
                               :final-ep-id (:id (cur-ep (:est-new result)))
                               :apriori (score-meta-hyps-simulate-apriori
-                                        hyp anomalies anomalies-new
+                                        hyp anomalies anomalies-new resolved-cases
                                         doubt doubt-new)
                               :doubt-prior doubt
                               :doubt-new doubt-new
