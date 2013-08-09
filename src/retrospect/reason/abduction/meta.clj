@@ -93,7 +93,9 @@
 
 (defn meta-hyp-conflicts?
   [ws hyp1 hyp2]
-  true)
+  (or (= :meta-order-dep (:type hyp1))
+      (= :meta-order-dep (:type hyp2))
+      (not-empty (set/intersection (set (:explains hyp1)) (set (:explains hyp2))))))
 
 ;; implausible explainers
 ;;{{{
