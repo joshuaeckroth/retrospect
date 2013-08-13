@@ -165,3 +165,14 @@
         ;; may not be believed, or may conflict with beliefs
         observed (map (fn [h] [(:vertex h) (:value h)]) (filter #(= :expl (:subtype %)) (:expl accepted)))]
     (mapcat #(make-explainer-hyps bn expgraph observed %) unexp)))
+
+(defn suggest-related-evidence
+  [obs possible-evidence accepted]
+  (let [kb (get-kb accepted)
+        expgraph (:expgraph kb)
+        v (:vertex obs)]
+    ;; require that some vertex explains both v and v2
+    (filter (fn [{:keys [v2]}] (some (fn [e] (explains? expgraph e v2))
+                                     (explainers expgraph v)))
+            possible-evidence)))
+

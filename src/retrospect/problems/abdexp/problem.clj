@@ -6,7 +6,7 @@
           player-setup-diagram player-update-diagram
           player-get-truedata-log player-get-problem-log]])
   (:use [retrospect.problems.abdexp.hypotheses :only
-         [generate-kb make-sensor-hyps hypothesize update-kb]])
+         [generate-kb make-sensor-hyps hypothesize update-kb suggest-related-evidence]])
   (:use [retrospect.problems.abdexp.evaluate :only
          [evaluate evaluate-comp stats true-hyp?]])
   (:use [retrospect.problems.abdexp.prepared :only [prepared-map]])
@@ -32,6 +32,7 @@
    :abduction {:generate-kb-fn generate-kb
                :make-sensor-hyps-fn make-sensor-hyps
                :hypothesize-fn hypothesize
+               :suggest-related-evidence-fn suggest-related-evidence
                :learn-fn (constantly nil)
                :reset-fn (constantly nil)
                :evaluate-fn evaluate
