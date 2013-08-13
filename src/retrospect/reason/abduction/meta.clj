@@ -267,8 +267,11 @@
 
 (defn score-meta-hyp-estimate
   [meta-hyp]
-  ;; this "resolves" field is really a "may resolve" field
-  (assoc meta-hyp :apriori (avg (map :apriori (:resolves meta-hyp)))))
+  (if (= "abd-estimate" (:Metareasoning params))
+    ;; this "resolves" field is really a "may resolve" field
+    (assoc meta-hyp :apriori (avg (map :apriori (:resolves meta-hyp))))
+    ;; not abd-estimate, so it's abd-noscores
+    (assoc meta-hyp :apriori 1.0)))
 
 (defn score-meta-hyps-estimate
   [anomalies meta-hyps est time-prev time-now sensors]
@@ -341,7 +344,8 @@
 
 (defn score-meta-hyps
   [anomalies meta-hyps est time-prev time-now sensors]
-  (let [scorer (if (= "abd-estimate" (:Metareasoning params))
+  (let [scorer (if (or (= "abd-estimate" (:Metareasoning params))
+                       (= "abd-noscores" (:Metareasoning params)))
                  score-meta-hyps-estimate
                  score-meta-hyps-simulate)]
     (scorer anomalies meta-hyps est time-prev time-now sensors)))
@@ -439,7 +443,7 @@
   [est time-prev time-now sensors]
   (let [anomalies (find-anomalies est)
         m (:Metareasoning params)
-        f (cond (or (= "abd" m) (= "abd-estimate" m) (= "oracle" m))
+        f (cond (or (= "abd" m) (= "abd-estimate" m) (= "abd-noscores" m) (= "oracle" m))
                 meta-abductive-recursive
                 :else
                 (constantly nil))
