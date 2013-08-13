@@ -89,6 +89,14 @@
   (let [up (zip/up est)]
     (when-not (root-ep? (zip/node up)) (zip/node up))))
 
+(defn time-prior
+  [est]
+  (let [t (:time (cur-ep est))]
+    (loop [est2 (zip/up est)]
+      (cond (root-ep? (zip/node est2)) nil
+            (not= t (:time (cur-ep est2))) (:time (cur-ep est2))
+            :else (recur (zip/up est2))))))
+
 (defn goto-ep
   [est id]
   (let [root (zip/root est)]

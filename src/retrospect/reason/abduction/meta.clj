@@ -231,26 +231,28 @@
 
 (defn order-dep-candidates
   [anomalies est]
-  (let [ws (:workspace (cur-ep est))
-        acc (accepted ws)
-        ;; gather all observations rejected due to minscore
-        possible-evidence (filter (fn [obs] (= :minscore (rejection-reason ws obs)))
-                                  (:observation (rejected ws)))
-        rel-anomalies (filter (fn [anomaly]
-                                (empty? ((:suggest-related-evidence-fn (:abduction @problem))
-                                         anomaly possible-evidence acc)))
-                              anomalies)
-        accept-cycles (into {} (for [hyp rel-anomalies] [hyp (accepted-cycle ws hyp)]))
-        time-last (:time (cur-ep est))
-        eps (map (fn [t] (cur-ep (goto-start-of-time est t)))
-                 (range (max 0 (- time-last (:MaxBatch params))) time-last))
-        candidates (for [ep eps]
-                     (let [ws (:workspace ep)
-                           may-resolve (filter (fn [hyp] (>= (get accept-cycles hyp) (:cycle ep))) rel-anomalies)]
-                       {:may-resolve may-resolve :ep ep}))
-        grp-candidates (group-by :may-resolve candidates)]
-    (for [[may-resolve candidates] (seq grp-candidates)]
-      [may-resolve (last (sort-by :cycle (map :ep candidates)))])))
+  ;; don't batch "over" a previous batch
+  (if (not= (dec (:time (cur-ep est))) (time-prior est)) []
+      (let [ws (:workspace (cur-ep est))
+            acc (accepted ws)
+            ;; gather all observations rejected due to minscore
+            possible-evidence (filter (fn [obs] (= :minscore (rejection-reason ws obs)))
+                                      (:observation (rejected ws)))
+            rel-anomalies (filter (fn [anomaly]
+                                    (empty? ((:suggest-related-evidence-fn (:abduction @problem))
+                                             anomaly possible-evidence acc)))
+                                  anomalies)
+            accept-cycles (into {} (for [hyp rel-anomalies] [hyp (accepted-cycle ws hyp)]))
+            time-last (:time (cur-ep est))
+            eps (map (fn [t] (cur-ep (goto-start-of-time est t)))
+                     (range (max 0 (- time-last (:MaxBatch params))) time-last))
+            candidates (for [ep eps]
+                         (let [ws (:workspace ep)
+                               may-resolve (filter (fn [hyp] (>= (get accept-cycles hyp) (:cycle ep))) rel-anomalies)]
+                           {:may-resolve may-resolve :ep ep}))
+            grp-candidates (group-by :may-resolve candidates)]
+        (for [[may-resolve candidates] (seq grp-candidates)]
+          [may-resolve (last (sort-by :cycle (map :ep candidates)))]))))
 
 (defn make-meta-hyps-order-dep
   [anomalies est _ _]
