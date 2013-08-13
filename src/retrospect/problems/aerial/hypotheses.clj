@@ -82,12 +82,12 @@
        (and (= (:x mov1) (:ox mov2))
             (= (:y mov1) (:oy mov2))
             (= (:time mov1) (:ot mov2))
-            (not= (:objid mov1) (:objid mov2)))
+            (not (match-objid? (:objid mov1) (:objid mov2))))
        ;; mov2 ends where mov1 starts and not same objid
        (and (= (:x mov2) (:ox mov1))
             (= (:y mov2) (:oy mov1))
             (= (:time mov2) (:ot mov1))
-            (not= (:objid mov2) (:objid mov1)))
+            (not (match-objid? (:objid mov2) (:objid mov1))))
        ;; same objid (not nil), same start-end times but not start-end locations
        (and (:objid mov1)
             (:objid mov2)
