@@ -332,6 +332,11 @@
               (and (not-empty (:resolves hyp))
                    (every? t? (:resolves hyp))
                    (some t? (:unrejectable hyp)))
+              (= :meta-conf-exp (:type hyp))
+              (and (not-empty (:resolves hyp))
+                   (every? t? (:resolves hyp))
+                   (not (t? (:rej-hyp hyp)))
+                   (t? (:acc-hyp hyp)))
               :else
               (t? hyp))
       true false)))

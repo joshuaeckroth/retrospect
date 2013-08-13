@@ -83,19 +83,80 @@
 
 ;;}}}
 
-;; seems to be bad
-(comment
-  (defn meta-hyp-conflicts?
-    [ws hyp1 hyp2]
-    (or (= :meta-order-dep (:type hyp1)) (= :meta-order-dep (:type hyp2))
-        (= :meta-impl-ev (:type hyp1)) (= :meta-impl-ev (:type hyp2))
-        (related-hyps? ws (:acc-hyp hyp1) (:acc-hyp hyp2)))))
-
 (defn meta-hyp-conflicts?
   [ws hyp1 hyp2]
   (or (= :meta-order-dep (:type hyp1))
       (= :meta-order-dep (:type hyp2))
       (not-empty (set/intersection (set (:explains hyp1)) (set (:explains hyp2))))))
+
+;; conflicting explainers
+;;{{{
+
+(defn resolve-conf-exp
+  [acc-hyp rej-hyp may-resolve est]
+  (let [new-est (new-branch-ep est (cur-ep est))
+        ep (cur-ep new-est)
+        ws (-> (:workspace ep)
+               (undecide rej-hyp (:cycle ep))
+               (prevent-undecide rej-hyp)
+               (reject rej-hyp :preemptive (:cycle ep))
+               (accept acc-hyp nil [] may-resolve nil nil (:cycle ep)))
+        ep-acc (assoc ep :workspace ws)]
+    [(update-est new-est ep-acc) params]))
+
+(defn conf-exp-candidates
+  [anomalies est]
+  (let [cur-ws (:workspace (cur-ep est))
+        rel-anomalies (filter #(= :conflict (classify-noexp-reason cur-ws %)) anomalies)
+        ;; explainers of anomalies
+        expl (set (mapcat #(explainers cur-ws %) rel-anomalies))
+        ;; rejected explainers due to conflict
+        expl-rc (set (filter (fn [h] (= :conflict (rejection-reason cur-ws h))) expl))
+        ;; accepted that conflict with any of expl-rc
+        acc (set (filter (fn [c] (accepted? cur-ws c))
+                         (set (mapcat #(find-conflicts cur-ws %) expl-rc))))
+        ;; inner hyps, if any, of acc
+        inner-hyps (set (map :id (mapcat :hyps acc))) 
+        ;; keep only those that are not inner hyps
+        acc-no-inner (sort-by :id (filter #(not (inner-hyps (:id %))) acc)) 
+        acc-no-inner-ids (set (map :id acc-no-inner))
+        ;; may have been accepted multiple times, if undecided between; want the earliest time
+        ep-rejs (filter (fn [ep] (some acc-no-inner-ids (:acc (:accrej (:workspace ep))))) (ep-path est))
+        ep-rejs-deltas (map (fn [ep] {:delta (get-in ep [:workspace :accrej :delta])
+                                      :cycle (:cycle ep)
+                                      :hyp (get-in ep [:workspace :accrej :best])})
+                            ep-rejs)
+        earliest-rejs-deltas (for [hyp (sort-by :id (map :hyp ep-rejs-deltas))]
+                               (first (sort-by :cycle (filter #(= hyp (:hyp %)) ep-rejs-deltas))))]
+    (filter #(not-empty (:may-resolve %))
+            (mapcat (fn [{:keys [delta cycle hyp]}]
+                      ;; for each accepted hyp that conflicted with an explainer,
+                      ;; get the explainers it conflicted with
+                      (for [expl-conf (filter #(conflicts? hyp %) expl-rc)]
+                        (let [ ;; anomalies explained by expl-conf, and therefore possibly resolved
+                              expl-explained (set (:explains expl-conf))
+                              pc-res (filter (fn [pc] (expl-explained (:contents pc))) rel-anomalies)]
+                          {:acc-hyp expl-conf :rej-hyp hyp :cycle cycle :delta delta :may-resolve (sort-by :id pc-res)})))
+                    earliest-rejs-deltas))))
+
+(defn make-meta-hyps-conflicting-explainers
+  [anomalies est _ _]
+  ;; correct explainer(s) were rejected due to conflicts; need to
+  ;; consider the various possibilities of rejected explainers and
+  ;; no-explainers combinations
+  (for [{:keys [acc-hyp rej-hyp cycle delta may-resolve]} (conf-exp-candidates anomalies est)]
+    (new-hyp "ConfExp" :meta-conf-exp :meta-conf-exp
+             0.0 false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
+             (map :contents may-resolve)
+             (format "%s rejected %s" (:name rej-hyp) (:name acc-hyp))
+             (format "%s rejected %s at cycle %d with delta %.2f" rej-hyp acc-hyp cycle delta)
+             {:action (partial resolve-conf-exp acc-hyp rej-hyp may-resolve)
+              :resolves may-resolve
+              :acc-hyp acc-hyp
+              :rej-hyp rej-hyp
+              :cycle cycle
+              :delta delta})))
+;;}}}
 
 ;; implausible explainers
 ;;{{{
@@ -262,7 +323,9 @@
                           (when (available-meta-hyps "meta-order-dep")
                             make-meta-hyps-order-dep)
                           (when (available-meta-hyps "meta-impl-ev")
-                            make-meta-hyps-implausible-evidence)])]
+                            make-meta-hyps-implausible-evidence)
+                          (when (available-meta-hyps "meta-conf-exp")
+                            make-meta-hyps-conflicting-explainers)])]
     (doall (apply concat (for [meta-fn meta-fns] (meta-fn anomalies est time-now sensors))))))
 
 (defn score-meta-hyp-estimate
@@ -385,12 +448,10 @@
   [anomalies est time-prev time-now sensors]
   (loop [anomalies anomalies
          est est
-         attempted #{}
-         implicated #{}]
+         attempted #{}]
     (let [est-abd (meta-abductive anomalies est time-prev time-now sensors)
           meta-workspace (:workspace (cur-ep (:meta-est (cur-ep est-abd))))
-          meta-accepted (filter (fn [h] (and (not (attempted (dissoc (:contents h) :action)))
-                                             (not (implicated (:contents (:implicated h))))))
+          meta-accepted (filter (fn [h] (not (attempted (dissoc (:contents h) :action))))
                                 (apply concat (vals (select-keys (accepted meta-workspace)
                                                                  (:meta-hyp-types @reasoner)))))
           est-applied (if (empty? meta-accepted) est-abd
@@ -405,11 +466,10 @@
                                   est-abd meta-accepted))
           anomalies-new (when (not-empty meta-accepted) (find-anomalies est-applied))]
       (if (and (not-empty meta-accepted) (not-empty anomalies-new)
-               (< (count anomalies-new) (count anomalies)))
+               (<= (count anomalies-new) (count anomalies)))
         (recur anomalies-new
                est-applied
-               (set/union attempted (set (map (fn [h] (dissoc (:contents h) :action)) meta-accepted)))
-               (set/union implicated (set (map (fn [h] (:contents (:implicated h))) meta-accepted))))
+               (set/union attempted (set (map (fn [h] (dissoc (:contents h) :action)) meta-accepted))))
         {:est-old (goto-ep est-applied (:id (cur-ep est))) :est-new est-applied}))))
 
 ;;}}}
