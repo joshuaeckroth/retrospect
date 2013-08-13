@@ -135,24 +135,19 @@
                            non-conf-parent-combs)
                       ;; build a composite of several parent-combs
                       (map (fn [parent-comb]
-                             (if (= 1 (count parent-comb))
-                               ;; don't make a composite if there is only one vertex-value pair
-                               (let [[pv pval] (first parent-comb)]
-                                 (make-explainer bn expgraph observed unexp-hyp pv pval))
-                               ;; make a composite if there are multiple vertex-value pairs
-                               (let [hyps (map (fn [[pv pval]]
-                                                 (make-explainer bn expgraph observed unexp-hyp pv pval))
-                                               parent-comb)
-                                     score (make-score expgraph bn observed
-                                                       parent-comb v val)]
-                                 (new-composite "ExplComp" :expl :expl-composite
-                                                score [(:contents unexp-hyp)]
-                                                (str/join "," (map (fn [[pv pval]]
-                                                                     (format "%s=%s" pv pval))
-                                                                   parent-comb))
-                                                (format "Composite of:\n%s"
-                                                        (str/join "\n" (map str hyps)))
-                                                {:parent-comb parent-comb} hyps))))
+                             (let [hyps (map (fn [[pv pval]]
+                                               (make-explainer bn expgraph observed unexp-hyp pv pval))
+                                             parent-comb)
+                                   score (make-score expgraph bn observed
+                                                     parent-comb v val)]
+                               (new-composite "ExplComp" :expl :expl-composite
+                                              score [(:contents unexp-hyp)]
+                                              (str/join "," (map (fn [[pv pval]]
+                                                                   (format "%s=%s" pv pval))
+                                                                 parent-comb))
+                                              (format "Composite of:\n%s"
+                                                      (str/join "\n" (map str hyps)))
+                                              {:parent-comb parent-comb} hyps)))
                            non-conf-parent-combs))))
                 expl-sets)))))
 
@@ -163,8 +158,16 @@
         expgraph (:expgraph kb)
         ;; only :expl are "observed" here because :observation types
         ;; may not be believed, or may conflict with beliefs
-        observed (map (fn [h] [(:vertex h) (:value h)]) (filter #(= :expl (:subtype %)) (:expl accepted)))]
-    (mapcat #(make-explainer-hyps bn expgraph observed %) unexp)))
+        observed (map (fn [h] [(:vertex h) (:value h)]) (filter #(= :expl (:subtype %)) (:expl accepted)))
+        expl (mapcat #(make-explainer-hyps bn expgraph observed %) unexp)]
+    ;; keep only those explainers where every vertex they explain has been accepted
+    (filter (fn [hyp]
+              (or (= :expl (:subtype hyp))
+                  (let [vs (map :vertex (:hyps hyp))]
+                    (every? (fn [v] (some (fn [acc] (= (:vertex acc) v))
+                                          (filter #(= :expl (:subtype %)) (:expl accepted))))
+                            (set (mapcat #(explains expgraph %) vs))))))
+            expl)))
 
 (defn suggest-related-evidence
   [obs possible-evidence accepted]
