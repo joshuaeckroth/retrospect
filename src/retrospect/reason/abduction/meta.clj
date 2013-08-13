@@ -445,14 +445,17 @@
                 (constantly nil))
         result (f anomalies est time-prev time-now sensors)
         anomalies-old (if result (find-anomalies (:est-old result))
-                              anomalies)
-        anomalies-new (when result (find-anomalies (:est-new result)))]
-    (cond (nil? result)
-          (assume-false-evidence anomalies-old est time-now sensors)
-          (<= (count anomalies-new) (count anomalies-old))
-          (assume-false-evidence anomalies-new (:est-new result) time-now sensors)
-          :else
-          (assume-false-evidence anomalies-old (:est-old result) time-now sensors))))
+                          anomalies)
+        anomalies-new (when result (find-anomalies (:est-new result)))
+        [anomalies-final est-final] (cond (nil? result)
+                                          [anomalies-old est]
+                                          (<= (count anomalies-new) (count anomalies-old))
+                                          [anomalies-new (:est-new result)]
+                                          :else
+                                          [anomalies-old (:est-old result)])]
+    (if (:MetaRemainderIgnore params)
+      (assume-false-evidence anomalies-final est-final time-now sensors)
+      est-final)))
 
 
 ;; folded-file: t
