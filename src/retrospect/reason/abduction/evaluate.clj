@@ -335,8 +335,7 @@
               (= :meta-conf-exp (:type hyp))
               (and (not-empty (:resolves hyp))
                    (every? t? (:resolves hyp))
-                   (not (t? (:rej-hyp hyp)))
-                   (t? (:acc-hyp hyp)))
+                   (not (t? (:rej-hyp hyp))))
               :else
               (t? hyp))
       true false)))

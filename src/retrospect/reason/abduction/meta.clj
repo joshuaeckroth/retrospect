@@ -93,14 +93,13 @@
 ;;{{{
 
 (defn resolve-conf-exp
-  [acc-hyp rej-hyp may-resolve est]
+  [rej-hyp may-resolve est]
   (let [new-est (new-branch-ep est (cur-ep est))
         ep (cur-ep new-est)
         ws (-> (:workspace ep)
                (undecide rej-hyp (:cycle ep))
                (prevent-undecide rej-hyp)
-               (reject rej-hyp :preemptive (:cycle ep))
-               (accept acc-hyp nil [] may-resolve nil nil (:cycle ep)))
+               (reject rej-hyp :preemptive (:cycle ep)))
         ep-acc (assoc ep :workspace ws)]
     [(update-est new-est ep-acc) params]))
 
@@ -129,30 +128,25 @@
         earliest-rejs-deltas (for [hyp (sort-by :id (map :hyp ep-rejs-deltas))]
                                (first (sort-by :cycle (filter #(= hyp (:hyp %)) ep-rejs-deltas))))]
     (filter #(not-empty (:may-resolve %))
-            (mapcat (fn [{:keys [delta cycle hyp]}]
-                      ;; for each accepted hyp that conflicted with an explainer,
-                      ;; get the explainers it conflicted with
-                      (for [expl-conf (filter #(conflicts? hyp %) expl-rc)]
-                        (let [ ;; anomalies explained by expl-conf, and therefore possibly resolved
-                              expl-explained (set (:explains expl-conf))
-                              pc-res (filter (fn [pc] (expl-explained (:contents pc))) rel-anomalies)]
-                          {:acc-hyp expl-conf :rej-hyp hyp :cycle cycle :delta delta :may-resolve (sort-by :id pc-res)})))
-                    earliest-rejs-deltas))))
+            (for [{:keys [delta cycle hyp]} earliest-rejs-deltas]
+              (let [ ;; anomalies explained by conflicting hyps, and therefore possibly resolved
+                    expl-explained (set (mapcat :explains (filter #(conflicts? hyp %) expl-rc)))
+                    pc-res (filter (fn [pc] (expl-explained (:contents pc))) rel-anomalies)]
+                {:rej-hyp hyp :cycle cycle :delta delta :may-resolve (sort-by :id pc-res)})))))
 
 (defn make-meta-hyps-conflicting-explainers
   [anomalies est _ _]
   ;; correct explainer(s) were rejected due to conflicts; need to
   ;; consider the various possibilities of rejected explainers and
   ;; no-explainers combinations
-  (for [{:keys [acc-hyp rej-hyp cycle delta may-resolve]} (conf-exp-candidates anomalies est)]
+  (for [{:keys [rej-hyp cycle delta may-resolve]} (conf-exp-candidates anomalies est)]
     (new-hyp "ConfExp" :meta-conf-exp :meta-conf-exp
              0.0 false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
              (map :contents may-resolve)
-             (format "%s rejected %s" (:name rej-hyp) (:name acc-hyp))
-             (format "%s rejected %s at cycle %d with delta %.2f" rej-hyp acc-hyp cycle delta)
-             {:action (partial resolve-conf-exp acc-hyp rej-hyp may-resolve)
+             (format "%s rejected some hyps" (:name rej-hyp))
+             (format "%s rejected some hyps at cycle %d with delta %.2f" rej-hyp cycle delta)
+             {:action (partial resolve-conf-exp rej-hyp may-resolve)
               :resolves may-resolve
-              :acc-hyp acc-hyp
               :rej-hyp rej-hyp
               :implicated rej-hyp
               :cycle cycle
