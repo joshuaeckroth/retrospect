@@ -32,8 +32,7 @@
   [training]
   [(new-hyp "KB" :kb :kb 1.0 false [] nil [] "" ""
             {:moves (:moves training)
-             :moves-dist (compute-moves-dist (:moves training))
-             :seen-colors (:seen-colors training)})])
+             :moves-dist (compute-moves-dist (:moves training))})])
 
 (defn get-kb
   [accepted]
@@ -217,9 +216,15 @@
                                (some #(dets-match? (:det %) (:det2 h)) c))))))]
           (filter valid? mov-hyps))))
 
+(defn mov-hyp-apriori
+  [det det2 moves-dist]
+  (let [d (dist (:x det) (:y det)
+                (:x det2) (:y det2))]
+    (penalize-gray-moves (move-prob d moves-dist) det det2)))
+
 (defn new-mov-hyp
   "Returns nil if the colors don't match."
-  [to from acc-mov-hyps moves-dist seen-colors]
+  [to from acc-mov-hyps moves-dist]
   (prof :new-mov-hyp
         (let [det (:det to) det2 (:det from)
               colors-in (set (map (comp :color :det2)
@@ -242,10 +247,9 @@
                                :else det2)
               d (dist (:x det-color) (:y det-color)
                       (:x det2-color) (:y det2-color))
-              apriori (move-prob d moves-dist)
-              apriori-color-penalty (penalize-gray-moves apriori det det2)]
+              apriori (mov-hyp-apriori det-color det2-color moves-dist)]
           (when (match-color? (:color det-color) (:color det2-color))
-            (new-hyp "Mov" :movement :movement apriori-color-penalty false
+            (new-hyp "Mov" :movement :movement apriori false
                      (if (not= gray (:color det-color))
                        [(:color det-color) (dissoc det :color) (dissoc det2 :color)]
                        [(dissoc det :color) (dissoc det2 :color)])
@@ -291,20 +295,28 @@
                           nearby (filter #(dets-nearby? evidence % (:moves-dist kb)) sensor-to-hyps)
                           mov-hyps (doall
                                     (filter identity
-                                       (map #(new-mov-hyp % evidence acc-mov-hyps
-                                                        (:moves-dist kb) (:seen-colors kb))
+                                       (map #(new-mov-hyp % evidence acc-mov-hyps (:moves-dist kb))
                                           nearby)))]
                       (filter-valid-movs mov-hyps acc-mov-hyps)))
                   sensor-from-hyps)))))
 
 (defn suggest-related-evidence
-  [obs possible-evidence accepted]
+  [obs possible-evidence accepted min-score]
   (let [kb (get-kb accepted)
-        moves-dist (:moves-dist kb)]
+        moves-dist (:moves-dist kb)
+        acc-mov-hyps (sort-by (comp :time :mov) (:movement accepted))]
     (if (= :from (:subtype obs))
-      (filter (fn [obs2] (and (= :to (:subtype obs2))
-                              (dets-nearby? obs obs2 moves-dist)))
+      (filter (fn [obs2]
+                (let [mov-hyp (new-mov-hyp obs2 obs acc-mov-hyps moves-dist)]
+                  (and mov-hyp
+                       (= :to (:subtype obs2))
+                       (dets-nearby? obs obs2 moves-dist)
+                       (>= (:apriori mov-hyp) min-score))))
               possible-evidence)
-      (filter (fn [obs2] (and (= :from (:subtype obs2))
-                              (dets-nearby? obs2 obs moves-dist)))
+      (filter (fn [obs2]
+                (let [mov-hyp (new-mov-hyp obs obs2 acc-mov-hyps moves-dist)]
+                  (and mov-hyp
+                       (= :from (:subtype obs2))
+                       (dets-nearby? obs2 obs moves-dist)
+                       (>= (:apriori mov-hyp) min-score))))
               possible-evidence))))
