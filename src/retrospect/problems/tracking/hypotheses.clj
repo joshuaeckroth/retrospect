@@ -305,6 +305,6 @@
       (filter (fn [obs2] (and (= :to (:subtype obs2))
                               (dets-nearby? obs obs2 moves-dist)))
               possible-evidence)
-      (filter (fn [obs2] (and (= :from (:subtype obs))
+      (filter (fn [obs2] (and (= :from (:subtype obs2))
                               (dets-nearby? obs2 obs moves-dist)))
               possible-evidence))))
