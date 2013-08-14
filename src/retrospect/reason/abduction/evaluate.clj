@@ -335,7 +335,8 @@
               (= :meta-conf-exp (:type hyp))
               (and (not-empty (:resolves hyp))
                    (every? t? (:resolves hyp))
-                   (not (t? (:rej-hyp hyp))))
+                   (not (t? (:rej-hyp hyp)))
+                   (some t? (:rejected-expl hyp)))
               :else
               (t? hyp))
       true false)))
@@ -405,7 +406,19 @@
         :FalseMetaImplExpConflictsAccepted
         (let [hyps (get-in meta-true-false [:meta-impl-exp false])]
           (if (empty? hyps) 0.0
-              (double (/ (count (filter :conflicts-with-accepted? hyps)) (count hyps)))))}
+              (double (/ (count (filter :conflicts-with-accepted? hyps)) (count hyps)))))
+        :TrueMetaConfExpEpDeltaAvg
+        (avg (map :delta (get-in meta-true-false [:meta-conf-exp true])))
+        :FalseMetaConfExpEpDeltaAvg
+        (avg (map :delta (get-in meta-true-false [:meta-conf-exp false])))
+        :TrueMetaConfExpCycleDiffAvg
+        (avg (map :cycle-diff (get-in meta-true-false [:meta-conf-exp true])))
+        :FalseMetaConfExpCycleDiffAvg
+        (avg (map :cycle-diff (get-in meta-true-false [:meta-conf-exp false])))
+        :TrueMetaConfExpTimeDiffAvg
+        (avg (map :time-diff (get-in meta-true-false [:meta-conf-exp true])))
+        :FalseMetaConfExpTimeDiffAvg
+        (avg (map :time-diff (get-in meta-true-false [:meta-conf-exp false])))}
        (:meta-hyp-types @reasoner))))
 
 (defn meta-hyp-workspace-metrics
