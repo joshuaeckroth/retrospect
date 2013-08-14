@@ -244,7 +244,7 @@
             ;; keep anomalies that have no related evidence
             rel-anomalies (filter (fn [anomaly]
                                     (empty? ((:suggest-related-evidence-fn (:abduction @problem))
-                                             anomaly possible-evidence acc (:MinScore params))))
+                                             anomaly possible-evidence acc)))
                                   anomalies)
             accept-cycles (into {} (for [hyp rel-anomalies] [hyp (accepted-cycle ws hyp)]))
             time-last (:time (cur-ep est))
@@ -301,7 +301,7 @@
             (for [anomaly anomalies]
               {:may-resolve [anomaly]
                :unrejectable ((:suggest-related-evidence-fn (:abduction @problem))
-                              anomaly possible-evidence acc (:MinScore params))}))))
+                              anomaly possible-evidence acc)}))))
 
 (defn make-meta-hyps-implausible-evidence
   [anomalies est time-now sensors]
