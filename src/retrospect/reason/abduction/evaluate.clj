@@ -327,7 +327,7 @@
                    (t? (:acc-hyp hyp)))
               (= :meta-order-dep (:type hyp))
               (and (not-empty (:resolves hyp))
-                   (every? t? (:resolves hyp)))
+                   (some t? (:resolves hyp)))
               (= :meta-impl-ev (:type hyp))
               (and (not-empty (:resolves hyp))
                    (every? t? (:resolves hyp))

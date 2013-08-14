@@ -241,6 +241,7 @@
             ;; gather all observations rejected due to minscore
             possible-evidence (filter (fn [obs] (= :minscore (rejection-reason ws obs)))
                                       (:observation (rejected ws)))
+            ;; keep anomalies that have no related evidence
             rel-anomalies (filter (fn [anomaly]
                                     (empty? ((:suggest-related-evidence-fn (:abduction @problem))
                                              anomaly possible-evidence acc)))
