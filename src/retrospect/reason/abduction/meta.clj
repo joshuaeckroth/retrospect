@@ -513,12 +513,9 @@
         anomalies-old (if result (find-anomalies (:est-old result))
                           anomalies)
         anomalies-new (when result (find-anomalies (:est-new result)))
-        [anomalies-final est-final] (cond (nil? result)
-                                          [anomalies-old est]
-                                          (<= (count anomalies-new) (count anomalies-old))
-                                          [anomalies-new (:est-new result)]
-                                          :else
-                                          [anomalies-old (:est-old result)])]
+        [anomalies-final est-final] (if (nil? result)
+                                      [anomalies-old est]
+                                      [anomalies-new (:est-new result)])]
     (if (:MetaRemainderIgnore params)
       (assume-false-evidence anomalies-final est-final time-now sensors)
       est-final)))
