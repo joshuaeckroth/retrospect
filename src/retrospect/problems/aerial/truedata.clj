@@ -75,7 +75,7 @@
                             image (format "%s/aerial/Training Data Sets/%s/%s" @datadir folder
                                           (str/replace (:file (:attrs frame)) #".*\/" ""))]
                         {:image image
-                         :objects (map (partial extract-object image) objects)})))]
+                         :objects (doall (map (partial extract-object image) objects))})))]
     ;; add objids and timestamps to objects and create a time-keyed map of frames
     (reduce (fn [m t] (let [frame (nth frames t)
                             ;; doall is important so that the rand calls all happen ahead of time
@@ -87,18 +87,18 @@
 (defn find-movements
   [frames]
   (let [framesvec (vec (map second (sort-by first (seq frames))))]
-    (apply concat
-           (for [framenum (range (dec (count framesvec)))]
-             (let [thisframe (nth framesvec framenum)
-                   nextframe (nth framesvec (inc framenum))]
-               (mapcat
-                (fn [object]
-                  (let [objid (:objid object)
-                        object2-options (filter #(= objid (:objid %)) (:objects nextframe))]
-                    (for [object2 object2-options]
-                      {:ox (:x object) :oy (:y object) :ot (:time object)
-                       :x (:x object2) :y (:y object2) :time (:time object2)})))
-                (:objects thisframe)))))))
+    (doall (apply concat
+                  (for [framenum (range (dec (count framesvec)))]
+                    (let [thisframe (nth framesvec framenum)
+                          nextframe (nth framesvec (inc framenum))]
+                      (mapcat
+                       (fn [object]
+                         (let [objid (:objid object)
+                               object2-options (filter #(= objid (:objid %)) (:objects nextframe))]
+                           (for [object2 object2-options]
+                             {:ox (:x object) :oy (:y object) :ot (:time object)
+                              :x (:x object2) :y (:y object2) :time (:time object2)})))
+                       (:objects thisframe))))))))
 
 (defn generate-truedata
   []

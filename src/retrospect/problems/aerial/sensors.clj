@@ -9,10 +9,11 @@
 
 (defn sense
   [sensor frames time]
-  (let [objs (map (fn [obj]
-                    (if (<= (my-rand) (/ (:KeepObjIdProb params) 100.0))
-                      obj (dissoc obj :objid)))
-                  (:objects (get frames time)))]
+  ;; keep the doall!
+  (let [objs (doall (map (fn [obj]
+                           (if (<= (my-rand) (/ (:KeepObjIdProb params) 100.0))
+                             obj (dissoc obj :objid)))
+                         (:objects (get frames time))))]
     (add-sensed sensor time objs)))
 
 (defn generate-sensors
