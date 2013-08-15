@@ -145,7 +145,7 @@
   ;; consider the various possibilities of rejected explainers and
   ;; no-explainers combinations
   (for [{:keys [rej-hyp cycle time delta rejected-expl may-resolve]} (conf-exp-candidates anomalies est)]
-    (let [apriori (max 0.0 (- (avg (map :apriori may-resolve)) (:apriori rej-hyp)))]
+    (let [apriori (* delta (avg (map :apriori may-resolve)) (- 1.0 (:apriori rej-hyp)))]
       (new-hyp "ConfExp" :meta-conf-exp :meta-conf-exp apriori
                false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
                (map :contents may-resolve)
