@@ -684,7 +684,9 @@
                            {:hyp hyp :expl sorted-expl :delta delta :top-apriori (:apriori (first sorted-expl))}))
           best-delta (apply max (map :delta delta-c-sets))
           best-delta-c-sets (filter #(= best-delta (:delta %)) delta-c-sets)
-          best-c-set (apply max-key :top-apriori best-delta-c-sets)]
+          best-top-apriori (apply max (map :top-apriori best-delta-c-sets))
+          best-top-apriori-c-sets (filter #(= best-top-apriori (:top-apriori %)) best-delta-c-sets)
+          best-c-set (last (sort-by (fn [{:keys [expl]}] (count (explains workspace (first expl)))) best-top-apriori-c-sets))]
       best-c-set)))
 
 (defn find-best
