@@ -345,9 +345,11 @@
            (cond (= "avg" (:MetaEstimate params))
                  (avg (map :apriori (:resolves meta-hyp)))
                  (= "max" (:MetaEstimate params))
-                 (apply max (map :apriori (:resolves meta-hyp)))
+                 (if (empty? (:resolves meta-hyp)) 0.0
+                     (apply max (map :apriori (:resolves meta-hyp))))
                  (= "min" (:MetaEstimate params))
-                 (apply min (map :apriori (:resolves meta-hyp)))))
+                 (if (empty? (:resolves meta-hyp)) 0.0
+                     (apply min (map :apriori (:resolves meta-hyp))))))
     ;; not abd-estimate, so it's abd-noscores
     (assoc meta-hyp :apriori 1.0)))
 
