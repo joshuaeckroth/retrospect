@@ -477,7 +477,8 @@
                                   est-abd meta-accepted))
           anomalies-new (when (not-empty meta-accepted) (find-anomalies est-applied))]
       (if (and (not-empty meta-accepted) (not-empty anomalies-new)
-               (<= (count anomalies-new) (count anomalies)))
+               (or (some (fn [h] (= :meta-order-dep (:type h))) meta-accepted)
+                   (< (count anomalies-new) (count anomalies))))
         (recur anomalies-new
                est-applied
                (set/union attempted (set (map (fn [h] (dissoc (:contents h) :action)) meta-accepted)))
