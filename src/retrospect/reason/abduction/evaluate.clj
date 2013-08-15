@@ -320,21 +320,25 @@
 (defn true-meta-hyp?
   "Note that hyp may be a non-meta hyp if it's a problem case."
   [truedata hyp]
-  (let [t? (partial (:oracle-fn @problem) truedata)]
+  (let [t? (partial (:oracle-fn @problem) truedata)
+        resolves-tf (group-by t? (:resolves hyp))
+        count-resolves-true (count (get resolves-tf true))
+        count-resolves-false (count (get resolves-tf false))]
     (if (cond (= :meta-impl-exp (:type hyp))
               (and (not-empty (:resolves hyp))
-                   (every? t? (:resolves hyp))
+                   (>= count-resolves-true count-resolves-false)
                    (t? (:acc-hyp hyp)))
               (= :meta-order-dep (:type hyp))
               (and (not-empty (:resolves hyp))
+                   (>= count-resolves-true count-resolves-false)
                    (some t? (:resolves hyp)))
               (= :meta-impl-ev (:type hyp))
               (and (not-empty (:resolves hyp))
-                   (every? t? (:resolves hyp))
+                   (>= count-resolves-true count-resolves-false)
                    (some t? (:unrejectable hyp)))
               (= :meta-conf-exp (:type hyp))
               (and (not-empty (:resolves hyp))
-                   (every? t? (:resolves hyp))
+                   (>= count-resolves-true count-resolves-false)
                    (not (t? (:rej-hyp hyp)))
                    (some t? (:rejected-expl hyp)))
               :else
