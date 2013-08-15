@@ -341,7 +341,13 @@
   [meta-hyp]
   (if (= "abd-estimate" (:Metareasoning params))
     ;; this "resolves" field is really a "may resolve" field
-    (assoc meta-hyp :apriori (avg (map :apriori (:resolves meta-hyp))))
+    (assoc meta-hyp :apriori
+           (cond (= "avg" (:MetaEstimate params))
+                 (avg (map :apriori (:resolves meta-hyp)))
+                 (= "max" (:MetaEstimate params))
+                 (apply max (map :apriori (:resolves meta-hyp)))
+                 (= "min" (:MetaEstimate params))
+                 (apply min (map :apriori (:resolves meta-hyp)))))
     ;; not abd-estimate, so it's abd-noscores
     (assoc meta-hyp :apriori 1.0)))
 

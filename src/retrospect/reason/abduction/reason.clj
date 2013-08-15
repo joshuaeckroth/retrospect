@@ -37,6 +37,7 @@
                         ["meta-impl-ev,meta-impl-exp,meta-order-dep,meta-conf-exp"]]
              :MetaRemainderIgnore [true [true false]]
              :ScoreMetaHyps ["doubt-diff" ["doubt-diff" "doubt" "apriori-diff" "apriori-resolved"]]
+             :MetaEstimate ["avg" ["min" "max" "avg"]]
              :RemoveConflictingImplExp [true [true false]]
              :MaxMetaImplExpScoreDelta [1.0 [0.5 1.0]]
              :MaxBatch [5 [5]]
