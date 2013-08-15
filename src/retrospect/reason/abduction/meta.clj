@@ -145,21 +145,22 @@
   ;; consider the various possibilities of rejected explainers and
   ;; no-explainers combinations
   (for [{:keys [rej-hyp cycle time delta rejected-expl may-resolve]} (conf-exp-candidates anomalies est)]
-    (new-hyp "ConfExp" :meta-conf-exp :meta-conf-exp
-             0.0 false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
-             (map :contents may-resolve)
-             (format "%s rejected some hyps" (:name rej-hyp))
-             (format "%s rejected %s at cycle %d with delta %.2f"
-                     rej-hyp (str/join ", " (sort-by :id rejected-expl)) cycle delta)
-             {:action (partial resolve-conf-exp rej-hyp may-resolve)
-              :resolves may-resolve
-              :rej-hyp rej-hyp
-              :implicated rej-hyp
-              :rejected-expl rejected-expl
-              :cycle cycle
-              :cycle-diff (- (:cycle (cur-ep est)) cycle)
-              :time-diff (- (:time (cur-ep est)) time)
-              :delta delta})))
+    (let [apriori (max 0.0 (- (avg (map :apriori may-resolve)) (:apriori rej-hyp)))]
+      (new-hyp "ConfExp" :meta-conf-exp :meta-conf-exp apriori
+               false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
+               (map :contents may-resolve)
+               (format "%s rejected some hyps" (:name rej-hyp))
+               (format "%s rejected %s at cycle %d with delta %.2f"
+                       rej-hyp (str/join ", " (sort-by :id rejected-expl)) cycle delta)
+               {:action (partial resolve-conf-exp rej-hyp may-resolve)
+                :resolves may-resolve
+                :rej-hyp rej-hyp
+                :implicated rej-hyp
+                :rejected-expl rejected-expl
+                :cycle cycle
+                :cycle-diff (- (:cycle (cur-ep est)) cycle)
+                :time-diff (- (:time (cur-ep est)) time)
+                :delta delta}))))
 ;;}}}
 
 ;; implausible explainers
@@ -198,9 +199,10 @@
   (let [candidates (impl-exp-candidates anomalies est)
         meta-hyps (for [{:keys [acc-hyp may-resolve score-delta]} candidates]
                     (let [conflicts-with-accepted? (some (partial conflicts? acc-hyp)
-                                                         (:all (accepted (:workspace (cur-ep est)))))]
-                      (new-hyp "ImplExp" :meta-impl-exp :meta-impl-exp
-                               0.0 false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
+                                                         (:all (accepted (:workspace (cur-ep est)))))
+                          apriori (max 0.0 (- (:apriori acc-hyp) (avg (map :apriori may-resolve))))]
+                      (new-hyp "ImplExp" :meta-impl-exp :meta-impl-exp apriori
+                               false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
                                (map :contents may-resolve)
                                "Explainer rejected due to min-score"
                                (format "%s was rejected due to min-score\n\nConflicts with accepted? %s\nScore delta: %.2f"
@@ -261,7 +263,7 @@
 (defn make-meta-hyps-order-dep
   [anomalies est _ _]
   (for [[may-resolve ep] (order-dep-candidates anomalies est)]
-    (let [apriori (doubt-aggregate (new-branch-ep est ep))]
+    (let [apriori (avg (map :apriori may-resolve))]
       (new-hyp "OrderDep" :meta-order-dep :meta-order-dep
                apriori false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
                (map :contents may-resolve)
@@ -306,16 +308,17 @@
 (defn make-meta-hyps-implausible-evidence
   [anomalies est time-now sensors]
   (for [{:keys [unrejectable may-resolve]} (impl-ev-candidates anomalies est time-now sensors)]
-    (new-hyp "ImplEv" :meta-impl-ev :meta-impl-ev
-             0.0 false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
-             (map :contents may-resolve)
-             "Implausible evidence rejected"
-             (format "Anomaly: %s\n\nSuggested related evidence:\n%s" (first may-resolve)
-                     (str/join "\n" (sort-by :id unrejectable)))
-             {:action (partial resolve-impl-ev unrejectable)
-              :resolves may-resolve
-              :unrejectable unrejectable
-              :implicated unrejectable})))
+    (let [apriori (avg (map :apriori may-resolve))]
+      (new-hyp "ImplEv" :meta-impl-ev :meta-impl-ev apriori
+               false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
+               (map :contents may-resolve)
+               "Implausible evidence rejected"
+               (format "Anomaly: %s\n\nSuggested related evidence:\n%s" (first may-resolve)
+                       (str/join "\n" (sort-by :id unrejectable)))
+               {:action (partial resolve-impl-ev unrejectable)
+                :resolves may-resolve
+                :unrejectable unrejectable
+                :implicated unrejectable}))))
 
 ;;}}}
 
@@ -336,29 +339,6 @@
                           (when (available-meta-hyps "meta-conf-exp")
                             make-meta-hyps-conflicting-explainers)])]
     (doall (apply concat (for [meta-fn meta-fns] (meta-fn anomalies est time-now sensors))))))
-
-(defn score-meta-hyp-estimate
-  [meta-hyp]
-  (if (= "abd-estimate" (:Metareasoning params))
-    ;; this "resolves" field is really a "may resolve" field
-    (assoc meta-hyp :apriori
-           (cond (= "avg" (:MetaEstimate params))
-                 (avg (map :apriori (:resolves meta-hyp)))
-                 (= "max" (:MetaEstimate params))
-                 (if (empty? (:resolves meta-hyp)) 0.0
-                     (apply max (map :apriori (:resolves meta-hyp))))
-                 (= "min" (:MetaEstimate params))
-                 (if (empty? (:resolves meta-hyp)) 0.0
-                     (apply min (map :apriori (:resolves meta-hyp))))))
-    ;; not abd-estimate, so it's abd-noscores
-    (assoc meta-hyp :apriori 1.0)))
-
-(defn score-meta-hyps-estimate
-  [anomalies meta-hyps est time-prev time-now sensors]
-  ;; must use (doall) to avoid lazy evaluation since state/params may
-  ;; change later (specifically, MinScore and Threshold change to
-  ;; MetaMinScore and MetaThreshold)
-  [est (doall (map score-meta-hyp-estimate meta-hyps))])
 
 (defn score-meta-hyps-simulate-apriori
   [hyp anomalies anomalies-new resolved-cases doubt doubt-new]
@@ -424,11 +404,8 @@
 
 (defn score-meta-hyps
   [anomalies meta-hyps est time-prev time-now sensors]
-  (let [scorer (if (or (= "abd-estimate" (:Metareasoning params))
-                       (= "abd-noscores" (:Metareasoning params)))
-                 score-meta-hyps-estimate
-                 score-meta-hyps-simulate)]
-    (scorer anomalies meta-hyps est time-prev time-now sensors)))
+  (if (= "abd-estimate" (:Metareasoning params)) [est meta-hyps]
+      (score-meta-hyps-simulate anomalies meta-hyps est time-prev time-now sensors)))
 
 ;;}}}
 
