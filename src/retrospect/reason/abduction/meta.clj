@@ -200,7 +200,7 @@
         meta-hyps (for [{:keys [acc-hyp may-resolve score-delta]} candidates]
                     (let [conflicts-with-accepted? (some (partial conflicts? acc-hyp)
                                                          (:all (accepted (:workspace (cur-ep est)))))
-                          apriori (:apriori acc-hyp)]
+                          apriori (avg (conj (map :apriori may-resolve) (:apriori acc-hyp)))]
                       (new-hyp "ImplExp" :meta-impl-exp :meta-impl-exp apriori
                                false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
                                (map :contents may-resolve)
