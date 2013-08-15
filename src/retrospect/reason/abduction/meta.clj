@@ -452,18 +452,19 @@
                                                                  (:meta-hyp-types @reasoner)))))
           est-applied (if (empty? meta-accepted) est-abd
                           (reduce (fn [est hyp]
-                                    (let [[est-new params-new] ((:action hyp) est)
-                                          est-nocleanup (binding [params params-new]
-                                                          (:est-new (meta-apply-and-evaluate
-                                                                     est est-new time-now sensors)))]
-                                      (if-let [cleanup (:cleanup hyp)]
-                                        (cleanup est-nocleanup est)
-                                        est-nocleanup)))
+                                    (let [anomalies-prior (find-anomalies est)
+                                          [est-action params-new] ((:action hyp) est)
+                                          est-result (binding [params params-new]
+                                                       (:est-new (meta-apply-and-evaluate
+                                                                  est est-action time-now sensors)))
+                                          anomalies-result (find-anomalies est-result)]
+                                      ;; keep the result only if it reduced anomalies, or it is batch
+                                      (if (or (= :meta-order-dep (:type hyp))
+                                              (< (count anomalies-result) (count anomalies-prior)))
+                                        est-result est)))
                                   est-abd meta-accepted))
-          anomalies-new (when (not-empty meta-accepted) (find-anomalies est-applied))]
-      (if (and (not-empty meta-accepted) (not-empty anomalies-new)
-               (or (some (fn [h] (= :meta-order-dep (:type h))) meta-accepted)
-                   (< (count anomalies-new) (count anomalies))))
+          anomalies-new (find-anomalies est-applied)]
+      (if (and (not-empty meta-accepted) (not-empty anomalies-new))
         (recur anomalies-new
                est-applied
                (set/union attempted (set (map (fn [h] (dissoc (:contents h) :action)) meta-accepted)))
