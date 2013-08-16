@@ -93,7 +93,7 @@
 ;;{{{
 
 (defn resolve-conf-exp
-  [rej-hyp may-resolve est]
+  [rej-hyp est]
   (let [new-est (new-branch-ep est (cur-ep est))
         ep (cur-ep new-est)
         ws (-> (:workspace ep)
@@ -104,9 +104,9 @@
     [(update-est new-est ep-acc) params]))
 
 (defn conf-exp-candidates
-  [anomalies est]
+  [anomalies est time-now sensors]
   (let [cur-ws (:workspace (cur-ep est))
-        rel-anomalies (filter #(= :conflict (classify-noexp-reason cur-ws %)) anomalies)
+        rel-anomalies (set (filter #(= :conflict (classify-noexp-reason cur-ws %)) anomalies))
         ;; explainers of anomalies
         expl (set (mapcat #(explainers cur-ws %) rel-anomalies))
         ;; rejected explainers due to conflict
@@ -133,18 +133,19 @@
                                (first (sort-by :cycle (filter #(= hyp (:hyp %)) ep-rejs-deltas))))]
     (filter #(not-empty (:may-resolve %))
             (for [{:keys [delta cycle time hyp rejected-expl]} earliest-rejs-deltas]
-              (let [ ;; anomalies explained by conflicting hyps, and therefore possibly resolved
-                    expl-explained (set (mapcat :explains (filter #(conflicts? hyp %) expl-rc)))
-                    pc-res (filter (fn [pc] (expl-explained (:contents pc))) rel-anomalies)]
+              ;; do a simulation to figure out which anomalies are resolved
+              (let [[est-resolved _] (resolve-conf-exp hyp est)
+                    est-reasoned (:est-new (meta-apply-and-evaluate est est-resolved time-now sensors))
+                    anomalies-resolved (set/difference rel-anomalies (set (find-anomalies est-reasoned)))]
                 {:rej-hyp hyp :cycle cycle :time time :delta delta
-                 :rejected-expl rejected-expl :may-resolve (sort-by :id pc-res)})))))
+                 :rejected-expl rejected-expl :may-resolve (sort-by :id anomalies-resolved)})))))
 
 (defn make-meta-hyps-conflicting-explainers
-  [anomalies est _ _]
+  [anomalies est time-now sensors]
   ;; correct explainer(s) were rejected due to conflicts; need to
   ;; consider the various possibilities of rejected explainers and
   ;; no-explainers combinations
-  (for [{:keys [rej-hyp cycle time delta rejected-expl may-resolve]} (conf-exp-candidates anomalies est)]
+  (for [{:keys [rej-hyp cycle time delta rejected-expl may-resolve]} (conf-exp-candidates anomalies est time-now sensors)]
     (let [apriori (* delta (avg (map :apriori may-resolve)) (- 1.0 (:apriori rej-hyp)))]
       (new-hyp "ConfExp" :meta-conf-exp :meta-conf-exp apriori
                false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
@@ -152,7 +153,7 @@
                (format "%s rejected some hyps" (:name rej-hyp))
                (format "%s rejected %s at cycle %d with delta %.2f"
                        rej-hyp (str/join ", " (sort-by :id rejected-expl)) cycle delta)
-               {:action (partial resolve-conf-exp rej-hyp may-resolve)
+               {:action (partial resolve-conf-exp rej-hyp)
                 :resolves may-resolve
                 :rej-hyp rej-hyp
                 :implicated rej-hyp
