@@ -181,7 +181,7 @@
 (defn impl-exp-candidates
   [anomalies est time-now sensors]
   (let [cur-ws (:workspace (cur-ep est))
-        rel-anomalies (filter #(= :minscore (classify-noexp-reason cur-ws %)) anomalies)
+        rel-anomalies (set (filter #(= :minscore (classify-noexp-reason cur-ws %)) anomalies))
         ;; explainers of anomalies
         expl (set (mapcat #(explainers cur-ws %) rel-anomalies))
         ;; explainers that were rejected due to minscore
