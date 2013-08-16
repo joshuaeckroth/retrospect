@@ -138,7 +138,7 @@
                     est-reasoned (:est-new (meta-apply-and-evaluate est est-resolved time-now sensors))
                     anomalies-resolved (set/difference rel-anomalies (set (find-anomalies est-reasoned)))]
                 {:rej-hyp hyp :cycle cycle :time time :delta delta
-                 :rejected-expl rejected-expl :may-resolve (sort-by :id anomalies-resolved)})))))
+                 :rejected-expl rejected-expl :may-resolve anomalies-resolved})))))
 
 (defn make-meta-hyps-conflicting-explainers
   [anomalies est time-now sensors]
@@ -179,7 +179,7 @@
     [(update-est new-est ep-prev-minscore) params]))
 
 (defn impl-exp-candidates
-  [anomalies est]
+  [anomalies est time-now sensors]
   (let [cur-ws (:workspace (cur-ep est))
         rel-anomalies (filter #(= :minscore (classify-noexp-reason cur-ws %)) anomalies)
         ;; explainers of anomalies
@@ -188,16 +188,18 @@
         expl-rejected-minscore (sort-by :id (filter (fn [h] (= :minscore (rejection-reason cur-ws h))) expl))]
     (filter #(not-empty (:may-resolve %))
             (for [hyp expl-rejected-minscore]
-              (let [may-resolve (sort-by :id (filter (fn [pc] (some #{(:contents pc)} (:explains hyp)))
-                                                     rel-anomalies))]
+              ;; do a simulation to figure out which anomalies are resolved
+              (let [[est-resolved _] (resolve-impl-exp hyp est)
+                    est-reasoned (:est-new (meta-apply-and-evaluate est est-resolved time-now sensors))
+                    anomalies-resolved (set/difference rel-anomalies (set (find-anomalies est-reasoned)))]
                 {:acc-hyp hyp
-                 :may-resolve may-resolve
+                 :may-resolve anomalies-resolved
                  :score-delta (- (/ (:MinScore params) 100.0) (:apriori hyp))})))))
 
 (defn make-meta-hyps-implausible-explainers
-  [anomalies est _ _]
+  [anomalies est time-now sensors]
   ;; were some explainers omitted due to high min-score?
-  (let [candidates (impl-exp-candidates anomalies est)
+  (let [candidates (impl-exp-candidates anomalies est time-now sensors)
         meta-hyps (for [{:keys [acc-hyp may-resolve score-delta]} candidates]
                     (let [conflicts-with-accepted? (some (partial conflicts? acc-hyp)
                                                          (:all (accepted (:workspace (cur-ep est)))))
