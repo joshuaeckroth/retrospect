@@ -78,19 +78,20 @@
   <li><(hyp-link c)></li>
 <\")>
 </ul>
+<h2>Log:</h2>
+<p><(str/replace log #\"\n\" \"<br><br>\")></p>
 <h2>Related hyps:</h2>
 <ul>
 <(for [r related] \">
   <li><(hyp-link r)></li>
 <\")>
 </ul>
-<h2>Log:</h2>
-<p><(str/replace log #\"\n\" \"<br>\")></p>
 <h2>Epistemic states with this hyp:</h2>
 <ul>
 <(for [ep eps] \">
   <li><(hyp-link hyp ep)></li>
 <\")>
+</ul>
 </html>"))
 
 (defn rewrite-hyp-tf
