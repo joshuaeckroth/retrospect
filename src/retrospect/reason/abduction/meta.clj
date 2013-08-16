@@ -74,7 +74,7 @@
       (if (:best (:accrej (:workspace (cur-ep est-meta))))
         (recur est-meta) est-meta))))
 
-(defn meta-apply-and-evaluate
+(defn meta-apply
   [est est-new time-now sensors]
   (let [reason-est (reason est-new (:time (cur-ep est-new))
                            time-now sensors :no-metareason)]
@@ -135,7 +135,7 @@
             (for [{:keys [delta cycle time hyp rejected-expl]} earliest-rejs-deltas]
               ;; do a simulation to figure out which anomalies are resolved
               (let [[est-resolved _] (resolve-conf-exp hyp est)
-                    est-reasoned (:est-new (meta-apply-and-evaluate est est-resolved time-now sensors))
+                    est-reasoned (:est-new (meta-apply est est-resolved time-now sensors))
                     anomalies-resolved (set/difference rel-anomalies (set (find-anomalies est-reasoned)))]
                 {:rej-hyp hyp :cycle cycle :time time :delta delta
                  :rejected-expl rejected-expl :may-resolve anomalies-resolved})))))
@@ -190,7 +190,7 @@
             (for [hyp expl-rejected-minscore]
               ;; do a simulation to figure out which anomalies are resolved
               (let [[est-resolved _] (resolve-impl-exp hyp est)
-                    est-reasoned (:est-new (meta-apply-and-evaluate est est-resolved time-now sensors))
+                    est-reasoned (:est-new (meta-apply est est-resolved time-now sensors))
                     anomalies-resolved (set/difference rel-anomalies (set (find-anomalies est-reasoned)))]
                 {:acc-hyp hyp
                  :may-resolve anomalies-resolved
@@ -367,7 +367,7 @@
         (let [hyp (first hyps)
               [est-new params-new] ((:action hyp) est-attempted)
               result (binding [params params-new]
-                       (meta-apply-and-evaluate est-attempted est-new time-now sensors))
+                       (meta-apply est-attempted est-new time-now sensors))
               doubt (doubt-aggregate est)
               doubt-new (doubt-aggregate (:est-new result))
               anomalies-new (find-anomalies (:est-new result))
@@ -457,8 +457,7 @@
                           (reduce (fn [est hyp]
                                     (let [[est-new params-new] ((:action hyp) est)
                                           est-nocleanup (binding [params params-new]
-                                                          (:est-new (meta-apply-and-evaluate
-                                                                     est est-new time-now sensors)))]
+                                                          (:est-new (meta-apply est est-new time-now sensors)))]
                                       (if-let [cleanup (:cleanup hyp)]
                                         (cleanup est-nocleanup est)
                                         est-nocleanup)))
