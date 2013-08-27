@@ -7,7 +7,7 @@
   (:use [retrospect.problems.tracking.sensors :only
          [generate-sensors perturb]])
   (:use [retrospect.problems.tracking.hypotheses :only
-         [generate-kb make-sensor-hyps hypothesize update-kb suggest-related-evidence]])
+         [generate-kb make-sensor-hyps hypothesize update-kb]])
   (:use [retrospect.problems.tracking.player :only
          [player-get-stats-panel player-update-stats player-get-truedata-log
           player-get-problem-log player-setup-diagram player-update-diagram]])
@@ -35,7 +35,6 @@
    :abduction {:generate-kb-fn generate-kb
                :make-sensor-hyps-fn make-sensor-hyps
                :hypothesize-fn hypothesize
-               :suggest-related-evidence-fn suggest-related-evidence
                :evaluate-fn evaluate
                :evaluate-comp-fn evaluate-comp
                :update-kb-fn update-kb
@@ -61,4 +60,5 @@
     :TrainingFalse [0 [0]]
     :NumberEntities [6 [2 4 6 8 10]]
     :SensorSeesColor [50 [0 20 40 60 80 100]]
-    :SensorCoverage [100 [100]]}})
+    :SensorCoverage [100 [100]]
+    :SensorThreshold [60 [0 20 40 60 80 100]]}})

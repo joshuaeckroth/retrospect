@@ -137,6 +137,14 @@
       ;; give default apriori value
       0.5)))
 
+(defn dets-nearby?
+  [to from moves-dist]
+  (let [det (:det to)
+        det2 (:det from)
+        d (dist (:x det2) (:y det2) (:x det) (:y det))]
+    (and (< d (* 1.1 (:max-moves-dist moves-dist)))
+         (= (:time (:det to)) (inc (:time (:det from)))))))
+
 (defn make-sensor-hyp
   [{:keys [x y color time] :as det} from-to other-dets moves-dist]
   (let [apriori (or (:apriori det) (calc-det-prob det other-dets moves-dist) true)]
@@ -151,7 +159,7 @@
              {:det det})))
 
 (defn make-sensor-hyps
-  [sensors time-prev time-now accepted hypotheses]
+  [sensors time-prev time-now accepted hypotheses anomalies]
   (let [kb (get-kb accepted)
         moves-dist (:moves-dist kb)
         acc-dets (set (map :det (:observation accepted)))
@@ -162,28 +170,46 @@
         next-dets (filter #(= time-now (:time %)) prior-next-dets)
         already-observed-dets (set (map (fn [h] [(:det h) (:subtype h)]) (:observation hypotheses)))
         to-time (if (:SequentialSensorReports params) time-prev 0)
-        from-time (if (:SequentialSensorReports params) time-now (:Steps params))]
-    (doall
-     (if (= time-prev time-now) []
-         (mapcat (fn [det] (cond
-                           ;; if det has time 0 or time-prev, only generate "to" report
-                           (and (= (:time det) to-time)
-                                (not (already-observed-dets [det :to])))
-                           [(make-sensor-hyp det :to next-dets moves-dist)]
-                           ;; if det has time equal to steps or time-now,
-                           ;; only generate "from" report
-                           (and (= (:time det) from-time)
-                                (not (already-observed-dets [det :from])))
-                           [(make-sensor-hyp det :from prior-dets moves-dist)]
-                           ;; otherwise, generate both "from" and "to" reports
-                           (and (not= (:time det) to-time)
-                                (not= (:time det) from-time)
-                                (not (already-observed-dets [det :to]))
-                                (not (already-observed-dets [det :from])))
-                           [(make-sensor-hyp det :to next-dets moves-dist)
-                            (make-sensor-hyp det :from prior-dets moves-dist)]
-                           :else []))
-                 (sort-by :time sensed-dets))))))
+        from-time (if (:SequentialSensorReports params) time-now (:Steps params))
+        all-obs (if (= time-prev time-now) []
+                    (mapcat (fn [det] (cond
+                                       ;; if det has time 0 or time-prev, only generate "to" report
+                                       (and (= (:time det) to-time)
+                                            (not (already-observed-dets [det :to])))
+                                       [(make-sensor-hyp det :to next-dets moves-dist)]
+                                       ;; if det has time equal to steps or time-now,
+                                       ;; only generate "from" report
+                                       (and (= (:time det) from-time)
+                                            (not (already-observed-dets [det :from])))
+                                       [(make-sensor-hyp det :from prior-dets moves-dist)]
+                                       ;; otherwise, generate both "from" and "to" reports
+                                       (and (not= (:time det) to-time)
+                                            (not= (:time det) from-time)
+                                            (not (already-observed-dets [det :to]))
+                                            (not (already-observed-dets [det :from])))
+                                       [(make-sensor-hyp det :to next-dets moves-dist)
+                                        (make-sensor-hyp det :from prior-dets moves-dist)]
+                                       :else []))
+                            (sort-by :time sensed-dets)))]
+    (if (not-empty anomalies)
+      (do (comment (println "sensor anomalies:" anomalies "all-obs:" all-obs))
+          (comment (println "offering" (doall (filter (fn [obs] (if (= :from (:subtype obs))
+                                                                  (some (fn [obs2] (and (= :to (:subtype obs2))
+                                                                                        (dets-nearby? obs obs2 moves-dist)))
+                                                                        anomalies)
+                                                                  (some (fn [obs2] (and (= :from (:subtype obs2))
+                                                                                        (dets-nearby? obs2 obs moves-dist)))
+                                                                        anomalies)))
+                                                      all-obs))))
+          (doall (filter (fn [obs] (if (= :from (:subtype obs))
+                                     (some (fn [obs2] (and (= :to (:subtype obs2))
+                                                           (dets-nearby? obs obs2 moves-dist)))
+                                           anomalies)
+                                     (some (fn [obs2] (and (= :from (:subtype obs2))
+                                                           (dets-nearby? obs2 obs moves-dist)))
+                                           anomalies)))
+                         all-obs)))
+      (doall (filter (fn [obs] (>= (:apriori obs) (/ (:SensorThreshold params) 100.0))) all-obs)))))
 
 (defn connecting-movs
   [h acc-mov-hyps]
@@ -271,14 +297,6 @@
                      {:mov {:x (:x det2-color) :y (:y det2-color) :time (:time det2-color)
                             :ox (:x det-color) :oy (:y det-color) :ot (:time det-color)}})))))
 
-(defn dets-nearby?
-  [to from moves-dist]
-  (let [det (:det to)
-        det2 (:det from)
-        d (dist (:x det2) (:y det2) (:x det) (:y det))]
-    (and (< d (* 1.1 (:max-moves-dist moves-dist)))
-         (= (:time (:det to)) (inc (:time (:det from)))))))
-
 (defn hypothesize
   [unexp accepted hypotheses time-now]
   (prof :hypothesize
@@ -294,17 +312,6 @@
                                        (map #(new-mov-hyp % evidence acc-mov-hyps
                                                         (:moves-dist kb) (:seen-colors kb))
                                           nearby)))]
+                      (comment (println "evidence:" evidence "nearby:" nearby "mov-hyps:" mov-hyps "valid-mov-hyps:" (filter-valid-movs mov-hyps acc-mov-hyps)))
                       (filter-valid-movs mov-hyps acc-mov-hyps)))
                   sensor-from-hyps)))))
-
-(defn suggest-related-evidence
-  [obs possible-evidence accepted]
-  (let [kb (get-kb accepted)
-        moves-dist (:moves-dist kb)]
-    (if (= :from (:subtype obs))
-      (filter (fn [obs2] (and (= :to (:subtype obs2))
-                              (dets-nearby? obs obs2 moves-dist)))
-              possible-evidence)
-      (filter (fn [obs2] (and (= :from (:subtype obs2))
-                              (dets-nearby? obs2 obs moves-dist)))
-              possible-evidence))))

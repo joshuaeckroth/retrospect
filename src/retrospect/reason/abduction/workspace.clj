@@ -657,6 +657,7 @@
   [workspace cycle]
   (reduce (fn [ws h] (reject ws h :minscore cycle))
           workspace (filter (fn [h] (and (undecided? workspace h)
+                                         (not= :observation (:type h))
                                          (< (:apriori h) (double (/ (:MinScore params) 100.0)))
                                          (not (prevented-rejection? workspace h :minscore))))
                             (:all (hypotheses workspace)))))
@@ -756,20 +757,19 @@
 
 (defn add-sensor-hyps
   "Ask problem domain to make sensor hyps; then put them into workspace."
-  [workspace time-prev time-now sensors cycle]
+  [workspace time-prev time-now sensors cycle anomalies]
   (prof
    :add-sensor-hyps
    (do
      (log "Adding sensor hyps")
      (let [hs ((:make-sensor-hyps-fn (:abduction @problem))
                sensors time-prev time-now
-               (accepted workspace) (hypotheses workspace))
+               (accepted workspace) (hypotheses workspace) anomalies)
            ws-added (reduce #(add %1 %2 cycle) workspace hs)
-           ws-rej-minscore (reject-minscore ws-added cycle)
            ws-accepted (reduce #(accept %1 %2 nil [] [] 0.0 {} cycle)
-                               ws-rej-minscore
-                               (filter (fn [h] (undecided? ws-rej-minscore h))
-                                       (map #(lookup-hyp ws-rej-minscore (:id %)) hs)))]
+                               ws-added
+                               (filter (fn [h] (undecided? ws-added h))
+                                       (map #(lookup-hyp ws-added (:id %)) hs)))]
        (if (:ClearAccGraphSensors params)
          (assoc ws-accepted :accgraph (digraph))
          ws-accepted)))))
