@@ -189,7 +189,7 @@
     (filter #(not-empty (:may-resolve %))
             (for [hyp expl-rejected-minscore]
               ;; do a simulation to figure out which anomalies are resolved
-              (let [[est-resolved _] (resolve-impl-exp hyp est)
+              (let [[est-resolved _] (resolve-impl-exp hyp est time-prev time-now sensors)
                     est-reasoned (:est-new (meta-apply est est-resolved time-prev time-now sensors))
                     anomalies-resolved (set/difference rel-anomalies (set (find-anomalies est-reasoned)))]
                 {:acc-hyp hyp
