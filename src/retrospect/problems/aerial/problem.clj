@@ -39,7 +39,7 @@
                :learn-fn (constantly [])
                :hyp-types #{:observation :movement}
                :ignore-doubt-types #{:observation}
-               :default-params {}}
+               :default-params {:GetMoreHyps [false [false]]}}
    :claims []
    :default-params
    {:Steps [5 [5]]

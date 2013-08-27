@@ -133,8 +133,8 @@
     (filter #(not-empty (:may-resolve %))
             (for [{:keys [delta cycle time hyp rejected-expl]} earliest-rejs-deltas]
               ;; do a simulation to figure out which anomalies are resolved
-              (let [[est-resolved _] (resolve-conf-exp hyp est time-prev time-now sensors)
-                    est-reasoned (:est-new (meta-apply est est-resolved time-prev time-now sensors))
+              (let [[est-resolved _] (resolve-conf-exp hyp est time-prev time-now nil)
+                    est-reasoned (:est-new (meta-apply est est-resolved time-prev time-now nil))
                     anomalies-resolved (set/difference rel-anomalies (set (find-anomalies est-reasoned)))]
                 {:rej-hyp hyp :cycle cycle :time time :delta delta
                  :rejected-expl rejected-expl :may-resolve anomalies-resolved})))))
@@ -189,8 +189,8 @@
     (filter #(not-empty (:may-resolve %))
             (for [hyp expl-rejected-minscore]
               ;; do a simulation to figure out which anomalies are resolved
-              (let [[est-resolved _] (resolve-impl-exp hyp est time-prev time-now sensors)
-                    est-reasoned (:est-new (meta-apply est est-resolved time-prev time-now sensors))
+              (let [[est-resolved _] (resolve-impl-exp hyp est time-prev time-now nil)
+                    est-reasoned (:est-new (meta-apply est est-resolved time-prev time-now nil))
                     anomalies-resolved (set/difference rel-anomalies (set (find-anomalies est-reasoned)))]
                 {:acc-hyp hyp
                  :may-resolve anomalies-resolved
@@ -235,7 +235,12 @@
 
 (defn resolve-order-dep
   [ep est time-prev time-now sensors]
-  [(new-branch-ep est ep) params])
+  (let [new-est (new-branch-ep est ep)
+        ep (cur-ep new-est)
+        ws (:workspace ep)
+        ws-batch (add-sensor-hyps ws (:time ep) time-now sensors (:cycle ep) [])
+        ep-batch (assoc ep :workspace ws-batch)]
+    [(update-est new-est ep-batch) (assoc params :GetMoreHyps true)]))
 
 (defn order-dep-candidates
   [anomalies est]

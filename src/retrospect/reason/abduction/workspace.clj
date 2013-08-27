@@ -16,6 +16,9 @@
   (:use [geppetto.random])
   (:use [retrospect.state]))
 
+(def calls-to-observe (atom {}))
+(def calls-to-hypothesize (atom {}))
+
 (defrecord Hypothesis
     [id name type subtype apriori needs-explainer? conflicts-tags conflicts?-fn
      explains short-str desc data]
@@ -637,8 +640,10 @@
   [workspace time-now]
   (prof
    :get-explaining-hypotheses
-   (doall ((:hypothesize-fn (:abduction @problem))
-           (unexplained workspace) (accepted workspace) (hypotheses workspace) time-now))))
+   (do (swap! calls-to-hypothesize assoc (:simulation params)
+              (inc (get @calls-to-hypothesize (:simulation params) 0)))
+       (doall ((:hypothesize-fn (:abduction @problem))
+               (unexplained workspace) (accepted workspace) (hypotheses workspace) time-now)))))
 
 (defn update-hypotheses
   "Put explainers from problem domain into workspace."
@@ -762,6 +767,8 @@
    :add-sensor-hyps
    (do
      (log "Adding sensor hyps")
+     (swap! calls-to-observe assoc (:simulation params)
+            (inc (get @calls-to-observe (:simulation params) 0)))
      (let [hs ((:make-sensor-hyps-fn (:abduction @problem))
                sensors time-prev time-now
                (accepted workspace) (hypotheses workspace) anomalies)

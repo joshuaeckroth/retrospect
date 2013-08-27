@@ -577,6 +577,8 @@
            meta-delta-avgs
            (last decision-metrics)
            {:Step (:time ep)
+            :CallsToObserve (get @calls-to-observe (:simulation params))
+            :CallsToHypothesize (get @calls-to-hypothesize (:simulation params))
             :AvgUnexplainedPct (avg (map :UnexplainedPct decision-metrics))
             :AvgNoExplainersPct (avg (map :NoExplainersPct decision-metrics))
             :AvgNoiseClaimsPrec (avg (map :NoiseClaimsPrec decision-metrics))
