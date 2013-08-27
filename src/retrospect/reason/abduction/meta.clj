@@ -294,7 +294,6 @@
   [anomalies est time-prev time-now sensors]
   (for [anomaly (insuf-ev-candidates anomalies est time-prev time-now sensors)]
     (let [apriori (:apriori anomaly)]
-      (comment (println "insuf-ev candidate:" anomaly))
       (new-hyp "InsufEv" :meta-insuf-ev :meta-insuf-ev apriori
                false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
                [(:contents anomaly)]

@@ -192,23 +192,14 @@
                                        :else []))
                             (sort-by :time sensed-dets)))]
     (if (not-empty anomalies)
-      (do (comment (println "sensor anomalies:" anomalies "all-obs:" all-obs))
-          (comment (println "offering" (doall (filter (fn [obs] (if (= :from (:subtype obs))
-                                                                  (some (fn [obs2] (and (= :to (:subtype obs2))
-                                                                                        (dets-nearby? obs obs2 moves-dist)))
-                                                                        anomalies)
-                                                                  (some (fn [obs2] (and (= :from (:subtype obs2))
-                                                                                        (dets-nearby? obs2 obs moves-dist)))
-                                                                        anomalies)))
-                                                      all-obs))))
-          (doall (filter (fn [obs] (if (= :from (:subtype obs))
-                                     (some (fn [obs2] (and (= :to (:subtype obs2))
-                                                           (dets-nearby? obs obs2 moves-dist)))
-                                           anomalies)
-                                     (some (fn [obs2] (and (= :from (:subtype obs2))
-                                                           (dets-nearby? obs2 obs moves-dist)))
-                                           anomalies)))
-                         all-obs)))
+      (doall (filter (fn [obs] (if (= :from (:subtype obs))
+                                 (some (fn [obs2] (and (= :to (:subtype obs2))
+                                                       (dets-nearby? obs obs2 moves-dist)))
+                                       anomalies)
+                                 (some (fn [obs2] (and (= :from (:subtype obs2))
+                                                       (dets-nearby? obs2 obs moves-dist)))
+                                       anomalies)))
+                     all-obs))
       (doall (filter (fn [obs] (>= (:apriori obs) (/ (:SensorThreshold params) 100.0))) all-obs)))))
 
 (defn connecting-movs
@@ -312,6 +303,5 @@
                                        (map #(new-mov-hyp % evidence acc-mov-hyps
                                                         (:moves-dist kb) (:seen-colors kb))
                                           nearby)))]
-                      (comment (println "evidence:" evidence "nearby:" nearby "mov-hyps:" mov-hyps "valid-mov-hyps:" (filter-valid-movs mov-hyps acc-mov-hyps)))
                       (filter-valid-movs mov-hyps acc-mov-hyps)))
                   sensor-from-hyps)))))
