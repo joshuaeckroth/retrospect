@@ -238,9 +238,10 @@
   (let [new-est (new-branch-ep est ep)
         ep (cur-ep new-est)
         ws (:workspace ep)
-        ws-batch (add-sensor-hyps ws (:time ep) time-now sensors (:cycle ep) [])
-        ep-batch (assoc ep :workspace ws-batch)]
-    [(update-est new-est ep-batch) (assoc params :GetMoreHyps true)]))
+        ws-sensors (add-sensor-hyps ws (:time ep) time-now sensors (:cycle ep) [])
+        ws-hyps (update-hypotheses ws-sensors (:cycle ep) time-now)
+        ep-batch (assoc ep :workspace ws-hyps)]
+    [(update-est new-est ep-batch) params]))
 
 (defn order-dep-candidates
   [anomalies est]
