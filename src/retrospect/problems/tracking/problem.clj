@@ -44,8 +44,7 @@
                :hyp-types #{:movement :observation}
                :ignore-doubt-types #{:observation}
                :default-params
-               {:ResensePrevTime [true [true]]
-                :GetMoreHyps [false [false]]}}
+               {:GetMoreHyps [false [false]]}}
    :claims tracking-claims
    :default-params
    {:Steps [5 [5]]

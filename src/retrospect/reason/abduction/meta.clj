@@ -351,7 +351,7 @@
         (let [hyp (first hyps)
               [est-new params-new] ((:action hyp) est-attempted time-prev time-now sensors)
               result (binding [params params-new]
-                       (meta-apply est-attempted est-new time-prev time-now sensors))
+                       (meta-apply est-attempted est-new time-prev time-now nil))
               doubt (doubt-aggregate est)
               doubt-new (doubt-aggregate (:est-new result))
               anomalies-new (find-anomalies (:est-new result))
@@ -441,7 +441,7 @@
                           (reduce (fn [est hyp]
                                     (let [[est-new params-new] ((:action hyp) est time-prev time-now sensors)]
                                       (:est-new (binding [params params-new]
-                                                  (meta-apply est est-new time-prev time-now sensors)))))
+                                                  (meta-apply est est-new time-prev time-now nil)))))
                                   est-abd meta-accepted))
           anomalies-new (when (not-empty meta-accepted) (find-anomalies est-applied))]
       (if (and (not-empty meta-accepted) (not-empty anomalies-new)
