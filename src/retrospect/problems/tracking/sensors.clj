@@ -102,15 +102,33 @@
     ;; otherwise, don't
     observations))
 
+(defn compute-virtual-scores
+  [new-observations orig-observations]
+  (let [orig-set (set orig-observations)]
+    ;; keep the doall so the random numbers are generated the same across different runs
+    (doall (for [obs new-observations]
+             (if (not (:VirtualScores params)) obs
+                 (let [r (my-rand)
+                       good-bin? (or (and (orig-set obs) (< r (:VirtualScoresGoodProb params)))
+                                     (and (not (orig-set obs)) (>= r (:VirtualScoresGoodProb params))))
+                       p (if good-bin?
+                           (my-rand-gauss (:VirtualScoresGoodMean params)
+                                          (:VirtualScoresGoodVariance params))
+                           (my-rand-gauss (:VirtualScoresBadMean params)
+                                          (:VirtualScoresBadVariance params)))
+                       apriori (min 1.0 (max p 0.0))]
+                   (assoc obs :apriori apriori)))))))
+
 (defn sense
   [sensor movements time]
   (let [observations (find-spotted sensor movements time)]
     (add-sensed sensor time
                 (-> observations
-                   (insertion-noise sensor time)
-                   (deletion-noise)
-                   (distortion-noise)
-                   (duplication-noise)))))
+                    (insertion-noise sensor time)
+                    (deletion-noise)
+                    (distortion-noise)
+                    (duplication-noise)
+                    (compute-virtual-scores observations)))))
 
 (defn new-sensor
   "Generate a new sensor with provided values and an empty 'spotted' vector."

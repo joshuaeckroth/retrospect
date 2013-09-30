@@ -68,6 +68,10 @@
            (nil? (attr expgraph % vertex :conflicts)))
      (neighbors expgraph vertex)))
 
+(defn explains?
+  [expgraph v1 v2]
+  ((set (explains expgraph v1)) v2))
+
 (defn explainers
   ([expgraph]
      (filter #(and (nil? (attr expgraph (first %) (second %) :conflicts))

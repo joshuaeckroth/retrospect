@@ -6,7 +6,7 @@
           player-setup-diagram player-update-diagram
           player-get-truedata-log player-get-problem-log]])
   (:use [retrospect.problems.abdexp.hypotheses :only
-         [generate-kb make-sensor-hyps hypothesize update-kb]])
+         [generate-kb make-sensor-hyps hypothesize update-kb suggest-related-evidence]])
   (:use [retrospect.problems.abdexp.evaluate :only
          [evaluate evaluate-comp stats true-hyp?]])
   (:use [retrospect.problems.abdexp.prepared :only [prepared-map]])
@@ -32,6 +32,7 @@
    :abduction {:generate-kb-fn generate-kb
                :make-sensor-hyps-fn make-sensor-hyps
                :hypothesize-fn hypothesize
+               :suggest-related-evidence-fn suggest-related-evidence
                :learn-fn (constantly nil)
                :reset-fn (constantly nil)
                :evaluate-fn evaluate
@@ -41,15 +42,16 @@
                :hyp-types #{:expl :observation}
                :ignore-doubt-types #{:observation}
                :default-params {:GetMoreHyps [true [true]]
-                                :OnlySingleExplainers [false [true false]]}
+                                :OnlySingleExplainers [false [true false]]
+                                :OnlyCompleteExplainers [false [true false]]}
                :claims abduction-claims}
    :claims abduction-claims
    :default-params
    {:Steps [20 [20]]
     :StepsBetween [1 [1]]
-    :NumExplainers [4 [4]]
-    :NumExplainsLinks [50 [50]]
-    :NumConflictLinks [10 [10]]
+    :NumExplainers [5 [5]]
+    :NumExplainsLinks [40 [40]]
+    :NumConflictLinks [20 [20]]
     :UniqueGraphs [1000 [1000]]
     :HypScores ["posterior" ["prior" "posterior"]]
     :PriorFunc ["max" ["min" "max" "avg"]]

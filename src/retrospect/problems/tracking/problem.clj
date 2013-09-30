@@ -44,7 +44,7 @@
                :hyp-types #{:movement :observation}
                :ignore-doubt-types #{:observation}
                :default-params
-               {:ResensePrevTime [true [true]]}}
+               {:GetMoreHyps [false [false]]}}
    :claims tracking-claims
    :default-params
    {:Steps [5 [5]]
@@ -55,9 +55,10 @@
     :PenalizeGrayMoves [true [true false]]
     :TrueWalkSteps [6 [6]]
     :FalseWalkSteps [4 [4]]
-    :TrainingTrue [500 [500]]
+    :TrainingTrue [1000 [1000]]
     :TrainingRandom [0 [0]]
     :TrainingFalse [0 [0]]
-    :NumberEntities [6 [2 4 6]]
-    :SensorSeesColor [60 [0 20 40 60 80 100]]
-    :SensorCoverage [100 [100]]}})
+    :NumberEntities [6 [2 4 6 8 10]]
+    :SensorSeesColor [50 [0 20 40 60 80 100]]
+    :SensorCoverage [100 [100]]
+    :SensorThreshold [20 [0 20 40 60 80 100]]}})

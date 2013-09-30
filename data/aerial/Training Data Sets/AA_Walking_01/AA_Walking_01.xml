@@ -1,0 +1,1835 @@
+<?xml version="1.0" ?>
+<dataset name="AA_Walking_01">
+    <frame number="0" file="C:/Training/AA_Walking_01/ON0168.png" utc="2009-Oct-24 13:17:46.671000" color="rgb" depth="byte" gsd="0.15" x="694686" y="5.34324e+006" lat="48.215" lon="11.623" sunny="1">
+        <objectlist>
+            <object id="0">
+                <box xc="75.9" yc="202.4" w="4" h="4" />
+                <representation type="Circle" xc="75.9" yc="202.4" r="2" />
+            </object>
+            <object id="1">
+                <box xc="102" yc="244.2" w="4" h="4" />
+                <representation type="Circle" xc="102" yc="244.2" r="2" />
+            </object>
+            <object id="2">
+                <box xc="104.8" yc="247.3" w="4" h="4" />
+                <representation type="Circle" xc="104.8" yc="247.3" r="2" />
+            </object>
+            <object id="3">
+                <box xc="138.7" yc="252.4" w="4" h="4" />
+                <representation type="Circle" xc="138.7" yc="252.4" r="2" />
+            </object>
+            <object id="4">
+                <box xc="142.1" yc="254.8" w="4" h="4" />
+                <representation type="Circle" xc="142.1" yc="254.8" r="2" />
+            </object>
+            <object id="5">
+                <box xc="159.4" yc="170.3" w="4" h="4" />
+                <representation type="Circle" xc="159.4" yc="170.3" r="2" />
+            </object>
+            <object id="6">
+                <box xc="83.5" yc="180.3" w="4" h="4" />
+                <representation type="Circle" xc="83.5" yc="180.3" r="2" />
+            </object>
+            <object id="10">
+                <box xc="29.9" yc="278.8" w="4" h="4" />
+                <representation type="Circle" xc="29.9" yc="278.8" r="2" />
+            </object>
+            <object id="11">
+                <box xc="192.9" yc="44.9" w="4" h="4" />
+                <representation type="Circle" xc="192.9" yc="44.9" r="2" />
+            </object>
+            <object id="12">
+                <box xc="188.6" yc="41.6" w="4" h="4" />
+                <representation type="Circle" xc="188.6" yc="41.6" r="2" />
+            </object>
+            <object id="13">
+                <box xc="191" yc="64" w="4" h="4" />
+                <representation type="Circle" xc="191" yc="64" r="2" />
+            </object>
+            <object id="14">
+                <box xc="194.8" yc="66.9" w="4" h="4" />
+                <representation type="Circle" xc="194.8" yc="66.9" r="2" />
+            </object>
+            <object id="15">
+                <box xc="212" yc="57.5" w="4" h="4" />
+                <representation type="Circle" xc="212" yc="57.5" r="2" />
+            </object>
+            <object id="16">
+                <box xc="206.9" yc="54.2" w="4" h="4" />
+                <representation type="Circle" xc="206.9" yc="54.2" r="2" />
+            </object>
+            <object id="17">
+                <box xc="183.3" yc="87.6" w="4" h="4" />
+                <representation type="Circle" xc="183.3" yc="87.6" r="2" />
+            </object>
+            <object id="18">
+                <box xc="179.5" yc="84.5" w="4" h="4" />
+                <representation type="Circle" xc="179.5" yc="84.5" r="2" />
+            </object>
+            <object id="19">
+                <box xc="169.9" yc="83.5" w="4" h="4" />
+                <representation type="Circle" xc="169.9" yc="83.5" r="2" />
+            </object>
+            <object id="20">
+                <box xc="161.1" yc="86.8" w="4" h="4" />
+                <representation type="Circle" xc="161.1" yc="86.8" r="2" />
+            </object>
+            <object id="21">
+                <box xc="154.5" yc="108.2" w="4" h="4" />
+                <representation type="Circle" xc="154.5" yc="108.2" r="2" />
+            </object>
+            <object id="22">
+                <box xc="132.7" yc="124.1" w="4" h="4" />
+                <representation type="Circle" xc="132.7" yc="124.1" r="2" />
+            </object>
+            <object id="23">
+                <box xc="130.5" yc="117.7" w="4" h="4" />
+                <representation type="Circle" xc="130.5" yc="117.7" r="2" />
+            </object>
+            <object id="24">
+                <box xc="55.1" yc="185.9" w="4" h="4" />
+                <representation type="Circle" xc="55.1" yc="185.9" r="2" />
+            </object>
+            <object id="25">
+                <box xc="52.8" yc="196.7" w="4" h="4" />
+                <representation type="Circle" xc="52.8" yc="196.7" r="2" />
+            </object>
+            <object id="26">
+                <box xc="53" yc="200.9" w="4" h="4" />
+                <representation type="Circle" xc="53" yc="200.9" r="2" />
+            </object>
+            <object id="27">
+                <box xc="53.7" yc="218.3" w="4" h="4" />
+                <representation type="Circle" xc="53.7" yc="218.3" r="2" />
+            </object>
+            <object id="28">
+                <box xc="4.6" yc="257.3" w="4" h="4" />
+                <representation type="Circle" xc="4.6" yc="257.3" r="2" />
+            </object>
+            <object id="29">
+                <box xc="7.3" yc="258.9" w="4" h="4" />
+                <representation type="Circle" xc="7.3" yc="258.9" r="2" />
+            </object>
+            <object id="30">
+                <box xc="60.6" yc="170.7" w="4" h="4" />
+                <representation type="Circle" xc="60.6" yc="170.7" r="2" />
+            </object>
+            <object id="31">
+                <box xc="69.5" yc="238.2" w="4" h="4" />
+                <representation type="Circle" xc="69.5" yc="238.2" r="2" />
+            </object>
+            <object id="32">
+                <box xc="63.9" yc="236" w="4" h="4" />
+                <representation type="Circle" xc="63.9" yc="236" r="2" />
+            </object>
+            <object id="34">
+                <box xc="30.8" yc="273.5" w="4" h="4" />
+                <representation type="Circle" xc="30.8" yc="273.5" r="2" />
+            </object>
+            <object id="35">
+                <box xc="28.8" yc="269.3" w="4" h="4" />
+                <representation type="Circle" xc="28.8" yc="269.3" r="2" />
+            </object>
+            <object id="36">
+                <box xc="118.5" yc="123.8" w="4" h="4" />
+                <representation type="Circle" xc="118.5" yc="123.8" r="2" />
+            </object>
+            <object id="37">
+                <box xc="80" yc="205.7" w="4" h="4" />
+                <representation type="Circle" xc="80" yc="205.7" r="2" />
+            </object>
+            <object id="38">
+                <box xc="86.9" yc="205.5" w="4" h="4" />
+                <representation type="Circle" xc="86.9" yc="205.5" r="2" />
+            </object>
+            <object id="39">
+                <box xc="90.9" yc="208.5" w="4" h="4" />
+                <representation type="Circle" xc="90.9" yc="208.5" r="2" />
+            </object>
+            <object id="40">
+                <box xc="25.5" yc="265.4" w="4" h="4" />
+                <representation type="Circle" xc="25.5" yc="265.4" r="2" />
+            </object>
+        </objectlist>
+    </frame>
+    <frame number="1" file="C:/Training/AA_Walking_01/ON0169.png" utc="2009-Oct-24 13:17:47.622000" color="rgb" depth="byte" gsd="0.15" x="694686" y="5.34324e+006" lat="48.215" lon="11.623" sunny="1">
+        <objectlist>
+            <object id="0">
+                <box xc="81.4" yc="197.6" w="4" h="4" />
+                <representation type="Circle" xc="81.4" yc="197.6" r="2" />
+            </object>
+            <object id="1">
+                <box xc="108.3" yc="239.7" w="4" h="4" />
+                <representation type="Circle" xc="108.3" yc="239.7" r="2" />
+            </object>
+            <object id="2">
+                <box xc="112" yc="243" w="4" h="4" />
+                <representation type="Circle" xc="112" yc="243" r="2" />
+            </object>
+            <object id="3">
+                <box xc="143.7" yc="246.4" w="4" h="4" />
+                <representation type="Circle" xc="143.7" yc="246.4" r="2" />
+            </object>
+            <object id="4">
+                <box xc="147.1" yc="249.8" w="4" h="4" />
+                <representation type="Circle" xc="147.1" yc="249.8" r="2" />
+            </object>
+            <object id="5">
+                <box xc="164.2" yc="164.7" w="4" h="4" />
+                <representation type="Circle" xc="164.2" yc="164.7" r="2" />
+            </object>
+            <object id="6">
+                <box xc="88.1" yc="175.8" w="4" h="4" />
+                <representation type="Circle" xc="88.1" yc="175.8" r="2" />
+            </object>
+            <object id="10">
+                <box xc="38" yc="274.9" w="4" h="4" />
+                <representation type="Circle" xc="38" yc="274.9" r="2" />
+            </object>
+            <object id="11">
+                <box xc="198.1" yc="37.2" w="4" h="4" />
+                <representation type="Circle" xc="198.1" yc="37.2" r="2" />
+            </object>
+            <object id="12">
+                <box xc="193.9" yc="33.3" w="4" h="4" />
+                <representation type="Circle" xc="193.9" yc="33.3" r="2" />
+            </object>
+            <object id="13">
+                <box xc="195.7" yc="57.3" w="4" h="4" />
+                <representation type="Circle" xc="195.7" yc="57.3" r="2" />
+            </object>
+            <object id="14">
+                <box xc="198.9" yc="60.1" w="4" h="4" />
+                <representation type="Circle" xc="198.9" yc="60.1" r="2" />
+            </object>
+            <object id="15">
+                <box xc="216.3" yc="50.9" w="4" h="4" />
+                <representation type="Circle" xc="216.3" yc="50.9" r="2" />
+            </object>
+            <object id="16">
+                <box xc="211.3" yc="47.7" w="4" h="4" />
+                <representation type="Circle" xc="211.3" yc="47.7" r="2" />
+            </object>
+            <object id="17">
+                <box xc="189.2" yc="81.7" w="4" h="4" />
+                <representation type="Circle" xc="189.2" yc="81.7" r="2" />
+            </object>
+            <object id="18">
+                <box xc="184.6" yc="78" w="4" h="4" />
+                <representation type="Circle" xc="184.6" yc="78" r="2" />
+            </object>
+            <object id="19">
+                <box xc="175.2" yc="76" w="4" h="4" />
+                <representation type="Circle" xc="175.2" yc="76" r="2" />
+            </object>
+            <object id="20">
+                <box xc="166" yc="80.2" w="4" h="4" />
+                <representation type="Circle" xc="166" yc="80.2" r="2" />
+            </object>
+            <object id="21">
+                <box xc="161.2" yc="101.3" w="4" h="4" />
+                <representation type="Circle" xc="161.2" yc="101.3" r="2" />
+            </object>
+            <object id="22">
+                <box xc="144.3" yc="109.4" w="4" h="4" />
+                <representation type="Circle" xc="144.3" yc="109.4" r="2" />
+            </object>
+            <object id="23">
+                <box xc="142.2" yc="103.3" w="4" h="4" />
+                <representation type="Circle" xc="142.2" yc="103.3" r="2" />
+            </object>
+            <object id="24">
+                <box xc="69.7" yc="176.3" w="4" h="4" />
+                <representation type="Circle" xc="69.7" yc="176.3" r="2" />
+            </object>
+            <object id="25">
+                <box xc="59.1" yc="192.2" w="4" h="4" />
+                <representation type="Circle" xc="59.1" yc="192.2" r="2" />
+            </object>
+            <object id="26">
+                <box xc="61.3" yc="195.2" w="4" h="4" />
+                <representation type="Circle" xc="61.3" yc="195.2" r="2" />
+            </object>
+            <object id="27">
+                <box xc="59.4" yc="213.6" w="4" h="4" />
+                <representation type="Circle" xc="59.4" yc="213.6" r="2" />
+            </object>
+            <object id="28">
+                <box xc="9.8" yc="253" w="4" h="4" />
+                <representation type="Circle" xc="9.8" yc="253" r="2" />
+            </object>
+            <object id="29">
+                <box xc="12.6" yc="254.4" w="4" h="4" />
+                <representation type="Circle" xc="12.6" yc="254.4" r="2" />
+            </object>
+            <object id="30">
+                <box xc="52.5" yc="178.8" w="4" h="4" />
+                <representation type="Circle" xc="52.5" yc="178.8" r="2" />
+            </object>
+            <object id="31">
+                <box xc="70.1" yc="238.8" w="4" h="4" />
+                <representation type="Circle" xc="70.1" yc="238.8" r="2" />
+            </object>
+            <object id="32">
+                <box xc="65" yc="235.7" w="4" h="4" />
+                <representation type="Circle" xc="65" yc="235.7" r="2" />
+            </object>
+            <object id="34">
+                <box xc="39.2" yc="271" w="4" h="4" />
+                <representation type="Circle" xc="39.2" yc="271" r="2" />
+            </object>
+            <object id="35">
+                <box xc="35.1" yc="264.6" w="4" h="4" />
+                <representation type="Circle" xc="35.1" yc="264.6" r="2" />
+            </object>
+            <object id="36">
+                <box xc="113" yc="129.3" w="4" h="4" />
+                <representation type="Circle" xc="113" yc="129.3" r="2" />
+            </object>
+            <object id="37">
+                <box xc="85.8" yc="201.1" w="4" h="4" />
+                <representation type="Circle" xc="85.8" yc="201.1" r="2" />
+            </object>
+            <object id="38">
+                <box xc="92.5" yc="200.6" w="4" h="4" />
+                <representation type="Circle" xc="92.5" yc="200.6" r="2" />
+            </object>
+            <object id="39">
+                <box xc="95" yc="205" w="4" h="4" />
+                <representation type="Circle" xc="95" yc="205" r="2" />
+            </object>
+            <object id="40">
+                <box xc="33.4" yc="261" w="4" h="4" />
+                <representation type="Circle" xc="33.4" yc="261" r="2" />
+            </object>
+        </objectlist>
+    </frame>
+    <frame number="2" file="C:/Training/AA_Walking_01/ON0170.png" utc="2009-Oct-24 13:17:48.330000" color="rgb" depth="byte" gsd="0.15" x="694686" y="5.34324e+006" lat="48.215" lon="11.623" sunny="1">
+        <objectlist>
+            <object id="0">
+                <box xc="84.8" yc="194" w="4" h="4" />
+                <representation type="Circle" xc="84.8" yc="194" r="2" />
+            </object>
+            <object id="1">
+                <box xc="112.3" yc="235.6" w="4" h="4" />
+                <representation type="Circle" xc="112.3" yc="235.6" r="2" />
+            </object>
+            <object id="2">
+                <box xc="116.4" yc="238.9" w="4" h="4" />
+                <representation type="Circle" xc="116.4" yc="238.9" r="2" />
+            </object>
+            <object id="3">
+                <box xc="147.4" yc="241.5" w="4" h="4" />
+                <representation type="Circle" xc="147.4" yc="241.5" r="2" />
+            </object>
+            <object id="4">
+                <box xc="150.2" yc="245.6" w="4" h="4" />
+                <representation type="Circle" xc="150.2" yc="245.6" r="2" />
+            </object>
+            <object id="5">
+                <box xc="167.4" yc="160.9" w="4" h="4" />
+                <representation type="Circle" xc="167.4" yc="160.9" r="2" />
+            </object>
+            <object id="6">
+                <box xc="91.5" yc="172" w="4" h="4" />
+                <representation type="Circle" xc="91.5" yc="172" r="2" />
+            </object>
+            <object id="10">
+                <box xc="43.9" yc="273.6" w="4" h="4" />
+                <representation type="Circle" xc="43.9" yc="273.6" r="2" />
+            </object>
+            <object id="11">
+                <box xc="201" yc="32.2" w="4" h="4" />
+                <representation type="Circle" xc="201" yc="32.2" r="2" />
+            </object>
+            <object id="12">
+                <box xc="196.4" yc="27.1" w="4" h="4" />
+                <representation type="Circle" xc="196.4" yc="27.1" r="2" />
+            </object>
+            <object id="13">
+                <box xc="198.4" yc="52.7" w="4" h="4" />
+                <representation type="Circle" xc="198.4" yc="52.7" r="2" />
+            </object>
+            <object id="14">
+                <box xc="201.8" yc="55" w="4" h="4" />
+                <representation type="Circle" xc="201.8" yc="55" r="2" />
+            </object>
+            <object id="15">
+                <box xc="219.3" yc="46.4" w="4" h="4" />
+                <representation type="Circle" xc="219.3" yc="46.4" r="2" />
+            </object>
+            <object id="16">
+                <box xc="215.2" yc="43.6" w="4" h="4" />
+                <representation type="Circle" xc="215.2" yc="43.6" r="2" />
+            </object>
+            <object id="17">
+                <box xc="192" yc="77" w="4" h="4" />
+                <representation type="Circle" xc="192" yc="77" r="2" />
+            </object>
+            <object id="18">
+                <box xc="188.1" yc="73" w="4" h="4" />
+                <representation type="Circle" xc="188.1" yc="73" r="2" />
+            </object>
+            <object id="19">
+                <box xc="178.5" yc="70" w="4" h="4" />
+                <representation type="Circle" xc="178.5" yc="70" r="2" />
+            </object>
+            <object id="20">
+                <box xc="168.6" yc="74.4" w="4" h="4" />
+                <representation type="Circle" xc="168.6" yc="74.4" r="2" />
+            </object>
+            <object id="21">
+                <box xc="164.9" yc="96.2" w="4" h="4" />
+                <representation type="Circle" xc="164.9" yc="96.2" r="2" />
+            </object>
+            <object id="22">
+                <box xc="152.1" yc="98.4" w="4" h="4" />
+                <representation type="Circle" xc="152.1" yc="98.4" r="2" />
+            </object>
+            <object id="23">
+                <box xc="149" yc="92.1" w="4" h="4" />
+                <representation type="Circle" xc="149" yc="92.1" r="2" />
+            </object>
+            <object id="24">
+                <box xc="78.9" yc="168" w="4" h="4" />
+                <representation type="Circle" xc="78.9" yc="168" r="2" />
+            </object>
+            <object id="25">
+                <box xc="63.6" yc="188.4" w="4" h="4" />
+                <representation type="Circle" xc="63.6" yc="188.4" r="2" />
+            </object>
+            <object id="26">
+                <box xc="66.1" yc="190.4" w="4" h="4" />
+                <representation type="Circle" xc="66.1" yc="190.4" r="2" />
+            </object>
+            <object id="27">
+                <box xc="63" yc="210.4" w="4" h="4" />
+                <representation type="Circle" xc="63" yc="210.4" r="2" />
+            </object>
+            <object id="28">
+                <box xc="13.6" yc="249.1" w="4" h="4" />
+                <representation type="Circle" xc="13.6" yc="249.1" r="2" />
+            </object>
+            <object id="29">
+                <box xc="16.2" yc="251" w="4" h="4" />
+                <representation type="Circle" xc="16.2" yc="251" r="2" />
+            </object>
+            <object id="30">
+                <box xc="45.7" yc="186" w="4" h="4" />
+                <representation type="Circle" xc="45.7" yc="186" r="2" />
+            </object>
+            <object id="31">
+                <box xc="71" yc="238.1" w="4" h="4" />
+                <representation type="Circle" xc="71" yc="238.1" r="2" />
+            </object>
+            <object id="32">
+                <box xc="65.8" yc="236.5" w="4" h="4" />
+                <representation type="Circle" xc="65.8" yc="236.5" r="2" />
+            </object>
+            <object id="34">
+                <box xc="43.6" yc="267.3" w="4" h="4" />
+                <representation type="Circle" xc="43.6" yc="267.3" r="2" />
+            </object>
+            <object id="35">
+                <box xc="40.1" yc="261.6" w="4" h="4" />
+                <representation type="Circle" xc="40.1" yc="261.6" r="2" />
+            </object>
+            <object id="36">
+                <box xc="109.1" yc="132.3" w="4" h="4" />
+                <representation type="Circle" xc="109.1" yc="132.3" r="2" />
+            </object>
+            <object id="37">
+                <box xc="88.9" yc="197.1" w="4" h="4" />
+                <representation type="Circle" xc="88.9" yc="197.1" r="2" />
+            </object>
+            <object id="38">
+                <box xc="97.1" yc="196.7" w="4" h="4" />
+                <representation type="Circle" xc="97.1" yc="196.7" r="2" />
+            </object>
+            <object id="39">
+                <box xc="97.8" yc="202.5" w="4" h="4" />
+                <representation type="Circle" xc="97.8" yc="202.5" r="2" />
+            </object>
+            <object id="40">
+                <box xc="37" yc="258.4" w="4" h="4" />
+                <representation type="Circle" xc="37" yc="258.4" r="2" />
+            </object>
+        </objectlist>
+    </frame>
+    <frame number="3" file="C:/Training/AA_Walking_01/ON0171.png" utc="2009-Oct-24 13:17:49.030000" color="rgb" depth="byte" gsd="0.15" x="694686" y="5.34324e+006" lat="48.215" lon="11.623" sunny="1">
+        <objectlist>
+            <object id="0">
+                <box xc="90" yc="190.9" w="4" h="4" />
+                <representation type="Circle" xc="90" yc="190.9" r="2" />
+            </object>
+            <object id="1">
+                <box xc="117.4" yc="231.8" w="4" h="4" />
+                <representation type="Circle" xc="117.4" yc="231.8" r="2" />
+            </object>
+            <object id="2">
+                <box xc="121.4" yc="236" w="4" h="4" />
+                <representation type="Circle" xc="121.4" yc="236" r="2" />
+            </object>
+            <object id="3">
+                <box xc="152.5" yc="237" w="4" h="4" />
+                <representation type="Circle" xc="152.5" yc="237" r="2" />
+            </object>
+            <object id="4">
+                <box xc="155.5" yc="241.7" w="4" h="4" />
+                <representation type="Circle" xc="155.5" yc="241.7" r="2" />
+            </object>
+            <object id="5">
+                <box xc="171.7" yc="155.7" w="4" h="4" />
+                <representation type="Circle" xc="171.7" yc="155.7" r="2" />
+            </object>
+            <object id="6">
+                <box xc="96.5" yc="168.5" w="4" h="4" />
+                <representation type="Circle" xc="96.5" yc="168.5" r="2" />
+            </object>
+            <object id="10">
+                <box xc="50.7" yc="271.3" w="4" h="4" />
+                <representation type="Circle" xc="50.7" yc="271.3" r="2" />
+            </object>
+            <object id="11">
+                <box xc="205.8" yc="26.7" w="4" h="4" />
+                <representation type="Circle" xc="205.8" yc="26.7" r="2" />
+            </object>
+            <object id="12">
+                <box xc="200.5" yc="22.4" w="4" h="4" />
+                <representation type="Circle" xc="200.5" yc="22.4" r="2" />
+            </object>
+            <object id="13">
+                <box xc="202.8" yc="47.9" w="4" h="4" />
+                <representation type="Circle" xc="202.8" yc="47.9" r="2" />
+            </object>
+            <object id="14">
+                <box xc="206.2" yc="51" w="4" h="4" />
+                <representation type="Circle" xc="206.2" yc="51" r="2" />
+            </object>
+            <object id="15">
+                <box xc="222.9" yc="41.9" w="4" h="4" />
+                <representation type="Circle" xc="222.9" yc="41.9" r="2" />
+            </object>
+            <object id="16">
+                <box xc="218.8" yc="39.7" w="4" h="4" />
+                <representation type="Circle" xc="218.8" yc="39.7" r="2" />
+            </object>
+            <object id="17">
+                <box xc="195.8" yc="72.6" w="4" h="4" />
+                <representation type="Circle" xc="195.8" yc="72.6" r="2" />
+            </object>
+            <object id="18">
+                <box xc="191.9" yc="69.1" w="4" h="4" />
+                <representation type="Circle" xc="191.9" yc="69.1" r="2" />
+            </object>
+            <object id="19">
+                <box xc="182.4" yc="64.9" w="4" h="4" />
+                <representation type="Circle" xc="182.4" yc="64.9" r="2" />
+            </object>
+            <object id="20">
+                <box xc="171.7" yc="70.6" w="4" h="4" />
+                <representation type="Circle" xc="171.7" yc="70.6" r="2" />
+            </object>
+            <object id="21">
+                <box xc="169.6" yc="93.2" w="4" h="4" />
+                <representation type="Circle" xc="169.6" yc="93.2" r="2" />
+            </object>
+            <object id="22">
+                <box xc="160.2" yc="87.7" w="4" h="4" />
+                <representation type="Circle" xc="160.2" yc="87.7" r="2" />
+            </object>
+            <object id="23">
+                <box xc="157.2" yc="81.9" w="4" h="4" />
+                <representation type="Circle" xc="157.2" yc="81.9" r="2" />
+            </object>
+            <object id="24">
+                <box xc="89" yc="160.8" w="4" h="4" />
+                <representation type="Circle" xc="89" yc="160.8" r="2" />
+            </object>
+            <object id="25">
+                <box xc="69.5" yc="184.8" w="4" h="4" />
+                <representation type="Circle" xc="69.5" yc="184.8" r="2" />
+            </object>
+            <object id="26">
+                <box xc="72.3" yc="186.7" w="4" h="4" />
+                <representation type="Circle" xc="72.3" yc="186.7" r="2" />
+            </object>
+            <object id="27">
+                <box xc="68.3" yc="208" w="4" h="4" />
+                <representation type="Circle" xc="68.3" yc="208" r="2" />
+            </object>
+            <object id="28">
+                <box xc="18.5" yc="246" w="4" h="4" />
+                <representation type="Circle" xc="18.5" yc="246" r="2" />
+            </object>
+            <object id="29">
+                <box xc="21" yc="247.8" w="4" h="4" />
+                <representation type="Circle" xc="21" yc="247.8" r="2" />
+            </object>
+            <object id="30">
+                <box xc="40.7" yc="191.7" w="4" h="4" />
+                <representation type="Circle" xc="40.7" yc="191.7" r="2" />
+            </object>
+            <object id="31">
+                <box xc="74" yc="236.7" w="4" h="4" />
+                <representation type="Circle" xc="74" yc="236.7" r="2" />
+            </object>
+            <object id="32">
+                <box xc="67.2" yc="235.6" w="4" h="4" />
+                <representation type="Circle" xc="67.2" yc="235.6" r="2" />
+            </object>
+            <object id="34">
+                <box xc="49.7" yc="263.4" w="4" h="4" />
+                <representation type="Circle" xc="49.7" yc="263.4" r="2" />
+            </object>
+            <object id="35">
+                <box xc="47" yc="259.7" w="4" h="4" />
+                <representation type="Circle" xc="47" yc="259.7" r="2" />
+            </object>
+            <object id="36">
+                <box xc="109.3" yc="134.2" w="4" h="4" />
+                <representation type="Circle" xc="109.3" yc="134.2" r="2" />
+            </object>
+            <object id="37">
+                <box xc="94.1" yc="193.5" w="4" h="4" />
+                <representation type="Circle" xc="94.1" yc="193.5" r="2" />
+            </object>
+            <object id="38">
+                <box xc="102" yc="194.5" w="4" h="4" />
+                <representation type="Circle" xc="102" yc="194.5" r="2" />
+            </object>
+            <object id="39">
+                <box xc="103.7" yc="199.8" w="4" h="4" />
+                <representation type="Circle" xc="103.7" yc="199.8" r="2" />
+            </object>
+            <object id="40">
+                <box xc="44.2" yc="254.7" w="4" h="4" />
+                <representation type="Circle" xc="44.2" yc="254.7" r="2" />
+            </object>
+        </objectlist>
+    </frame>
+    <frame number="4" file="C:/Training/AA_Walking_01/ON0172.png" utc="2009-Oct-24 13:17:49.730000" color="rgb" depth="byte" gsd="0.15" x="694686" y="5.34324e+006" lat="48.215" lon="11.623" sunny="1">
+        <objectlist>
+            <object id="0">
+                <box xc="93.8" yc="185.9" w="4" h="4" />
+                <representation type="Circle" xc="93.8" yc="185.9" r="2" />
+            </object>
+            <object id="1">
+                <box xc="121.7" yc="226.6" w="4" h="4" />
+                <representation type="Circle" xc="121.7" yc="226.6" r="2" />
+            </object>
+            <object id="2">
+                <box xc="125.5" yc="230" w="4" h="4" />
+                <representation type="Circle" xc="125.5" yc="230" r="2" />
+            </object>
+            <object id="3">
+                <box xc="154.9" yc="232.3" w="4" h="4" />
+                <representation type="Circle" xc="154.9" yc="232.3" r="2" />
+            </object>
+            <object id="4">
+                <box xc="159.3" yc="236.2" w="4" h="4" />
+                <representation type="Circle" xc="159.3" yc="236.2" r="2" />
+            </object>
+            <object id="5">
+                <box xc="174.7" yc="151.1" w="4" h="4" />
+                <representation type="Circle" xc="174.7" yc="151.1" r="2" />
+            </object>
+            <object id="6">
+                <box xc="99.9" yc="164.2" w="4" h="4" />
+                <representation type="Circle" xc="99.9" yc="164.2" r="2" />
+            </object>
+            <object id="10">
+                <box xc="56.9" yc="266.8" w="4" h="4" />
+                <representation type="Circle" xc="56.9" yc="266.8" r="2" />
+            </object>
+            <object id="11">
+                <box xc="208.2" yc="19.8" w="4" h="4" />
+                <representation type="Circle" xc="208.2" yc="19.8" r="2" />
+            </object>
+            <object id="12">
+                <box xc="204" yc="14.8" w="4" h="4" />
+                <representation type="Circle" xc="204" yc="14.8" r="2" />
+            </object>
+            <object id="13">
+                <box xc="205.1" yc="41" w="4" h="4" />
+                <representation type="Circle" xc="205.1" yc="41" r="2" />
+            </object>
+            <object id="14">
+                <box xc="209" yc="44.6" w="4" h="4" />
+                <representation type="Circle" xc="209" yc="44.6" r="2" />
+            </object>
+            <object id="16">
+                <box xc="221.8" yc="33.7" w="4" h="4" />
+                <representation type="Circle" xc="221.8" yc="33.7" r="2" />
+            </object>
+            <object id="17">
+                <box xc="199.5" yc="66.2" w="4" h="4" />
+                <representation type="Circle" xc="199.5" yc="66.2" r="2" />
+            </object>
+            <object id="18">
+                <box xc="195.3" yc="61.9" w="4" h="4" />
+                <representation type="Circle" xc="195.3" yc="61.9" r="2" />
+            </object>
+            <object id="19">
+                <box xc="186.9" yc="57.3" w="4" h="4" />
+                <representation type="Circle" xc="186.9" yc="57.3" r="2" />
+            </object>
+            <object id="20">
+                <box xc="175.6" yc="63.2" w="4" h="4" />
+                <representation type="Circle" xc="175.6" yc="63.2" r="2" />
+            </object>
+            <object id="21">
+                <box xc="174.2" yc="87" w="4" h="4" />
+                <representation type="Circle" xc="174.2" yc="87" r="2" />
+            </object>
+            <object id="22">
+                <box xc="166.5" yc="73" w="4" h="4" />
+                <representation type="Circle" xc="166.5" yc="73" r="2" />
+            </object>
+            <object id="23">
+                <box xc="165.2" yc="68.5" w="4" h="4" />
+                <representation type="Circle" xc="165.2" yc="68.5" r="2" />
+            </object>
+            <object id="24">
+                <box xc="99.4" yc="151.5" w="4" h="4" />
+                <representation type="Circle" xc="99.4" yc="151.5" r="2" />
+            </object>
+            <object id="25">
+                <box xc="74.2" yc="179.7" w="4" h="4" />
+                <representation type="Circle" xc="74.2" yc="179.7" r="2" />
+            </object>
+            <object id="26">
+                <box xc="76.4" yc="180.9" w="4" h="4" />
+                <representation type="Circle" xc="76.4" yc="180.9" r="2" />
+            </object>
+            <object id="27">
+                <box xc="71.9" yc="204" w="4" h="4" />
+                <representation type="Circle" xc="71.9" yc="204" r="2" />
+            </object>
+            <object id="28">
+                <box xc="22.4" yc="242.2" w="4" h="4" />
+                <representation type="Circle" xc="22.4" yc="242.2" r="2" />
+            </object>
+            <object id="29">
+                <box xc="25.3" yc="244.1" w="4" h="4" />
+                <representation type="Circle" xc="25.3" yc="244.1" r="2" />
+            </object>
+            <object id="30">
+                <box xc="33.9" yc="196.3" w="4" h="4" />
+                <representation type="Circle" xc="33.9" yc="196.3" r="2" />
+            </object>
+            <object id="31">
+                <box xc="74.3" yc="236.3" w="4" h="4" />
+                <representation type="Circle" xc="74.3" yc="236.3" r="2" />
+            </object>
+            <object id="32">
+                <box xc="67.9" yc="234.7" w="4" h="4" />
+                <representation type="Circle" xc="67.9" yc="234.7" r="2" />
+            </object>
+            <object id="34">
+                <box xc="53.9" yc="259" w="4" h="4" />
+                <representation type="Circle" xc="53.9" yc="259" r="2" />
+            </object>
+            <object id="35">
+                <box xc="51.9" yc="253.8" w="4" h="4" />
+                <representation type="Circle" xc="51.9" yc="253.8" r="2" />
+            </object>
+            <object id="36">
+                <box xc="108.3" yc="134.1" w="4" h="4" />
+                <representation type="Circle" xc="108.3" yc="134.1" r="2" />
+            </object>
+            <object id="37">
+                <box xc="98.3" yc="188.7" w="4" h="4" />
+                <representation type="Circle" xc="98.3" yc="188.7" r="2" />
+            </object>
+            <object id="38">
+                <box xc="106.4" yc="189.2" w="4" h="4" />
+                <representation type="Circle" xc="106.4" yc="189.2" r="2" />
+            </object>
+            <object id="39">
+                <box xc="107" yc="195.1" w="4" h="4" />
+                <representation type="Circle" xc="107" yc="195.1" r="2" />
+            </object>
+            <object id="40">
+                <box xc="51.3" yc="249.7" w="4" h="4" />
+                <representation type="Circle" xc="51.3" yc="249.7" r="2" />
+            </object>
+        </objectlist>
+    </frame>
+    <frame number="5" file="C:/Training/AA_Walking_01/ON0173.png" utc="2009-Oct-24 13:17:50.431000" color="rgb" depth="byte" gsd="0.15" x="694686" y="5.34324e+006" lat="48.215" lon="11.623" sunny="1">
+        <objectlist>
+            <object id="0">
+                <box xc="99.9" yc="182.3" w="4" h="4" />
+                <representation type="Circle" xc="99.9" yc="182.3" r="2" />
+            </object>
+            <object id="1">
+                <box xc="127.3" yc="222.2" w="4" h="4" />
+                <representation type="Circle" xc="127.3" yc="222.2" r="2" />
+            </object>
+            <object id="2">
+                <box xc="131.1" yc="225.4" w="4" h="4" />
+                <representation type="Circle" xc="131.1" yc="225.4" r="2" />
+            </object>
+            <object id="3">
+                <box xc="160.3" yc="227.8" w="4" h="4" />
+                <representation type="Circle" xc="160.3" yc="227.8" r="2" />
+            </object>
+            <object id="4">
+                <box xc="163.8" yc="233" w="4" h="4" />
+                <representation type="Circle" xc="163.8" yc="233" r="2" />
+            </object>
+            <object id="5">
+                <box xc="180.1" yc="146.4" w="4" h="4" />
+                <representation type="Circle" xc="180.1" yc="146.4" r="2" />
+            </object>
+            <object id="6">
+                <box xc="105.4" yc="160.1" w="4" h="4" />
+                <representation type="Circle" xc="105.4" yc="160.1" r="2" />
+            </object>
+            <object id="10">
+                <box xc="63.6" yc="263" w="4" h="4" />
+                <representation type="Circle" xc="63.6" yc="263" r="2" />
+            </object>
+            <object id="11">
+                <box xc="213.4" yc="13.2" w="4" h="4" />
+                <representation type="Circle" xc="213.4" yc="13.2" r="2" />
+            </object>
+            <object id="12">
+                <box xc="208.1" yc="8.4" w="4" h="4" />
+                <representation type="Circle" xc="208.1" yc="8.4" r="2" />
+            </object>
+            <object id="13">
+                <box xc="210.1" yc="35.6" w="4" h="4" />
+                <representation type="Circle" xc="210.1" yc="35.6" r="2" />
+            </object>
+            <object id="14">
+                <box xc="214.1" yc="38.7" w="4" h="4" />
+                <representation type="Circle" xc="214.1" yc="38.7" r="2" />
+            </object>
+            <object id="16">
+                <box xc="223.6" yc="28" w="4" h="4" />
+                <representation type="Circle" xc="223.6" yc="28" r="2" />
+            </object>
+            <object id="17">
+                <box xc="204.4" yc="60.9" w="4" h="4" />
+                <representation type="Circle" xc="204.4" yc="60.9" r="2" />
+            </object>
+            <object id="18">
+                <box xc="200.4" yc="57.6" w="4" h="4" />
+                <representation type="Circle" xc="200.4" yc="57.6" r="2" />
+            </object>
+            <object id="19">
+                <box xc="191.4" yc="51.5" w="4" h="4" />
+                <representation type="Circle" xc="191.4" yc="51.5" r="2" />
+            </object>
+            <object id="20">
+                <box xc="181.2" yc="59" w="4" h="4" />
+                <representation type="Circle" xc="181.2" yc="59" r="2" />
+            </object>
+            <object id="21">
+                <box xc="180.3" yc="82.1" w="4" h="4" />
+                <representation type="Circle" xc="180.3" yc="82.1" r="2" />
+            </object>
+            <object id="22">
+                <box xc="175.1" yc="59.2" w="4" h="4" />
+                <representation type="Circle" xc="175.1" yc="59.2" r="2" />
+            </object>
+            <object id="23">
+                <box xc="175.8" yc="54.1" w="4" h="4" />
+                <representation type="Circle" xc="175.8" yc="54.1" r="2" />
+            </object>
+            <object id="24">
+                <box xc="110.6" yc="143.7" w="4" h="4" />
+                <representation type="Circle" xc="110.6" yc="143.7" r="2" />
+            </object>
+            <object id="25">
+                <box xc="80" yc="175" w="4" h="4" />
+                <representation type="Circle" xc="80" yc="175" r="2" />
+            </object>
+            <object id="26">
+                <box xc="82.5" yc="176.7" w="4" h="4" />
+                <representation type="Circle" xc="82.5" yc="176.7" r="2" />
+            </object>
+            <object id="27">
+                <box xc="78.1" yc="200.2" w="4" h="4" />
+                <representation type="Circle" xc="78.1" yc="200.2" r="2" />
+            </object>
+            <object id="28">
+                <box xc="28.8" yc="238.7" w="4" h="4" />
+                <representation type="Circle" xc="28.8" yc="238.7" r="2" />
+            </object>
+            <object id="29">
+                <box xc="31" yc="239.9" w="4" h="4" />
+                <representation type="Circle" xc="31" yc="239.9" r="2" />
+            </object>
+            <object id="30">
+                <box xc="29.7" yc="202.3" w="4" h="4" />
+                <representation type="Circle" xc="29.7" yc="202.3" r="2" />
+            </object>
+            <object id="31">
+                <box xc="75.7" yc="236.1" w="4" h="4" />
+                <representation type="Circle" xc="75.7" yc="236.1" r="2" />
+            </object>
+            <object id="32">
+                <box xc="70.3" yc="234" w="4" h="4" />
+                <representation type="Circle" xc="70.3" yc="234" r="2" />
+            </object>
+            <object id="34">
+                <box xc="59.9" yc="254.4" w="4" h="4" />
+                <representation type="Circle" xc="59.9" yc="254.4" r="2" />
+            </object>
+            <object id="35">
+                <box xc="58.1" yc="250.6" w="4" h="4" />
+                <representation type="Circle" xc="58.1" yc="250.6" r="2" />
+            </object>
+            <object id="36">
+                <box xc="108.5" yc="134.4" w="4" h="4" />
+                <representation type="Circle" xc="108.5" yc="134.4" r="2" />
+            </object>
+            <object id="37">
+                <box xc="103.8" yc="185.1" w="4" h="4" />
+                <representation type="Circle" xc="103.8" yc="185.1" r="2" />
+            </object>
+            <object id="38">
+                <box xc="111.8" yc="185.7" w="4" h="4" />
+                <representation type="Circle" xc="111.8" yc="185.7" r="2" />
+            </object>
+            <object id="39">
+                <box xc="112.4" yc="191.2" w="4" h="4" />
+                <representation type="Circle" xc="112.4" yc="191.2" r="2" />
+            </object>
+            <object id="40">
+                <box xc="59.4" yc="247.5" w="4" h="4" />
+                <representation type="Circle" xc="59.4" yc="247.5" r="2" />
+            </object>
+        </objectlist>
+    </frame>
+    <frame number="6" file="C:/Training/AA_Walking_01/ON0174.png" utc="2009-Oct-24 13:17:51.130000" color="rgb" depth="byte" gsd="0.15" x="694686" y="5.34324e+006" lat="48.215" lon="11.623" sunny="1">
+        <objectlist>
+            <object id="0">
+                <box xc="103.8" yc="177.1" w="4" h="4" />
+                <representation type="Circle" xc="103.8" yc="177.1" r="2" />
+            </object>
+            <object id="1">
+                <box xc="132" yc="217" w="4" h="4" />
+                <representation type="Circle" xc="132" yc="217" r="2" />
+            </object>
+            <object id="2">
+                <box xc="135" yc="219.9" w="4" h="4" />
+                <representation type="Circle" xc="135" yc="219.9" r="2" />
+            </object>
+            <object id="3">
+                <box xc="163.8" yc="222.5" w="4" h="4" />
+                <representation type="Circle" xc="163.8" yc="222.5" r="2" />
+            </object>
+            <object id="4">
+                <box xc="168.3" yc="227.2" w="4" h="4" />
+                <representation type="Circle" xc="168.3" yc="227.2" r="2" />
+            </object>
+            <object id="5">
+                <box xc="182.7" yc="140.3" w="4" h="4" />
+                <representation type="Circle" xc="182.7" yc="140.3" r="2" />
+            </object>
+            <object id="6">
+                <box xc="109.5" yc="154.6" w="4" h="4" />
+                <representation type="Circle" xc="109.5" yc="154.6" r="2" />
+            </object>
+            <object id="10">
+                <box xc="68" yc="257.5" w="4" h="4" />
+                <representation type="Circle" xc="68" yc="257.5" r="2" />
+            </object>
+            <object id="11">
+                <box xc="216.3" yc="6.5" w="4" h="4" />
+                <representation type="Circle" xc="216.3" yc="6.5" r="2" />
+            </object>
+            <object id="12">
+                <box xc="211.8" yc="1.8" w="4" h="4" />
+                <representation type="Circle" xc="211.8" yc="1.8" r="2" />
+            </object>
+            <object id="13">
+                <box xc="212.9" yc="28.4" w="4" h="4" />
+                <representation type="Circle" xc="212.9" yc="28.4" r="2" />
+            </object>
+            <object id="14">
+                <box xc="217.4" yc="32" w="4" h="4" />
+                <representation type="Circle" xc="217.4" yc="32" r="2" />
+            </object>
+            <object id="16">
+                <box xc="225.1" yc="21.8" w="4" h="4" />
+                <representation type="Circle" xc="225.1" yc="21.8" r="2" />
+            </object>
+            <object id="17">
+                <box xc="206" yc="54" w="4" h="4" />
+                <representation type="Circle" xc="206" yc="54" r="2" />
+            </object>
+            <object id="18">
+                <box xc="202.8" yc="51.1" w="4" h="4" />
+                <representation type="Circle" xc="202.8" yc="51.1" r="2" />
+            </object>
+            <object id="19">
+                <box xc="195.6" yc="45.5" w="4" h="4" />
+                <representation type="Circle" xc="195.6" yc="45.5" r="2" />
+            </object>
+            <object id="20">
+                <box xc="184.4" yc="52.6" w="4" h="4" />
+                <representation type="Circle" xc="184.4" yc="52.6" r="2" />
+            </object>
+            <object id="21">
+                <box xc="184.4" yc="76" w="4" h="4" />
+                <representation type="Circle" xc="184.4" yc="76" r="2" />
+            </object>
+            <object id="22">
+                <box xc="182.7" yc="46.7" w="4" h="4" />
+                <representation type="Circle" xc="182.7" yc="46.7" r="2" />
+            </object>
+            <object id="23">
+                <box xc="181.5" yc="42.9" w="4" h="4" />
+                <representation type="Circle" xc="181.5" yc="42.9" r="2" />
+            </object>
+            <object id="24">
+                <box xc="120.4" yc="133.5" w="4" h="4" />
+                <representation type="Circle" xc="120.4" yc="133.5" r="2" />
+            </object>
+            <object id="25">
+                <box xc="84.3" yc="169.5" w="4" h="4" />
+                <representation type="Circle" xc="84.3" yc="169.5" r="2" />
+            </object>
+            <object id="26">
+                <box xc="86.3" yc="171" w="4" h="4" />
+                <representation type="Circle" xc="86.3" yc="171" r="2" />
+            </object>
+            <object id="27">
+                <box xc="82" yc="195.6" w="4" h="4" />
+                <representation type="Circle" xc="82" yc="195.6" r="2" />
+            </object>
+            <object id="28">
+                <box xc="33.5" yc="233.4" w="4" h="4" />
+                <representation type="Circle" xc="33.5" yc="233.4" r="2" />
+            </object>
+            <object id="29">
+                <box xc="35.7" yc="235.4" w="4" h="4" />
+                <representation type="Circle" xc="35.7" yc="235.4" r="2" />
+            </object>
+            <object id="30">
+                <box xc="23.1" yc="207.9" w="4" h="4" />
+                <representation type="Circle" xc="23.1" yc="207.9" r="2" />
+            </object>
+            <object id="31">
+                <box xc="76.8" yc="233.2" w="4" h="4" />
+                <representation type="Circle" xc="76.8" yc="233.2" r="2" />
+            </object>
+            <object id="32">
+                <box xc="72.3" yc="231.9" w="4" h="4" />
+                <representation type="Circle" xc="72.3" yc="231.9" r="2" />
+            </object>
+            <object id="34">
+                <box xc="64.6" yc="250.2" w="4" h="4" />
+                <representation type="Circle" xc="64.6" yc="250.2" r="2" />
+            </object>
+            <object id="35">
+                <box xc="62.5" yc="246.8" w="4" h="4" />
+                <representation type="Circle" xc="62.5" yc="246.8" r="2" />
+            </object>
+            <object id="36">
+                <box xc="108" yc="133.3" w="4" h="4" />
+                <representation type="Circle" xc="108" yc="133.3" r="2" />
+            </object>
+            <object id="37">
+                <box xc="107.7" yc="179.9" w="4" h="4" />
+                <representation type="Circle" xc="107.7" yc="179.9" r="2" />
+            </object>
+            <object id="38">
+                <box xc="115.7" yc="179.8" w="4" h="4" />
+                <representation type="Circle" xc="115.7" yc="179.8" r="2" />
+            </object>
+            <object id="39">
+                <box xc="116.3" yc="186.6" w="4" h="4" />
+                <representation type="Circle" xc="116.3" yc="186.6" r="2" />
+            </object>
+            <object id="40">
+                <box xc="65.5" yc="243" w="4" h="4" />
+                <representation type="Circle" xc="65.5" yc="243" r="2" />
+            </object>
+        </objectlist>
+    </frame>
+    <frame number="7" file="C:/Training/AA_Walking_01/ON0175.png" utc="2009-Oct-24 13:17:51.831000" color="rgb" depth="byte" gsd="0.15" x="694686" y="5.34324e+006" lat="48.215" lon="11.623" sunny="1">
+        <objectlist>
+            <object id="0">
+                <box xc="109.5" yc="173.5" w="4" h="4" />
+                <representation type="Circle" xc="109.5" yc="173.5" r="2" />
+            </object>
+            <object id="1">
+                <box xc="136.3" yc="212.5" w="4" h="4" />
+                <representation type="Circle" xc="136.3" yc="212.5" r="2" />
+            </object>
+            <object id="2">
+                <box xc="140.8" yc="215.7" w="4" h="4" />
+                <representation type="Circle" xc="140.8" yc="215.7" r="2" />
+            </object>
+            <object id="3">
+                <box xc="167.6" yc="220.3" w="4" h="4" />
+                <representation type="Circle" xc="167.6" yc="220.3" r="2" />
+            </object>
+            <object id="4">
+                <box xc="172.3" yc="223.4" w="4" h="4" />
+                <representation type="Circle" xc="172.3" yc="223.4" r="2" />
+            </object>
+            <object id="5">
+                <box xc="186.9" yc="135.2" w="4" h="4" />
+                <representation type="Circle" xc="186.9" yc="135.2" r="2" />
+            </object>
+            <object id="6">
+                <box xc="114.2" yc="150.5" w="4" h="4" />
+                <representation type="Circle" xc="114.2" yc="150.5" r="2" />
+            </object>
+            <object id="10">
+                <box xc="75.1" yc="252.9" w="4" h="4" />
+                <representation type="Circle" xc="75.1" yc="252.9" r="2" />
+            </object>
+            <object id="13">
+                <box xc="217.3" yc="23.2" w="4" h="4" />
+                <representation type="Circle" xc="217.3" yc="23.2" r="2" />
+            </object>
+            <object id="14">
+                <box xc="221.5" yc="27.7" w="4" h="4" />
+                <representation type="Circle" xc="221.5" yc="27.7" r="2" />
+            </object>
+            <object id="17">
+                <box xc="210.8" yc="48.6" w="4" h="4" />
+                <representation type="Circle" xc="210.8" yc="48.6" r="2" />
+            </object>
+            <object id="18">
+                <box xc="207" yc="45.9" w="4" h="4" />
+                <representation type="Circle" xc="207" yc="45.9" r="2" />
+            </object>
+            <object id="19">
+                <box xc="200.6" yc="39.3" w="4" h="4" />
+                <representation type="Circle" xc="200.6" yc="39.3" r="2" />
+            </object>
+            <object id="20">
+                <box xc="189" yc="47.2" w="4" h="4" />
+                <representation type="Circle" xc="189" yc="47.2" r="2" />
+            </object>
+            <object id="21">
+                <box xc="190.5" yc="70.5" w="4" h="4" />
+                <representation type="Circle" xc="190.5" yc="70.5" r="2" />
+            </object>
+            <object id="22">
+                <box xc="192.7" yc="36.3" w="4" h="4" />
+                <representation type="Circle" xc="192.7" yc="36.3" r="2" />
+            </object>
+            <object id="23">
+                <box xc="191.3" yc="31.5" w="4" h="4" />
+                <representation type="Circle" xc="191.3" yc="31.5" r="2" />
+            </object>
+            <object id="24">
+                <box xc="129.9" yc="123.7" w="4" h="4" />
+                <representation type="Circle" xc="129.9" yc="123.7" r="2" />
+            </object>
+            <object id="25">
+                <box xc="90.1" yc="165.2" w="4" h="4" />
+                <representation type="Circle" xc="90.1" yc="165.2" r="2" />
+            </object>
+            <object id="26">
+                <box xc="92.1" yc="166.5" w="4" h="4" />
+                <representation type="Circle" xc="92.1" yc="166.5" r="2" />
+            </object>
+            <object id="27">
+                <box xc="88.5" yc="189.3" w="4" h="4" />
+                <representation type="Circle" xc="88.5" yc="189.3" r="2" />
+            </object>
+            <object id="28">
+                <box xc="38" yc="231.2" w="4" h="4" />
+                <representation type="Circle" xc="38" yc="231.2" r="2" />
+            </object>
+            <object id="29">
+                <box xc="39.9" yc="232.6" w="4" h="4" />
+                <representation type="Circle" xc="39.9" yc="232.6" r="2" />
+            </object>
+            <object id="30">
+                <box xc="19.6" yc="212" w="4" h="4" />
+                <representation type="Circle" xc="19.6" yc="212" r="2" />
+            </object>
+            <object id="31">
+                <box xc="78.6" yc="232.2" w="4" h="4" />
+                <representation type="Circle" xc="78.6" yc="232.2" r="2" />
+            </object>
+            <object id="32">
+                <box xc="74.4" yc="231" w="4" h="4" />
+                <representation type="Circle" xc="74.4" yc="231" r="2" />
+            </object>
+            <object id="34">
+                <box xc="71.2" yc="247.6" w="4" h="4" />
+                <representation type="Circle" xc="71.2" yc="247.6" r="2" />
+            </object>
+            <object id="35">
+                <box xc="72.2" yc="244.1" w="4" h="4" />
+                <representation type="Circle" xc="72.2" yc="244.1" r="2" />
+            </object>
+            <object id="36">
+                <box xc="107.7" yc="134.3" w="4" h="4" />
+                <representation type="Circle" xc="107.7" yc="134.3" r="2" />
+            </object>
+            <object id="37">
+                <box xc="113" yc="175.4" w="4" h="4" />
+                <representation type="Circle" xc="113" yc="175.4" r="2" />
+            </object>
+            <object id="38">
+                <box xc="119.7" yc="176.2" w="4" h="4" />
+                <representation type="Circle" xc="119.7" yc="176.2" r="2" />
+            </object>
+            <object id="39">
+                <box xc="121.8" yc="181.6" w="4" h="4" />
+                <representation type="Circle" xc="121.8" yc="181.6" r="2" />
+            </object>
+            <object id="40">
+                <box xc="72.5" yc="239.2" w="4" h="4" />
+                <representation type="Circle" xc="72.5" yc="239.2" r="2" />
+            </object>
+        </objectlist>
+    </frame>
+    <frame number="8" file="C:/Training/AA_Walking_01/ON0176.png" utc="2009-Oct-24 13:17:52.534000" color="rgb" depth="byte" gsd="0.15" x="694686" y="5.34324e+006" lat="48.215" lon="11.623" sunny="1">
+        <objectlist>
+            <object id="0">
+                <box xc="111.7" yc="167.6" w="4" h="4" />
+                <representation type="Circle" xc="111.7" yc="167.6" r="2" />
+            </object>
+            <object id="1">
+                <box xc="138.5" yc="207.8" w="4" h="4" />
+                <representation type="Circle" xc="138.5" yc="207.8" r="2" />
+            </object>
+            <object id="2">
+                <box xc="142" yc="210.1" w="4" h="4" />
+                <representation type="Circle" xc="142" yc="210.1" r="2" />
+            </object>
+            <object id="3">
+                <box xc="168.7" yc="215.1" w="4" h="4" />
+                <representation type="Circle" xc="168.7" yc="215.1" r="2" />
+            </object>
+            <object id="4">
+                <box xc="173.6" yc="219" w="4" h="4" />
+                <representation type="Circle" xc="173.6" yc="219" r="2" />
+            </object>
+            <object id="5">
+                <box xc="188.3" yc="129.5" w="4" h="4" />
+                <representation type="Circle" xc="188.3" yc="129.5" r="2" />
+            </object>
+            <object id="6">
+                <box xc="115.7" yc="145.8" w="4" h="4" />
+                <representation type="Circle" xc="115.7" yc="145.8" r="2" />
+            </object>
+            <object id="10">
+                <box xc="78.5" yc="250.1" w="4" h="4" />
+                <representation type="Circle" xc="78.5" yc="250.1" r="2" />
+            </object>
+            <object id="13">
+                <box xc="218.1" yc="17.4" w="4" h="4" />
+                <representation type="Circle" xc="218.1" yc="17.4" r="2" />
+            </object>
+            <object id="14">
+                <box xc="222.4" yc="20.6" w="4" h="4" />
+                <representation type="Circle" xc="222.4" yc="20.6" r="2" />
+            </object>
+            <object id="17">
+                <box xc="212.6" yc="42.6" w="4" h="4" />
+                <representation type="Circle" xc="212.6" yc="42.6" r="2" />
+            </object>
+            <object id="18">
+                <box xc="207.5" yc="39.4" w="4" h="4" />
+                <representation type="Circle" xc="207.5" yc="39.4" r="2" />
+            </object>
+            <object id="19">
+                <box xc="201.5" yc="32.4" w="4" h="4" />
+                <representation type="Circle" xc="201.5" yc="32.4" r="2" />
+            </object>
+            <object id="20">
+                <box xc="190.1" yc="41.8" w="4" h="4" />
+                <representation type="Circle" xc="190.1" yc="41.8" r="2" />
+            </object>
+            <object id="21">
+                <box xc="192.4" yc="64.9" w="4" h="4" />
+                <representation type="Circle" xc="192.4" yc="64.9" r="2" />
+            </object>
+            <object id="22">
+                <box xc="200.2" yc="24.6" w="4" h="4" />
+                <representation type="Circle" xc="200.2" yc="24.6" r="2" />
+            </object>
+            <object id="23">
+                <box xc="198.2" yc="19.3" w="4" h="4" />
+                <representation type="Circle" xc="198.2" yc="19.3" r="2" />
+            </object>
+            <object id="24">
+                <box xc="136.9" yc="113.4" w="4" h="4" />
+                <representation type="Circle" xc="136.9" yc="113.4" r="2" />
+            </object>
+            <object id="25">
+                <box xc="92.2" yc="160.7" w="4" h="4" />
+                <representation type="Circle" xc="92.2" yc="160.7" r="2" />
+            </object>
+            <object id="26">
+                <box xc="94.4" yc="162.1" w="4" h="4" />
+                <representation type="Circle" xc="94.4" yc="162.1" r="2" />
+            </object>
+            <object id="27">
+                <box xc="90" yc="184.8" w="4" h="4" />
+                <representation type="Circle" xc="90" yc="184.8" r="2" />
+            </object>
+            <object id="28">
+                <box xc="39.5" yc="226.5" w="4" h="4" />
+                <representation type="Circle" xc="39.5" yc="226.5" r="2" />
+            </object>
+            <object id="29">
+                <box xc="42.2" yc="227.5" w="4" h="4" />
+                <representation type="Circle" xc="42.2" yc="227.5" r="2" />
+            </object>
+            <object id="30">
+                <box xc="10.2" yc="217.5" w="4" h="4" />
+                <representation type="Circle" xc="10.2" yc="217.5" r="2" />
+            </object>
+            <object id="31">
+                <box xc="78.9" yc="231.8" w="4" h="4" />
+                <representation type="Circle" xc="78.9" yc="231.8" r="2" />
+            </object>
+            <object id="32">
+                <box xc="73.3" yc="229.9" w="4" h="4" />
+                <representation type="Circle" xc="73.3" yc="229.9" r="2" />
+            </object>
+            <object id="34">
+                <box xc="74.8" yc="246" w="4" h="4" />
+                <representation type="Circle" xc="74.8" yc="246" r="2" />
+            </object>
+            <object id="35">
+                <box xc="72.4" yc="242.6" w="4" h="4" />
+                <representation type="Circle" xc="72.4" yc="242.6" r="2" />
+            </object>
+            <object id="36">
+                <box xc="105" yc="134.7" w="4" h="4" />
+                <representation type="Circle" xc="105" yc="134.7" r="2" />
+            </object>
+            <object id="37">
+                <box xc="114.8" yc="171.3" w="4" h="4" />
+                <representation type="Circle" xc="114.8" yc="171.3" r="2" />
+            </object>
+            <object id="38">
+                <box xc="121.9" yc="172" w="4" h="4" />
+                <representation type="Circle" xc="121.9" yc="172" r="2" />
+            </object>
+            <object id="39">
+                <box xc="122.3" yc="176.6" w="4" h="4" />
+                <representation type="Circle" xc="122.3" yc="176.6" r="2" />
+            </object>
+            <object id="40">
+                <box xc="76.1" yc="238.3" w="4" h="4" />
+                <representation type="Circle" xc="76.1" yc="238.3" r="2" />
+            </object>
+        </objectlist>
+    </frame>
+    <frame number="9" file="C:/Training/AA_Walking_01/ON0177.png" utc="2009-Oct-24 13:17:53.231000" color="rgb" depth="byte" gsd="0.15" x="694686" y="5.34324e+006" lat="48.215" lon="11.623" sunny="1">
+        <objectlist>
+            <object id="0">
+                <box xc="115.7" yc="163.7" w="4" h="4" />
+                <representation type="Circle" xc="115.7" yc="163.7" r="2" />
+            </object>
+            <object id="1">
+                <box xc="143.5" yc="202.5" w="4" h="4" />
+                <representation type="Circle" xc="143.5" yc="202.5" r="2" />
+            </object>
+            <object id="2">
+                <box xc="146.9" yc="205.5" w="4" h="4" />
+                <representation type="Circle" xc="146.9" yc="205.5" r="2" />
+            </object>
+            <object id="3">
+                <box xc="172.8" yc="210.9" w="4" h="4" />
+                <representation type="Circle" xc="172.8" yc="210.9" r="2" />
+            </object>
+            <object id="4">
+                <box xc="178.3" yc="214.7" w="4" h="4" />
+                <representation type="Circle" xc="178.3" yc="214.7" r="2" />
+            </object>
+            <object id="5">
+                <box xc="191.8" yc="124.1" w="4" h="4" />
+                <representation type="Circle" xc="191.8" yc="124.1" r="2" />
+            </object>
+            <object id="6">
+                <box xc="119.3" yc="141.2" w="4" h="4" />
+                <representation type="Circle" xc="119.3" yc="141.2" r="2" />
+            </object>
+            <object id="10">
+                <box xc="84.9" yc="245.9" w="4" h="4" />
+                <representation type="Circle" xc="84.9" yc="245.9" r="2" />
+            </object>
+            <object id="13">
+                <box xc="222.2" yc="10.9" w="4" h="4" />
+                <representation type="Circle" xc="222.2" yc="10.9" r="2" />
+            </object>
+            <object id="14">
+                <box xc="225.8" yc="15.2" w="4" h="4" />
+                <representation type="Circle" xc="225.8" yc="15.2" r="2" />
+            </object>
+            <object id="17">
+                <box xc="216.1" yc="36.1" w="4" h="4" />
+                <representation type="Circle" xc="216.1" yc="36.1" r="2" />
+            </object>
+            <object id="18">
+                <box xc="211" yc="33.5" w="4" h="4" />
+                <representation type="Circle" xc="211" yc="33.5" r="2" />
+            </object>
+            <object id="19">
+                <box xc="205.6" yc="25.4" w="4" h="4" />
+                <representation type="Circle" xc="205.6" yc="25.4" r="2" />
+            </object>
+            <object id="20">
+                <box xc="193.8" yc="34.2" w="4" h="4" />
+                <representation type="Circle" xc="193.8" yc="34.2" r="2" />
+            </object>
+            <object id="21">
+                <box xc="197.7" yc="59.5" w="4" h="4" />
+                <representation type="Circle" xc="197.7" yc="59.5" r="2" />
+            </object>
+            <object id="22">
+                <box xc="209.4" yc="12.4" w="4" h="4" />
+                <representation type="Circle" xc="209.4" yc="12.4" r="2" />
+            </object>
+            <object id="23">
+                <box xc="207.6" yc="7.9" w="4" h="4" />
+                <representation type="Circle" xc="207.6" yc="7.9" r="2" />
+            </object>
+            <object id="24">
+                <box xc="146.4" yc="102.7" w="4" h="4" />
+                <representation type="Circle" xc="146.4" yc="102.7" r="2" />
+            </object>
+            <object id="25">
+                <box xc="98" yc="155.3" w="4" h="4" />
+                <representation type="Circle" xc="98" yc="155.3" r="2" />
+            </object>
+            <object id="26">
+                <box xc="100.2" yc="157.7" w="4" h="4" />
+                <representation type="Circle" xc="100.2" yc="157.7" r="2" />
+            </object>
+            <object id="27">
+                <box xc="94" yc="181.3" w="4" h="4" />
+                <representation type="Circle" xc="94" yc="181.3" r="2" />
+            </object>
+            <object id="28">
+                <box xc="43.8" yc="222.2" w="4" h="4" />
+                <representation type="Circle" xc="43.8" yc="222.2" r="2" />
+            </object>
+            <object id="29">
+                <box xc="46.4" yc="223.5" w="4" h="4" />
+                <representation type="Circle" xc="46.4" yc="223.5" r="2" />
+            </object>
+            <object id="30">
+                <box xc="4.9" yc="221.1" w="4" h="4" />
+                <representation type="Circle" xc="4.9" yc="221.1" r="2" />
+            </object>
+            <object id="31">
+                <box xc="82.5" yc="230.8" w="4" h="4" />
+                <representation type="Circle" xc="82.5" yc="230.8" r="2" />
+            </object>
+            <object id="32">
+                <box xc="75.4" yc="228.3" w="4" h="4" />
+                <representation type="Circle" xc="75.4" yc="228.3" r="2" />
+            </object>
+            <object id="34">
+                <box xc="81.2" yc="242.2" w="4" h="4" />
+                <representation type="Circle" xc="81.2" yc="242.2" r="2" />
+            </object>
+            <object id="35">
+                <box xc="79" yc="239" w="4" h="4" />
+                <representation type="Circle" xc="79" yc="239" r="2" />
+            </object>
+            <object id="36">
+                <box xc="105.2" yc="133" w="4" h="4" />
+                <representation type="Circle" xc="105.2" yc="133" r="2" />
+            </object>
+            <object id="37">
+                <box xc="120" yc="167" w="4" h="4" />
+                <representation type="Circle" xc="120" yc="167" r="2" />
+            </object>
+            <object id="38">
+                <box xc="126.4" yc="167" w="4" h="4" />
+                <representation type="Circle" xc="126.4" yc="167" r="2" />
+            </object>
+            <object id="39">
+                <box xc="128.1" yc="172.2" w="4" h="4" />
+                <representation type="Circle" xc="128.1" yc="172.2" r="2" />
+            </object>
+            <object id="40">
+                <box xc="82.6" yc="234.6" w="4" h="4" />
+                <representation type="Circle" xc="82.6" yc="234.6" r="2" />
+            </object>
+        </objectlist>
+    </frame>
+    <frame number="10" file="C:/Training/AA_Walking_01/ON0178.png" utc="2009-Oct-24 13:17:53.931000" color="rgb" depth="byte" gsd="0.15" x="694686" y="5.34324e+006" lat="48.215" lon="11.623" sunny="1">
+        <objectlist>
+            <object id="0">
+                <box xc="121.6" yc="158.8" w="4" h="4" />
+                <representation type="Circle" xc="121.6" yc="158.8" r="2" />
+            </object>
+            <object id="1">
+                <box xc="149.2" yc="197.8" w="4" h="4" />
+                <representation type="Circle" xc="149.2" yc="197.8" r="2" />
+            </object>
+            <object id="2">
+                <box xc="152.9" yc="200.4" w="4" h="4" />
+                <representation type="Circle" xc="152.9" yc="200.4" r="2" />
+            </object>
+            <object id="3">
+                <box xc="178.9" yc="206.3" w="4" h="4" />
+                <representation type="Circle" xc="178.9" yc="206.3" r="2" />
+            </object>
+            <object id="4">
+                <box xc="183.7" yc="209.4" w="4" h="4" />
+                <representation type="Circle" xc="183.7" yc="209.4" r="2" />
+            </object>
+            <object id="5">
+                <box xc="198.2" yc="118.4" w="4" h="4" />
+                <representation type="Circle" xc="198.2" yc="118.4" r="2" />
+            </object>
+            <object id="6">
+                <box xc="123.8" yc="135.8" w="4" h="4" />
+                <representation type="Circle" xc="123.8" yc="135.8" r="2" />
+            </object>
+            <object id="10">
+                <box xc="92.7" yc="243" w="4" h="4" />
+                <representation type="Circle" xc="92.7" yc="243" r="2" />
+            </object>
+            <object id="13">
+                <box xc="226.2" yc="4.6" w="4" h="4" />
+                <representation type="Circle" xc="226.2" yc="4.6" r="2" />
+            </object>
+            <object id="17">
+                <box xc="220.2" yc="30.2" w="4" h="4" />
+                <representation type="Circle" xc="220.2" yc="30.2" r="2" />
+            </object>
+            <object id="18">
+                <box xc="215.3" yc="27.2" w="4" h="4" />
+                <representation type="Circle" xc="215.3" yc="27.2" r="2" />
+            </object>
+            <object id="19">
+                <box xc="210.6" yc="18.7" w="4" h="4" />
+                <representation type="Circle" xc="210.6" yc="18.7" r="2" />
+            </object>
+            <object id="20">
+                <box xc="199.3" yc="28.4" w="4" h="4" />
+                <representation type="Circle" xc="199.3" yc="28.4" r="2" />
+            </object>
+            <object id="21">
+                <box xc="203.1" yc="53.7" w="4" h="4" />
+                <representation type="Circle" xc="203.1" yc="53.7" r="2" />
+            </object>
+            <object id="22">
+                <box xc="220.1" yc="2.1" w="4" h="4" />
+                <representation type="Circle" xc="220.1" yc="2.1" r="2" />
+            </object>
+            <object id="24">
+                <box xc="155.5" yc="92.5" w="4" h="4" />
+                <representation type="Circle" xc="155.5" yc="92.5" r="2" />
+            </object>
+            <object id="25">
+                <box xc="104.7" yc="150.5" w="4" h="4" />
+                <representation type="Circle" xc="104.7" yc="150.5" r="2" />
+            </object>
+            <object id="26">
+                <box xc="106.4" yc="152.4" w="4" h="4" />
+                <representation type="Circle" xc="106.4" yc="152.4" r="2" />
+            </object>
+            <object id="27">
+                <box xc="100.3" yc="177.1" w="4" h="4" />
+                <representation type="Circle" xc="100.3" yc="177.1" r="2" />
+            </object>
+            <object id="28">
+                <box xc="49.9" yc="217.4" w="4" h="4" />
+                <representation type="Circle" xc="49.9" yc="217.4" r="2" />
+            </object>
+            <object id="29">
+                <box xc="52.1" yc="219" w="4" h="4" />
+                <representation type="Circle" xc="52.1" yc="219" r="2" />
+            </object>
+            <object id="31">
+                <box xc="86.6" yc="229.7" w="4" h="4" />
+                <representation type="Circle" xc="86.6" yc="229.7" r="2" />
+            </object>
+            <object id="32">
+                <box xc="79.8" yc="226" w="4" h="4" />
+                <representation type="Circle" xc="79.8" yc="226" r="2" />
+            </object>
+            <object id="34">
+                <box xc="88.9" yc="239.3" w="4" h="4" />
+                <representation type="Circle" xc="88.9" yc="239.3" r="2" />
+            </object>
+            <object id="35">
+                <box xc="85.6" yc="236" w="4" h="4" />
+                <representation type="Circle" xc="85.6" yc="236" r="2" />
+            </object>
+            <object id="36">
+                <box xc="106.7" yc="132.8" w="4" h="4" />
+                <representation type="Circle" xc="106.7" yc="132.8" r="2" />
+            </object>
+            <object id="37">
+                <box xc="125.4" yc="161.6" w="4" h="4" />
+                <representation type="Circle" xc="125.4" yc="161.6" r="2" />
+            </object>
+            <object id="38">
+                <box xc="131.8" yc="163.1" w="4" h="4" />
+                <representation type="Circle" xc="131.8" yc="163.1" r="2" />
+            </object>
+            <object id="39">
+                <box xc="134.7" yc="165.5" w="4" h="4" />
+                <representation type="Circle" xc="134.7" yc="165.5" r="2" />
+            </object>
+            <object id="40">
+                <box xc="90.1" yc="232.3" w="4" h="4" />
+                <representation type="Circle" xc="90.1" yc="232.3" r="2" />
+            </object>
+        </objectlist>
+    </frame>
+    <frame number="11" file="C:/Training/AA_Walking_01/ON0179.png" utc="2009-Oct-24 13:17:54.630000" color="rgb" depth="byte" gsd="0.15" x="694686" y="5.34324e+006" lat="48.215" lon="11.623" sunny="1">
+        <objectlist>
+            <object id="0">
+                <box xc="125.9" yc="154.9" w="4" h="4" />
+                <representation type="Circle" xc="125.9" yc="154.9" r="2" />
+            </object>
+            <object id="1">
+                <box xc="153.4" yc="193.2" w="4" h="4" />
+                <representation type="Circle" xc="153.4" yc="193.2" r="2" />
+            </object>
+            <object id="2">
+                <box xc="156.7" yc="195.6" w="4" h="4" />
+                <representation type="Circle" xc="156.7" yc="195.6" r="2" />
+            </object>
+            <object id="3">
+                <box xc="182.9" yc="203.2" w="4" h="4" />
+                <representation type="Circle" xc="182.9" yc="203.2" r="2" />
+            </object>
+            <object id="4">
+                <box xc="186.4" yc="205.7" w="4" h="4" />
+                <representation type="Circle" xc="186.4" yc="205.7" r="2" />
+            </object>
+            <object id="5">
+                <box xc="201.5" yc="114.1" w="4" h="4" />
+                <representation type="Circle" xc="201.5" yc="114.1" r="2" />
+            </object>
+            <object id="6">
+                <box xc="127.6" yc="131.3" w="4" h="4" />
+                <representation type="Circle" xc="127.6" yc="131.3" r="2" />
+            </object>
+            <object id="7">
+                <box xc="89.4" yc="292.6" w="4" h="4" />
+                <representation type="Circle" xc="89.4" yc="292.6" r="2" />
+            </object>
+            <object id="10">
+                <box xc="99.3" yc="240.2" w="4" h="4" />
+                <representation type="Circle" xc="99.3" yc="240.2" r="2" />
+            </object>
+            <object id="17">
+                <box xc="224" yc="24.5" w="4" h="4" />
+                <representation type="Circle" xc="224" yc="24.5" r="2" />
+            </object>
+            <object id="18">
+                <box xc="218.5" yc="22.1" w="4" h="4" />
+                <representation type="Circle" xc="218.5" yc="22.1" r="2" />
+            </object>
+            <object id="19">
+                <box xc="214.4" yc="11.6" w="4" h="4" />
+                <representation type="Circle" xc="214.4" yc="11.6" r="2" />
+            </object>
+            <object id="20">
+                <box xc="203.4" yc="23.4" w="4" h="4" />
+                <representation type="Circle" xc="203.4" yc="23.4" r="2" />
+            </object>
+            <object id="21">
+                <box xc="207.8" yc="48.3" w="4" h="4" />
+                <representation type="Circle" xc="207.8" yc="48.3" r="2" />
+            </object>
+            <object id="24">
+                <box xc="163.1" yc="83" w="4" h="4" />
+                <representation type="Circle" xc="163.1" yc="83" r="2" />
+            </object>
+            <object id="25">
+                <box xc="109.9" yc="146.4" w="4" h="4" />
+                <representation type="Circle" xc="109.9" yc="146.4" r="2" />
+            </object>
+            <object id="26">
+                <box xc="111.5" yc="148" w="4" h="4" />
+                <representation type="Circle" xc="111.5" yc="148" r="2" />
+            </object>
+            <object id="27">
+                <box xc="103.8" yc="173.1" w="4" h="4" />
+                <representation type="Circle" xc="103.8" yc="173.1" r="2" />
+            </object>
+            <object id="28">
+                <box xc="54.4" yc="213.5" w="4" h="4" />
+                <representation type="Circle" xc="54.4" yc="213.5" r="2" />
+            </object>
+            <object id="29">
+                <box xc="56.2" yc="215.9" w="4" h="4" />
+                <representation type="Circle" xc="56.2" yc="215.9" r="2" />
+            </object>
+            <object id="31">
+                <box xc="89.4" yc="228.5" w="4" h="4" />
+                <representation type="Circle" xc="89.4" yc="228.5" r="2" />
+            </object>
+            <object id="32">
+                <box xc="82.7" yc="225.9" w="4" h="4" />
+                <representation type="Circle" xc="82.7" yc="225.9" r="2" />
+            </object>
+            <object id="34">
+                <box xc="95.2" yc="236" w="4" h="4" />
+                <representation type="Circle" xc="95.2" yc="236" r="2" />
+            </object>
+            <object id="35">
+                <box xc="91.8" yc="234.4" w="4" h="4" />
+                <representation type="Circle" xc="91.8" yc="234.4" r="2" />
+            </object>
+            <object id="36">
+                <box xc="106" yc="133.7" w="4" h="4" />
+                <representation type="Circle" xc="106" yc="133.7" r="2" />
+            </object>
+            <object id="37">
+                <box xc="129.6" yc="157.4" w="4" h="4" />
+                <representation type="Circle" xc="129.6" yc="157.4" r="2" />
+            </object>
+            <object id="38">
+                <box xc="136.5" yc="159.4" w="4" h="4" />
+                <representation type="Circle" xc="136.5" yc="159.4" r="2" />
+            </object>
+            <object id="39">
+                <box xc="138.5" yc="160.8" w="4" h="4" />
+                <representation type="Circle" xc="138.5" yc="160.8" r="2" />
+            </object>
+            <object id="40">
+                <box xc="97.3" yc="227.7" w="4" h="4" />
+                <representation type="Circle" xc="97.3" yc="227.7" r="2" />
+            </object>
+        </objectlist>
+    </frame>
+    <frame number="12" file="C:/Training/AA_Walking_01/ON0180.png" utc="2009-Oct-24 13:17:55.331000" color="rgb" depth="byte" gsd="0.15" x="694686" y="5.34324e+006" lat="48.215" lon="11.623" sunny="1">
+        <objectlist>
+            <object id="0">
+                <box xc="129.9" yc="149.4" w="4" h="4" />
+                <representation type="Circle" xc="129.9" yc="149.4" r="2" />
+            </object>
+            <object id="1">
+                <box xc="157.6" yc="187.1" w="4" h="4" />
+                <representation type="Circle" xc="157.6" yc="187.1" r="2" />
+            </object>
+            <object id="2">
+                <box xc="161.8" yc="189.4" w="4" h="4" />
+                <representation type="Circle" xc="161.8" yc="189.4" r="2" />
+            </object>
+            <object id="3">
+                <box xc="186" yc="197.1" w="4" h="4" />
+                <representation type="Circle" xc="186" yc="197.1" r="2" />
+            </object>
+            <object id="4">
+                <box xc="190.7" yc="198.8" w="4" h="4" />
+                <representation type="Circle" xc="190.7" yc="198.8" r="2" />
+            </object>
+            <object id="5">
+                <box xc="205" yc="107.8" w="4" h="4" />
+                <representation type="Circle" xc="205" yc="107.8" r="2" />
+            </object>
+            <object id="6">
+                <box xc="131.8" yc="125.2" w="4" h="4" />
+                <representation type="Circle" xc="131.8" yc="125.2" r="2" />
+            </object>
+            <object id="7">
+                <box xc="94.8" yc="287.3" w="4" h="4" />
+                <representation type="Circle" xc="94.8" yc="287.3" r="2" />
+            </object>
+            <object id="8">
+                <box xc="98.8" yc="292.2" w="4" h="4" />
+                <representation type="Circle" xc="98.8" yc="292.2" r="2" />
+            </object>
+            <object id="9">
+                <box xc="105.8" yc="293.1" w="4" h="4" />
+                <representation type="Circle" xc="105.8" yc="293.1" r="2" />
+            </object>
+            <object id="10">
+                <box xc="105.3" yc="234.6" w="4" h="4" />
+                <representation type="Circle" xc="105.3" yc="234.6" r="2" />
+            </object>
+            <object id="17">
+                <box xc="226.2" yc="18.5" w="4" h="4" />
+                <representation type="Circle" xc="226.2" yc="18.5" r="2" />
+            </object>
+            <object id="18">
+                <box xc="221.7" yc="14.9" w="4" h="4" />
+                <representation type="Circle" xc="221.7" yc="14.9" r="2" />
+            </object>
+            <object id="19">
+                <box xc="217.3" yc="3.8" w="4" h="4" />
+                <representation type="Circle" xc="217.3" yc="3.8" r="2" />
+            </object>
+            <object id="20">
+                <box xc="206.5" yc="15.7" w="4" h="4" />
+                <representation type="Circle" xc="206.5" yc="15.7" r="2" />
+            </object>
+            <object id="21">
+                <box xc="211.5" yc="41.4" w="4" h="4" />
+                <representation type="Circle" xc="211.5" yc="41.4" r="2" />
+            </object>
+            <object id="24">
+                <box xc="170.9" yc="71" w="4" h="4" />
+                <representation type="Circle" xc="170.9" yc="71" r="2" />
+            </object>
+            <object id="25">
+                <box xc="114.4" yc="139.9" w="4" h="4" />
+                <representation type="Circle" xc="114.4" yc="139.9" r="2" />
+            </object>
+            <object id="26">
+                <box xc="116" yc="141.9" w="4" h="4" />
+                <representation type="Circle" xc="116" yc="141.9" r="2" />
+            </object>
+            <object id="27">
+                <box xc="106.9" yc="167.5" w="4" h="4" />
+                <representation type="Circle" xc="106.9" yc="167.5" r="2" />
+            </object>
+            <object id="28">
+                <box xc="58.7" yc="208" w="4" h="4" />
+                <representation type="Circle" xc="58.7" yc="208" r="2" />
+            </object>
+            <object id="29">
+                <box xc="60.5" yc="210.2" w="4" h="4" />
+                <representation type="Circle" xc="60.5" yc="210.2" r="2" />
+            </object>
+            <object id="31">
+                <box xc="89.9" yc="226.1" w="4" h="4" />
+                <representation type="Circle" xc="89.9" yc="226.1" r="2" />
+            </object>
+            <object id="32">
+                <box xc="85.5" yc="223.3" w="4" h="4" />
+                <representation type="Circle" xc="85.5" yc="223.3" r="2" />
+            </object>
+            <object id="34">
+                <box xc="102.6" yc="231.3" w="4" h="4" />
+                <representation type="Circle" xc="102.6" yc="231.3" r="2" />
+            </object>
+            <object id="35">
+                <box xc="98.1" yc="229.1" w="4" h="4" />
+                <representation type="Circle" xc="98.1" yc="229.1" r="2" />
+            </object>
+            <object id="36">
+                <box xc="105.5" yc="132.7" w="4" h="4" />
+                <representation type="Circle" xc="105.5" yc="132.7" r="2" />
+            </object>
+            <object id="37">
+                <box xc="133.9" yc="151" w="4" h="4" />
+                <representation type="Circle" xc="133.9" yc="151" r="2" />
+            </object>
+            <object id="38">
+                <box xc="140.4" yc="153.6" w="4" h="4" />
+                <representation type="Circle" xc="140.4" yc="153.6" r="2" />
+            </object>
+            <object id="39">
+                <box xc="143.2" yc="156.3" w="4" h="4" />
+                <representation type="Circle" xc="143.2" yc="156.3" r="2" />
+            </object>
+            <object id="40">
+                <box xc="101.5" yc="222.2" w="4" h="4" />
+                <representation type="Circle" xc="101.5" yc="222.2" r="2" />
+            </object>
+        </objectlist>
+    </frame>
+</dataset>

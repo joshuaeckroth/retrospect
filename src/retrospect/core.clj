@@ -14,6 +14,7 @@
   (:use [geppetto.repeat])
   (:use [retrospect.reason.abduction.reason :only [reason-abduction]])
   (:use [retrospect.problems.tracking.problem :only [tracking-problem]])
+  (:use [retrospect.problems.aerial.problem :only [aerial-problem]])
   #_(:use [retrospect.problems.words.problem :only [words-problem]])
   #_(:use [retrospect.problems.classify.problem :only [classify-problem]])
   (:use [retrospect.problems.abdexp.problem :only [abdexp-problem]])
@@ -31,6 +32,8 @@
   [problem]
   (cond (or (= "Tracking" problem) (= "tracking" problem))
         tracking-problem
+        (or (= "Aerial" problem) (= "aerial" problem))
+        aerial-problem
         (or (= "AbdExp" problem) (= "abdexp" problem))
         abdexp-problem))
 

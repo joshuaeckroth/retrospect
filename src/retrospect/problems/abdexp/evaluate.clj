@@ -42,54 +42,28 @@
                 _ (do (unobserve-all bn)
                       (observe-seq bn observed))
                 acc (:expl (accepted ws))
-                acc-top-nodes (filter (comp not :needs-explainer?) acc)
-                acc-vertex-values (set (map (fn [h] [(:vertex h) (:value h)]) acc))
                 rej (:expl (rejected ws))
-                rej-top-nodes (filter (comp not :needs-explainer?) rej)
-                top-nodes-truth (select-keys (:true-values-map truedata)
-                                             (top-nodes expgraph))
-                [tp tn fp fn] (tp-tn-fp-fn top-nodes-truth acc-top-nodes rej-top-nodes)
-                prec-coverage (calc-prec-coverage tp tn fp fn (count top-nodes-truth))
-                obs-coverage (/ (double
-                                 (count (filter #(= (:value %) ((:true-values-map truedata)
-                                                           (:vertex %)))
-                                           ;; get hyps that explain an obs
-                                           (filter #(let [e (:explains %)]
-                                                 (and (= 1 (count e))
-                                                      (= :observation (:type (first e)))))
-                                              acc))))
-                                (double (count observed)))
                 {mpe :states} (most-probable-explanation bn)
                 [etp etn efp efn] (tp-tn-fp-fn mpe acc rej)
-                mpe-prec-coverage (calc-prec-coverage etp etn efp efn (count mpe))]
-            {:MPEPrec (:Prec mpe-prec-coverage)
-             :MPECoverage (:Coverage mpe-prec-coverage)
-             :MPEF1 (:F1 mpe-prec-coverage)
-             ;; tpr and fpr for mpe
-             :TPR (:TPR mpe-prec-coverage)
-             :FPR (:FPR mpe-prec-coverage)
-             :Prec (:Prec prec-coverage)
-             :Coverage (:Coverage prec-coverage)
-             :F1 (:F1 prec-coverage)
-             :ObsCoverage obs-coverage}))]
+                mpe-prec-recall (calc-prec-recall etp etn efp efn (count mpe))]
+            {:Prec (:Prec mpe-prec-recall)
+             :Recall (:Recall mpe-prec-recall)
+             :F1 (:F1 mpe-prec-recall)
+             :TPR (:TPR mpe-prec-recall)
+             :FPR (:FPR mpe-prec-recall)}))]
     (merge (last metrics)
            (compute-complexity expgraph)
-           {:AvgMPEPrec (avg (map :MPEPrec metrics))
-            :AvgMPECoverage (avg (map :MPECoverage metrics))
-            :AvgMPEF1 (avg (map :MPEF1 metrics))
-            :AvgTPR (avg (map :TPR metrics))
-            :AvgFPR (avg (map :FPR metrics))
-            :AvgPrec (avg (map :Prec metrics))
-            :AvgCoverage (avg (map :Coverage metrics))
+           {:AvgPrec (avg (map :Prec metrics))
+            :AvgRecall (avg (map :Recall metrics))
             :AvgF1 (avg (map :F1 metrics))
-            :AvgObsCoverage (avg (map :ObsCoverage metrics))})))
+            :AvgTPR (avg (map :TPR metrics))
+            :AvgFPR (avg (map :FPR metrics))})))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
-                  [:Prec :AvgPrec :Coverage :AvgCoverage :F1 :AvgF1
-                   :TPR :FPR :AvgTPR :AvgFPR
-                   :ObsCoverage :AvgObsCoverage])))
+                  [:Prec :AvgPrec :Recall :AvgRecall :F1 :AvgF1
+                   :TPR :FPR :AvgTPR :AvgFPR])))
 
 (defn stats
   [truedata ors time-now])
