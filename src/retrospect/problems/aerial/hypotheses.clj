@@ -3,8 +3,7 @@
   (:use [retrospect.reason.abduction.workspace :only [new-hyp]])
   (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.evaluate :only [avg]])
-  (:use [retrospect.state])
-  (:use [geppetto.profile :only [prof]]))
+  (:use [retrospect.state]))
 
 (defn dist
   [x1 y1 x2 y2]
@@ -178,94 +177,91 @@
 
 (defn filter-valid-movs
   [mov-hyps acc-mov-hyps]
-  (prof :filter-valid-movs
-        (letfn [(valid?
-                  ([h] (let [c (connecting-movs h acc-mov-hyps)
-                             prior-same-objid
-                             (set (filter #(and (or (= (:time (:det h)) (:time (:det2 %)))
-                                                    (= (:time (:det2 h)) (:time (:det %))))
-                                                (= (:objid (:det h)) (:objid (:det %))))
-                                          acc-mov-hyps))]
-                         ;; if this mov-hyp (h) has an objid, and
-                         ;; we have already accepted a mov with
-                         ;; that objid, and that prior-belief
-                         ;; does not match up as a connecting
-                         ;; mov, this mov-hyp is not valid
-                         (if (and (:objid (:det h)) (not-empty prior-same-objid))
-                           (some prior-same-objid c)
-                           (or (empty? c)
-                               (some #(dets-match? (:det h) (:det2 %)) c)
-                               (some #(dets-match? (:det %) (:det2 h)) c))))))]
-          (filter valid? mov-hyps))))
+  (letfn [(valid?
+            ([h] (let [c (connecting-movs h acc-mov-hyps)
+                       prior-same-objid
+                       (set (filter #(and (or (= (:time (:det h)) (:time (:det2 %)))
+                                              (= (:time (:det2 h)) (:time (:det %))))
+                                          (= (:objid (:det h)) (:objid (:det %))))
+                                    acc-mov-hyps))]
+                   ;; if this mov-hyp (h) has an objid, and
+                   ;; we have already accepted a mov with
+                   ;; that objid, and that prior-belief
+                   ;; does not match up as a connecting
+                   ;; mov, this mov-hyp is not valid
+                   (if (and (:objid (:det h)) (not-empty prior-same-objid))
+                     (some prior-same-objid c)
+                     (or (empty? c)
+                         (some #(dets-match? (:det h) (:det2 %)) c)
+                         (some #(dets-match? (:det %) (:det2 h)) c))))))]
+    (filter valid? mov-hyps)))
 
 (defn new-mov-hyp
   "Returns nil if the objids don't match."
   [to from acc-mov-hyps moves-dist]
-  (prof :new-mov-hyp
-        (let [det (:det to) det2 (:det from)
-              objids-in (set (map (comp :objid :det2)
-                                (connecting-movs {:det det :det2 det2} acc-mov-hyps)))
-              objids-out (set (map (comp :objid :det)
-                                 (connecting-movs {:det det :det2 det2} acc-mov-hyps)))
-              det-objid (cond (and (= nil (:objid det))
-                                   (not= nil (:objid det2)))
-                              (assoc det :objid (:objid det2))
-                              (and (= nil (:objid det))
-                                   (= 1 (count objids-in)))
-                              (assoc det :objid (first objids-in))
-                              :else det)
-              det2-objid (cond (and (= nil (:objid det2))
-                                    (not= nil (:objid det)))
-                               (assoc det2 :objid (:objid det))
-                               (and (= nil (:objid det2))
-                                    (= 1 (count objids-in)))
-                               (assoc det2 :objid (first objids-in))
-                               :else det2)
-              d (dist (:x det-objid) (:y det-objid)
-                      (:x det2-objid) (:y det2-objid))
-              apriori (move-prob det-objid det2-objid moves-dist)]
-          (when (match-objid? (:objid det-objid) (:objid det2-objid))
-            (new-hyp "Mov" :movement :movement apriori false
-                     (if (not= nil (:objid det-objid))
-                       [(:objid det-objid) (dissoc det :objid) (dissoc det2 :objid)]
-                       [(dissoc det :objid) (dissoc det2 :objid)])
-                     conflicts? (map :contents [to from])
-                     (format "%.2f,%.2f->%.2f,%.2f @ %d->%d (%s->%s)"
-                        (:x det-objid) (:y det-objid)
-                        (:x det2-objid) (:y det2-objid)
-                        (:time det-objid) (:time det2-objid)
-                        (str (:objid det-objid))
-                        (str (:objid det2-objid)))
-                     (format "%.2f,%.2f -> %.2f,%.2f (dist=%.2f) at time %d->%d (%s->%s)"
-                        (:x det-objid) (:y det-objid)
-                        (:x det2-objid) (:y det2-objid)
-                        d (:time det-objid) (:time det2-objid)
-                        (str (:objid det-objid))
-                        (str (:objid det2-objid)))
-                     {:det det-objid :det2 det2-objid
-                      :mov {:x (:x det2-objid) :y (:y det2-objid) :time (:time det2-objid)
-                            :ox (:x det-objid) :oy (:y det-objid) :ot (:time det-objid)
-                            :objid (:objid det-objid)}}
-                     ;; specify hyp "contents" to be just the locations/times so that
-                     ;; if the objid is updated later, it overwrites this hyp
-                     {:mov {:x (:x det2-objid) :y (:y det2-objid) :time (:time det2-objid)
-                            :ox (:x det-objid) :oy (:y det-objid) :ot (:time det-objid)}})))))
+  (let [det (:det to) det2 (:det from)
+        objids-in (set (map (comp :objid :det2)
+                            (connecting-movs {:det det :det2 det2} acc-mov-hyps)))
+        objids-out (set (map (comp :objid :det)
+                             (connecting-movs {:det det :det2 det2} acc-mov-hyps)))
+        det-objid (cond (and (= nil (:objid det))
+                             (not= nil (:objid det2)))
+                        (assoc det :objid (:objid det2))
+                        (and (= nil (:objid det))
+                             (= 1 (count objids-in)))
+                        (assoc det :objid (first objids-in))
+                        :else det)
+        det2-objid (cond (and (= nil (:objid det2))
+                              (not= nil (:objid det)))
+                         (assoc det2 :objid (:objid det))
+                         (and (= nil (:objid det2))
+                              (= 1 (count objids-in)))
+                         (assoc det2 :objid (first objids-in))
+                         :else det2)
+        d (dist (:x det-objid) (:y det-objid)
+                (:x det2-objid) (:y det2-objid))
+        apriori (move-prob det-objid det2-objid moves-dist)]
+    (when (match-objid? (:objid det-objid) (:objid det2-objid))
+      (new-hyp "Mov" :movement :movement apriori false
+               (if (not= nil (:objid det-objid))
+                 [(:objid det-objid) (dissoc det :objid) (dissoc det2 :objid)]
+                 [(dissoc det :objid) (dissoc det2 :objid)])
+               conflicts? (map :contents [to from])
+               (format "%.2f,%.2f->%.2f,%.2f @ %d->%d (%s->%s)"
+                       (:x det-objid) (:y det-objid)
+                       (:x det2-objid) (:y det2-objid)
+                       (:time det-objid) (:time det2-objid)
+                       (str (:objid det-objid))
+                       (str (:objid det2-objid)))
+               (format "%.2f,%.2f -> %.2f,%.2f (dist=%.2f) at time %d->%d (%s->%s)"
+                       (:x det-objid) (:y det-objid)
+                       (:x det2-objid) (:y det2-objid)
+                       d (:time det-objid) (:time det2-objid)
+                       (str (:objid det-objid))
+                       (str (:objid det2-objid)))
+               {:det det-objid :det2 det2-objid
+                :mov {:x (:x det2-objid) :y (:y det2-objid) :time (:time det2-objid)
+                      :ox (:x det-objid) :oy (:y det-objid) :ot (:time det-objid)
+                      :objid (:objid det-objid)}}
+               ;; specify hyp "contents" to be just the locations/times so that
+               ;; if the objid is updated later, it overwrites this hyp
+               {:mov {:x (:x det2-objid) :y (:y det2-objid) :time (:time det2-objid)
+                      :ox (:x det-objid) :oy (:y det-objid) :ot (:time det-objid)}}))))
 
 (defn hypothesize
   [unexp accepted hypotheses time-now]
-  (prof :hypothesize
-        (let [kb (get-kb accepted)
-              sensor-from-hyps (filter #(and (= :observation (:type %)) (= :from (:subtype %))) unexp)
-              sensor-to-hyps (filter #(and (= :observation (:type %)) (= :to (:subtype %))) unexp)]
-          (doall (mapcat
-                  (fn [evidence]
-                    (let [acc-mov-hyps (sort-by (comp :time :mov) (:movement accepted))
-                          nearby (filter #(dets-nearby? evidence % (:moves-dist kb)) sensor-to-hyps)
-                          mov-hyps (doall
-                                    (filter identity
-                                            (map #(new-mov-hyp % evidence acc-mov-hyps
-                                                               (:moves-dist kb))
-                                                 nearby)))]
-                      (filter-valid-movs mov-hyps acc-mov-hyps)))
-                  sensor-from-hyps)))))
+  (let [kb (get-kb accepted)
+        sensor-from-hyps (filter #(and (= :observation (:type %)) (= :from (:subtype %))) unexp)
+        sensor-to-hyps (filter #(and (= :observation (:type %)) (= :to (:subtype %))) unexp)]
+    (doall (mapcat
+            (fn [evidence]
+              (let [acc-mov-hyps (sort-by (comp :time :mov) (:movement accepted))
+                    nearby (filter #(dets-nearby? evidence % (:moves-dist kb)) sensor-to-hyps)
+                    mov-hyps (doall
+                              (filter identity
+                                      (map #(new-mov-hyp % evidence acc-mov-hyps
+                                                         (:moves-dist kb))
+                                           nearby)))]
+                (filter-valid-movs mov-hyps acc-mov-hyps)))
+            sensor-from-hyps))))
 

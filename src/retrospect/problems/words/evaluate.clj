@@ -9,25 +9,23 @@
          [lookup-hyp calc-doubt get-unexplained]])
   (:use [retrospect.problems.words.truedata :only [extract-tags-word]])
   (:use [loom.graph :only [weight]])
-  (:use [geppetto.profile :only [prof]])
   (:use [retrospect.logging])
   (:use [retrospect.state]))
 
 (defn true-hyp?
   [truedata time-now hyp]
-  (prof :true-hyp
-        (cond (= :symbol (:type hyp)) true
-              (= :kb (:type hyp)) true
-              (= :tag (:type hyp))
-              (let [sent (nth (:test-tags truedata) (dec time-now))
-                    [_ tag] (nth sent (:pos hyp))]
-                (= tag (:tag hyp)))
-              (= :word (:type hyp))
-              (let [sent (nth (:test-tags truedata) (dec time-now))
-                    word-tags (zipmap (:pos-seq hyp) (extract-tags-word (:word hyp)))]
-                (every? (fn [[pos sym-tag-pair]] (= sym-tag-pair (nth sent pos)))
-                        word-tags))
-              :else false)))
+  (cond (= :symbol (:type hyp)) true
+        (= :kb (:type hyp)) true
+        (= :tag (:type hyp))
+        (let [sent (nth (:test-tags truedata) (dec time-now))
+              [_ tag] (nth sent (:pos hyp))]
+          (= tag (:tag hyp)))
+        (= :word (:type hyp))
+        (let [sent (nth (:test-tags truedata) (dec time-now))
+              word-tags (zipmap (:pos-seq hyp) (extract-tags-word (:word hyp)))]
+          (every? (fn [[pos sym-tag-pair]] (= sym-tag-pair (nth sent pos)))
+                  word-tags))
+        :else false))
 
 (defn run-scorer
   [sentences believed dict]

@@ -1,5 +1,6 @@
 
 geppetto_dbhost = localhost
+geppetto_dbport = 3306
 geppetto_dbname = retrospect
 geppetto_dbuser = user
 geppetto_dbpassword = password

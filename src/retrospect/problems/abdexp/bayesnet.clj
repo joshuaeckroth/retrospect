@@ -2,8 +2,7 @@
   (:require [clojure.string :as str])
   (:import (norsys.netica Environ Net NetTester Node NodeList Streamer))
   (:use [retrospect.problems.abdexp.expgraph])
-  (:use [retrospect.state :only [batch]])
-  (:use [geppetto.profile :only [prof]]))
+  (:use [retrospect.state :only [batch]]))
 
 (def netica-env (Environ. "+EckrothJ/OhioStateU/Ex14-06-30,121,310/48453"))
 
@@ -62,30 +61,28 @@
 
 (defn get-posterior
   ([bn pairs]
-     (prof :bn-get-posterior
-           (do
-             (.compile bn)
-             (let [nodes-vals (map (fn [[v val]] [(.getNode bn v) val]) pairs)
-                   nodelist (NodeList. bn)]
-               (doseq [[node _] nodes-vals]
-                 (.add nodelist node))
-               (let [nodeidxs (map (fn [[node val]] (.getIndex (.state node val)))
-                                 nodes-vals)]
-                 (.getJointProbability bn nodelist (int-array nodeidxs)))))))
+     (do
+       (.compile bn)
+       (let [nodes-vals (map (fn [[v val]] [(.getNode bn v) val]) pairs)
+             nodelist (NodeList. bn)]
+         (doseq [[node _] nodes-vals]
+           (.add nodelist node))
+         (let [nodeidxs (map (fn [[node val]] (.getIndex (.state node val)))
+                             nodes-vals)]
+           (.getJointProbability bn nodelist (int-array nodeidxs))))))
   ([bn vertex value]
      (get-posterior bn [[vertex value]])))
 
 (defn observe
   [bn vertex value]
-  (prof :bn-observe
-        ;; may throw an exception if the observation was already made
-        ;; with a different state; this can occur if a false vertex
-        ;; state was accepted, and later a different state for same
-        ;; vertex was observed; recall that observations are not
-        ;; rejected when they conflict with accepted hyps (in
-        ;; reason.abduction.workspace)
-        (try (.enterState (.finding (.getNode bn vertex)) value)
-             (catch Exception _))))
+  ;; may throw an exception if the observation was already made
+  ;; with a different state; this can occur if a false vertex
+  ;; state was accepted, and later a different state for same
+  ;; vertex was observed; recall that observations are not
+  ;; rejected when they conflict with accepted hyps (in
+  ;; reason.abduction.workspace)
+  (try (.enterState (.finding (.getNode bn vertex)) value)
+       (catch Exception _)))
 
 (defn observe-seq
   [bn obs-seq]
@@ -94,13 +91,11 @@
 
 (defn unobserve
   [bn vertex]
-  (prof :bn-unobserve
-        (.clear (.finding (.getNode bn vertex)))))
+  (.clear (.finding (.getNode bn vertex))))
 
 (defn unobserve-all
   [bn]
-  (prof :bn-unobserve-all
-        (.retractFindings bn)))
+  (.retractFindings bn))
 
 (defn conditional-delta
   [bn observed pairs conditioning-pairs]

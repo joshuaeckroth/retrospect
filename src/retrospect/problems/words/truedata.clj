@@ -4,7 +4,6 @@
   (:require [clojure.string :as str])
   (:require [clojure.set :as set])
   (:use [clojure.java.shell :only [sh]])
-  (:use [geppetto.profile :only [prof profile]])
   (:use [geppetto.random])
   (:use [retrospect.state]))
 
@@ -108,107 +107,106 @@
 
 (defn generate-truedata
   []
-  (profile
-   (let [sentences (doall (map (fn [sent] (doall (filter not-empty (str/split sent #"[\s　]+"))))
-                             (str/split-lines
-                              (slurp (format "%s/words/%s.utf8" @datadir (:Dataset params))
-                                     :encoding "utf-8"))))
-         split-location (int (* (/ (:Knowledge params) 100.0) (count sentences)))
-         [training2 test2] (map vec (split-at split-location (my-shuffle sentences)))
-         test (if (:ShortFirst params)
-                (vec (take (:Steps params) (sort-by count test2)))
-                (vec (take (:Steps params) test2)))
-         test-tags (extract-tags test)
-         training (if (:TestIsTraining params) test training2)
-         training-tags (extract-tags training)
-         training-dict-freqs (frequencies (apply concat training))
-         training-dict (set (keys training-dict-freqs))
-         test-dict (set (apply concat test))
-         dict-tree (let [dict-tree (AhoCorasick.)]
-                     (doseq [w (set/union training-dict test-dict)]
-                       (.add dict-tree (.getBytes w) w))
-                     (.prepare dict-tree)
-                     dict-tree)
-         all-symbols (vec (set (apply concat (set/union training-dict test-dict))))
-         test-noisy (if (= 0 (:SensorNoise params)) test
-                        (vec (map (fn [sent]
-                                  (vec (map (fn [word]
-                                            (apply str
-                                                   (map (fn [sym]
-                                                        (if (< (my-rand)
-                                                               (/ (:SensorNoise params) 100.0))
-                                                          (my-rand-nth all-symbols)
-                                                          sym))
-                                                      word)))
-                                          sent)))
-                                test)))
-         scores (do (when (or (not (.exists (File. (format "%s/words/%s-%d-%d.crf-input-training"
-                                                      @datadir (:Dataset params)
-                                                      (:Seed params) split-location))))
-                              (not (.exists (File. (format "%s/words/%s-%d-%d.crf-model"
-                                                      @datadir (:Dataset params)
-                                                      (:Seed params) split-location)))))
-                      (spit (format "%s/words/%s-%d-%d.crf-input-training"
-                               @datadir (:Dataset params) (:Seed params) split-location)
-                            (crf-format training))
-                      ;; train CRF
-                      (sh "crf_learn" "-p" "4"
-                          (format "%s/words/%s.crf-template" @datadir (:Dataset params))
-                          (format "%s/words/%s-%d-%d.crf-input-training"
-                             @datadir (:Dataset params) (:Seed params) split-location)
-                          (format "%s/words/%s-%d-%d.crf-model"
-                             @datadir (:Dataset params) (:Seed params) split-location)))
-                    (when (or (not (.exists (File. (format "%s/words/%s-%d-%d-%d.crf-input-test"
-                                                      @datadir (:Dataset params)
-                                                      (:Seed params) split-location
-                                                      (:SensorNoise params)))))
-                              (not (.exists (File. (format "%s/words/%s-%d-%d-%d.scores"
-                                                      @datadir (:Dataset params)
-                                                      (:Seed params) split-location
-                                                      (:SensorNoise params))))))
-                      (spit (format "%s/words/%s-%d-%d-%d.crf-input-test"
-                               @datadir (:Dataset params) (:Seed params)
-                               split-location (:SensorNoise params))
-                            (crf-format test-noisy))
-                      ;; create scores file
-                      (spit
-                       (format "%s/words/%s-%d-%d-%d.scores"
-                          @datadir (:Dataset params) (:Seed params)
-                          split-location (:SensorNoise params))
-                       (:out (sh "crf_test" "-v2" "-m"
-                                 (format "%s/words/%s-%d-%d.crf-model"
-                                    @datadir (:Dataset params) (:Seed params) split-location)
-                                 (format "%s/words/%s-%d-%d-%d.crf-input-test"
-                                    @datadir (:Dataset params) (:Seed params)
-                                    split-location (:SensorNoise params))))))
-                    (extract-crf-scores
-                     (slurp (format "%s/words/%s-%d-%d-%d.scores"
-                               @datadir (:Dataset params) (:Seed params)
-                               split-location (:SensorNoise params)))))
-         crf-output (extract-crf-output
-                     (slurp (format "%s/words/%s-%d-%d-%d.scores"
-                               @datadir (:Dataset params) (:Seed params)
-                               split-location (:SensorNoise params)))
-                     test)
-         crf-predicted-word-tags (extract-crf-output-word-tags
-                                  (slurp (format "%s/words/%s-%d-%d-%d.scores"
-                                            @datadir (:Dataset params) (:Seed params)
-                                            split-location (:SensorNoise params)))
-                                  test training-dict)
-         ambiguous (map #(apply str %) test-noisy)
-         ambiguous-nonoise (map #(apply str %) test)
-         ambiguous-training (map #(apply str %) training)]
-     {:training {:test (zipmap (range (count ambiguous-training)) ambiguous-training)
-                 :test-sentences training
-                 :test-tags training-tags
-                 :scores scores
-                 :dict training-dict
-                 :dict-tree dict-tree
-                 :dict-freqs training-dict-freqs}
-      :test (zipmap (range (count ambiguous)) ambiguous)
-      :test-nonoise (zipmap (range (count ambiguous-nonoise)) ambiguous-nonoise)
-      :test-sentences test-noisy
-      :test-sentences-nonoise test
-      :test-tags test-tags
-      :crf-output crf-output
-      :crf-predicted-word-tags crf-predicted-word-tags})))
+  (let [sentences (doall (map (fn [sent] (doall (filter not-empty (str/split sent #"[\s　]+"))))
+                              (str/split-lines
+                               (slurp (format "%s/words/%s.utf8" @datadir (:Dataset params))
+                                      :encoding "utf-8"))))
+        split-location (int (* (/ (:Knowledge params) 100.0) (count sentences)))
+        [training2 test2] (map vec (split-at split-location (my-shuffle sentences)))
+        test (if (:ShortFirst params)
+               (vec (take (:Steps params) (sort-by count test2)))
+               (vec (take (:Steps params) test2)))
+        test-tags (extract-tags test)
+        training (if (:TestIsTraining params) test training2)
+        training-tags (extract-tags training)
+        training-dict-freqs (frequencies (apply concat training))
+        training-dict (set (keys training-dict-freqs))
+        test-dict (set (apply concat test))
+        dict-tree (let [dict-tree (AhoCorasick.)]
+                    (doseq [w (set/union training-dict test-dict)]
+                      (.add dict-tree (.getBytes w) w))
+                    (.prepare dict-tree)
+                    dict-tree)
+        all-symbols (vec (set (apply concat (set/union training-dict test-dict))))
+        test-noisy (if (= 0 (:SensorNoise params)) test
+                       (vec (map (fn [sent]
+                                   (vec (map (fn [word]
+                                               (apply str
+                                                      (map (fn [sym]
+                                                             (if (< (my-rand)
+                                                                    (/ (:SensorNoise params) 100.0))
+                                                               (my-rand-nth all-symbols)
+                                                               sym))
+                                                           word)))
+                                             sent)))
+                                 test)))
+        scores (do (when (or (not (.exists (File. (format "%s/words/%s-%d-%d.crf-input-training"
+                                                          @datadir (:Dataset params)
+                                                          (:Seed params) split-location))))
+                             (not (.exists (File. (format "%s/words/%s-%d-%d.crf-model"
+                                                          @datadir (:Dataset params)
+                                                          (:Seed params) split-location)))))
+                     (spit (format "%s/words/%s-%d-%d.crf-input-training"
+                                   @datadir (:Dataset params) (:Seed params) split-location)
+                           (crf-format training))
+                     ;; train CRF
+                     (sh "crf_learn" "-p" "4"
+                         (format "%s/words/%s.crf-template" @datadir (:Dataset params))
+                         (format "%s/words/%s-%d-%d.crf-input-training"
+                                 @datadir (:Dataset params) (:Seed params) split-location)
+                         (format "%s/words/%s-%d-%d.crf-model"
+                                 @datadir (:Dataset params) (:Seed params) split-location)))
+                   (when (or (not (.exists (File. (format "%s/words/%s-%d-%d-%d.crf-input-test"
+                                                          @datadir (:Dataset params)
+                                                          (:Seed params) split-location
+                                                          (:SensorNoise params)))))
+                             (not (.exists (File. (format "%s/words/%s-%d-%d-%d.scores"
+                                                          @datadir (:Dataset params)
+                                                          (:Seed params) split-location
+                                                          (:SensorNoise params))))))
+                     (spit (format "%s/words/%s-%d-%d-%d.crf-input-test"
+                                   @datadir (:Dataset params) (:Seed params)
+                                   split-location (:SensorNoise params))
+                           (crf-format test-noisy))
+                     ;; create scores file
+                     (spit
+                      (format "%s/words/%s-%d-%d-%d.scores"
+                              @datadir (:Dataset params) (:Seed params)
+                              split-location (:SensorNoise params))
+                      (:out (sh "crf_test" "-v2" "-m"
+                                (format "%s/words/%s-%d-%d.crf-model"
+                                        @datadir (:Dataset params) (:Seed params) split-location)
+                                (format "%s/words/%s-%d-%d-%d.crf-input-test"
+                                        @datadir (:Dataset params) (:Seed params)
+                                        split-location (:SensorNoise params))))))
+                   (extract-crf-scores
+                    (slurp (format "%s/words/%s-%d-%d-%d.scores"
+                                   @datadir (:Dataset params) (:Seed params)
+                                   split-location (:SensorNoise params)))))
+        crf-output (extract-crf-output
+                    (slurp (format "%s/words/%s-%d-%d-%d.scores"
+                                   @datadir (:Dataset params) (:Seed params)
+                                   split-location (:SensorNoise params)))
+                    test)
+        crf-predicted-word-tags (extract-crf-output-word-tags
+                                 (slurp (format "%s/words/%s-%d-%d-%d.scores"
+                                                @datadir (:Dataset params) (:Seed params)
+                                                split-location (:SensorNoise params)))
+                                 test training-dict)
+        ambiguous (map #(apply str %) test-noisy)
+        ambiguous-nonoise (map #(apply str %) test)
+        ambiguous-training (map #(apply str %) training)]
+    {:training {:test (zipmap (range (count ambiguous-training)) ambiguous-training)
+                :test-sentences training
+                :test-tags training-tags
+                :scores scores
+                :dict training-dict
+                :dict-tree dict-tree
+                :dict-freqs training-dict-freqs}
+     :test (zipmap (range (count ambiguous)) ambiguous)
+     :test-nonoise (zipmap (range (count ambiguous-nonoise)) ambiguous-nonoise)
+     :test-sentences test-noisy
+     :test-sentences-nonoise test
+     :test-tags test-tags
+     :crf-output crf-output
+     :crf-predicted-word-tags crf-predicted-word-tags}))

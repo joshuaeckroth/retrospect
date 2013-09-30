@@ -4,8 +4,7 @@
   (:use [retrospect.problems.tracking.movements :only
          [entity-movements entities-at]])
   (:use [geppetto.random])
-  (:use [retrospect.state])
-  (:use [geppetto.profile :only [prof]]))
+  (:use [retrospect.state]))
 
 (defn perturb
   [sensor]
@@ -13,28 +12,24 @@
 
 (defn sees
   [sensor x y]
-  (prof
-   :sees
-   (and (>= x (:left (meta sensor))) (<= x (:right (meta sensor)))
-        (>= y (:bottom (meta sensor))) (<= y (:top (meta sensor))))))
+  (and (>= x (:left (meta sensor))) (<= x (:right (meta sensor)))
+       (>= y (:bottom (meta sensor))) (<= y (:top (meta sensor)))))
 
 (defn find-spotted
   [sensor movements time]
-  (prof
-   :find-spotted
-   ;; not most efficient way to figure out what the sensor sees...
-   (apply concat
-          (for [x (range (:width (meta movements)))
-                y (range (:height (meta movements)))
-                :when (sees sensor x y)]
-            (mapcat (fn [e] (map (fn [mov]
-                                ;; turn the movement into a detection, and
-                                ;; add the color (or gray)
-                                (assoc (dissoc mov :ox :oy :ot :bias)
-                                  :color (if (:sees-color (meta sensor))
-                                           (:color mov) gray)))
-                              (entity-movements movements e time)))
-                    (entities-at movements x y time))))))
+  ;; not most efficient way to figure out what the sensor sees...
+  (apply concat
+         (for [x (range (:width (meta movements)))
+               y (range (:height (meta movements)))
+               :when (sees sensor x y)]
+           (mapcat (fn [e] (map (fn [mov]
+                                  ;; turn the movement into a detection, and
+                                  ;; add the color (or gray)
+                                  (assoc (dissoc mov :ox :oy :ot :bias)
+                                    :color (if (:sees-color (meta sensor))
+                                             (:color mov) gray)))
+                                (entity-movements movements e time)))
+                   (entities-at movements x y time)))))
 
 (defn make-random-det
   [sensor time]

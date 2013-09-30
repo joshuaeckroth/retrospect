@@ -1,4 +1,5 @@
 (ns retrospect.core
+  (:gen-class)
   (:import (javax.swing SwingUtilities))
   (:require [clojure.string :as str])
   (:use [clojure.java.shell :only [sh]])
@@ -65,6 +66,7 @@
         props (read-properties "config.properties")]
     (setup-geppetto (:geppetto_dbhost props)
                     (:geppetto_dbname props)
+                    (:geppetto_dbport props)
                     (:geppetto_dbuser props)
                     (:geppetto_dbpassword props)
                     (:quiet options))

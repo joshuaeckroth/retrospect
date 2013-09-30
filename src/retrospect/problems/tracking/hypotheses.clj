@@ -6,7 +6,6 @@
   (:use [retrospect.problems.tracking.colors])
   (:use [retrospect.problems.tracking.movements
          :only [dist dets-match?]])
-  (:use [geppetto.profile :only [prof]])
   (:use [retrospect.evaluate :only [normalize avg]])
   (:use [geppetto.random])
   (:use [retrospect.state]))
@@ -213,95 +212,92 @@
 
 (defn filter-valid-movs
   [mov-hyps acc-mov-hyps]
-  (prof :filter-valid-movs
-        (letfn [(valid?
-                  ([h] (let [c (connecting-movs h acc-mov-hyps)
-                             prior-same-color
-                             (set (filter #(and (or (= (:time (:det h)) (:time (:det2 %)))
-                                               (= (:time (:det2 h)) (:time (:det %))))
-                                           (= (:color (:det h)) (:color (:det %))))
-                                     acc-mov-hyps))]
-                         ;; if this mov-hyp (h) has a color, and
-                         ;; we have already accepted a mov with
-                         ;; that color, and that prior-belief
-                         ;; does not match up as a connecting
-                         ;; mov, this mov-hyp is not valid
-                         (if (and (not= gray (:color (:det h)))
-                                  (not-empty prior-same-color))
-                           (some prior-same-color c)
-                           (or (empty? c)
-                               (some #(dets-match? (:det h) (:det2 %)) c)
-                               (some #(dets-match? (:det %) (:det2 h)) c))))))]
-          (filter valid? mov-hyps))))
+  (letfn [(valid?
+            ([h] (let [c (connecting-movs h acc-mov-hyps)
+                       prior-same-color
+                       (set (filter #(and (or (= (:time (:det h)) (:time (:det2 %)))
+                                              (= (:time (:det2 h)) (:time (:det %))))
+                                          (= (:color (:det h)) (:color (:det %))))
+                                    acc-mov-hyps))]
+                   ;; if this mov-hyp (h) has a color, and
+                   ;; we have already accepted a mov with
+                   ;; that color, and that prior-belief
+                   ;; does not match up as a connecting
+                   ;; mov, this mov-hyp is not valid
+                   (if (and (not= gray (:color (:det h)))
+                            (not-empty prior-same-color))
+                     (some prior-same-color c)
+                     (or (empty? c)
+                         (some #(dets-match? (:det h) (:det2 %)) c)
+                         (some #(dets-match? (:det %) (:det2 h)) c))))))]
+    (filter valid? mov-hyps)))
 
 (defn new-mov-hyp
   "Returns nil if the colors don't match."
   [to from acc-mov-hyps moves-dist seen-colors]
-  (prof :new-mov-hyp
-        (let [det (:det to) det2 (:det from)
-              colors-in (set (map (comp :color :det2)
-                                (connecting-movs {:det det :det2 det2} acc-mov-hyps)))
-              colors-out (set (map (comp :color :det)
-                                 (connecting-movs {:det det :det2 det2} acc-mov-hyps)))
-              det-color (cond (and (= gray (:color det))
-                                   (not= gray (:color det2)))
-                              (assoc det :color (:color det2))
-                              (and (= gray (:color det))
-                                   (= 1 (count colors-in)))
-                              (assoc det :color (first colors-in))
-                              :else det)
-              det2-color (cond (and (= gray (:color det2))
-                                    (not= gray (:color det)))
-                               (assoc det2 :color (:color det))
-                               (and (= gray (:color det2))
-                                    (= 1 (count colors-in)))
-                               (assoc det2 :color (first colors-in))
-                               :else det2)
-              d (dist (:x det-color) (:y det-color)
-                      (:x det2-color) (:y det2-color))
-              apriori (move-prob d moves-dist)
-              apriori-color-penalty (penalize-gray-moves apriori det det2)]
-          (when (match-color? (:color det-color) (:color det2-color))
-            (new-hyp "Mov" :movement :movement apriori-color-penalty false
-                     (if (not= gray (:color det-color))
-                       [(:color det-color) (dissoc det :color) (dissoc det2 :color)]
-                       [(dissoc det :color) (dissoc det2 :color)])
-                     conflicts? (map :contents [to from])
-                     (format "%d,%d->%d,%d @ %d->%d (%s->%s)"
-                        (:x det-color) (:y det-color)
-                        (:x det2-color) (:y det2-color)
-                        (:time det-color) (:time det2-color)
-                        (color-str (:color det-color))
-                        (color-str (:color det2-color)))
-                     (format "%d,%d -> %d,%d (dist=%.2f) at time %d->%d (%s->%s)"
-                        (:x det-color) (:y det-color)
-                        (:x det2-color) (:y det2-color)
-                        d (:time det-color) (:time det2-color)
-                        (color-str (:color det-color))
-                        (color-str (:color det2-color)))
-                     {:det det-color :det2 det2-color
-                      :mov {:x (:x det2-color) :y (:y det2-color) :time (:time det2-color)
-                            :ox (:x det-color) :oy (:y det-color) :ot (:time det-color)
-                            :color (:color det-color)}}
-                     ;; specify hyp "contents" to be just the locations/times so that
-                     ;; if the color is updated later, it overwrites this hyp
-                     {:mov {:x (:x det2-color) :y (:y det2-color) :time (:time det2-color)
-                            :ox (:x det-color) :oy (:y det-color) :ot (:time det-color)}})))))
+  (let [det (:det to) det2 (:det from)
+        colors-in (set (map (comp :color :det2)
+                            (connecting-movs {:det det :det2 det2} acc-mov-hyps)))
+        colors-out (set (map (comp :color :det)
+                             (connecting-movs {:det det :det2 det2} acc-mov-hyps)))
+        det-color (cond (and (= gray (:color det))
+                             (not= gray (:color det2)))
+                        (assoc det :color (:color det2))
+                        (and (= gray (:color det))
+                             (= 1 (count colors-in)))
+                        (assoc det :color (first colors-in))
+                        :else det)
+        det2-color (cond (and (= gray (:color det2))
+                              (not= gray (:color det)))
+                         (assoc det2 :color (:color det))
+                         (and (= gray (:color det2))
+                              (= 1 (count colors-in)))
+                         (assoc det2 :color (first colors-in))
+                         :else det2)
+        d (dist (:x det-color) (:y det-color)
+                (:x det2-color) (:y det2-color))
+        apriori (move-prob d moves-dist)
+        apriori-color-penalty (penalize-gray-moves apriori det det2)]
+    (when (match-color? (:color det-color) (:color det2-color))
+      (new-hyp "Mov" :movement :movement apriori-color-penalty false
+               (if (not= gray (:color det-color))
+                 [(:color det-color) (dissoc det :color) (dissoc det2 :color)]
+                 [(dissoc det :color) (dissoc det2 :color)])
+               conflicts? (map :contents [to from])
+               (format "%d,%d->%d,%d @ %d->%d (%s->%s)"
+                       (:x det-color) (:y det-color)
+                       (:x det2-color) (:y det2-color)
+                       (:time det-color) (:time det2-color)
+                       (color-str (:color det-color))
+                       (color-str (:color det2-color)))
+               (format "%d,%d -> %d,%d (dist=%.2f) at time %d->%d (%s->%s)"
+                       (:x det-color) (:y det-color)
+                       (:x det2-color) (:y det2-color)
+                       d (:time det-color) (:time det2-color)
+                       (color-str (:color det-color))
+                       (color-str (:color det2-color)))
+               {:det det-color :det2 det2-color
+                :mov {:x (:x det2-color) :y (:y det2-color) :time (:time det2-color)
+                      :ox (:x det-color) :oy (:y det-color) :ot (:time det-color)
+                      :color (:color det-color)}}
+               ;; specify hyp "contents" to be just the locations/times so that
+               ;; if the color is updated later, it overwrites this hyp
+               {:mov {:x (:x det2-color) :y (:y det2-color) :time (:time det2-color)
+                      :ox (:x det-color) :oy (:y det-color) :ot (:time det-color)}}))))
 
 (defn hypothesize
   [unexp accepted hypotheses time-now]
-  (prof :hypothesize
-        (let [kb (get-kb accepted)
-              sensor-from-hyps (filter #(and (= :observation (:type %)) (= :from (:subtype %))) unexp)
-              sensor-to-hyps (filter #(and (= :observation (:type %)) (= :to (:subtype %))) unexp)]
-          (doall (mapcat
-                  (fn [evidence]
-                    (let [acc-mov-hyps (sort-by (comp :time :mov) (:movement accepted))
-                          nearby (filter #(dets-nearby? evidence % (:moves-dist kb)) sensor-to-hyps)
-                          mov-hyps (doall
-                                    (filter identity
-                                       (map #(new-mov-hyp % evidence acc-mov-hyps
-                                                        (:moves-dist kb) (:seen-colors kb))
-                                          nearby)))]
-                      (filter-valid-movs mov-hyps acc-mov-hyps)))
-                  sensor-from-hyps)))))
+  (let [kb (get-kb accepted)
+        sensor-from-hyps (filter #(and (= :observation (:type %)) (= :from (:subtype %))) unexp)
+        sensor-to-hyps (filter #(and (= :observation (:type %)) (= :to (:subtype %))) unexp)]
+    (doall (mapcat
+            (fn [evidence]
+              (let [acc-mov-hyps (sort-by (comp :time :mov) (:movement accepted))
+                    nearby (filter #(dets-nearby? evidence % (:moves-dist kb)) sensor-to-hyps)
+                    mov-hyps (doall
+                              (filter identity
+                                      (map #(new-mov-hyp % evidence acc-mov-hyps
+                                                         (:moves-dist kb) (:seen-colors kb))
+                                           nearby)))]
+                (filter-valid-movs mov-hyps acc-mov-hyps)))
+            sensor-from-hyps))))

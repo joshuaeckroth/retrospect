@@ -12,7 +12,6 @@
          :only [run-simulation-step merge-default-params get-default-params init-ors
                 evaluate pre-sense]])
   (:use [retrospect.state])
-  (:use [geppetto.profile :only [profile]])
   (:use [retrospect.gui.eptree :only [ep-tree-tab update-ep-tree]])
   (:use [retrospect.gui.results :only [update-results results-tab]])
   (:use [retrospect.epistemicstates
@@ -81,11 +80,10 @@
 
 (defn step
   []
-  (profile
-   (let [ors (run-simulation-step @truedata @or-state true)
-         ors-results (evaluate @truedata ors)]
-     (dosync (alter or-state (constantly ors-results)))
-     (update-everything))))
+  (let [ors (run-simulation-step @truedata @or-state true)
+        ors-results (evaluate @truedata ors)]
+    (dosync (alter or-state (constantly ors-results)))
+    (update-everything)))
 
 (defn next-step
   []
@@ -119,7 +117,7 @@
         (set-seed-spinner seed)
         (set-last-id 0)
         (dosync
-         (alter truedata (constantly (profile ((:generate-truedata-fn @problem)))))
+         (alter truedata (constantly ((:generate-truedata-fn @problem))))
          (alter sensors (constantly (pre-sense @truedata ((:generate-sensors-fn @problem)
                                                           (:training @truedata))))))))
     (dosync

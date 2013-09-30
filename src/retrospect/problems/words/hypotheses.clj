@@ -2,7 +2,6 @@
   (:require [clojure.string :as str])
   (:require [clojure.set :as set])
   (:use [loom.graph :only [has-edge? weight edges neighbors incoming]])
-  (:use [geppetto.profile :only [prof]])
   (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.reason.abduction.workspace :only [new-hyp]])
   (:use [retrospect.problems.words.evaluate :only
@@ -84,18 +83,17 @@
 
 (defn find-dict-words
   [sym-string dict-tree dict]
-  (prof :find-dict-words
-        (let [sym-count (count sym-string)
-              sym-bytes (.getBytes sym-string)
-              searcher (.search dict-tree sym-bytes)]
-          (loop [found []]
-            (if-not (.hasNext searcher)
-              (filter #(dict (first %)) found)
-              (let [result (.next searcher)
-                    last-index (.getLastIndex result)]
-                (recur (reduce (fn [fs w]
-                            (conj fs [w (int (- (/ last-index 3) (count w)))]))
-                          found (.getOutputs result)))))))))
+  (let [sym-count (count sym-string)
+        sym-bytes (.getBytes sym-string)
+        searcher (.search dict-tree sym-bytes)]
+    (loop [found []]
+      (if-not (.hasNext searcher)
+        (filter #(dict (first %)) found)
+        (let [result (.next searcher)
+              last-index (.getLastIndex result)]
+          (recur (reduce (fn [fs w]
+                           (conj fs [w (int (- (/ last-index 3) (count w)))]))
+                         found (.getOutputs result))))))))
 
 (defn hypothesize
   [sensor-hyps accepted lookup-hyp time-now]
