@@ -293,8 +293,11 @@
 (defn insuf-ev-candidates
   [anomalies est time-prev time-now sensors]
   (let [ws (:workspace (cur-ep est))]
-    ;; gather all observations with no explainers
-    (filter (fn [obs] (= :no-expl-offered (classify-noexp-reason ws obs))) anomalies)))
+    (if (:MetaInsufEvAll params)
+      ;; all anomalies may be caused by insufficient evidence
+      anomalies
+      ;; otherwise, only take anomalies with no explainers
+      (filter (fn [obs] (= :no-expl-offered (classify-noexp-reason ws obs))) anomalies))))
 
 (defn make-meta-hyps-insufficient-evidence
   [anomalies est time-prev time-now sensors]

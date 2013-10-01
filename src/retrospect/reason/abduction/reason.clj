@@ -36,6 +36,7 @@
              :MetaHyps ["meta-insuf-ev,meta-impl-exp,meta-order-dep,meta-conf-exp"
                         ["meta-insuf-ev,meta-impl-exp,meta-order-dep,meta-conf-exp"]]
              :MetaRemainderIgnore [true [true false]]
+             :MetaInsufEvAll [false [true false]]
              :ScoreMetaHyps ["doubt-diff" ["doubt-diff" "doubt" "apriori-diff" "apriori-resolved"]]
              :RemoveConflictingImplExp [true [true false]]
              :MaxMetaImplExpScoreDelta [1.0 [0.5 1.0]]
