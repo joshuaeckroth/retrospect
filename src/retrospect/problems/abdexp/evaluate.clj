@@ -38,21 +38,21 @@
         metrics
         (for [ep (decision-points est)]
           (let [ws (:workspace ep)
-                observed (apply concat (take (:time ep) (:test truedata)))
-                _ (do (unobserve-all bn)
-                      (observe-seq bn observed))
                 acc (:expl (accepted ws))
                 rej (:expl (rejected ws))
-                {mpe :states} (most-probable-explanation bn)
-                [etp etn efp efn] (tp-tn-fp-fn mpe acc rej)
-                mpe-prec-recall (calc-prec-recall etp etn efp efn (count mpe))]
-            {:Prec (:Prec mpe-prec-recall)
-             :Recall (:Recall mpe-prec-recall)
-             :F1 (:F1 mpe-prec-recall)
-             :TPR (:TPR mpe-prec-recall)
-             :FPR (:FPR mpe-prec-recall)}))]
+                true-values-map (if (:MPEMetrics params)
+                                  (do (unobserve-all bn)
+                                      (observe-seq bn (apply concat (take (:time ep) (:test truedata))))
+                                      (:states (most-probable-explanation bn)))
+                                  (:true-values-map truedata))
+                [etp etn efp efn] (tp-tn-fp-fn true-values-map acc rej)
+                prec-recall (calc-prec-recall etp etn efp efn (count true-values-map))]
+            {:Prec (:Prec prec-recall)
+             :Recall (:Recall prec-recall)
+             :F1 (:F1 prec-recall)
+             :TPR (:TPR prec-recall)
+             :FPR (:FPR prec-recall)}))]
     (merge (last metrics)
-           (compute-complexity expgraph)
            {:AvgPrec (avg (map :Prec metrics))
             :AvgRecall (avg (map :Recall metrics))
             :AvgF1 (avg (map :F1 metrics))

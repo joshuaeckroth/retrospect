@@ -54,4 +54,5 @@
     :UniqueGraphs [1000 [1000]]
     :HypScores ["posterior" ["prior" "posterior"]]
     :PriorFunc ["max" ["min" "max" "avg"]]
-    :MaxStates [3 [2 3 4]]}})
+    :MaxStates [3 [2 3 4]]
+    :MPEMetrics [false [true false]]}})
