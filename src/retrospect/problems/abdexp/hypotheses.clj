@@ -6,6 +6,7 @@
   (:use [retrospect.reason.abduction.workspace :only [new-hyp new-composite]])
   (:use [retrospect.problems.abdexp.bayesnet])
   (:use [retrospect.problems.abdexp.expgraph])
+  (:use [geppetto.random])
   (:require [retrospect.state :as state]))
 
 (defn generate-kb
@@ -74,13 +75,20 @@
             observed (map (fn [h] [(:vertex h) (:value h)]) (get :expl accepted))
             ;; figure out what the sensor has observed
             sens-observed (set (mapcat #(sensed-at (first sensors) %)
-                                       (range time-prev (inc time-now))))]
-        (for [[v val] sens-observed]
-          (new-hyp "Obs" :observation :observation
-                   (make-score expgraph bn observed [] v val)
-                   true [:observation] (partial hyps-conflict? expgraph)
-                   [] (format "Observed %s=%s" v val) (format "Observed %s=%s" v val)
-                   {:vertex v :value val})))))
+                                       (range time-prev (inc time-now))))
+            sens-hyps (for [[v val] sens-observed]
+                        (new-hyp "Obs" :observation :observation
+                                 (make-score expgraph bn observed [] v val)
+                                 true [:observation] (partial hyps-conflict? expgraph)
+                                 [] (format "Observed %s=%s" v val) (format "Observed %s=%s" v val)
+                                 {:vertex v :value val}))]
+        (if (not-empty anomalies)
+          (let [anomaly-parents-children
+                (set (concat (mapcat (fn [a-hyp] (explains expgraph (:vertex a-hyp))) anomalies)
+                             (mapcat (fn [a-hyp] (explainers expgraph (:vertex a-hyp))) anomalies)))]
+            (filter (fn [s-hyp] (anomaly-parents-children (:vertex s-hyp))) sens-hyps))
+          (take (int (* (count sens-hyps) (/ (:SensorSubset state/params) 100.0)))
+                (my-shuffle (sort-by :id sens-hyps)))))))
 
 (defn make-explainer
   [bn expgraph observed unexp-hyp pv pval]
