@@ -105,7 +105,8 @@
 (defn make-explainer-hyps
   [bn expgraph observed unexp-hyp]
   (let [v (:vertex unexp-hyp)
-        val (:value unexp-hyp)]
+        val (:value unexp-hyp)
+        observed-vertices (set (map first observed))]
     (if (= :observation (:type unexp-hyp))
       (let [score (make-score expgraph bn observed [] v val)]
         [(new-hyp "Expl" :expl :expl score
@@ -116,7 +117,10 @@
                   (format "%s=%s" v val)
                   {:vertex v :value val})])
       ;; else, not an observation
-      (let [expl (explainers expgraph v)
+      (let [expl (if (:RequireAllChildren state/params)
+                   (filter (fn [e] (every? observed-vertices (explains expgraph e)))
+                           (explainers expgraph v))
+                   (explainers expgraph v))
             expl-sets (cond (:OnlySingleExplainers state/params)
                             (for [e expl] [e]) ;; a single parent state is enough to explain
                             (:OnlyCompleteExplainers state/params)
