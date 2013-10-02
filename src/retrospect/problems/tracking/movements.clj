@@ -79,6 +79,7 @@
        [[nx ny] (dist x y nx ny)]))))
 
 (defn walk-random
+  "Brownian motion"
   [walk-steps random? movements entity time]
   (let [width (:width (meta movements))
         height (:height (meta movements))
@@ -86,13 +87,26 @@
         last-pos (first movs)
         [ox oy] [(:x last-pos) (:y last-pos)]]
     (loop [attempts 0]
-      (let [x (+ ox (my-rand-nth (range (- walk-steps) (inc walk-steps))))
-            y (+ oy (my-rand-nth (range (- walk-steps) (inc walk-steps))))]
-        (cond (= attempts 100)
+      (let [[x y] (loop [step 0
+                         [x y] [ox oy]]
+                    (if (= step walk-steps) [x y]
+                        (let [choices (if random?
+                                        (for [nx (range width) ny (range height)]
+                                          [nx ny])
+                                        (filter (fn [[nx ny]]
+                                                  (and (>= nx 0) (< nx width)
+                                                       (>= ny 0) (< ny height)))
+                                                [[(dec x) y]
+                                                 [(inc x) y]
+                                                 [x (dec y)]
+                                                 [x (inc y)]]))]
+                          (if (empty? choices)
+                            (recur (inc step) [x y])
+                            (recur (inc step) (my-rand-nth choices))))))]
+        (cond (= attempts 50)
               (move-entity movements entity ox oy time)
-              (or (< x 0) (>= x width) (< y 0) (>= y height))
-              (recur (inc attempts))
-              (and (empty? (entities-at movements x y time))
+              (and x y
+                   (empty? (entities-at movements x y time))
                    (empty? (entities-at movements x y (dec time))))
               (move-entity movements entity x y time)
               :else (recur (inc attempts)))))))
