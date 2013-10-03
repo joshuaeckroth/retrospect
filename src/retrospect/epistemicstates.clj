@@ -29,7 +29,7 @@
 (defn clone-ep
   [ep id children]
   (EpistemicState. id children (:cycle ep) (:time ep) (:decision-point ep)
-                   (:results ep) (:workspace ep) nil))
+                   (:results ep) (:workspace ep) (:meta-est ep)))
 
 (extend-protocol EpistemicStateTree
   EpistemicState
@@ -173,7 +173,7 @@
 (defn new-branch-ep
   [est branch]
   (let [ep-id (make-ep-id est)
-        ep (assoc (clone-ep branch ep-id []) :decision-point false)
+        ep (assoc (clone-ep branch ep-id []) :decision-point false :meta-est nil)
         new-root (assoc (zip/root est) :last-id ep-id)
         new-root-est (zip-est (:children new-root) (:workspace new-root)
                               (:meta-est new-root) (:last-id new-root))]
@@ -186,7 +186,7 @@
   [est]
   (let [cycle-child (inc (:cycle (cur-ep est)))
         ep-id (make-ep-id est)
-        ep-child (assoc (clone-ep (cur-ep est) ep-id []) :decision-point false)
+        ep-child (assoc (clone-ep (cur-ep est) ep-id []) :decision-point false :meta-est nil)
         new-root (assoc (zip/root est) :last-id ep-id)
         new-est (goto-ep
                  (zip-est (:children new-root) (:workspace new-root)
