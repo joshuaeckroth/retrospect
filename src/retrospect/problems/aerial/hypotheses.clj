@@ -1,7 +1,7 @@
 (ns retrospect.problems.aerial.hypotheses
   (:require [clojure.set :as set])
   (:use [retrospect.reason.abduction.workspace :only [new-hyp]])
-  (:use [retrospect.sensors :only [sensed-at]])
+  (:use [retrospect.sensors :only [sensed-at sense-more-at]])
   (:use [retrospect.evaluate :only [avg]])
   (:use [retrospect.state]))
 
@@ -122,49 +122,55 @@
                    x y time detscore objid)
            {:det det}))
 
+(defn make-sensor-hyps-obs
+  [time-prev time-now moves-dist acc-dets already-observed-dets to-time from-time sensed-dets]
+  (let [prior-next-dets (set/union acc-dets sensed-dets)
+        prior-dets (filter #(= (dec time-now) (:time %)) prior-next-dets)
+        next-dets (filter #(= time-now (:time %)) prior-next-dets)]
+    (if (= time-prev time-now) []
+        (mapcat (fn [det] (cond
+                           ;; if det has time 0 or time-prev, only generate "to" report
+                           (and (= (:time det) to-time)
+                                (not (already-observed-dets [det :to])))
+                           [(make-sensor-hyp det :to next-dets moves-dist)]
+                           ;; if det has time equal to steps or time-now,
+                           ;; only generate "from" report
+                           (and (= (:time det) from-time)
+                                (not (already-observed-dets [det :from])))
+                           [(make-sensor-hyp det :from prior-dets moves-dist)]
+                           ;; otherwise, generate both "from" and "to" reports
+                           (and (not= (:time det) to-time)
+                                (not= (:time det) from-time)
+                                (not (already-observed-dets [det :to]))
+                                (not (already-observed-dets [det :from])))
+                           [(make-sensor-hyp det :to next-dets moves-dist)
+                            (make-sensor-hyp det :from prior-dets moves-dist)]
+                           :else []))
+                (sort-by :time sensed-dets)))))
+
 (defn make-sensor-hyps
   [sensors time-prev time-now accepted hypotheses anomalies]
   (let [kb (get-kb accepted)
         moves-dist (:moves-dist kb)
-        acc-dets (map :det (:observation accepted))
-        sensed-dets (mapcat (fn [t] (sensed-at (first sensors) t))
-                            (range time-prev (inc time-now)))
-        prior-next-dets (concat acc-dets sensed-dets)
-        prior-dets (filter #(= (dec time-now) (:time %)) prior-next-dets)
-        next-dets (filter #(= time-now (:time %)) prior-next-dets)
+        acc-dets (set (map :det (:observation accepted)))
         already-observed-dets (set (map (fn [h] [(:det h) (:subtype h)]) (:observation hypotheses)))
         to-time (if (:SequentialSensorReports params) time-prev 0)
         from-time (if (:SequentialSensorReports params) time-now (:Steps params))
-        all-obs (if (= time-prev time-now) []
-                    (mapcat (fn [det] (cond
-                                       ;; if det has time 0 or time-prev, only generate "to" report
-                                       (and (= (:time det) to-time)
-                                            (not (already-observed-dets [det :to])))
-                                       [(make-sensor-hyp det :to next-dets)]
-                                       ;; if det has time equal to steps or time-now,
-                                       ;; only generate "from" report
-                                       (and (= (:time det) from-time)
-                                            (not (already-observed-dets [det :from])))
-                                       [(make-sensor-hyp det :from prior-dets)]
-                                       ;; otherwise, generate both "from" and "to" reports
-                                       (and (not= (:time det) to-time)
-                                            (not= (:time det) from-time)
-                                            (not (already-observed-dets [det :to]))
-                                            (not (already-observed-dets [det :from])))
-                                       [(make-sensor-hyp det :to next-dets)
-                                        (make-sensor-hyp det :from prior-dets)]
-                                       :else []))
-                            (sort-by :time sensed-dets)))]
+        mk-fn (partial make-sensor-hyps-obs time-prev time-now moves-dist acc-dets
+                       already-observed-dets to-time from-time)]
     (if (not-empty anomalies)
-      (doall (filter (fn [obs] (if (= :from (:subtype obs))
-                                 (some (fn [obs2] (and (= :to (:subtype obs2))
-                                                       (dets-nearby? obs obs2 moves-dist)))
-                                       anomalies)
-                                 (some (fn [obs2] (and (= :from (:subtype obs2))
-                                                       (dets-nearby? obs2 obs moves-dist)))
-                                       anomalies)))
-                     all-obs))
-      (doall (filter (fn [obs] (>= (:apriori obs) (/ (:SensorThreshold params) 100.0))) all-obs)))))
+      (let [obs-hyps (mk-fn (set (mapcat (fn [t] (mapcat (fn [s] (sense-more-at s t)) sensors))
+                                         (range time-prev (inc time-now)))))]
+        (doall (filter (fn [obs] (if (= :from (:subtype obs))
+                                   (some (fn [obs2] (and (= :to (:subtype obs2))
+                                                         (dets-nearby? obs obs2 moves-dist)))
+                                         anomalies)
+                                   (some (fn [obs2] (and (= :from (:subtype obs2))
+                                                         (dets-nearby? obs2 obs moves-dist)))
+                                         anomalies)))
+                       obs-hyps)))
+      (mk-fn (set (mapcat (fn [t] (mapcat (fn [s] (sensed-at s t)) sensors))
+                          (range time-prev (inc time-now))))))))
 
 (defn connecting-movs
   [h acc-mov-hyps]

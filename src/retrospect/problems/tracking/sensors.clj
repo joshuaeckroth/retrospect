@@ -1,4 +1,5 @@
 (ns retrospect.problems.tracking.sensors
+  (:require [clojure.set :as set])
   (:use [retrospect.problems.tracking.colors])
   (:use [retrospect.sensors :only [init-sensor add-sensed]])
   (:use [retrospect.problems.tracking.movements :only
@@ -116,14 +117,18 @@
 
 (defn sense
   [sensor movements time]
-  (let [observations (find-spotted sensor movements time)]
-    (add-sensed sensor time
-                (-> observations
-                    (insertion-noise sensor time)
-                    (deletion-noise)
-                    (distortion-noise)
-                    (duplication-noise)
-                    (compute-virtual-scores observations)))))
+  (let [observations (find-spotted sensor movements time)
+        all-sensed-obs (-> observations
+                           (insertion-noise sensor time)
+                           (deletion-noise)
+                           (distortion-noise)
+                           (duplication-noise)
+                           (compute-virtual-scores observations))
+        high-plaus-sensed (filter (fn [obs] (>= (:apriori obs 1.0)
+                                                (/ (:SensorThreshold params) 100.0)))
+                                  all-sensed-obs)
+        reserved-obs (set/difference (set all-sensed-obs) (set high-plaus-sensed))]
+    (add-sensed sensor time high-plaus-sensed reserved-obs)))
 
 (defn new-sensor
   "Generate a new sensor with provided values and an empty 'spotted' vector."
