@@ -329,7 +329,8 @@
                    (>= count-resolves-true count-resolves-false)
                    (t? (:acc-hyp hyp)))
               (= :meta-order-dep (:type hyp))
-              true
+              (and (not-empty (:resolves hyp))
+                   (>= count-resolves-true count-resolves-false))
               (= :meta-insuf-ev (:type hyp))
               true
               (= :meta-conf-exp (:type hyp))
