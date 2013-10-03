@@ -132,19 +132,19 @@
                            ;; if det has time 0 or time-prev, only generate "to" report
                            (and (= (:time det) to-time)
                                 (not (already-observed-dets [det :to])))
-                           [(make-sensor-hyp det :to next-dets moves-dist)]
+                           [(make-sensor-hyp det :to next-dets)]
                            ;; if det has time equal to steps or time-now,
                            ;; only generate "from" report
                            (and (= (:time det) from-time)
                                 (not (already-observed-dets [det :from])))
-                           [(make-sensor-hyp det :from prior-dets moves-dist)]
+                           [(make-sensor-hyp det :from prior-dets)]
                            ;; otherwise, generate both "from" and "to" reports
                            (and (not= (:time det) to-time)
                                 (not= (:time det) from-time)
                                 (not (already-observed-dets [det :to]))
                                 (not (already-observed-dets [det :from])))
-                           [(make-sensor-hyp det :to next-dets moves-dist)
-                            (make-sensor-hyp det :from prior-dets moves-dist)]
+                           [(make-sensor-hyp det :to next-dets)
+                            (make-sensor-hyp det :from prior-dets)]
                            :else []))
                 (sort-by :time sensed-dets)))))
 
