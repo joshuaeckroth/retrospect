@@ -57,12 +57,17 @@
 
 (defn sense
   [sensor test time]
-  (let [observations (get test (dec time))]
-    (add-sensed sensor time (-> observations
-                               (insertion-noise (:expgraph (meta sensor)))
-                               (deletion-noise)
-                               (distortion-noise (:expgraph (meta sensor)))
-                               (duplication-noise (:expgraph (meta sensor)))))))
+  (let [observations (get test (dec time))
+        all-sensed-obs (-> observations
+                           (insertion-noise (:expgraph (meta sensor)))
+                           (deletion-noise)
+                           (distortion-noise (:expgraph (meta sensor)))
+                           (duplication-noise (:expgraph (meta sensor))))
+        [sensed-obs reserved-obs] (when all-sensed-obs
+                                    (split-at (int (* (count all-sensed-obs)
+                                                      (/ (:SensorSubset params) 100.0)))
+                                              (my-shuffle all-sensed-obs)))]
+    (add-sensed sensor time sensed-obs reserved-obs)))
 
 (defn generate-sensors
   [training]

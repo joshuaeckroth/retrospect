@@ -2,7 +2,7 @@
   (:require [clojure.set :as set])
   (:require [clojure.string :as str])
   (:use [clojure.math.combinatorics :only [subsets]])
-  (:use [retrospect.sensors :only [sensed-at]])
+  (:use [retrospect.sensors :only [sensed-at sense-more-at]])
   (:use [retrospect.reason.abduction.workspace :only [new-hyp new-composite]])
   (:use [retrospect.problems.abdexp.bayesnet])
   (:use [retrospect.problems.abdexp.expgraph])
@@ -63,6 +63,14 @@
           (get-posterior bn [[v val]]))
         :else 1.0))
 
+(defn make-sensor-hyp
+  [expgraph bn observed [v val]]
+  (new-hyp "Obs" :observation :observation
+           (make-score expgraph bn observed [] v val)
+           true [:observation] (partial hyps-conflict? expgraph)
+           [] (format "Observed %s=%s" v val) (format "Observed %s=%s" v val)
+           {:vertex v :value val}))
+
 (defn make-sensor-hyps
   "Pick out the hyps that have been observed."
   [sensors time-prev time-now accepted hypotheses anomalies]
@@ -73,22 +81,16 @@
             ;; only :expl are "observed" here because :observation types
             ;; may not be believed, or may conflict with beliefs
             observed (map (fn [h] [(:vertex h) (:value h)]) (get :expl accepted))
-            ;; figure out what the sensor has observed
-            sens-observed (set (mapcat #(sensed-at (first sensors) %)
-                                       (range time-prev (inc time-now))))
-            sens-hyps (for [[v val] sens-observed]
-                        (new-hyp "Obs" :observation :observation
-                                 (make-score expgraph bn observed [] v val)
-                                 true [:observation] (partial hyps-conflict? expgraph)
-                                 [] (format "Observed %s=%s" v val) (format "Observed %s=%s" v val)
-                                 {:vertex v :value val}))]
+            mk-fn (partial make-sensor-hyp expgraph bn observed)]
         (if (not-empty anomalies)
-          (let [anomaly-parents-children
-                (set (concat (mapcat (fn [a-hyp] (explains expgraph (:vertex a-hyp))) anomalies)
-                             (mapcat (fn [a-hyp] (explainers expgraph (:vertex a-hyp))) anomalies)))]
-            (filter (fn [s-hyp] (anomaly-parents-children (:vertex s-hyp))) sens-hyps))
-          (take (int (* (count sens-hyps) (/ (:SensorSubset state/params) 100.0)))
-                (my-shuffle (sort-by :id sens-hyps)))))))
+          (let [sens-observed (set (mapcat #(sense-more-at (first sensors) %)
+                                           (range time-prev (inc time-now))))
+                anomaly-parents-children (set (concat (mapcat (fn [a-hyp] (explains expgraph (:vertex a-hyp))) anomalies)
+                                                      (mapcat (fn [a-hyp] (explainers expgraph (:vertex a-hyp))) anomalies)))]
+            (map mk-fn (filter (fn [[v val]] (anomaly-parents-children v)) sens-observed)))
+          (let [sens (set (mapcat #(sensed-at (first sensors) %)
+                                  (range time-prev (inc time-now))))]
+            (map mk-fn sens))))))
 
 (defn make-explainer
   [bn expgraph observed unexp-hyp pv pval]

@@ -12,13 +12,16 @@
 
 (defn sensed-at
   [sensor time]
-  (if-let [sensed (get (:sensed sensor) time)]
-    sensed []))
+  (or (get-in (:sensed sensor) [time :observed]) []))
+
+(defn sense-more-at
+  [sensor time]
+  (or (get-in (:sensed sensor) [time :reserved]) []))
 
 (defn add-sensed
-  [sensor time data]
+  [sensor time observed reserved]
   (-> sensor
-      (update-in [:sensed] assoc time data)
+      (update-in [:sensed] assoc time {:observed observed :reserved reserved})
       (assoc :sensed-up-to time)))
 
 (defn update-sensors

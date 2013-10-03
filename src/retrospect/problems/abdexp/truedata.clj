@@ -158,15 +158,15 @@
   [observations]
   (let [obs-vec (vec (my-shuffle (sort observations)))
         split-locs (my-shuffle (range (count obs-vec)))
-        splits (partition-all 2 1 (sort (take (inc (:Steps params)) split-locs)))
+        splits (filter second (partition-all 2 1 (sort (take (inc (:Steps params)) split-locs))))
         groups (if (empty? splits)
                  [(vec observations)]
                  (vec (map (fn [[pos1 pos2]] (subvec obs-vec pos1 pos2))
-                         ;; ensure the splits start with 0 and reach the end
-                         (filter (fn [[pos1 pos2]] (and pos1 pos2))
-                            (concat [[0 (second (first splits))]]
-                                    (butlast (rest splits))
-                                    [[(first (last splits)) (count obs-vec)]])))))]
+                           ;; ensure the splits start with 0 and reach the end
+                           (filter (fn [[pos1 pos2]] (and pos1 pos2))
+                                   (concat [[0 (second (first splits))]]
+                                           (butlast (rest splits))
+                                           [[(first (last splits)) (count obs-vec)]])))))]
     (if (>= (:Steps params) (count groups))
       (vec (concat groups (repeat (inc (- (:Steps params) (count groups))) [])))
       groups)))
@@ -182,4 +182,4 @@
      :expgraph expgraph
      :bayesnet bayesnet
      :true-values-map true-values-map
-     :test (doall (observation-groups observations))}))
+     :test (observation-groups observations)}))
