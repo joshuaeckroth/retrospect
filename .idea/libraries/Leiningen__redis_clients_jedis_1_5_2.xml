@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="Leiningen: redis.clients:jedis:1.5.2">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/redis/clients/jedis/1.5.2/jedis-1.5.2.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

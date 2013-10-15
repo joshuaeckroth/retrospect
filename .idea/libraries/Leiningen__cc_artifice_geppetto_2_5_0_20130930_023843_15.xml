@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="Leiningen: cc.artifice:geppetto:2.5.0-20130930.023843-15">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/cc/artifice/geppetto/2.5.0-SNAPSHOT/geppetto-2.5.0-SNAPSHOT.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

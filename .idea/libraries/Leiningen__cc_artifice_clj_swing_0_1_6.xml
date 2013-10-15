@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="Leiningen: cc.artifice:clj-swing:0.1.6">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/cc/artifice/clj-swing/0.1.6/clj-swing-0.1.6.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
