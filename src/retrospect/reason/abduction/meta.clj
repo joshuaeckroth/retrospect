@@ -17,7 +17,7 @@
 (defn find-anomalies
   [est]
   (let [workspace (:workspace (cur-ep est))]
-    (no-explainers workspace)))
+    (unexplained workspace)))
 
 (defn metareasoning-activated?
   [est]
@@ -105,7 +105,8 @@
 (defn conf-exp-candidates
   [anomalies est time-prev time-now sensors]
   (let [cur-ws (:workspace (cur-ep est))
-        rel-anomalies (set (filter #(= :conflict (classify-noexp-reason cur-ws %)) anomalies))
+        rel-anomalies (set (filter #(and (no-explainers? cur-ws %)
+                                         (= :conflict (classify-noexp-reason cur-ws %))) anomalies))
         ;; explainers of anomalies
         expl (set (mapcat #(explainers cur-ws %) rel-anomalies))
         ;; rejected explainers due to conflict
@@ -181,7 +182,8 @@
 (defn impl-exp-candidates
   [anomalies est time-prev time-now sensors]
   (let [cur-ws (:workspace (cur-ep est))
-        rel-anomalies (set (filter #(= :minscore (classify-noexp-reason cur-ws %)) anomalies))
+        rel-anomalies (set (filter #(and (no-explainers? cur-ws %)
+                                         (= :minscore (classify-noexp-reason cur-ws %))) anomalies))
         ;; explainers of anomalies
         expl (set (mapcat #(explainers cur-ws %) rel-anomalies))
         ;; explainers that were rejected due to minscore
@@ -250,7 +252,8 @@
       (let [ws (:workspace (cur-ep est))
             acc (accepted ws)
             ;; gather all observations with no explainers
-            rel-anomalies (filter (fn [obs] (= :no-expl-offered (classify-noexp-reason ws obs))) anomalies)
+            rel-anomalies (filter #(and (no-explainers? ws %)
+                                        (= :no-expl-offered (classify-noexp-reason ws %))) anomalies)
             accept-cycles (into {} (for [hyp rel-anomalies] [hyp (accepted-cycle ws hyp)]))
             time-last (:time (cur-ep est))
             eps (map (fn [t] (cur-ep (goto-start-of-time est t)))
@@ -304,7 +307,7 @@
   [anomalies est time-prev time-now sensors]
   (let [ws (:workspace (cur-ep est))]
     (for [anomaly (insuf-ev-candidates anomalies est time-prev time-now sensors)]
-      (let [delta (contrast-set-delta (first (contrast-sets ws [anomaly])))]
+      (let [delta (:delta (contrast-set-delta (first (contrast-sets ws [anomaly]))))]
         (new-hyp "InsufEv" :meta-insuf-ev :meta-insuf-ev (- 1.0 delta)
                  false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
                  [(:contents anomaly)]
