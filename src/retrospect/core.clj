@@ -155,11 +155,22 @@
                                  (:upload options) (:save-record options) false))
 
           (= (:action options) "optimize")
-          (optimize run (:params options) (:opt-min-or-max options) (:opt-metric options)
-                    (:opt-alpha options) (:opt-init-temp options) (:opt-temp-sched options)
-                    (:opt-stop-cond1 options) (:opt-stop-cond2 options)
-                    (:datadir props) (:seed options) (:git props) (:recordsdir props) (:nthreads options)
-                    (:repetitions options) (:upload options) (:save-record options))
+          (let [problem (choose-problem (extract-problem (:params options)))
+                git-dirty? (not-empty
+                            (filter #(not= "??" (if (>= 2 (count %)) "??" (subs % 0 2)))
+                                    (str/split-lines (:out (sh (:git props) "status" "--porcelain")))))]
+            (when (and (:upload options) git-dirty?)
+              (println "Project has uncommitted changes. Commit with git before"
+                       "running simulations.")
+              (System/exit -1))
+            (dosync
+             (alter state/batch (constantly true))
+             (alter state/problem (constantly problem)))
+            (optimize run (:params options) (:opt-min-or-max options) (:opt-metric options)
+                      (:opt-alpha options) (:opt-init-temp options) (:opt-temp-sched options)
+                      (:opt-stop-cond1 options) (:opt-stop-cond2 options)
+                      (:datadir props) (:seed options) (:git props) (:recordsdir props) (:nthreads options)
+                      (:repetitions options) (:upload options) (:save-record options)))
           
           :else
           (println "No action given."))))
