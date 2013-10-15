@@ -21,6 +21,7 @@
   (:use [retrospect.problems.abdexp.problem :only [abdexp-problem]])
   (:use [retrospect.simulate :only [run]])
   (:use [geppetto.records :only [run-with-new-record submit-results]])
+  (:use [geppetto.optimize :only [optimize]])
   (:use [retrospect.player :only [start-player]]))
 
 (comment
@@ -46,7 +47,7 @@
 (defn -main [& args]
   (let [[options _ banner]
         (cli args
-             ["--action" "Action (run/player/explore/resubmit/verify-claims)" :default "player"]
+             ["--action" "Action (run/player/optimize/resubmit/verify-claims)" :default "player"]
              ["--reasoner" "Reasoning algorithm" :default "abduction"]
              ["--problem" "Problem" :default "tracking"]
              ["--params" "Parameters identifier (e.g. 'Words/foobar')" :default ""]
@@ -60,7 +61,14 @@
              ["--save-record" "Save in record directory?" :default true :parse-fn #(= "true" %)]
              ["--recdir" "Record directory (to resubmit)" :default ""]
              ["--log" "Show verbose logging?" :default false :parse-fn #(= "true" %)]
-             ["--quiet" "Quiet mode (hide progress messages)?" :default false :parse-fn #(= "true" %)])
+             ["--quiet" "Quiet mode (hide progress messages)?" :default false :parse-fn #(= "true" %)]
+             ["--opt-metric" "Optimize metric" :parse-fn keyword]
+             ["--opt-min-or-max" "Optimize to 'min' or 'max' of metric" :default :max :parse-fn keyword]
+             ["--opt-alpha" "Optimize alpha (double)" :default 0.95 :parse-fn #(Double. %)]
+             ["--opt-init-temp" "Optimize initial temperature (double)" :default 1 :parse-fn #(Double. %)]
+             ["--opt-temp-sched" "Optimize temperature schedule (int)" :default 100 :parse-fn #(Integer. %)]
+             ["--opt-stop-cond1" "Optimize stopping condition 1 (double)" :default 0.02 :parse-fn #(Double. %)]
+             ["--opt-stop-cond2" "Optimize stopping condition 2 (int)" :default 5 :parse-fn #(Integer. %)])
         reasoner (choose-reasoner (:reasoner options))
         problem (choose-problem (:problem options))
         props (read-properties "config.properties")]
@@ -77,7 +85,7 @@
      (alter state/problem (constantly problem))
      (alter state/logging-enabled (constantly (:log options)))
      (alter state/quiet-mode (constantly (:quiet options))))
-    (cond (and (= (:action options) "run") (= "" (:params options)))
+    (cond (and (= (:action options) "run") (= (:action options) "optimize") (= "" (:params options)))
           (println "--params identifier required.")
           
           (= (:action options) "player")
@@ -99,7 +107,7 @@
                 (println (format "No claims (or no valid claims selected) for %s" (:name @state/problem)))
                 (do
                   (println (format "Verifying %d claims for %s with reasoner %s..."
-                              (count claims) (:name @state/problem) (:name @state/reasoner)))
+                                   (count claims) (:name @state/problem) (:name @state/reasoner)))
                   (let [results (doall (for [claim claims]
                                          (evaluate-claim run claim (:datadir props) (:git props)
                                                          "/tmp" (:nthreads options))))]
@@ -134,7 +142,7 @@
           (let [problem (choose-problem (extract-problem (:params options)))
                 git-dirty? (not-empty
                             (filter #(not= "??" (if (>= 2 (count %)) "??" (subs % 0 2)))
-                               (str/split-lines (:out (sh (:git props) "status" "--porcelain")))))]
+                                    (str/split-lines (:out (sh (:git props) "status" "--porcelain")))))]
             (when (and (:upload options) git-dirty?)
               (println "Project has uncommitted changes. Commit with git before"
                        "running simulations.")
@@ -143,16 +151,17 @@
              (alter state/batch (constantly true))
              (alter state/problem (constantly problem)))
             (run-with-new-record run (:params options) (:datadir props) (:seed options)
-              (:git props) (:recordsdir props) (:nthreads options) (:repetitions options)
-              (:upload options) (:save-record options) false))
+                                 (:git props) (:recordsdir props) (:nthreads options) (:repetitions options)
+                                 (:upload options) (:save-record options) false))
+
+          (= (:action options) "optimize")
+          (optimize run (:params options) (:opt-min-or-max options) (:opt-metric options)
+                    (:opt-alpha options) (:opt-init-temp options) (:opt-temp-sched options)
+                    (:opt-stop-cond1 options) (:opt-stop-cond2 options)
+                    (:datadir props) (:seed options) (:git props) (:recordsdir props) (:nthreads options)
+                    (:repetitions options) (:upload options) (:save-record options))
           
           :else
           (println "No action given."))))
 
-(comment
-  (= (:action options) "explore")
-  (do
-    (dosync (alter state/batch (constantly true)))
-    ;; start the explore gui on swing's "event dispatch thread"
-    (SwingUtilities/invokeLater start-explore)))
 

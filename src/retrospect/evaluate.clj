@@ -11,7 +11,7 @@
   [vals]
   (let [vs (filter #(not (.isNaN %)) (map double vals))]
     (if (empty? vs) Double/NaN
-        (apply max vs))))
+                    (apply max vs))))
 
 (defn nan-min
   [vals]
