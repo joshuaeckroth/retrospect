@@ -147,7 +147,7 @@
   ;; no-explainers combinations
   (for [{:keys [rej-hyp cycle time delta rejected-expl may-resolve]}
         (conf-exp-candidates anomalies est time-prev time-now sensors)]
-    (let [apriori (* delta (avg (map :apriori may-resolve)) (- 1.0 (:apriori rej-hyp)))]
+    (let [apriori (- 1.0 delta)]
       (new-hyp "ConfExp" :meta-conf-exp :meta-conf-exp apriori
                false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
                (map :contents may-resolve)
