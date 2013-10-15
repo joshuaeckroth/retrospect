@@ -592,21 +592,24 @@
           (for [h unexp] {:hyp h :expl (filter #(undecided? workspace %)
                                                (explainers workspace h))})))
 
+(defn contrast-set-delta
+  [{:keys [hyp expl]}]
+  (let [sorted-expl (reverse (sort-by :apriori expl))
+        normalized-aprioris (let [aprioris (map :apriori sorted-expl)
+                                  s (reduce + aprioris)]
+                              (if (= 0.0 (double s)) aprioris
+                                  (map #(/ % s) aprioris)))
+        delta (if (second normalized-aprioris)
+                (- (first normalized-aprioris)
+                   (second normalized-aprioris))
+                1.0)]
+    {:hyp hyp :expl sorted-expl :delta delta :top-apriori (:apriori (first sorted-expl))}))
+
 (defn best-contrast-set
   [workspace c-sets]
   (if (= (:ContrastPreference params) "arbitrary")
     (assoc (sort-by (comp :id :hyp) (my-rand-nth c-sets)) :delta 1.0)
-    (let [delta-c-sets (for [{:keys [hyp expl]} c-sets]
-                         (let [sorted-expl (reverse (sort-by :apriori expl))
-                               normalized-aprioris (let [aprioris (map :apriori sorted-expl)
-                                                         s (reduce + aprioris)]
-                                                     (if (= 0.0 (double s)) aprioris
-                                                         (map #(/ % s) aprioris)))
-                               delta (if (second normalized-aprioris)
-                                       (- (first normalized-aprioris)
-                                          (second normalized-aprioris))
-                                       1.0)]
-                           {:hyp hyp :expl sorted-expl :delta delta :top-apriori (:apriori (first sorted-expl))}))
+    (let [delta-c-sets (map contrast-set-delta c-sets)
           best-delta (apply max (map :delta delta-c-sets))
           best-delta-c-sets (filter #(= best-delta (:delta %)) delta-c-sets)
           best-top-apriori (apply max (map :top-apriori best-delta-c-sets))

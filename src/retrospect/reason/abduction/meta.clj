@@ -291,25 +291,27 @@
     [(update-est new-est ep-more-ev) (assoc params :GetMoreHyps true)]))
 
 (defn insuf-ev-candidates
+  "Insufficient evidence candidates are those anomalies that have
+  explainers but no explainer 'stands' out, i.e., none has a delta
+  greater than threshold."
   [anomalies est time-prev time-now sensors]
   (let [ws (:workspace (cur-ep est))]
-    (if (:MetaInsufEvAll params)
-      ;; all anomalies may be caused by insufficient evidence
-      anomalies
-      ;; otherwise, only take anomalies with no explainers
-      (filter (fn [obs] (= :no-expl-offered (classify-noexp-reason ws obs))) anomalies))))
+    ;; if there are contrast sets that explain obs, (but of course obs is still unexplained),
+    ;; then those explainers must not have been accepted due to too-low delta
+    (filter (fn [obs] (not-empty (contrast-sets ws [obs]))) anomalies)))
 
 (defn make-meta-hyps-insufficient-evidence
   [anomalies est time-prev time-now sensors]
-  (for [anomaly (insuf-ev-candidates anomalies est time-prev time-now sensors)]
-    (let [apriori (:apriori anomaly)]
-      (new-hyp "InsufEv" :meta-insuf-ev :meta-insuf-ev apriori
-               false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
-               [(:contents anomaly)]
-               "Implausible evidence rejected"
-               (format "Anomaly: %s" anomaly)
-               {:action (partial resolve-insuf-ev anomaly)
-                :resolves [anomaly]}))))
+  (let [ws (:workspace (cur-ep est))]
+    (for [anomaly (insuf-ev-candidates anomalies est time-prev time-now sensors)]
+      (let [delta (contrast-set-delta (first (contrast-sets ws [anomaly])))]
+        (new-hyp "InsufEv" :meta-insuf-ev :meta-insuf-ev (- 1.0 delta)
+                 false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
+                 [(:contents anomaly)]
+                 "Insufficient evidence"
+                 (format "Anomaly: %s" anomaly)
+                 {:action (partial resolve-insuf-ev anomaly)
+                  :resolves [anomaly]})))))
 
 ;;}}}
 
