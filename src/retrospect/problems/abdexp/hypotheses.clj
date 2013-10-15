@@ -46,12 +46,12 @@
    parents (parent-comb) and observed. Note that parent-comb may be
    empty, indicating we want the probability of v=val without mention
    of the parents."
-  [expgraph bn observed parent-comb v val]
+  [expgraph bn observed-vertex-values parent-comb v val]
   (cond (= "prior" (:HypScores state/params))
         (prob expgraph v val parent-comb)
         (and (= "posterior" (:HypScores state/params))
              (not-empty parent-comb))
-        (let [background (conj (filter #(not ((set parent-comb) %)) observed) [v val])]
+        (let [background (conj (filter #(not ((set parent-comb) %)) observed-vertex-values) [v val])]
           (unobserve-all bn)
           (observe-seq bn background)
           (get-posterior bn parent-comb))
@@ -59,14 +59,14 @@
              (empty? parent-comb))
         (do
           (unobserve-all bn)
-          (observe-seq bn observed)
+          (observe-seq bn observed-vertex-values)
           (get-posterior bn [[v val]]))
         :else 1.0))
 
 (defn make-sensor-hyp
-  [expgraph bn observed [v val]]
+  [expgraph bn observed-vertex-values [v val]]
   (new-hyp "Obs" :observation :observation
-           (make-score expgraph bn observed [] v val)
+           (make-score expgraph bn observed-vertex-values [] v val)
            true [:observation] (partial hyps-conflict? expgraph)
            [] (format "Observed %s=%s" v val) (format "Observed %s=%s" v val)
            {:vertex v :value val}))
@@ -80,8 +80,8 @@
             expgraph (:expgraph kb)
             ;; only :expl are "observed" here because :observation types
             ;; may not be believed, or may conflict with beliefs
-            observed (map (fn [h] [(:vertex h) (:value h)]) (get :expl accepted))
-            mk-fn (partial make-sensor-hyp expgraph bn observed)]
+            observed-vertex-values (map (fn [h] [(:vertex h) (:value h)]) (get :expl accepted))
+            mk-fn (partial make-sensor-hyp expgraph bn observed-vertex-values)]
         (if (not-empty anomalies)
           (let [sens-observed (set (mapcat #(sense-more-at (first sensors) %)
                                            (range time-prev (inc time-now))))
@@ -93,28 +93,31 @@
             (map mk-fn sens))))))
 
 (defn make-explainer
-  [bn expgraph observed unexp-hyp pv pval]
-  (let [score (make-score expgraph bn observed
+  [bn expgraph observed-hyps observed-vertex-values unexp-hyp pv pval]
+  (let [score (make-score expgraph bn observed-vertex-values
                           [[pv pval]] (:vertex unexp-hyp) (:value unexp-hyp))]
     (new-hyp "Expl" :expl :expl score
              (not-empty (explainers expgraph pv))
              [:expl] (partial hyps-conflict? expgraph)
-             [(:contents unexp-hyp)]
+             (set (conj (map :contents (filter (fn [obs] (explains? expgraph pv (:vertex obs))) observed-hyps))
+                        (:contents unexp-hyp)))
              (format "%s=%s" pv pval)
              (format "%s=%s" pv pval)
              {:vertex pv :value pval})))
 
 (defn make-explainer-hyps
-  [bn expgraph observed unexp-hyp]
+  [bn expgraph observed-hyps unexp-hyp]
   (let [v (:vertex unexp-hyp)
         val (:value unexp-hyp)
-        observed-vertices (set (map first observed))]
+        observed-vertex-values (map (fn [h] [(:vertex h) (:value h)]) observed-hyps)
+        observed-vertices (set (map :vertex observed-hyps))]
     (if (= :observation (:type unexp-hyp))
-      (let [score (make-score expgraph bn observed [] v val)]
+      (let [score (make-score expgraph bn observed-vertex-values [] v val)]
         [(new-hyp "Expl" :expl :expl score
                   (not-empty (explainers expgraph v))
                   [:expl] (partial hyps-conflict? expgraph)
-                  [(:contents unexp-hyp)]
+                  (set (conj (map :contents (filter (fn [obs] (explains? expgraph v (:vertex obs))) observed-hyps))
+                             (:contents unexp-hyp)))
                   (format "%s=%s" v val)
                   (format "%s=%s" v val)
                   {:vertex v :value val})])
@@ -138,26 +141,26 @@
                         non-conf-parent-combs (filter (fn [parent-comb]
                                                         (not-any? (fn [[pv pval]]
                                                                     (any-vertex-values-conflict?
-                                                                     expgraph pv pval observed))
+                                                                     expgraph pv pval observed-vertex-values))
                                                                   parent-comb))
                                                       parent-combs)]
                     (if (:OnlySingleExplainers state/params)
                       ;; build a single explainer for each parent-comb
                       (map (fn [parent-comb]
                              (let [[pv pval] (first parent-comb)]
-                               (make-explainer bn expgraph observed unexp-hyp pv pval)))
+                               (make-explainer bn expgraph observed-hyps observed-vertex-values unexp-hyp pv pval)))
                            non-conf-parent-combs)
                       ;; build a composite of several parent-combs
                       (map (fn [parent-comb]
                              (if (= 1 (count parent-comb))
                                ;; don't make a composite if there is only one vertex-value pair
                                (let [[pv pval] (first parent-comb)]
-                                 (make-explainer bn expgraph observed unexp-hyp pv pval))
+                                 (make-explainer bn expgraph observed-hyps observed-vertex-values unexp-hyp pv pval))
                                ;; make a composite if there are multiple vertex-value pairs
                                (let [hyps (map (fn [[pv pval]]
-                                                 (make-explainer bn expgraph observed unexp-hyp pv pval))
+                                                 (make-explainer bn expgraph observed-hyps observed-vertex-values unexp-hyp pv pval))
                                                parent-comb)
-                                     score (make-score expgraph bn observed
+                                     score (make-score expgraph bn observed-vertex-values
                                                        parent-comb v val)]
                                  (new-composite "ExplComp" :expl :expl-composite
                                                 score [(:contents unexp-hyp)]
@@ -177,7 +180,7 @@
         expgraph (:expgraph kb)
         ;; only :expl are "observed" here because :observation types
         ;; may not be believed, or may conflict with beliefs
-        observed (map (fn [h] [(:vertex h) (:value h)]) (filter #(= :expl (:subtype %)) (:expl accepted)))]
-    (mapcat #(make-explainer-hyps bn expgraph observed %) unexp)))
+        observed-hyps (filter #(= :expl (:subtype %)) (:expl accepted))]
+    (mapcat #(make-explainer-hyps bn expgraph observed-hyps %) unexp)))
 
 
