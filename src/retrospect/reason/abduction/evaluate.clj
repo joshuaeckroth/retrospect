@@ -332,7 +332,8 @@
               (and (not-empty (:resolves hyp))
                    (>= count-resolves-true count-resolves-false))
               (= :meta-insuf-ev (:type hyp))
-              true
+              (and (not-empty (:resolves hyp))
+                   (t? (first (:resolves hyp))))
               (= :meta-conf-exp (:type hyp))
               (and (not-empty (:resolves hyp))
                    (>= count-resolves-true count-resolves-false)

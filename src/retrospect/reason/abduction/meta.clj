@@ -307,8 +307,10 @@
   [anomalies est time-prev time-now sensors]
   (let [ws (:workspace (cur-ep est))]
     (for [anomaly (insuf-ev-candidates anomalies est time-prev time-now sensors)]
-      (let [delta (:delta (contrast-set-delta (first (contrast-sets ws [anomaly]))))]
-        (new-hyp "InsufEv" :meta-insuf-ev :meta-insuf-ev (- 1.0 delta)
+      (let [delta (:delta (contrast-set-delta (first (contrast-sets ws [anomaly]))))
+            anomaly-apriori (:apriori anomaly)
+            apriori (* (- 1.0 delta) anomaly-apriori)]
+        (new-hyp "InsufEv" :meta-insuf-ev :meta-insuf-ev apriori
                  false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
                  [(:contents anomaly)]
                  "Insufficient evidence"
