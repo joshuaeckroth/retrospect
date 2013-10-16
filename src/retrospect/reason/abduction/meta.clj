@@ -368,10 +368,14 @@
               anomalies-new (find-anomalies (:est-new result))
               resolved-cases (filter (fn [pc] (not ((set (map :contents anomalies-new))
                                                     (:contents pc))))
-                                     anomalies)]
+                                     anomalies)
+              ws-new (:workspace (cur-ep (:est-new result)))]
           (recur (:est-old result) (rest hyps)
                  (conj new-hyps
                        (assoc hyp :explains (map :contents resolved-cases)
+                              :explained-obs (filter #(and (accepted? ws-new %)
+                                                           (not (unexplained? ws-new %)))
+                                                     (:observation (hypotheses ws-new)))
                               :resolves resolved-cases
                               :anomalies-prior anomalies
                               :anomalies-after anomalies-new
@@ -413,7 +417,14 @@
 (defn meta-abductive
   [anomalies est time-prev time-now sensors]
   (let [meta-hyps (make-meta-hyps anomalies est time-prev time-now sensors)
-        [est-new meta-hyps-scored] (score-meta-hyps anomalies meta-hyps est time-prev time-now sensors)
+        ;; create different sensors for simulating only if we're in
+        ;; meta-oracle mode; this is to ensure that new reports
+        ;; obtained by meta-insuf-ev are forgotten again except, of
+        ;; course, if the meta-insuf-ev hyp is accepted and re-applied
+        sensors-simulate (if (= "oracle" (:Metareasoning params))
+                           (map (fn [s] (assoc s :sensed (atom @(:sensed s)))) sensors)
+                           sensors)
+        [est-new meta-hyps-scored] (score-meta-hyps anomalies meta-hyps est time-prev time-now sensors-simulate)
         meta-ws (if (= "oracle" (:Metareasoning params))
                   (assoc (init-workspace)
                     :meta-oracle (:meta-oracle (:workspace (cur-ep est))))
