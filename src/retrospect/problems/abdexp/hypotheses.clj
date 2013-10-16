@@ -106,11 +106,9 @@
              {:vertex pv :value pval})))
 
 (defn make-explainer-hyps
-  [bn expgraph observed-hyps unexp-hyp]
+  [bn expgraph observed-hyps observed-vertex-values unexp-hyp]
   (let [v (:vertex unexp-hyp)
-        val (:value unexp-hyp)
-        observed-vertex-values (map (fn [h] [(:vertex h) (:value h)]) observed-hyps)
-        observed-vertices (set (map :vertex observed-hyps))]
+        val (:value unexp-hyp)]
     (if (= :observation (:type unexp-hyp))
       (let [score (make-score expgraph bn observed-vertex-values [] v val)]
         [(new-hyp "Expl" :expl :expl score
@@ -122,10 +120,7 @@
                   (format "%s=%s" v val)
                   {:vertex v :value val})])
       ;; else, not an observation
-      (let [expl (if (:RequireAllChildren state/params)
-                   (filter (fn [e] (every? observed-vertices (explains expgraph e)))
-                           (explainers expgraph v))
-                   (explainers expgraph v))
+      (let [expl (explainers expgraph v)
             expl-sets (cond (:OnlySingleExplainers state/params)
                             (for [e expl] [e]) ;; a single parent state is enough to explain
                             (:OnlyCompleteExplainers state/params)
@@ -179,8 +174,15 @@
         bn (:bayesnet kb)
         expgraph (:expgraph kb)
         ;; only :expl are "observed" here because :observation types
-        ;; may not be believed, or may conflict with beliefs
-        observed-hyps (filter #(= :expl (:subtype %)) (:expl accepted))]
-    (mapcat #(make-explainer-hyps bn expgraph observed-hyps %) unexp)))
+        ;; might not be believed, or might conflict with beliefs
+        observed-hyps (filter #(= :expl (:subtype %)) (:expl accepted))
+        observed-vertex-values (map (fn [h] [(:vertex h) (:value h)]) observed-hyps)
+        new-expl-hyps (mapcat #(make-explainer-hyps bn expgraph observed-hyps observed-vertex-values %) unexp)]
+    ;; composite explainers have already been checked for conflicts with observed-vertex-values
+    (filter #(or (= :expl-composite (:type %))
+                 (not (any-vertex-values-conflict? expgraph (:vertex %) (:value %) observed-vertex-values)))
+            new-expl-hyps)))
+
+
 
 

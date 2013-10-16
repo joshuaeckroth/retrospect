@@ -42,8 +42,7 @@
                :ignore-doubt-types #{:observation}
                :default-params {:GetMoreHyps [true [true]]
                                 :OnlySingleExplainers [false [true false]]
-                                :OnlyCompleteExplainers [false [true false]]
-                                :RequireAllChildren [false [true false]]}
+                                :OnlyCompleteExplainers [false [true false]]}
                :claims abduction-claims}
    :claims abduction-claims
    :default-params
