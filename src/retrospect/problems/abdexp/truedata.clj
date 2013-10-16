@@ -78,16 +78,17 @@
   [expgraph vertex]
   (let [vals (sort (values expgraph vertex))
         parent-vals (map (fn [v] (map (fn [val] [v val]) (sort (values expgraph v))))
-                       (sort (explainers expgraph vertex)))
+                         (sort (explainers expgraph vertex)))
         parent-combs (let [pc (gen-parent-combinations parent-vals)]
                        (if (empty? pc) [#{}] pc))
         probs-parent-combs-map
         (reduce (fn [m pc]
-             (let [probs (my-shuffle (sort (repeatedly (count vals) my-rand)))
-                   probs-sum (reduce + probs)
-                   probs-pairs (interleave vals (map #(/ % probs-sum) probs))]
-               (assoc m pc (apply sorted-map probs-pairs))))
-           {} parent-combs)
+                  (let [probs (my-shuffle (let [[p1 & prest] (sort (repeatedly (count vals) my-rand))]
+                                            (concat [(* p1 (:BestProbMult params))] prest)))
+                        probs-sum (reduce + probs)
+                        probs-pairs (interleave vals (map #(/ % probs-sum) probs))]
+                    (assoc m pc (apply sorted-map probs-pairs))))
+                {} parent-combs)
         prob-table (for [v vals pc parent-combs]
                      (get-in probs-parent-combs-map [pc v]))]
     (add-attr expgraph vertex :probs {:table prob-table :map probs-parent-combs-map})))
