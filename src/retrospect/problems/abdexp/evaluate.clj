@@ -35,35 +35,34 @@
   (let [expgraph (:expgraph truedata)
         bn (:bayesnet truedata)
         confidence (- 1.0 (doubt-aggregate est))
-        metrics
-        (for [ep (decision-points est)]
-          (let [ws (:workspace ep)
-                acc (:expl (accepted ws))
-                rej (:expl (rejected ws))
-                true-values-map (if (:MPEMetrics params)
-                                  (do (unobserve-all bn)
-                                      (observe-seq bn (apply concat (take (:time ep) (:test truedata))))
-                                      (:states (most-probable-explanation bn)))
-                                  (:true-values-map truedata))
-                [etp etn efp efn] (tp-tn-fp-fn true-values-map acc rej)
-                prec-recall (calc-prec-recall etp etn efp efn (count true-values-map))]
-            {:Prec (:Prec prec-recall)
-             :Recall (:Recall prec-recall)
-             :F1 (:F1 prec-recall)
-             :TPR (:TPR prec-recall)
-             :FPR (:FPR prec-recall)}))]
+        metrics (for [ep (decision-points est)]
+                  (let [ws (:workspace ep)
+                        acc (:expl (accepted ws))
+                        rej (:expl (rejected ws))
+                        true-values-map (if (:MPEMetrics params)
+                                          (do (unobserve-all bn)
+                                              (observe-seq bn (apply concat (take (:time ep) (:test truedata))))
+                                              (:states (most-probable-explanation bn)))
+                                          (:true-values-map truedata))
+                        [etp etn efp efn] (tp-tn-fp-fn true-values-map acc rej)]
+                    (calc-prec-recall etp etn efp efn (count true-values-map))))]
     (merge (last metrics)
            {:AvgPrec (avg (map :Prec metrics))
             :AvgRecall (avg (map :Recall metrics))
             :AvgF1 (avg (map :F1 metrics))
             :AvgTPR (avg (map :TPR metrics))
-            :AvgFPR (avg (map :FPR metrics))})))
+            :AvgFPR (avg (map :FPR metrics))
+            :AvgTNR (avg (map :TNR metrics))
+            :AvgPPV (avg (map :PPV metrics))
+            :AvgNPV (avg (map :NPV metrics))
+            :AvgFDR (avg (map :FDR metrics))})))
 
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
   (apply merge (map #(calc-increase control-results comparison-results %)
                   [:Prec :AvgPrec :Recall :AvgRecall :F1 :AvgF1
-                   :TPR :FPR :AvgTPR :AvgFPR])))
+                   :TPR :FPR :AvgTPR :AvgFPR :TNR :AvgTNR :PPV :AvgPPV
+                   :NPV :AvgNPV :FDR :AvgFDR])))
 
 (defn stats
   [truedata ors time-now])

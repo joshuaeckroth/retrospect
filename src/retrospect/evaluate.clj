@@ -39,6 +39,11 @@
     {:TP tp :TN tn :FP fp :FN fn
      :TPR (/ (double tp) (double (+ tp fn)))
      :FPR (/ (double fp) (double (+ fp tn)))
+     :TNR (/ (double tn) (double (+ fp tn)))
+     :PPV (/ (double tp) (double (+ tp fp)))
+     :NPV (/ (double tn) (double (+ tn fn)))
+     :FDR (/ (double fp) (double (+ fp tp)))
+     :Accuracy (/ (double (+ tp tn)) (double (+ tp tn fp fn)))
      :Recall recall
      :Prec prec
      :F1 (/ (* 2.0 prec recall) (+ prec recall))}))
