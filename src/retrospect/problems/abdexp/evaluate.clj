@@ -46,7 +46,8 @@
                                           (:true-values-map truedata))
                         [etp etn efp efn] (tp-tn-fp-fn true-values-map acc rej)]
                     (calc-prec-recall etp etn efp efn (count true-values-map))))]
-    (merge (last metrics)
+    (merge (compute-complexity expgraph)
+           (last metrics)
            {:AvgPrec (avg (map :Prec metrics))
             :AvgRecall (avg (map :Recall metrics))
             :AvgF1 (avg (map :F1 metrics))
