@@ -37,8 +37,8 @@
         confidence (- 1.0 (doubt-aggregate est))
         metrics (for [ep (decision-points est)]
                   (let [ws (:workspace ep)
-                        acc (:expl (accepted ws))
-                        rej (:expl (rejected ws))
+                        acc (filter #(= :expl (:subtype %)) (:expl (accepted ws)))
+                        rej (filter #(= :expl (:subtype %)) (:expl (rejected ws)))
                         true-values-map (if (:MPEMetrics params)
                                           (do (unobserve-all bn)
                                               (observe-seq bn (apply concat (take (:time ep) (:test truedata))))
