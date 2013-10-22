@@ -541,6 +541,7 @@
                                      (count noise-obs))]
             {:Unexplained (count (unexplained ws))
              :UnexplainedPct (get-unexp-pct ws)
+             :Coverage (- 1.0 (get-unexp-pct-no-obs ws))
              :NoExplainers (count (no-explainers ws))
              :NoExplainersPct (get-noexp-pct ws)
              :NoiseTotal (count noise-obs)
@@ -581,6 +582,7 @@
             :CallsToObserve (get @calls-to-observe (:simulation params))
             :CallsToHypothesize (get @calls-to-hypothesize (:simulation params))
             :AvgUnexplainedPct (avg (map :UnexplainedPct decision-metrics))
+            :AvgCoverage (avg (map :Coverage decision-metrics))
             :AvgNoExplainersPct (avg (map :NoExplainersPct decision-metrics))
             :AvgNoiseClaimsPrec (avg (map :NoiseClaimsPrec decision-metrics))
             :AvgNoiseClaimsRecall (avg (map :NoiseClaimsRecall decision-metrics))

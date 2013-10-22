@@ -113,7 +113,8 @@
         ;; MPE in Netica does not support querying a subset
         nodeidxs (.getMostProbableConfig bn nodelist)]
     {:states
-     (reduce (fn [m [node idx]] (assoc m (.getName node) (.getName (.state node idx))))
-        {} (partition 2 (interleave nodelist nodeidxs)))
+     (into {} (filter (fn [[node-name _]] (not (re-find #"_C_" node-name))) 
+                      (map (fn [node idx] [(.getName node) (.getName (.state node idx))])
+                           nodelist nodeidxs)))
      :prob (.getJointProbability bn nodelist nodeidxs)}))
 

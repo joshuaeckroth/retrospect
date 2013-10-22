@@ -2,7 +2,8 @@
   (:require [clojure.set :as set])
   (:use [retrospect.evaluate])
   (:use [retrospect.epistemicstates :only [cur-ep decision-points]])
-  (:use [retrospect.reason.abduction.workspace :only [accepted rejected calc-doubt]])
+  (:use [retrospect.reason.abduction.workspace :only
+         [accepted rejected rejection-reason calc-doubt]])
   (:use [retrospect.reason.abduction.evaluate :only [doubt-aggregate]])
   (:use [retrospect.problems.abdexp.expgraph])
   (:use [retrospect.problems.abdexp.bayesnet])
@@ -38,18 +39,24 @@
         metrics (for [ep (decision-points est)]
                   (let [ws (:workspace ep)
                         acc (filter #(= :expl (:subtype %)) (:expl (accepted ws)))
-                        rej (filter #(= :expl (:subtype %)) (:expl (rejected ws)))
-                        true-values-map (if (:MPEMetrics params)
-                                          (do (unobserve-all bn)
-                                              (observe-seq bn (apply concat (take (:time ep) (:test truedata))))
-                                              (:states (most-probable-explanation bn)))
-                                          (:true-values-map truedata))
-                        [etp etn efp efn] (tp-tn-fp-fn true-values-map acc rej)]
-                    (calc-prec-recall etp etn efp efn (count true-values-map))))]
+                        rej (filter #(and (= :expl (:subtype %))
+                                          (= :conflict (rejection-reason ws %)))
+                                    (:expl (rejected ws)))
+                        mpe-map (do (unobserve-all bn)
+                                    (observe-seq bn (apply concat (take (:time ep) (:test truedata))))
+                                    (:states (most-probable-explanation bn)))
+                        mpe-acc (for [[v val] mpe-map] {:vertex v :value val})
+                        true-values-map (:true-values-map truedata)
+                        [tp tn fp fn] (tp-tn-fp-fn true-values-map acc rej)
+                        prec-recall (calc-prec-recall tp tn fp fn (count true-values-map))
+                        [mtp mtn mfp mfn] (tp-tn-fp-fn true-values-map mpe-acc [])
+                        mpe-prec-recall (calc-prec-recall mtp mtn mfp mfn (count true-values-map))]
+                    (assoc prec-recall :MPEAccuracy (:Accuracy mpe-prec-recall))))]
     (merge (compute-complexity expgraph)
            (last metrics)
            {:AvgPrec (avg (map :Prec metrics))
             :AvgRecall (avg (map :Recall metrics))
+            :AvgAccuracy (avg (map :Accuracy metrics))
             :AvgF1 (avg (map :F1 metrics))
             :AvgTPR (avg (map :TPR metrics))
             :AvgFPR (avg (map :FPR metrics))
@@ -63,7 +70,7 @@
   (apply merge (map #(calc-increase control-results comparison-results %)
                   [:Prec :AvgPrec :Recall :AvgRecall :F1 :AvgF1
                    :TPR :FPR :AvgTPR :AvgFPR :TNR :AvgTNR :PPV :AvgPPV
-                   :NPV :AvgNPV :FDR :AvgFDR])))
+                   :NPV :AvgNPV :FDR :AvgFDR :Accuracy :AvgAccuracy])))
 
 (defn stats
   [truedata ors time-now])

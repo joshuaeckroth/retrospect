@@ -480,7 +480,8 @@
     (log "Adding" hyp-c)
     (let [ws (if-let [prior-hyp-id (get (:hyp-contents workspace) (:contents hyp-c))]
                (-> workspace
-                   (add-to-hyp-log prior-hyp-id (format "%s Added as updated hyp %s at cycle %d (original: %s)" hyp-c prior-hyp-id cycle hyp))
+                   (add-to-hyp-log prior-hyp-id (format "%s Added as updated hyp %s at cycle %d (original: %s)"
+                                                        hyp-c prior-hyp-id cycle hyp))
                    (add-existing-hyp-updated hyp-c prior-hyp-id cycle))
                (-> workspace
                    (add-to-hyp-log hyp-c (format "%s Added at cycle %d (original: %s)" hyp-c cycle hyp))
@@ -725,6 +726,14 @@
     (if (empty? unexp) 0.0
         (/ (double (count unexp))
            (double (count (:all acc)))))))
+
+(defn get-unexp-pct-no-obs
+  [workspace]
+  (let [unexp (filter #(not= :observation (:type %)) (unexplained workspace))
+        acc (accepted workspace)]
+    (if (empty? unexp) 0.0
+        (/ (double (count unexp))
+           (double (count (filter #(not= :observation (:type %)) (:all acc))))))))
 
 (defn get-noexp-pct
   [workspace]

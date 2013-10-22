@@ -56,5 +56,4 @@
     :HypScores ["posterior" ["prior" "posterior"]]
     :PriorFunc ["max" ["min" "max" "avg"]]
     :MaxStates [3 [2 3 4]]
-    :MPEMetrics [false [true false]]
     :BestProbMult [1.0 [1.0 2.0 3.0]]}})
