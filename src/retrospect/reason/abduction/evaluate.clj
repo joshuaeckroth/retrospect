@@ -635,7 +635,7 @@
                     control-params comparison-params)
                    (map #(calc-increase control comparison %)
                       (concat [:UnexplainedPct :NoExplainersPct
-                               :TrueDeltaAvg :FalseDeltaAvg
+                               :TrueDeltaAvg :FalseDeltaAvg :Coverage
                                :Doubt :ExplainCycles :HypothesisCount
                                :MetaBranches :ErrorsCount :ErrorsNoise
                                :ErrorsConflictRejection :ErrorsMinScore :ErrorsSuperfluous
@@ -643,6 +643,7 @@
                                :NoExpReasonNoise :NoExpReasonRejectedConflict
                                :NoExpReasonRejectedMinScore :NoExpReasonNoExpl
                                :NoExpReasonUnknown :NoiseTotal
+                               :NoiseClaimsTPR :NoiseClaimsFPR
                                :NoiseClaimsTrue :NoiseClaimsFalse
                                :NoiseClaimsPrec :NoiseClaimsRecall :NoiseClaimsF1]
                               (mapcat
