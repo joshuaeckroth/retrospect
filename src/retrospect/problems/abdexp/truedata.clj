@@ -83,7 +83,7 @@
                        (if (empty? pc) [#{}] pc))
         probs-parent-combs-map
         (reduce (fn [m pc]
-                  (let [probs (my-shuffle (let [[p1 & prest] (sort (repeatedly (count vals) my-rand))]
+                  (let [probs (my-shuffle (let [[p1 & prest] (reverse (sort (repeatedly (count vals) my-rand)))]
                                             (concat [(* p1 (:BestProbMult params))] prest)))
                         probs-sum (reduce + probs)
                         probs-pairs (interleave vals (map #(/ % probs-sum) probs))]
