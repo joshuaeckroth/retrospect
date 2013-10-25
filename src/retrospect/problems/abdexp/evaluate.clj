@@ -3,7 +3,7 @@
   (:use [retrospect.evaluate])
   (:use [retrospect.epistemicstates :only [cur-ep decision-points]])
   (:use [retrospect.reason.abduction.workspace :only
-         [accepted rejected rejection-reason calc-doubt]])
+         [hypotheses accepted rejected rejection-reason calc-doubt]])
   (:use [retrospect.reason.abduction.evaluate :only [doubt-aggregate]])
   (:use [retrospect.problems.abdexp.expgraph])
   (:use [retrospect.problems.abdexp.bayesnet])
