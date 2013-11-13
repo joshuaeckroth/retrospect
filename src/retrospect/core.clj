@@ -64,6 +64,7 @@
         problem (choose-problem (:problem options))
         props (read-properties "config.properties")]
     (setup-geppetto (:geppetto_dbhost props)
+                    (:geppetto_dbport props)
                     (:geppetto_dbname props)
                     (:geppetto_dbuser props)
                     (:geppetto_dbpassword props)
