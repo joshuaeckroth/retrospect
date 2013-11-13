@@ -120,7 +120,6 @@
   (let [observations (find-spotted sensor movements time)
         all-sensed-obs (-> observations
                            (insertion-noise sensor time)
-                           (deletion-noise)
                            (distortion-noise)
                            (duplication-noise)
                            (compute-virtual-scores observations))
