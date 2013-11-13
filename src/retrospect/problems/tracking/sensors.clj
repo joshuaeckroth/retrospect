@@ -125,10 +125,13 @@
     (add-sensed sensor time
                 (-> observations
                     (insertion-noise sensor time)
-                    (deletion-noise)
                     (distortion-noise)
                     (duplication-noise)
                     (compute-virtual-scores observations)))))
+
+(comment
+  (deletion-noise) ;; ignore deletion noise for easier experiments
+  )
 
 (defn new-sensor
   "Generate a new sensor with provided values and an empty 'spotted' vector."
