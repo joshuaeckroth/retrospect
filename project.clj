@@ -5,7 +5,7 @@
                  [cc.artifice/clj-swing "0.1.6"]
                  [cc.artifice/geppetto "2.5.0-SNAPSHOT"]
                  [prismatic/plumbing "0.1.0"]
-                 [seesaw "1.4.3"]
+                 [seesaw "1.4.4"]
                  [cc.artifice/loom "0.1.3"]
                  [org.clojure/tools.cli "0.2.4"]
                  [org.clojure/math.combinatorics "0.0.4"]
