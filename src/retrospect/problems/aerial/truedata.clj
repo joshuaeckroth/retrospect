@@ -25,7 +25,7 @@
 
 (defn extract-object
   [image object]
-  (let [img (ImageIO/read (file image))
+  (let [img (try (ImageIO/read (file image)) (catch Exception _))
         objzip (zip/xml-zip object)
         box (zip/node (zip/down objzip))
         rep (zip/node (zip/right (zip/down objzip)))
