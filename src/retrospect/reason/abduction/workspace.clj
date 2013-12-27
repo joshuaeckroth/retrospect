@@ -609,7 +609,7 @@
 (defn best-contrast-set
   [workspace c-sets]
   (if (= (:ContrastPreference params) "arbitrary")
-    (assoc (sort-by (comp :id :hyp) (my-rand-nth c-sets)) :delta 1.0)
+    (assoc (my-rand-nth (sort-by (comp :id :hyp) c-sets)) :delta 1.0)
     (let [delta-c-sets (map contrast-set-delta c-sets)
           best-delta (apply max (map :delta delta-c-sets))
           best-delta-c-sets (filter #(= best-delta (:delta %)) delta-c-sets)
