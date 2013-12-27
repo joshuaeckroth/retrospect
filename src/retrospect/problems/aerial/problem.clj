@@ -46,6 +46,6 @@
     :StepsBetween [1 [1]]
     :MovementApriori ["dist-diff" ["dist-diff" "dist" "avg-detscores"]]
     :TrainingCount [5 [5]]
-    :KeepObjIdProb [10 [10]]
+    :KeepObjIdProb [0 [0]]
     :Folder ["AA_Easy_01" ["AA_Easy_01"]]
-    :SensorThreshold [60 [0 20 40 60 80 100]]}})
+    :SensorThreshold [35 [0 20 40 60 80 100]]}})
