@@ -46,14 +46,15 @@
                :claims abduction-claims}
    :claims abduction-claims
    :default-params
-   {:Steps [20 [20]]
+   {:Steps [10 [10]]
     :StepsBetween [1 [1]]
-    :NumExplainers [5 [5]]
+    :NumExplainers [3 [3]]
     :NumExplainsLinks [40 [40]]
-    :NumConflictLinks [20 [20]]
+    :NumConflictLinks [6 [6]]
     :UniqueGraphs [1000 [1000]]
     :SensorSubset [75.0 [0.0 25.0 50.0 75.0 100.0]]
     :HypScores ["posterior" ["prior" "posterior"]]
     :PriorFunc ["max" ["min" "max" "avg"]]
     :MaxStates [3 [2 3 4]]
     :BestProbMult [1.0 [1.0 2.0 3.0]]}})
+

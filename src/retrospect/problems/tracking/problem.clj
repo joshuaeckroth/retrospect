@@ -30,8 +30,8 @@
    :prepared-map prepared-map
    :oracle-fn (fn [truedata hyp]
                 (if (= "Abduction" (:name @reasoner))
-                    (true-hyp? truedata hyp)
-                    false))
+                  (true-hyp? truedata hyp)
+                  false))
    :abduction {:generate-kb-fn generate-kb
                :make-sensor-hyps-fn make-sensor-hyps
                :hypothesize-fn hypothesize
@@ -44,10 +44,16 @@
                :hyp-types #{:movement :observation}
                :ignore-doubt-types #{:observation}
                :default-params
-               {:GetMoreHyps [false [false]]}}
+               {:GetMoreHyps [false [false]]
+                :VirtualScores [true [true]]
+                :VirtualScoresBadMean [0.4 [0.4]]
+                :VirtualScoresBadVariance [0.1 [0.1]]
+                :VirtualScoresGoodMean [0.8 [0.8]]
+                :VirtualScoresGoodProb [0.9 [0.9]]
+                :VirtualScoresGoodVariance [0.1 [0.1]]}}
    :claims tracking-claims
    :default-params
-   {:Steps [5 [5]]
+   {:Steps [10 [10]]
     :StepsBetween [1 [1]]
     :GridWidth [10 [10]]
     :GridHeight [10 [10]]
