@@ -628,6 +628,7 @@
             nbest (second expl)]
         (log "best:" best "nbest:" nbest "delta:" delta)
         (when (or (= 0 (:Threshold params))
+                  (and (= 100 (:Threshold params)) (nil? nbest))
                   (>= delta (+ 0.001 (/ (:Threshold params) 100.0))))
           {:best best :nbest nbest :delta delta
            :explained hyp :alts (rest expl)
