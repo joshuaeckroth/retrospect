@@ -639,7 +639,7 @@
                                :Doubt :ExplainCycles :HypothesisCount
                                :MetaBranches :ErrorsCount :ErrorsNoise
                                :ErrorsConflictRejection :ErrorsMinScore :ErrorsSuperfluous
-                               :ErrorsScoring :ErrorsUnknown :ErrorsNoError :NoExpCount
+                               :ErrorsScoring :ErrorsUnknown :ErrorsNoExp :ErrorsNoError :NoExpCount
                                :NoExpReasonNoise :NoExpReasonRejectedConflict
                                :NoExpReasonRejectedMinScore :NoExpReasonNoExpl
                                :NoExpReasonUnknown :NoiseTotal
