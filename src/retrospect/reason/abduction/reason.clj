@@ -39,6 +39,7 @@
              :ScoreMetaHyps ["doubt-diff" ["doubt-diff" "doubt" "apriori-diff" "apriori-resolved"]]
              :RemoveConflictingImplExp [true [true false]]
              :MaxMetaImplExpScoreDelta [0.5 [0.5 1.0]]
+             :MetaEveryNSteps [1 [1 2 3 4 5]]
              :MaxBatch [5 [5]]
              :MinScore [0 [0 10]]
              :AblatePct [0 [0 10]]

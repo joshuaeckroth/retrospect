@@ -68,8 +68,10 @@
     (let [est-new (explain-and-advance est time-prev time-now sensors)
           meta? (and (not-any? #{:no-metareason} opts)
                      (metareasoning-activated? est-new))
-          est-meta (if (not meta?) est-new
-                       (metareason est-new time-prev time-now sensors))]
+          est-meta (cond (not meta?) est-new
+                         (= 0 (mod time-now (:MetaEveryNSteps params)))
+                         (metareason est-new time-prev time-now sensors)
+                         :else est-new)]
       ;; if something was accepted last, repeat
       (if (:best (:accrej (:workspace (cur-ep est-meta))))
         (recur est-meta) est-meta))))
