@@ -3,7 +3,7 @@
   :dependencies [[org.clojure/data.xml "0.0.7" :exclusions [[org.clojure/clojure]]]
                  [cc.artifice/vijual "0.2.5"]
                  [cc.artifice/clj-swing "0.1.6"]
-                 [cc.artifice/geppetto "2.5.0-SNAPSHOT"]
+                 [cc.artifice/geppetto "3.0.0-SNAPSHOT"]
                  [prismatic/plumbing "0.1.0"]
                  [seesaw "1.4.4"]
                  [cc.artifice/loom "0.1.3"]
