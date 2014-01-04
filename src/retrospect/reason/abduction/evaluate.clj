@@ -306,8 +306,10 @@
      :minscore
      (every? #{:ignoring} rej-reasons)
      :ignored
+     (every? #{:conflict} rej-reasons)
+     :conflict
      :else
-     :conflict)))
+     :combination)))
 
 (defn find-noexp-reasons
   [est]
@@ -608,6 +610,7 @@
             :NoExpReasonIgnored (:ignored noexp-reasons 0)
             :NoExpReasonMinScore (:minscore noexp-reasons 0)
             :NoExpReasonNoExpl (:no-expl-offered noexp-reasons 0)
+            :NoExpReasonCombination (:combination noexp-reasons 0)
             :NoiseSolitary (:solitary noise-types 0)
             :NoiseSolitaryPct (if (= 0 noise-total) Double/NaN
                                   (double (/ (:solitary noise-types 0)
@@ -639,7 +642,8 @@
                                :Doubt :ExplainCycles :HypothesisCount
                                :MetaBranches :ErrorsCount :ErrorsNoise
                                :ErrorsConflictRejection :ErrorsMinScore :ErrorsSuperfluous
-                               :ErrorsScoring :ErrorsUnknown :ErrorsNoExp :ErrorsNoError :NoExpCount
+                               :ErrorsScoring :ErrorsUnknown :ErrorsNoExp :ErrorsNoError
+                               :NoExpCount :NoExpReasonCombination
                                :NoExpReasonNoise :NoExpReasonRejectedConflict
                                :NoExpReasonRejectedMinScore :NoExpReasonNoExpl
                                :NoExpReasonUnknown :NoiseTotal
