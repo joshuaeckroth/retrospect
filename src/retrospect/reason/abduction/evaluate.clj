@@ -358,18 +358,12 @@
 (defn meta-hyp-metrics
   [meta-true-false]
   (letfn [(ar-avg-count [type tf]
-            (let [vals (map (fn [h] (- (count (:anomalies-prior h))
-                                    (count (:anomalies-after h))))
-                          (get-in meta-true-false [type tf]))]
+            (let [vals (map (fn [h] (count (:resolves h)))
+                            (get-in meta-true-false [type tf]))]
               (avg vals)))
           (ar-avg-apriori [type tf]
             (let [vals (map (fn [h] (avg (map :apriori (:resolves h))))
-                          (get-in meta-true-false [type tf]))]
-              (avg vals)))
-          (ar-avg-apriori-diff [type tf]
-            (let [vals (map (fn [h] (- (avg (map :apriori (:anomalies-prior h)))
-                                    (avg (map :apriori (:anomalies-after h)))))
-                          (get-in meta-true-false [type tf]))]
+                            (get-in meta-true-false [type tf]))]
               (avg vals)))
           (avg-explain-count [type tf]
             (let [vals (map #(count (:explains %)) (get-in meta-true-false [type tf]))]
@@ -384,47 +378,49 @@
             (let [vals (map :doubt-diff (get-in meta-true-false [type tf]))]
               (avg vals)))]
     (reduce (fn [m t]
-         (let [k (keyword-to-metric t)]
-           (assoc m
-             (keyword (format "TrueAnomalyReduction%s" k)) (ar-avg-count t true)
-             (keyword (format "TrueAnomalyResolvedApriori%s" k)) (ar-avg-apriori t true)
-             (keyword (format "TrueAnomalyResolvedAprioriDiff%s" k)) (ar-avg-apriori-diff t true)
-             (keyword (format "TrueDoubtPrior%s" k)) (avg-doubt-prior t true)
-             (keyword (format "TrueDoubtNew%s" k)) (avg-doubt-new t true)
-             (keyword (format "TrueDoubtDiff%s" k)) (avg-doubt-diff t true)
-             (keyword (format "TrueExplainCount%s" k)) (avg-explain-count t true)
-             (keyword (format "FalseAnomalyReduction%s" k)) (ar-avg-count t false)
-             (keyword (format "FalseAnomalyResolvedApriori%s" k)) (ar-avg-apriori t false)
-             (keyword (format "FalseAnomalyResolvedAprioriDiff%s" k)) (ar-avg-apriori-diff t false)
-             (keyword (format "FalseDoubtPrior%s" k)) (avg-doubt-prior t false)
-             (keyword (format "FalseDoubtNew%s" k)) (avg-doubt-new t false)
-             (keyword (format "FalseDoubtDiff%s" k)) (avg-doubt-diff t false)
-             (keyword (format "FalseExplainCount%s" k)) (avg-explain-count t false))))
-       {:TrueMetaImplExpScoreDeltaAvg
-        (avg (map :score-delta (get-in meta-true-false [:meta-impl-exp true])))
-        :FalseMetaImplExpScoreDeltaAvg
-        (avg (map :score-delta (get-in meta-true-false [:meta-impl-exp false])))
-        :TrueMetaImplExpConflictsAccepted
-        (let [hyps (get-in meta-true-false [:meta-impl-exp true])]
-          (if (empty? hyps) 0.0
-              (double (/ (count (filter :conflicts-with-accepted? hyps)) (count hyps)))))
-        :FalseMetaImplExpConflictsAccepted
-        (let [hyps (get-in meta-true-false [:meta-impl-exp false])]
-          (if (empty? hyps) 0.0
-              (double (/ (count (filter :conflicts-with-accepted? hyps)) (count hyps)))))
-        :TrueMetaConfExpEpDeltaAvg
-        (avg (map :delta (get-in meta-true-false [:meta-conf-exp true])))
-        :FalseMetaConfExpEpDeltaAvg
-        (avg (map :delta (get-in meta-true-false [:meta-conf-exp false])))
-        :TrueMetaConfExpCycleDiffAvg
-        (avg (map :cycle-diff (get-in meta-true-false [:meta-conf-exp true])))
-        :FalseMetaConfExpCycleDiffAvg
-        (avg (map :cycle-diff (get-in meta-true-false [:meta-conf-exp false])))
-        :TrueMetaConfExpTimeDiffAvg
-        (avg (map :time-diff (get-in meta-true-false [:meta-conf-exp true])))
-        :FalseMetaConfExpTimeDiffAvg
-        (avg (map :time-diff (get-in meta-true-false [:meta-conf-exp false])))}
-       (:meta-hyp-types @reasoner))))
+              (let [k (keyword-to-metric t)]
+                (assoc m
+                  (keyword (format "TrueAnomalyReduction%s" k)) (ar-avg-count t true)
+                  (keyword (format "TrueAnomalyResolvedApriori%s" k)) (ar-avg-apriori t true)
+                  (keyword (format "TrueDoubtPrior%s" k)) (avg-doubt-prior t true)
+                  (keyword (format "TrueDoubtNew%s" k)) (avg-doubt-new t true)
+                  (keyword (format "TrueDoubtDiff%s" k)) (avg-doubt-diff t true)
+                  (keyword (format "TrueExplainCount%s" k)) (avg-explain-count t true)
+                  (keyword (format "FalseAnomalyReduction%s" k)) (ar-avg-count t false)
+                  (keyword (format "FalseAnomalyResolvedApriori%s" k)) (ar-avg-apriori t false)
+                  (keyword (format "FalseDoubtPrior%s" k)) (avg-doubt-prior t false)
+                  (keyword (format "FalseDoubtNew%s" k)) (avg-doubt-new t false)
+                  (keyword (format "FalseDoubtDiff%s" k)) (avg-doubt-diff t false)
+                  (keyword (format "FalseExplainCount%s" k)) (avg-explain-count t false))))
+            {:TrueMetaImplExpScoreDeltaAvg
+             (avg (map :score-delta (get-in meta-true-false [:meta-impl-exp true])))
+             :FalseMetaImplExpScoreDeltaAvg
+             (avg (map :score-delta (get-in meta-true-false [:meta-impl-exp false])))
+             :TrueMetaImplExpConflictsAccepted
+             (let [hyps (get-in meta-true-false [:meta-impl-exp true])]
+               (if (empty? hyps) 0.0
+                   (double (/ (count (filter :conflicts-with-accepted? hyps)) (count hyps)))))
+             :FalseMetaImplExpConflictsAccepted
+             (let [hyps (get-in meta-true-false [:meta-impl-exp false])]
+               (if (empty? hyps) 0.0
+                   (double (/ (count (filter :conflicts-with-accepted? hyps)) (count hyps)))))
+             :TrueMetaConfExpEpDeltaAvg
+             (avg (map :delta (get-in meta-true-false [:meta-conf-exp true])))
+             :FalseMetaConfExpEpDeltaAvg
+             (avg (map :delta (get-in meta-true-false [:meta-conf-exp false])))
+             :TrueMetaConfExpCycleDiffAvg
+             (avg (map :cycle-diff (get-in meta-true-false [:meta-conf-exp true])))
+             :FalseMetaConfExpCycleDiffAvg
+             (avg (map :cycle-diff (get-in meta-true-false [:meta-conf-exp false])))
+             :TrueMetaConfExpTimeDiffAvg
+             (avg (map :time-diff (get-in meta-true-false [:meta-conf-exp true])))
+             :FalseMetaConfExpTimeDiffAvg
+             (avg (map :time-diff (get-in meta-true-false [:meta-conf-exp false])))
+             :TrueMetaConfExpEssentialCount
+             (count (filter :essential? (get-in meta-true-false [:meta-conf-exp true])))
+             :FalseMetaConfExpEssentialCount
+             (count (filter :essential? (get-in meta-true-false [:meta-conf-exp false])))}
+            (:meta-hyp-types @reasoner))))
 
 (defn meta-hyp-workspace-metrics
   [meta-true-false est]

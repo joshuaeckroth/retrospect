@@ -135,21 +135,25 @@
                             ep-rejs)
         earliest-rejs-deltas (for [hyp (sort-by :id (map :hyp ep-rejs-deltas))]
                                (first (sort-by :cycle (filter #(= hyp (:hyp %)) ep-rejs-deltas))))]
-    (doall (filter #(not-empty (:may-resolve %))
+    (doall (filter (fn [meta-hyp]
+                     (and (not-empty (:may-resolve meta-hyp))
+                          (or (not (:RemoveEssentialConfExp params))
+                              (not (:essential? meta-hyp)))))
                    (for [{:keys [delta cycle time hyp rejected-expl]} earliest-rejs-deltas]
                      ;; do a simulation to figure out which anomalies are resolved
                      (let [[est-resolved _] (resolve-conf-exp hyp est time-prev time-now nil)
                            est-reasoned (:est-new (meta-apply est est-resolved time-prev time-now nil))
                            anomalies-resolved (set/difference rel-anomalies (set (find-anomalies est-reasoned)))]
                        {:rej-hyp hyp :cycle cycle :time time :delta delta
-                        :rejected-expl rejected-expl :may-resolve anomalies-resolved}))))))
+                        :rejected-expl rejected-expl :may-resolve anomalies-resolved
+                        :essential? (empty? (accepted-rivals cur-ws hyp))}))))))
 
 (defnp make-meta-hyps-conflicting-explainers
   [anomalies est time-prev time-now sensors]
   ;; correct explainer(s) were rejected due to conflicts; need to
   ;; consider the various possibilities of rejected explainers and
   ;; no-explainers combinations
-  (for [{:keys [rej-hyp cycle time delta rejected-expl may-resolve]}
+  (for [{:keys [rej-hyp cycle time delta rejected-expl may-resolve essential?]}
         (conf-exp-candidates anomalies est time-prev time-now sensors)]
     (let [apriori (* (avg (map :apriori may-resolve)) (- 1.0 (:apriori rej-hyp)))]
       (new-hyp "ConfExp" :meta-conf-exp :meta-conf-exp apriori
@@ -166,7 +170,8 @@
                 :cycle cycle
                 :cycle-diff (- (:cycle (cur-ep est)) cycle)
                 :time-diff (- (:time (cur-ep est)) time)
-                :delta delta}))))
+                :delta delta
+                :essential? essential?}))))
 ;;}}}
 
 ;; implausible explainers

@@ -37,6 +37,7 @@
                         ["meta-insuf-ev,meta-impl-exp,meta-order-dep,meta-conf-exp"]]
              :MetaRemainderIgnore [true [true false]]
              :ScoreMetaHyps ["doubt-diff" ["doubt-diff" "doubt" "apriori-diff" "apriori-resolved"]]
+             :RemoveEssentialConfExp [false [true false]]
              :RemoveConflictingImplExp [true [true false]]
              :MaxMetaImplExpScoreDelta [0.5 [0.5 1.0]]
              :MetaEveryNSteps [1 [1 2 3 4 5]]
