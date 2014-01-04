@@ -610,7 +610,6 @@
             :NoExpReasonIgnored (:ignored noexp-reasons 0)
             :NoExpReasonMinScore (:minscore noexp-reasons 0)
             :NoExpReasonNoExpl (:no-expl-offered noexp-reasons 0)
-            :NoExpReasonCombination (:combination noexp-reasons 0)
             :NoiseSolitary (:solitary noise-types 0)
             :NoiseSolitaryPct (if (= 0 noise-total) Double/NaN
                                   (double (/ (:solitary noise-types 0)
@@ -643,8 +642,7 @@
                                :MetaBranches :ErrorsCount :ErrorsNoise
                                :ErrorsConflictRejection :ErrorsMinScore :ErrorsSuperfluous
                                :ErrorsScoring :ErrorsUnknown :ErrorsNoExp :ErrorsNoError
-                               :NoExpCount :NoExpReasonCombination
-                               :NoExpReasonNoise :NoExpReasonRejectedConflict
+                               :NoExpCount :NoExpReasonNoise :NoExpReasonRejectedConflict
                                :NoExpReasonRejectedMinScore :NoExpReasonNoExpl
                                :NoExpReasonUnknown :NoiseTotal
                                :NoiseClaimsTPR :NoiseClaimsFPR
