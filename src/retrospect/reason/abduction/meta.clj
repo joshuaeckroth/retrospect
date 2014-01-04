@@ -5,9 +5,11 @@
   (:use [retrospect.epistemicstates])
   (:use [retrospect.reason.abduction.workspace])
   (:use [retrospect.evaluate :only [avg]])
-  (:use [retrospect.reason.abduction.evaluate :only [doubt-aggregate classify-noexp-reason]])
+  (:use [retrospect.reason.abduction.evaluate :only
+         [doubt-aggregate some-noexp-reason?]])
   (:use [retrospect.logging])
-  (:use [retrospect.state]))
+  (:use [retrospect.state])
+  (:use [taoensso.timbre.profiling :only [defnp profile]]))
 
 ;; basic reasoning process
 ;;{{{
@@ -93,7 +95,7 @@
 ;; conflicting explainers
 ;;{{{
 
-(defn resolve-conf-exp
+(defnp resolve-conf-exp
   [rej-hyp est time-prev time-now sensors]
   (let [new-est (new-branch-ep est (cur-ep est))
         ep (cur-ep new-est)
@@ -104,11 +106,11 @@
         ep-acc (assoc ep :workspace ws)]
     [(update-est new-est ep-acc) params]))
 
-(defn conf-exp-candidates
+(defnp conf-exp-candidates
   [anomalies est time-prev time-now sensors]
   (let [cur-ws (:workspace (cur-ep est))
         rel-anomalies (set (filter #(and (no-explainers? cur-ws %)
-                                         (= :conflict (classify-noexp-reason cur-ws %))) anomalies))
+                                         (some-noexp-reason? cur-ws % :conflict)) anomalies))
         ;; explainers of anomalies
         expl (set (mapcat #(explainers cur-ws %) rel-anomalies))
         ;; rejected explainers due to conflict
@@ -133,16 +135,16 @@
                             ep-rejs)
         earliest-rejs-deltas (for [hyp (sort-by :id (map :hyp ep-rejs-deltas))]
                                (first (sort-by :cycle (filter #(= hyp (:hyp %)) ep-rejs-deltas))))]
-    (filter #(not-empty (:may-resolve %))
-            (for [{:keys [delta cycle time hyp rejected-expl]} earliest-rejs-deltas]
-              ;; do a simulation to figure out which anomalies are resolved
-              (let [[est-resolved _] (resolve-conf-exp hyp est time-prev time-now nil)
-                    est-reasoned (:est-new (meta-apply est est-resolved time-prev time-now nil))
-                    anomalies-resolved (set/difference rel-anomalies (set (find-anomalies est-reasoned)))]
-                {:rej-hyp hyp :cycle cycle :time time :delta delta
-                 :rejected-expl rejected-expl :may-resolve anomalies-resolved})))))
+    (doall (filter #(not-empty (:may-resolve %))
+                   (for [{:keys [delta cycle time hyp rejected-expl]} earliest-rejs-deltas]
+                     ;; do a simulation to figure out which anomalies are resolved
+                     (let [[est-resolved _] (resolve-conf-exp hyp est time-prev time-now nil)
+                           est-reasoned (:est-new (meta-apply est est-resolved time-prev time-now nil))
+                           anomalies-resolved (set/difference rel-anomalies (set (find-anomalies est-reasoned)))]
+                       {:rej-hyp hyp :cycle cycle :time time :delta delta
+                        :rejected-expl rejected-expl :may-resolve anomalies-resolved}))))))
 
-(defn make-meta-hyps-conflicting-explainers
+(defnp make-meta-hyps-conflicting-explainers
   [anomalies est time-prev time-now sensors]
   ;; correct explainer(s) were rejected due to conflicts; need to
   ;; consider the various possibilities of rejected explainers and
@@ -170,7 +172,7 @@
 ;; implausible explainers
 ;;{{{
 
-(defn resolve-impl-exp
+(defnp resolve-impl-exp
   [hyp est time-prev time-now sensors]
   (let [new-est (new-branch-ep est (cur-ep est))
         ep (cur-ep new-est)
@@ -181,26 +183,27 @@
         ep-prev-minscore (assoc ep :workspace ws)]
     [(update-est new-est ep-prev-minscore) params]))
 
-(defn impl-exp-candidates
+(defnp impl-exp-candidates
   [anomalies est time-prev time-now sensors]
   (let [cur-ws (:workspace (cur-ep est))
         rel-anomalies (set (filter #(and (no-explainers? cur-ws %)
-                                         (= :minscore (classify-noexp-reason cur-ws %))) anomalies))
+                                         (some-noexp-reason? cur-ws % :minscore))
+                                   anomalies))
         ;; explainers of anomalies
         expl (set (mapcat #(explainers cur-ws %) rel-anomalies))
         ;; explainers that were rejected due to minscore
         expl-rejected-minscore (sort-by :id (filter (fn [h] (= :minscore (rejection-reason cur-ws h))) expl))]
-    (filter #(not-empty (:may-resolve %))
-            (for [hyp expl-rejected-minscore]
-              ;; do a simulation to figure out which anomalies are resolved
-              (let [[est-resolved _] (resolve-impl-exp hyp est time-prev time-now nil)
-                    est-reasoned (:est-new (meta-apply est est-resolved time-prev time-now nil))
-                    anomalies-resolved (set/difference rel-anomalies (set (find-anomalies est-reasoned)))]
-                {:acc-hyp hyp
-                 :may-resolve anomalies-resolved
-                 :score-delta (- (/ (:MinScore params) 100.0) (:apriori hyp))})))))
+    (doall (filter #(not-empty (:may-resolve %))
+                   (for [hyp expl-rejected-minscore]
+                     ;; do a simulation to figure out which anomalies are resolved
+                     (let [[est-resolved _] (resolve-impl-exp hyp est time-prev time-now nil)
+                           est-reasoned (:est-new (meta-apply est est-resolved time-prev time-now nil))
+                           anomalies-resolved (set/difference rel-anomalies (set (find-anomalies est-reasoned)))]
+                       {:acc-hyp hyp
+                        :may-resolve anomalies-resolved
+                        :score-delta (- (/ (:MinScore params) 100.0) (:apriori hyp))}))))))
 
-(defn make-meta-hyps-implausible-explainers
+(defnp make-meta-hyps-implausible-explainers
   [anomalies est time-prev time-now sensors]
   ;; were some explainers omitted due to high min-score?
   (let [candidates (impl-exp-candidates anomalies est time-prev time-now sensors)
@@ -237,7 +240,7 @@
 ;; sensor report order dependencies
 ;;{{{
 
-(defn resolve-order-dep
+(defnp resolve-order-dep
   [ep est time-prev time-now sensors]
   (let [new-est (new-branch-ep est ep)
         ep (cur-ep new-est)
@@ -247,16 +250,16 @@
         ep-batch (assoc ep :workspace ws-hyps)]
     [(update-est new-est ep-batch) params]))
 
-(defn order-dep-candidates
+(defnp order-dep-candidates
   [anomalies est]
   ;; don't batch "over" a previous batch
   (if (not= (dec (:time (cur-ep est))) (time-prior est)) []
-      (let [ws (:workspace (cur-ep est))
-            acc (accepted ws)
+      (let [cur-ws (:workspace (cur-ep est))
+            acc (accepted cur-ws)
             ;; gather all observations with no explainers
-            rel-anomalies (filter #(and (no-explainers? ws %)
-                                        (= :no-expl-offered (classify-noexp-reason ws %))) anomalies)
-            accept-cycles (into {} (for [hyp rel-anomalies] [hyp (accepted-cycle ws hyp)]))
+            rel-anomalies (filter #(and (no-explainers? cur-ws %)
+                                        (some-noexp-reason? cur-ws % :no-expl-offered)) anomalies)
+            accept-cycles (into {} (for [hyp rel-anomalies] [hyp (accepted-cycle cur-ws hyp)]))
             time-last (:time (cur-ep est))
             eps (map (fn [t] (cur-ep (goto-start-of-time est t)))
                      (range (max 0 (- time-last (:MaxBatch params))) time-last))
@@ -268,7 +271,7 @@
         (for [[may-resolve candidates] (seq grp-candidates)]
           [may-resolve (last (sort-by :cycle (map :ep candidates)))]))))
 
-(defn make-meta-hyps-order-dep
+(defnp make-meta-hyps-order-dep
   [anomalies est time-prev time-now sensors]
   (for [[may-resolve ep] (order-dep-candidates anomalies est)]
     (let [apriori (avg (map :apriori may-resolve))]
@@ -286,7 +289,7 @@
 ;; insufficient evidence
 ;;{{{
 
-(defn resolve-insuf-ev
+(defnp resolve-insuf-ev
   [anomaly est time-prev time-now sensors]
   (let [new-est (new-branch-ep est (cur-ep est))
         ep (cur-ep new-est)
@@ -295,7 +298,7 @@
         ep-more-ev (assoc ep :workspace ws-more-ev)]
     [(update-est new-est ep-more-ev) (assoc params :GetMoreHyps true)]))
 
-(defn insuf-ev-candidates
+(defnp insuf-ev-candidates
   "Insufficient evidence candidates are those anomalies that have
   explainers but no explainer 'stands' out, i.e., none has a delta
   greater than threshold."
@@ -305,7 +308,7 @@
     ;; then those explainers must not have been accepted due to too-low delta
     (filter (fn [obs] (not-empty (contrast-sets ws [obs]))) anomalies)))
 
-(defn make-meta-hyps-insufficient-evidence
+(defnp make-meta-hyps-insufficient-evidence
   [anomalies est time-prev time-now sensors]
   (let [ws (:workspace (cur-ep est))]
     (for [anomaly (insuf-ev-candidates anomalies est time-prev time-now sensors)]
@@ -325,7 +328,7 @@
 ;; make and score metahyps
 ;;{{{
 
-(defn make-meta-hyps
+(defnp make-meta-hyps
   "Create explanations, and associated actions, for anomalies."
   [anomalies est time-prev time-now sensors]
   (let [available-meta-hyps (set (str/split (:MetaHyps params) #","))
@@ -340,7 +343,7 @@
                             make-meta-hyps-conflicting-explainers)])]
     (doall (apply concat (for [meta-fn meta-fns] (meta-fn anomalies est time-prev time-now sensors))))))
 
-(defn score-meta-hyps-simulate-apriori
+(defnp score-meta-hyps-simulate-apriori
   [hyp anomalies anomalies-new resolved-cases doubt doubt-new]
   (let [apriori-diff (- (avg (map :apriori anomalies))
                         (avg (map :apriori anomalies-new)))]
@@ -355,7 +358,7 @@
           :else
           doubt-new)))
 
-(defn score-meta-hyps-simulate
+(defnp score-meta-hyps-simulate
   [anomalies meta-hyps est time-prev time-now sensors]
   (loop [est-attempted est
          hyps meta-hyps
@@ -406,7 +409,7 @@
                                             (- (avg (map :apriori anomalies))
                                                (avg (map :apriori anomalies-new)))))))))))
 
-(defn score-meta-hyps
+(defnp score-meta-hyps
   [anomalies meta-hyps est time-prev time-now sensors]
   (if (= "abd-estimate" (:Metareasoning params)) [est meta-hyps]
       (score-meta-hyps-simulate anomalies meta-hyps est time-prev time-now sensors)))
@@ -416,7 +419,7 @@
 ;; abductive metareasoning process
 ;;{{{
 
-(defn meta-abductive
+(defnp meta-abductive
   [anomalies est time-prev time-now sensors]
   (let [meta-hyps (make-meta-hyps anomalies est time-prev time-now sensors)
         ;; create different sensors for simulating only if we're in
@@ -449,7 +452,7 @@
                             (reason (update-est-ep meta-est :workspace meta-ws) 0 1 nil :no-metareason))]
     (update-est-ep est-new :meta-est meta-est-reasoned)))
 
-(defn meta-abductive-recursive
+(defnp meta-abductive-recursive
   [anomalies est time-prev time-now sensors]
   (loop [anomalies anomalies
          est est
@@ -482,7 +485,7 @@
 ;; fallback: false evidence
 ;;{{{
 
-(defn resolve-false-ev
+(defnp resolve-false-ev
   [implicated est]
   (let [new-est (new-branch-ep est (cur-ep est))
         ep (cur-ep new-est)
@@ -495,7 +498,7 @@
         ep-ignored (assoc ep :workspace ws-ignored)]
     [(update-est new-est ep-ignored) params]))
 
-(defn assume-false-evidence
+(defnp assume-false-evidence
   [anomalies est time-prev time-now sensors]
   (let [[new-est _] (resolve-false-ev anomalies est)]
     (reason new-est time-prev time-now sensors :no-metareason)))

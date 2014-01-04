@@ -311,6 +311,15 @@
      :else
      :combination)))
 
+(defn some-noexp-reason?
+  [ws hyp reason]
+  (let [expl (explainers ws hyp)
+        rej-reasons (map #(rejection-reason ws %) expl)]
+    (or (and (= :no-expl-offered reason) (empty? expl))
+        (and (= :minscore reason) (some #{:minscore} rej-reasons))
+        (and (= :ignored reason) (some #{:ignoring} rej-reasons))
+        (and (= :conflict reason) (some #{:conflict} rej-reasons)))))
+
 (defn find-noexp-reasons
   [est]
   (let [ws (:workspace (cur-ep est))
