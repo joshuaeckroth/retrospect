@@ -16,7 +16,7 @@
   (:use [retrospect.epistemicstates :only
          [cur-ep flatten-est]])
   (:use [retrospect.reason.abduction.evaluate :only
-         [true-meta-hyp? find-meta-hyps group-hyps-by-true-false classify-error classify-noexp-reason]])
+         [true-meta-hyp? find-meta-hyps group-hyps-by-true-false classify-error classify-noexp-reasons]])
   (:use [retrospect.gui.common])
   (:use [retrospect.state]))
 
@@ -50,12 +50,12 @@
            (format "<a href=\"%s@%s\">%s</a>" (str (:id hyp)) (str (:id most-recent-ep)) (str hyp)))))
 
 (def hyp-info-template
-  (fleet [hyp log explains explainers conflicts related noexp? noexp-reason error tf acc rej und eps]
+  (fleet [hyp log explains explainers conflicts related noexp? noexp-reasons error tf acc rej und eps]
          "<html>
 <h1><(str hyp)></h1>
 <p><(str/replace (:desc hyp) #\"\n\" \"<br>\")></p>
 <p><b><(if tf \"True\" \"False\")></b>, <(cond acc \"Accepted\" rej \"Rejected\" und \"Undecided\")></p>
-<(if noexp? \"><p>This is an anomaly (no explainer), reason: <(name noexp-reason)></p><\")>
+<(if noexp? \"><p>This is an anomaly (no explainer), reasons: <(str/join \", \" (sort (map name noexp-reasons)))></p><\")>
 <p>Error status: <(name error)>.</p>
 <h2>Explains:</h2>
 <ul>
@@ -119,11 +119,11 @@
         related (sort-by :name anc (map #(ws/lookup-hyp workspace %) (ws/related-hyps workspace hyp)))
         log (ws/hyp-log workspace hyp)
         noexp? ((set (ws/no-explainers workspace)) hyp)
-        noexp-reason (classify-noexp-reason workspace hyp)
+        noexp-reasons (classify-noexp-reasons workspace hyp)
         meta-hyp? ((:meta-hyp-types @reasoner) (:type hyp))
         error (classify-error workspace (if meta-hyp? @meta-hyps-true-false @hyps-true-false) hyp)
         orig-txt (str (hyp-info-template hyp log explains explainers conflicts related
-                                         noexp? noexp-reason error
+                                         noexp? noexp-reasons error
                                          (hyp-tf? hyp)
                                          (ws/accepted? workspace hyp)
                                          (ws/rejected? workspace hyp)

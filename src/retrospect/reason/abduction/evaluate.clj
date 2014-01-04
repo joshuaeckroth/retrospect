@@ -295,22 +295,6 @@
     {:NoiseIsNoExpPct (if (empty? noise) Double/NaN (double (/ (count noise-noexp) (count noise))))
      :NoExpIsNoisePct (if (empty? noexp) Double/NaN (double (/ (count noexp-noise) (count noexp))))}))
 
-(defn classify-noexp-reason
-  [ws hyp]
-  (let [expl (explainers ws hyp)
-        rej-reasons (map #(rejection-reason ws %) expl)]
-    (cond
-     (empty? expl)
-     :no-expl-offered
-     (every? #{:minscore} rej-reasons)
-     :minscore
-     (every? #{:ignoring} rej-reasons)
-     :ignored
-     (every? #{:conflict} rej-reasons)
-     :conflict
-     :else
-     :combination)))
-
 (defn some-noexp-reason?
   [ws hyp reason]
   (let [expl (explainers ws hyp)
@@ -320,13 +304,20 @@
         (and (= :ignored reason) (some #{:ignoring} rej-reasons))
         (and (= :conflict reason) (some #{:conflict} rej-reasons)))))
 
-(defn find-noexp-reasons
+(defn classify-noexp-reasons
+  [ws hyp]
+  (let [expl (explainers ws hyp)
+        rej-reasons (map #(rejection-reason ws %) expl)]
+    (for [reason [:no-expl-offered :minscore :ignored :conflict]
+          :when (some-noexp-reason? ws hyp reason)]
+      reason)))
+
+(defn count-noexp-reasons
   [est]
   (let [ws (:workspace (cur-ep est))
         noexp (no-explainers ws)]
     (frequencies
-     (for [hyp noexp]
-       (classify-noexp-reason ws hyp)))))
+     (mapcat #(classify-noexp-reasons ws %) noexp))))
 
 (defn true-meta-hyp?
   "Note that hyp may be a non-meta hyp if it's a problem case."
@@ -483,7 +474,7 @@
   "How many conflict noexp anomalies are true (and should be explained)?"
   [est true-false]
   (let [ws (:workspace (cur-ep est))
-        noexp-conflict (filter (fn [h] (= :conflict (classify-noexp-reason ws h)))
+        noexp-conflict (filter (fn [h] (= :conflict (some-noexp-reason? ws h :conflict)))
                           (no-explainers ws))
         grouped (group-by #(tf-true? true-false %) noexp-conflict)]
     (if (empty? noexp-conflict)
@@ -526,7 +517,7 @@
         errors (find-errors est true-false)
         noise-types (find-noise est true-false)
         noise-total (+ (:solitary noise-types 0) (:conflicting noise-types 0))
-        noexp-reasons (find-noexp-reasons est)
+        noexp-reasons (count-noexp-reasons est)
         decision-metrics
         (for [ep (decision-points est)]
           (let [ws (:workspace ep)
