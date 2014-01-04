@@ -140,12 +140,17 @@
                           (or (not (:RemoveEssentialConfExp params))
                               (not (:essential? meta-hyp)))))
                    (for [{:keys [delta cycle time hyp rejected-expl]} earliest-rejs-deltas]
-                     ;; do a simulation to figure out which anomalies are resolved
-                     (let [[est-resolved _] (resolve-conf-exp hyp est time-prev time-now nil)
-                           est-reasoned (:est-new (meta-apply est est-resolved time-prev time-now nil))
-                           anomalies-resolved (set/difference rel-anomalies (set (find-anomalies est-reasoned)))]
+                     (if (:SimulateSomeMetaHyps params)
+                       ;; do a simulation to figure out which anomalies are resolved
+                       (let [[est-resolved _] (resolve-conf-exp hyp est time-prev time-now nil)
+                             est-reasoned (:est-new (meta-apply est est-resolved time-prev time-now nil))
+                             anomalies-resolved (set/difference rel-anomalies (set (find-anomalies est-reasoned)))]
+                         {:rej-hyp hyp :cycle cycle :time time :delta delta
+                          :rejected-expl rejected-expl :may-resolve anomalies-resolved
+                          :essential? (empty? (accepted-rivals cur-ws hyp))})
                        {:rej-hyp hyp :cycle cycle :time time :delta delta
-                        :rejected-expl rejected-expl :may-resolve anomalies-resolved
+                        :rejected-expl rejected-expl
+                        :may-resolve (set (mapcat #(explains cur-ws %) rejected-expl))
                         :essential? (empty? (accepted-rivals cur-ws hyp))}))))))
 
 (defnp make-meta-hyps-conflicting-explainers
@@ -211,12 +216,16 @@
         expl-rejected-minscore (sort-by :id (filter (fn [h] (= :minscore (rejection-reason cur-ws h))) expl))]
     (doall (filter #(not-empty (:may-resolve %))
                    (for [hyp expl-rejected-minscore]
-                     ;; do a simulation to figure out which anomalies are resolved
-                     (let [[est-resolved _] (resolve-impl-exp hyp est time-prev time-now nil)
-                           est-reasoned (:est-new (meta-apply est est-resolved time-prev time-now nil))
-                           anomalies-resolved (set/difference rel-anomalies (set (find-anomalies est-reasoned)))]
+                     (if (:SimulateSomeMetaHyps params)
+                       ;; do a simulation to figure out which anomalies are resolved
+                       (let [[est-resolved _] (resolve-impl-exp hyp est time-prev time-now nil)
+                             est-reasoned (:est-new (meta-apply est est-resolved time-prev time-now nil))
+                             anomalies-resolved (set/difference rel-anomalies (set (find-anomalies est-reasoned)))]
+                         {:acc-hyp hyp
+                          :may-resolve anomalies-resolved
+                          :score-delta (- (/ (:MinScore params) 100.0) (:apriori hyp))})
                        {:acc-hyp hyp
-                        :may-resolve anomalies-resolved
+                        :may-resolve (set/intersection rel-anomalies (set (explains cur-ws hyp)))
                         :score-delta (- (/ (:MinScore params) 100.0) (:apriori hyp))}))))))
 
 (defnp make-meta-hyps-implausible-explainers
@@ -226,7 +235,12 @@
         meta-hyps (for [{:keys [acc-hyp may-resolve score-delta]} candidates]
                     (let [conflicts-with-accepted? (some (partial conflicts? acc-hyp)
                                                          (:all (accepted (:workspace (cur-ep est)))))
-                          apriori (avg (conj (map :apriori may-resolve) (:apriori acc-hyp)))]
+                          apriori (cond (= "opt1" (:ScoreMetaImplExp params))
+                                        (avg (conj (map :apriori may-resolve) (:apriori acc-hyp)))
+                                        (= "opt2" (:ScoreMetaImplExp params))
+                                        (avg (map :apriori may-resolve))
+                                        :else
+                                        (avg (conj (map :apriori may-resolve) (:apriori acc-hyp))))]
                       (new-hyp "ImplExp" :meta-impl-exp :meta-impl-exp apriori
                                false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
                                (map :contents may-resolve)
@@ -330,7 +344,12 @@
     (for [anomaly (insuf-ev-candidates anomalies est time-prev time-now sensors)]
       (let [delta (:delta (contrast-set-delta (first (contrast-sets ws [anomaly]))))
             anomaly-apriori (:apriori anomaly)
-            apriori (* (- 1.0 delta) anomaly-apriori)]
+            apriori (cond (= "opt1" (:ScoreMetaInsufEv params))
+                          (* (- 1.0 delta) anomaly-apriori)
+                          (= "opt2" (:ScoreMetaInsufEv params))
+                          anomaly-apriori
+                          :else
+                          (* (- 1.0 delta) anomaly-apriori))]
         (new-hyp "InsufEv" :meta-insuf-ev :meta-insuf-ev apriori
                  false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
                  [(:contents anomaly)]
