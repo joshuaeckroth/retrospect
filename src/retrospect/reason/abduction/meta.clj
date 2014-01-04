@@ -155,7 +155,18 @@
   ;; no-explainers combinations
   (for [{:keys [rej-hyp cycle time delta rejected-expl may-resolve essential?]}
         (conf-exp-candidates anomalies est time-prev time-now sensors)]
-    (let [apriori (* (avg (map :apriori may-resolve)) (- 1.0 (:apriori rej-hyp)))]
+    (let [apriori (cond (= "opt1" (:ScoreMetaConfExp params))
+                        (* (avg (map :apriori may-resolve)) (- 1.0 (:apriori rej-hyp)))
+                        (= "opt2" (:ScoreMetaConfExp params))
+                        (avg (map :apriori may-resolve))
+                        (= "opt3" (:ScoreMetaConfExp params))
+                        (* (avg (map :apriori may-resolve)) (- 1.0 delta))
+                        (= "opt4" (:ScoreMetaConfExp params))
+                        (- 1.0 delta)
+                        (= "opt5" (:ScoreMetaConfExp params))
+                        (avg (conj (map :apriori may-resolve) (- 1.0 delta)))
+                        :else
+                        (* (avg (map :apriori may-resolve)) (- 1.0 (:apriori rej-hyp))))]
       (new-hyp "ConfExp" :meta-conf-exp :meta-conf-exp apriori
                false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
                (map :contents may-resolve)

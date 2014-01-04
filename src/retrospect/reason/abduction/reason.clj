@@ -38,6 +38,7 @@
              :MetaRemainderIgnore [true [true false]]
              :ScoreMetaHyps ["doubt-diff" ["doubt-diff" "doubt" "apriori-diff" "apriori-resolved"]]
              :RemoveEssentialConfExp [false [true false]]
+             :ScoreMetaConfExp ["opt1" ["opt1" "opt2" "opt3" "opt4" "opt5"]]
              :RemoveConflictingImplExp [true [true false]]
              :MaxMetaImplExpScoreDelta [0.5 [0.5 1.0]]
              :MetaEveryNSteps [1 [1 2 3 4 5]]
