@@ -42,12 +42,13 @@
                :ignore-doubt-types #{:observation}
                :default-params {:GetMoreHyps [true [true]]
                                 :OnlySingleExplainers [false [true false]]
-                                :OnlyCompleteExplainers [false [true false]]}
+                                :OnlyCompleteExplainers [false [true false]]
+                                :MetaRemainderIgnore [false [false]]}
                :claims abduction-claims}
    :claims abduction-claims
    :default-params
-   {:Steps [10 [10]]
-    :StepsBetween [1 [1]]
+   {:Steps [5 [5]]
+    :StepsBetween [5 [5]]
     :NumExplainers [3 [3]]
     :NumExplainsLinks [40 [40]]
     :NumConflictLinks [6 [6]]
@@ -55,6 +56,6 @@
     :SensorSubset [75.0 [0.0 25.0 50.0 75.0 100.0]]
     :HypScores ["posterior" ["prior" "posterior"]]
     :PriorFunc ["max" ["min" "max" "avg"]]
-    :MaxStates [3 [2 3 4]]
-    :BestProbMult [1.0 [1.0 2.0 3.0]]}})
+    :MaxStates [2 [2 3 4]]
+    :BestProbMult [3.0 [1.0 2.0 3.0]]}})
 
