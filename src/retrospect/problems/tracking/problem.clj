@@ -51,7 +51,8 @@
                 :VirtualScoresGoodMean [0.8 [0.8]]
                 :VirtualScoresGoodProb [0.9 [0.9]]
                 :VirtualScoresGoodVariance [0.1 [0.1]]
-                :MinScore [10 [10]]}}
+                :MinScore [10 [10]]
+                :MetaRemainderIgnore [false [false]]}}
    :claims tracking-claims
    :default-params
    {:Steps [10 [10]]
