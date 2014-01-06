@@ -107,11 +107,16 @@
                  (let [r (my-rand)
                        good-bin? (or (and (orig-set obs) (< r (:VirtualScoresGoodProb params)))
                                      (and (not (orig-set obs)) (>= r (:VirtualScoresGoodProb params))))
-                       p (if good-bin?
-                           (my-rand-gauss (:VirtualScoresGoodMean params)
-                                          (:VirtualScoresGoodVariance params))
-                           (my-rand-gauss (:VirtualScoresBadMean params)
-                                          (:VirtualScoresBadVariance params)))
+                       p (if (= "gaussian" (:VirtualScoresMethod params))
+                           (if good-bin?
+                             (my-rand-gauss (:VirtualScoresGoodMean params)
+                                            (:VirtualScoresGoodVariance params))
+                             (my-rand-gauss (:VirtualScoresBadMean params)
+                                            (:VirtualScoresBadVariance params)))
+                           ;; else, "uniform" virtual scores
+                           (if good-bin?
+                             (- 1.0 (* (my-rand) (- 1.0 (:VirtualScoresGoodLowerBound params))))
+                             (* (my-rand) (:VirtualScoresBadUpperBound params))))
                        apriori (min 1.0 (max p 0.0))]
                    (assoc obs :apriori apriori)))))))
 
