@@ -203,7 +203,13 @@
              (not-any? #(tf-true? true-false %)
                        (explainers ws acc-expl)))
         :no-expl-offered
-        ;; todo: explain this
+        ;; recursive check for true hyps that were rejected due to
+        ;; conflict; there is some reason the other hyp (that was
+        ;; accepted and rejected this one) was accepted, and that
+        ;; acceptance was wrong (errorful); so figure out what that
+        ;; error was, and then we have an answer to the present error;
+        ;; the fallback is conflict-rejection error but that should
+        ;; never happen
         (and (rejected? ws hyp)
              (= :conflict (rejection-reason ws hyp))
              (tf-true? true-false hyp))
@@ -218,7 +224,7 @@
                 :else
                 :conflict-rejection))
         ;; false but accepted, conflicting but true hyp was rejected,
-        ;; but why? check recursively
+        ;; but why? check recursively; similar to previous case
         (and (accepted? ws hyp)
              (not (tf-true? true-false hyp))
              (some #(and (rejected? ws %) (tf-true? true-false %))
@@ -240,14 +246,19 @@
              (= 0 (:Threshold params))
              (not-any? (fn [e] (unexplained? ws e)) (explains ws hyp)))
         :superfluous
+        ;; a true thing was not accepted due to threshold > 0
+        (and (not (accepted? ws hyp))
+             (tf-true? true-false hyp)
+             (< 0 (:Threshold params)))
+        :threshold
         ;; a false thing was accepted, or true thing not accepted (and
-        ;; threshold = 0); must be an order-dependency error if none
-        ;; of the above errors are the cause
+        ;; threshold = 0, otherwise previous case would have handled
+        ;; it); must be an order-dependency error if none of the above
+        ;; errors are the cause
         (or (and (accepted? ws hyp)
                  (not (tf-true? true-false hyp)))
             (and (not (accepted? ws hyp))
-                 (tf-true? true-false hyp)
-                 (= 0 (:Threshold params))))
+                 (tf-true? true-false hyp)))
         (do (println "unknown error:" hyp)
             :unknown)
         ;; else, there was no error
@@ -594,17 +605,18 @@
             :ErrorsCount (reduce + (vals (dissoc errors :no-error)))
             :ErrorsNoise (:noise errors 0)
             :ErrorsConflictRejection (:conflict-rejection errors 0)
-            :ErrorsMinScore (:minscore errors 0)
-            :ErrorsScoring (:scoring errors 0)
+            :ErrorsMinPlausibility (:minscore errors 0)
+            :ErrorsPlausibility (:scoring errors 0)
             :ErrorsNoExpl (:no-expl-offered errors 0)
             :ErrorsSuperfluous (:superfluous errors 0)
             :ErrorsIgnored (:ignored errors 0)
+            :ErrorsDeltaThreshold (:threshold errors 0)
             :ErrorsUnknown (:unknown errors 0)
             :ErrorsNoError (:no-error errors 0)
             :NoExpCount (reduce + (vals noexp-reasons))
             :NoExpReasonConflict (:conflict noexp-reasons 0)
             :NoExpReasonIgnored (:ignored noexp-reasons 0)
-            :NoExpReasonMinScore (:minscore noexp-reasons 0)
+            :NoExpReasonMinPlausibility (:minscore noexp-reasons 0)
             :NoExpReasonNoExpl (:no-expl-offered noexp-reasons 0)
             :NoiseSolitary (:solitary noise-types 0)
             :NoiseSolitaryPct (if (= 0 noise-total) Double/NaN
@@ -635,13 +647,12 @@
                       (concat [:UnexplainedPct :NoExplainersPct
                                :TrueDeltaAvg :FalseDeltaAvg :Coverage
                                :Doubt :ExplainCycles :HypothesisCount
-                               :MetaBranches :ErrorsCount :ErrorsNoise
-                               :ErrorsConflictRejection :ErrorsMinScore :ErrorsSuperfluous
-                               :ErrorsScoring :ErrorsUnknown :ErrorsNoExp :ErrorsNoError
-                               :NoExpCount :NoExpReasonNoise :NoExpReasonRejectedConflict
-                               :NoExpReasonRejectedMinScore :NoExpReasonNoExpl
-                               :NoExpReasonUnknown :NoiseTotal
-                               :NoiseClaimsTPR :NoiseClaimsFPR
+                               :MetaBranches :ErrorsCount :ErrorsNoise :ErrorsDeltaThreshold
+                               :ErrorsConflictRejection :ErrorsMinPlausibility :ErrorsSuperfluous
+                               :ErrorsPlausibility :ErrorsUnknown :ErrorsNoExpl :ErrorsNoError
+                               :NoExpCount :NoExpReasonNoise :NoExpReasonConflict
+                               :NoExpReasonMinPlausibility :NoExpReasonNoExpl
+                               :NoiseTotal :NoiseClaimsTPR :NoiseClaimsFPR
                                :NoiseClaimsTrue :NoiseClaimsFalse
                                :NoiseClaimsPrec :NoiseClaimsRecall :NoiseClaimsF1]
                               (mapcat
