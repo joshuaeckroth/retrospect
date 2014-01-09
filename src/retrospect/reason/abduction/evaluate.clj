@@ -239,6 +239,7 @@
                 (some #{:minscore} parent-errors) :minscore
                 (some #{:scoring} parent-errors) :scoring
                 (some #{:no-expl-offered} parent-errors) :no-expl-offered
+                (some #{:threshold} parent-errors) :threshold
                 :else
                 :conflict-rejection))
         ;; a true thing was not accepted because it wasn't needed to explain
