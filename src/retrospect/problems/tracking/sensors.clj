@@ -128,11 +128,11 @@
                            (distortion-noise)
                            (duplication-noise)
                            (compute-virtual-scores observations))
-        high-plaus-sensed (filter (fn [obs] (>= (:apriori obs 1.0)
-                                                (/ (:SensorThreshold params) 100.0)))
-                                  all-sensed-obs)
-        reserved-obs (set/difference (set all-sensed-obs) (set high-plaus-sensed))]
-    (add-sensed sensor time high-plaus-sensed reserved-obs)))
+        [sensed-obs reserved-obs] (when all-sensed-obs
+                                    (split-at (int (* (count all-sensed-obs)
+                                                      (/ (:SensorSubset params) 100.0)))
+                                              (my-shuffle all-sensed-obs)))]
+    (add-sensed sensor time sensed-obs reserved-obs)))
 
 (defn new-sensor
   "Generate a new sensor with provided values and an empty 'spotted' vector."

@@ -69,4 +69,4 @@
     :NumberEntities [6 [2 4 6 8 10]]
     :SensorSeesColor [40 [0 20 40 60 80 100]]
     :SensorCoverage [100 [100]]
-    :SensorThreshold [20 [0 20 40 60 80 100]]}})
+    :SensorSubset [75.0 [0.0 25.0 50.0 75.0 100.0]]}})
