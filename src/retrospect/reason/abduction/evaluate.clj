@@ -221,6 +221,7 @@
                 (some #{:minscore} parent-errors) :minscore
                 (some #{:scoring} parent-errors) :scoring
                 (some #{:no-expl-offered} parent-errors) :no-expl-offered
+                (some #{:threshold} parent-errors) :threshold
                 :else
                 :conflict-rejection))
         ;; false but accepted, conflicting but true hyp was rejected,
