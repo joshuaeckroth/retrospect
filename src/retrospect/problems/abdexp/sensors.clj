@@ -60,7 +60,6 @@
   (let [observations (get test (dec time))
         all-sensed-obs (-> observations
                            (insertion-noise (:expgraph (meta sensor)))
-                           (deletion-noise)
                            (distortion-noise (:expgraph (meta sensor)))
                            (duplication-noise (:expgraph (meta sensor))))
         [sensed-obs reserved-obs] (when all-sensed-obs
