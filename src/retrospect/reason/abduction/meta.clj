@@ -150,7 +150,8 @@
                           :essential? (empty? (accepted-rivals cur-ws hyp))})
                        {:rej-hyp hyp :cycle cycle :time time :delta delta
                         :rejected-expl rejected-expl
-                        :may-resolve (set (mapcat #(explains cur-ws %) rejected-expl))
+                        :may-resolve (set/intersection (set (mapcat #(explains cur-ws %) rejected-expl))
+                                                       rel-anomalies)
                         :essential? (empty? (accepted-rivals cur-ws hyp))}))))))
 
 (defnp make-meta-hyps-conflicting-explainers
