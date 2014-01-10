@@ -25,9 +25,9 @@
 (defn entities-at
   [movements x y time]
   (filter (fn [e] (and (< time (count (get movements e)))
-                 (let [mov (nth (get movements e) time)]
-                   (and (= x (:x mov)) (= y (:y mov))))))
-     (keys movements)))
+                       (let [mov (nth (get movements e) time)]
+                         (and (= x (:x mov)) (= y (:y mov))))))
+          (keys movements)))
 
 (defn new-entity
   [movements time]
@@ -115,9 +115,6 @@
   [movements time-steps walk-steps random?]
   (loop [time 1
          m movements]
-    (if (> time time-steps)
-      (if (:SequentialSensorReports params) m
-          (with-meta (reduce (fn [m [e movs]] (assoc m e (my-shuffle movs))) {} (seq m))
-            (meta m)))
-      (recur (inc time) (reduce #(walk-random walk-steps random? %1 %2 time)
-                           m (my-shuffle (entities m)))))))
+    (if (> time time-steps) m
+        (recur (inc time) (reduce #(walk-random walk-steps random? %1 %2 time)
+                                  m (my-shuffle (entities m)))))))
