@@ -61,12 +61,9 @@
         all-sensed-obs (-> observations
                            (insertion-noise (:expgraph (meta sensor)))
                            (distortion-noise (:expgraph (meta sensor)))
-                           (duplication-noise (:expgraph (meta sensor))))
-        [sensed-obs reserved-obs] (when all-sensed-obs
-                                    (split-at (int (* (count all-sensed-obs)
-                                                      (/ (:SensorSubset params) 100.0)))
-                                              (my-shuffle all-sensed-obs)))]
-    (add-sensed sensor time sensed-obs reserved-obs)))
+                           (duplication-noise (:expgraph (meta sensor)))
+                           (deletion-noise))]
+    (add-sensed sensor time all-sensed-obs)))
 
 (defn generate-sensors
   [training]

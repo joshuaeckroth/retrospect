@@ -1,7 +1,7 @@
 (ns retrospect.problems.aerial.hypotheses
   (:require [clojure.set :as set])
   (:use [retrospect.reason.abduction.workspace :only [new-hyp]])
-  (:use [retrospect.sensors :only [sensed-at sense-more-at]])
+  (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.evaluate :only [avg]])
   (:use [retrospect.state]))
 
@@ -149,28 +149,15 @@
                 (sort-by :time sensed-dets)))))
 
 (defn make-sensor-hyps
-  [sensors time-prev time-now accepted hypotheses anomalies]
+  [sensors time-prev time-now accepted hypotheses]
   (let [kb (get-kb accepted)
         moves-dist (:moves-dist kb)
         acc-dets (set (map :det (:observation accepted)))
         already-observed-dets (set (map (fn [h] [(:det h) (:subtype h)]) (:observation hypotheses)))
-        to-time (if (:SequentialSensorReports params) time-prev 0)
-        from-time (if (:SequentialSensorReports params) time-now (:Steps params))
         mk-fn (partial make-sensor-hyps-obs time-prev time-now moves-dist acc-dets
-                       already-observed-dets to-time from-time)]
-    (if (not-empty anomalies)
-      (let [obs-hyps (mk-fn (set (mapcat (fn [t] (mapcat (fn [s] (sense-more-at s t)) sensors))
-                                         (range time-prev (inc time-now)))))]
-        (doall (filter (fn [obs] (if (= :from (:subtype obs))
-                                   (some (fn [obs2] (and (= :to (:subtype obs2))
-                                                         (dets-nearby? obs obs2 moves-dist)))
-                                         anomalies)
-                                   (some (fn [obs2] (and (= :from (:subtype obs2))
-                                                         (dets-nearby? obs2 obs moves-dist)))
-                                         anomalies)))
-                       obs-hyps)))
-      (mk-fn (set (mapcat (fn [t] (mapcat (fn [s] (sensed-at s t)) sensors))
-                          (range time-prev (inc time-now))))))))
+                       already-observed-dets 0 (:Steps params))]
+    (mk-fn (set (mapcat (fn [t] (mapcat (fn [s] (sensed-at s t)) sensors))
+                        (range time-prev (inc time-now)))))))
 
 (defn connecting-movs
   [h acc-mov-hyps]

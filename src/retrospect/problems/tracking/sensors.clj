@@ -127,12 +127,9 @@
                            (insertion-noise sensor time)
                            (distortion-noise)
                            (duplication-noise)
-                           (compute-virtual-scores observations))
-        [sensed-obs reserved-obs] (when all-sensed-obs
-                                    (split-at (int (* (count all-sensed-obs)
-                                                      (/ (:SensorSubset params) 100.0)))
-                                              (my-shuffle all-sensed-obs)))]
-    (add-sensed sensor time sensed-obs reserved-obs)))
+                           (deletion-noise)
+                           (compute-virtual-scores observations))]
+    (add-sensed sensor time all-sensed-obs)))
 
 (defn new-sensor
   "Generate a new sensor with provided values and an empty 'spotted' vector."

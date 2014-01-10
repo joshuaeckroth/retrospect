@@ -2,7 +2,7 @@
   (:require [clojure.set :as set])
   (:require [clojure.string :as str])
   (:use [clojure.math.combinatorics :only [subsets]])
-  (:use [retrospect.sensors :only [sensed-at sense-more-at]])
+  (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.reason.abduction.workspace :only [new-hyp new-composite]])
   (:use [retrospect.problems.abdexp.bayesnet])
   (:use [retrospect.problems.abdexp.expgraph])
@@ -73,7 +73,7 @@
 
 (defn make-sensor-hyps
   "Pick out the hyps that have been observed."
-  [sensors time-prev time-now accepted hypotheses anomalies]
+  [sensors time-prev time-now accepted hypotheses]
   (if (= time-prev time-now) []
       (let [kb (get-kb accepted)
             bn (:bayesnet kb)
@@ -82,15 +82,9 @@
             ;; may not be believed, or may conflict with beliefs
             observed-vertex-values (map (fn [h] [(:vertex h) (:value h)]) (get :expl accepted))
             mk-fn (partial make-sensor-hyp expgraph bn observed-vertex-values)]
-        (if (not-empty anomalies)
-          (let [sens-observed (set (mapcat #(sense-more-at (first sensors) %)
-                                           (range time-prev (inc time-now))))
-                anomaly-parents-children (set (concat (mapcat (fn [a-hyp] (explains expgraph (:vertex a-hyp))) anomalies)
-                                                      (mapcat (fn [a-hyp] (explainers expgraph (:vertex a-hyp))) anomalies)))]
-            (map mk-fn (filter (fn [[v val]] (anomaly-parents-children v)) sens-observed)))
-          (let [sens (set (mapcat #(sensed-at (first sensors) %)
-                                  (range time-prev (inc time-now))))]
-            (map mk-fn sens))))))
+        (let [sens (set (mapcat #(sensed-at (first sensors) %)
+                                (range time-prev (inc time-now))))]
+          (map mk-fn sens)))))
 
 (defn make-explainer
   [bn expgraph observed-hyps observed-vertex-values unexp-hyp pv pval]

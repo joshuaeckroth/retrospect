@@ -53,7 +53,7 @@
     :NumExplainsLinks [40 [40]]
     :NumConflictLinks [6 [6]]
     :UniqueGraphs [1000 [1000]]
-    :SensorSubset [75.0 [0.0 25.0 50.0 75.0 100.0]]
+    :SensorSubset [100.0 [0.0 25.0 50.0 75.0 100.0]]
     :HypScores ["posterior" ["prior" "posterior"]]
     :PriorFunc ["max" ["min" "max" "avg"]]
     :MaxStates [2 [2 3 4]]

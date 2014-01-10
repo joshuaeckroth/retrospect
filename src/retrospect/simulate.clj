@@ -78,7 +78,7 @@
    :Oracle ["none" ["none"]]
    :Steps [10 [10]]
    :Stats [false [false]]
-   :SequentialSensorReports [true [true false]]
+   :ProbSensedLater [0 [0 20 40]]
    :Noise [false [true false]]
    :NoiseLevelsEqual [false [true false]]
    :NoiseLevels [0 [0 10]]

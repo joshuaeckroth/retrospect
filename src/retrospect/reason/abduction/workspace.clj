@@ -680,14 +680,14 @@
 
 (defn add-sensor-hyps
   "Ask problem domain to make sensor hyps; then put them into workspace."
-  [workspace time-prev time-now sensors cycle anomalies]
+  [workspace time-prev time-now sensors cycle]
   (do
     (log "Adding sensor hyps")
     (swap! calls-to-observe assoc (:simulation params)
            (inc (get @calls-to-observe (:simulation params) 0)))
     (let [hs ((:make-sensor-hyps-fn (:abduction @problem))
               sensors time-prev time-now
-              (accepted workspace) (hypotheses workspace) anomalies)
+              (accepted workspace) (hypotheses workspace))
           ws-added (reduce #(add %1 %2 cycle) workspace hs)
           ws-accepted (reduce #(accept %1 %2 nil [] [] 0.0 {} cycle)
                               ws-added

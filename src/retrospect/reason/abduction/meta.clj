@@ -35,7 +35,7 @@
   [workspace time-prev time-now sensors cycle]
   (binding [reason-log (ref '())]
     (let [ws-sensors (if sensors
-                       (add-sensor-hyps workspace time-prev time-now sensors cycle [])
+                       (add-sensor-hyps workspace time-prev time-now sensors cycle)
                        workspace)
           ws-hyps (if (or sensors (:GetMoreHyps params))
                     (update-hypotheses ws-sensors cycle time-now)
@@ -276,7 +276,7 @@
   (let [new-est (new-branch-ep est ep)
         ep (cur-ep new-est)
         ws (:workspace ep)
-        ws-sensors (add-sensor-hyps ws (:time ep) time-now sensors (:cycle ep) [])
+        ws-sensors (add-sensor-hyps ws (:time ep) time-now sensors (:cycle ep))
         ws-hyps (update-hypotheses ws-sensors (:cycle ep) time-now)
         ep-batch (assoc ep :workspace ws-hyps)]
     [(update-est new-est ep-batch) params]))
@@ -317,50 +317,6 @@
 
 ;;}}}
 
-;; insufficient evidence
-;;{{{
-
-(defnp resolve-insuf-ev
-  [anomaly est time-prev time-now sensors]
-  (let [new-est (new-branch-ep est (cur-ep est))
-        ep (cur-ep new-est)
-        ws (:workspace ep)
-        ws-more-ev (add-sensor-hyps ws time-prev time-now sensors (:cycle ep) [anomaly])
-        ep-more-ev (assoc ep :workspace ws-more-ev)]
-    [(update-est new-est ep-more-ev) (assoc params :GetMoreHyps true)]))
-
-(defnp insuf-ev-candidates
-  "Insufficient evidence candidates are those anomalies that have
-  explainers but no explainer 'stands' out, i.e., none has a delta
-  greater than threshold."
-  [anomalies est time-prev time-now sensors]
-  (let [ws (:workspace (cur-ep est))]
-    ;; if there are contrast sets that explain obs, (but of course obs is still unexplained),
-    ;; then those explainers must not have been accepted due to too-low delta
-    (filter (fn [obs] (not-empty (contrast-sets ws [obs]))) anomalies)))
-
-(defnp make-meta-hyps-insufficient-evidence
-  [anomalies est time-prev time-now sensors]
-  (let [ws (:workspace (cur-ep est))]
-    (for [anomaly (insuf-ev-candidates anomalies est time-prev time-now sensors)]
-      (let [delta (:delta (contrast-set-delta (first (contrast-sets ws [anomaly]))))
-            anomaly-apriori (:apriori anomaly)
-            apriori (cond (= "opt1" (:ScoreMetaInsufEv params))
-                          (* (- 1.0 delta) anomaly-apriori)
-                          (= "opt2" (:ScoreMetaInsufEv params))
-                          anomaly-apriori
-                          :else
-                          (* (- 1.0 delta) anomaly-apriori))]
-        (new-hyp "InsufEv" :meta-insuf-ev :meta-insuf-ev apriori
-                 false [:meta] (partial meta-hyp-conflicts? (:workspace (cur-ep est)))
-                 [(:contents anomaly)]
-                 "Insufficient evidence"
-                 (format "Anomaly: %s" anomaly)
-                 {:action (partial resolve-insuf-ev anomaly)
-                  :resolves [anomaly]})))))
-
-;;}}}
-
 ;; make and score metahyps
 ;;{{{
 
@@ -373,8 +329,6 @@
                             make-meta-hyps-implausible-explainers)
                           (when (available-meta-hyps "meta-order-dep")
                             make-meta-hyps-order-dep)
-                          (when (available-meta-hyps "meta-insuf-ev")
-                            make-meta-hyps-insufficient-evidence)
                           (when (available-meta-hyps "meta-conf-exp")
                             make-meta-hyps-conflicting-explainers)])]
     (doall (apply concat (for [meta-fn meta-fns] (meta-fn anomalies est time-prev time-now sensors))))))

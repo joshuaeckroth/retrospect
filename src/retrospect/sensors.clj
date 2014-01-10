@@ -1,4 +1,6 @@
-(ns retrospect.sensors)
+(ns retrospect.sensors
+  (:use [retrospect.state])
+  (:use [geppetto.random]))
 
 (defrecord Sensor
     [id
@@ -12,16 +14,17 @@
 
 (defn sensed-at
   [sensor time]
-  (or (get-in @(:sensed sensor) [time :observed]) []))
-
-(defn sense-more-at
-  [sensor time]
-  (swap! (:sensed sensor) (fn [m] (update-in m [time :observed] concat (get-in m [time :reserved]))))
-  (sensed-at sensor time))
+  (or (get-in @(:sensed sensor) [time]) []))
 
 (defn add-sensed
-  [sensor time observed reserved]
-  (swap! (:sensed sensor) (fn [m] (assoc-in m [time] {:observed observed :reserved reserved})))
+  [sensor time observed]
+  (doseq [obs observed]
+    ;; possibly put this report at a later time, to simulate discovering
+    ;; evidence later
+    (let [new-time (if (< (my-rand) (/ (:ProbSensedLater params) 100.0))
+                     (+ time (my-rand-int (- (:Steps params) time)))
+                     time)]
+      (swap! (:sensed sensor) (fn [m] (update-in m [new-time] conj obs)))))
   (assoc sensor :sensed-up-to time))
 
 (defn update-sensors
