@@ -166,11 +166,19 @@
                         (= "opt2" (:ScoreMetaConfExp params))
                         (avg (map :apriori may-resolve))
                         (= "opt3" (:ScoreMetaConfExp params))
-                        (* (avg (map :apriori may-resolve)) (- 1.0 delta))
-                        (= "opt4" (:ScoreMetaConfExp params))
-                        (- 1.0 delta)
-                        (= "opt5" (:ScoreMetaConfExp params))
                         (avg (conj (map :apriori may-resolve) (- 1.0 delta)))
+                        (= "opt4" (:ScoreMetaConfExp params))
+                        (avg (conj (map :apriori may-resolve) (- 1.0 (:apriori rej-hyp))))
+                        (= "opt5" (:ScoreMetaConfExp params))
+                        (- 1.0 (:apriori rej-hyp))
+                        (= "opt6" (:ScoreMetaConfExp params))
+                        (/ (avg (map :apriori may-resolve)) (- (:cycle (cur-ep est)) cycle))
+                        (= "opt7" (:ScoreMetaConfExp params))
+                        (/ (avg (map :apriori may-resolve)) (- (:time (cur-ep est)) time))
+                        (= "opt8" (:ScoreMetaConfExp params))
+                        (/ (- 1.0 (:apriori rej-hyp)) (- (:cycle (cur-ep est)) cycle))
+                        (= "opt9" (:ScoreMetaConfExp params))
+                        (/ (- 1.0 (:apriori rej-hyp)) (- (:time (cur-ep est)) time))
                         :else
                         (* (avg (map :apriori may-resolve)) (- 1.0 (:apriori rej-hyp))))]
       (new-hyp "ConfExp" :meta-conf-exp :meta-conf-exp apriori
