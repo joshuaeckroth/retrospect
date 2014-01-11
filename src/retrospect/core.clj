@@ -10,7 +10,7 @@
   (:use [clojure.pprint :only [pprint]])
   (:use [geppetto.misc])
   (:use [geppetto.parameters :only [read-params extract-problem]])
-  (:use [geppetto.runs :only [get-run]])
+  (:use [geppetto.runs :only [get-run find-abandoned-runs]])
   (:use [geppetto.claim])
   (:use [geppetto.repeat])
   (:use [retrospect.reason.abduction.reason :only [reason-abduction]])
@@ -172,6 +172,9 @@
                       (:datadir props) (:seed options) (:git props) (:recordsdir props) (:nthreads options)
                       (:repetitions options) (:upload options) (:save-record options)))
           
+          (= (:action options) "list-abandoned")
+          (println (str/join "\n" (sort (find-abandoned-runs (:recordsdir props)))))
+
           :else
           (println "No action given."))))
 
