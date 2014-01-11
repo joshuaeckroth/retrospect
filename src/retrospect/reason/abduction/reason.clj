@@ -63,6 +63,7 @@
              :ClearAccGraphSensors [false [true false]]
              :DoubtModifier ["none" ["square" "cube" "sqrt" "log" "none"]]
              :DoubtNoExp [1 [0 1 2 3 4 5]]
+             :ReportsHaveScores [true [true false]]
              :UseScores [true [true]]
              :ScoreLevels [100 [2 3 5 10 100]]
              :VirtualScores [false [true false]]

@@ -688,11 +688,13 @@
     (let [hs ((:make-sensor-hyps-fn (:abduction @problem))
               sensors time-prev time-now
               (accepted workspace) (hypotheses workspace))
-          ws-added (reduce #(add %1 %2 cycle) workspace hs)
+          hs-scored (if (:ReportsHaveScores params) hs
+                        (for [h hs] (assoc h :apriori 1.0)))
+          ws-added (reduce #(add %1 %2 cycle) workspace hs-scored)
           ws-accepted (reduce #(accept %1 %2 nil [] [] 0.0 {} cycle)
                               ws-added
                               (filter (fn [h] (undecided? ws-added h))
-                                      (map #(lookup-hyp ws-added (:id %)) hs)))]
+                                      (map #(lookup-hyp ws-added (:id %)) hs-scored)))]
       (if (:ClearAccGraphSensors params)
         (assoc ws-accepted :accgraph (digraph))
         ws-accepted))))
