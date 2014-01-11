@@ -33,8 +33,8 @@
 
 (defn calc-prec-recall
   [tp tn fp fn event-count]
-  (let [recall (/ (double tp) (double event-count))
-        prec (/ (double tp) (double (+ tp fp)))]
+  (let [recall (if (= 0 event-count) 0.0 (/ (double tp) (double event-count)))
+        prec (if (= 0 (+ tp fp)) 0.0 (/ (double tp) (double (+ tp fp))))]
     ;; http://en.wikipedia.org/wiki/Receiver_operating_characteristic
     {:TP tp :TN tn :FP fp :FN fn
      :TPR (/ (double tp) (double (+ tp fn)))
@@ -43,7 +43,7 @@
      :PPV (/ (double tp) (double (+ tp fp)))
      :NPV (/ (double tn) (double (+ tn fn)))
      :FDR (/ (double fp) (double (+ fp tp)))
-     :Accuracy (/ (double (+ tp tn)) (double (+ tp tn fp fn)))
+     :Accuracy (if (= 0 (+ tp tn fp fn)) 0.0 (/ (double (+ tp tn)) (double (+ tp tn fp fn))))
      :Recall recall
      :Prec prec
-     :F1 (/ (* 2.0 prec recall) (+ prec recall))}))
+     :F1 (if (= 0.0 (+ prec recall)) 0.0 (/ (* 2.0 prec recall) (+ prec recall)))}))
