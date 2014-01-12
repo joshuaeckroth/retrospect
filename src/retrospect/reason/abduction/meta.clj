@@ -300,8 +300,13 @@
                                         (some-noexp-reason? cur-ws % :no-expl-offered)) anomalies)
             accept-cycles (into {} (for [hyp rel-anomalies] [hyp (accepted-cycle cur-ws hyp)]))
             time-last (:time (cur-ep est))
-            eps (map (fn [t] (cur-ep (goto-start-of-time est t)))
-                     (range (max 0 (- time-last (:MaxBatch params))) time-last))
+            eps (filter identity
+                        (map (fn [t] (let [ep (cur-ep (goto-start-of-time est t))]
+                                       ;; make sure this ep is not a batch itself
+                                       ;; (e.g., want to go back to start of time 4, but get
+                                       ;; an ep that starts at 2 and goes to 8...)
+                                       (if (= t (:time ep)) ep)))
+                             (range (max 0 (- time-last (:MaxBatch params))) time-last)))
             candidates (for [ep eps]
                          (let [ws (:workspace ep)
                                may-resolve (filter (fn [hyp] (>= (get accept-cycles hyp) (:cycle ep))) rel-anomalies)]
