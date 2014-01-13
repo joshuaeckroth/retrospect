@@ -47,8 +47,8 @@
                :claims abduction-claims}
    :claims abduction-claims
    :default-params
-   {:Steps [5 [5]]
-    :StepsBetween [5 [5]]
+   {:Steps [3 [3]]
+    :StepsBetween [3 [3]]
     :NumExplainers [3 [3]]
     :NumExplainsLinks [40 [40]]
     :NumConflictLinks [6 [6]]
