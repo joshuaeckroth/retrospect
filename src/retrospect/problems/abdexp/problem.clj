@@ -27,8 +27,8 @@
    :prepared-map prepared-map
    :oracle-fn (fn [truedata hyp]
                 (if (= "Abduction" (:name @reasoner))
-                    (true-hyp? truedata hyp)
-                    false))
+                  (true-hyp? truedata hyp)
+                  false))
    :abduction {:generate-kb-fn generate-kb
                :make-sensor-hyps-fn make-sensor-hyps
                :hypothesize-fn hypothesize
@@ -38,6 +38,15 @@
                :evaluate-comp-fn evaluate-comp
                :update-kb-fn update-kb
                :stats-fn stats
+               :find-noise-hyps-fn (fn [hyps]
+                                     ;; collect all obs and equivalent
+                                     ;; expl; use the expl if both the
+                                     ;; obs and expl are present for
+                                     ;; the same vertex-value pair
+                                     (let [obs (filter #(= :observation %) hyps)
+                                           expl (filter #(= :expl (:subtype %)) hyps)]
+                                       (vals (reduce (fn [m h] (assoc m [(:vertex h) (:value h)] h))
+                                                     {} (concat obs expl)))))
                :hyp-types #{:expl :observation}
                :ignore-doubt-types #{:observation}
                :default-params {:GetMoreHyps [true [true]]

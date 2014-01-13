@@ -530,11 +530,13 @@
         decision-metrics
         (for [ep (decision-points est)]
           (let [ws (:workspace ep)
-                obs (set (filter #(= :observation (:type %)) (vals (:hyp-ids ws))))
-                noise-obs (set (filter #(not (tf-true? true-false %)) obs))
+                noise-possible-candidates (filter #(not (tf-true? true-false %)) (:all (hypotheses ws)))
+                noise-candidates (if-let [f (:find-noise-hyps-fn (:abduction @problem))]
+                                   (set (f noise-possible-candidates))
+                                   (set (filter #(= :observation (:type %)) noise-possible-candidates)))
                 noise-claims (set (filter #(or (rejected? ws %)
-                                               (unexplained? ws %)) obs))
-                not-noise-claims (set/difference obs noise-claims)
+                                               (unexplained? ws %)) noise-candidates))
+                not-noise-claims (set/difference noise-candidates noise-claims)
                 noise-claims-true (set (filter #(not (tf-true? true-false %)) noise-claims))
                 noise-claims-true-solitary (filter #(= :solitary (classify-noise ws true-false %)) noise-claims-true)
                 noise-claims-true-conflicting (filter #(= :conflicting (classify-noise ws true-false %)) noise-claims-true)
@@ -549,13 +551,13 @@
                                      (count noise-claims-false) ;; fp
                                      (count not-noise-claims-false) ;; fn
                                      ;; and event-count:
-                                     (count noise-obs))]
+                                     (count noise-candidates))]
             {:Unexplained (count (unexplained ws))
              :UnexplainedPct (get-unexp-pct ws)
              :Coverage (- 1.0 (get-unexp-pct-no-obs ws))
              :NoExplainers (count (no-explainers ws))
              :NoExplainersPct (get-noexp-pct ws)
-             :NoiseTotal (count noise-obs)
+             :NoiseTotal (count noise-candidates)
              :NoiseClaimsTrue (count noise-claims-true)
              :NoiseClaimsFalse (count noise-claims-false)
              :NoiseClaimsPrec (:Prec noise-prec-recall)
