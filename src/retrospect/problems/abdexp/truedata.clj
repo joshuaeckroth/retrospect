@@ -150,7 +150,7 @@
       (if true-values-map
         {:expgraph eg-probs
          :bayesnet bayesnet
-         :observations (take (* 3 (:Steps params))
+         :observations (take (:Steps params)
                              (my-shuffle (sort-by first (seq true-values-map))))
          :true-values-map true-values-map}
         (recur)))))
