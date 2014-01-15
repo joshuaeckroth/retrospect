@@ -530,7 +530,7 @@
         decision-metrics
         (for [ep (decision-points est)]
           (let [ws (:workspace ep)
-                noise-possible-candidates (filter #(not (tf-true? true-false %)) (:all (hypotheses ws)))
+                noise-possible-candidates (:all (hypotheses ws))
                 noise-candidates (if-let [f (:find-noise-hyps-fn (:abduction @problem))]
                                    (set (f noise-possible-candidates))
                                    (set (filter #(= :observation (:type %)) noise-possible-candidates)))

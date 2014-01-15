@@ -43,8 +43,11 @@
                                      ;; expl; use the expl if both the
                                      ;; obs and expl are present for
                                      ;; the same vertex-value pair
-                                     (let [obs (filter #(= :observation %) hyps)
-                                           expl (filter #(= :expl (:subtype %)) hyps)]
+                                     (let [obs (filter #(= :observation (:type %)) hyps)
+                                           obs-vertex-values (set (map (fn [h] [(:vertex h) (:value h)]) obs))
+                                           expl (filter #(and (= :expl (:subtype %))
+                                                              (obs-vertex-values [(:vertex %) (:value %)]))
+                                                        hyps)]
                                        (vals (reduce (fn [m h] (assoc m [(:vertex h) (:value h)] h))
                                                      {} (concat obs expl)))))
                :hyp-types #{:expl :observation}
