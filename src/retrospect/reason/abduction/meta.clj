@@ -248,6 +248,8 @@
                                         (avg (conj (map :apriori may-resolve) (:apriori acc-hyp)))
                                         (= "opt2" (:ScoreMetaImplExp params))
                                         (avg (map :apriori may-resolve))
+                                        (= "opt3" (:ScoreMetaImplExp params))
+                                        (:apriori acc-hyp)
                                         :else
                                         (avg (conj (map :apriori may-resolve) (:apriori acc-hyp))))]
                       (new-hyp "ImplExp" :meta-impl-exp :meta-impl-exp apriori
