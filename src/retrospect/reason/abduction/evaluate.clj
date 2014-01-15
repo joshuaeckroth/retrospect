@@ -535,7 +535,7 @@
                                    (set (f noise-possible-candidates))
                                    (set (filter #(= :observation (:type %)) noise-possible-candidates)))
                 noise-claims (set (filter #(or (rejected? ws %)
-                                               (unexplained? ws %)) noise-candidates))
+                                               (no-explainers? ws %)) noise-candidates))
                 not-noise-claims (set/difference noise-candidates noise-claims)
                 noise-claims-true (set (filter #(not (tf-true? true-false %)) noise-claims))
                 noise-claims-true-solitary (filter #(= :solitary (classify-noise ws true-false %)) noise-claims-true)
