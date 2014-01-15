@@ -38,18 +38,6 @@
                :evaluate-comp-fn evaluate-comp
                :update-kb-fn update-kb
                :stats-fn stats
-               :find-noise-hyps-fn (fn [hyps]
-                                     ;; collect all obs and equivalent
-                                     ;; expl; use the expl if both the
-                                     ;; obs and expl are present for
-                                     ;; the same vertex-value pair
-                                     (let [obs (filter #(= :observation (:type %)) hyps)
-                                           obs-vertex-values (set (map (fn [h] [(:vertex h) (:value h)]) obs))
-                                           expl (filter #(and (= :expl (:subtype %))
-                                                              (obs-vertex-values [(:vertex %) (:value %)]))
-                                                        hyps)]
-                                       (vals (reduce (fn [m h] (assoc m [(:vertex h) (:value h)] h))
-                                                     {} (concat obs expl)))))
                :hyp-types #{:expl :observation}
                :ignore-doubt-types #{:observation}
                :default-params {:GetMoreHyps [true [true]]

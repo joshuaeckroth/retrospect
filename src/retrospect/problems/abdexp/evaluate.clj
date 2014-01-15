@@ -39,9 +39,7 @@
         metrics (for [ep (decision-points est)]
                   (let [ws (:workspace ep)
                         acc (filter #(= :expl (:subtype %)) (:expl (accepted ws)))
-                        rej (filter #(and (= :expl (:subtype %))
-                                          (= :conflict (rejection-reason ws %)))
-                                    (:expl (rejected ws)))
+                        rej (filter #(= :expl (:subtype %)) (:expl (rejected ws)))
                         mpe-map (do (unobserve-all bn)
                                     (observe-seq bn (map (fn [obs] [(:vertex obs) (:value obs)])
                                                          (:observation (hypotheses ws))))
