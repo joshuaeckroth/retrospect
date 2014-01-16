@@ -196,7 +196,8 @@
                 :cycle-diff (- (:cycle (cur-ep est)) cycle)
                 :time-diff (- (:time (cur-ep est)) time)
                 :delta delta
-                :essential? essential?}))))
+                :essential? essential?
+                :attempted-key [:conf-exp rej-hyp]}))))
 ;;}}}
 
 ;; implausible explainers
@@ -263,7 +264,8 @@
                                 :acc-hyp acc-hyp
                                 :score-delta score-delta
                                 :implicated acc-hyp
-                                :conflicts-with-accepted? conflicts-with-accepted?})))
+                                :conflicts-with-accepted? conflicts-with-accepted?
+                                :attempted-key [:impl-exp acc-hyp]})))
         filtered-conflicting (if (and (not= "oracle" (:Metareasoning params))
                                       (:RemoveConflictingImplExp params))
                                (filter #(not (:conflicts-with-accepted? %)) meta-hyps)
@@ -328,7 +330,8 @@
                (format "Order dependency at %s" (str ep))
                {:action (partial resolve-order-dep ep)
                 :resolves may-resolve
-                :ep ep}))))
+                :ep ep
+                :attempted-key [:order-dep (:time ep)]}))))
 
 ;;}}}
 
@@ -465,7 +468,7 @@
          implicated #{}]
     (let [est-abd (meta-abductive anomalies est time-prev time-now sensors)
           meta-workspace (:workspace (cur-ep (:meta-est (cur-ep est-abd))))
-          meta-accepted (filter (fn [h] (and (not (attempted (dissoc (:contents h) :action)))
+          meta-accepted (filter (fn [h] (and (not (attempted (:attempted-key h)))
                                              (not (implicated (:contents (:implicated h))))))
                                 (apply concat (vals (select-keys (accepted meta-workspace)
                                                                  (:meta-hyp-types @reasoner)))))
@@ -481,7 +484,7 @@
                    (< (count anomalies-new) (count anomalies))))
         (recur anomalies-new
                est-applied
-               (set/union attempted (set (map (fn [h] (dissoc (:contents h) :action)) meta-accepted)))
+               (set/union attempted (set (map (fn [h] (:attempted-key h)) meta-accepted)))
                (set/union implicated (set (map (fn [h] (:contents (:implicated h))) meta-accepted))))
         {:est-old (goto-ep est-applied (:id (cur-ep est))) :est-new est-applied}))))
 
