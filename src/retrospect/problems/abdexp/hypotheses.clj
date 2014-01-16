@@ -161,7 +161,7 @@
   (let [kb (get-kb accepted)
         bn (:bayesnet kb)
         expgraph (:expgraph kb)
-        observed-hyps (filter #(or (= :observation (:type %)) (= :expl (:subtype %))) (:all accepted))
+        observed-hyps (filter #(= :expl (:subtype %)) (:all accepted))
         observed-vertex-values (map (fn [h] [(:vertex h) (:value h)]) observed-hyps)
         new-expl-hyps (mapcat #(make-explainer-hyps bn expgraph observed-hyps observed-vertex-values %) unexp)]
     new-expl-hyps))
