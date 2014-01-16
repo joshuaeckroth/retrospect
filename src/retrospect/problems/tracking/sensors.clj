@@ -78,7 +78,7 @@
           ;; random number in range [-2,2]
           new-x (+ x (- (my-rand-int 5) 2))
           new-y (+ y (- (my-rand-int 5) 2))]
-      (my-shuffle (conj (rest obs-shuffled) {:x new-x :y new-y :time time :color color})))
+      (shuffle-observations (conj (rest obs-shuffled) {:x new-x :y new-y :time time :color color})))
     ;; otherwise, don't
     observations))
 
@@ -94,7 +94,7 @@
           ;; random number in range [-2,2]
           new-x (+ x (- (my-rand-int 5) 2))
           new-y (+ y (- (my-rand-int 5) 2))]
-      (my-shuffle (conj obs-shuffled {:x new-x :y new-y :time time :color color})))
+      (shuffle-observations (conj obs-shuffled {:x new-x :y new-y :time time :color color})))
     ;; otherwise, don't
     observations))
 
@@ -123,12 +123,12 @@
 (defn sense
   [sensor movements time]
   (let [observations (find-spotted sensor movements time)
-        all-sensed-obs (-> observations
-                           (insertion-noise sensor time)
-                           (distortion-noise)
-                           (duplication-noise)
-                           (deletion-noise)
-                           (compute-virtual-scores observations))]
+        all-sensed-obs (doall (-> observations
+                                  (insertion-noise sensor time)
+                                  (distortion-noise)
+                                  (duplication-noise)
+                                  (deletion-noise)
+                                  (compute-virtual-scores observations)))]
     (add-sensed sensor time all-sensed-obs)))
 
 (defn new-sensor

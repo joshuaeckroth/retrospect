@@ -41,8 +41,10 @@
                         acc (filter #(= :expl (:subtype %)) (:expl (accepted ws)))
                         rej (filter #(= :expl (:subtype %)) (:expl (rejected ws)))
                         mpe-map (do (unobserve-all bn)
-                                    (observe-seq bn (map (fn [obs] [(:vertex obs) (:value obs)])
-                                                         (:observation (hypotheses ws))))
+                                    ;; sort so that duplication noise (conflicting vals for same var)
+                                    ;; are "observed" in the same order every time
+                                    (observe-seq bn (sort (map (fn [obs] [(:vertex obs) (:value obs)])
+                                                               (:observation (hypotheses ws)))))
                                     (:states (most-probable-explanation bn)))
                         mpe-acc (for [[v val] mpe-map] {:vertex v :value val})
                         true-values-map (:true-values-map truedata)

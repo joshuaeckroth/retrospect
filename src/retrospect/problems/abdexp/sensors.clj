@@ -58,11 +58,11 @@
 (defn sense
   [sensor test time]
   (let [observations (get test (dec time))
-        all-sensed-obs (-> observations
-                           (insertion-noise (:expgraph (meta sensor)))
-                           (distortion-noise (:expgraph (meta sensor)))
-                           (duplication-noise (:expgraph (meta sensor)))
-                           (deletion-noise))]
+        all-sensed-obs (doall (-> observations
+                                  (insertion-noise (:expgraph (meta sensor)))
+                                  (distortion-noise (:expgraph (meta sensor)))
+                                  (duplication-noise (:expgraph (meta sensor)))
+                                  (deletion-noise)))]
     (add-sensed sensor time all-sensed-obs)))
 
 (defn generate-sensors
