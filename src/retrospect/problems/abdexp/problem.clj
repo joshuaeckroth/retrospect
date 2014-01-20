@@ -9,6 +9,7 @@
          [generate-kb make-sensor-hyps hypothesize update-kb]])
   (:use [retrospect.problems.abdexp.evaluate :only
          [evaluate evaluate-comp stats true-hyp?]])
+  (:use [retrospect.problems.abdexp.expgraph :only [every-cycle]])
   (:use [retrospect.problems.abdexp.prepared :only [prepared-map]])
   (:use [retrospect.problems.abdexp.claims])
   (:use [retrospect.state]))
@@ -38,6 +39,7 @@
                :evaluate-comp-fn evaluate-comp
                :update-kb-fn update-kb
                :stats-fn stats
+               :every-cycle-fn every-cycle
                :find-noise-hyps-fn (fn [hyps]
                                      ;; collect all obs and equivalent
                                      ;; expl; use the expl if both the

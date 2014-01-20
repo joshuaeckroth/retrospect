@@ -1,12 +1,13 @@
 (ns retrospect.problems.abdexp.expgraph
   (:require [clojure.string :as str])
+  (:use [clojure.java.shell :only [sh]])
   (:use [clojure.set])
   (:use [loom.io])
   (:use [loom.graph])
   (:use [loom.alg])
   (:use [loom.attr])
   (:use [clojure.java.shell :only [sh]])
-  (:use [retrospect.state :only [params]])
+  (:use [retrospect.state :only [params truedata]])
   (:use [retrospect.evaluate :only [avg]]))
 
 (defn vertex?
@@ -220,27 +221,69 @@
 (defn format-dot-expgraph
   [expgraph true-values-map]
   (format "digraph g { node [shape=\"plaintext\"];\n %s\n %s\n %s\n }"
-     ;; explains edges
-     (str/join "\n" (map (fn [[v1 v2]] (format "%s -> %s;" v1 v2))
-                       (explainers expgraph)))
-     ;; vertices
-     (str/join "\n"
-               (map (fn [v]
-                    (let [vals (values expgraph v)]
-                      (format "%s [id=\"%s\", label=<<table border=\"0\" cellborder=\"1\" cellspacing=\"0\" cellpadding=\"6\"><tr>%s</tr></table>>];"
-                         v v (apply str (map (fn [val]
-                                             (format "<td port=\"%s%s\" bgcolor=\"%s\">%s=%s</td>"
-                                                v val
-                                                (if (= val (true-values-map v))
-                                                  "#eeeeee" "#ffffff")
-                                                v val))
-                                           vals)))))
-                  (vertices expgraph)))
-     ;; conflicts edges
-     (str/join "\n" (map (fn [[[v1 val1] [v2 val2]]]
-                         (format "%s:%s%s -> %s:%s%s [dir=\"none\", style=\"dotted\", constraint=false];"
-                            v1 v1 val1 v2 v2 val2))
-                       (conflicts expgraph)))))
+          ;; explains edges
+          (str/join "\n" (map (fn [[v1 v2]] (format "%s -> %s;" v1 v2))
+                              (explainers expgraph)))
+          ;; vertices
+          (str/join "\n"
+                    (map (fn [v]
+                           (let [vals (values expgraph v)]
+                             (format "%s [id=\"%s\", label=<<table border=\"0\" cellborder=\"1\" cellspacing=\"0\" cellpadding=\"6\"><tr>%s</tr></table>>];"
+                                     v v (apply str (map (fn [val]
+                                                           (format "<td port=\"%s%s\" bgcolor=\"%s\">%s=%s</td>"
+                                                                   v val
+                                                                   (if (= val (true-values-map v))
+                                                                     "#eeeeee" "#ffffff")
+                                                                   v val))
+                                                         vals)))))
+                         (vertices expgraph)))
+          ;; conflicts edges
+          (str/join "\n" (map (fn [[[v1 val1] [v2 val2]]]
+                                (format "%s:%s%s -> %s:%s%s [dir=\"none\", style=\"dotted\", constraint=false];"
+                                        v1 v1 val1 v2 v2 val2))
+                              (conflicts expgraph)))))
+
+(defn format-dot-expgraph-pretty
+  [expgraph observed-set accepted-set rejected-set]
+  (format "digraph g { graph [dpi = 300]; node [shape=\"plaintext\"];\n %s\n %s\n %s\n }"
+          ;; explains edges
+          (str/join "\n" (map (fn [[v1 v2]] (format "%s -> %s;" v1 v2))
+                              (explainers expgraph)))
+          ;; vertices
+          (str/join "\n"
+                    (map (fn [v]
+                           (let [vals-orig (values expgraph v)
+                                 vals (if (= 2 (count vals-orig))
+                                        ["on" "off"] vals-orig)]
+                             (format "%s [id=\"%s\", label=<<table border=\"0\" cellborder=\"1\" cellspacing=\"0\" cellpadding=\"6\"><tr>%s</tr></table>>];"
+                                     v v (apply str (map (fn [val-id val-label]
+                                                           (let [bgcolor (cond (observed-set [v val-id]) "#70ad47"
+                                                                               (accepted-set [v val-id]) "#5b9bd5"
+                                                                               (rejected-set [v val-id]) "#ed7d31"
+                                                                               :else "#ffffff")
+                                                                 fgcolor (if (= bgcolor "#ffffff") "#000000"
+                                                                             "#ffffff")]
+                                                             (format "<td port=\"%s%s\" bgcolor=\"%s\"><font color=\"%s\" face=\"Arial\">%s</font></td>"
+                                                                     v val-id
+                                                                     
+                                                                     bgcolor fgcolor val-label)))
+                                                         vals-orig vals)))))
+                         (vertices expgraph)))
+          ;; conflicts edges
+          (str/join "\n" (map (fn [[[v1 val1] [v2 val2]]]
+                                (format "%s:%s%s -> %s:%s%s [dir=\"none\", style=\"dotted\", constraint=false];"
+                                        v1 v1 val1 v2 v2 val2))
+                              (conflicts expgraph)))))
+
+(defn every-cycle
+  [cycle acc rej]
+  (let [convert-to-set (fn [hs] (set (map (fn [h] [(:vertex h) (:value h)]) hs)))
+        observed-set (convert-to-set (:observation acc))
+        accepted-set (convert-to-set (filter #(= :expl (:subtype %)) (:expl acc)))
+        rejected-set (convert-to-set (filter #(= :expl (:subtype %)) (:expl rej)))]
+    (sh "dot" "-Tpng" (format "-opretty-expgraph-%03d.png" cycle)
+        :in (format-dot-expgraph-pretty
+             (:expgraph @truedata) observed-set accepted-set rejected-set))))
 
 (defn gen-vertex-graph-positions
   [expgraph]

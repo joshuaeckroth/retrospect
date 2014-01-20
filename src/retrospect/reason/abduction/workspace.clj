@@ -665,6 +665,8 @@
   [workspace cycle]
   (let [ws (assoc workspace :accrej {})
         ws-minscore (reject-minscore ws cycle)]
+    (when (and (not @batch) (:every-cycle-fn (:abduction @problem)))
+      ((:every-cycle-fn (:abduction @problem)) cycle (accepted ws-minscore) (rejected ws-minscore)))
     (log "Unexplained:" (str/join ", " (sort (map :id (unexplained ws-minscore)))))
     (let [{:keys [best nbest alts explained delta comparison contrast-sets] :as b} (find-best ws-minscore)]
       (if-not best
@@ -685,6 +687,8 @@
     (log "Adding sensor hyps")
     (swap! calls-to-observe assoc (:simulation params)
            (inc (get @calls-to-observe (:simulation params) 0)))
+    (when (and (not @batch) (:every-cycle-fn (:abduction @problem)))
+      ((:every-cycle-fn (:abduction @problem)) cycle (accepted workspace) (rejected workspace)))
     (let [hs ((:make-sensor-hyps-fn (:abduction @problem))
               sensors time-prev time-now
               (accepted workspace) (hypotheses workspace))
