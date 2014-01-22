@@ -254,7 +254,7 @@
                     (map (fn [v]
                            (let [vals-orig (values expgraph v)
                                  vals (if (= 2 (count vals-orig))
-                                        ["on" "off"] vals-orig)]
+                                        ["S1" "S2"] vals-orig)]
                              (format "%s [id=\"%s\", label=<<table border=\"0\" cellborder=\"1\" cellspacing=\"0\" cellpadding=\"6\"><tr>%s</tr></table>>];"
                                      v v (apply str (map (fn [val-id val-label]
                                                            (let [bgcolor (cond (observed-set [v val-id]) "#70ad47"
