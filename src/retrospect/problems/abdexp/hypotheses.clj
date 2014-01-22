@@ -164,13 +164,12 @@
         observed-hyps (filter #(= :expl (:subtype %)) (:all accepted))
         observed-vertex-values (map (fn [h] [(:vertex h) (:value h)]) observed-hyps)
         new-expl-hyps (mapcat #(make-explainer-hyps bn expgraph observed-hyps observed-vertex-values %) unexp)]
-    new-expl-hyps))
-
-(comment
-  ;; composite explainers have already been checked for conflicts with observed-vertex-values
-  (filter #(or (= :expl-composite (:type %))
+    (filter #(if (= :expl-composite (:type %))
+               (not-any? (fn [h] (any-vertex-values-conflict? expgraph (:vertex h) (:value h) observed-vertex-values))
+                         (:hyps %))
                (not (any-vertex-values-conflict? expgraph (:vertex %) (:value %) observed-vertex-values)))
-          ))
+            new-expl-hyps)))
+
 
 
 
