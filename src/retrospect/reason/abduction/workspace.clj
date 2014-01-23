@@ -456,7 +456,7 @@
                                 :needs-explainer? (:needs-explainer? hyp)
                                 :explains (set/union (set (:explains prior-hyp))
                                                      (set (:explains hyp)))
-                                :apriori (:apriori prior-hyp)
+                                :apriori (:apriori hyp)
                                 :data (:data hyp)
                                 :contents (assoc (:data hyp) :type (:type hyp) :subtype (:subtype hyp)))
             ;; ensure hyp is updated with new :explains, :apriori, etc.
@@ -662,17 +662,20 @@
     (assoc workspace :accgraph ag-expl)))
 
 (defn explain
-  [workspace cycle]
+  [workspace cycle time-now doing-meta?]
   (let [ws (assoc workspace :accrej {})
-        ws-minscore (reject-minscore ws cycle)]
-    (when (and (not @batch) (:every-cycle-fn (:abduction @problem)))
-      ((:every-cycle-fn (:abduction @problem)) cycle (accepted ws-minscore) (rejected ws-minscore)))
-    (log "Unexplained:" (str/join ", " (sort (map :id (unexplained ws-minscore)))))
-    (let [{:keys [best nbest alts explained delta comparison contrast-sets] :as b} (find-best ws-minscore)]
+        ws-minscore (reject-minscore ws cycle)
+        ws-hyps (if (and (not doing-meta?) (:GetMoreHypsEveryCycle params))
+                  (update-hypotheses ws-minscore cycle time-now)
+                  ws-minscore)]
+    (when (and (not @batch) (not doing-meta?) (:Stats params) (:every-cycle-fn (:abduction @problem)))
+      ((:every-cycle-fn (:abduction @problem)) cycle (accepted ws-hyps) (rejected ws-hyps)))
+    (log "Unexplained:" (str/join ", " (sort (map :id (unexplained ws-hyps)))))
+    (let [{:keys [best nbest alts explained delta comparison contrast-sets] :as b} (find-best ws-hyps)]
       (if-not best
-        (do (log "No best.") ws-minscore)
+        (do (log "No best.") ws-hyps)
         (do (log "Best is" (:id best) (:apriori best))
-            (-> ws-minscore
+            (-> ws-hyps
                 (update-in [:accrej] merge b)
                 ;; record-best-in-accgraph must occur before accept in
                 ;; order to figure out what is newly explained (TODO:
@@ -687,7 +690,7 @@
     (log "Adding sensor hyps")
     (swap! calls-to-observe assoc (:simulation params)
            (inc (get @calls-to-observe (:simulation params) 0)))
-    (when (and (not @batch) (:every-cycle-fn (:abduction @problem)))
+    (when (and (not @batch) (:Stats params) (:every-cycle-fn (:abduction @problem)))
       ((:every-cycle-fn (:abduction @problem)) cycle (accepted workspace) (rejected workspace)))
     (let [hs ((:make-sensor-hyps-fn (:abduction @problem))
               sensors time-prev time-now

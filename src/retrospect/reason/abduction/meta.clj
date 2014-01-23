@@ -43,32 +43,33 @@
       (assoc ws-hyps :log @reason-log))))
 
 (defn workspace-explain
-  [workspace cycle time-now]
+  [workspace cycle time-now doing-meta?]
   (binding [reason-log (ref (:log workspace))]
     (log "Explaining at cycle" cycle)
-    (let [ws (explain workspace cycle)]
+    (let [ws (explain workspace cycle time-now doing-meta?)]
       (assoc ws :log @reason-log))))
 
 (defn explain-and-advance
-  [est time-prev time-now sensors]
+  [est time-prev time-now sensors doing-meta?]
   (let [ws (:workspace (cur-ep est))
         cycle (:cycle (cur-ep est))
         ws-hyps (workspace-update-hypotheses ws time-prev time-now sensors cycle)
-        ws-explained (workspace-explain ws-hyps cycle time-now)
+        ws-explained (workspace-explain ws-hyps cycle time-now doing-meta?)
         est-result (est-workspace-child est ws-explained)]
     (if (or (and (:GetMoreHyps params)
                  (not= (count (:hyp-ids ws-explained))
                        (count (:hyp-ids ws))))
             (:best (:accrej ws-explained)))
       ;; don't recur with sensors so that sensor hyps are not re-added
-      (recur est-result time-prev time-now nil)
+      (recur est-result time-prev time-now nil doing-meta?)
       est-result)))
 
 (defn reason
   [est time-prev time-now sensors & opts]
   (loop [est est]
-    (let [est-new (explain-and-advance est time-prev time-now sensors)
-          meta? (and (not-any? #{:no-metareason} opts)
+    (let [doing-meta? (some #{:no-metareason} opts)
+          est-new (explain-and-advance est time-prev time-now sensors doing-meta?)
+          meta? (and (not doing-meta?)
                      (metareasoning-activated? est-new))
           est-meta (cond (not meta?) est-new
                          (= 0 (mod time-now (:MetaEveryNSteps params)))
