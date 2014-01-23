@@ -300,9 +300,8 @@
   (if (not= (dec (:time (cur-ep est))) (time-prior est)) []
       (let [cur-ws (:workspace (cur-ep est))
             acc (accepted cur-ws)
-            ;; gather all observations with no explainers
-            rel-anomalies (filter #(and (no-explainers? cur-ws %)
-                                        (some-noexp-reason? cur-ws % :no-expl-offered)) anomalies)
+            ;; "relevant anomalies" are all anomalies
+            rel-anomalies anomalies
             accept-cycles (into {} (for [hyp rel-anomalies] [hyp (accepted-cycle cur-ws hyp)]))
             time-last (:time (cur-ep est))
             eps (filter identity
@@ -315,10 +314,8 @@
             candidates (for [ep eps]
                          (let [ws (:workspace ep)
                                may-resolve (filter (fn [hyp] (>= (get accept-cycles hyp) (:cycle ep))) rel-anomalies)]
-                           {:may-resolve may-resolve :ep ep}))
-            grp-candidates (group-by :may-resolve candidates)]
-        (for [[may-resolve candidates] (seq grp-candidates)]
-          [may-resolve (last (sort-by :cycle (map :ep candidates)))]))))
+                           {:may-resolve may-resolve :ep ep}))]
+        [[rel-anomalies (first (sort-by :cycle (map :ep candidates)))]])))
 
 (defnp make-meta-hyps-order-dep
   [anomalies est time-prev time-now sensors]
