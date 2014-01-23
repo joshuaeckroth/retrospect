@@ -98,14 +98,9 @@
   [expgraph]
   (letfn [(any-incompatible? [true-values-map]
             (some (fn [[v1 val1]] (some (fn [[v2 val2]]
-                                          (conflicts? expgraph [v1 val1] [v2 val2]))
-                                        (seq true-values-map)))
-                  (seq true-values-map)))
-          (every-on-has-on-parent? [true-values-map]
-            (every? (fn [v] (or (empty? (explainers expgraph v))
-                                (some (fn [pv] (= "on" (get true-values-map pv)))
-                                      (explainers expgraph v))))
-                    (filter (fn [v] (= "on" (true-values-map v))) (keys true-values-map))))]
+                                   (conflicts? expgraph [v1 val1] [v2 val2]))
+                                 (seq true-values-map)))
+               (seq true-values-map)))]
     (loop [attempts 0
            vs (reverse (sorted-by-dep expgraph))
            true-values-map {}]
@@ -115,37 +110,39 @@
                     parents (explainers expgraph v)
                     parent-vals (set (map (fn [v] [v (get true-values-map v)]) parents))
                     val-probs (sort-by second (map (fn [val] [val (prob expgraph v val parent-vals)])
-                                                   (values expgraph v)))
+                                                 (values expgraph v)))
                     rand-prob (my-rand)
                     chosen-val (ffirst (drop-while #(< (second %) rand-prob)
                                                    (reductions (fn [[val1 prob1] [val2 prob2]]
                                                                  [val2 (+ prob1 prob2)]) val-probs)))
                     new-true-values-map (conj true-values-map [v chosen-val])]
                 ;; if an incompatibility has been introduced, start over
-                (if (or (any-incompatible? new-true-values-map)
-                        (not (every-on-has-on-parent? new-true-values-map)))
+                (if (any-incompatible? new-true-values-map)
                   (recur (inc attempts) (reverse (sorted-by-dep expgraph)) {})
                   (recur attempts (rest vs) new-true-values-map))))))))
 
+(defn rand-vals
+  []
+  (vec (map #(format "S%d" %) (range 1 (inc (my-rand-nth (range 2 (inc (:MaxStates params)))))))))
+
 (defn random-expgraph
   []
-  (loop [attempts 0]
+  (loop []
     (let [expl-links (gen-explains-links)
           eg (reduce (fn [g el] (let [g2 (add-edges g el)]
-                                  (if (dag? g2) g2 g)))
-                     (digraph) (my-shuffle (sort expl-links)))
+                            (if (dag? g2) g2 g)))
+                (digraph) (my-shuffle (sort expl-links)))
           vs (sort (nodes eg))
           eg-values (reduce (fn [eg v]
-                              (-> eg (add-attr v :id v)
-                                  (add-attr v :values ["on" "off"])))
-                            eg vs)
+                         (-> eg (add-attr v :id v)
+                            (add-attr v :values (rand-vals))))
+                       eg vs)
           ;; a path gives selects vertex-value pairs from all bottom
           ;; vertices to the top to ensure that conflicts links do not
           ;; disable all possible paths
           path (reduce (fn [tv v] (arbitrary-path-up eg-values tv v))
-                       {} (bottom-nodes eg-values))
-          conflict-links (if (<= 10 attempts) []
-                             (gen-conflicts-links eg-values vs path))
+                  {} (bottom-nodes eg-values))
+          conflict-links (gen-conflicts-links eg-values vs path)
           eg-conflicts (reduce set-conflicts eg-values conflict-links)
           eg-probs (reduce add-prob-table eg-conflicts vs)
           bayesnet (build-bayesnet eg-probs)
@@ -156,7 +153,7 @@
          :observations (take (:Steps params)
                              (my-shuffle (sort-by first (seq true-values-map))))
          :true-values-map true-values-map}
-        (recur (inc attempts))))))
+        (recur)))))
 
 (defn observation-groups
   [observations]

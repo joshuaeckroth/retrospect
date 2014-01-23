@@ -123,7 +123,9 @@
                             ;; try all subsets of parent states
                             (filter not-empty (subsets expl)))]
         (mapcat (fn [expl-set]
-                  (let [parent-vals (map (fn [pv] [[pv "on"]]) (sort expl-set))
+                  (let [parent-vals (map (fn [pv] (map (fn [pval] [pv pval])
+                                                       (sort (values expgraph pv))))
+                                         (sort expl-set))
                         parent-combs (gen-parent-combinations parent-vals)]
                     (if (:OnlySingleExplainers state/params)
                       ;; build a single explainer for each parent-comb
@@ -167,3 +169,8 @@
                          (:hyps %))
                (not (any-vertex-values-conflict? expgraph (:vertex %) (:value %) observed-vertex-values)))
             new-expl-hyps)))
+
+
+
+
+

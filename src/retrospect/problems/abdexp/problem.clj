@@ -70,5 +70,6 @@
     :SensorSubset [100.0 [0.0 25.0 50.0 75.0 100.0]]
     :HypScores ["posterior" ["prior" "posterior"]]
     :PriorFunc ["max" ["min" "max" "avg"]]
+    :MaxStates [2 [2 3 4]]
     :BestProbMult [3.0 [1.0 2.0 3.0]]}})
 
