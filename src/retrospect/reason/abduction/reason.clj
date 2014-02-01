@@ -41,7 +41,7 @@
              :RemoveEssentialConfExp [false [true false]]
              :ScoreMetaConfExp ["opt2" ["opt1" "opt2" "opt3" "opt4" "opt5"]]
              :ScoreMetaImplExp ["opt2" ["opt1" "opt2" "opt3"]]
-             :RemoveConflictingImplExp [false [true false]]
+             :RemoveConflictingImplExp [true [true false]]
              :MaxMetaImplExpScoreDelta [0.75 [0.5 1.0]]
              :MetaEveryNSteps [1 [1 2 3 4 5]]
              :MaxBatch [5 [5]]
