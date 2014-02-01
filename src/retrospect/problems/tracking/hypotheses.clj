@@ -158,24 +158,24 @@
              {:det det})))
 
 (defn make-sensor-hyps-obs
-  [time-prev time-now moves-dist acc-dets already-observed-dets to-time from-time sensed-dets]
+  [time-prev time-now moves-dist acc-dets already-observed-dets sensed-dets]
   (let [prior-next-dets (set/union acc-dets sensed-dets)
         prior-dets (filter #(= (dec time-now) (:time %)) prior-next-dets)
         next-dets (filter #(= time-now (:time %)) prior-next-dets)]
     (if (= time-prev time-now) []
         (mapcat (fn [det] (cond
                            ;; if det has time 0 or time-prev, only generate "to" report
-                           (and (= (:time det) to-time)
+                           (and (= (:time det) time-prev)
                                 (not (already-observed-dets [det :to])))
                            [(make-sensor-hyp det :to next-dets moves-dist)]
                            ;; if det has time equal to steps or time-now,
                            ;; only generate "from" report
-                           (and (= (:time det) from-time)
+                           (and (= (:time det) time-now)
                                 (not (already-observed-dets [det :from])))
                            [(make-sensor-hyp det :from prior-dets moves-dist)]
                            ;; otherwise, generate both "from" and "to" reports
-                           (and (not= (:time det) to-time)
-                                (not= (:time det) from-time)
+                           (and (not= (:time det) time-prev)
+                                (not= (:time det) time-now)
                                 (not (already-observed-dets [det :to]))
                                 (not (already-observed-dets [det :from])))
                            [(make-sensor-hyp det :to next-dets moves-dist)
@@ -190,7 +190,7 @@
         acc-dets (set (map :det (:observation accepted)))
         already-observed-dets (set (map (fn [h] [(:det h) (:subtype h)]) (:observation hypotheses)))
         mk-fn (partial make-sensor-hyps-obs time-prev time-now moves-dist acc-dets
-                       already-observed-dets 0 (:Steps params))]
+                       already-observed-dets)]
     (mk-fn (set (mapcat (fn [t] (mapcat (fn [s] (sensed-at s t)) sensors))
                         (range time-prev (inc time-now)))))))
 
