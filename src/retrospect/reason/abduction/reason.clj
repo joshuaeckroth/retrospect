@@ -80,7 +80,8 @@
                                            "expl,score" "arbitrary"]]
              :ConsiderExplPower [false [true false]]
              :NormalizeDelta [true [true false]]
-             :GetMoreHypsEveryCycle [false [true false]]}
+             :GetMoreHypsEveryCycle [false [true false]]
+             :AnomaliesUnexp [false [true false]]}
             (:default-params (:abduction @problem))))
    :meta-hyp-types #{:meta-impl-exp :meta-order-dep :meta-conf-exp}
    :init-workspace-fn init-workspace

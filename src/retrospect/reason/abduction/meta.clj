@@ -19,7 +19,9 @@
 (defn find-anomalies
   [est]
   (let [workspace (:workspace (cur-ep est))]
-    (no-explainers workspace)))
+    (if (:AnomaliesUnexp params)
+      (unexplained workspace)
+      (no-explainers workspace))))
 
 (defn metareasoning-activated?
   [est]
