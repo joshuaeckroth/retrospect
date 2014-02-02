@@ -14,8 +14,9 @@
   (let [objs (doall (map (fn [obj]
                            (if (<= (my-rand) (/ (:KeepObjIdProb params) 100.0))
                              obj (dissoc obj :objid)))
-                         (:objects (get frames time))))]
-    (add-sensed sensor time objs)))
+                         (:objects (get frames time))))
+        objs-above-threshold (filter #(>= (:detscore %) (/ (:SensorThreshold params) 100.0)) objs)]
+    (add-sensed sensor time objs-above-threshold)))
 
 (defn generate-sensors
   [training]
