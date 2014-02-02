@@ -302,8 +302,8 @@
   (if (not= (dec (:time (cur-ep est))) (time-prior est)) []
       (let [cur-ws (:workspace (cur-ep est))
             acc (accepted cur-ws)
-            ;; "relevant anomalies" are all anomalies
-            rel-anomalies anomalies
+            rel-anomalies (filter #(and (no-explainers? cur-ws %)
+                                        (some-noexp-reason? cur-ws % :no-expl-offered)) anomalies)
             accept-cycles (into {} (for [hyp rel-anomalies] [hyp (accepted-cycle cur-ws hyp)]))
             time-last (:time (cur-ep est))
             eps (filter identity
