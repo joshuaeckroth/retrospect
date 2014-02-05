@@ -35,7 +35,7 @@
                           ["meta-impl-exp,meta-order-dep,meta-conf-exp"]]
              :MetaHyps ["meta-impl-exp,meta-order-dep,meta-conf-exp"
                         ["meta-impl-exp,meta-order-dep,meta-conf-exp"]]
-             :MetaRemainderIgnore [true [true false]]
+             :MetaRemainderIgnore [false [true false]]
              :ScoreMetaHyps ["doubt-diff" ["doubt-diff" "doubt" "apriori-diff" "apriori-resolved"]]
              :SimulateSomeMetaHyps [false [true false]]
              :RemoveEssentialConfExp [false [true false]]
