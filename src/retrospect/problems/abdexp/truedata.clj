@@ -127,28 +127,35 @@
 
 (defn random-expgraph
   []
-  (loop []
+  (binding [rgen (new-seed (my-rand-int (:UniqueGraphs params)))]
     (let [expl-links (gen-explains-links)
           eg (reduce (fn [g el] (let [g2 (add-edges g el)]
-                            (if (dag? g2) g2 g)))
-                (digraph) (my-shuffle (sort expl-links)))
+                                  (if (dag? g2) g2 g)))
+                     (digraph) (my-shuffle (sort expl-links)))
           vs (sort (nodes eg))
           eg-values (reduce (fn [eg v]
-                         (-> eg (add-attr v :id v)
-                            (add-attr v :values (rand-vals))))
-                       eg vs)
+                              (-> eg (add-attr v :id v)
+                                  (add-attr v :values (rand-vals))))
+                            eg vs)
           ;; a path gives selects vertex-value pairs from all bottom
           ;; vertices to the top to ensure that conflicts links do not
           ;; disable all possible paths
           path (reduce (fn [tv v] (arbitrary-path-up eg-values tv v))
-                  {} (bottom-nodes eg-values))
+                       {} (bottom-nodes eg-values))
           conflict-links (gen-conflicts-links eg-values vs path)
           eg-conflicts (reduce set-conflicts eg-values conflict-links)
           eg-probs (reduce add-prob-table eg-conflicts vs)
-          bayesnet (build-bayesnet eg-probs)
-          true-values-map (sample-expgraph eg-probs)]
+          bayesnet (build-bayesnet eg-probs)]
+      {:expgraph eg-probs
+       :bayesnet bayesnet})))
+
+(defn random-expgraph-sampled
+  []
+  (loop []
+    (let [{:keys [expgraph bayesnet]} (random-expgraph)
+          true-values-map (sample-expgraph expgraph)]
       (if true-values-map
-        {:expgraph eg-probs
+        {:expgraph expgraph
          :bayesnet bayesnet
          :observations (take (:Steps params)
                              (my-shuffle (sort-by first (seq true-values-map))))
@@ -174,10 +181,7 @@
 
 (defn generate-truedata
   []
-  (let [{:keys [expgraph bayesnet observations true-values-map]}
-        ;; restrict the number of possible graphs
-        (binding [rgen (new-seed (my-rand-int (:UniqueGraphs params)))]
-          (random-expgraph))]
+  (let [{:keys [expgraph bayesnet observations true-values-map]} (random-expgraph-sampled)]
     {:training {:expgraph expgraph
                 :bayesnet bayesnet}
      :expgraph expgraph
