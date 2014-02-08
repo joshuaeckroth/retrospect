@@ -151,8 +151,11 @@
 
 (defn random-expgraph-sampled
   []
-  (loop []
-    (let [{:keys [expgraph bayesnet]} (random-expgraph)
+  (loop [attempts 0]
+    (let [{:keys [expgraph bayesnet]} (if (< attempts 10)
+                                        (random-expgraph)
+                                        (binding [params (assoc params :NumConflictLinks 0)]
+                                          (random-expgraph)))
           true-values-map (sample-expgraph expgraph)]
       (if true-values-map
         {:expgraph expgraph
@@ -160,7 +163,7 @@
          :observations (take (:Steps params)
                              (my-shuffle (sort-by first (seq true-values-map))))
          :true-values-map true-values-map}
-        (recur)))))
+        (recur (inc attempts))))))
 
 (defn observation-groups
   [observations]
