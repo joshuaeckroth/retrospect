@@ -272,7 +272,8 @@
   ;; only need to look at last workspace; it contains all the history
   (let [ws (:workspace (cur-ep est))]
     (frequencies
-     (for [hyp (filter #(not= :kb (:type %)) (vals (:hyp-ids ws)))]
+     (for [hyp (filter #(and (not= :kb (:type %)) (not (:composite? %)))
+                       (vals (:hyp-ids ws)))]
        (classify-error ws true-false hyp)))))
 
 (defn classify-noise
