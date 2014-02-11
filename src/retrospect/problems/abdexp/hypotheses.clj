@@ -88,20 +88,27 @@
           (map mk-fn sens)))))
 
 (defn make-explainer
-  [bn expgraph observed-hyps observed-vertex-values unexp-hyp pv pval]
-  (let [score (make-score expgraph bn observed-vertex-values
-                          [[pv pval]] (:vertex unexp-hyp) (:value unexp-hyp))]
-    (new-hyp "Expl" :expl :expl score
-             (not-empty (explainers expgraph pv))
-             [:expl] (partial hyps-conflict? expgraph)
-             (set (conj (map :contents (filter (fn [obs] (explains? expgraph pv (:vertex obs))) observed-hyps))
-                        (:contents unexp-hyp)))
-             (format "%s=%s" pv pval)
-             (format "%s=%s" pv pval)
-             {:vertex pv :value pval})))
+  [bn expgraph observed-hyps observed-vertex-values expl-hyps unexp-hyp pv pval]
+  ;; reuse an expl-hyp if it already exists
+  (if-let [existing-hyp (first (filter #(and (= (:vertex %) pv) (= (:value %) pval)) expl-hyps))]
+    (assoc existing-hyp
+      :explains (set (conj (map :contents (filter (fn [obs] (explains? expgraph pv (:vertex obs)))
+                                                  observed-hyps))
+                           (:contents unexp-hyp))))
+    (let [score (make-score expgraph bn observed-vertex-values
+                            [[pv pval]] (:vertex unexp-hyp) (:value unexp-hyp))]
+      (new-hyp "Expl" :expl :expl score
+               (not-empty (explainers expgraph pv))
+               [:expl] (partial hyps-conflict? expgraph)
+               (set (conj (map :contents (filter (fn [obs] (explains? expgraph pv (:vertex obs)))
+                                                 observed-hyps))
+                          (:contents unexp-hyp)))
+               (format "%s=%s" pv pval)
+               (format "%s=%s" pv pval)
+               {:vertex pv :value pval}))))
 
 (defn make-explainer-hyps
-  [bn expgraph observed-hyps observed-vertex-values unexp-hyp]
+  [bn expgraph observed-hyps observed-vertex-values expl-hyps unexp-hyp]
   (let [v (:vertex unexp-hyp)
         val (:value unexp-hyp)]
     ;; if an observation came in on a expl we already believe, update that expl
@@ -138,10 +145,10 @@
                              (if (= 1 (count parent-comb))
                                ;; don't make a composite if there is only one vertex-value pair
                                (let [[pv pval] (first parent-comb)]
-                                 (make-explainer bn expgraph observed-hyps observed-vertex-values unexp-hyp pv pval))
+                                 (make-explainer bn expgraph observed-hyps observed-vertex-values expl-hyps unexp-hyp pv pval))
                                ;; make a composite if there are multiple vertex-value pairs
                                (let [hyps (map (fn [[pv pval]]
-                                                 (make-explainer bn expgraph observed-hyps observed-vertex-values unexp-hyp pv pval))
+                                                 (make-explainer bn expgraph observed-hyps observed-vertex-values expl-hyps unexp-hyp pv pval))
                                                parent-comb)
                                      score (make-score expgraph bn observed-vertex-values
                                                        parent-comb v val)]
@@ -161,13 +168,18 @@
   (let [kb (get-kb accepted)
         bn (:bayesnet kb)
         expgraph (:expgraph kb)
+        expl-hyps (:expl hypotheses)
         observed-hyps (filter #(= :expl (:subtype %)) (:all accepted))
         observed-vertex-values (map (fn [h] [(:vertex h) (:value h)]) observed-hyps)
-        new-expl-hyps (mapcat #(make-explainer-hyps bn expgraph observed-hyps observed-vertex-values %) unexp)]
+        new-expl-hyps (mapcat #(make-explainer-hyps
+                                bn expgraph observed-hyps observed-vertex-values expl-hyps %)
+                              unexp)]
     (filter #(if (= :expl-composite (:type %))
-               (not-any? (fn [h] (any-vertex-values-conflict? expgraph (:vertex h) (:value h) observed-vertex-values))
+               (not-any? (fn [h] (any-vertex-values-conflict?
+                                  expgraph (:vertex h) (:value h) observed-vertex-values))
                          (:hyps %))
-               (not (any-vertex-values-conflict? expgraph (:vertex %) (:value %) observed-vertex-values)))
+               (not (any-vertex-values-conflict?
+                     expgraph (:vertex %) (:value %) observed-vertex-values)))
             new-expl-hyps)))
 
 

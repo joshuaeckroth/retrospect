@@ -382,10 +382,8 @@
   (assoc hyp :apriori (if (oracle-fn hyp) 1.0 0.0)))
 
 (def invert-scores-helper
-  (memoize (fn [simulation hyp-contents apriori]
-             (if (< (my-rand) (double (/ (:InvertScoresPct params) 100.0)))
-               (- 1.0 apriori)
-               apriori))))
+  (memoize (fn [simulation hypid]
+             (< (my-rand) (double (/ (:InvertScoresPct params) 100.0))))))
 
 (defn update-hyp-apriori
   [workspace hyp]
@@ -405,19 +403,22 @@
                      (let [levels (range 0.0 1.01 (/ 1.0 (double (dec (:ScoreLevels params)))))
                            apriori-new (first (sort-by #(Math/abs (- (:apriori hyp) %)) levels))]
                        (assoc hyp :apriori apriori-new)))))
-        new-apriori (invert-scores-helper (:simulation params) (:contents hyp-s) (:apriori hyp-s))]
+        new-apriori (if (invert-scores-helper (:simulation params) (:id hyp-s))
+                      (- 1.0 (:apriori hyp-s))
+                      (:apriori hyp-s))]
     (assoc hyp-s :apriori new-apriori)))
 
 (defn add-helper
   [workspace hyp]
-  (let [ ;; sometimes, an added hyp explains stuff not already added;
+  (let [;; sometimes, an added hyp explains stuff not already added;
         ;; this can happen when a problem case is added during abductive metareasoning;
         ;; we just ignore these non-existing explained hyps
         explains (filter identity (map #(get (:hyp-contents workspace) %) (:explains hyp)))
         conflicts-tags (if (:composite? hyp)
                          (set (mapcat :conflicts-tags (:hyps hyp)))
                          (:conflicts-tags hyp))
-        ws-conflicts-tags (reduce (fn [ws ct] (update-in ws [:conflicts-tag-map ct] conj (:id hyp)))
+        ws-conflicts-tags (reduce (fn [ws ct] (update-in ws [:conflicts-tag-map ct]
+                                                         conj (:id hyp)))
                                   workspace conflicts-tags)]
     (-> ws-conflicts-tags
         (assoc-in [:hyp-ids (:id hyp)] hyp)
@@ -472,24 +473,25 @@
 
 (defn add
   [workspace hyp cycle]
-  (let [hyp-apriori (update-hyp-apriori workspace hyp)
-        hyp-c (if (:composite? hyp-apriori)
+  (let [hyp-c (if (:composite? hyp)
                 ;; update a composite hyp so that updated sub-hyps are used
                 (let [lookup-sub-hyp (fn [h] (if-let [h-id (get (:hyp-contents workspace)
                                                                 (:contents h))]
                                                (lookup-hyp workspace h-id) h))
-                      updated-sub-hyps (map lookup-sub-hyp (:hyps hyp-apriori))]
-                  (assoc hyp-apriori :hyps updated-sub-hyps))
-                hyp-apriori)]
+                      updated-sub-hyps (map lookup-sub-hyp (:hyps hyp))]
+                  (assoc hyp :hyps updated-sub-hyps))
+                hyp)]
     (log "Adding" hyp-c)
     (let [ws (if-let [prior-hyp-id (get (:hyp-contents workspace) (:contents hyp-c))]
                (-> workspace
                    (add-to-hyp-log prior-hyp-id (format "%s Added as updated hyp %s at cycle %d (original: %s)"
                                                         hyp-c prior-hyp-id cycle hyp))
                    (add-existing-hyp-updated hyp-c prior-hyp-id cycle))
-               (-> workspace
-                   (add-to-hyp-log hyp-c (format "%s Added at cycle %d (original: %s)" hyp-c cycle hyp))
-                   (add-helper hyp-c)))]
+               (let [hyp-apriori (update-hyp-apriori workspace hyp)]
+                 (-> workspace
+                     (add-to-hyp-log hyp-apriori (format "%s Added at cycle %d (original: %s)"
+                                                         hyp-apriori cycle hyp))
+                     (add-helper hyp-apriori))))]
       (if (and (not (rejected? ws hyp-c))
                (conflicts-with-accepted? ws hyp-c))
         (do (log (str "...yet it conflicts with an already accepted hyp, "
