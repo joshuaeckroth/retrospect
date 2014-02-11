@@ -381,6 +381,12 @@
   [oracle-fn hyp meta?]
   (assoc hyp :apriori (if (oracle-fn hyp) 1.0 0.0)))
 
+(def invert-scores-helper
+  (memoize (fn [simulation hyp-contents apriori]
+             (if (< (my-rand) (double (/ (:InvertScoresPct params) 100.0)))
+               (- 1.0 apriori)
+               apriori))))
+
 (defn update-hyp-apriori
   [workspace hyp]
   (let [hyp-s (cond
@@ -398,11 +404,9 @@
                  (if (= 100 (:ScoreLevels params)) hyp
                      (let [levels (range 0.0 1.01 (/ 1.0 (double (dec (:ScoreLevels params)))))
                            apriori-new (first (sort-by #(Math/abs (- (:apriori hyp) %)) levels))]
-                       (assoc hyp :apriori apriori-new)))))]
-    (if (< (my-rand) (double (/ (:InvertScoresPct params) 100.0)))
-      (do (log "Inverting score of" hyp)
-          (assoc hyp-s :apriori (- 1.0 (:apriori hyp-s))))
-      hyp-s)))
+                       (assoc hyp :apriori apriori-new)))))
+        new-apriori (invert-scores-helper (:simulation params) (:contents hyp-s) (:apriori hyp-s))]
+    (assoc hyp-s :apriori new-apriori)))
 
 (defn add-helper
   [workspace hyp]
