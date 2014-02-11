@@ -17,6 +17,7 @@
 
 (def calls-to-observe (atom {}))
 (def calls-to-hypothesize (atom {}))
+(def ^:dynamic doing-meta? false)
 
 (defrecord Hypothesis
     [id name type subtype apriori needs-explainer? conflicts-tags conflicts?-fn
@@ -382,7 +383,7 @@
   (assoc hyp :apriori (if (oracle-fn hyp) 1.0 0.0)))
 
 (def invert-scores-helper
-  (memoize (fn [simulation hypid]
+  (memoize (fn [simulation hyp-data]
              (< (my-rand) (double (/ (:InvertScoresPct params) 100.0))))))
 
 (defn update-hyp-apriori
@@ -403,7 +404,9 @@
                      (let [levels (range 0.0 1.01 (/ 1.0 (double (dec (:ScoreLevels params)))))
                            apriori-new (first (sort-by #(Math/abs (- (:apriori hyp) %)) levels))]
                        (assoc hyp :apriori apriori-new)))))
-        new-apriori (if (invert-scores-helper (:simulation params) (:id hyp-s))
+        new-apriori (if (and (not doing-meta?)
+                             (not= 0 (:InvertScoresPct params))
+                             (invert-scores-helper (:simulation params) (:data hyp-s)))
                       (- 1.0 (:apriori hyp-s))
                       (:apriori hyp-s))]
     (assoc hyp-s :apriori new-apriori)))
@@ -668,7 +671,7 @@
     (assoc workspace :accgraph ag-expl)))
 
 (defn explain
-  [workspace cycle time-now doing-meta?]
+  [workspace cycle time-now]
   (let [ws (assoc workspace :accrej {})
         ws-minscore (reject-minscore ws cycle)
         ws-hyps (if (and (not doing-meta?) (:GetMoreHypsEveryCycle params))
