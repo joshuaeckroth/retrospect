@@ -3,7 +3,8 @@
   (:use [retrospect.reason.abduction.workspace :only [new-hyp]])
   (:use [retrospect.sensors :only [sensed-at]])
   (:use [retrospect.evaluate :only [avg]])
-  (:use [retrospect.state]))
+  (:use [retrospect.state])
+  (:use [geppetto.random :only [my-rand-int]]))
 
 (defn dist
   [x1 y1 x2 y2]
@@ -203,13 +204,15 @@
                         (and (= nil (:objid det))
                              (= 1 (count objids-in)))
                         (assoc det :objid (first objids-in))
-                        :else det)
+                        ;; make a random objid which we'll keep track of hereafter
+                        :else (assoc det :objid (my-rand-int 10000000)))
         det2-objid (cond (and (= nil (:objid det2))
-                              (not= nil (:objid det)))
-                         (assoc det2 :objid (:objid det))
+                              (not= nil (:objid det-objid)))
+                         (assoc det2 :objid (:objid det-objid))
                          (and (= nil (:objid det2))
                               (= 1 (count objids-in)))
                          (assoc det2 :objid (first objids-in))
+                         ;; should never reach here, since det-objid has an objid now
                          :else det2)
         d (dist (:x det-objid) (:y det-objid)
                 (:x det2-objid) (:y det2-objid))
