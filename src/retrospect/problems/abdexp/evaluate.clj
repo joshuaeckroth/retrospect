@@ -47,12 +47,16 @@
                                                                (:observation (hypotheses ws)))))
                                     (:states (most-probable-explanation bn)))
                         mpe-acc (for [[v val] mpe-map] {:vertex v :value val})
+                        mpe-sub-acc (filter (fn [{:keys [vertex]}] (some (fn [h] (= (:vertex h) vertex)) acc)) mpe-acc)
                         true-values-map (:true-values-map truedata)
                         [tp tn fp fn] (tp-tn-fp-fn true-values-map acc rej)
                         prec-recall (calc-prec-recall tp tn fp fn (count true-values-map))
                         [mtp mtn mfp mfn] (tp-tn-fp-fn true-values-map mpe-acc [])
-                        mpe-prec-recall (calc-prec-recall mtp mtn mfp mfn (count true-values-map))]
-                    (assoc prec-recall :MPEAccuracy (:Accuracy mpe-prec-recall))))]
+                        [mtps mtns mfps mfns] (tp-tn-fp-fn true-values-map mpe-sub-acc [])
+                        mpe-prec-recall (calc-prec-recall mtp mtn mfp mfn (count true-values-map))
+                        mpe-sub-prec-recall (calc-prec-recall mtps mtns mfps mfns (count true-values-map))]
+                    (assoc prec-recall :MPEAccuracy (:Accuracy mpe-prec-recall)
+                           :MPESubAccuracy (:Accuracy mpe-sub-prec-recall))))]
     (merge (compute-complexity expgraph)
            (last metrics)
            {:AvgPrec (avg (map :Prec metrics))
