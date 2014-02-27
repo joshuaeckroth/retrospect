@@ -39,24 +39,27 @@
         metrics (for [ep (decision-points est)]
                   (let [ws (:workspace ep)
                         acc (filter #(= :expl (:subtype %)) (:expl (accepted ws)))
+                        acc-vertices (set (map :vertex acc))
+                        obs-vertices (set (map :vertex (:observation (hypotheses ws))))
                         rej (filter #(= :expl (:subtype %)) (:expl (rejected ws)))
-                        mpe-map (do (unobserve-all bn)
-                                    ;; sort so that duplication noise (conflicting vals for same var)
-                                    ;; are "observed" in the same order every time
-                                    (observe-seq bn (sort (map (fn [obs] [(:vertex obs) (:value obs)])
-                                                               (:observation (hypotheses ws)))))
-                                    (:states (most-probable-explanation bn)))
+                        mpe-map (let [bn2 (copy-net bn)]
+                                  (unobserve-all bn2)
+                                  ;; sort so that duplication noise (conflicting vals for same var)
+                                  ;; are "observed" in the same order every time
+                                  (observe-seq bn2 (sort (map (fn [obs] [(:vertex obs) (:value obs)])
+                                                              (:observation (hypotheses ws)))))
+                                  (absorb-vertices bn2 (filter (fn [v] (not (acc-vertices v)))
+                                                               (vertices expgraph)))
+                                  (let [mpe-map (:states (most-probable-explanation bn2))]
+                                    (.finalize bn2)
+                                    mpe-map))
                         mpe-acc (for [[v val] mpe-map] {:vertex v :value val})
-                        mpe-sub-acc (filter (fn [{:keys [vertex]}] (some (fn [h] (= (:vertex h) vertex)) acc)) mpe-acc)
                         true-values-map (:true-values-map truedata)
                         [tp tn fp fn] (tp-tn-fp-fn true-values-map acc rej)
                         prec-recall (calc-prec-recall tp tn fp fn (count true-values-map))
                         [mtp mtn mfp mfn] (tp-tn-fp-fn true-values-map mpe-acc [])
-                        [mtps mtns mfps mfns] (tp-tn-fp-fn true-values-map mpe-sub-acc [])
-                        mpe-prec-recall (calc-prec-recall mtp mtn mfp mfn (count true-values-map))
-                        mpe-sub-prec-recall (calc-prec-recall mtps mtns mfps mfns (count true-values-map))]
-                    (assoc prec-recall :MPEAccuracy (:Accuracy mpe-prec-recall)
-                           :MPESubAccuracy (:Accuracy mpe-sub-prec-recall))))]
+                        mpe-prec-recall (calc-prec-recall mtp mtn mfp mfn (count true-values-map))]
+                    (assoc prec-recall :MPEAccuracy (:Accuracy mpe-prec-recall))))]
     (merge (compute-complexity expgraph)
            (last metrics)
            {:AvgPrec (avg (map :Prec metrics))

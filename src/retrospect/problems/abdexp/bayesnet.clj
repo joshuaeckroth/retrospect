@@ -59,6 +59,10 @@
     (.compile bn)
     bn))
 
+(defn copy-net
+  [bn]
+  (Net. bn "copy" netica-env ""))
+
 (defn get-posterior
   ([bn pairs]
      (do
@@ -96,6 +100,14 @@
 (defn unobserve-all
   [bn]
   (.retractFindings bn))
+
+(defn absorb-vertices
+  [bn vertices]
+  (.compile bn)
+  (let [nodelist (NodeList. bn)]
+    (doseq [vertex vertices]
+      (.add nodelist (.getNode bn vertex)))
+    (.absorbNodes bn nodelist)))
 
 (defn conditional-delta
   [bn observed pairs conditioning-pairs]
