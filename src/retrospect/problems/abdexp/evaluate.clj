@@ -50,9 +50,7 @@
                                                               (:observation (hypotheses ws)))))
                                   (absorb-vertices bn2 (filter (fn [v] (not (acc-vertices v)))
                                                                (vertices expgraph)))
-                                  (let [mpe-map (:states (most-probable-explanation bn2))]
-                                    (.finalize bn2)
-                                    mpe-map))
+                                  (:states (most-probable-explanation bn2)))
                         mpe-acc (for [[v val] mpe-map] {:vertex v :value val})
                         true-values-map (:true-values-map truedata)
                         [tp tn fp fn] (tp-tn-fp-fn true-values-map acc rej)
