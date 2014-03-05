@@ -101,6 +101,10 @@
   [bn]
   (.retractFindings bn))
 
+(defn write-findings
+  [bn]
+  (.writeFindings bn (Streamer. "findings.cas") nil -1 -1.0))
+
 (defn absorb-vertices
   [bn vertices]
   (.compile bn)

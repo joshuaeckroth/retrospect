@@ -44,10 +44,10 @@
                         rej (filter #(= :expl (:subtype %)) (:expl (rejected ws)))
                         mpe-map (let [bn2 (copy-net bn)]
                                   (unobserve-all bn2)
-                                  ;; sort so that duplication noise (conflicting vals for same var)
+                                  ;; shuffle/sort so that duplication noise (conflicting vals for same var)
                                   ;; are "observed" in the same order every time
-                                  (observe-seq bn2 (sort (map (fn [obs] [(:vertex obs) (:value obs)])
-                                                              (:observation (hypotheses ws)))))
+                                  (observe-seq bn2 (my-shuffle (sort (map (fn [obs] [(:vertex obs) (:value obs)])
+                                                                          (:observation (hypotheses ws))))))
                                   (absorb-vertices bn2 (filter (fn [v] (not (acc-vertices v)))
                                                                (vertices expgraph)))
                                   (:states (most-probable-explanation bn2)))
