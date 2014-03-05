@@ -7,6 +7,7 @@
   (:use [retrospect.reason.abduction.evaluate :only [doubt-aggregate]])
   (:use [retrospect.problems.abdexp.expgraph])
   (:use [retrospect.problems.abdexp.bayesnet])
+  (:use [geppetto.random])
   (:use [retrospect.state]))
 
 (defn true-hyp?
