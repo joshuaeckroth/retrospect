@@ -13,6 +13,7 @@
           player-get-problem-log player-setup-diagram player-update-diagram]])
   (:use [retrospect.problems.tracking.prepared :only
          [prepared-map]])
+  (:use [retrospect.problems.tracking.export :only [export export-header export-footer]])
   (:use [retrospect.problems.tracking.claims])
   (:use [retrospect.state]))
 
@@ -32,6 +33,9 @@
                 (if (= "Abduction" (:name @reasoner))
                   (true-hyp? truedata hyp)
                   false))
+   :export-fn export
+   :export-header-fn export-header
+   :export-footer-fn export-footer
    :abduction {:generate-kb-fn generate-kb
                :make-sensor-hyps-fn make-sensor-hyps
                :hypothesize-fn hypothesize

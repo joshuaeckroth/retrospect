@@ -4,12 +4,13 @@
   (:require [clojure.string :as str])
   (:use [clojure.java.shell :only [sh]])
   (:use [clojure.tools.cli :only [cli]])
-  (:use [geppetto.random :only [rgen new-seed]])
+  (:use [geppetto.random :only [rgen new-seed my-rand-int my-shuffle]])
   (:require [retrospect.state :as state])
   (:use propertea.core)
   (:use [clojure.pprint :only [pprint]])
   (:use [geppetto.misc])
-  (:use [geppetto.parameters :only [read-params extract-problem]])
+  (:use [geppetto.parameters :only
+         [read-params extract-problem explode-params vectorize-params]])
   (:use [geppetto.runs :only [get-run find-abandoned-runs]])
   (:use [geppetto.claim])
   (:use [geppetto.repeat])
@@ -19,7 +20,7 @@
   #_(:use [retrospect.problems.words.problem :only [words-problem]])
   #_(:use [retrospect.problems.classify.problem :only [classify-problem]])
   (:use [retrospect.problems.abdexp.problem :only [abdexp-problem]])
-  (:use [retrospect.simulate :only [run]])
+  (:use [retrospect.simulate :only [run pre-sense merge-default-params]])
   (:use [geppetto.records :only [run-with-new-record submit-results]])
   (:use [geppetto.optimize :only [optimize]])
   (:use [retrospect.player :only [start-player]]))
@@ -47,7 +48,7 @@
 (defn -main [& args]
   (let [[options _ banner]
         (cli args
-             ["--action" "Action (run/player/optimize/resubmit/verify-claims)" :default "player"]
+             ["--action" "Action (run/player/optimize/export/resubmit/verify-claims)" :default "player"]
              ["--reasoner" "Reasoning algorithm" :default "abduction"]
              ["--problem" "Problem" :default "tracking"]
              ["--params" "Parameters identifier (e.g. 'Words/foobar')" :default ""]
@@ -55,13 +56,15 @@
              ["--claims" "Which claims to verify, comma separated (default: all)"
               :default nil :parse-fn #(set (str/split % #"\s*,\s*"))]
              ["--nthreads" "Number of threads" :default 1 :parse-fn #(Integer. %)]
-             ["--repetitions" "Number of repetitions" :default 10 :parse-fn #(Integer. %)]
+             ["--repetitions" "Number of repetitions" :default 1 :parse-fn #(Integer. %)]
              ["--seed" "Seed" :default 0 :parse-fn #(Integer. %)]
              ["--upload" "Upload?" :default true :parse-fn #(= "true" %)]
              ["--save-record" "Save in record directory?" :default true :parse-fn #(= "true" %)]
              ["--recdir" "Record directory (to resubmit)" :default ""]
              ["--log" "Show verbose logging?" :default false :parse-fn #(= "true" %)]
              ["--quiet" "Quiet mode (hide progress messages)?" :default false :parse-fn #(= "true" %)]
+             ["--export-file" "Export file" :default "export.dat"]
+             ["--export-type" "Export type" :default "xml"]
              ["--opt-metric" "Optimize metric" :parse-fn keyword]
              ["--opt-min-or-max" "Optimize to 'min' or 'max' of metric" :default :max :parse-fn keyword]
              ["--opt-alpha" "Optimize alpha (double)" :default 0.95 :parse-fn #(Double. %)]
@@ -91,6 +94,39 @@
           (= (:action options) "player")
           ;; start the player on swing's "event dispatch thread"
           (SwingUtilities/invokeLater start-player)
+
+          (= (:action options) "export")
+          (let [problem (choose-problem (extract-problem (:params options)))]
+            (dosync
+             (alter state/problem (constantly problem))
+             (alter state/batch (constantly true)))
+            (binding [rgen (new-seed (:seed options))]
+              (let [params (read-params (:params options))
+                    params-variations (explode-params (vectorize-params (:control params)))
+                    seeds (repeatedly (:repetitions options) #(my-rand-int 10000000))
+                    params-with-seeds (mapcat (fn [pp] (for [s seeds] (assoc pp :Seed s)))
+                                              params-variations)]
+                ;; create the file anew
+                (spit (:export-file options)
+                      (with-out-str ((:export-header-fn @state/problem)
+                                     (:export-type options))))
+                (doseq [ps (my-shuffle params-with-seeds)]
+                  (binding [rgen (new-seed (:Seed ps))
+                            state/last-id 0
+                            state/cache (atom {})
+                            state/params (merge-default-params ps)]
+                    (prn ps)
+                    (let [truedata ((:generate-truedata-fn @state/problem))
+                          sensors (pre-sense truedata ((:generate-sensors-fn @state/problem)
+                                                       (:training truedata)))]
+                      (spit (:export-file options)
+                            (with-out-str ((:export-fn @state/problem)
+                                           (:export-type options) truedata sensors))
+                            :append true))))
+                (spit (:export-file options)
+                      (with-out-str ((:export-footer-fn @state/problem)
+                                     (:export-type options)))
+                      :append true))))
 
           (= (:action options) "resubmit")
           (submit-results (:recdir options))
