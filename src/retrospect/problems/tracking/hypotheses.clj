@@ -141,7 +141,8 @@
   (let [det (:det to)
         det2 (:det from)
         d (dist (:x det2) (:y det2) (:x det) (:y det))]
-    (and (< d (* 1.1 (:max-moves-dist moves-dist)))
+    (and (or (not (:LimitMaxMovesDist params))
+             (< d (* 1.1 (:max-moves-dist moves-dist))))
          (= (:time (:det to)) (inc (:time (:det from)))))))
 
 (defn make-sensor-hyp
