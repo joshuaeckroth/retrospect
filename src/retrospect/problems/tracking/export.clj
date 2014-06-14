@@ -8,13 +8,13 @@
   (println "(make-exp-case")
   (println ":groundtruth '(")
   (doseq [mov (:all-moves truedata)]
-    (println (format "(mov %d %d %d %d %d \"%s\")"
+    (println (format "(mov %d %d %d %d %d %d \"%s\")"
                      (:ox mov) (:oy mov)
-                     (:x mov) (:y mov) (:ot mov)
+                     (:x mov) (:y mov) (:ot mov) (:time mov)
                      (color-str (:color mov)))))
   (println ")")
   (println ":evidence '(")
-  (doseq [t (range (:Steps params))]
+  (doseq [t (range (inc (:Steps params)))]
     (println (format "(next-time-step %d %d)" t (inc t)))
     (doseq [s sensors]
       (doseq [det (sensed-at s t)]
