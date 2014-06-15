@@ -6,6 +6,7 @@
 (defn export-abra
   [truedata sensors]
   (println "(make-exp-case")
+  (println (format ";; Seed: %d" (:Seed params)))
   (println ":groundtruth '(")
   (doseq [mov (:all-moves truedata)]
     (println (format "(mov %d %d %d %d %d %d \"%s\")"
