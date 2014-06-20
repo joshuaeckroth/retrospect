@@ -24,7 +24,7 @@
                            (:x det) (:y det) (:time det)
                            (color-str (:color det)))))
         ;; ignored: (:apriori det)
-        (when (not= (dec (:Steps params)) t)
+        (when (not= (:Steps params) t)
           (println (format "(det-a %d %d %d)"
                            (:x det) (:y det) (:time det))))
         (when (not= 0 t)
