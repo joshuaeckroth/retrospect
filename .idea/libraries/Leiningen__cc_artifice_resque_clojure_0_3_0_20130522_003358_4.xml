@@ -1,9 +1,0 @@
-<component name="libraryTable">
-  <library name="Leiningen: cc.artifice:resque-clojure:0.3.0-20130522.003358-4">
-    <CLASSES>
-      <root url="jar://$MAVEN_REPOSITORY$/cc/artifice/resque-clojure/0.3.0-SNAPSHOT/resque-clojure-0.3.0-SNAPSHOT.jar!/" />
-    </CLASSES>
-    <JAVADOC />
-    <SOURCES />
-  </library>
-</component>

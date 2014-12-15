@@ -1,9 +1,0 @@
-<component name="libraryTable">
-  <library name="Leiningen: incanter:incanter-mongodb:1.5.4">
-    <CLASSES>
-      <root url="jar://$MAVEN_REPOSITORY$/incanter/incanter-mongodb/1.5.4/incanter-mongodb-1.5.4.jar!/" />
-    </CLASSES>
-    <JAVADOC />
-    <SOURCES />
-  </library>
-</component>

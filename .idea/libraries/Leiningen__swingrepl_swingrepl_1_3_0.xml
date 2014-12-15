@@ -1,9 +1,0 @@
-<component name="libraryTable">
-  <library name="Leiningen: swingrepl:swingrepl:1.3.0">
-    <CLASSES>
-      <root url="jar://$MAVEN_REPOSITORY$/swingrepl/swingrepl/1.3.0/swingrepl-1.3.0.jar!/" />
-    </CLASSES>
-    <JAVADOC />
-    <SOURCES />
-  </library>
-</component>
