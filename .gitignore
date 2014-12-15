@@ -13,3 +13,7 @@ explains-graphs
 *.swp
 sphinx4
 target
+.idea/*
+config.properties
+.lein-repl-history
+retrospect.iml
