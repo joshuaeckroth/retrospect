@@ -19,7 +19,7 @@
   (:use [retrospect.problems.aerial.problem :only [aerial-problem]])
   #_(:use [retrospect.problems.words.problem :only [words-problem]])
   #_(:use [retrospect.problems.classify.problem :only [classify-problem]])
-  (:use [retrospect.problems.abdexp.problem :only [abdexp-problem]])
+  #_(:use [retrospect.problems.abdexp.problem :only [abdexp-problem]])
   (:use [retrospect.simulate :only [run pre-sense merge-default-params]])
   (:use [geppetto.records :only [run-with-new-record submit-results]])
   (:use [geppetto.optimize :only [optimize]])
@@ -29,16 +29,16 @@
   (or (= "Words" problem) (= "words" problem))
   words-problem
   (or (= "Classify" problem) (= "classify" problem))
-  classify-problem)
+  classify-problem
+  (or (= "AbdExp" problem) (= "abdexp" problem))
+  abdexp-problem)
 
 (defn choose-problem
   [problem]
   (cond (or (= "Tracking" problem) (= "tracking" problem))
         tracking-problem
         (or (= "Aerial" problem) (= "aerial" problem))
-        aerial-problem
-        (or (= "AbdExp" problem) (= "abdexp" problem))
-        abdexp-problem))
+        aerial-problem))
 
 (defn choose-reasoner
   [reasoner]

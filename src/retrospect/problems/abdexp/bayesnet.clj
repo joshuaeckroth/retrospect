@@ -4,7 +4,8 @@
   (:use [retrospect.problems.abdexp.expgraph])
   (:use [retrospect.state :only [batch]]))
 
-(def netica-env (Environ. "+EckrothJ/OhioStateU/Ex14-06-30,121,310/48453"))
+;; (Environ. "+EckrothJ/OhioStateU/Ex14-06-30,121,310/48453")
+(def netica-env nil)
 
 ;; Netica crashes if nets are garbage collected; save them all
 (def bns (ref []))
