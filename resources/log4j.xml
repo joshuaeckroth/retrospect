@@ -6,16 +6,9 @@
             <param name="ConversionPattern" value="%-5p %c{1} - %m%n"/>
         </layout>
     </appender>
-    <appender name="bug4j" class="org.bug4j.client.Bug4jAppender">
-        <param name="serverUrl" value="http://bugs.artifice.cc/"/>
-        <param name="applicationName" value="retrospect"/>
-        <param name="applicationVersion" value="1.0"/>
-    </appender>
-
     <root>
         <priority value="warn"/>
         <appender-ref ref="console"/>
-        <appender-ref ref="bug4j"/>
     </root>
 
 </log4j:configuration>
