@@ -22,7 +22,8 @@
                  [com.fifesoft/rsyntaxtextarea "2.0.7"]
                  [norsys/netica "504"]
                  [propertea "1.3.1"]
-                 [fleet "0.9.5"]]
+                 [fleet "0.9.5"]
+                 [cc.artifice/paragon "0.7.0"]]
   :main retrospect.core
   :java-source-paths ["src/jvm"]
   :jvm-opts ["-Xmx2000m" "-Dawt.useSystemAAFontSettings=on" "-Djava.library.path=netica"])

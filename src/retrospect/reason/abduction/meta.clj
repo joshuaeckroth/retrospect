@@ -1,6 +1,7 @@
 (ns retrospect.reason.abduction.meta
   (:require [clojure.set :as set])
   (:require [clojure.string :as str])
+  (:require [paragon.core :as paragon])
   (:use [clojure.math.combinatorics :only [combinations]])
   (:use [retrospect.epistemicstates])
   (:use [retrospect.reason.abduction.workspace])
@@ -69,6 +70,7 @@
 
 (defn reason
   [est time-prev time-now sensors & opts]
+  (paragon/turn-on-debugging)
   (loop [est est]
     (let [meta? (some #{:no-metareason} opts)
           est-new (explain-and-advance est time-prev time-now sensors meta?)
@@ -80,7 +82,12 @@
                          :else est-new)]
       ;; if something was accepted last, repeat
       (if (:best (:accrej (:workspace (cur-ep est-meta))))
-        (recur est-meta) est-meta))))
+        (recur est-meta)
+        (do
+          (when-let [jg (:jg (:workspace (cur-ep est-meta)))]
+            (paragon/visualize jg)
+            (paragon/visualize (paragon/expand jg (map :id (:observation (hypotheses (:workspace (cur-ep est-meta))))))))
+          est-meta)))))
 
 (defn meta-apply
   [est est-new time-prev time-now sensors]

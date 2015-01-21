@@ -1,6 +1,7 @@
 (ns retrospect.reason.abduction.workspace
   (:require [clojure.set :as set])
   (:require [clojure.string :as str])
+  (:require [paragon.core :as paragon])
   (:use [plumbing.core])
   (:use [loom.graph :only
          [digraph nodes incoming neighbors weight
@@ -82,7 +83,8 @@
    ;; a cache
    :composites #{}
    ;; a cache: tag => seq of hypids
-   :conflicts-tag-map {}})
+   :conflicts-tag-map {}
+   :jg (paragon/new-just-graph)})
 
 (defn lookup-hyp
   [workspace id]
@@ -416,22 +418,29 @@
   (let [;; sometimes, an added hyp explains stuff not already added;
         ;; this can happen when a problem case is added during abductive metareasoning;
         ;; we just ignore these non-existing explained hyps
-        explains (filter identity (map #(get (:hyp-contents workspace) %) (:explains hyp)))
+        explainids (filter identity (map #(get (:hyp-contents workspace) %) (:explains hyp)))
         conflicts-tags (if (:composite? hyp)
                          (set (mapcat :conflicts-tags (:hyps hyp)))
                          (:conflicts-tags hyp))
         ws-conflicts-tags (reduce (fn [ws ct] (update-in ws [:conflicts-tag-map ct]
                                                          conj (:id hyp)))
-                                  workspace conflicts-tags)]
-    (-> ws-conflicts-tags
-        (assoc-in [:hyp-ids (:id hyp)] hyp)
-        (assoc-in [:hyp-contents (:contents hyp)] (:id hyp))
-        (update-in [:hypgraph] add-nodes (:id hyp))
-        (update-in [:hypgraph] #(apply add-edges % (for [e explains] [(:id hyp) e])))
-        (update-in [:hypotheses (:type hyp)] conj (:id hyp))
-        (update-in [:hypotheses :all] conj (:id hyp))
-        (?> (:composite? hyp) update-in [:composites] conj (:id hyp))
-        (?> (:needs-explainer? hyp) update-in [:unexplained] conj (:id hyp)))))
+                                  workspace conflicts-tags)
+        ws-added (-> ws-conflicts-tags
+                     (assoc-in [:hyp-ids (:id hyp)] hyp)
+                     (assoc-in [:hyp-contents (:contents hyp)] (:id hyp))
+                     (update-in [:hypgraph] add-nodes (:id hyp))
+                     (update-in [:hypgraph] #(apply add-edges % (for [e explainids] [(:id hyp) e])))
+                     (update-in [:hypotheses (:type hyp)] conj (:id hyp))
+                     (update-in [:hypotheses :all] conj (:id hyp))
+                     (?> (:composite? hyp) update-in [:composites] conj (:id hyp))
+                     (?> (:needs-explainer? hyp) update-in [:unexplained] conj (:id hyp)))
+        new-jg (if (= :movement (:type hyp))
+                 (reduce (fn [jg2 hypconf]
+                           (paragon/add-inconsistencies jg2 [(:id hyp) (:id hypconf)]))
+                         (paragon/can-explain (:jg ws-added) [(:id hyp)] explainids)
+                         (find-conflicts ws-added hyp))
+                 (:jg ws-added))]
+    (assoc ws-added :jg new-jg)))
 
 (defn add-existing-hyp-rejected
   [workspace hyp]
