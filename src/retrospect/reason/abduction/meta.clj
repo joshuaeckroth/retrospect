@@ -70,12 +70,20 @@
     (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))
     (random/my-rand-nth (sort-by paragon/jgstr bad-nodes))))
 
-(defn jg-score-node
+(defn jg-score-node-black
   [ws _ bad-strokes bad-nodes]
   (if (not-empty bad-nodes)
     ;; choose highest apriori
     (last (sort-by (fn [hypid] (:apriori (lookup-hyp ws hypid)))
                    bad-nodes))
+    (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))))
+
+(defn jg-score-node-white
+  [ws _ bad-strokes bad-nodes]
+  (if (not-empty bad-nodes)
+    ;; choose lowest apriori
+    (first (sort-by (fn [hypid] (:apriori (lookup-hyp ws hypid)))
+                    bad-nodes))
     (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))))
 
 (defn jg-lookup-black-strategy
@@ -84,7 +92,7 @@
     "rand" jg-rand
     "rand-pref-node" jg-rand-pref-node
     "rand-pref-stroke" jg-rand-pref-stroke
-    "score" jg-score-node
+    "score" jg-score-node-black
     nil))
 
 (defn jg-lookup-white-strategy
@@ -93,7 +101,7 @@
     "rand" jg-rand
     "rand-pref-node" jg-rand-pref-node
     "rand-pref-stroke" jg-rand-pref-stroke
-    "score" jg-score-node
+    "score" jg-score-node-white
     nil))
 
 (defn explain-and-advance
