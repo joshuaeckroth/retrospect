@@ -54,52 +54,46 @@
     (let [ws (explain workspace cycle time-now)]
       (assoc ws :log @reason-log))))
 
-(defn jg-black-rand
-  [_ bad-strokes bad-nodes]
+(defn jg-rand
+  [_ _ bad-strokes bad-nodes]
   (random/my-rand-nth (sort-by paragon/jgstr (concat bad-strokes bad-nodes))))
 
-(defn jg-white-rand
-  [_ bad-strokes bad-nodes]
-  (random/my-rand-nth (sort-by paragon/jgstr (concat bad-strokes bad-nodes))))
-
-(defn jg-black-rand-pref-node
-  [_ bad-strokes bad-nodes]
+(defn jg-rand-pref-node
+  [_ _ bad-strokes bad-nodes]
   (if (not-empty bad-nodes)
     (random/my-rand-nth (sort-by paragon/jgstr bad-nodes))
     (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))))
 
-(defn jg-white-rand-pref-node
-  [_ bad-strokes bad-nodes]
+(defn jg-rand-pref-stroke
+  [_ _ bad-strokes bad-nodes]
+  (if (not-empty bad-strokes)
+    (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))
+    (random/my-rand-nth (sort-by paragon/jgstr bad-nodes))))
+
+(defn jg-score-node
+  [ws _ bad-strokes bad-nodes]
   (if (not-empty bad-nodes)
-    (random/my-rand-nth (sort-by paragon/jgstr bad-nodes))
+    ;; choose highest apriori
+    (last (sort-by (fn [hypid] (:apriori (lookup-hyp ws hypid)))
+                   bad-nodes))
     (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))))
-
-(defn jg-black-rand-pref-stroke
-  [_ bad-strokes bad-nodes]
-  (if (not-empty bad-strokes)
-    (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))
-    (random/my-rand-nth (sort-by paragon/jgstr bad-nodes))))
-
-(defn jg-white-rand-pref-stroke
-  [_ bad-strokes bad-nodes]
-  (if (not-empty bad-strokes)
-    (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))
-    (random/my-rand-nth (sort-by paragon/jgstr bad-nodes))))
 
 (defn jg-lookup-black-strategy
   [strat]
   (case strat
-    "rand" jg-black-rand
-    "rand-pref-node" jg-black-rand-pref-node
-    "rand-pref-stroke" jg-black-rand-pref-stroke
+    "rand" jg-rand
+    "rand-pref-node" jg-rand-pref-node
+    "rand-pref-stroke" jg-rand-pref-stroke
+    "score" jg-score-node
     nil))
 
 (defn jg-lookup-white-strategy
   [strat]
   (case strat
-    "rand" jg-white-rand
-    "rand-pref-node" jg-white-rand-pref-node
-    "rand-pref-stroke" jg-white-rand-pref-stroke
+    "rand" jg-rand
+    "rand-pref-node" jg-rand-pref-node
+    "rand-pref-stroke" jg-rand-pref-stroke
+    "score" jg-score-node
     nil))
 
 (defn explain-and-advance
@@ -109,12 +103,18 @@
         ws-hyps (workspace-update-hypotheses ws time-prev time-now sensors cycle)
         ws-explained (workspace-explain ws-hyps cycle time-now meta?)
         new-jg (paragon/expand (:jg ws-explained) (map :id (:observation (hypotheses ws-explained)))
-                               :white-strategy (or (jg-lookup-white-strategy (:ParagonStrategy params))
-                                                   (jg-lookup-white-strategy (:ParagonWhiteStrategy params))
-                                                   paragon/spread-white-default-strategy)
-                               :black-strategy (or (jg-lookup-black-strategy (:ParagonStrategy params))
-                                                   (jg-lookup-black-strategy (:ParagonBlackStrategy params))
-                                                   paragon/spread-black-default-strategy))
+                               :white-strategy (partial (or (jg-lookup-white-strategy (:ParagonStrategy params))
+                                                            (jg-lookup-white-strategy (:ParagonWhiteStrategy params))
+                                                            (fn [_ jg bad-strokes bad-nodes]
+                                                              (paragon/spread-white-default-strategy
+                                                                jg bad-strokes bad-nodes)))
+                                                        ws-hyps)
+                               :black-strategy (partial (or (jg-lookup-black-strategy (:ParagonStrategy params))
+                                                            (jg-lookup-black-strategy (:ParagonBlackStrategy params))
+                                                            (fn [_ jg bad-strokes bad-nodes]
+                                                              (paragon/spread-white-default-strategy
+                                                                jg bad-strokes bad-nodes)))
+                                                        ws-hyps))
         ws-new-jg (assoc ws-explained :jg new-jg)
         est-result (est-workspace-child est ws-new-jg)]
     (if (or (and (:GetMoreHyps params)
