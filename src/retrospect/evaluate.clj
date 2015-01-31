@@ -32,18 +32,23 @@
         (/ (double (reduce + vs)) (double (count vs))))))
 
 (defn calc-prec-recall
-  [tp tn fp fn event-count]
+  [tp tn fp fn event-count prefix]
   (let [recall (if (= 0 event-count) 0.0 (/ (double tp) (double event-count)))
         prec (if (= 0 (+ tp fp)) 0.0 (/ (double tp) (double (+ tp fp))))]
     ;; http://en.wikipedia.org/wiki/Receiver_operating_characteristic
-    {:TP tp :TN tn :FP fp :FN fn
-     :TPR (/ (double tp) (double (+ tp fn)))
-     :FPR (/ (double fp) (double (+ fp tn)))
-     :TNR (/ (double tn) (double (+ fp tn)))
-     :PPV (/ (double tp) (double (+ tp fp)))
-     :NPV (/ (double tn) (double (+ tn fn)))
-     :FDR (/ (double fp) (double (+ fp tp)))
-     :Accuracy (if (= 0 (+ tp tn fp fn)) 0.0 (/ (double (+ tp tn)) (double (+ tp tn fp fn))))
-     :Recall recall
-     :Prec prec
-     :F1 (if (= 0.0 (+ prec recall)) 0.0 (/ (* 2.0 prec recall) (+ prec recall)))}))
+    {(keyword (format "%sTP" prefix)) tp
+     (keyword (format "%sTN" prefix)) tn
+     (keyword (format "%sFP" prefix)) fp
+     (keyword (format "%sFN" prefix)) fn
+     (keyword (format "%sTPR" prefix)) (/ (double tp) (double (+ tp fn)))
+     (keyword (format "%sFPR" prefix)) (/ (double fp) (double (+ fp tn)))
+     (keyword (format "%sTNR" prefix)) (/ (double tn) (double (+ fp tn)))
+     (keyword (format "%sPPV" prefix)) (/ (double tp) (double (+ tp fp)))
+     (keyword (format "%sNPV" prefix)) (/ (double tn) (double (+ tn fn)))
+     (keyword (format "%sFDR" prefix)) (/ (double fp) (double (+ fp tp)))
+     (keyword (format "%sAccuracy" prefix)) (if (= 0 (+ tp tn fp fn))
+                                              0.0 (/ (double (+ tp tn)) (double (+ tp tn fp fn))))
+     (keyword (format "%sRecall" prefix)) recall
+     (keyword (format "%sPrec" prefix)) prec
+     (keyword (format "%sF1" prefix)) (if (= 0.0 (+ prec recall))
+                                        0.0 (/ (* 2.0 prec recall) (+ prec recall)))}))

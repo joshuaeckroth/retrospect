@@ -553,7 +553,9 @@
                                     (count noise-claims-false) ;; fp
                                     (count not-noise-claims-false) ;; fn
                                     ;; and event-count:
-                                    (count noise-candidates))
+                                    (count noise-candidates)
+                                    ;; no prefix:
+                                    "")
                 jg-believed (map (fn [hypid] (lookup-hyp ws hypid)) (paragon/believed (:jg ws)))
                 jg-disbelieved (map (fn [hypid] (lookup-hyp ws hypid)) (paragon/disbelieved (:jg ws)))
                 jg-bel-tf (group-hyps-by-true-false jg-believed
@@ -575,7 +577,14 @@
                                                (count (get (get jg-dis-tf t) true))
                                                (keyword (format "JGDisFalse%s" k))
                                                (count (get (get jg-dis-tf t) false)))))
-                                         {} (keys (dissoc jg-dis-tf :individual)))]
+                                         {} (keys (dissoc jg-dis-tf :individual)))
+                jg-prec-recall (calc-prec-recall
+                                 (count (get-in jg-bel-tf [:all true])) ;; tp
+                                 (count (get-in jg-dis-tf [:all false])) ;; tn
+                                 (count (get-in jg-bel-tf [:all false])) ;; fp
+                                 (count (get-in jg-dis-tf [:all true])) ;; fn
+                                 (+ (count jg-believed) (count jg-disbelieved)) ;; event count (nodes)
+                                 "JG")]
             (merge
               {:Unexplained                       (count (unexplained ws))
                :UnexplainedPct                    (get-unexp-pct ws)
@@ -607,7 +616,8 @@
                                                     (double (/ (count not-noise-claims-false-conflicting)
                                                                (count not-noise-claims-false))))}
               jg-bel-tf-counts
-              jg-dis-tf-counts)))]
+              jg-dis-tf-counts
+              jg-prec-recall)))]
     (merge {:Problem (:name @problem)}
            params
            ((:evaluate-fn (:abduction @problem)) truedata est)

@@ -53,7 +53,7 @@
                   acc-movs (map :mov (:movement (accepted ws)))
                   rej-movs (map :mov (:movement (rejected ws)))
                   [tp tn fp fn] (tp-tn-fp-fn true-movs acc-movs rej-movs)]
-              (calc-prec-recall tp tn fp fn (count true-movs))))]
+              (calc-prec-recall tp tn fp fn (count true-movs) "")))]
       (merge (last metrics)
              {:AvgPrec (avg (map :Prec metrics))
               :AvgRecall (avg (map :Recall metrics))

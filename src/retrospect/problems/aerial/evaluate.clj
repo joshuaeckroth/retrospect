@@ -83,7 +83,7 @@
                                               (str/join "\n" (map #(format "FALSE,%f,%f" %1 %2)
                                                                   false-move-dists false-move-avgpixels))))
               (merge
-               (calc-prec-recall tp tn fp fn (count true-moves))
+               (calc-prec-recall tp tn fp fn (count true-moves) "")
                {:AvgTrueMovDist (avg true-move-dists)
                 :AvgFalseMovDist (avg false-move-dists)
                 :AvgTrueDetScore (avg true-det-scores)

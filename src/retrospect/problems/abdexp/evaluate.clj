@@ -55,9 +55,9 @@
                         mpe-acc (for [[v val] mpe-map] {:vertex v :value val})
                         true-values-map (:true-values-map truedata)
                         [tp tn fp fn] (tp-tn-fp-fn true-values-map acc rej)
-                        prec-recall (calc-prec-recall tp tn fp fn (count true-values-map))
+                        prec-recall (calc-prec-recall tp tn fp fn (count true-values-map) "")
                         [mtp mtn mfp mfn] (tp-tn-fp-fn true-values-map mpe-acc [])
-                        mpe-prec-recall (calc-prec-recall mtp mtn mfp mfn (count true-values-map))]
+                        mpe-prec-recall (calc-prec-recall mtp mtn mfp mfn (count true-values-map) "")]
                     (assoc prec-recall :MPEAccuracy (:Accuracy mpe-prec-recall))))]
     (merge (compute-complexity expgraph)
            (last metrics)
