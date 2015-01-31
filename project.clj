@@ -1,4 +1,4 @@
-(defproject cc.artifice/retrospect "1.0.0-SNAPSHOT"
+(defproject cc.artifice/retrospect "2.0.0-SNAPSHOT"
   :description "retrospect"
   :dependencies [[org.clojure/data.xml "0.0.7" :exclusions [[org.clojure/clojure]]]
                  [cc.artifice/vijual "0.2.5"]
@@ -23,7 +23,7 @@
                  [norsys/netica "504"]
                  [propertea "1.3.1"]
                  [fleet "0.9.5"]
-                 [cc.artifice/paragon "0.7.0"]]
+                 [cc.artifice/paragon "0.7.1"]]
   :main retrospect.core
   :java-source-paths ["src/jvm"]
   :jvm-opts ["-Xmx2000m" "-Dawt.useSystemAAFontSettings=on" "-Djava.library.path=netica"])

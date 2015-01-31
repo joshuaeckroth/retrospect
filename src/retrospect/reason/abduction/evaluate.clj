@@ -1,6 +1,7 @@
 (ns retrospect.reason.abduction.evaluate
   (:require [clojure.string :as str])
   (:require [clojure.set :as set])
+  (:require [paragon.core :as paragon])
   (:use [loom.graph :only [transpose]])
   (:use [retrospect.epistemicstates
          :only [cur-ep flatten-est count-branches decision-points]])
@@ -21,8 +22,8 @@
              doubts
              (concat (mapcat (fn [h] (repeat (:DoubtNoExp params) (:apriori h))) noexp) doubts))]
     (if (empty? ds) 0.0
-      (if (= "accgraph" (:DoubtMeasure params))
-        (last ds) (avg ds)))))
+                    (if (= "accgraph" (:DoubtMeasure params))
+                      (last ds) (avg ds)))))
 
 (defn tf-true?
   [true-false hyp]
@@ -32,18 +33,18 @@
   [hyps type-key truedata true-hyp? meta?]
   (let [hs (group-by type-key hyps)
         tf (reduce (fn [m type]
-                (let [grouped (group-by (fn [h] (if (true-hyp? truedata h)
-                                                 true false))
-                                        (get hs type))
-                      m-individual (reduce (fn [m2 [tf hs]]
-                                        (reduce (fn [m3 h] (assoc-in m3 [:individual (:id h)] tf))
-                                           m2 hs))
-                                      m (seq grouped))]
-                  (assoc m-individual type
-                         (reduce (fn [g tf] (if (nil? (get g tf)) (assoc g tf []) g))
-                            grouped [true false]))))
-              {} (if meta? (:meta-hyp-types @reasoner)
-                     (:hyp-types (:abduction @problem))))
+                     (let [grouped (group-by (fn [h] (if (true-hyp? truedata h)
+                                                       true false))
+                                             (get hs type))
+                           m-individual (reduce (fn [m2 [tf hs]]
+                                                  (reduce (fn [m3 h] (assoc-in m3 [:individual (:id h)] tf))
+                                                          m2 hs))
+                                                m (seq grouped))]
+                       (assoc m-individual type
+                                           (reduce (fn [g tf] (if (nil? (get g tf)) (assoc g tf []) g))
+                                                   grouped [true false]))))
+                   {} (if meta? (:meta-hyp-types @reasoner)
+                                (:hyp-types (:abduction @problem))))
         all-true (mapcat #(get % true) (vals tf))
         all-false (mapcat #(get % false) (vals tf))]
     (assoc tf (if meta? :meta-all :all) {true all-true false all-false})))
@@ -59,8 +60,8 @@
                        (accepted? workspace h)))
         aprioris (reduce (fn [m t]
                            (assoc m t
-                                  {true (map :apriori (get (get true-false t) true))
-                                   false (map :apriori (get (get true-false t) false))}))
+                                    {true (map :apriori (get (get true-false t) true))
+                                     false (map :apriori (get (get true-false t) false))}))
                          {} (keys true-false))
         pct-true-in-range (fn [start end t]
                             (let [hyps (filter #(and (<= start (:apriori %))
@@ -68,8 +69,8 @@
                                                (concat (get-in true-false [t true])
                                                        (get-in true-false [t false])))]
                               (if (empty? hyps) Double/NaN
-                                  (double (/ (count (filter #(tf-true? true-false %) hyps))
-                                             (count hyps))))))]
+                                                (double (/ (count (filter #(tf-true? true-false %) hyps))
+                                                           (count hyps))))))]
     (reduce (fn [m t]
               (let [k (keyword-to-metric t)]
                 (assoc m
@@ -105,23 +106,23 @@
               (mapcat (comp flatten-est :meta-est) (filter :meta-est (flatten-est est)))
               (ep-path est))
         delta-tf (for [ep (filter (fn [ep] (when-let [b (:best (:accrej (:workspace ep)))]
-                                       (not ((:ignore-doubt-types (:abduction @problem))
-                                             (:type b)))))
-                             eps)]
+                                             (not ((:ignore-doubt-types (:abduction @problem))
+                                                    (:type b)))))
+                                  eps)]
                    (let [accrej (:accrej (:workspace ep))]
                      {:type (:type (:best accrej))
                       :tf (tf-true? true-false (:best accrej))
                       :delta (:delta accrej)}))
         grouped-delta-tf (group-by :type delta-tf)]
     (reduce (fn [m t]
-         (let [ds (get grouped-delta-tf t [])
-               k (keyword-to-metric t)]
-           (assoc m
-             (keyword (format "TrueDeltaAvg%s" k)) (avg (map :delta (filter :tf ds)))
-             (keyword (format "FalseDeltaAvg%s" k)) (avg (map :delta (filter #(not (:tf %)) ds))))))
-       {(keyword (format "True%sDeltaAvg" (if meta? "Meta" ""))) (avg (map :delta (filter :tf delta-tf)))
-        (keyword (format "False%sDeltaAvg" (if meta? "Meta" ""))) (avg (map :delta (filter #(not (:tf %)) delta-tf)))}
-       (keys (dissoc true-false :all :individual)))))
+              (let [ds (get grouped-delta-tf t [])
+                    k (keyword-to-metric t)]
+                (assoc m
+                  (keyword (format "TrueDeltaAvg%s" k)) (avg (map :delta (filter :tf ds)))
+                  (keyword (format "FalseDeltaAvg%s" k)) (avg (map :delta (filter #(not (:tf %)) ds))))))
+            {(keyword (format "True%sDeltaAvg" (if meta? "Meta" ""))) (avg (map :delta (filter :tf delta-tf)))
+             (keyword (format "False%sDeltaAvg" (if meta? "Meta" ""))) (avg (map :delta (filter #(not (:tf %)) delta-tf)))}
+            (keys (dissoc true-false :all :individual)))))
 
 (defn calc-true-false-explained
   "Find average number of explainers, average score of best, and average delta
@@ -138,17 +139,17 @@
                                    :delta (:delta accrej)})))]
     (into {} (for [tf [true false] cat [:expcount :score :delta]]
                [(keyword (format "Explained%s%s%sAvg"
-                            (if meta? "Meta" "")
-                            (str/capitalize (str tf))
-                            (str/capitalize (str (name cat)))))
+                                 (if meta? "Meta" "")
+                                 (str/capitalize (str tf))
+                                 (str/capitalize (str (name cat)))))
                 (avg (map cat (get acc-tf tf)))]))))
 
 (defn classify-error
   ([ws true-false hyp]
-     (classify-error ws true-false hyp #{}))
+    (classify-error ws true-false hyp #{}))
   ([ws true-false hyp checked]
-     (let [acc-expl (accepted-explained ws hyp)]
-       (cond
+    (let [acc-expl (accepted-explained ws hyp)]
+      (cond
         ;; an ignored but true hyp
         (and (tf-true? true-false hyp)
              (= :ignoring (rejection-reason ws hyp)))
@@ -272,9 +273,9 @@
   ;; only need to look at last workspace; it contains all the history
   (let [ws (:workspace (cur-ep est))]
     (frequencies
-     (for [hyp (filter #(and (not= :kb (:type %)) (not (:composite? %)))
-                       (vals (:hyp-ids ws)))]
-       (classify-error ws true-false hyp)))))
+      (for [hyp (filter #(and (not= :kb (:type %)) (not (:composite? %)))
+                        (vals (:hyp-ids ws)))]
+        (classify-error ws true-false hyp)))))
 
 (defn classify-noise
   [ws true-false hyp]
@@ -295,8 +296,8 @@
   [est true-false]
   (let [ws (:workspace (cur-ep est))]
     (frequencies
-     (for [hyp (filter #(not (tf-true? true-false %)) (:observation (hypotheses ws)))]
-       (classify-noise ws true-false hyp)))))
+      (for [hyp (filter #(not (tf-true? true-false %)) (:observation (hypotheses ws)))]
+        (classify-noise ws true-false hyp)))))
 
 (defn noise-noexp-metrics
   [est true-false]
@@ -331,7 +332,7 @@
   (let [ws (:workspace (cur-ep est))
         noexp (no-explainers ws)]
     (frequencies
-     (mapcat #(classify-noexp-reasons ws %) noexp))))
+      (mapcat #(classify-noexp-reasons ws %) noexp))))
 
 (defn true-meta-hyp?
   "Note that hyp may be a non-meta hyp if it's a problem case."
@@ -365,32 +366,32 @@
   (let [eps (flatten-est est)
         meta-eps (mapcat (comp flatten-est :meta-est) (filter :meta-est eps))]
     (set (mapcat (fn [ep] (filter (fn [h] ((:meta-hyp-types @reasoner) (:type h)))
-                            (map #(lookup-hyp (:workspace ep) %)
-                               (:all (:hypotheses (:workspace ep))))))
+                                  (map #(lookup-hyp (:workspace ep) %)
+                                       (:all (:hypotheses (:workspace ep))))))
                  meta-eps))))
 
 (defn meta-hyp-metrics
   [meta-true-false]
   (letfn [(ar-avg-count [type tf]
-            (let [vals (map (fn [h] (count (:resolves h)))
-                            (get-in meta-true-false [type tf]))]
-              (avg vals)))
+                        (let [vals (map (fn [h] (count (:resolves h)))
+                                        (get-in meta-true-false [type tf]))]
+                          (avg vals)))
           (ar-avg-apriori [type tf]
-            (let [vals (map (fn [h] (avg (map :apriori (:resolves h))))
-                            (get-in meta-true-false [type tf]))]
-              (avg vals)))
+                          (let [vals (map (fn [h] (avg (map :apriori (:resolves h))))
+                                          (get-in meta-true-false [type tf]))]
+                            (avg vals)))
           (avg-explain-count [type tf]
-            (let [vals (map #(count (:explains %)) (get-in meta-true-false [type tf]))]
-              (avg vals)))
+                             (let [vals (map #(count (:explains %)) (get-in meta-true-false [type tf]))]
+                               (avg vals)))
           (avg-doubt-prior [type tf]
-            (let [vals (map :doubt-prior (get-in meta-true-false [type tf]))]
-              (avg vals)))
+                           (let [vals (map :doubt-prior (get-in meta-true-false [type tf]))]
+                             (avg vals)))
           (avg-doubt-new [type tf]
-            (let [vals (map :doubt-new (get-in meta-true-false [type tf]))]
-              (avg vals)))
+                         (let [vals (map :doubt-new (get-in meta-true-false [type tf]))]
+                           (avg vals)))
           (avg-doubt-diff [type tf]
-            (let [vals (map :doubt-diff (get-in meta-true-false [type tf]))]
-              (avg vals)))]
+                          (let [vals (map :doubt-diff (get-in meta-true-false [type tf]))]
+                            (avg vals)))]
     (reduce (fn [m t]
               (let [k (keyword-to-metric t)]
                 (assoc m
@@ -413,11 +414,11 @@
              :TrueMetaImplExpConflictsAccepted
              (let [hyps (get-in meta-true-false [:meta-impl-exp true])]
                (if (empty? hyps) 0.0
-                   (double (/ (count (filter :conflicts-with-accepted? hyps)) (count hyps)))))
+                                 (double (/ (count (filter :conflicts-with-accepted? hyps)) (count hyps)))))
              :FalseMetaImplExpConflictsAccepted
              (let [hyps (get-in meta-true-false [:meta-impl-exp false])]
                (if (empty? hyps) 0.0
-                   (double (/ (count (filter :conflicts-with-accepted? hyps)) (count hyps)))))
+                                 (double (/ (count (filter :conflicts-with-accepted? hyps)) (count hyps)))))
              :TrueMetaConfExpEpDeltaAvg
              (avg (map :delta (get-in meta-true-false [:meta-conf-exp true])))
              :FalseMetaConfExpEpDeltaAvg
@@ -441,36 +442,36 @@
   (let [eps (flatten-est est)
         meta-eps (mapcat (comp flatten-est :meta-est) (filter :meta-est eps))
         meta-hyp-acceptances (filter #((:meta-hyp-types @reasoner) (:type (:best %)))
-                                (map (comp :accrej :workspace) meta-eps))
+                                     (map (comp :accrej :workspace) meta-eps))
         essential-counts (reduce (fn [m t] (let [acc-t (filter #(= t (:type (:best %))) meta-hyp-acceptances)]
-                                       (reduce (fn [m acc]
-                                            (if (nil? (:nbest acc))
-                                              (update-in m [t :essential] conj (:best acc))
-                                              (update-in m [t :non-essential] conj (:best acc))))
-                                          m acc-t)))
-                            {} (:meta-hyp-types @reasoner))]
+                                             (reduce (fn [m acc]
+                                                       (if (nil? (:nbest acc))
+                                                         (update-in m [t :essential] conj (:best acc))
+                                                         (update-in m [t :non-essential] conj (:best acc))))
+                                                     m acc-t)))
+                                 {} (:meta-hyp-types @reasoner))]
     (apply merge
            ;; calculate number of meta-hyps accepted in one meta-abd cycle
            {:MetaHypsAcceptedCountAvg
             (if (empty? (filter :meta-est eps)) 0.0
-                (double (/ (reduce + (map (fn [ep] (count (filter #((:meta-hyp-types @reasoner) (:type %))
-                                                     (:all (accepted (:workspace ep))))))
-                                   ;; filter out cycles that had no "observations"
-                                   (filter #(not-empty (accepted (:workspace %)))
-                                      (map (comp last flatten-est :meta-est) (filter :meta-est eps)))))
-                           (count (filter :meta-est eps)))))}
+                                                (double (/ (reduce + (map (fn [ep] (count (filter #((:meta-hyp-types @reasoner) (:type %))
+                                                                                                  (:all (accepted (:workspace ep))))))
+                                                                          ;; filter out cycles that had no "observations"
+                                                                          (filter #(not-empty (accepted (:workspace %)))
+                                                                                  (map (comp last flatten-est :meta-est) (filter :meta-est eps)))))
+                                                           (count (filter :meta-est eps)))))}
            (for [t (:meta-hyp-types @reasoner)]
              (let [t-acc (filter #(= t (:type (:best %))) meta-hyp-acceptances)
                    ;; if t-acc is empty, the numerators will all be zero
                    t-acc-count (if (empty? t-acc) 1 (count t-acc))
                    true-essential (filter #(tf-true? meta-true-false %)
-                                     (get-in essential-counts [t :essential]))
+                                          (get-in essential-counts [t :essential]))
                    false-essential (filter #(not (tf-true? meta-true-false %))
-                                      (get-in essential-counts [t :essential]))
+                                           (get-in essential-counts [t :essential]))
                    true-non-essential (filter #(tf-true? meta-true-false %)
-                                         (get-in essential-counts [t :non-essential]))
+                                              (get-in essential-counts [t :non-essential]))
                    false-non-essential (filter #(not (tf-true? meta-true-false %))
-                                          (get-in essential-counts [t :non-essential]))]
+                                               (get-in essential-counts [t :non-essential]))]
                {(keyword (format "TrueEssential%s" (keyword-to-metric t)))
                 (double (/ (count true-essential) t-acc-count))
                 (keyword (format "FalseEssential%s" (keyword-to-metric t)))
@@ -485,7 +486,7 @@
   [est true-false]
   (let [ws (:workspace (cur-ep est))
         noexp-conflict (filter (fn [h] (= :conflict (some-noexp-reason? ws h :conflict)))
-                          (no-explainers ws))
+                               (no-explainers ws))
         grouped (group-by #(tf-true? true-false %) noexp-conflict)]
     (if (empty? noexp-conflict)
       ;; todo: return nil maybe?
@@ -547,37 +548,66 @@
                 not-noise-claims-false-solitary (filter #(= :solitary (classify-noise ws true-false %)) not-noise-claims-false)
                 not-noise-claims-false-conflicting (filter #(= :conflicting (classify-noise ws true-false %)) not-noise-claims-false)
                 noise-prec-recall (calc-prec-recall
-                                     (count noise-claims-true) ;; tp
-                                     (count not-noise-claims-true) ;; tn
-                                     (count noise-claims-false) ;; fp
-                                     (count not-noise-claims-false) ;; fn
-                                     ;; and event-count:
-                                     (count noise-candidates))]
-            {:Unexplained (count (unexplained ws))
-             :UnexplainedPct (get-unexp-pct ws)
-             :Coverage (- 1.0 (get-unexp-pct-no-obs ws))
-             :NoExplainers (count (no-explainers ws))
-             :NoExplainersPct (get-noexp-pct ws)
-             :NoiseTotal (count noise-candidates)
-             :NoiseClaimsTrue (count noise-claims-true)
-             :NoiseClaimsFalse (count noise-claims-false)
-             :NoiseClaimsPrec (:Prec noise-prec-recall)
-             :NoiseClaimsRecall (:Recall noise-prec-recall)
-             :NoiseClaimsF1 (:F1 noise-prec-recall)
-             :NoiseClaimsTPR (:TPR noise-prec-recall)
-             :NoiseClaimsFPR (:FPR noise-prec-recall)
-             :NoiseClaimsTrueSolitaryPct (if (empty? noise-claims-true) Double/NaN
-                                             (double (/ (count noise-claims-true-solitary)
-                                                        (count noise-claims-true))))
-             :NoiseClaimsTrueConflictingPct (if (empty? noise-claims-true) Double/NaN
-                                                (double (/ (count noise-claims-true-conflicting)
-                                                           (count noise-claims-true))))
-             :NotNoiseClaimsFalseSolitaryPct (if (empty? not-noise-claims-false) Double/NaN
-                                                 (double (/ (count not-noise-claims-false-solitary)
-                                                            (count not-noise-claims-false))))
-             :NotNoiseClaimsFalseConflictingPct (if (empty? not-noise-claims-false) Double/NaN
+                                    (count noise-claims-true) ;; tp
+                                    (count not-noise-claims-true) ;; tn
+                                    (count noise-claims-false) ;; fp
+                                    (count not-noise-claims-false) ;; fn
+                                    ;; and event-count:
+                                    (count noise-candidates))
+                jg-believed (map (fn [hypid] (lookup-hyp ws hypid)) (paragon/believed (:jg ws)))
+                jg-disbelieved (map (fn [hypid] (lookup-hyp ws hypid)) (paragon/disbelieved (:jg ws)))
+                jg-bel-tf (group-hyps-by-true-false jg-believed
+                                                    :type truedata (:oracle-fn @problem) false)
+                jg-bel-tf-counts (reduce (fn [m t]
+                                           (let [k (keyword-to-metric t)]
+                                             (assoc m
+                                               (keyword (format "JGBelTrue%s" k))
+                                               (count (get (get jg-bel-tf t) true))
+                                               (keyword (format "JGBelFalse%s" k))
+                                               (count (get (get jg-bel-tf t) false)))))
+                                         {} (keys (dissoc jg-bel-tf :individual)))
+                jg-dis-tf (group-hyps-by-true-false jg-disbelieved
+                                                    :type truedata (:oracle-fn @problem) false)
+                jg-dis-tf-counts (reduce (fn [m t]
+                                           (let [k (keyword-to-metric t)]
+                                             (assoc m
+                                               (keyword (format "JGDisTrue%s" k))
+                                               (count (get (get jg-dis-tf t) true))
+                                               (keyword (format "JGDisFalse%s" k))
+                                               (count (get (get jg-dis-tf t) false)))))
+                                         {} (keys (dissoc jg-dis-tf :individual)))]
+            (merge
+              {:Unexplained                       (count (unexplained ws))
+               :UnexplainedPct                    (get-unexp-pct ws)
+               :Coverage                          (- 1.0 (get-unexp-pct-no-obs ws))
+               :NoExplainers                      (count (no-explainers ws))
+               :NoExplainersPct                   (get-noexp-pct ws)
+               :NoiseTotal                        (count noise-candidates)
+               :NoiseClaimsTrue                   (count noise-claims-true)
+               :NoiseClaimsFalse                  (count noise-claims-false)
+               :NoiseClaimsPrec                   (:Prec noise-prec-recall)
+               :NoiseClaimsRecall                 (:Recall noise-prec-recall)
+               :NoiseClaimsF1                     (:F1 noise-prec-recall)
+               :NoiseClaimsTPR                    (:TPR noise-prec-recall)
+               :NoiseClaimsFPR                    (:FPR noise-prec-recall)
+               :NoiseClaimsTrueSolitaryPct        (if (empty? noise-claims-true)
+                                                    Double/NaN
+                                                    (double (/ (count noise-claims-true-solitary)
+                                                               (count noise-claims-true))))
+               :NoiseClaimsTrueConflictingPct     (if (empty? noise-claims-true)
+                                                    Double/NaN
+                                                    (double (/ (count noise-claims-true-conflicting)
+                                                               (count noise-claims-true))))
+               :NotNoiseClaimsFalseSolitaryPct    (if (empty? not-noise-claims-false)
+                                                    Double/NaN
+                                                    (double (/ (count not-noise-claims-false-solitary)
+                                                               (count not-noise-claims-false))))
+               :NotNoiseClaimsFalseConflictingPct (if (empty? not-noise-claims-false)
+                                                    Double/NaN
                                                     (double (/ (count not-noise-claims-false-conflicting)
-                                                               (count not-noise-claims-false))))}))]
+                                                               (count not-noise-claims-false))))}
+              jg-bel-tf-counts
+              jg-dis-tf-counts)))]
     (merge {:Problem (:name @problem)}
            params
            ((:evaluate-fn (:abduction @problem)) truedata est)
@@ -625,12 +655,12 @@
             :NoExpReasonNoExpl (:no-expl-offered noexp-reasons 0)
             :NoiseSolitary (:solitary noise-types 0)
             :NoiseSolitaryPct (if (= 0 noise-total) Double/NaN
-                                  (double (/ (:solitary noise-types 0)
-                                             noise-total)))
+                                                    (double (/ (:solitary noise-types 0)
+                                                               noise-total)))
             :NoiseConflicting (:conflicting noise-types 0)
             :NoiseConflictingPct (if (= 0 noise-total) Double/NaN
-                                     (double (/ (:conflicting noise-types 0)
-                                                noise-total)))})))
+                                                       (double (/ (:conflicting noise-types 0)
+                                                                  noise-total)))})))
 
 (defn prefix-params
   [prefix params]
@@ -640,34 +670,34 @@
 (defn evaluate-comp
   [control-results comparison-results control-params comparison-params]
   (letfn [(do-eval [control comparison]
-            (apply merge
-                   {:Problem (:name @problem)}
-                   (prefix-params "Cont" (dissoc control-params :simulation))
-                   (prefix-params "Comp" (dissoc comparison-params :simulation))
-                   {:simulation (:simulation control-params)
-                    :Step (:Step control)}
-                   ((:evaluate-comp-fn (:abduction @problem)) control comparison
-                    control-params comparison-params)
-                   (map #(calc-increase control comparison %)
-                      (concat [:UnexplainedPct :NoExplainersPct
-                               :TrueDeltaAvg :FalseDeltaAvg :Coverage
-                               :Doubt :ExplainCycles :HypothesisCount
-                               :MetaBranches :ErrorsCount :ErrorsNoise :ErrorsDeltaThreshold
-                               :ErrorsConflictRejection :ErrorsMinPlausibility :ErrorsSuperfluous
-                               :ErrorsPlausibility :ErrorsUnknown :ErrorsNoExpl :ErrorsNoError
-                               :NoExpCount :NoExpReasonNoise :NoExpReasonConflict
-                               :NoExpReasonMinPlausibility :NoExpReasonNoExpl
-                               :NoiseTotal :NoiseClaimsTPR :NoiseClaimsFPR
-                               :NoiseClaimsTrue :NoiseClaimsFalse
-                               :NoiseClaimsPrec :NoiseClaimsRecall :NoiseClaimsF1]
-                              (mapcat
-                               (fn [tf]
-                                 (map #(keyword
-                                      (format "%s%s" tf (keyword-to-metric %)))
-                                    (:hyp-subtypes @problem)))
-                               ["AvgTrueConf" "AvgTrueApriori"
-                                "AvgFalseConf" "AvgFalseApriori"
-                                "TrueCount" "FalseCount" "TrueAcc" "FalseAcc"])))))]
+                   (apply merge
+                          {:Problem (:name @problem)}
+                          (prefix-params "Cont" (dissoc control-params :simulation))
+                          (prefix-params "Comp" (dissoc comparison-params :simulation))
+                          {:simulation (:simulation control-params)
+                           :Step (:Step control)}
+                          ((:evaluate-comp-fn (:abduction @problem)) control comparison
+                            control-params comparison-params)
+                          (map #(calc-increase control comparison %)
+                               (concat [:UnexplainedPct :NoExplainersPct
+                                        :TrueDeltaAvg :FalseDeltaAvg :Coverage
+                                        :Doubt :ExplainCycles :HypothesisCount
+                                        :MetaBranches :ErrorsCount :ErrorsNoise :ErrorsDeltaThreshold
+                                        :ErrorsConflictRejection :ErrorsMinPlausibility :ErrorsSuperfluous
+                                        :ErrorsPlausibility :ErrorsUnknown :ErrorsNoExpl :ErrorsNoError
+                                        :NoExpCount :NoExpReasonNoise :NoExpReasonConflict
+                                        :NoExpReasonMinPlausibility :NoExpReasonNoExpl
+                                        :NoiseTotal :NoiseClaimsTPR :NoiseClaimsFPR
+                                        :NoiseClaimsTrue :NoiseClaimsFalse
+                                        :NoiseClaimsPrec :NoiseClaimsRecall :NoiseClaimsF1]
+                                       (mapcat
+                                         (fn [tf]
+                                           (map #(keyword
+                                                  (format "%s%s" tf (keyword-to-metric %)))
+                                                (:hyp-subtypes @problem)))
+                                         ["AvgTrueConf" "AvgTrueApriori"
+                                          "AvgFalseConf" "AvgFalseApriori"
+                                          "TrueCount" "FalseCount" "TrueAcc" "FalseAcc"])))))]
     ;; if control/comparison have different number of results
     ;; (different steps between or steps), then just use the last
     ;; result set

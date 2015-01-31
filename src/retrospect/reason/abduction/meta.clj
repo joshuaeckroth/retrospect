@@ -10,6 +10,7 @@
          [doubt-aggregate some-noexp-reason?]])
   (:use [retrospect.logging])
   (:use [retrospect.state])
+  (:require [geppetto.random :as random])
   (:use [taoensso.timbre.profiling :only [defnp profile]]))
 
 ;; basic reasoning process
@@ -53,24 +54,79 @@
     (let [ws (explain workspace cycle time-now)]
       (assoc ws :log @reason-log))))
 
+(defn jg-black-rand
+  [_ bad-strokes bad-nodes]
+  (random/my-rand-nth (sort-by paragon/jgstr (concat bad-strokes bad-nodes))))
+
+(defn jg-white-rand
+  [_ bad-strokes bad-nodes]
+  (random/my-rand-nth (sort-by paragon/jgstr (concat bad-strokes bad-nodes))))
+
+(defn jg-black-rand-pref-node
+  [_ bad-strokes bad-nodes]
+  (if (not-empty bad-nodes)
+    (random/my-rand-nth (sort-by paragon/jgstr bad-nodes))
+    (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))))
+
+(defn jg-white-rand-pref-node
+  [_ bad-strokes bad-nodes]
+  (if (not-empty bad-nodes)
+    (random/my-rand-nth (sort-by paragon/jgstr bad-nodes))
+    (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))))
+
+(defn jg-black-rand-pref-stroke
+  [_ bad-strokes bad-nodes]
+  (if (not-empty bad-strokes)
+    (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))
+    (random/my-rand-nth (sort-by paragon/jgstr bad-nodes))))
+
+(defn jg-white-rand-pref-stroke
+  [_ bad-strokes bad-nodes]
+  (if (not-empty bad-strokes)
+    (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))
+    (random/my-rand-nth (sort-by paragon/jgstr bad-nodes))))
+
+(defn jg-lookup-black-strategy
+  [strat]
+  (case strat
+    "rand" jg-black-rand
+    "rand-pref-node" jg-black-rand-pref-node
+    "rand-pref-stroke" jg-black-rand-pref-stroke
+    nil))
+
+(defn jg-lookup-white-strategy
+  [strat]
+  (case strat
+    "rand" jg-white-rand
+    "rand-pref-node" jg-white-rand-pref-node
+    "rand-pref-stroke" jg-white-rand-pref-stroke
+    nil))
+
 (defn explain-and-advance
   [est time-prev time-now sensors meta?]
   (let [ws (:workspace (cur-ep est))
         cycle (:cycle (cur-ep est))
         ws-hyps (workspace-update-hypotheses ws time-prev time-now sensors cycle)
         ws-explained (workspace-explain ws-hyps cycle time-now meta?)
-        est-result (est-workspace-child est ws-explained)]
+        new-jg (paragon/expand (:jg ws-explained) (map :id (:observation (hypotheses ws-explained)))
+                               :white-strategy (or (jg-lookup-white-strategy (:ParagonStrategy params))
+                                                   (jg-lookup-white-strategy (:ParagonWhiteStrategy params))
+                                                   paragon/spread-white-default-strategy)
+                               :black-strategy (or (jg-lookup-black-strategy (:ParagonStrategy params))
+                                                   (jg-lookup-black-strategy (:ParagonBlackStrategy params))
+                                                   paragon/spread-black-default-strategy))
+        ws-new-jg (assoc ws-explained :jg new-jg)
+        est-result (est-workspace-child est ws-new-jg)]
     (if (or (and (:GetMoreHyps params)
-                 (not= (count (:hyp-ids ws-explained))
+                 (not= (count (:hyp-ids ws-new-jg))
                        (count (:hyp-ids ws))))
-            (:best (:accrej ws-explained)))
+            (:best (:accrej ws-new-jg)))
       ;; don't recur with sensors so that sensor hyps are not re-added
       (recur est-result time-prev time-now nil meta?)
       est-result)))
 
 (defn reason
   [est time-prev time-now sensors & opts]
-  (paragon/turn-on-debugging)
   (loop [est est]
     (let [meta? (some #{:no-metareason} opts)
           est-new (explain-and-advance est time-prev time-now sensors meta?)
@@ -83,11 +139,7 @@
       ;; if something was accepted last, repeat
       (if (:best (:accrej (:workspace (cur-ep est-meta))))
         (recur est-meta)
-        (do
-          (when-let [jg (:jg (:workspace (cur-ep est-meta)))]
-            (paragon/visualize jg)
-            (paragon/visualize (paragon/expand jg (map :id (:observation (hypotheses (:workspace (cur-ep est-meta))))))))
-          est-meta)))))
+        est-meta))))
 
 (defn meta-apply
   [est est-new time-prev time-now sensors]
