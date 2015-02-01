@@ -86,6 +86,43 @@
                     bad-nodes))
     (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))))
 
+(defn jg-essential-score-node-black
+  [ws jg bad-strokes bad-nodes]
+  (if (not-empty bad-nodes)
+    ;; choose an essential explainer if it exists
+    ;; an essential hypothesis is the sole explainer for something it explains
+    (let [essentials (filter (fn [n] (and (paragon/hypothesis? jg n)
+                                          (some (fn [exp] (= [n] (paragon/explainers jg exp)))
+                                                (paragon/explains jg n))))
+                             bad-nodes)]
+      (if (not-empty essentials)
+        ;; choose highest apriori essential
+        (last (sort-by (fn [hypid] (:apriori (lookup-hyp ws hypid)))
+                       essentials))
+        ;; choose highest apriori non-essential
+        (last (sort-by (fn [hypid] (:apriori (lookup-hyp ws hypid)))
+                       bad-nodes))))
+    (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))))
+
+(defn jg-essential-score-node-white
+  [ws jg bad-strokes bad-nodes]
+  (if (not-empty bad-nodes)
+    ;; AVOID an essential explainer if it exists
+    ;; an essential hypothesis is the sole explainer for something it explains
+    (let [essentials (filter (fn [n] (and (paragon/hypothesis? jg n)
+                                          (some (fn [exp] (= [n] (paragon/explainers jg exp)))
+                                                (paragon/explains jg n))))
+                             bad-nodes)
+          non-essentials (set/difference (set bad-nodes) (set essentials))]
+      (if (not-empty non-essentials)
+        ;; choose lowest-apriori NON-essential
+        (first (sort-by (fn [hypid] (:apriori (lookup-hyp ws hypid)))
+                        non-essentials))
+        ;; choose lowest apriori essential
+        (first (sort-by (fn [hypid] (:apriori (lookup-hyp ws hypid)))
+                        essentials))))
+    (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))))
+
 (defn jg-lookup-black-strategy
   [strat]
   (case strat
@@ -93,6 +130,7 @@
     "rand-pref-node" jg-rand-pref-node
     "rand-pref-stroke" jg-rand-pref-stroke
     "score" jg-score-node-black
+    "essential-score" jg-essential-score-node-black
     nil))
 
 (defn jg-lookup-white-strategy
@@ -102,6 +140,7 @@
     "rand-pref-node" jg-rand-pref-node
     "rand-pref-stroke" jg-rand-pref-stroke
     "score" jg-score-node-white
+    "essential-score" jg-essential-score-node-white
     nil))
 
 (defn explain-and-advance
