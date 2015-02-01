@@ -72,55 +72,71 @@
 
 (defn jg-score-node-black
   [ws _ bad-strokes bad-nodes]
-  (if (not-empty bad-nodes)
-    ;; choose highest apriori
-    (let [scored-nodes (map (fn [hypid] [hypid (:apriori (lookup-hyp ws hypid))]) bad-nodes)
-          best-node (first (last (sort-by second (filter second scored-nodes))))]
-      (or best-node (random/my-rand-nth (sort-by paragon/jgstr bad-nodes))))
-    (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))))
+  (if (not-empty bad-strokes)
+    (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))
+    (let [non-hyps (filter (fn [n] (not (integer? n))) bad-nodes)]
+      (if (not-empty non-hyps)
+        (random/my-rand-nth (sort-by paragon/jgstr non-hyps))
+        ;; choose highest apriori
+        (let [scored-nodes (map (fn [hypid] [hypid (:apriori (lookup-hyp ws hypid))]) bad-nodes)
+              best-node (first (last (sort-by second (filter second scored-nodes))))]
+          #_(println "Black / Scored nodes:" (sort-by second (filter second scored-nodes)))
+          #_(println "Black / Best node:" best-node)
+          (or best-node (random/my-rand-nth (sort-by paragon/jgstr bad-nodes))))))))
 
 (defn jg-score-node-white
   [ws _ bad-strokes bad-nodes]
-  (if (not-empty bad-nodes)
-    ;; choose highest apriori
-    (let [scored-nodes (map (fn [hypid] [hypid (:apriori (lookup-hyp ws hypid))]) bad-nodes)
-          best-node (first (first (sort-by second (filter second scored-nodes))))]
-      (or best-node (random/my-rand-nth (sort-by paragon/jgstr bad-nodes))))
-    (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))))
+  (if (not-empty bad-strokes)
+    (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))
+    (let [non-hyps (filter (fn [n] (not (integer? n))) bad-nodes)]
+      (if (not-empty non-hyps)
+        (random/my-rand-nth (sort-by paragon/jgstr non-hyps))
+        ;; choose highest apriori
+        (let [scored-nodes (map (fn [hypid] [hypid (:apriori (lookup-hyp ws hypid))]) bad-nodes)
+              best-node (first (first (sort-by second (filter second scored-nodes))))]
+          #_(println "White / Scored nodes:" (sort-by second (filter second scored-nodes)))
+          #_(println "White / Best node:" best-node)
+          (or best-node (random/my-rand-nth (sort-by paragon/jgstr bad-nodes))))))))
 
 (defn jg-essential-score-node-black
   [ws jg bad-strokes bad-nodes]
-  (if (not-empty bad-nodes)
-    ;; choose an essential explainer if it exists
-    ;; an essential hypothesis is the sole explainer for something it explains
-    (let [essentials (filter (fn [n] (and (paragon/hypothesis? jg n)
-                                          (some (fn [exp] (= [n] (paragon/explainers jg exp)))
-                                                (paragon/explains jg n))))
-                             bad-nodes)]
-      (if (not-empty essentials)
-        ;; choose highest apriori essential
-        (last (sort-by (fn [hypid] (:apriori (lookup-hyp ws hypid)))
-                       essentials))
-        (jg-score-node-black ws jg bad-strokes bad-nodes)))
-    (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))))
+  (if (not-empty bad-strokes)
+    (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))
+    (let [non-hyps (filter (fn [n] (not (integer? n))) bad-nodes)]
+      (if (not-empty non-hyps)
+        (random/my-rand-nth (sort-by paragon/jgstr non-hyps))
+        ;; choose an essential explainer if it exists
+        ;; an essential hypothesis is the sole explainer for something it explains
+        (let [essentials (filter (fn [n] (and (paragon/hypothesis? jg n)
+                                              (some (fn [exp] (= [n] (paragon/explainers jg exp)))
+                                                    (paragon/explains jg n))))
+                                 bad-nodes)]
+          (if (not-empty essentials)
+            ;; choose highest apriori essential
+            (last (sort-by (fn [hypid] (:apriori (lookup-hyp ws hypid)))
+                           essentials))
+            (jg-score-node-black ws jg bad-strokes bad-nodes)))))))
 
 (defn jg-essential-score-node-white
   [ws jg bad-strokes bad-nodes]
-  (if (not-empty bad-nodes)
-    ;; AVOID an essential explainer if it exists; prefer a non-essential hypothesis
-    ;; an essential hypothesis is the sole explainer for something it explains
-    (let [essentials (filter (fn [n] (and (paragon/hypothesis? jg n)
-                                          (some (fn [exp] (= [n] (paragon/explainers jg exp)))
-                                                (paragon/explains jg n))))
-                             bad-nodes)
-          non-essentials (filter #(paragon/hypothesis? jg %)
-                                 (set/difference (set bad-nodes) (set essentials)))]
-      (if (not-empty non-essentials)
-        ;; choose lowest-apriori NON-essential
-        (first (sort-by (fn [hypid] (:apriori (lookup-hyp ws hypid)))
-                        non-essentials))
-        (jg-score-node-white ws jg bad-strokes bad-nodes)))
-    (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))))
+  (if (not-empty bad-strokes)
+    (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))
+    (let [non-hyps (filter (fn [n] (not (integer? n))) bad-nodes)]
+      (if (not-empty non-hyps)
+        (random/my-rand-nth (sort-by paragon/jgstr non-hyps))
+        ;; AVOID an essential explainer if it exists; prefer a non-essential hypothesis
+        ;; an essential hypothesis is the sole explainer for something it explains
+        (let [essentials (filter (fn [n] (and (paragon/hypothesis? jg n)
+                                              (some (fn [exp] (= [n] (paragon/explainers jg exp)))
+                                                    (paragon/explains jg n))))
+                                 bad-nodes)
+              non-essentials (filter #(paragon/hypothesis? jg %)
+                                     (set/difference (set bad-nodes) (set essentials)))]
+          (if (not-empty non-essentials)
+            ;; choose lowest-apriori NON-essential
+            (first (sort-by (fn [hypid] (:apriori (lookup-hyp ws hypid)))
+                            non-essentials))
+            (jg-score-node-white ws jg bad-strokes bad-nodes)))))))
 
 (defn jg-lookup-black-strategy
   [strat]
@@ -148,28 +164,32 @@
         cycle (:cycle (cur-ep est))
         ws-hyps (workspace-update-hypotheses ws time-prev time-now sensors cycle)
         ws-explained (workspace-explain ws-hyps cycle time-now meta?)
-        new-jg (paragon/expand (:jg ws-explained) (map :id (:observation (hypotheses ws-explained)))
+        est-result (est-workspace-child est ws-explained)]
+    (if (or (and (:GetMoreHyps params)
+                 (not= (count (:hyp-ids ws-explained))
+                       (count (:hyp-ids ws))))
+            (:best (:accrej ws-explained)))
+      ;; don't recur with sensors so that sensor hyps are not re-added
+      (recur est-result time-prev time-now nil meta?)
+      est-result)))
+
+(defn execute-paragon
+  [ws]
+  (let [new-jg (paragon/expand (:jg ws) (map :id (:observation (hypotheses ws)))
                                :white-strategy (partial (or (jg-lookup-white-strategy (:ParagonStrategy params))
                                                             (jg-lookup-white-strategy (:ParagonWhiteStrategy params))
                                                             (fn [_ jg bad-strokes bad-nodes]
                                                               (paragon/spread-white-default-strategy
                                                                 jg bad-strokes bad-nodes)))
-                                                        ws-hyps)
+                                                        ws)
                                :black-strategy (partial (or (jg-lookup-black-strategy (:ParagonStrategy params))
                                                             (jg-lookup-black-strategy (:ParagonBlackStrategy params))
                                                             (fn [_ jg bad-strokes bad-nodes]
                                                               (paragon/spread-white-default-strategy
                                                                 jg bad-strokes bad-nodes)))
-                                                        ws-hyps))
-        ws-new-jg (assoc ws-explained :jg new-jg)
-        est-result (est-workspace-child est ws-new-jg)]
-    (if (or (and (:GetMoreHyps params)
-                 (not= (count (:hyp-ids ws-new-jg))
-                       (count (:hyp-ids ws))))
-            (:best (:accrej ws-new-jg)))
-      ;; don't recur with sensors so that sensor hyps are not re-added
-      (recur est-result time-prev time-now nil meta?)
-      est-result)))
+                                                        ws))]
+    #_(paragon/visualize new-jg)
+    (assoc ws :jg new-jg)))
 
 (defn reason
   [est time-prev time-now sensors & opts]
@@ -185,7 +205,7 @@
       ;; if something was accepted last, repeat
       (if (:best (:accrej (:workspace (cur-ep est-meta))))
         (recur est-meta)
-        est-meta))))
+        (update-est est-meta (update-in (cur-ep est-meta) [:workspace] execute-paragon))))))
 
 (defn meta-apply
   [est est-new time-prev time-now sensors]
