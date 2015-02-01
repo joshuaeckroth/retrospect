@@ -84,6 +84,28 @@
           #_(println "Black / Best node:" best-node)
           (or best-node (random/my-rand-nth (sort-by paragon/jgstr bad-nodes))))))))
 
+(defn jg-score-incompat-node-black
+  [ws jg bad-strokes bad-nodes]
+  (if (not-empty bad-strokes)
+    (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))
+    (let [non-hyps (filter (fn [n] (not (integer? n))) bad-nodes)]
+      (if (not-empty non-hyps)
+        (random/my-rand-nth (sort-by paragon/jgstr non-hyps))
+        ;; choose highest apriori, avoiding nodes that would color 2+ of an incompat group black
+        (let [scored-nodes (map (fn [hypid] [hypid (:apriori (lookup-hyp ws hypid))]) bad-nodes)
+              scored-non-incompat (filter (fn [[n score]]
+                                            (let [bots (filter paragon/bottom? (paragon/jgout jg n))]
+                                              (or (empty? bots)
+                                                  (not-any? (fn [s] (some (fn [n2] (paragon/black? jg n2))
+                                                                          (paragon/jgin jg s)))
+                                                            bots))))
+                                          scored-nodes)
+              best-node (first (last (sort-by second (filter second scored-non-incompat))))]
+          #_(println "Black / Scored nodes:" (sort-by second (filter second scored-nodes)))
+          #_(println "Black / Scored non-incompat nodes:" (sort-by second (filter second scored-non-incompat)))
+          #_(println "Black / Best node:" best-node)
+          best-node)))))
+
 (defn jg-score-node-white
   [ws _ bad-strokes bad-nodes]
   (if (not-empty bad-strokes)
@@ -192,6 +214,7 @@
     "score" jg-score-node-black
     "ess-score" jg-essential-score-node-black
     "obs-ess-score" jg-obs-essential-score-node-black
+    "score-incompat" jg-score-incompat-node-black
     nil))
 
 (defn jg-lookup-white-strategy
@@ -203,6 +226,7 @@
     "score" jg-score-node-white
     "ess-score" jg-essential-score-node-white
     "obs-ess-score" jg-obs-essential-score-node-white
+    "score-incompat" jg-score-node-black
     nil))
 
 (defn explain-and-advance
