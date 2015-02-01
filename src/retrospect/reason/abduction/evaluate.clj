@@ -578,7 +578,7 @@
                                                (keyword (format "JGDisFalse%s" k))
                                                (count (get (get jg-dis-tf t) false)))))
                                          {} (keys (dissoc jg-dis-tf :individual)))
-                jg-noise-claims (set (filter #(paragon/white? (:jg ws) %) noise-candidates))
+                jg-noise-claims (set (filter #(paragon/white? (:jg ws) (:id %)) noise-candidates))
                 jg-not-noise-claims (set/difference noise-candidates noise-claims)
                 jg-noise-claims-true (set (filter #(not (tf-true? true-false %)) jg-noise-claims))
                 jg-noise-claims-false (set/difference jg-noise-claims jg-noise-claims-true)
