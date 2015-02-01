@@ -247,14 +247,14 @@
 (defn execute-paragon
   [ws]
   (let [new-jg (paragon/expand (:jg ws) (map :id (:observation (hypotheses ws)))
-                               :white-strategy (partial (or (jg-lookup-white-strategy (:ParagonStrategy params))
-                                                            (jg-lookup-white-strategy (:ParagonWhiteStrategy params))
+                               :white-strategy (partial (or (jg-lookup-white-strategy (:ParagonWhiteStrategy params))
+                                                            (jg-lookup-white-strategy (:ParagonStrategy params))
                                                             (fn [_ jg bad-strokes bad-nodes]
                                                               (paragon/spread-white-default-strategy
                                                                 jg bad-strokes bad-nodes)))
                                                         ws)
-                               :black-strategy (partial (or (jg-lookup-black-strategy (:ParagonStrategy params))
-                                                            (jg-lookup-black-strategy (:ParagonBlackStrategy params))
+                               :black-strategy (partial (or (jg-lookup-black-strategy (:ParagonBlackStrategy params))
+                                                            (jg-lookup-black-strategy (:ParagonStrategy params))
                                                             (fn [_ jg bad-strokes bad-nodes]
                                                               (paragon/spread-white-default-strategy
                                                                 jg bad-strokes bad-nodes)))
