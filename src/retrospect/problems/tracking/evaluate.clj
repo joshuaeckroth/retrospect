@@ -1,8 +1,10 @@
 (ns retrospect.problems.tracking.evaluate
-  (:require [clojure.set :as set])
+  (:require [clojure.set :as set]
+            [paragon.core :as paragon])
   (:use [retrospect.evaluate])
+  (:require [retrospect.reason.abduction.evaluate :as abd-eval])
   (:use [retrospect.epistemicstates :only [cur-ep goto-cycle decision-points]])
-  (:use [retrospect.reason.abduction.workspace :only [accepted rejected]])
+  (:use [retrospect.reason.abduction.workspace :only [accepted rejected lookup-hyp]])
   (:use [retrospect.problems.tracking.movements :only [moves-match?]])
   (:use [retrospect.state]))
 
@@ -52,8 +54,22 @@
                   true-movs (get-true-movements truedata time-now)
                   acc-movs (map :mov (:movement (accepted ws)))
                   rej-movs (map :mov (:movement (rejected ws)))
-                  [tp tn fp fn] (tp-tn-fp-fn true-movs acc-movs rej-movs)]
-              (calc-prec-recall tp tn fp fn (count true-movs) "")))]
+                  [tp tn fp fn] (tp-tn-fp-fn true-movs acc-movs rej-movs)
+                  prec-recall (calc-prec-recall tp tn fp fn (count true-movs) "")
+                  jg-believed (map #(lookup-hyp ws %) (paragon/believed (:jg ws)))
+                  jg-disbelieved (map #(lookup-hyp ws %) (paragon/disbelieved (:jg ws)))
+                  jg-bel-tf (abd-eval/group-hyps-by-true-false
+                              jg-believed :type truedata (:oracle-fn @problem) false)
+                  jg-dis-tf (abd-eval/group-hyps-by-true-false
+                              jg-disbelieved :type truedata (:oracle-fn @problem) false)
+                  jg-prec-recall (calc-prec-recall
+                                   (count (get-in jg-bel-tf [:movement true])) ;; tp
+                                   (count (get-in jg-dis-tf [:movement false])) ;; tn
+                                   (count (get-in jg-bel-tf [:movement false])) ;; fp
+                                   (count (get-in jg-dis-tf [:movement true])) ;; fn
+                                   (count true-movs)        ;; event count (movements)
+                                   "JG")]
+              (merge prec-recall jg-prec-recall)))]
       (merge (last metrics)
              {:AvgPrec (avg (map :Prec metrics))
               :AvgRecall (avg (map :Recall metrics))

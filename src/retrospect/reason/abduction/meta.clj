@@ -111,10 +111,10 @@
                                               (some (fn [exp] (= [n] (paragon/explainers jg exp)))
                                                     (paragon/explains jg n))))
                                  bad-nodes)]
+          #_(println "Black / Essentials:" essentials)
           (if (not-empty essentials)
             ;; choose highest apriori essential
-            (last (sort-by (fn [hypid] (:apriori (lookup-hyp ws hypid)))
-                           essentials))
+            (last (sort-by (fn [hypid] (:apriori (lookup-hyp ws hypid))) essentials))
             (jg-score-node-black ws jg bad-strokes bad-nodes)))))))
 
 (defn jg-essential-score-node-white
@@ -126,17 +126,62 @@
         (random/my-rand-nth (sort-by paragon/jgstr non-hyps))
         ;; AVOID an essential explainer if it exists; prefer a non-essential hypothesis
         ;; an essential hypothesis is the sole explainer for something it explains
-        (let [essentials (filter (fn [n] (and (paragon/hypothesis? jg n)
-                                              (some (fn [exp] (= [n] (paragon/explainers jg exp)))
-                                                    (paragon/explains jg n))))
-                                 bad-nodes)
-              non-essentials (filter #(paragon/hypothesis? jg %)
-                                     (set/difference (set bad-nodes) (set essentials)))]
+        (let [non-essentials (filter (fn [n] (and (paragon/hypothesis? jg n)
+                                                  (every? (fn [exp] (< 1 (count (paragon/explainers jg exp))))
+                                                          (paragon/explains jg n))))
+                                     bad-nodes)]
+          #_(println "White / Non-essentials:" non-essentials)
           (if (not-empty non-essentials)
             ;; choose lowest-apriori NON-essential
-            (first (sort-by (fn [hypid] (:apriori (lookup-hyp ws hypid)))
-                            non-essentials))
+            (let [best-node (first (sort-by (fn [hypid] (:apriori (lookup-hyp ws hypid))) non-essentials))]
+              #_(println "Choosing" best-node)
+              best-node)
             (jg-score-node-white ws jg bad-strokes bad-nodes)))))))
+
+(defn jg-obs-essential-score-node-black
+  [ws jg bad-strokes bad-nodes]
+  (if (not-empty bad-strokes)
+    (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))
+    (let [non-hyps (filter (fn [n] (not (integer? n))) bad-nodes)]
+      (if (not-empty non-hyps)
+        (random/my-rand-nth (sort-by paragon/jgstr non-hyps))
+        ;; choose an observation if it exists
+        (let [obs (filter (fn [n] (= :observation (:type (lookup-hyp ws n)))) bad-nodes)]
+          (if (not-empty obs)
+            ;; choose highest apriori obs
+            (last (sort-by (fn [hypid] (:apriori (lookup-hyp ws hypid))) obs))
+            ;; choose an essential explainer if it exists
+            ;; an essential hypothesis is the sole explainer for something it explains
+            (let [essentials (filter (fn [n] (and (paragon/hypothesis? jg n)
+                                                  (some (fn [exp] (= [n] (paragon/explainers jg exp)))
+                                                        (paragon/explains jg n))))
+                                     bad-nodes)]
+              (if (not-empty essentials)
+                ;; choose highest apriori essential
+                (last (sort-by (fn [hypid] (:apriori (lookup-hyp ws hypid))) essentials))
+                (jg-score-node-black ws jg bad-strokes bad-nodes)))))))))
+
+(defn jg-obs-essential-score-node-white
+  [ws jg bad-strokes bad-nodes]
+  (if (not-empty bad-strokes)
+    (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))
+    (let [non-hyps (filter (fn [n] (not (integer? n))) bad-nodes)]
+      (if (not-empty non-hyps)
+        (random/my-rand-nth (sort-by paragon/jgstr non-hyps))
+        ;; AVOID an observation or essential explainer if it exists; prefer a non-essential hypothesis
+        ;; an essential hypothesis is the sole explainer for something it explains
+        (let [non-essentials (filter (fn [n] (and (paragon/hypothesis? jg n)
+                                                  (every? (fn [exp] (< 1 (count (paragon/explainers jg exp))))
+                                                          (paragon/explains jg n))))
+                                     bad-nodes)]
+          (if (not-empty non-essentials)
+            ;; choose lowest-apriori NON-observation/NON-essential
+            (first (sort-by (fn [hypid] (:apriori (lookup-hyp ws hypid))) non-essentials))
+            (let [non-obs (filter (fn [n] (not= :observation (:type (lookup-hyp ws n)))) bad-nodes)]
+              (if (not-empty non-obs)
+                ;; prefer lowest-scoring non-observation
+                (first (sort-by (fn [hypid] (:apriori (lookup-hyp ws hypid))) non-obs))
+                (jg-score-node-white ws jg bad-strokes bad-nodes)))))))))
 
 (defn jg-lookup-black-strategy
   [strat]
@@ -145,7 +190,8 @@
     "rand-pref-node" jg-rand-pref-node
     "rand-pref-stroke" jg-rand-pref-stroke
     "score" jg-score-node-black
-    "essential-score" jg-essential-score-node-black
+    "ess-score" jg-essential-score-node-black
+    "obs-ess-score" jg-obs-essential-score-node-black
     nil))
 
 (defn jg-lookup-white-strategy
@@ -155,7 +201,8 @@
     "rand-pref-node" jg-rand-pref-node
     "rand-pref-stroke" jg-rand-pref-stroke
     "score" jg-score-node-white
-    "essential-score" jg-essential-score-node-white
+    "ess-score" jg-essential-score-node-white
+    "obs-ess-score" jg-obs-essential-score-node-white
     nil))
 
 (defn explain-and-advance

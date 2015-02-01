@@ -578,13 +578,20 @@
                                                (keyword (format "JGDisFalse%s" k))
                                                (count (get (get jg-dis-tf t) false)))))
                                          {} (keys (dissoc jg-dis-tf :individual)))
-                jg-prec-recall (calc-prec-recall
-                                 (count (get-in jg-bel-tf [:all true])) ;; tp
-                                 (count (get-in jg-dis-tf [:all false])) ;; tn
-                                 (count (get-in jg-bel-tf [:all false])) ;; fp
-                                 (count (get-in jg-dis-tf [:all true])) ;; fn
-                                 (+ (count jg-believed) (count jg-disbelieved)) ;; event count (nodes)
-                                 "JG")]
+                jg-noise-claims (set (filter #(paragon/white? (:jg ws) %) noise-candidates))
+                jg-not-noise-claims (set/difference noise-candidates noise-claims)
+                jg-noise-claims-true (set (filter #(not (tf-true? true-false %)) jg-noise-claims))
+                jg-noise-claims-false (set/difference jg-noise-claims jg-noise-claims-true)
+                jg-not-noise-claims-true (set (filter #(tf-true? true-false %) jg-not-noise-claims))
+                jg-not-noise-claims-false (set (filter #(not (tf-true? true-false %)) jg-not-noise-claims))
+                jg-noise-prec-recall (calc-prec-recall
+                                       (count jg-noise-claims-true) ;; tp
+                                       (count jg-not-noise-claims-true) ;; tn
+                                       (count jg-noise-claims-false) ;; fp
+                                       (count jg-not-noise-claims-false) ;; fn
+                                       ;; and event-count:
+                                       (count noise-candidates)
+                                       "JGNoiseClaims")]
             (merge
               {:Unexplained                       (count (unexplained ws))
                :UnexplainedPct                    (get-unexp-pct ws)
@@ -617,7 +624,7 @@
                                                                (count not-noise-claims-false))))}
               jg-bel-tf-counts
               jg-dis-tf-counts
-              jg-prec-recall)))
+              jg-noise-prec-recall)))
         prob-eval ((:evaluate-fn (:abduction @problem)) truedata est)]
     (merge {:Problem (:name @problem)}
            params
@@ -634,11 +641,17 @@
            meta-delta-avgs
            (last decision-metrics)
            {:XF1 (if (= "baseline" (:ParagonStrategy params))
-                   (:F1 prob-eval) (:JGF1 (last decision-metrics)))
+                   (:F1 prob-eval) (:JGF1 prob-eval))
             :XPrec (if (= "baseline" (:ParagonStrategy params))
-                     (:Prec prob-eval) (:JGPrec (last decision-metrics)))
+                     (:Prec prob-eval) (:JGPrec prob-eval))
             :XRecall (if (= "baseline" (:ParagonStrategy params))
-                       (:Recall prob-eval) (:JGRecall (last decision-metrics)))}
+                       (:Recall prob-eval) (:JGRecall prob-eval))
+            :XNoiseClaimsF1 (if (= "baseline" (:ParagonStrategy params))
+                   (:NoiseClaimsF1 (last decision-metrics)) (:JGNoiseClaimsF1 (last decision-metrics)))
+            :XNoiseClaimsPrec (if (= "baseline" (:ParagonStrategy params))
+                     (:NoiseClaimsPrec (last decision-metrics)) (:JGNoiseClaimsPrec (last decision-metrics)))
+            :XNoiseClaimsRecall (if (= "baseline" (:ParagonStrategy params))
+                       (:NoiseClaimsRecall (last decision-metrics)) (:JGNoiseClaimsRecall (last decision-metrics)))}
            {:Step (:time ep)
             :CallsToObserve (get @calls-to-observe (:simulation params))
             :CallsToHypothesize (get @calls-to-hypothesize (:simulation params))
