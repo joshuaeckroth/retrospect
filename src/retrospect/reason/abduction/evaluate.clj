@@ -617,10 +617,11 @@
                                                                (count not-noise-claims-false))))}
               jg-bel-tf-counts
               jg-dis-tf-counts
-              jg-prec-recall)))]
+              jg-prec-recall)))
+        prob-eval ((:evaluate-fn (:abduction @problem)) truedata est)]
     (merge {:Problem (:name @problem)}
            params
-           ((:evaluate-fn (:abduction @problem)) truedata est)
+           prob-eval
            true-false-scores
            meta-true-false-scores
            (meta-hyp-metrics meta-true-false)
@@ -632,6 +633,12 @@
            delta-avgs
            meta-delta-avgs
            (last decision-metrics)
+           {:XF1 (if (= "baseline" (:ParagonStrategy params))
+                   (:F1 prob-eval) (:JGF1 (last decision-metrics)))
+            :XPrec (if (= "baseline" (:ParagonStrategy params))
+                     (:Prec prob-eval) (:JGPrec (last decision-metrics)))
+            :XRecall (if (= "baseline" (:ParagonStrategy params))
+                       (:Recall prob-eval) (:JGRecall (last decision-metrics)))}
            {:Step (:time ep)
             :CallsToObserve (get @calls-to-observe (:simulation params))
             :CallsToHypothesize (get @calls-to-hypothesize (:simulation params))
