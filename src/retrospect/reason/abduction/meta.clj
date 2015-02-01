@@ -226,7 +226,7 @@
     "score" jg-score-node-white
     "ess-score" jg-essential-score-node-white
     "obs-ess-score" jg-obs-essential-score-node-white
-    "score-incompat" jg-score-node-black
+    "score-incompat" jg-score-node-white
     nil))
 
 (defn explain-and-advance
