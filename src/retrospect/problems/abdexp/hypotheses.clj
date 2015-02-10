@@ -138,7 +138,7 @@
                       ;; build a single explainer for each parent-comb
                       (map (fn [parent-comb]
                              (let [[pv pval] (first parent-comb)]
-                               (make-explainer bn expgraph observed-hyps observed-vertex-values unexp-hyp pv pval)))
+                               (make-explainer bn expgraph observed-hyps observed-vertex-values expl-hyps unexp-hyp pv pval)))
                            parent-combs)
                       ;; build a composite of several parent-combs
                       (map (fn [parent-comb]

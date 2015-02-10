@@ -434,7 +434,7 @@
                      (update-in [:hypotheses :all] conj (:id hyp))
                      (?> (:composite? hyp) update-in [:composites] conj (:id hyp))
                      (?> (:needs-explainer? hyp) update-in [:unexplained] conj (:id hyp)))
-        new-jg (if (= :movement (:type hyp))
+        new-jg (if (or (= :movement (:type hyp)) (= :expl (:type hyp)))
                  (reduce (fn [jg2 hypconf]
                            (paragon/add-inconsistencies jg2 [(:id hyp) (:id hypconf)]))
                          (paragon/can-explain (:jg ws-added) [(:id hyp)] explainids)

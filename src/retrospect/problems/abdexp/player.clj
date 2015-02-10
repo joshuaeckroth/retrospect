@@ -1,7 +1,7 @@
 (ns retrospect.problems.abdexp.player
   (:import (java.awt GridBagLayout Insets))
   (:import (javax.swing JScrollPane JTabbedPane))
-  (:import (norsys.netica.gui NetPanel NodePanel))
+  #_(:import (norsys.netica.gui NetPanel NodePanel))
   (:require [clojure.string :as str])
   (:use [loom.graph :only [digraph]])
   (:use [clj-swing.core :only [add-action-listener]])
@@ -137,21 +137,22 @@
 
 (defn player-update-diagram
   []
-  (when (:bayesnet @truedata)
-    (if (or (nil? @net-panel) (not= (.getNet @net-panel) (:bayesnet @truedata)))
-      (do
-        (dosync (alter net-panel
-                       (constantly (NetPanel. (:bayesnet @truedata)
-                                              NodePanel/NODE_STYLE_AUTO_SELECT))))
-        (.setLinkPolicy @net-panel NetPanel/LINK_POLICY_BELOW)
-        (.setView (.getViewport @net-panel-scrollpane) @net-panel))
-      (do
-        (unobserve-all (:bayesnet @truedata))
-        (observe-seq (:bayesnet @truedata)
-                     (apply concat (take (:time (cur-ep (:est @or-state)))
-                                         (:test @truedata))))
-        (.compile (:bayesnet @truedata))
-        (.refreshDataDisplayed @net-panel)))))
+  (comment
+    (when (:bayesnet @truedata)
+      (if (or (nil? @net-panel) (not= (.getNet @net-panel) (:bayesnet @truedata)))
+        (do
+          (dosync (alter net-panel
+                         (constantly (NetPanel. (:bayesnet @truedata)
+                                                NodePanel/NODE_STYLE_AUTO_SELECT))))
+          (.setLinkPolicy @net-panel NetPanel/LINK_POLICY_BELOW)
+          (.setView (.getViewport @net-panel-scrollpane) @net-panel))
+        (do
+          (unobserve-all (:bayesnet @truedata))
+          (observe-seq (:bayesnet @truedata)
+                       (apply concat (take (:time (cur-ep (:est @or-state)))
+                                           (:test @truedata))))
+          (.compile (:bayesnet @truedata))
+          (.refreshDataDisplayed @net-panel))))))
 
 (defn player-setup-diagram
   []
