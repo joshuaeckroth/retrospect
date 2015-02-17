@@ -11,6 +11,7 @@
   (:use [retrospect.logging])
   (:use [retrospect.state])
   (:require [geppetto.random :as random])
+  (:require [loom.graph :as graph])
   (:use [taoensso.timbre.profiling :only [defnp profile]]))
 
 ;; basic reasoning process
@@ -29,11 +30,6 @@
   [est]
   (and (not= "none" (:Metareasoning params))
        (not-empty (find-anomalies est))))
-
-(defn est-workspace-child
-  [est workspace]
-  (new-child-ep (update-est est (assoc (cur-ep est)
-                                  :workspace workspace))))
 
 (defn workspace-update-hypotheses
   [workspace time-prev time-now sensors cycle]
@@ -69,6 +65,14 @@
   (if (not-empty bad-strokes)
     (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))
     (random/my-rand-nth (sort-by paragon/jgstr bad-nodes))))
+
+(defn jg-pref-fewest-links
+  [_ jg bad-strokes bad-nodes]
+  (first (sort-by #(graph/degree (:graph jg) %) (concat bad-strokes bad-nodes))))
+
+(defn jg-pref-most-links
+  [_ jg bad-strokes bad-nodes]
+  (last (sort-by #(graph/degree (:graph jg) %) (concat bad-strokes bad-nodes))))
 
 (defn jg-score-node-black
   [ws _ bad-strokes bad-nodes]
@@ -211,6 +215,8 @@
     "rand" jg-rand
     "rand-pref-node" jg-rand-pref-node
     "rand-pref-stroke" jg-rand-pref-stroke
+    "degree" jg-pref-fewest-links
+    "revdegree" jg-pref-most-links
     "score" jg-score-node-black
     "ess-score" jg-essential-score-node-black
     "obs-ess-score" jg-obs-essential-score-node-black
@@ -223,6 +229,8 @@
     "rand" jg-rand
     "rand-pref-node" jg-rand-pref-node
     "rand-pref-stroke" jg-rand-pref-stroke
+    "degree" jg-pref-most-links
+    "revedgree" jg-pref-fewest-links
     "score" jg-score-node-white
     "ess-score" jg-essential-score-node-white
     "obs-ess-score" jg-obs-essential-score-node-white
@@ -268,7 +276,7 @@
     (let [meta? (some #{:no-metareason} opts)
           est-new (explain-and-advance est time-prev time-now sensors meta?)
           activate-meta? (and (not meta?)
-                     (metareasoning-activated? est-new))
+                              (metareasoning-activated? est-new))
           est-meta (cond (not activate-meta?) est-new
                          (= 0 (mod time-now (:MetaEveryNSteps params)))
                          (metareason est-new time-prev time-now sensors)

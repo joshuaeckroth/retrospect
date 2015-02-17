@@ -711,10 +711,10 @@
     (when (and (not @batch) (:Stats params) (:every-cycle-fn (:abduction @problem)))
       ((:every-cycle-fn (:abduction @problem)) cycle (accepted workspace) (rejected workspace)))
     (let [hs ((:make-sensor-hyps-fn (:abduction @problem))
-              sensors time-prev time-now
-              (accepted workspace) (hypotheses workspace))
+               sensors time-prev time-now
+               (accepted workspace) (hypotheses workspace))
           hs-scored (if (:ReportsHaveScores params) hs
-                        (for [h hs] (assoc h :apriori 1.0)))
+                                                    (for [h hs] (assoc h :apriori 1.0)))
           ws-added (reduce #(add %1 %2 cycle) workspace hs-scored)
           ws-accepted (reduce #(accept %1 %2 nil [] [] 0.0 {} cycle)
                               ws-added

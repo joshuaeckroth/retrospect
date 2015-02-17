@@ -193,3 +193,8 @@
                           (:meta-est new-root) (:last-id new-root))
                  (:id (cur-ep est)))]
     (zip/down (zip/append-child new-est (assoc ep-child :cycle cycle-child)))))
+
+(defn est-workspace-child
+  [est workspace]
+  (new-child-ep (update-est est (assoc (cur-ep est)
+                                  :workspace workspace))))
