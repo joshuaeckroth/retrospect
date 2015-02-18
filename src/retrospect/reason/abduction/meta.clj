@@ -68,10 +68,14 @@
 
 (defn jg-pref-fewest-links
   [_ jg bad-strokes bad-nodes]
+  #_(println "fewest links: " (sort-by second (map (fn [n-or-s] [n-or-s (graph/degree (:graph jg) n-or-s)])
+                                                 (concat bad-strokes bad-nodes))))
   (first (sort-by #(graph/degree (:graph jg) %) (concat bad-strokes bad-nodes))))
 
 (defn jg-pref-most-links
   [_ jg bad-strokes bad-nodes]
+  #_(println "most links: " (reverse (sort-by second (map (fn [n-or-s] [n-or-s (graph/degree (:graph jg) n-or-s)])
+                                                        (concat bad-strokes bad-nodes)))))
   (last (sort-by #(graph/degree (:graph jg) %) (concat bad-strokes bad-nodes))))
 
 (defn jg-score-node-black
@@ -215,8 +219,10 @@
     "rand" jg-rand
     "rand-pref-node" jg-rand-pref-node
     "rand-pref-stroke" jg-rand-pref-stroke
-    "degree" jg-pref-fewest-links
-    "revdegree" jg-pref-most-links
+    "fewest" jg-pref-fewest-links
+    "most" jg-pref-most-links
+    "fbmw" jg-pref-fewest-links
+    "mbfw" jg-pref-most-links
     "score" jg-score-node-black
     "ess-score" jg-essential-score-node-black
     "obs-ess-score" jg-obs-essential-score-node-black
@@ -229,8 +235,10 @@
     "rand" jg-rand
     "rand-pref-node" jg-rand-pref-node
     "rand-pref-stroke" jg-rand-pref-stroke
-    "degree" jg-pref-most-links
-    "revedgree" jg-pref-fewest-links
+    "fewest" jg-pref-fewest-links
+    "most" jg-pref-most-links
+    "fbmw" jg-pref-most-links
+    "mbfw" jg-pref-fewest-links
     "score" jg-score-node-white
     "ess-score" jg-essential-score-node-white
     "obs-ess-score" jg-obs-essential-score-node-white
