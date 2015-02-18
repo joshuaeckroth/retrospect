@@ -578,7 +578,12 @@
                                                (keyword (format "JGDisFalse%s" k))
                                                (count (get (get jg-dis-tf t) false)))))
                                          {} (keys (dissoc jg-dis-tf :individual)))
-                jg-noise-claims (set (filter #(paragon/white? (:jg ws) (:id %)) noise-candidates))
+                ;; a noise claim in a justification graph is either a disbelieved observation
+                ;; or an unexplained observation
+                jg-noise-claims (set (filter (fn [obs] (or (paragon/white? (:jg ws) (:id obs))
+                                                           (every? (fn [n] (paragon/white? (:jg ws) n))
+                                                                   (paragon/explainers (:jg ws) (:id obs)))))
+                                             noise-candidates))
                 jg-not-noise-claims (set/difference noise-candidates noise-claims)
                 jg-noise-claims-true (set (filter #(not (tf-true? true-false %)) jg-noise-claims))
                 jg-noise-claims-false (set/difference jg-noise-claims jg-noise-claims-true)

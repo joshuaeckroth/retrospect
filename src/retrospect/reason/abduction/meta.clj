@@ -90,6 +90,12 @@
   [_ jg bad-strokes bad-nodes]
   (last (sort-by #(paragon/degree jg %) (concat bad-strokes bad-nodes))))
 
+(defn jg-pref-max-in-stroke-out-node
+  [_ jg bad-strokes bad-nodes]
+  (if (not-empty bad-strokes)
+    (last (sort-by #(paragon/in-degree jg %) bad-strokes))
+    (last (sort-by #(paragon/out-degree jg %) bad-nodes))))
+
 (defn jg-score-node-black
   [ws _ bad-strokes bad-nodes]
   (if (not-empty bad-strokes)
@@ -237,6 +243,7 @@
     "max-in-degree" jg-pref-max-in-degree
     "max-out-degree" jg-pref-max-out-degree
     "max-degree" jg-pref-max-degree
+    "max-in-stroke-out-node" jg-pref-max-in-stroke-out-node
     "score" jg-score-node-black
     "ess-score" jg-essential-score-node-black
     "obs-ess-score" jg-obs-essential-score-node-black
@@ -255,6 +262,7 @@
     "max-in-degree" jg-pref-max-in-degree
     "max-out-degree" jg-pref-max-out-degree
     "max-degree" jg-pref-max-degree
+    "max-in-stroke-out-node" jg-pref-max-in-stroke-out-node
     "score" jg-score-node-white
     "ess-score" jg-essential-score-node-white
     "obs-ess-score" jg-obs-essential-score-node-white
@@ -292,6 +300,7 @@
                                                                 jg bad-strokes bad-nodes)))
                                                         ws))]
     #_(paragon/visualize new-jg)
+    #_(paragon/save-pdf new-jg "jg.pdf")
     (assoc ws :jg new-jg)))
 
 (defn reason
