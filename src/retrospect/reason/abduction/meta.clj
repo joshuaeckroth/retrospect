@@ -66,17 +66,29 @@
     (random/my-rand-nth (sort-by paragon/jgstr bad-strokes))
     (random/my-rand-nth (sort-by paragon/jgstr bad-nodes))))
 
-(defn jg-pref-fewest-links
+(defn jg-pref-min-in-degree
   [_ jg bad-strokes bad-nodes]
-  #_(println "fewest links: " (sort-by second (map (fn [n-or-s] [n-or-s (graph/degree (:graph jg) n-or-s)])
-                                                 (concat bad-strokes bad-nodes))))
-  (first (sort-by #(graph/degree (:graph jg) %) (concat bad-strokes bad-nodes))))
+  (first (sort-by #(paragon/in-degree jg %) (concat bad-strokes bad-nodes))))
 
-(defn jg-pref-most-links
+(defn jg-pref-min-out-degree
   [_ jg bad-strokes bad-nodes]
-  #_(println "most links: " (reverse (sort-by second (map (fn [n-or-s] [n-or-s (graph/degree (:graph jg) n-or-s)])
-                                                        (concat bad-strokes bad-nodes)))))
-  (last (sort-by #(graph/degree (:graph jg) %) (concat bad-strokes bad-nodes))))
+  (first (sort-by #(paragon/out-degree jg %) (concat bad-strokes bad-nodes))))
+
+(defn jg-pref-min-degree
+  [_ jg bad-strokes bad-nodes]
+  (first (sort-by #(paragon/degree jg %) (concat bad-strokes bad-nodes))))
+
+(defn jg-pref-max-in-degree
+  [_ jg bad-strokes bad-nodes]
+  (last (sort-by #(paragon/in-degree jg %) (concat bad-strokes bad-nodes))))
+
+(defn jg-pref-max-out-degree
+  [_ jg bad-strokes bad-nodes]
+  (last (sort-by #(paragon/out-degree jg %) (concat bad-strokes bad-nodes))))
+
+(defn jg-pref-max-degree
+  [_ jg bad-strokes bad-nodes]
+  (last (sort-by #(paragon/degree jg %) (concat bad-strokes bad-nodes))))
 
 (defn jg-score-node-black
   [ws _ bad-strokes bad-nodes]
@@ -219,10 +231,12 @@
     "rand" jg-rand
     "rand-pref-node" jg-rand-pref-node
     "rand-pref-stroke" jg-rand-pref-stroke
-    "fewest" jg-pref-fewest-links
-    "most" jg-pref-most-links
-    "fbmw" jg-pref-fewest-links
-    "mbfw" jg-pref-most-links
+    "min-in-degree" jg-pref-min-in-degree
+    "min-out-degree" jg-pref-min-out-degree
+    "min-degree" jg-pref-min-degree
+    "max-in-degree" jg-pref-max-in-degree
+    "max-out-degree" jg-pref-max-out-degree
+    "max-degree" jg-pref-max-degree
     "score" jg-score-node-black
     "ess-score" jg-essential-score-node-black
     "obs-ess-score" jg-obs-essential-score-node-black
@@ -235,10 +249,12 @@
     "rand" jg-rand
     "rand-pref-node" jg-rand-pref-node
     "rand-pref-stroke" jg-rand-pref-stroke
-    "fewest" jg-pref-fewest-links
-    "most" jg-pref-most-links
-    "fbmw" jg-pref-most-links
-    "mbfw" jg-pref-fewest-links
+    "min-in-degree" jg-pref-min-in-degree
+    "min-out-degree" jg-pref-min-out-degree
+    "min-degree" jg-pref-min-degree
+    "max-in-degree" jg-pref-max-in-degree
+    "max-out-degree" jg-pref-max-out-degree
+    "max-degree" jg-pref-max-degree
     "score" jg-score-node-white
     "ess-score" jg-essential-score-node-white
     "obs-ess-score" jg-obs-essential-score-node-white
