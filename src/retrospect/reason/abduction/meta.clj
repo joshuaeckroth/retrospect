@@ -253,7 +253,7 @@
     "max-in-degree" jg-pref-max-in-degree
     "max-out-degree" jg-pref-max-out-degree
     "max-degree" jg-pref-max-degree
-    "max-in-stroke-out-node" jg-pref-max-in-stroke-out-node
+    "heuristic" jg-pref-max-in-stroke-out-node
     "score" jg-score-node-black
     "ess-score" jg-essential-score-node-black
     "obs-ess-score" jg-obs-essential-score-node-black
@@ -272,7 +272,7 @@
     "max-in-degree" jg-pref-max-in-degree
     "max-out-degree" jg-pref-max-out-degree
     "max-degree" jg-pref-max-degree
-    "max-in-stroke-out-node" jg-pref-max-in-stroke-out-node
+    "heuristic" jg-pref-max-in-stroke-out-node
     "score" jg-score-node-white
     "ess-score" jg-essential-score-node-white
     "obs-ess-score" jg-obs-essential-score-node-white
