@@ -309,7 +309,7 @@
                                                               (paragon/spread-white-default-strategy
                                                                 jg bad-strokes bad-nodes)))
                                                         ws))]
-    (paragon/visualize new-jg)
+    #_(paragon/visualize new-jg)
     #_(paragon/save-pdf new-jg "jg.pdf")
     (assoc ws :jg new-jg)))
 
