@@ -90,11 +90,21 @@
   [_ jg bad-strokes bad-nodes]
   (last (sort-by #(paragon/degree jg %) (concat bad-strokes bad-nodes))))
 
+(defn count-shared-strokes
+  [jg n ns]
+  (let [n-strokes (set (paragon/jgout jg n))]
+    (count (filter (fn [n2] (not-empty (set/intersection n-strokes (set (paragon/jgout jg n2))))) ns))))
+
 (defn jg-pref-max-in-stroke-out-node
   [_ jg bad-strokes bad-nodes]
+  #_(println "Strokes:" (reverse (sort-by second (map (fn [s] [s [(paragon/in-degree jg s) (paragon/out-degree jg s)]]) bad-strokes))))
+  #_(println "Nodes:" (reverse (sort-by second (map (fn [n] [n [(paragon/out-degree jg n) (paragon/out-degree jg n) (count-shared-strokes jg n bad-nodes)]]) bad-nodes))))
+  #_(println "Choosing:" (if (not-empty bad-strokes)
+                         (last (sort-by (fn [s] [(paragon/in-degree jg s) (paragon/out-degree jg s)]) bad-strokes))
+                         (last (sort-by (fn [n] [(paragon/out-degree jg n) (paragon/out-degree jg n) (count-shared-strokes jg n bad-nodes)]) bad-nodes))))
   (if (not-empty bad-strokes)
-    (last (sort-by #(paragon/in-degree jg %) bad-strokes))
-    (last (sort-by #(paragon/out-degree jg %) bad-nodes))))
+    (last (sort-by (fn [s] [(paragon/in-degree jg s) (paragon/out-degree jg s)]) bad-strokes))
+    (last (sort-by (fn [n] [(paragon/out-degree jg n) (paragon/out-degree jg n) (count-shared-strokes jg n bad-nodes)]) bad-nodes))))
 
 (defn jg-score-node-black
   [ws _ bad-strokes bad-nodes]
@@ -299,7 +309,7 @@
                                                               (paragon/spread-white-default-strategy
                                                                 jg bad-strokes bad-nodes)))
                                                         ws))]
-    #_(paragon/visualize new-jg)
+    (paragon/visualize new-jg)
     #_(paragon/save-pdf new-jg "jg.pdf")
     (assoc ws :jg new-jg)))
 
