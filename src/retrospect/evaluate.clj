@@ -5,7 +5,7 @@
   (let [increase-field (keyword (format "Diff%s" (name field)))
         increase-val (- (or (comparison-results field) 0.0)
                         (or (control-results field) 0.0))]
-    (println "hello 4.")
+    (println "hello 6.")
     {increase-field increase-val}))
 
 (defn nan-max
