@@ -35,6 +35,7 @@
         (when (= 0 (mod time-now 1000)) (.print System/out (str time-now)))
         (.flush System/out)))
     (println "Hello.")
+    (println "Hello 2.")
     ors-results))
 
 (defn evaluate
