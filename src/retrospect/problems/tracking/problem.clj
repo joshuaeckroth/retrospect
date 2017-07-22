@@ -63,7 +63,7 @@
     :StepsBetween [1 [1]]
     :GridWidth [10 [10]]
     :GridHeight [10 [10]]
-    :DetScore ["max" ["min" "max" "avg"]]
+    :DetScore ["max" ["min" "max" "avg" "none"]]
     :PenalizeGrayMoves [true [true false]]
     :TrueWalkSteps [6 [6]]
     :FalseWalkSteps [4 [4]]

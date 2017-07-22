@@ -131,7 +131,9 @@
             (= "min" (:DetScore params))
             (apply min move-probs)
             (= "max" (:DetScore params))
-            (apply max move-probs))
+            (apply max move-probs)
+            (= "none" (:DetScore params))
+            0.0)
       ;; time 0 or lost track (nothing of same color at time before);
       ;; give default apriori value
       0.5)))
